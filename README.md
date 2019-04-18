@@ -2,6 +2,15 @@
 
 ## Getting started
 
+* Install the following dependencies.
+```
+scons
+libconfig++-dev
+libboost-dev
+libboost-iostreams-dev
+libboost-serialization-dev
+```
+
 * Clone the timeloop repository.
 ```
 mkdir timeloop-dev
