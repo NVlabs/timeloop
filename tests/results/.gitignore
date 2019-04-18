@@ -1,0 +1,5 @@
+*.cfg
+*.out
+*.log
+*.pkl
+!reference_stats.pkl

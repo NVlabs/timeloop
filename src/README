@@ -1,0 +1,46 @@
+High-level organization of all the source files
+-----------------------------------------------
+cnn/problem-config.*
+  Describes the template of a CNN layer shape: the number of dimensions
+  in the complete problem space (R, S, C, K, P, Q, N), the number of
+  dimensions in each operand space (e.g., Weights = C, K, R, S) and
+  the inter-relationship between these various spaces.
+
+mapspaces/*
+  A mapspace is the space of legal mappings for a specific architecture
+  and a problem (e.g. CNN layer) shape. There are distinct C++ classes to
+  construct mapspaces for different classes of architectures. The Uber
+  mapspace is a generic class that can handle a broad range of architectures.
+
+mapping/*
+  A mapping is a specific tiling and scheduling pattern that can be used
+  to execute a problem nest (e.g. a CNN layer) on a specific hardware
+  architecture. This directory contains code to describe mappings, including
+  nest structures.
+
+loop-analysis/*
+  Code to extract numberical properties of a specific mapping, e.g., shapes
+  and sizes of operand volumes at each nesting level, reads/writes required
+  to transfer sub-volumes of data between different different nesting levels,
+  etc.
+
+model/*
+  Generic analytical model for a large class of accelerator architectures.
+  Constructs a templatized model based on provided parameters. Can
+  "evaluate" the performance of a mapping on the modeled architecture
+  to emits various statistics such as cycle counts and access counts to
+  various hardware structures. Relies heavily on the loop-analysis routines
+  to do most of the heavy-lifting.
+
+pat/* (external)
+  Technology parameters and interpolation routines for Energy and Area
+  modeling. Access counts from the analytical performance model can be
+  applied on access costs derived from these parameters to obtain
+  energy projections.
+
+search/*
+  Search routines used to find optimal mappings.
+
+applications/*
+  Applications using the timeloop infrastructure. The nominal "timeloop"
+  application is expressed in applications/mapper.hpp.
