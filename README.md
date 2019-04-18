@@ -51,3 +51,6 @@ scons -j4
 ```
 This will put timeloop's log in `sample.out` and the mapping and statistics
 in `timeLoopOutput.xml`.
+
+## Further reading
+[http://parashar.org/ispass19.pdf](ISPASS 2019 paper)
