@@ -30,10 +30,9 @@ cd ..
 
 * Instead of the included placeholder pat model, you may build against any
   other custom pat model, as long as it exports the same interface as the
-  pat/pat.hpp in the included model.
-  The implementation must be in a pat/pat.cpp file. As before, create a
-  symbolic link to the source code for the power-area-timing model and
-  place it in `src/pat`, for example:
+  pat/pat.hpp in the included model. The implementation must be in a
+  pat/pat.cpp file. As before, create a symbolic link to the source code for
+  the power-area-timing model and place it in `src/pat`, for example:
 ```
 git clone ssh://path/to/timeloop-pat[XXX].git
 cd timeloop/src
