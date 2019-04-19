@@ -28,8 +28,9 @@ ln -s ../pat-public/src/pat .
 cd ..
 ```
 
-* You may build against any other custom pat model as well, as long as
-  it exports the same interface as the pat/pat.hpp in the included model.
+* Instead of the included placeholder pat model, you may build against any
+  other custom pat model, as long as it exports the same interface as the
+  pat/pat.hpp in the included model.
   The implementation must be in a pat/pat.cpp file. As before, create a
   symbolic link to the source code for the power-area-timing model and
   place it in `src/pat`, for example:
@@ -47,10 +48,11 @@ scons -j4
 
 * Run timeloop with a sample configuration.
 ```
-./build/opt/timeloop configs/sample.cfg > sample.out
+cd configs
+../build/timeloop ./sample.cfg > sample.out
 ```
-This will put timeloop's log in `sample.out` and the mapping and statistics
-in `timeLoopOutput.xml`.
+This will place timeloop's log as well as simulation results in `sample.out`,
+and an XML-formatted copy of the simulation results in `timeLoopOutput.xml`.
 
 ## Further reading
 [ISPASS 2019 paper](http://parashar.org/ispass19.pdf)
