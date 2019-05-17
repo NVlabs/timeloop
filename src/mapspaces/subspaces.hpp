@@ -31,6 +31,7 @@
 #include <map>
 #include <numeric>
 #include <functional>
+#include <set>
 
 #include "util/numeric.hpp"
 #include "workload/problem-config.hpp"

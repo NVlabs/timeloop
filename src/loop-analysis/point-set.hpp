@@ -47,18 +47,56 @@
 
 typedef std::int32_t Magnitude;
 
-template <std::uint32_t order>
-using Point = std::array<Magnitude, order>;
+class Point
+{
+ protected:
+  std::uint32_t order_;
+  std::vector<Magnitude> coordinates_;
+
+ public:
+  Point() = delete;
+
+  Point(const Point& p) :
+      order_(p.order_),
+      coordinates_(p.coordinates_)
+  {
+  }
+
+  Point(std::uint32_t order) :
+      order_(order)
+  {
+    coordinates_.resize(order_);
+    Reset();
+  }
+  
+  void Reset()
+  {
+    std::fill(coordinates_.begin(), coordinates_.end(), 0);
+  }
+
+  std::uint32_t Order() const { return order_; }
+
+  Magnitude& operator[] (std::uint32_t i)
+  {
+    return coordinates_[i];
+  }
+
+  const Magnitude& operator[] (std::uint32_t i) const
+  {
+    return coordinates_[i];
+  }
+};
 
 #include "point-set-aahr.hpp"
-#include "point-set-generic-slow.hpp"
+//#include "point-set-generic-slow.hpp"
 //#include "point-set-4d.hpp"
 //#include "point-set-generic-fast.hpp"
 
 #if POINT_SET_IMPL == POINT_SET_AAHR
-template <std::uint32_t order> using PointSet = AxisAlignedHyperRectangle<order>;
+typedef AxisAlignedHyperRectangle PointSet;
 #elif POINT_SET_IMPL == POINT_SET_GENERIC_SLOW
-template <std::uint32_t order> using PointSet = PointSetGenericSlow<order>;
+#error fix API error with PointSetGenericSlow
+// typedef PointSetGenericSlow PointSet;
 #elif POINT_SET_IMPL == POINT_SET_4D
 #error fix API error with PointSet4D
 #elif POINT_SET_IMPL == POINT_SET_GENERIC_FAST

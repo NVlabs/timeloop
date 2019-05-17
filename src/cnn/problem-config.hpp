@@ -236,15 +236,23 @@ class PerProblemDimension : public DynamicArray<T>
 template<class T>
 std::ostream& operator<<(std::ostream& out, const PerProblemDimension<T>& x);
 
-typedef Point<int(Dimension::Num)> ProblemPoint;
+class ProblemPoint : public Point
+{
+ public:
+  ProblemPoint() :
+      Point(int(Dimension::Num))
+  {
+  }
+};
+// typedef Point ProblemPoint;
 
-typedef Point<int(WeightDimension::Num)> WeightPoint;
-typedef Point<int(InputDimension::Num)> InputPoint;
-typedef Point<int(OutputDimension::Num)> OutputPoint;
+typedef Point WeightPoint;
+typedef Point InputPoint;
+typedef Point OutputPoint;
 
-typedef PointSet<int(WeightDimension::Num)> WeightPointSet;
-typedef PointSet<int(InputDimension::Num)> InputPointSet;
-typedef PointSet<int(OutputDimension::Num)> OutputPointSet;
+typedef PointSet WeightPointSet;
+typedef PointSet InputPointSet;
+typedef PointSet OutputPointSet;
 
 typedef std::map<problem::Dimension, int> Bounds;
 typedef std::map<problem::DataType, double> Densities;
@@ -329,7 +337,8 @@ class AllPointSets
   OutputPointSet outputs_;
 
  public:
-  AllPointSets() : workload_config_(nullptr), weights_(), inputs_(), outputs_() {}
+  AllPointSets();
+  AllPointSets(const AllPointSets& s);
   AllPointSets(WorkloadConfig* wc);
   AllPointSets(WorkloadConfig* wc, const ProblemPoint& low, const ProblemPoint& high);
 

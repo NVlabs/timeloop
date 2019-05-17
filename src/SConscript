@@ -64,7 +64,6 @@ timeloop_sources = Split("""
 cnn/cnn-layers.cpp
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
-loop-analysis/point-set-generic-slow.cpp
 pat/pat.cpp
 applications/mapper/main.cpp
 mapping/loop.cpp
@@ -83,7 +82,6 @@ evaluator_sources = Split("""
 cnn/cnn-layers.cpp
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
-loop-analysis/point-set-generic-slow.cpp
 pat/pat.cpp
 applications/evaluator/main.cpp
 mapping/loop.cpp
@@ -101,7 +99,6 @@ workload/problem-config.cpp
 metrics_sources = Split("""
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
-loop-analysis/point-set-generic-slow.cpp
 pat/pat.cpp
 applications/metrics/main.cpp
 mapping/loop.cpp

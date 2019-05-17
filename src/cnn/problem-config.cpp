@@ -96,7 +96,7 @@ WeightPoint MakeWeightPoint(WorkloadConfig* wc, const ProblemPoint& problem_poin
 {
   (void) wc;
 
-  WeightPoint weight_point;
+  WeightPoint weight_point(int(WeightDimension::Num));
 
   weight_point[int(WeightDimension::R)] = problem_point[int(Dimension::R)];
   weight_point[int(WeightDimension::S)] = problem_point[int(Dimension::S)];
@@ -108,7 +108,7 @@ WeightPoint MakeWeightPoint(WorkloadConfig* wc, const ProblemPoint& problem_poin
 
 InputPoint MakeInputPoint(WorkloadConfig* wc, const ProblemPoint& problem_point)
 {
-  InputPoint input_point;
+  InputPoint input_point(int(InputDimension::Num));
 
   input_point[int(InputDimension::W)] =
     wc->getWstride() * problem_point[int(Dimension::P)] +
@@ -127,7 +127,7 @@ OutputPoint MakeOutputPoint(WorkloadConfig* wc, const ProblemPoint& problem_poin
 {
   (void) wc;
 
-  OutputPoint output_point;
+  OutputPoint output_point(int(OutputDimension::Num));
 
   output_point[int(OutputDimension::P)] = problem_point[int(Dimension::P)];
   output_point[int(OutputDimension::Q)] = problem_point[int(Dimension::Q)];
@@ -142,17 +142,31 @@ OutputPoint MakeOutputPoint(WorkloadConfig* wc, const ProblemPoint& problem_poin
 //               AllPointSets               //
 // ======================================== //
 
-AllPointSets::AllPointSets(WorkloadConfig* wc) :
-    workload_config_(wc),
-    weights_(),
-    inputs_(),
-    outputs_()
+
+AllPointSets::AllPointSets() :
+    AllPointSets(nullptr)
 {
 }
 
-AllPointSets::AllPointSets(WorkloadConfig* wc, const ProblemPoint& low, const ProblemPoint& high)
+AllPointSets::AllPointSets(const AllPointSets& s) :
+    workload_config_(s.workload_config_),
+    weights_(s.weights_),
+    inputs_(s.inputs_),
+    outputs_(s.outputs_)
 {
-  workload_config_ = wc;
+}
+
+AllPointSets::AllPointSets(WorkloadConfig* wc) :
+    workload_config_(wc),
+    weights_(int(WeightDimension::Num)),
+    inputs_(int(InputDimension::Num)),
+    outputs_(int(OutputDimension::Num))
+{
+}
+
+AllPointSets::AllPointSets(WorkloadConfig* wc, const ProblemPoint& low, const ProblemPoint& high) :
+    AllPointSets(wc)
+{
   
   auto weights_low = MakeWeightPoint(workload_config_, low);
   auto inputs_low = MakeInputPoint(workload_config_, low);
@@ -177,16 +191,16 @@ AllPointSets::AllPointSets(WorkloadConfig* wc, const ProblemPoint& low, const Pr
     outputs_high[i]++;
   }
   
-  weights_ = WeightPointSet(weights_low, weights_high);
-  inputs_ = InputPointSet(inputs_low, inputs_high);
-  outputs_ = OutputPointSet(outputs_low, outputs_high);
+  weights_ = WeightPointSet(int(WeightDimension::Num), weights_low, weights_high);
+  inputs_ = InputPointSet(int(InputDimension::Num), inputs_low, inputs_high);
+  outputs_ = OutputPointSet(int(OutputDimension::Num), outputs_low, outputs_high);
 }
 
 void AllPointSets::Reset()
 {
-  weights_ = WeightPointSet();
-  inputs_ = InputPointSet();
-  outputs_ = OutputPointSet();
+  weights_ = WeightPointSet(int(WeightDimension::Num));
+  inputs_ = InputPointSet(int(InputDimension::Num));
+  outputs_ = OutputPointSet(int(OutputDimension::Num));
 }
 
 AllPointSets& AllPointSets::operator+=(const AllPointSets& s)
