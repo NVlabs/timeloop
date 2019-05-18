@@ -38,8 +38,8 @@ namespace analysis
 // ---------------------------------------------------------------
 struct ElementState
 {
-  problem::AllPointSets last_point_set;
-  problem::AllPointSets dataspace_partition;
+  problem::OperationSpace last_point_set;
+  problem::OperationSpace dataspace_partition;
   problem::PerDataSpace<std::size_t> max_size;
   problem::PerDataSpace<std::size_t> dataspace_partition_size;
 
@@ -57,7 +57,7 @@ struct ElementState
   // One for each spatial element in next level
 
   // time * element_id
-  std::vector<std::vector<problem::AllPointSets>> prev_point_sets;
+  std::vector<std::vector<problem::OperationSpace>> prev_point_sets;
 
   // Number of transfers using links between spatial elements
   problem::PerDataSpace<unsigned long> link_transfers;

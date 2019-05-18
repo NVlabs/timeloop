@@ -32,16 +32,6 @@
 namespace problem
 {
 
-template<class T>
-std::ostream& operator<<(std::ostream& out, const PerDataSpace<T>& px)
-{
-  for (int i = 0; i < int(DataType::Num); i++)
-  {
-    out << px[i] << " ";
-  }
-  return out;
-}
-
 std::map<DataType, std::string> DataTypeName = {
     {DataType::Weight, "Weights"},
     {DataType::Input,  "Inputs"},
@@ -139,16 +129,16 @@ OutputPoint MakeOutputPoint(WorkloadConfig* wc, const ProblemPoint& problem_poin
 }
 
 // ======================================== //
-//               AllPointSets               //
+//             OperationSpace               //
 // ======================================== //
 
 
-AllPointSets::AllPointSets() :
-    AllPointSets(nullptr)
+OperationSpace::OperationSpace() :
+    OperationSpace(nullptr)
 {
 }
 
-AllPointSets::AllPointSets(const AllPointSets& s) :
+OperationSpace::OperationSpace(const OperationSpace& s) :
     workload_config_(s.workload_config_),
     weights_(s.weights_),
     inputs_(s.inputs_),
@@ -156,7 +146,7 @@ AllPointSets::AllPointSets(const AllPointSets& s) :
 {
 }
 
-AllPointSets::AllPointSets(WorkloadConfig* wc) :
+OperationSpace::OperationSpace(WorkloadConfig* wc) :
     workload_config_(wc),
     weights_(int(WeightDimension::Num)),
     inputs_(int(InputDimension::Num)),
@@ -164,8 +154,8 @@ AllPointSets::AllPointSets(WorkloadConfig* wc) :
 {
 }
 
-AllPointSets::AllPointSets(WorkloadConfig* wc, const ProblemPoint& low, const ProblemPoint& high) :
-    AllPointSets(wc)
+OperationSpace::OperationSpace(WorkloadConfig* wc, const ProblemPoint& low, const ProblemPoint& high) :
+    OperationSpace(wc)
 {
   
   auto weights_low = MakeWeightPoint(workload_config_, low);
@@ -196,14 +186,14 @@ AllPointSets::AllPointSets(WorkloadConfig* wc, const ProblemPoint& low, const Pr
   outputs_ = OutputPointSet(int(OutputDimension::Num), outputs_low, outputs_high);
 }
 
-void AllPointSets::Reset()
+void OperationSpace::Reset()
 {
   weights_ = WeightPointSet(int(WeightDimension::Num));
   inputs_ = InputPointSet(int(InputDimension::Num));
   outputs_ = OutputPointSet(int(OutputDimension::Num));
 }
 
-AllPointSets& AllPointSets::operator+=(const AllPointSets& s)
+OperationSpace& OperationSpace::operator+=(const OperationSpace& s)
 {
   weights_ += s.weights_;
   inputs_ += s.inputs_;
@@ -211,7 +201,7 @@ AllPointSets& AllPointSets::operator+=(const AllPointSets& s)
   return (*this);
 }
 
-AllPointSets& AllPointSets::operator+=(const ProblemPoint& p)
+OperationSpace& OperationSpace::operator+=(const ProblemPoint& p)
 {
   weights_ += MakeWeightPoint(workload_config_, p);
   inputs_ += MakeInputPoint(workload_config_, p);
@@ -219,21 +209,21 @@ AllPointSets& AllPointSets::operator+=(const ProblemPoint& p)
   return (*this);
 }
 
-AllPointSets AllPointSets::operator-(const AllPointSets& p)
+OperationSpace OperationSpace::operator-(const OperationSpace& p)
 {
-  AllPointSets retval;
+  OperationSpace retval;
   retval.weights_ = weights_ - p.weights_;
   retval.inputs_ = inputs_ - p.inputs_;
   retval.outputs_ = outputs_ - p.outputs_;
   return retval;
 }
 
-PerDataSpace<std::size_t> AllPointSets::GetSizes() const
+PerDataSpace<std::size_t> OperationSpace::GetSizes() const
 {
   return { weights_.size(), inputs_.size(), outputs_.size() };
 }
 
-std::size_t AllPointSets::GetSize(const int t) const
+std::size_t OperationSpace::GetSize(const int t) const
 {
   assert(t >= 0 && t < int(problem::DataType::Num));
   if (t == int(problem::DataType::Weight))
@@ -250,7 +240,7 @@ std::size_t AllPointSets::GetSize(const int t) const
   }
 }
 
-bool AllPointSets::IsEmpty(const int t) const
+bool OperationSpace::IsEmpty(const int t) const
 {
   assert(t >= 0 && t < int(problem::DataType::Num));
   if (t == int(problem::DataType::Weight))
@@ -267,7 +257,7 @@ bool AllPointSets::IsEmpty(const int t) const
   }
 }
 
-bool AllPointSets::CheckEquality(const AllPointSets& rhs, const int t) const
+bool OperationSpace::CheckEquality(const OperationSpace& rhs, const int t) const
 {
   assert(t >= 0 && t < int(problem::DataType::Num));
   if (t == int(problem::DataType::Weight))
@@ -284,14 +274,14 @@ bool AllPointSets::CheckEquality(const AllPointSets& rhs, const int t) const
   }
 }
 
-void AllPointSets::PrintSizes()
+void OperationSpace::PrintSizes()
 {
   std::cout << "weights = " << weights_.size() << ", ";
   std::cout << "outputs = " << outputs_.size() << std::endl;
   std::cout << "inputs = " << inputs_.size() << ", ";
 }
 
-void AllPointSets::Print() const
+void OperationSpace::Print() const
 {
   std::cout << "Weights[" << weights_.size() << "]: ";
   weights_.Print();
@@ -304,7 +294,7 @@ void AllPointSets::Print() const
   std::cout << std::endl;
 }
 
-void AllPointSets::Print(DataType pv) const
+void OperationSpace::Print(DataType pv) const
 {
   switch (pv)
   {

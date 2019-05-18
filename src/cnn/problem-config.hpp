@@ -36,7 +36,6 @@
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 
-#include "util/dynamic-array.hpp"
 #include "loop-analysis/point-set.hpp"
 
 namespace problem
@@ -56,104 +55,12 @@ extern std::map<DataType, std::string> DataTypeName;
 std::ostream& operator<<(std::ostream& out, const DataType& d);
 bool IsReadWriteDataType(const DataType d);
 
+} // namespace problem
 
-// Think of this as std::array<T, DataType::Num>, except that the goal is
-// to support dynamic values of DataType::Num determined by reading user input.
-template<class T>
-class PerDataSpace : public DynamicArray<T>
+#include "per-data-space.hpp"
+
+namespace problem
 {
- public:
-  PerDataSpace() :
-    DynamicArray<T>(unsigned(DataType::Num))
-  {
-  }
-
-  PerDataSpace(const T & val) :
-    DynamicArray<T>(unsigned(DataType::Num))
-  {
-    this->fill(val);
-  }
-
-  PerDataSpace(std::initializer_list<T> l) :
-    DynamicArray<T>(l)
-  {
-    assert(this->size() == unsigned(DataType::Num));
-  }
-
-  T & operator [] (unsigned pv)
-  {
-    assert(pv < unsigned(DataType::Num));
-    return DynamicArray<T>::at(pv);
-  }
-  const T & operator [] (unsigned pv) const
-  {
-    assert(pv < unsigned(DataType::Num));
-    return DynamicArray<T>::at(pv);
-  }
-
-  T & operator [] (DataType pv)
-  {
-    return (*this)[unsigned(pv)];
-  }
-  const T & operator [] (DataType pv) const
-  {
-    return (*this)[unsigned(pv)];
-  }
-
-  T & at(DataType pv)
-  {
-    return (*this)[pv];
-  }
-  const T & at(DataType pv) const
-  {
-    return (*this)[pv];
-  }
-
-  T & at(unsigned pv)
-  {
-    return (*this)[pv];
-  }
-  const T & at(unsigned pv) const
-  {
-    return (*this)[pv];
-  }
-
-  void clear()
-  {
-    DynamicArray<T>::clear();
-  }
-
-  T Max() const
-  {
-    return *std::max_element(this->begin(), this->end());
-  }
-
-  friend std::ostream& operator << (std::ostream& out, const PerDataSpace<T>& x)
-  {
-    for (unsigned pvi = 0; pvi < unsigned(DataType::Num); pvi++)
-    {
-      out << std::setw(10) << DataType(pvi) << ": " << x[pvi] << std::endl;
-    }
-    return out;
-  }
-
-  // Serialization
-  friend class boost::serialization::access;
-
-  template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0)
-  {
-    if (version == 0)
-    {
-      ar& boost::serialization::make_nvp(
-        "PerDataSpace",
-        boost::serialization::make_array(this->begin(), this->size()));
-    }
-  }
-};
-
-template<class T>
-std::ostream& operator<<(std::ostream& out, const PerDataSpace<T>& px);
 
 enum class WeightDimension {
   R,
@@ -324,10 +231,10 @@ InputPoint MakeInputPoint(WorkloadConfig* wc, const ProblemPoint& problem_point)
 OutputPoint MakeOutputPoint(WorkloadConfig* wc, const ProblemPoint& problem_point);
 
 // ======================================== //
-//               AllPointSets               //
+//              OperationSpace              //
 // ======================================== //
 
-class AllPointSets
+class OperationSpace
 {
  private:
   WorkloadConfig* workload_config_;
@@ -337,19 +244,19 @@ class AllPointSets
   OutputPointSet outputs_;
 
  public:
-  AllPointSets();
-  AllPointSets(const AllPointSets& s);
-  AllPointSets(WorkloadConfig* wc);
-  AllPointSets(WorkloadConfig* wc, const ProblemPoint& low, const ProblemPoint& high);
+  OperationSpace();
+  OperationSpace(const OperationSpace& s);
+  OperationSpace(WorkloadConfig* wc);
+  OperationSpace(WorkloadConfig* wc, const ProblemPoint& low, const ProblemPoint& high);
 
   void Reset();
-  AllPointSets& operator+=(const AllPointSets& s);
-  AllPointSets& operator+=(const ProblemPoint& p);
-  AllPointSets operator-(const AllPointSets& p);
+  OperationSpace& operator+=(const OperationSpace& s);
+  OperationSpace& operator+=(const ProblemPoint& p);
+  OperationSpace operator-(const OperationSpace& p);
   PerDataSpace<std::size_t> GetSizes() const;
   std::size_t GetSize(const int t) const;
   bool IsEmpty(const int t) const;
-  bool CheckEquality(const AllPointSets& rhs, const int t) const;
+  bool CheckEquality(const OperationSpace& rhs, const int t) const;
   void PrintSizes();
   void Print() const;
   void Print(DataType pv) const;

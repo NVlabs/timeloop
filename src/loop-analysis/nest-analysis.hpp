@@ -102,25 +102,25 @@ class NestAnalysis
 
   problem::ProblemPoint IndexToProblemPoint_(const std::vector<int>& indices) const;
   
-  problem::AllPointSets ComputeWorkingSetsRecursive_(
+  problem::OperationSpace ComputeWorkingSetsRecursive_(
     std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta = false);
 
   void ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                 problem::AllPointSets& point_set,
+                                 problem::OperationSpace& point_set,
                                  analysis::ElementState& cur_state);
   void ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                problem::AllPointSets& point_set);
+                                problem::OperationSpace& point_set);
 
   void FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
-                         problem::AllPointSets& point_set,
-                         std::vector<problem::AllPointSets>& spatial_deltas,
+                         problem::OperationSpace& point_set,
+                         std::vector<problem::OperationSpace>& spatial_deltas,
                          std::vector<bool>& valid_delta,
                          std::uint64_t base_index,
                          int depth = 0);
 
   void ComputeAccurateMulticastedAccesses(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::AllPointSets>& spatial_deltas,
+      const std::vector<problem::OperationSpace>& spatial_deltas,
       std::vector<problem::PerDataSpace<bool>>&
       unaccounted_delta,
       problem::PerDataSpace<std::vector<std::uint64_t>>& accesses,
@@ -130,11 +130,11 @@ class NestAnalysis
 
   void ComputeApproxMulticastedAccesses(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::AllPointSets>& spatial_deltas);
+      const std::vector<problem::OperationSpace>& spatial_deltas);
 
   void ComputeNetworkLinkTransfers(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::AllPointSets>& cur_spatial_deltas,
+      const std::vector<problem::OperationSpace>& cur_spatial_deltas,
       std::vector<problem::PerDataSpace<bool>>&
       unaccounted_delta,
       problem::PerDataSpace<std::uint64_t>& link_transfers);
