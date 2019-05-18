@@ -82,11 +82,11 @@ std::ostream& operator << (std::ostream& out, const Dimension& dim)
 //              WorkloadConfig              //
 // ======================================== //
 
-WeightPoint MakeWeightPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
+Point MakeWeightPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
 {
   (void) wc;
 
-  WeightPoint weight_point(int(WeightDimension::Num));
+  Point weight_point(int(WeightDimension::Num));
 
   weight_point[int(WeightDimension::R)] = problem_point[int(Dimension::R)];
   weight_point[int(WeightDimension::S)] = problem_point[int(Dimension::S)];
@@ -96,9 +96,9 @@ WeightPoint MakeWeightPoint(WorkloadConfig* wc, const OperationPoint& problem_po
   return weight_point;
 }
 
-InputPoint MakeInputPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
+Point MakeInputPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
 {
-  InputPoint input_point(int(InputDimension::Num));
+  Point input_point(int(InputDimension::Num));
 
   input_point[int(InputDimension::W)] =
     wc->getWstride() * problem_point[int(Dimension::P)] +
@@ -113,11 +113,11 @@ InputPoint MakeInputPoint(WorkloadConfig* wc, const OperationPoint& problem_poin
   return input_point;
 }
 
-OutputPoint MakeOutputPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
+Point MakeOutputPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
 {
   (void) wc;
 
-  OutputPoint output_point(int(OutputDimension::Num));
+  Point output_point(int(OutputDimension::Num));
 
   output_point[int(OutputDimension::P)] = problem_point[int(Dimension::P)];
   output_point[int(OutputDimension::Q)] = problem_point[int(Dimension::Q)];
@@ -128,36 +128,33 @@ OutputPoint MakeOutputPoint(WorkloadConfig* wc, const OperationPoint& problem_po
   return output_point;
 }
 
+std::vector<std::function<Point(WorkloadConfig*, const OperationPoint&)>> projectors =
+{
+  MakeWeightPoint,
+  MakeInputPoint,
+  MakeOutputPoint
+};
+
 // ======================================== //
 //             OperationSpace               //
 // ======================================== //
-
 
 OperationSpace::OperationSpace() :
     OperationSpace(nullptr)
 {
 }
 
-OperationSpace::OperationSpace(const OperationSpace& s) :
-    workload_config_(s.workload_config_),
-    weights_(s.weights_),
-    inputs_(s.inputs_),
-    outputs_(s.outputs_)
-{
-}
-
 OperationSpace::OperationSpace(WorkloadConfig* wc) :
-    workload_config_(wc),
-    weights_(int(WeightDimension::Num)),
-    inputs_(int(InputDimension::Num)),
-    outputs_(int(OutputDimension::Num))
+    workload_config_(wc)
 {
+  data_spaces_.push_back(DataSpace(int(WeightDimension::Num)));
+  data_spaces_.push_back(DataSpace(int(InputDimension::Num)));
+  data_spaces_.push_back(DataSpace(int(OutputDimension::Num)));
 }
 
 OperationSpace::OperationSpace(WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high) :
     OperationSpace(wc)
 {
-  
   auto weights_low = MakeWeightPoint(workload_config_, low);
   auto inputs_low = MakeInputPoint(workload_config_, low);
   auto outputs_low = MakeOutputPoint(workload_config_, low);
@@ -168,155 +165,89 @@ OperationSpace::OperationSpace(WorkloadConfig* wc, const OperationPoint& low, co
 
   // Increment the high points by 1 because the AAHR constructor wants
   // an exclusive max point.
-  for (unsigned i = 0; i < unsigned(problem::WeightDimension::Num); i++)
-  {
-    weights_high[i]++;
-  }
-  for (unsigned i = 0; i < unsigned(problem::InputDimension::Num); i++)
-  {
-    inputs_high[i]++;
-  }
-  for (unsigned i = 0; i < unsigned(problem::OutputDimension::Num); i++)
-  {
-    outputs_high[i]++;
-  }
+  weights_high.IncrementAllDimensions(1);
+  inputs_high.IncrementAllDimensions(1);
+  outputs_high.IncrementAllDimensions(1);
   
-  weights_ = WeightPointSet(int(WeightDimension::Num), weights_low, weights_high);
-  inputs_ = InputPointSet(int(InputDimension::Num), inputs_low, inputs_high);
-  outputs_ = OutputPointSet(int(OutputDimension::Num), outputs_low, outputs_high);
+  data_spaces_.push_back(DataSpace(int(WeightDimension::Num), weights_low, weights_high));
+  data_spaces_.push_back(DataSpace(int(InputDimension::Num), inputs_low, inputs_high));
+  data_spaces_.push_back(DataSpace(int(OutputDimension::Num), outputs_low, outputs_high));
 }
 
 void OperationSpace::Reset()
 {
-  weights_ = WeightPointSet(int(WeightDimension::Num));
-  inputs_ = InputPointSet(int(InputDimension::Num));
-  outputs_ = OutputPointSet(int(OutputDimension::Num));
+  for (auto& d : data_spaces_)
+    d.Reset();
 }
 
-OperationSpace& OperationSpace::operator+=(const OperationSpace& s)
+OperationSpace& OperationSpace::operator += (const OperationSpace& s)
 {
-  weights_ += s.weights_;
-  inputs_ += s.inputs_;
-  outputs_ += s.outputs_;
+  for (unsigned i = 0; i < data_spaces_.size(); i++)
+    data_spaces_.at(i) += s.data_spaces_.at(i);
+
   return (*this);
 }
 
-OperationSpace& OperationSpace::operator+=(const OperationPoint& p)
+OperationSpace& OperationSpace::operator += (const OperationPoint& p)
 {
-  weights_ += MakeWeightPoint(workload_config_, p);
-  inputs_ += MakeInputPoint(workload_config_, p);
-  outputs_ += MakeOutputPoint(workload_config_, p);
+  for (unsigned i = 0; i < data_spaces_.size(); i++)
+    data_spaces_.at(i) += projectors.at(i)(workload_config_, p);
+
   return (*this);
 }
 
-OperationSpace OperationSpace::operator-(const OperationSpace& p)
+OperationSpace OperationSpace::operator - (const OperationSpace& p)
 {
-  OperationSpace retval;
-  retval.weights_ = weights_ - p.weights_;
-  retval.inputs_ = inputs_ - p.inputs_;
-  retval.outputs_ = outputs_ - p.outputs_;
+  OperationSpace retval(workload_config_);
+
+  for (unsigned i = 0; i < data_spaces_.size(); i++)
+    retval.data_spaces_.at(i) = data_spaces_.at(i) - p.data_spaces_.at(i);
+  
   return retval;
 }
 
 PerDataSpace<std::size_t> OperationSpace::GetSizes() const
 {
-  return { weights_.size(), inputs_.size(), outputs_.size() };
+  PerDataSpace<std::size_t> retval;
+  
+  for (unsigned i = 0; i < data_spaces_.size(); i++)
+    retval.at(i) = data_spaces_.at(i).size();
+
+  return retval;
 }
 
 std::size_t OperationSpace::GetSize(const int t) const
 {
-  assert(t >= 0 && t < int(problem::DataType::Num));
-  if (t == int(problem::DataType::Weight))
-  {
-    return weights_.size();
-  }
-  else if (t == int(problem::DataType::Input))
-  {
-    return inputs_.size();
-  }
-  else
-  {
-    return outputs_.size();
-  }
+  return data_spaces_.at(t).size();
 }
 
 bool OperationSpace::IsEmpty(const int t) const
 {
-  assert(t >= 0 && t < int(problem::DataType::Num));
-  if (t == int(problem::DataType::Weight))
-  {
-    return weights_.empty();
-  }
-  else if (t == int(problem::DataType::Input))
-  {
-    return inputs_.empty();
-  }
-  else
-  {
-    return outputs_.empty();
-  }
+  return data_spaces_.at(t).empty();
 }
 
 bool OperationSpace::CheckEquality(const OperationSpace& rhs, const int t) const
 {
-  assert(t >= 0 && t < int(problem::DataType::Num));
-  if (t == int(problem::DataType::Weight))
-  {
-    return weights_ == rhs.weights_;
-  }
-  else if (t == int(problem::DataType::Input))
-  {
-    return inputs_ == rhs.inputs_;
-  }
-  else
-  {
-    return outputs_ == rhs.outputs_;
-  }
+  return data_spaces_.at(t) == rhs.data_spaces_.at(t);
 }
 
 void OperationSpace::PrintSizes()
 {
-  std::cout << "weights = " << weights_.size() << ", ";
-  std::cout << "outputs = " << outputs_.size() << std::endl;
-  std::cout << "inputs = " << inputs_.size() << ", ";
+  for (unsigned i = 0; i < data_spaces_.size()-1; i++)
+    std::cout << DataType(i) << " = " << data_spaces_.at(i).size() << ", ";
+  std::cout << DataType(data_spaces_.size()-1) << " = " << data_spaces_.back().size() << std::endl;
 }
 
 void OperationSpace::Print() const
 {
-  std::cout << "Weights[" << weights_.size() << "]: ";
-  weights_.Print();
-  std::cout << std::endl;
-  std::cout << "Inputs[" << inputs_.size() << "]: ";
-  inputs_.Print();
-  std::cout << std::endl;
-  std::cout << "Outputs[" << outputs_.size() << "]: ";
-  outputs_.Print();
-  std::cout << std::endl;
+  for (auto& d : data_spaces_)
+    d.Print();
 }
 
 void OperationSpace::Print(DataType pv) const
 {
-  switch (pv)
-  {
-    case DataType::Weight: 
-      std::cout << "Weights[" << weights_.size() << "]: ";
-      weights_.Print();
-      std::cout << std::endl;
-      break;
-    case DataType::Input:
-      std::cout << "Inputs[" << inputs_.size() << "]: ";
-      inputs_.Print();
-      std::cout << std::endl;
-      break;
-    case DataType::Output:
-      std::cout << "Outputs[" << outputs_.size() << "]: ";
-      outputs_.Print();
-      std::cout << std::endl;
-      break;
-    default:
-      std::cout << "ILLEGAL DATATYPE, CAN'T PRINT" << std::endl;
-      break;
-  }
+  auto& d = data_spaces_.at(unsigned(pv));
+  d.Print();
 }
 
 
