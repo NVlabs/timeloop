@@ -54,18 +54,18 @@ class NestAnalysis
   tiling::CompoundTileNest working_sets_;
   tiling::BodyInfo body_info_;
 
-  // Memoization structures to accelerate IndexToProblemPoint()
+  // Memoization structures to accelerate IndexToOperationPoint()
   std::vector<problem::PerProblemDimension<std::uint64_t>>
       per_level_dim_scales_;  // level * dim
-  problem::ProblemPoint cur_transform_;
-  std::vector<problem::ProblemPoint> mold_low_;
-  std::vector<problem::ProblemPoint> mold_high_;
+  problem::OperationPoint cur_transform_;
+  std::vector<problem::OperationPoint> mold_low_;
+  std::vector<problem::OperationPoint> mold_high_;
 
   // per-level properties.
   std::vector<uint64_t> num_spatial_elems_;
   std::vector<uint64_t> spatial_fanouts_;
 
-  // used to accelerate to IndexToProblemPoint computation
+  // used to accelerate to IndexToOperationPoint computation
   // relevant only for master spatial levels.
   std::vector<uint64_t> horizontal_sizes_;
   std::vector<uint64_t> vertical_sizes_;
@@ -100,7 +100,7 @@ class NestAnalysis
   void InitializeLiveState();
   void CollectWorkingSets();
 
-  problem::ProblemPoint IndexToProblemPoint_(const std::vector<int>& indices) const;
+  problem::OperationPoint IndexToOperationPoint_(const std::vector<int>& indices) const;
   
   problem::OperationSpace ComputeWorkingSetsRecursive_(
     std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta = false);

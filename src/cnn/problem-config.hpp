@@ -143,15 +143,15 @@ class PerProblemDimension : public DynamicArray<T>
 template<class T>
 std::ostream& operator<<(std::ostream& out, const PerProblemDimension<T>& x);
 
-class ProblemPoint : public Point
+class OperationPoint : public Point
 {
  public:
-  ProblemPoint() :
+  OperationPoint() :
       Point(int(Dimension::Num))
   {
   }
 };
-// typedef Point ProblemPoint;
+// typedef Point OperationPoint;
 
 typedef Point WeightPoint;
 typedef Point InputPoint;
@@ -226,9 +226,9 @@ class WorkloadConfig
   }
 };
 
-WeightPoint MakeWeightPoint(WorkloadConfig* wc, const ProblemPoint& problem_point);
-InputPoint MakeInputPoint(WorkloadConfig* wc, const ProblemPoint& problem_point);
-OutputPoint MakeOutputPoint(WorkloadConfig* wc, const ProblemPoint& problem_point);
+WeightPoint MakeWeightPoint(WorkloadConfig* wc, const OperationPoint& problem_point);
+InputPoint MakeInputPoint(WorkloadConfig* wc, const OperationPoint& problem_point);
+OutputPoint MakeOutputPoint(WorkloadConfig* wc, const OperationPoint& problem_point);
 
 // ======================================== //
 //              OperationSpace              //
@@ -247,11 +247,11 @@ class OperationSpace
   OperationSpace();
   OperationSpace(const OperationSpace& s);
   OperationSpace(WorkloadConfig* wc);
-  OperationSpace(WorkloadConfig* wc, const ProblemPoint& low, const ProblemPoint& high);
+  OperationSpace(WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high);
 
   void Reset();
   OperationSpace& operator+=(const OperationSpace& s);
-  OperationSpace& operator+=(const ProblemPoint& p);
+  OperationSpace& operator+=(const OperationPoint& p);
   OperationSpace operator-(const OperationSpace& p);
   PerDataSpace<std::size_t> GetSizes() const;
   std::size_t GetSize(const int t) const;

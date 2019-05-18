@@ -104,7 +104,7 @@ void NestAnalysis::Reset()
   }
 
   per_level_dim_scales_.clear();
-  cur_transform_ = problem::ProblemPoint();
+  cur_transform_ = problem::OperationPoint();
   mold_low_.clear();
   mold_high_.clear();
 
@@ -484,8 +484,8 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   // Step I: Compute Temporal Working Set.
   //
 
-  problem::ProblemPoint low_problem_point;
-  problem::ProblemPoint high_problem_point;
+  problem::OperationPoint low_problem_point;
+  problem::OperationPoint high_problem_point;
 
   // We use the pre-computed molds within this level range.
   // Above this level range, we use the transform problem-point to
@@ -999,7 +999,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       ASSERT(spatial_delta_index < spatial_deltas.size());
       ASSERT(!valid_delta[spatial_delta_index]);
 
-      spatial_deltas[spatial_delta_index] += IndexToProblemPoint_(indices_);
+      spatial_deltas[spatial_delta_index] += IndexToOperationPoint_(indices_);
       valid_delta[spatial_delta_index] = true;
       cur_level_point_set += spatial_deltas[spatial_delta_index];
     }
@@ -1077,8 +1077,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       indices_high[l] = nest_state_[l].descriptor.end - nest_state_[l].descriptor.stride;
     }
 
-    auto low_problem_point = IndexToProblemPoint_(indices_low);
-    auto high_problem_point = IndexToProblemPoint_(indices_high);
+    auto low_problem_point = IndexToOperationPoint_(indices_low);
+    auto high_problem_point = IndexToOperationPoint_(indices_high);
     
     // Compute the polyhedron between the low and high problem
     // points (exclusive). Note that this special constructor
@@ -1578,10 +1578,10 @@ void NestAnalysis::InitPerLevelDimScales()
 // There is a not-so-complicated way to optimize this
 // by exploiting the global loop nest information.
 // instead of making naive local decisions.
-problem::ProblemPoint NestAnalysis::IndexToProblemPoint_(
+problem::OperationPoint NestAnalysis::IndexToOperationPoint_(
   const std::vector<int>& indices) const
 {
-  problem::ProblemPoint point;
+  problem::OperationPoint point;
   for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
   {
     point[dim] = 0;

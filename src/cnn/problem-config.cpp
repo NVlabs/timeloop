@@ -82,7 +82,7 @@ std::ostream& operator << (std::ostream& out, const Dimension& dim)
 //              WorkloadConfig              //
 // ======================================== //
 
-WeightPoint MakeWeightPoint(WorkloadConfig* wc, const ProblemPoint& problem_point)
+WeightPoint MakeWeightPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
 {
   (void) wc;
 
@@ -96,7 +96,7 @@ WeightPoint MakeWeightPoint(WorkloadConfig* wc, const ProblemPoint& problem_poin
   return weight_point;
 }
 
-InputPoint MakeInputPoint(WorkloadConfig* wc, const ProblemPoint& problem_point)
+InputPoint MakeInputPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
 {
   InputPoint input_point(int(InputDimension::Num));
 
@@ -113,7 +113,7 @@ InputPoint MakeInputPoint(WorkloadConfig* wc, const ProblemPoint& problem_point)
   return input_point;
 }
 
-OutputPoint MakeOutputPoint(WorkloadConfig* wc, const ProblemPoint& problem_point)
+OutputPoint MakeOutputPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
 {
   (void) wc;
 
@@ -154,7 +154,7 @@ OperationSpace::OperationSpace(WorkloadConfig* wc) :
 {
 }
 
-OperationSpace::OperationSpace(WorkloadConfig* wc, const ProblemPoint& low, const ProblemPoint& high) :
+OperationSpace::OperationSpace(WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high) :
     OperationSpace(wc)
 {
   
@@ -201,7 +201,7 @@ OperationSpace& OperationSpace::operator+=(const OperationSpace& s)
   return (*this);
 }
 
-OperationSpace& OperationSpace::operator+=(const ProblemPoint& p)
+OperationSpace& OperationSpace::operator+=(const OperationPoint& p)
 {
   weights_ += MakeWeightPoint(workload_config_, p);
   inputs_ += MakeInputPoint(workload_config_, p);

@@ -85,6 +85,12 @@ class Point
   {
     return coordinates_[i];
   }
+
+  void IncrementAllDimensions(Magnitude m = 1)
+  {
+    for (auto& c : coordinates_)
+      c += m;
+  }
 };
 
 #include "point-set-aahr.hpp"

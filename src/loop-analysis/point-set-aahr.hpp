@@ -448,6 +448,8 @@ class AxisAlignedHyperRectangle
 
   bool operator == (const AxisAlignedHyperRectangle& s) const
   {
+    ASSERT(order_ == s.order_);
+    
     for (unsigned dim = 0; dim < order_; dim++)
     {
       if (min_[dim] != s.min_[dim] || max_[dim] != s.max_[dim])
