@@ -593,6 +593,8 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
     stats_.utilized_capacity[pv] = tile[pvi].size;
     stats_.utilized_instances[pv] = tile[pvi].replication_factor;
 
+    assert((tile[pvi].size == 0) == (tile[pvi].content_accesses == 0));
+
     if (problem::IsReadWriteDataType(pv))
     {
       // First epoch is an Update, all subsequent epochs are Read-Modify-Update.

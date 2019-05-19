@@ -140,8 +140,11 @@ std::vector<std::function<Point(WorkloadConfig*, const OperationPoint&)>> projec
 // ======================================== //
 
 OperationSpace::OperationSpace() :
-    OperationSpace(nullptr)
+    workload_config_(nullptr)
 {
+  data_spaces_.push_back(DataSpace(int(WeightDimension::Num)));
+  data_spaces_.push_back(DataSpace(int(InputDimension::Num)));
+  data_spaces_.push_back(DataSpace(int(OutputDimension::Num)));
 }
 
 OperationSpace::OperationSpace(WorkloadConfig* wc) :
@@ -153,7 +156,7 @@ OperationSpace::OperationSpace(WorkloadConfig* wc) :
 }
 
 OperationSpace::OperationSpace(WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high) :
-    OperationSpace(wc)
+    workload_config_(wc)
 {
   auto weights_low = MakeWeightPoint(workload_config_, low);
   auto inputs_low = MakeInputPoint(workload_config_, low);

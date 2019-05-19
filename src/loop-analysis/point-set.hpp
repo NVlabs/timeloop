@@ -91,6 +91,14 @@ class Point
     for (auto& c : coordinates_)
       c += m;
   }
+
+  std::ostream& Print(std::ostream& out = std::cout) const
+  {
+    out << "[" << order_ << "]: ";
+    for (auto& c : coordinates_)
+      out << c << " ";
+    return out;
+  }
 };
 
 #include "point-set-aahr.hpp"
