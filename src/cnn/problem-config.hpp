@@ -41,6 +41,8 @@
 namespace problem
 {
 
+void BuildProblemShape();
+
 enum class DataType : unsigned int
 {
   Weight,
@@ -53,7 +55,8 @@ extern std::map<std::string, DataType> DataTypeID;
 extern std::map<DataType, std::string> DataTypeName;
 
 std::ostream& operator<<(std::ostream& out, const DataType& d);
-bool IsReadWriteDataType(const DataType d);
+
+extern std::function<bool(const DataType d)> IsReadWriteDataType;
 
 } // namespace problem
 
@@ -217,30 +220,33 @@ class WorkloadConfig
   }
 };
 
-//Point MakeWeightPoint(WorkloadConfig* wc, const OperationPoint& problem_point);
-//Point MakeInputPoint(WorkloadConfig* wc, const OperationPoint& problem_point);
-//Point MakeOutputPoint(WorkloadConfig* wc, const OperationPoint& problem_point);
-
 // ======================================== //
 //                 DataSpace                //
 // ======================================== //
-// class DataSpace
+
+typedef PointSet DataSpace;
+
+// class DataSpace : public PointSet
 // {
 //  private:
 //   std::string name_;
-//   PointSet point_set_;
 
 //  public:
 //   DataSpace() = delete;
 
 //   DataSpace(std::string name, std::uint32_t order) :
-//       name_(name),
-//       point_set_(order)
+//       PointSet(order),
+//       name_(name)
 //   { }
   
 //   DataSpace(std::string name, std::uint32_t order, Point base, Point bound) :
-//       name_(name),
-//       point_set_(order, base, bound)
+//       PointSet(order, base, bound),
+//       name_(name)
+//   { }
+
+//   DataSpace(const PointSet& p) :
+//       PointSet(p),
+//       name_("__UNNAMED__")
 //   { }
 
 //   std::string Name() const
@@ -248,30 +254,21 @@ class WorkloadConfig
 //     return name_;
 //   }
 
+//   DataSpace operator - (const DataSpace& d)
+//   {
+//     PointSet delta = PointSet::operator - (d);
+//     DataSpace retval(delta);
+//     retval.name_ = name_;
+//     return retval;
+//   }
+
 //   void Print() const
 //   {
 //     std::cout << Name() << "[" << size() << "]: ";
-//     point_set_.Print();
+//     PointSet::Print();
 //     std::cout << std::endl;
 //   }
-
-//   // Pass-throughs to PointSet class.
-//   std::size_t size() const { return point_set_.size(); }
-//   bool empty() const { return point_set_.empty(); }
-//   void Reset() { point_set_.Reset(); }
-//   DataSpace& operator += (const Point& p) { point_set_ += p; return *this; }
-//   DataSpace& operator += (const DataSpace& d) { point_set_ += d.point_set_; return *this; }
-//   DataSpace operator - (const DataSpace& d)
-//   {
-//     DataSpace retval(name_, 0);
-//     retval.point_set_ = point_set_ - d.point_set_;
-//     return retval;
-//   }
-//   bool operator == (const DataSpace& d) const { return (point_set_ == d.point_set_); }
-
 // };
-
-typedef PointSet DataSpace;
 
 // ======================================== //
 //              OperationSpace              //
@@ -283,7 +280,6 @@ class OperationSpace
   WorkloadConfig* workload_config_;
 
   std::vector<DataSpace> data_spaces_;
-  std::vector<std::string> data_space_names_;
   
  public:
   OperationSpace();

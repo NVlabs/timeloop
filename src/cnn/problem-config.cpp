@@ -32,17 +32,12 @@
 namespace problem
 {
 
-std::map<DataType, std::string> DataTypeName = {
-    {DataType::Weight, "Weights"},
-    {DataType::Input,  "Inputs"},
-    {DataType::Output, "Outputs"},
-    {DataType::Num,    "Shared/Illegal"}};
+std::map<DataType, std::string> DataTypeName;
+std::map<std::string, DataType> DataTypeID;
+std::vector<unsigned> DataTypeOrder;
 
-std::map<std::string, DataType> DataTypeID = {
-  {"Weights", DataType::Weight},
-  {"Inputs", DataType::Input},
-  {"Outputs", DataType::Output},
-  {"Shared/Illegal", DataType::Num}};
+std::function<bool(const DataType d)> IsReadWriteDataType;
+std::vector<std::function<Point(WorkloadConfig*, const OperationPoint&)>> projectors;
 
 std::ostream& operator << (std::ostream& out, const DataType& d)
 {
@@ -50,27 +45,8 @@ std::ostream& operator << (std::ostream& out, const DataType& d)
   return out;
 }
 
-bool IsReadWriteDataType(const DataType d)
-{
-  // ASSERT(d < DataType::Num);
-  return d == DataType::Output;
-}
-
-std::map<Dimension, std::string> DimensionName = {{Dimension::R, "R"},
-                                                  {Dimension::S, "S"},
-                                                  {Dimension::P, "P"},
-                                                  {Dimension::Q, "Q"},
-                                                  {Dimension::C, "C"},
-                                                  {Dimension::K, "K"},
-                                                  {Dimension::N, "N"}, };
-
-std::map<char, Dimension> DimensionID = {{'R', Dimension::R },
-                                         {'S', Dimension::S },
-                                         {'P', Dimension::P },
-                                         {'Q', Dimension::Q },
-                                         {'C', Dimension::C },
-                                         {'K', Dimension::K },
-                                         {'N', Dimension::N }, };
+std::map<Dimension, std::string> DimensionName;
+std::map<char, Dimension> DimensionID;
 
 std::ostream& operator << (std::ostream& out, const Dimension& dim)
 {
@@ -79,102 +55,125 @@ std::ostream& operator << (std::ostream& out, const Dimension& dim)
 }
 
 // ======================================== //
-//              WorkloadConfig              //
+//              Problem Shape               //
 // ======================================== //
 
-Point MakeWeightPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
+void BuildProblemShape()
 {
-  (void) wc;
+  DataTypeName = {
+    {DataType::Weight, "Weights"},
+    {DataType::Input,  "Inputs"},
+    {DataType::Output, "Outputs"},
+    {DataType::Num,    "Shared/Illegal"}};
 
-  Point weight_point(int(WeightDimension::Num));
+  DataTypeID = {
+    {"Weights", DataType::Weight},
+    {"Inputs", DataType::Input},
+    {"Outputs", DataType::Output},
+    {"Shared/Illegal", DataType::Num}};
 
-  weight_point[int(WeightDimension::R)] = problem_point[int(Dimension::R)];
-  weight_point[int(WeightDimension::S)] = problem_point[int(Dimension::S)];
-  weight_point[int(WeightDimension::C)] = problem_point[int(Dimension::C)];
-  weight_point[int(WeightDimension::K)] = problem_point[int(Dimension::K)];
+  DataTypeOrder = {
+    unsigned(WeightDimension::Num),
+    unsigned(InputDimension::Num),
+    unsigned(OutputDimension::Num) };
 
-  return weight_point;
+  IsReadWriteDataType = [](const DataType d) -> bool
+    {
+      // ASSERT(d < DataType::Num);
+      return d == DataType::Output;
+    };
+  
+  DimensionName = {{Dimension::R, "R"},
+                   {Dimension::S, "S"},
+                   {Dimension::P, "P"},
+                   {Dimension::Q, "Q"},
+                   {Dimension::C, "C"},
+                   {Dimension::K, "K"},
+                   {Dimension::N, "N"}, };
+
+  DimensionID = {{'R', Dimension::R },
+                 {'S', Dimension::S },
+                 {'P', Dimension::P },
+                 {'Q', Dimension::Q },
+                 {'C', Dimension::C },
+                 {'K', Dimension::K },
+                 {'N', Dimension::N }, };
+
+  projectors =
+    {
+      [](WorkloadConfig* wc, const OperationPoint& problem_point)
+      {
+        (void) wc;
+
+        Point weight_point(int(WeightDimension::Num));
+
+        weight_point[int(WeightDimension::R)] = problem_point[int(Dimension::R)];
+        weight_point[int(WeightDimension::S)] = problem_point[int(Dimension::S)];
+        weight_point[int(WeightDimension::C)] = problem_point[int(Dimension::C)];
+        weight_point[int(WeightDimension::K)] = problem_point[int(Dimension::K)];
+
+        return weight_point;
+      },
+      [](WorkloadConfig* wc, const OperationPoint& problem_point)
+      {
+        Point input_point(int(InputDimension::Num));
+        
+        input_point[int(InputDimension::W)] =
+          wc->getWstride() * problem_point[int(Dimension::P)] +
+          wc->getWdilation() * problem_point[int(Dimension::R)];
+        input_point[int(InputDimension::H)] =
+          wc->getHstride() * problem_point[int(Dimension::Q)] +
+          wc->getHdilation() * problem_point[int(Dimension::S)];
+        
+        input_point[int(InputDimension::C)] = problem_point[int(Dimension::C)];
+        input_point[int(InputDimension::N)] = problem_point[int(Dimension::N)];
+
+        return input_point;
+      },
+      [](WorkloadConfig* wc, const OperationPoint& problem_point)
+      {
+        (void) wc;
+
+        Point output_point(int(OutputDimension::Num));
+        
+        output_point[int(OutputDimension::P)] = problem_point[int(Dimension::P)];
+        output_point[int(OutputDimension::Q)] = problem_point[int(Dimension::Q)];
+        
+        output_point[int(OutputDimension::K)] = problem_point[int(Dimension::K)];
+        output_point[int(OutputDimension::N)] = problem_point[int(Dimension::N)];
+
+        return output_point;
+      }
+    };  
 }
-
-Point MakeInputPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
-{
-  Point input_point(int(InputDimension::Num));
-
-  input_point[int(InputDimension::W)] =
-    wc->getWstride() * problem_point[int(Dimension::P)] +
-    wc->getWdilation() * problem_point[int(Dimension::R)];
-  input_point[int(InputDimension::H)] =
-    wc->getHstride() * problem_point[int(Dimension::Q)] +
-    wc->getHdilation() * problem_point[int(Dimension::S)];
-
-  input_point[int(InputDimension::C)] = problem_point[int(Dimension::C)];
-  input_point[int(InputDimension::N)] = problem_point[int(Dimension::N)];
-
-  return input_point;
-}
-
-Point MakeOutputPoint(WorkloadConfig* wc, const OperationPoint& problem_point)
-{
-  (void) wc;
-
-  Point output_point(int(OutputDimension::Num));
-
-  output_point[int(OutputDimension::P)] = problem_point[int(Dimension::P)];
-  output_point[int(OutputDimension::Q)] = problem_point[int(Dimension::Q)];
-
-  output_point[int(OutputDimension::K)] = problem_point[int(Dimension::K)];
-  output_point[int(OutputDimension::N)] = problem_point[int(Dimension::N)];
-
-  return output_point;
-}
-
-std::vector<std::function<Point(WorkloadConfig*, const OperationPoint&)>> projectors =
-{
-  MakeWeightPoint,
-  MakeInputPoint,
-  MakeOutputPoint
-};
 
 // ======================================== //
 //             OperationSpace               //
 // ======================================== //
 
-OperationSpace::OperationSpace() :
-    workload_config_(nullptr)
-{
-  data_spaces_.push_back(DataSpace(int(WeightDimension::Num)));
-  data_spaces_.push_back(DataSpace(int(InputDimension::Num)));
-  data_spaces_.push_back(DataSpace(int(OutputDimension::Num)));
-}
-
 OperationSpace::OperationSpace(WorkloadConfig* wc) :
     workload_config_(wc)
 {
-  data_spaces_.push_back(DataSpace(int(WeightDimension::Num)));
-  data_spaces_.push_back(DataSpace(int(InputDimension::Num)));
-  data_spaces_.push_back(DataSpace(int(OutputDimension::Num)));
+  for (unsigned space_id = 0; space_id < unsigned(DataType::Num); space_id++)
+    data_spaces_.push_back(DataSpace(DataTypeOrder.at(space_id)));
 }
+
+OperationSpace::OperationSpace() :
+    OperationSpace(nullptr)
+{ }
 
 OperationSpace::OperationSpace(WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high) :
     workload_config_(wc)
 {
-  auto weights_low = MakeWeightPoint(workload_config_, low);
-  auto inputs_low = MakeInputPoint(workload_config_, low);
-  auto outputs_low = MakeOutputPoint(workload_config_, low);
-
-  auto weights_high = MakeWeightPoint(workload_config_, high);
-  auto inputs_high = MakeInputPoint(workload_config_, high);
-  auto outputs_high = MakeOutputPoint(workload_config_, high);
-
-  // Increment the high points by 1 because the AAHR constructor wants
-  // an exclusive max point.
-  weights_high.IncrementAllDimensions(1);
-  inputs_high.IncrementAllDimensions(1);
-  outputs_high.IncrementAllDimensions(1);
-  
-  data_spaces_.push_back(DataSpace(int(WeightDimension::Num), weights_low, weights_high));
-  data_spaces_.push_back(DataSpace(int(InputDimension::Num), inputs_low, inputs_high));
-  data_spaces_.push_back(DataSpace(int(OutputDimension::Num), outputs_low, outputs_high));
+  for (unsigned space_id = 0; space_id < unsigned(DataType::Num); space_id++)
+  {
+    auto space_low = projectors.at(space_id)(workload_config_, low);
+    auto space_high = projectors.at(space_id)(workload_config_, high);
+    // Increment the high points by 1 because the AAHR constructor wants
+    // an exclusive max point.
+    space_high.IncrementAllDimensions();
+    data_spaces_.push_back(DataSpace(DataTypeOrder.at(space_id), space_low, space_high));
+  }
 }
 
 void OperationSpace::Reset()

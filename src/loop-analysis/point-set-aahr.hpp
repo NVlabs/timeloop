@@ -87,7 +87,8 @@ struct Gradient
 
 class AxisAlignedHyperRectangle
 {
- private:
+ protected:
+  
   std::uint32_t order_;
   Point min_, max_; // min inclusive, max: exclusive
   Gradient gradient_;
