@@ -65,71 +65,26 @@ extern std::function<bool(const DataType d)> IsReadWriteDataType;
 namespace problem
 {
 
-enum class Dimension {
-  R,
-  S,
-  P,
-  Q,
-  C,
-  K,
-  N,
-  Num
-};
+typedef unsigned Dimension;
 
+extern unsigned NumDimensions;
 extern std::map<Dimension, std::string> DimensionName;
 extern std::map<char, Dimension> DimensionID;
 
-std::ostream& operator << (std::ostream& out, const Dimension& dim);
+// std::ostream& operator << (std::ostream& out, const Dimension& dim);
 
-// Think of this as std::array<T, Dimension::Num>, except that the goal is
-// to support dynamic values of Dimension::Num determined by reading user input.
-template<class T>
-class PerProblemDimension : public DynamicArray<T>
+} // namespace problem
+
+#include "per-problem-dimension.hpp"
+
+namespace problem
 {
- public:
-  PerProblemDimension() :
-    DynamicArray<T>(unsigned(Dimension::Num))
-  {
-  }
-
-  PerProblemDimension(std::initializer_list<T> l) :
-    DynamicArray<T>(l)
-  {
-    assert(this->size() == unsigned(Dimension::Num));
-  }
-
-  friend std::ostream& operator << (std::ostream& out, const PerProblemDimension<T>& x)
-  {
-    for (unsigned i = 0; i < x.size(); i++)
-    {
-      out << Dimension(i) << ": " << x[i] << std::endl;
-    }
-    return out;
-  }
-
-  // Serialization
-  friend class boost::serialization::access;
-
-  template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0)
-  {
-    if (version == 0)
-    {
-      ar << boost::serialization::make_nvp(
-        "PerProblemDimension",
-        boost::serialization::make_array(this->begin(), this->size()));
-    }
-  }
-};
-
-template<class T>
-std::ostream& operator<<(std::ostream& out, const PerProblemDimension<T>& x);
 
 class OperationPoint : public Point
 {
  public:
   OperationPoint() :
-      Point(int(Dimension::Num))
+      Point(int(NumDimensions))
   {
   }
 };

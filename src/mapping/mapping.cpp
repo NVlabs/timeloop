@@ -96,7 +96,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     {
       auto sd = spacetime::Dimension(sdi);
       permutations[sd] = "";
-      for (unsigned idim = 0; idim < unsigned(problem::Dimension::Num); idim++)
+      for (unsigned idim = 0; idim < unsigned(problem::NumDimensions); idim++)
         factors[sd][problem::Dimension(idim)] = 1;
     }
 
@@ -124,7 +124,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
       std::string spatial_factor_string = "";
 
       std::map<problem::Dimension, unsigned> spatial_factors;
-      for (unsigned idim = 0; idim < unsigned(problem::Dimension::Num); idim++)
+      for (unsigned idim = 0; idim < unsigned(problem::NumDimensions); idim++)
       {
         auto dim = problem::Dimension(idim);
         spatial_factors[dim] =
@@ -135,7 +135,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
         char factor[8];
         sprintf(factor, "%d", spatial_factors.at(dim));
         spatial_factor_string += factor;
-        if (idim != unsigned(problem::Dimension::Num)-1)
+        if (idim != unsigned(problem::NumDimensions)-1)
           spatial_factor_string += " ";
         
         // If the factor is 1, concatenate it to the permutation.
@@ -156,7 +156,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     std::string temporal_factor_string = "";
     
     // Temporal factors: if the factor is 1, concatenate it into the permutation.
-    for (unsigned idim = 0; idim < unsigned(problem::Dimension::Num); idim++)
+    for (unsigned idim = 0; idim < unsigned(problem::NumDimensions); idim++)
     {
       auto dim = problem::Dimension(idim);
 
@@ -164,7 +164,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
       char factor[8];
       sprintf(factor, "%d", temporal_factors.at(dim));
       temporal_factor_string += factor;
-      if (idim != unsigned(problem::Dimension::Num)-1)
+      if (idim != unsigned(problem::NumDimensions)-1)
         temporal_factor_string += " ";
       
       if (temporal_factors.at(dim) == 1)

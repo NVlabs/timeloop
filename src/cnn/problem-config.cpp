@@ -32,6 +32,7 @@
 namespace problem
 {
 
+unsigned NumDimensions;
 std::map<DataType, std::string> DataTypeName;
 std::map<std::string, DataType> DataTypeID;
 std::vector<unsigned> DataTypeOrder;
@@ -48,11 +49,11 @@ std::ostream& operator << (std::ostream& out, const DataType& d)
 std::map<Dimension, std::string> DimensionName;
 std::map<char, Dimension> DimensionID;
 
-std::ostream& operator << (std::ostream& out, const Dimension& dim)
-{
-  out << DimensionName[dim];
-  return out;
-}
+// std::ostream& operator << (std::ostream& out, const Dimension& dim)
+// {
+//   out << DimensionName[dim];
+//   return out;
+// }
 
 // ======================================== //
 //              Problem Shape               //
@@ -60,6 +61,8 @@ std::ostream& operator << (std::ostream& out, const Dimension& dim)
 
 void BuildProblemShape()
 {
+  NumDimensions = 7;
+  
   enum class WeightDimension {
     R,
     S,
@@ -105,21 +108,21 @@ void BuildProblemShape()
       return d == DataType::Output;
     };
   
-  DimensionName = {{Dimension::R, "R"},
-                   {Dimension::S, "S"},
-                   {Dimension::P, "P"},
-                   {Dimension::Q, "Q"},
-                   {Dimension::C, "C"},
-                   {Dimension::K, "K"},
-                   {Dimension::N, "N"}, };
+  DimensionName = {{0, "R"},
+                   {1, "S"},
+                   {2, "P"},
+                   {3, "Q"},
+                   {4, "C"},
+                   {5, "K"},
+                   {6, "N"}, };
 
-  DimensionID = {{'R', Dimension::R },
-                 {'S', Dimension::S },
-                 {'P', Dimension::P },
-                 {'Q', Dimension::Q },
-                 {'C', Dimension::C },
-                 {'K', Dimension::K },
-                 {'N', Dimension::N }, };
+  DimensionID = {{'R', 0 },
+                 {'S', 1 },
+                 {'P', 2 },
+                 {'Q', 3 },
+                 {'C', 4 },
+                 {'K', 5 },
+                 {'N', 6 }, };
 
   projectors =
     {
@@ -129,10 +132,10 @@ void BuildProblemShape()
 
         Point weight_point(int(WeightDimension::Num));
 
-        weight_point[int(WeightDimension::R)] = problem_point[int(Dimension::R)];
-        weight_point[int(WeightDimension::S)] = problem_point[int(Dimension::S)];
-        weight_point[int(WeightDimension::C)] = problem_point[int(Dimension::C)];
-        weight_point[int(WeightDimension::K)] = problem_point[int(Dimension::K)];
+        weight_point[int(WeightDimension::R)] = problem_point[0]; // R
+        weight_point[int(WeightDimension::S)] = problem_point[1]; // S
+        weight_point[int(WeightDimension::C)] = problem_point[4]; // C
+        weight_point[int(WeightDimension::K)] = problem_point[5]; // K
 
         return weight_point;
       },
@@ -141,14 +144,14 @@ void BuildProblemShape()
         Point input_point(int(InputDimension::Num));
         
         input_point[int(InputDimension::W)] =
-          wc->getWstride() * problem_point[int(Dimension::P)] +
-          wc->getWdilation() * problem_point[int(Dimension::R)];
+          wc->getWstride() * problem_point[2] +  // P
+          wc->getWdilation() * problem_point[0]; // R
         input_point[int(InputDimension::H)] =
-          wc->getHstride() * problem_point[int(Dimension::Q)] +
-          wc->getHdilation() * problem_point[int(Dimension::S)];
+          wc->getHstride() * problem_point[3] +  // Q
+          wc->getHdilation() * problem_point[1]; // S
         
-        input_point[int(InputDimension::C)] = problem_point[int(Dimension::C)];
-        input_point[int(InputDimension::N)] = problem_point[int(Dimension::N)];
+        input_point[int(InputDimension::C)] = problem_point[4]; // C
+        input_point[int(InputDimension::N)] = problem_point[6]; // N
 
         return input_point;
       },
@@ -158,11 +161,11 @@ void BuildProblemShape()
 
         Point output_point(int(OutputDimension::Num));
         
-        output_point[int(OutputDimension::P)] = problem_point[int(Dimension::P)];
-        output_point[int(OutputDimension::Q)] = problem_point[int(Dimension::Q)];
+        output_point[int(OutputDimension::P)] = problem_point[2]; // P
+        output_point[int(OutputDimension::Q)] = problem_point[3]; // Q
         
-        output_point[int(OutputDimension::K)] = problem_point[int(Dimension::K)];
-        output_point[int(OutputDimension::N)] = problem_point[int(Dimension::N)];
+        output_point[int(OutputDimension::K)] = problem_point[5]; // K
+        output_point[int(OutputDimension::N)] = problem_point[6]; // N
 
         return output_point;
       }
@@ -280,18 +283,21 @@ PerDataSpace<std::size_t> GetMaxWorkingSetSizes(
 {
   PerDataSpace<std::size_t> datatype_size;
 
+  // R*S*C*K
   datatype_size[DataType::Weight] =
-      dimension_sizes[int(Dimension::R)] * dimension_sizes[int(Dimension::S)] *
-      dimension_sizes[int(Dimension::C)] * dimension_sizes[int(Dimension::K)];
+      dimension_sizes[0] * dimension_sizes[1] *
+      dimension_sizes[4] * dimension_sizes[5];
 
+  // (P+R-1)*(Q+S-1)*C*N
   datatype_size[DataType::Input] =
-      (dimension_sizes[int(Dimension::P)] + dimension_sizes[int(Dimension::R)] - 1) *
-      (dimension_sizes[int(Dimension::Q)] + dimension_sizes[int(Dimension::S)] - 1) *
-      dimension_sizes[int(Dimension::C)] * dimension_sizes[int(Dimension::N)];
+      (dimension_sizes[2] + dimension_sizes[0] - 1) *
+      (dimension_sizes[3] + dimension_sizes[1] - 1) *
+      dimension_sizes[4] * dimension_sizes[6];
 
+  // P*Q*K*N
   datatype_size[DataType::Output] =
-      dimension_sizes[int(Dimension::P)] * dimension_sizes[int(Dimension::Q)] *
-      dimension_sizes[int(Dimension::K)] * dimension_sizes[int(Dimension::N)];
+      dimension_sizes[2] * dimension_sizes[3] *
+      dimension_sizes[5] * dimension_sizes[6];
   
   return datatype_size;
 }

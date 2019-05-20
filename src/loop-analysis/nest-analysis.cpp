@@ -490,7 +490,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   // We use the pre-computed molds within this level range.
   // Above this level range, we use the transform problem-point to
   // translate, rotate or otherwise transform the mold.
-  for (unsigned dim = 0; dim < unsigned(problem::Dimension::Num); dim++)
+  for (unsigned dim = 0; dim < unsigned(problem::NumDimensions); dim++)
   {
     low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
     high_problem_point[dim] = cur_transform_[dim] + mold_high_[level][dim];
@@ -1536,7 +1536,7 @@ void NestAnalysis::InitSpatialFanouts()
 
 void NestAnalysis::InitPerLevelDimScales()
 {
-  for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+  for (unsigned dim = 0; dim < problem::NumDimensions; dim++)
   {
     cur_transform_[dim] = 0;
   }
@@ -1556,14 +1556,14 @@ void NestAnalysis::InitPerLevelDimScales()
     auto desc = nest_state_[level].descriptor;
     int dim = int(desc.dimension);
 
-    for (std::uint64_t dim = 0; dim < int(problem::Dimension::Num); dim++)
+    for (std::uint64_t dim = 0; dim < problem::NumDimensions; dim++)
     {
       per_level_dim_scales_[level][dim] = cur_scale[dim];
     }
 
     cur_scale[dim] *= (desc.end - desc.start);  // FIXME: assuming stride = 1
 
-    for (std::uint64_t dim = 0; dim < int(problem::Dimension::Num); dim++)
+    for (std::uint64_t dim = 0; dim < problem::NumDimensions; dim++)
     {
       mold_low_[level][dim] = desc.start;
       mold_high_[level][dim] = cur_scale[dim] - 1; // FIXME: this is wrong.
@@ -1582,7 +1582,7 @@ problem::OperationPoint NestAnalysis::IndexToOperationPoint_(
   const std::vector<int>& indices) const
 {
   problem::OperationPoint point;
-  for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+  for (unsigned dim = 0; dim < problem::NumDimensions; dim++)
   {
     point[dim] = 0;
   }

@@ -127,13 +127,13 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
   for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
   {
     auto& permutation = user_permutations.at(level);
-    assert(permutation.size() == std::size_t(problem::Dimension::Num));
+    assert(permutation.size() == std::size_t(problem::NumDimensions));
       
     auto& factors = user_factors.at(level);
-    assert(factors.size() == std::size_t(problem::Dimension::Num));
+    assert(factors.size() == std::size_t(problem::NumDimensions));
 
-    // Each partition has problem::Dimension::Num loops.
-    for (unsigned idim = 0; idim < unsigned(problem::Dimension::Num); idim++)
+    // Each partition has problem::NumDimensions loops.
+    for (unsigned idim = 0; idim < unsigned(problem::NumDimensions); idim++)
     {
       loop::Descriptor loop;
       loop.dimension = permutation.at(idim);
@@ -154,7 +154,7 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
-    for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+    for (int dim = 0; dim < int(problem::NumDimensions); dim++)
     {
       // Ignore trivial factors
       // This reduces computation time by 1.5x on average.
@@ -170,7 +170,7 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
       {
         // Add a trivial temporal nest to make sure
         // we have at least one subnest in each level.
-        mapping.loop_nest.AddLoop(problem::Dimension(int(problem::Dimension::Num) - 1),
+        mapping.loop_nest.AddLoop(problem::Dimension(int(problem::NumDimensions) - 1),
                                    0, 1, 1, spacetime::Dimension::Time);
       }
       mapping.loop_nest.AddStorageTilingBoundary();

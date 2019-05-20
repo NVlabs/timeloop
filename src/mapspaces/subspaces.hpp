@@ -47,10 +47,12 @@ class IndexFactorizationSpace
 {
  private:
   problem::PerProblemDimension<Factors> dimension_factors_;
-  CartesianCounter<int(problem::Dimension::Num)> tiling_counter_;
+  CartesianCounterDynamic tiling_counter_;
 
  public:
-  IndexFactorizationSpace() {}
+  IndexFactorizationSpace() :
+      tiling_counter_(problem::NumDimensions)
+  { }
 
   void Init(const problem::WorkloadConfig &problem_config,
             std::map<problem::Dimension, std::uint64_t> cofactors_order,
@@ -59,7 +61,7 @@ class IndexFactorizationSpace
            )
   {
     problem::PerProblemDimension<uint128_t> counter_base;
-    for (int idim = 0; idim < int(problem::Dimension::Num); idim++)
+    for (int idim = 0; idim < int(problem::NumDimensions); idim++)
     {
       auto dim = problem::Dimension(idim);
       if (prefactors.find(dim) == prefactors.end())
@@ -72,7 +74,7 @@ class IndexFactorizationSpace
     tiling_counter_.Init(counter_base);
 
     std::cout << "Initializing Index Factorization subspace." << std::endl;
-    for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+    for (int dim = 0; dim < int(problem::NumDimensions); dim++)
     {
       std::cout << "  Factorization options along problem dimension " << problem::Dimension(dim) << " = " << counter_base[dim] << std::endl;
     }
@@ -113,7 +115,7 @@ class PermutationSpace
  public:
   PermutationSpace()
   {
-    for (unsigned i = 0; i < unsigned(problem::Dimension::Num); i++)
+    for (unsigned i = 0; i < unsigned(problem::NumDimensions); i++)
     {
       canonical_pattern_.push_back(problem::Dimension(i));
     }
@@ -148,7 +150,7 @@ class PermutationSpace
         baked_prefix.push_back(dim);
 
     std::set<problem::Dimension> unspecified_dimensions;
-    for (unsigned i = 0; i < unsigned(problem::Dimension::Num); i++)
+    for (unsigned i = 0; i < unsigned(problem::NumDimensions); i++)
       unspecified_dimensions.insert(problem::Dimension(i));
     
     for (auto& dim : baked_prefix)
@@ -158,7 +160,7 @@ class PermutationSpace
     for (auto& dim : unspecified_dimensions)
       permutable_suffix.push_back(dim);
 
-    assert(baked_prefix.size() + permutable_suffix.size() == unsigned(problem::Dimension::Num));
+    assert(baked_prefix.size() + permutable_suffix.size() == unsigned(problem::NumDimensions));
 
     patterns_[level] = { baked_prefix, permutable_suffix };
     size_[level] = factoradic_.Factorial(permutable_suffix.size());
@@ -171,7 +173,7 @@ class PermutationSpace
     for (unsigned level = 0; level < num_levels_; level++)
     {
       auto& pattern = patterns_.at(level);
-      if (pattern.baked_prefix.size() == unsigned(problem::Dimension::Num))
+      if (pattern.baked_prefix.size() == unsigned(problem::NumDimensions))
       {
         retval.push_back(pattern.baked_prefix);
       }
@@ -240,7 +242,7 @@ class SpatialSplitSpace
     assert(level < num_levels_);
     is_user_specified_[level] = false;
     unit_factors_[level] = unit_factors;
-    size_[level] = int(problem::Dimension::Num) + 1 - unit_factors;
+    size_[level] = int(problem::NumDimensions) + 1 - unit_factors;
   }
 
   void InitLevelUserSpecified(uint64_t level, std::uint32_t user_split)

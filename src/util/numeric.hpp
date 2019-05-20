@@ -381,6 +381,149 @@ class CartesianCounter
 };
 
 //------------------------------------
+//    Cartesian Counter (dynamic)
+//------------------------------------
+
+class CartesianCounterDynamic
+{
+ private:
+  // Note: base is variable for each position!
+  int order_;
+  std::vector<uint128_t> base_;
+  std::vector<uint128_t> value_;
+  checked_uint128_t integer_;
+  checked_uint128_t endint_;
+
+  bool IncrementRecursive_(int position)
+  {
+    if (value_[position] < base_[position] - 1)
+    {
+      value_[position]++;
+      return true;
+    }
+    else if (position < order_ - 1)
+    {
+      value_[position] = 0;
+      return IncrementRecursive_(position + 1);
+    }
+    else
+    {
+      // Overflow! We could do one of 3 things:
+      // (a) Throw an exception.
+      // (b) Wrap-around to 0.
+      // (c) Saturate and return a code.
+      // We choose (c) for this implementation.
+      return false;
+    }
+  }
+
+  void UpdateIntegerFromValue()
+  {
+    integer_ = 0;
+    checked_uint128_t base = 1;
+    for (int i = 0; i < order_; i++)
+    {
+      integer_ += (checked_uint128_t(value_[i]) * base);
+      base *= base_[i];
+    }
+  }
+
+  void UpdateValueFromInteger()
+  {
+    uint128_t n = integer_;
+    for (int i = 0; i < order_; i++)
+    {
+      value_[i] = n % base_[i];
+      n = n / base_[i];
+    }
+  }
+
+ public:
+  CartesianCounterDynamic() = delete;
+
+  CartesianCounterDynamic(unsigned order) :
+      order_(order)
+  {
+    base_.resize(order_);
+    value_.resize(order_);
+  }
+  
+  CartesianCounterDynamic(std::vector<uint128_t> base) :
+      CartesianCounterDynamic(base.size())
+  {
+    Init(base);
+  }
+
+  template<typename T>
+  void Init(T base)
+  {
+    integer_ = 0;
+    endint_ = 1;
+    for (int i = 0; i < order_; i++)
+    {
+      base_[i] = base[i];
+      endint_ *= checked_uint128_t(base_[i]);
+      value_[i] = 0;
+    }
+  }
+
+  bool Increment()
+  {
+    integer_++;
+    return IncrementRecursive_(0);
+  }
+
+  std::vector<uint128_t> Read() const
+  {
+    return value_;
+  }
+
+  std::vector<uint128_t> Base() const
+  {
+    return base_;
+  }
+
+  uint128_t operator[] (int dim)
+  {
+    return value_[dim];
+  }
+
+  void Set(uint128_t n)
+  {
+    assert(order_ != 0);
+    assert(checked_uint128_t(n) < endint_);
+    integer_ = n;
+    UpdateValueFromInteger();
+  }
+
+  void Set(int dim, uint128_t v)
+  {
+    assert(dim < order_);
+    value_[dim] = v;
+    UpdateIntegerFromValue();
+    assert(integer_ < endint_);
+  }
+
+  void Set(std::vector<uint128_t> v)
+  {
+    order_ = v.size();
+    value_ = v;
+    UpdateIntegerFromValue();
+    assert(integer_ < endint_);
+  }
+
+  uint128_t EndInteger() const
+  {
+    return endint_;
+  }
+
+  uint128_t Integer() const
+  {
+    return integer_;
+  }
+};
+
+//------------------------------------
 //             Factoradic
 //------------------------------------
 

@@ -220,7 +220,7 @@ class Uber : public MapSpace
     // problem dimension.
     
     std::map<problem::Dimension, std::uint64_t> cofactors_order;
-    for (unsigned i = 0; i < unsigned(problem::Dimension::Num); i++)
+    for (unsigned i = 0; i < unsigned(problem::NumDimensions); i++)
     {
       // Factorize each problem dimension into num_tiling_levels partitions.
       cofactors_order[problem::Dimension(i)] = num_total_tiling_levels_;
@@ -230,7 +230,7 @@ class Uber : public MapSpace
     // object if any of the cofactors have been fixed and provided by the user. 
 
     std::map<problem::Dimension, std::map<unsigned, unsigned long>> prefactors;
-    std::vector<bool> exhausted_um_loops(int(problem::Dimension::Num), false);
+    std::vector<bool> exhausted_um_loops(int(problem::NumDimensions), false);
 
     for (unsigned level = 0; level < num_total_tiling_levels_; level++)
     {
@@ -564,7 +564,7 @@ class Uber : public MapSpace
     // Extract the index factors resulting from this ID for all loops at all levels.
     for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
     {
-      for (unsigned idim = 0; idim < unsigned(problem::Dimension::Num); idim++)
+      for (unsigned idim = 0; idim < unsigned(problem::NumDimensions); idim++)
       { 
         auto dim = problem::Dimension(idim);
         auto factor = index_factorization_space_.GetFactor(
@@ -659,7 +659,7 @@ class Uber : public MapSpace
     for (uint64_t i = 0; i < num_total_tiling_levels_; i++)
     {
       uint64_t num_subnests_added = 0;
-      for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+      for (int dim = 0; dim < int(problem::NumDimensions); dim++)
       {
         // Ignore trivial factors
         // This reduces computation time by 1.5x on average.
@@ -675,7 +675,7 @@ class Uber : public MapSpace
         {
           // Add a trivial temporal nest to make sure
           // we have at least one subnest in each level.
-          mapping->loop_nest.AddLoop(problem::Dimension(int(problem::Dimension::Num) - 1),
+          mapping->loop_nest.AddLoop(problem::Dimension(int(problem::NumDimensions) - 1),
                                      0, 1, 1, spacetime::Dimension::Time);
         }
         mapping->loop_nest.AddStorageTilingBoundary();
@@ -704,8 +704,8 @@ class Uber : public MapSpace
         ? spacetime::Dimension::SpaceX // Placeholder.
         : spacetime::Dimension::Time;
         
-      // Each partition has problem::Dimension::Num loops.
-      for (int idim = 0; idim < int(problem::Dimension::Num); idim++)
+      // Each partition has problem::NumDimensions loops.
+      for (int idim = 0; idim < int(problem::NumDimensions); idim++)
       {
         loop::Descriptor loop;
         loop.dimension = problem::Dimension(idim); // Placeholder.
