@@ -65,27 +65,6 @@ extern std::function<bool(const DataType d)> IsReadWriteDataType;
 namespace problem
 {
 
-enum class WeightDimension {
-  R,
-  S,
-  C,
-  K,
-  Num
-};
-enum class InputDimension {
-  W,
-  H,
-  C,
-  N,
-  Num
-};
-enum class OutputDimension {
-  P,
-  Q,
-  K,
-  N,
-  Num
-};
 enum class Dimension {
   R,
   S,

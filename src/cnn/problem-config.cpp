@@ -60,6 +60,28 @@ std::ostream& operator << (std::ostream& out, const Dimension& dim)
 
 void BuildProblemShape()
 {
+  enum class WeightDimension {
+    R,
+    S,
+    C,
+    K,
+    Num
+  };
+  enum class InputDimension {
+    W,
+    H,
+    C,
+    N,
+    Num
+  };
+  enum class OutputDimension {
+    P,
+    Q,
+    K,
+    N,
+    Num
+  };
+  
   DataTypeName = {
     {DataType::Weight, "Weights"},
     {DataType::Input,  "Inputs"},
