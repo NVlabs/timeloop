@@ -76,6 +76,7 @@ model/topology.cpp
 util/numeric.cpp
 util/map2d.cpp
 workload/problem-config.cpp
+workload/operation-space.cpp
 """)
 
 evaluator_sources = Split("""
@@ -94,6 +95,7 @@ model/topology.cpp
 util/numeric.cpp
 util/map2d.cpp
 workload/problem-config.cpp
+workload/operation-space.cpp
 """)
 
 metrics_sources = Split("""
@@ -109,6 +111,7 @@ model/topology.cpp
 util/numeric.cpp
 util/map2d.cpp
 workload/problem-config.cpp
+workload/operation-space.cpp
 """)
 
 env.Program(target = 'timeloop', source = timeloop_sources)

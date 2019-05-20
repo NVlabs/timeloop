@@ -27,21 +27,74 @@
 
 #pragma once
 
-#include <string>
-#include <tuple>
-#include <libconfig.h++>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
 
-#include "problem-config.hpp"
-#include "workload-config.hpp"
+#include "global-names.hpp"
 
 namespace problem
 {
 
-Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
-Densities GetLayerDensities(std::string layer_name);
-void ReadDensities(std::string filename);
-void DumpDensities(std::string filename);
-void DumpDensities_CPP(std::string filename);
-void ParseConfig(libconfig::Setting& problem, WorkloadConfig& workload);
+// ======================================== //
+//              WorkloadConfig              //
+// ======================================== //
 
-}
+class WorkloadConfig
+{
+  Bounds bounds_;
+  Densities densities_;
+
+  // Stride and dilation. FIXME: ugly.
+  int Wstride, Hstride;
+  int Wdilation, Hdilation;
+  
+ public:
+  WorkloadConfig() {}
+
+  int getBound(problem::Dimension dim) const
+  {
+    return bounds_.at(dim);
+  }
+  
+  double getDensity(problem::DataSpaceID pv) const
+  {
+    return densities_.at(pv);
+  }
+
+  int getWstride() const { return Wstride; }
+  void setWstride(const int s) { Wstride = s; }
+  
+  int getHstride() const { return Hstride; }
+  void setHstride(const int s) { Hstride = s; }
+
+  int getWdilation() const { return Wdilation; }
+  void setWdilation(const int s) { Wdilation = s; }
+
+  int getHdilation() const { return Hdilation; }
+  void setHdilation(const int s) { Hdilation = s; }
+
+  void setBounds(const std::map<problem::Dimension, int> &bounds)
+  {
+    bounds_ = bounds;
+  }
+  
+  void setDensities(const std::map<problem::DataSpaceID, double> &densities)
+  {
+    densities_ = densities;
+  }
+
+ private:
+  // Serialization
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar& BOOST_SERIALIZATION_NVP(bounds_);
+      ar& BOOST_SERIALIZATION_NVP(densities_);
+    }
+  }
+};
+
+} // namespace problem

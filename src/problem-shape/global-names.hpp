@@ -27,21 +27,30 @@
 
 #pragma once
 
-#include <string>
-#include <tuple>
-#include <libconfig.h++>
-
-#include "problem-config.hpp"
-#include "workload-config.hpp"
+#include <map>
+#include <functional>
+#include <vector>
 
 namespace problem
 {
 
-Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
-Densities GetLayerDensities(std::string layer_name);
-void ReadDensities(std::string filename);
-void DumpDensities(std::string filename);
-void DumpDensities_CPP(std::string filename);
-void ParseConfig(libconfig::Setting& problem, WorkloadConfig& workload);
+typedef unsigned Dimension;
 
-}
+extern unsigned NumDimensions;
+extern std::map<Dimension, std::string> DimensionName;
+extern std::map<char, Dimension> DimensionID;
+
+typedef unsigned DataSpaceID;
+
+extern unsigned NumDataSpaces;
+extern std::map<std::string, DataSpaceID> DataSpaceNameToID;
+extern std::map<DataSpaceID, std::string> DataSpaceIDToName;
+extern std::vector<unsigned> DataSpaceOrder;
+
+extern std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
+
+typedef std::map<Dimension, int> Bounds;
+typedef std::map<DataSpaceID, double> Densities;
+
+} // namespace problem
+

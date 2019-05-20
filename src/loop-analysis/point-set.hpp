@@ -27,8 +27,9 @@
 
 #pragma once
 
-#include <array>
+#include <vector>
 #include <cassert>
+#include <iostream>
 
 // We should have asserts turned on in this code.
 // They aren't very costly and we aren't fully sure if we are doing

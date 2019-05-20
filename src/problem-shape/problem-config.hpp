@@ -27,21 +27,14 @@
 
 #pragma once
 
-#include <string>
-#include <tuple>
-#include <libconfig.h++>
-
-#include "problem-config.hpp"
-#include "workload-config.hpp"
+#include "per-data-space.hpp"
+#include "per-problem-dimension.hpp"
 
 namespace problem
 {
 
-Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
-Densities GetLayerDensities(std::string layer_name);
-void ReadDensities(std::string filename);
-void DumpDensities(std::string filename);
-void DumpDensities_CPP(std::string filename);
-void ParseConfig(libconfig::Setting& problem, WorkloadConfig& workload);
+void ParseProblemShape();
 
-}
+PerDataSpace<std::size_t> GetMaxWorkingSetSizes(PerProblemDimension<int> dimension_sizes);
+
+} // namespace problem

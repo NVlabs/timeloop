@@ -97,7 +97,7 @@ class Application
   Application(libconfig::Config& config)
   {
     // Problem configuration.
-    problem::BuildProblemShape();
+    problem::ParseProblemShape();
     libconfig::Setting& problem = config.lookup("problem");
     problem::ParseConfig(problem, problem_config_);
     std::cout << "Problem configuration complete." << std::endl;

@@ -27,21 +27,59 @@
 
 #pragma once
 
-#include <string>
-#include <tuple>
-#include <libconfig.h++>
-
-#include "problem-config.hpp"
-#include "workload-config.hpp"
+#include "loop-analysis/point-set.hpp"
 
 namespace problem
 {
 
-Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
-Densities GetLayerDensities(std::string layer_name);
-void ReadDensities(std::string filename);
-void DumpDensities(std::string filename);
-void DumpDensities_CPP(std::string filename);
-void ParseConfig(libconfig::Setting& problem, WorkloadConfig& workload);
+// ======================================== //
+//                 DataSpace                //
+// ======================================== //
 
-}
+typedef PointSet DataSpace;
+
+// class DataSpace : public PointSet
+// {
+//  private:
+//   std::string name_;
+
+//  public:
+//   DataSpace() = delete;
+
+//   DataSpace(std::string name, std::uint32_t order) :
+//       PointSet(order),
+//       name_(name)
+//   { }
+  
+//   DataSpace(std::string name, std::uint32_t order, Point base, Point bound) :
+//       PointSet(order, base, bound),
+//       name_(name)
+//   { }
+
+//   DataSpace(const PointSet& p) :
+//       PointSet(p),
+//       name_("__UNNAMED__")
+//   { }
+
+//   std::string Name() const
+//   {
+//     return name_;
+//   }
+
+//   DataSpace operator - (const DataSpace& d)
+//   {
+//     PointSet delta = PointSet::operator - (d);
+//     DataSpace retval(delta);
+//     retval.name_ = name_;
+//     return retval;
+//   }
+
+//   void Print() const
+//   {
+//     std::cout << Name() << "[" << size() << "]: ";
+//     PointSet::Print();
+//     std::cout << std::endl;
+//   }
+// };
+
+} // namespace problem

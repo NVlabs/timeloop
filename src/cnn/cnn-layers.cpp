@@ -27,6 +27,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
 
 #include "cnn-layers.hpp"
 
