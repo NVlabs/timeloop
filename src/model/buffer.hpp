@@ -41,7 +41,7 @@ namespace model
 
 // A special-purpose class with a std::map-like interface used to hold
 // *either* a collection of values of type T, one for each data space,
-// *or* a single value of type T accessed with the key DataType::Num.
+// *or* a single value of type T accessed with the key DataSpaceID::Num.
 template<class T>
 class PerDataSpaceOrShared
 {
@@ -72,46 +72,46 @@ class PerDataSpaceOrShared
     shared = val;
   }
 
-  T & operator [] (problem::DataType pv)
+  T & operator [] (problem::DataSpaceID pv)
   {
-    if (pv == problem::DataType::Num)
+    if (pv == problem::NumDataSpaces)
     {
       assert(is_shared);
       return shared;
     }
     else
     {
-      assert(pv < problem::DataType::Num);
+      assert(pv < problem::NumDataSpaces);
       assert(is_per_data_space);
       return per_data_space[pv];
     }
   }
 
-  T & at(problem::DataType pv)
+  T & at(problem::DataSpaceID pv)
   {
-    if (pv == problem::DataType::Num)
+    if (pv == problem::NumDataSpaces)
     {
       assert(is_shared);
       return shared;
     }
     else
     {
-      assert(pv < problem::DataType::Num);
+      assert(pv < problem::NumDataSpaces);
       assert(is_per_data_space);
       return per_data_space[pv];
     }
   }
 
-  const T & at(problem::DataType pv) const
+  const T & at(problem::DataSpaceID pv) const
   {
-    if (pv == problem::DataType::Num)
+    if (pv == problem::NumDataSpaces)
     {
       assert(is_shared);
       return shared;
     }
     else
     {
-      assert(pv < problem::DataType::Num);
+      assert(pv < problem::NumDataSpaces);
       assert(is_per_data_space);
       return per_data_space[pv];
     }
@@ -178,8 +178,8 @@ class BufferLevel : public Level
 {
  public:
   
-  // DataType sharing.
-  enum class DataTypeSharing
+  // DataSpaceID sharing.
+  enum class DataSpaceIDSharing
   {
     Partitioned,
     Shared
@@ -191,22 +191,22 @@ class BufferLevel : public Level
 
   // Helper iterator.
   template<typename Functor>
-  static void ForEachDataType(Functor functor, DataTypeSharing sharing)
+  static void ForEachDataSpaceID(Functor functor, DataSpaceIDSharing sharing)
   {
     unsigned start_pvi, end_pvi;
-    if (sharing == DataTypeSharing::Shared)
+    if (sharing == DataSpaceIDSharing::Shared)
     {
-      start_pvi = end_pvi = unsigned(problem::DataType::Num);
+      start_pvi = end_pvi = unsigned(problem::NumDataSpaces);
     }
     else
     {
       start_pvi = 0;
-      end_pvi = unsigned(problem::DataType::Num)-1;
+      end_pvi = unsigned(problem::NumDataSpaces)-1;
     }
 
     for (unsigned pvi = start_pvi; pvi <= end_pvi; pvi++)
     {
-      functor(problem::DataType(pvi));
+      functor(problem::DataSpaceID(pvi));
     }
   }
 
@@ -218,7 +218,7 @@ class BufferLevel : public Level
     static const std::uint64_t kDefaultWordBits = 16;
     const std::string Type() const override { return "BufferLevel"; }
     
-    DataTypeSharing sharing_type;
+    DataSpaceIDSharing sharing_type;
 
     PerDataSpaceOrShared<Attribute<std::string>> name;
     PerDataSpaceOrShared<Attribute<Technology>> technology;
@@ -308,12 +308,12 @@ class BufferLevel : public Level
     }
     
     Specs() :
-        sharing_type(DataTypeSharing::Shared)
+        sharing_type(DataSpaceIDSharing::Shared)
     {
       Init();
     }
     
-    Specs(DataTypeSharing sharing) :
+    Specs(DataSpaceIDSharing sharing) :
         sharing_type(sharing)
     {
       Init();
@@ -322,7 +322,7 @@ class BufferLevel : public Level
     void Init()
     {
       // Initialize all parameters to "unspecified" default.
-      if (sharing_type == DataTypeSharing::Partitioned)
+      if (sharing_type == DataSpaceIDSharing::Partitioned)
       {
         name.SetPerDataSpace();
         technology.SetPerDataSpace();
@@ -352,7 +352,7 @@ class BufferLevel : public Level
         network.fanoutY.SetPerDataSpace();
         network.routerEnergy.SetPerDataSpace();
       }
-      else // sharing_type == DataTypeSharing::Shared
+      else // sharing_type == DataSpaceIDSharing::Shared
       {
         name.SetShared();
         technology.SetShared();
@@ -387,39 +387,39 @@ class BufferLevel : public Level
 
     // ----- Macro to add Accessors -----
 #define ADD_ACCESSORS(FuncName, MemberName, Type)                   \
-    Attribute<Type> & FuncName(problem::DataType pv)                \
+    Attribute<Type> & FuncName(problem::DataSpaceID pv)                \
     {                                                               \
-      return (sharing_type == DataTypeSharing::Partitioned)         \
+      return (sharing_type == DataSpaceIDSharing::Partitioned)         \
              ? MemberName[pv]                                       \
-             : MemberName[problem::DataType::Num];                  \
+             : MemberName[problem::NumDataSpaces];                  \
     }                                                               \
                                                                     \
-    const Attribute<Type> & FuncName(problem::DataType pv) const    \
+    const Attribute<Type> & FuncName(problem::DataSpaceID pv) const    \
     {                                                               \
-      return (sharing_type == DataTypeSharing::Partitioned)         \
+      return (sharing_type == DataSpaceIDSharing::Partitioned)         \
              ? MemberName.at(pv)                                    \
-             : MemberName.at(problem::DataType::Num);               \
+             : MemberName.at(problem::NumDataSpaces);               \
     }                                                               \
                                                                     \
     Attribute<Type> & FuncName()                                    \
     {                                                               \
-      assert(sharing_type == DataTypeSharing::Shared);              \
-      return MemberName[problem::DataType::Num];                    \
+      assert(sharing_type == DataSpaceIDSharing::Shared);              \
+      return MemberName[problem::NumDataSpaces];                    \
     }                                                               \
                                                                     \
     const Attribute<Type> & FuncName() const                        \
     {                                                               \
-      assert(sharing_type == DataTypeSharing::Shared);              \
-      return MemberName.at(problem::DataType::Num);                 \
+      assert(sharing_type == DataSpaceIDSharing::Shared);              \
+      return MemberName.at(problem::NumDataSpaces);                 \
     }                                                               
     // ----- End Macro -----
 
-    DataTypeSharing SharingType() const { return sharing_type; }
+    DataSpaceIDSharing SharingType() const { return sharing_type; }
     size_t NumPartitions() const
     {
-      return sharing_type == DataTypeSharing::Shared
+      return sharing_type == DataSpaceIDSharing::Shared
                              ? 1
-                             : size_t(problem::DataType::Num);
+                             : size_t(problem::NumDataSpaces);
     }
 
     ADD_ACCESSORS(Name, name, std::string)
@@ -580,7 +580,7 @@ class BufferLevel : public Level
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
   static Specs ParseSpecs(libconfig::Setting& setting);
-  static void ParseBufferSpecs(libconfig::Setting& buffer, problem::DataType pv, Specs& specs);
+  static void ParseBufferSpecs(libconfig::Setting& buffer, problem::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
   
   bool DistributedMulticastSupported() override;
@@ -601,20 +601,20 @@ class BufferLevel : public Level
   void ComputeAddrGenEnergy();
 
   // Accessors (post-evaluation).
-  double StorageEnergy(problem::DataType pv = problem::DataType::Num) const;
-  double NetworkEnergy(problem::DataType pv = problem::DataType::Num) const;
-  double TemporalReductionEnergy(problem::DataType pv = problem::DataType::Num) const;
-  double SpatialReductionEnergy(problem::DataType pv = problem::DataType::Num) const;
-  double AddrGenEnergy(problem::DataType pv = problem::DataType::Num) const;
+  double StorageEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
+  double NetworkEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
+  double TemporalReductionEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
+  double SpatialReductionEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
+  double AddrGenEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
   
-  double Energy(problem::DataType pv = problem::DataType::Num) const override;
+  double Energy(problem::DataSpaceID pv = problem::NumDataSpaces) const override;
  
   std::string Name() const override;
   double Area() const override;
   double AreaPerInstance() const override;
   double Size();
   std::uint64_t Cycles() const override;
-  std::uint64_t Accesses(problem::DataType pv = problem::DataType::Num) const override;
+  std::uint64_t Accesses(problem::DataSpaceID pv = problem::NumDataSpaces) const override;
   double CapacityUtilization() override;
   
   std::uint64_t MaxFanout() const override

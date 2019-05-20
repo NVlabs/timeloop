@@ -74,13 +74,13 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     libconfig::Setting& bypass = constraint.add("bypass", libconfig::Setting::TypeArray);
 
     auto& compound_mask = mask_nest.at(level);    
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
-      problem::DataType pv = problem::DataType(pvi);
+      problem::DataSpaceID pv = problem::DataSpaceID(pvi);
       if (compound_mask.at(pv))
-        keep.add(libconfig::Setting::TypeString) = problem::DataTypeName.at(pv);
+        keep.add(libconfig::Setting::TypeString) = problem::DataSpaceIDToName.at(pv);
       else
-        bypass.add(libconfig::Setting::TypeString) = problem::DataTypeName.at(pv);
+        bypass.add(libconfig::Setting::TypeString) = problem::DataSpaceIDToName.at(pv);
     }
   }
 

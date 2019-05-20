@@ -64,11 +64,11 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
     std::string xxx(arch_props_.StorageLevels(), 'X');
     xxx.back() = '1';
-    user_bypass_strings[problem::DataType(pvi)] = xxx;
+    user_bypass_strings[problem::DataSpaceID(pvi)] = xxx;
   }
 
   // Parse user-provided mapping.
@@ -181,9 +181,9 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
   // The user_mask input is a set of per-datatype strings. Each string has a length
   // equal to num_storage_levels, and contains the characters 0 (bypass), 1 (keep),
   // or X (evaluate both).    
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
 
     // Start parsing the user mask string.
     assert(user_bypass_strings.at(pv).length() <= arch_props_.StorageLevels());
@@ -352,7 +352,7 @@ void ParseUserDatatypeBypassSettings(libconfig::Setting& directive,
       
     for (const std::string& datatype_string: keep)
     {
-      auto datatype = problem::DataTypeID.at(datatype_string);
+      auto datatype = problem::DataSpaceNameToID.at(datatype_string);
       user_bypass_strings.at(datatype).at(level) = '1';
     }
   }
@@ -365,7 +365,7 @@ void ParseUserDatatypeBypassSettings(libconfig::Setting& directive,
       
     for (const std::string& datatype_string: bypass)
     {
-      auto datatype = problem::DataTypeID.at(datatype_string);
+      auto datatype = problem::DataSpaceNameToID.at(datatype_string);
       user_bypass_strings.at(datatype).at(level) = '0';
     }
   }

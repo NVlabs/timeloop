@@ -32,19 +32,19 @@
 namespace problem
 {
 
-// Think of this as std::array<T, DataType::Num>, except that the goal is
-// to support dynamic values of DataType::Num determined by reading user input.
+// Think of this as std::array<T, DataSpaceID::Num>, except that the goal is
+// to support dynamic values of DataSpaceID::Num determined by reading user input.
 template<class T>
 class PerDataSpace : public DynamicArray<T>
 {
  public:
   PerDataSpace() :
-    DynamicArray<T>(unsigned(DataType::Num))
+    DynamicArray<T>(NumDataSpaces)
   {
   }
 
   PerDataSpace(const T & val) :
-    DynamicArray<T>(unsigned(DataType::Num))
+    DynamicArray<T>(NumDataSpaces)
   {
     this->fill(val);
   }
@@ -52,37 +52,37 @@ class PerDataSpace : public DynamicArray<T>
   PerDataSpace(std::initializer_list<T> l) :
     DynamicArray<T>(l)
   {
-    assert(this->size() == unsigned(DataType::Num));
+    assert(this->size() == NumDataSpaces);
   }
 
   T & operator [] (unsigned pv)
   {
-    assert(pv < unsigned(DataType::Num));
+    assert(pv < NumDataSpaces);
     return DynamicArray<T>::at(pv);
   }
   const T & operator [] (unsigned pv) const
   {
-    assert(pv < unsigned(DataType::Num));
+    assert(pv < NumDataSpaces);
     return DynamicArray<T>::at(pv);
   }
 
-  T & operator [] (DataType pv)
-  {
-    return (*this)[unsigned(pv)];
-  }
-  const T & operator [] (DataType pv) const
-  {
-    return (*this)[unsigned(pv)];
-  }
+  // T & operator [] (DataSpaceID pv)
+  // {
+  //   return (*this)[unsigned(pv)];
+  // }
+  // const T & operator [] (DataSpaceID pv) const
+  // {
+  //   return (*this)[unsigned(pv)];
+  // }
 
-  T & at(DataType pv)
-  {
-    return (*this)[pv];
-  }
-  const T & at(DataType pv) const
-  {
-    return (*this)[pv];
-  }
+  // T & at(DataSpaceID pv)
+  // {
+  //   return (*this)[pv];
+  // }
+  // const T & at(DataSpaceID pv) const
+  // {
+  //   return (*this)[pv];
+  // }
 
   T & at(unsigned pv)
   {
@@ -105,9 +105,9 @@ class PerDataSpace : public DynamicArray<T>
 
   friend std::ostream& operator << (std::ostream& out, const PerDataSpace<T>& x)
   {
-    for (unsigned pvi = 0; pvi < unsigned(DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < NumDataSpaces; pvi++)
     {
-      out << std::setw(10) << DataType(pvi) << ": " << x[pvi] << std::endl;
+      out << std::setw(10) << DataSpaceIDToName[pvi] << ": " << x[pvi] << std::endl;
     }
     return out;
   }
@@ -130,7 +130,7 @@ class PerDataSpace : public DynamicArray<T>
 template<class T>
 std::ostream& operator<<(std::ostream& out, const PerDataSpace<T>& px)
 {
-  for (int i = 0; i < int(DataType::Num); i++)
+  for (unsigned i = 0; i < NumDataSpaces; i++)
   {
     out << px[i] << " ";
   }

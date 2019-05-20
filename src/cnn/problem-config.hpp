@@ -43,20 +43,15 @@ namespace problem
 
 void BuildProblemShape();
 
-enum class DataType : unsigned int
-{
-  Weight,
-  Input,
-  Output,
-  Num
-};
+typedef unsigned DataSpaceID;
 
-extern std::map<std::string, DataType> DataTypeID;
-extern std::map<DataType, std::string> DataTypeName;
+extern unsigned NumDataSpaces;
+extern std::map<std::string, DataSpaceID> DataSpaceNameToID;
+extern std::map<DataSpaceID, std::string> DataSpaceIDToName;
 
-std::ostream& operator<<(std::ostream& out, const DataType& d);
+// std::ostream& operator<<(std::ostream& out, const DataSpaceID& d);
 
-extern std::function<bool(const DataType d)> IsReadWriteDataType;
+extern std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
 
 } // namespace problem
 
@@ -90,7 +85,7 @@ class OperationPoint : public Point
 };
 
 typedef std::map<problem::Dimension, int> Bounds;
-typedef std::map<problem::DataType, double> Densities;
+typedef std::map<problem::DataSpaceID, double> Densities;
 
 // ======================================== //
 //              WorkloadConfig              //
@@ -113,7 +108,7 @@ class WorkloadConfig
     return bounds_.at(dim);
   }
   
-  double getDensity(problem::DataType pv) const
+  double getDensity(problem::DataSpaceID pv) const
   {
     return densities_.at(pv);
   }
@@ -135,7 +130,7 @@ class WorkloadConfig
     bounds_ = bounds;
   }
   
-  void setDensities(const std::map<problem::DataType, double> &densities)
+  void setDensities(const std::map<problem::DataSpaceID, double> &densities)
   {
     densities_ = densities;
   }
@@ -230,7 +225,7 @@ class OperationSpace
   bool CheckEquality(const OperationSpace& rhs, const int t) const;
   void PrintSizes();
   void Print() const;
-  void Print(DataType pv) const;
+  void Print(DataSpaceID pv) const;
 };
 
 PerDataSpace<std::size_t> GetMaxWorkingSetSizes(

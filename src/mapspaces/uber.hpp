@@ -175,14 +175,14 @@ class Uber : public MapSpace
       bool is_spatial_2D = false;
 
       auto& specs = *arch_specs_.topology.GetStorageLevel(i);
-      auto lambda = [&] (problem::DataType pv)
+      auto lambda = [&] (problem::DataSpaceID pv)
         {
           if (specs.Fanout(pv).Get() > 1)
             is_spatial = true;
           if (specs.FanoutX(pv).Get() > 1 && specs.FanoutY(pv).Get() > 1)
             is_spatial_2D = true;
         };
-      model::BufferLevel::ForEachDataType(lambda, specs.sharing_type);
+      model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
 
       if (is_spatial)
       {
@@ -350,11 +350,11 @@ class Uber : public MapSpace
     for (unsigned i = 0; i < arch_specs_.topology.NumStorageLevels(); i++)
     {
       auto& specs = *arch_specs_.topology.GetStorageLevel(i);
-      auto lambda = [&] (problem::DataType pv)
+      auto lambda = [&] (problem::DataSpaceID pv)
         {
           assert(specs.FanoutX(pv).IsSpecified() && specs.FanoutY(pv).IsSpecified());
         };
-      model::BufferLevel::ForEachDataType(lambda, specs.sharing_type);
+      model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
     }
   }
 
@@ -371,7 +371,7 @@ class Uber : public MapSpace
     // First, seed the space with a single mask with each bit set to 1.
     assert(datatype_bypass_nest_space_.empty());
     tiling::CompoundMaskNest seed_mask_nest;
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
       for (unsigned level = 0; level < arch_specs_.topology.NumStorageLevels(); level++)
       {
@@ -381,9 +381,9 @@ class Uber : public MapSpace
     datatype_bypass_nest_space_.push_back(seed_mask_nest);
 
     // Now parse the user strings and edit/expand the space as necessary.
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
-      auto pv = problem::DataType(pvi);
+      auto pv = problem::DataSpaceID(pvi);
 
       // Start parsing the user mask string.
       assert(user_bypass_strings.at(pv).length() <= arch_specs_.topology.NumStorageLevels());
@@ -805,7 +805,7 @@ class Uber : public MapSpace
 
       success &= (fanout_utilization >= min_utilization_);
       
-      // if (level_specs.SharingType() == model::Level::DataTypeSharing::Partitioned)
+      // if (level_specs.SharingType() == model::Level::DataSpaceIDSharing::Partitioned)
       // {
       //   success &= AssignSpatialTilingDirections_PartitionedLevel(
       //     mapping_spatial_id, subnests[level], level_specs);
@@ -863,7 +863,7 @@ class Uber : public MapSpace
 
     std::size_t fanout_max;
     
-    if (level_specs.SharingType() == model::BufferLevel::DataTypeSharing::Shared)
+    if (level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Shared)
     {
       if (x_expansion > level_specs.FanoutX().Get())
         success = false;
@@ -878,9 +878,9 @@ class Uber : public MapSpace
       std::size_t x_fanout_max = 0;
       std::size_t y_fanout_max = 0;
 
-      for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+      for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
       {
-        auto pv = problem::DataType(pvi);
+        auto pv = problem::DataSpaceID(pvi);
 
         if (x_expansion > level_specs.FanoutX(pv).Get())
           success = false;
@@ -973,18 +973,18 @@ class Uber : public MapSpace
 
     std::size_t fanout_max;
     
-    if (level_specs.SharingType() == model::BufferLevel::DataTypeSharing::Shared)
+    if (level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Shared)
     {
       // Shared level: required fanout is the max across all datatypes **kept at this level**.
       std::size_t x_max = 0;
       std::size_t y_max = 0;
 
-      for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+      for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
       {
         if (datatype_bypass_mask.at(pvi))
         {
-          x_max = std::max(x_max, x_sizes.at(problem::DataType(pvi)));
-          y_max = std::max(y_max, y_sizes.at(problem::DataType(pvi)));
+          x_max = std::max(x_max, x_sizes.at(problem::DataSpaceID(pvi)));
+          y_max = std::max(y_max, y_sizes.at(problem::DataSpaceID(pvi)));
         }
       }
 
@@ -1002,9 +1002,9 @@ class Uber : public MapSpace
       std::size_t x_fanout_max = 0;
       std::size_t y_fanout_max = 0;
 
-      for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+      for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
       {
-        auto pv = problem::DataType(pvi);
+        auto pv = problem::DataSpaceID(pvi);
         if (x_sizes.at(pv) > level_specs.FanoutX(pv).Get())
           success = false;
         if (y_sizes.at(pv) > level_specs.FanoutY(pv).Get())
@@ -1026,12 +1026,12 @@ class Uber : public MapSpace
     // if (success)
     // {
     //   std::cerr << "X: ";
-    //   for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
-    //     std::cerr << problem::DataType(pvi) << " = " << x_sizes.at(problem::DataType(pvi)) << " ";
+    //   for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
+    //     std::cerr << problem::DataSpaceID(pvi) << " = " << x_sizes.at(problem::DataSpaceID(pvi)) << " ";
     //   std::cerr << " max = " << x_max << " fanout = " << level_specs.FanoutX().Get() << std::endl;
     //   std::cerr << "Y: ";
-    //   for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
-    //     std::cerr << problem::DataType(pvi) << " = " << y_sizes.at(problem::DataType(pvi)) << " ";
+    //   for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
+    //     std::cerr << problem::DataSpaceID(pvi) << " = " << y_sizes.at(problem::DataSpaceID(pvi)) << " ";
     //   std::cerr << " max = " << y_max << " fanout = " << level_specs.FanoutY().Get() << std::endl;
     //   std::cerr << "util = " << fanout_utilization << std::endl;
     //   std::cerr << std::endl;
@@ -1062,7 +1062,7 @@ class Uber : public MapSpace
     // any purpose.
     (void)mapping_spatial_id;
     
-    assert(level_specs.SharingType() == model::BufferLevel::DataTypeSharing::Shared);
+    assert(level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Shared);
 
     bool success = true;
     
@@ -1082,9 +1082,9 @@ class Uber : public MapSpace
         // Iterate through each data type and determine how much this loop
         // would cause that datatype's fanout to inflate.
         problem::PerDataSpace<std::uint64_t> upd_fanout;
-        for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+        for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
         {
-          auto pv = problem::DataType(pvi);
+          auto pv = problem::DataSpaceID(pvi);
           if (true) // problem::IsSensitive(pv, loop->dimension))
           {
             upd_fanout[pv] = x_fanout[pv] * loop->end;
@@ -1114,9 +1114,9 @@ class Uber : public MapSpace
         // Iterate through each data type and determine how much this loop
         // would cause that datatype's fanout to inflate.
         problem::PerDataSpace<std::uint64_t> upd_fanout;
-        for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+        for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
         {
-          auto pv = problem::DataType(pvi);
+          auto pv = problem::DataSpaceID(pvi);
           if (true) // problem::IsSensitive(pv, loop->dimension))
           {
             upd_fanout[pv] = y_fanout[pv] * loop->end;
@@ -1161,7 +1161,7 @@ class Uber : public MapSpace
                                                       std::vector<loop::Descriptor>& level_nest,
                                                       model::BufferLevel::Specs& level_specs)
   {
-    assert(level_specs.SharingType() == model::BufferLevel::DataTypeSharing::Partitioned);
+    assert(level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Partitioned);
 
     (void)level_nest;
     assert(false);
@@ -1188,9 +1188,9 @@ class Uber : public MapSpace
     //     // Iterate through each data type and determine how much this loop
     //     // would cause that datatype's fanout to inflate.
     //     problem::PerDataSpace<std::uint64_t> upd_fanout;
-    //     for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    //     for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     //     {
-    //       auto pv = problem::DataType(pvi);
+    //       auto pv = problem::DataSpaceID(pvi);
     //       if (problem::IsSensitive(pv, loop->dimension))
     //       {
     //         upd_fanout[pv] = x_fanout[pv] * loop->end;
@@ -1220,9 +1220,9 @@ class Uber : public MapSpace
     //     // Iterate through each data type and determine how much this loop
     //     // would cause that datatype's fanout to inflate.
     //     problem::PerDataSpace<std::uint64_t> upd_fanout;
-    //     for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    //     for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     //     {
-    //       auto pv = problem::DataType(pvi);
+    //       auto pv = problem::DataSpaceID(pvi);
     //       if (problem::IsSensitive(pv, loop->dimension))
     //       {
     //         upd_fanout[pv] = y_fanout[pv] * loop->end;
@@ -1303,11 +1303,11 @@ class Uber : public MapSpace
 
     // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
     // FIXME: there's probably a cleaner way/place to initialize this.
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
       std::string xxx(arch_specs_.topology.NumStorageLevels(), 'X');
       xxx.back() = '1';
-      user_bypass_strings[problem::DataType(pvi)] = xxx;
+      user_bypass_strings[problem::DataSpaceID(pvi)] = xxx;
     }
 
     // Iterate over all the constraints.
@@ -1522,7 +1522,7 @@ class Uber : public MapSpace
       
       for (const std::string& datatype_string: keep)
       {
-        auto datatype = problem::DataTypeID.at(datatype_string);
+        auto datatype = problem::DataSpaceNameToID.at(datatype_string);
         user_bypass_strings.at(datatype).at(level) = '1';
       }
     }
@@ -1535,7 +1535,7 @@ class Uber : public MapSpace
       
       for (const std::string& datatype_string: bypass)
       {
-        auto datatype = problem::DataTypeID.at(datatype_string);
+        auto datatype = problem::DataSpaceNameToID.at(datatype_string);
         user_bypass_strings.at(datatype).at(level) = '0';
       }
     }

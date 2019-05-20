@@ -326,17 +326,17 @@ void ComputeFills(std::vector<TileInfo>& tile_nest)
 
 // Collapse tiles into a given number of levels.
 // Input and output are both arrays of tile nests,
-// with one nest per problem::DataType.
+// with one nest per problem::DataSpaceID.
 CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
                                const CompoundMaskNest& tile_mask,
                                const CompoundMaskNest& distribution_supported)
 {
-  // Constructing an array of tile nests, one for each problem::DataType.
+  // Constructing an array of tile nests, one for each problem::DataSpaceID.
   // From the tile data, select the size and accesses at the boundaries of each
   // storage level. Size comes from the outermost tile within the storage level,
   // and accesses comes from the innermost tile within the storage level.
   CompoundTileNest solution;
-  for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+  for (int pv = 0; pv < int(problem::NumDataSpaces); pv++)
   {
     int processed_loop_count = 0;  // number of loops that have been collapsed
     int cur_tiling_level = 0;
@@ -417,7 +417,7 @@ NestOfCompoundTiles TransposeTiles(const CompoundTileNest & tiles)
   for (std::size_t level = 0; level < num_levels; level++)
   {
     CompoundTile tile_level;
-    for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+    for (int pv = 0; pv < int(problem::NumDataSpaces); pv++)
     {
       tile_level[pv] = tiles[pv][level];
     }
@@ -434,7 +434,7 @@ NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks)
   for (std::size_t level = 0; level < MaxTilingLevels; level++)
   {
     CompoundMask mask_level;
-    for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+    for (int pv = 0; pv < int(problem::NumDataSpaces); pv++)
     {
       mask_level[pv] = masks[pv].test(level);
     }

@@ -46,6 +46,10 @@ const unsigned kDimensionC = 4;
 const unsigned kDimensionK = 5;
 const unsigned kDimensionN = 6;
 
+const unsigned kDataSpaceWeight = 0;
+const unsigned kDataSpaceInput = 1;
+const unsigned kDataSpaceOutput = 2;
+
 std::map<std::string, Bounds> layers = {
 
   {"TEST", {{kDimensionR, 3},
@@ -753,13 +757,13 @@ void ReadDensities(std::string filename)
     std::string layer = buf;
     
     getline(file, buf, ',');
-    densities.at(layer).at(problem::DataType::Weight) = atof(buf.data());
+    densities.at(layer).at(kDataSpaceWeight) = atof(buf.data());
 
     getline(file, buf, ',');
-    densities.at(layer).at(problem::DataType::Input) = atof(buf.data());
+    densities.at(layer).at(kDataSpaceInput) = atof(buf.data());
 
     getline(file, buf);
-    densities.at(layer).at(problem::DataType::Output) = atof(buf.data());
+    densities.at(layer).at(kDataSpaceOutput) = atof(buf.data());
   }
 
   file.close();
@@ -773,9 +777,9 @@ void DumpDensities(std::string filename)
   for (auto & layer : densities)
   {
     file << layer.first << ", ";
-    file << layer.second.at(problem::DataType::Weight) << ", ";
-    file << layer.second.at(problem::DataType::Input) << ", ";
-    file << layer.second.at(problem::DataType::Output) << std::endl;
+    file << layer.second.at(kDataSpaceWeight) << ", ";
+    file << layer.second.at(kDataSpaceInput) << ", ";
+    file << layer.second.at(kDataSpaceOutput) << std::endl;
   }
 
   file.close();
@@ -786,15 +790,22 @@ void DumpDensities_CPP(std::string filename)
 {
   std::ofstream file(filename);
 
-  file << "#include \"cnn-layers.hpp\"" << std::endl;
+  // file << "#include \"cnn-layers.hpp\"" << std::endl;
+  // file << std::endl;
+
+  // file << "const unsigned kDataSpaceWeight = " << kDataSpaceWeight << ";" << std::endl;
+  // file << "const unsigned kDataSpaceInput = " << kDataSpaceInput << ";" << std::endl;
+  // file << "const unsigned kDataSpaceOutput = " << kDataSpaceOutput << ";" << std::endl;
+  // file << std::endl;
+  
   file << "std::map<std::string, Densities> densities = {" << std::endl;
   
   for (auto & layer : densities)
   {
     file << "{\"" << layer.first << "\"," << std::endl;
-    file << "  {{" << "problem::DataType::Weight, " << layer.second.at(problem::DataType::Weight) << "}," << std::endl;
-    file << "   {" << "problem::DataType::Input, " << layer.second.at(problem::DataType::Input) << "}, " << std::endl;
-    file << "   {" << "problem::DataType::Output, " << layer.second.at(problem::DataType::Output) << "}}}," << std::endl;
+    file << "  {{" << "kDataSpaceWeight, " << layer.second.at(kDataSpaceWeight) << "}," << std::endl;
+    file << "   {" << "kDataSpaceInput, " << layer.second.at(kDataSpaceInput) << "}, " << std::endl;
+    file << "   {" << "kDataSpaceOutput, " << layer.second.at(kDataSpaceOutput) << "}}}," << std::endl;
   }
 
   file << "};" << std::endl;
@@ -850,16 +861,16 @@ void ParseConfig(libconfig::Setting& config, WorkloadConfig &workload)
   double common_density;
   if (config.lookupValue("commonDensity", common_density))
   {
-    densities[problem::DataType::Weight] = common_density;
-    densities[problem::DataType::Input] = common_density;
-    densities[problem::DataType::Output] = common_density;
+    densities[kDataSpaceWeight] = common_density;
+    densities[kDataSpaceInput] = common_density;
+    densities[kDataSpaceOutput] = common_density;
   }
   else if (config.exists("densities"))
   {
     libconfig::Setting &config_densities = config.lookup("densities");
-    assert(config_densities.lookupValue("weights", densities[problem::DataType::Weight]));
-    assert(config_densities.lookupValue("inputs", densities[problem::DataType::Input]));
-    assert(config_densities.lookupValue("outputs", densities[problem::DataType::Output]));
+    assert(config_densities.lookupValue("weights", densities[kDataSpaceWeight]));
+    assert(config_densities.lookupValue("inputs", densities[kDataSpaceInput]));
+    assert(config_densities.lookupValue("outputs", densities[kDataSpaceOutput]));
   }
   else if (layer_name != "")
   {
@@ -867,9 +878,9 @@ void ParseConfig(libconfig::Setting& config, WorkloadConfig &workload)
   }
   else
   {
-    densities[problem::DataType::Weight] = 1.0;
-    densities[problem::DataType::Input] = 1.0;
-    densities[problem::DataType::Output] = 1.0;
+    densities[kDataSpaceWeight] = 1.0;
+    densities[kDataSpaceInput] = 1.0;
+    densities[kDataSpaceOutput] = 1.0;
   }
   workload.setDensities(densities);
 }

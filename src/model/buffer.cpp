@@ -53,7 +53,7 @@ BufferLevel::BufferLevel(const Specs& specs) :
   is_evaluated_ = false;
 }
 
-void BufferLevel::ParseBufferSpecs(libconfig::Setting& buffer, problem::DataType pv, Specs& specs)
+void BufferLevel::ParseBufferSpecs(libconfig::Setting& buffer, problem::DataSpaceID pv, Specs& specs)
 {
   // Word Bits.
   std::uint32_t word_bits;
@@ -340,7 +340,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(libconfig::Setting& level)
     partitioned = true;
   }
   
-  DataTypeSharing sharing = partitioned ? DataTypeSharing::Partitioned : DataTypeSharing::Shared;
+  DataSpaceIDSharing sharing = partitioned ? DataSpaceIDSharing::Partitioned : DataSpaceIDSharing::Shared;
  
   // We now know if the buffer is partitioned or shared.
   // Start constructing the specs.
@@ -353,20 +353,20 @@ BufferLevel::Specs BufferLevel::ParseSpecs(libconfig::Setting& level)
 
     auto& buffers = level.lookup("buffers");
     assert(buffers.isList());
-    assert(buffers.getLength() == int(problem::DataType::Num));
+    assert(buffers.getLength() == int(problem::NumDataSpaces));
 
     // Ugly, FIXME: buffer specs are serially assigned to pvis.
     unsigned pvi = 0;
     for (auto& buffer: buffers)
     {
       // Sophia
-      ParseBufferSpecs(buffer, problem::DataType(pvi), specs);
+      ParseBufferSpecs(buffer, problem::DataSpaceID(pvi), specs);
       pvi++;
     }
   }
   else
   {
-    ParseBufferSpecs(level, problem::DataType::Num, specs);
+    ParseBufferSpecs(level, problem::NumDataSpaces, specs);
     specs.level_name = specs.Name().Get();
   }
 
@@ -382,7 +382,7 @@ void BufferLevel::ValidateTopology(BufferLevel::Specs& specs)
 {
   for (unsigned pvi = 0; pvi < specs.NumPartitions(); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     
     bool error = false;
     if (specs.Instances(pv).IsSpecified())
@@ -454,7 +454,7 @@ bool BufferLevel::DistributedMulticastSupported()
 
   for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     retval &= (specs_.NetworkType(pv).IsSpecified() &&
                specs_.NetworkType(pv).Get() == Specs::Network::Type::ManyToMany);
   }
@@ -478,11 +478,11 @@ bool BufferLevel::PreEvaluationCheck(
 {
   bool success = true;
   
-  if (specs_.sharing_type == DataTypeSharing::Partitioned)
+  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
   {
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
-      auto pv = problem::DataType(pvi);      
+      auto pv = problem::DataSpaceID(pvi);      
       if (specs_.Size(pv).IsSpecified() && mask[pvi])
       {
         // Ugh. If we can do a distributed multicast from this level,
@@ -510,7 +510,7 @@ bool BufferLevel::PreEvaluationCheck(
       }
     }
   }
-  else  // sharing_type == DataTypeSharing::Shared
+  else  // sharing_type == DataSpaceIDSharing::Shared
   {
     if (specs_.Size().IsSpecified())
     {
@@ -527,11 +527,11 @@ bool BufferLevel::PreEvaluationCheck(
 
       // Find the total capacity required by all un-masked data types.
       std::size_t required_capacity = 0;
-      for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+      for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
       {
         if (mask[pvi])
         {
-          required_capacity += working_set_sizes.at(problem::DataType(pvi));
+          required_capacity += working_set_sizes.at(problem::DataSpaceID(pvi));
         }
       }
 
@@ -575,14 +575,14 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
 {
   bool success = true;
   
-  // Subnest FSM should be same for each problem::DataType in the list,
+  // Subnest FSM should be same for each problem::DataSpaceID in the list,
   // so just copy it from datatype #0.
   subnest_ = tile[0].subnest;
 
-  // Stats are always collected per-DataType.
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  // Stats are always collected per-DataSpaceID.
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
 
     //
     // Collect stats.
@@ -595,7 +595,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
 
     assert((tile[pvi].size == 0) == (tile[pvi].content_accesses == 0));
 
-    if (problem::IsReadWriteDataType(pv))
+    if (problem::IsReadWriteDataSpace(pv))
     {
       // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
       assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
@@ -667,7 +667,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
     // 1. link transfers should result in buffer accesses to a peer.
     // 2. should reductions via link transfers be counted as spatial or temporal?
     stats_.network.link_transfers[pv] = tile[pvi].link_transfers;
-    if (problem::IsReadWriteDataType(pv))
+    if (problem::IsReadWriteDataSpace(pv))
     {
       stats_.network.spatial_reductions[pv] += tile[pvi].link_transfers;
     }
@@ -692,7 +692,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
         {
           stats_.network.multicast_factor[pv] = factor;
         }
-        if (problem::IsReadWriteDataType(pv))
+        if (problem::IsReadWriteDataSpace(pv))
         {
           stats_.network.spatial_reductions[pv] += (i * stats_.network.ingresses[pv][i]);
         }
@@ -702,11 +702,11 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
   }
 
   // Derive/validate architecture specs based on stats.
-  if (specs_.sharing_type == DataTypeSharing::Partitioned)
+  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
   {
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
-      auto pv = problem::DataType(pvi);
+      auto pv = problem::DataSpaceID(pvi);
       
       if (!specs_.Tech(pv).IsSpecified())
         specs_.Tech(pv) = Technology::SRAM;
@@ -756,7 +756,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
         break;
     }
   }
-  else  // sharing_type == DataTypeSharing::Shared
+  else  // sharing_type == DataSpaceIDSharing::Shared
   {
     if (!specs_.Tech().IsSpecified())
       specs_.Tech() = Technology::SRAM;
@@ -825,9 +825,9 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
 
   // Compute utilized clusters.
   // FIXME: should derive this from precise spatial mapping.
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     // The following equation assumes fully condensed mapping. Do a ceil-div.
     // stats_.utilized_clusters[pv] = 1 + (stats_.utilized_instances[pv] - 1) /
     //    specs_.ClusterSize(pv).Get();
@@ -846,16 +846,16 @@ void BufferLevel::ComputeArea()
 {
   // YUCK. FIXME. The area is now already stored in a specs_ attribute.
   // The stats_ here are just a copy of the specs_. Do we really need both?
-  if (specs_.sharing_type == DataTypeSharing::Partitioned)
+  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
   {
     stats_.area.SetPerDataSpace();
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
-      auto pv = problem::DataType(pvi);
+      auto pv = problem::DataSpaceID(pvi);
       stats_.area[pv] =  specs_.StorageArea(pv).Get();
     }
   }
-  else  // sharing_type == DataTypeSharing::Shared
+  else  // sharing_type == DataSpaceIDSharing::Shared
   {
     // Store the total area in the Num/All slot. We used to split it up between the
     // various data-types depending on their contribution towards utilization, but
@@ -868,10 +868,10 @@ void BufferLevel::ComputeArea()
 // Compute buffer energy.
 void BufferLevel::ComputeBufferEnergy()
 {
-  // NOTE! Stats are always maintained per-DataType
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  // NOTE! Stats are always maintained per-DataSpaceID
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     auto instance_accesses = stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv);
 
     auto block_size = specs_.BlockSize(pv).Get();
@@ -901,10 +901,10 @@ void BufferLevel::ComputeNetworkEnergy(const double inner_tile_area)
 
 #define MULTICAST_MODEL PROBABILISTIC_MULTICAST
   
-  // NOTE! Stats are always maintained per-DataType
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  // NOTE! Stats are always maintained per-DataSpaceID
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
 
     double energy_per_hop =
             WireEnergyPerHop(specs_.NetworkWordBits(pv).Get(), inner_tile_area);
@@ -949,7 +949,7 @@ void BufferLevel::ComputeNetworkEnergy(const double inner_tile_area)
         unsigned num_hops = 0;
         
         // Weights are multicast, and energy is already captured in array access.
-        if (pv != problem::DataType::Weight)
+        if (pv != problem::DataSpaceID::Weight)
         {
           // Input and Output activations are forwarded between neighboring PEs,
           // so the number of link transfers is equal to the multicast factor-1.
@@ -987,10 +987,10 @@ void BufferLevel::ComputeReductionEnergy()
 {
   // Temporal reduction: add a value coming in on the network to a value stored locally.
   // Spatial reduction: add two values in the network.
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
-    if (problem::IsReadWriteDataType(pv))
+    auto pv = problem::DataSpaceID(pvi);
+    if (problem::IsReadWriteDataSpace(pv))
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
         pat::AdderEnergy(specs_.WordBits(pv).Get(), specs_.NetworkWordBits(pv).Get());
@@ -1014,12 +1014,12 @@ void BufferLevel::ComputeAddrGenEnergy()
   // Note! Address-generation is amortized across the cluster width.
   // We compute the per-cluster energy here. When we sum across instances,
   // we need to be careful to only count each cluster once.
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
     // We'll use an addr-gen-bits + addr-gen-bits adder, though
     // it's probably cheaper than that. However, we can't assume
     // a 1-bit increment.
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     stats_.addr_gen_energy[pv] = stats_.address_generations[pv] *
       pat::AdderEnergy(specs_.AddrGenBits(pv).Get(), specs_.AddrGenBits(pv).Get());
   }
@@ -1034,7 +1034,7 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   double word_size = 0;
   for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     word_size = std::max(word_size, double(specs_.WordBits(pv).Get()) / 8);
   }
   
@@ -1043,9 +1043,9 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   //
   problem::PerDataSpace<double> unconstrained_read_bandwidth;
   problem::PerDataSpace<double> unconstrained_write_bandwidth;
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     // FIXME: move the following code to Network bandwidth calculation.
     // auto total_ingresses =
     //   std::accumulate(stats_.network.ingresses.at(pv).begin(),
@@ -1060,12 +1060,12 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   // Step 2: Compare vs. specified bandwidth and calculate slowdown.
   //
   stats_.slowdown = 1.0;
-  if (specs_.sharing_type == DataTypeSharing::Partitioned)
+  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
   {
     // Find worst slowdown (if bandwidth was specified).
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
-      auto pv = problem::DataType(pvi);
+      auto pv = problem::DataSpaceID(pvi);
       if (specs_.ReadBandwidth(pv).IsSpecified() &&
           specs_.ReadBandwidth(pv).Get() < unconstrained_read_bandwidth.at(pv))
       {
@@ -1083,7 +1083,7 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
     }
 
   }
-  else // specs_.sharing_type == DataTypeSharing::Shared
+  else // specs_.sharing_type == DataSpaceIDSharing::Shared
   {
     // Find slowdown.
     auto total_unconstrained_read_bandwidth  = std::accumulate(unconstrained_read_bandwidth.begin(),  unconstrained_read_bandwidth.end(),  0.0);
@@ -1111,9 +1111,9 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   // ends up effectively slowing down each datatype's bandwidth by the slowdown
   // amount, which is slightly weird but appears to be harmless.
   //
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     stats_.read_bandwidth[pv]  = stats_.slowdown * unconstrained_read_bandwidth.at(pv);
     stats_.write_bandwidth[pv] = stats_.slowdown * unconstrained_write_bandwidth.at(pv);
   }
@@ -1126,11 +1126,11 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   //
   // Step 5: Update arch specs.
   //
-  if (specs_.sharing_type == DataTypeSharing::Partitioned)
+  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
   {
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
-      auto pv = problem::DataType(pvi);
+      auto pv = problem::DataSpaceID(pvi);
       if (!specs_.ReadBandwidth(pv).IsSpecified())
         specs_.ReadBandwidth(pv) = stats_.read_bandwidth.at(pv);        
       if (!specs_.WriteBandwidth(pv).IsSpecified())
@@ -1151,35 +1151,35 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
 //
 
 #define STAT_ACCESSOR(Type, FuncName, Expression)                         \
-Type BufferLevel::FuncName(problem::DataType pv) const                    \
+Type BufferLevel::FuncName(problem::DataSpaceID pv) const                    \
 {                                                                         \
-  if (pv != problem::DataType::Num)                                       \
+  if (pv != problem::NumDataSpaces)                                       \
   {                                                                       \
     return Expression;                                                    \
   }                                                                       \
   else                                                                    \
   {                                                                       \
     Type stat = 0;                                                        \
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++) \
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++) \
     {                                                                     \
-      stat += FuncName(problem::DataType(pvi));                           \
+      stat += FuncName(problem::DataSpaceID(pvi));                           \
     }                                                                     \
     return stat;                                                          \
   }                                                                       \
 }
 
-// double BufferLevel::StorageEnergy(problem::DataType pv) const
+// double BufferLevel::StorageEnergy(problem::DataSpaceID pv) const
 // {                                                                         
-//   if (pv != problem::DataType::Num)                                       
+//   if (pv != problem::NumDataSpaces)                                       
 //   {                                                                       
 //     return stats_.energy.at(pv) * stats_.utilized_instances.at(pv);                                                    
 //   }                                                                       
 //   else                                                                    
 //   {                                                                       
 //     double stat = 0;                                                        
-//     for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++) 
+//     for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++) 
 //     {                                                                     
-//       stat += StorageEnergy(problem::DataType(pvi));                           
+//       stat += StorageEnergy(problem::DataSpaceID(pvi));                           
 //     }                                                                     
 //     return stat;                                                          
 //   }                                                                       
@@ -1201,19 +1201,19 @@ STAT_ACCESSOR(std::uint64_t, Accesses, stats_.utilized_instances.at(pv) * (stats
 
 std::string BufferLevel::Name() const
 {
-  return (specs_.sharing_type == DataTypeSharing::Shared ?
+  return (specs_.sharing_type == DataSpaceIDSharing::Shared ?
           specs_.Name().Get() :
-          specs_.Name(problem::DataType(0)).Get());  
+          specs_.Name(problem::DataSpaceID(0)).Get());  
 }
 
 double BufferLevel::Area() const
 {
   double area = 0;
-  if (specs_.sharing_type == DataTypeSharing::Partitioned)
+  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
   {
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
-      auto pv = problem::DataType(pvi);
+      auto pv = problem::DataSpaceID(pvi);
       area += specs_.StorageArea(pv).Get() * specs_.Instances(pv).Get();
     }
   }
@@ -1227,17 +1227,17 @@ double BufferLevel::Area() const
 double BufferLevel::AreaPerInstance() const
 {
   double area = 0;
-  if (specs_.sharing_type == DataTypeSharing::Partitioned)
+  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
   {
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
     {
-      auto pv = problem::DataType(pvi);
+      auto pv = problem::DataSpaceID(pvi);
       area += stats_.area.at(pv);
     }
   }
   else
   {
-    auto pv = problem::DataType::Num;
+    auto pv = problem::NumDataSpaces;
     area += stats_.area.at(pv);
   }  
   return area;
@@ -1249,16 +1249,16 @@ double BufferLevel::Size()
   // convention of some of the other methods, which are summed across instances.
   double size = 0;
   for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
-    size += specs_.Size(problem::DataType(pvi)).Get();
+    size += specs_.Size(problem::DataSpaceID(pvi)).Get();
   return size;
 }
 
 double BufferLevel::CapacityUtilization()
 {
   double utilized_capacity = 0;
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     utilized_capacity += stats_.utilized_capacity.at(pv) *
       stats_.utilized_instances.at(pv);
   }
@@ -1329,21 +1329,21 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
   unsigned start_pv, end_pv;
-  if (specs.sharing_type == BufferLevel::DataTypeSharing::Partitioned)
+  if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Partitioned)
   {
     start_pv = 0;
-    end_pv = unsigned(problem::DataType::Num)-1;
+    end_pv = unsigned(problem::NumDataSpaces)-1;
   }
   else
   {
-    start_pv = end_pv = unsigned(problem::DataType::Num);
+    start_pv = end_pv = unsigned(problem::NumDataSpaces);
   }
 
   for (unsigned pvi = start_pv; pvi <= end_pv; pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
 
-    if (specs.sharing_type == BufferLevel::DataTypeSharing::Partitioned && specs.Name(pv).IsSpecified())
+    if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Partitioned && specs.Name(pv).IsSpecified())
     {
       out << indent << "= " << specs.Name(pv).Get() << " =" << std::endl;
     }
@@ -1397,10 +1397,10 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << "Cycles               : " << stats.cycles << std::endl;
   out << indent << "Bandwidth throttling : " << stats.slowdown << std::endl;
   
-  // Print per-DataType stats.
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  // Print per-DataSpaceID stats.
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
 
     if (stats.keep.at(pv))
     {
@@ -1437,7 +1437,7 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent << "Write Bandwidth (total)                  : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " bytes/cycle" << std::endl;
     }
 
-    if (specs.sharing_type == BufferLevel::DataTypeSharing::Partitioned)
+    if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Partitioned)
     {
       if (stats.utilized_capacity.at(pv) == 0 && specs.Size(pv).IsSpecified() && specs.Size(pv).Get() > 0)
         out << indent << pv << std::endl;
@@ -1448,9 +1448,9 @@ void BufferLevel::Print(std::ostream& out) const
   }
 
   // Print area for shared buffers.
-  if (specs.sharing_type == BufferLevel::DataTypeSharing::Shared)
+  if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Shared)
   {
-    auto pv = problem::DataType::Num;
+    auto pv = problem::NumDataSpaces;
     out << indent << "Shared" << std::endl;
     out << indent + indent << "Area (per-instance)                      : " << stats.area.at(pv) << " um2" << std::endl;
   }
@@ -1459,9 +1459,9 @@ void BufferLevel::Print(std::ostream& out) const
 
   out << indent << "NETWORK STATS" << std::endl;
   out << indent << "-------------" << std::endl;
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::DataSpaceID(pvi);
     out << indent << pv << std::endl;
 
     out << indent + indent << "Fanout                                  : "

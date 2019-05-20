@@ -48,13 +48,13 @@ class Level : public Module
   virtual bool Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                         const double inner_tile_area, const std::uint64_t compute_cycles) = 0;
   
-  virtual double Energy(problem::DataType pv = problem::DataType::Num) const = 0;
+  virtual double Energy(problem::DataSpaceID pv = problem::NumDataSpaces) const = 0;
   
   virtual std::string Name() const = 0;
   virtual double Area() const = 0;
   virtual double AreaPerInstance() const = 0;
   virtual std::uint64_t Cycles() const = 0;
-  virtual std::uint64_t Accesses(problem::DataType pv = problem::DataType::Num) const = 0;
+  virtual std::uint64_t Accesses(problem::DataSpaceID pv = problem::NumDataSpaces) const = 0;
   virtual double CapacityUtilization() = 0;
   virtual std::uint64_t MaxFanout() const = 0;
   

@@ -33,18 +33,19 @@ namespace problem
 {
 
 unsigned NumDimensions;
-std::map<DataType, std::string> DataTypeName;
-std::map<std::string, DataType> DataTypeID;
-std::vector<unsigned> DataTypeOrder;
+unsigned NumDataSpaces;
+std::map<DataSpaceID, std::string> DataSpaceIDToName;
+std::map<std::string, DataSpaceID> DataSpaceNameToID;
+std::vector<unsigned> DataSpaceOrder;
 
-std::function<bool(const DataType d)> IsReadWriteDataType;
+std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
 std::vector<std::function<Point(WorkloadConfig*, const OperationPoint&)>> projectors;
 
-std::ostream& operator << (std::ostream& out, const DataType& d)
-{
-  out << DataTypeName[d];
-  return out;
-}
+// std::ostream& operator << (std::ostream& out, const DataSpaceID& d)
+// {
+//   out << DataSpaceIDToName[d];
+//   return out;
+// }
 
 std::map<Dimension, std::string> DimensionName;
 std::map<char, Dimension> DimensionID;
@@ -62,6 +63,7 @@ std::map<char, Dimension> DimensionID;
 void BuildProblemShape()
 {
   NumDimensions = 7;
+  NumDataSpaces = 3;
   
   enum class WeightDimension {
     R,
@@ -84,28 +86,36 @@ void BuildProblemShape()
     N,
     Num
   };
+
+  // enum class DataSpaceID : unsigned int
+  // {
+  //   Weight,
+  //   Input,
+  //   Output,
+  //   Num
+  // };
   
-  DataTypeName = {
-    {DataType::Weight, "Weights"},
-    {DataType::Input,  "Inputs"},
-    {DataType::Output, "Outputs"},
-    {DataType::Num,    "Shared/Illegal"}};
+  DataSpaceIDToName = {
+    {0, "Weights"},
+    {1, "Inputs"},
+    {2, "Outputs"},
+    {3, "Shared/Illegal"}};
 
-  DataTypeID = {
-    {"Weights", DataType::Weight},
-    {"Inputs", DataType::Input},
-    {"Outputs", DataType::Output},
-    {"Shared/Illegal", DataType::Num}};
+  DataSpaceNameToID = {
+    {"Weights", 0},
+    {"Inputs", 1},
+    {"Outputs", 2},
+    {"Shared/Illegal", 3}};
 
-  DataTypeOrder = {
+  DataSpaceOrder = {
     unsigned(WeightDimension::Num),
     unsigned(InputDimension::Num),
     unsigned(OutputDimension::Num) };
 
-  IsReadWriteDataType = [](const DataType d) -> bool
+  IsReadWriteDataSpace = [](const DataSpaceID d) -> bool
     {
-      // ASSERT(d < DataType::Num);
-      return d == DataType::Output;
+      // ASSERT(d < DataSpaceID::Num);
+      return d == 2; // DataSpaceID::Output;
     };
   
   DimensionName = {{0, "R"},
@@ -179,8 +189,8 @@ void BuildProblemShape()
 OperationSpace::OperationSpace(WorkloadConfig* wc) :
     workload_config_(wc)
 {
-  for (unsigned space_id = 0; space_id < unsigned(DataType::Num); space_id++)
-    data_spaces_.push_back(DataSpace(DataTypeOrder.at(space_id)));
+  for (unsigned space_id = 0; space_id < NumDataSpaces; space_id++)
+    data_spaces_.push_back(DataSpace(DataSpaceOrder.at(space_id)));
 }
 
 OperationSpace::OperationSpace() :
@@ -190,14 +200,14 @@ OperationSpace::OperationSpace() :
 OperationSpace::OperationSpace(WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high) :
     workload_config_(wc)
 {
-  for (unsigned space_id = 0; space_id < unsigned(DataType::Num); space_id++)
+  for (unsigned space_id = 0; space_id < NumDataSpaces; space_id++)
   {
     auto space_low = projectors.at(space_id)(workload_config_, low);
     auto space_high = projectors.at(space_id)(workload_config_, high);
     // Increment the high points by 1 because the AAHR constructor wants
     // an exclusive max point.
     space_high.IncrementAllDimensions();
-    data_spaces_.push_back(DataSpace(DataTypeOrder.at(space_id), space_low, space_high));
+    data_spaces_.push_back(DataSpace(DataSpaceOrder.at(space_id), space_low, space_high));
   }
 }
 
@@ -261,8 +271,8 @@ bool OperationSpace::CheckEquality(const OperationSpace& rhs, const int t) const
 void OperationSpace::PrintSizes()
 {
   for (unsigned i = 0; i < data_spaces_.size()-1; i++)
-    std::cout << DataType(i) << " = " << data_spaces_.at(i).size() << ", ";
-  std::cout << DataType(data_spaces_.size()-1) << " = " << data_spaces_.back().size() << std::endl;
+    std::cout << DataSpaceIDToName[i] << " = " << data_spaces_.at(i).size() << ", ";
+  std::cout << DataSpaceIDToName[data_spaces_.size()-1] << " = " << data_spaces_.back().size() << std::endl;
 }
 
 void OperationSpace::Print() const
@@ -271,7 +281,7 @@ void OperationSpace::Print() const
     d.Print();
 }
 
-void OperationSpace::Print(DataType pv) const
+void OperationSpace::Print(DataSpaceID pv) const
 {
   auto& d = data_spaces_.at(unsigned(pv));
   d.Print();
@@ -283,19 +293,19 @@ PerDataSpace<std::size_t> GetMaxWorkingSetSizes(
 {
   PerDataSpace<std::size_t> datatype_size;
 
-  // R*S*C*K
-  datatype_size[DataType::Weight] =
+  // Weight: R*S*C*K
+  datatype_size[0] =
       dimension_sizes[0] * dimension_sizes[1] *
       dimension_sizes[4] * dimension_sizes[5];
 
-  // (P+R-1)*(Q+S-1)*C*N
-  datatype_size[DataType::Input] =
+  // Input: (P+R-1)*(Q+S-1)*C*N
+  datatype_size[1] =
       (dimension_sizes[2] + dimension_sizes[0] - 1) *
       (dimension_sizes[3] + dimension_sizes[1] - 1) *
       dimension_sizes[4] * dimension_sizes[6];
 
-  // P*Q*K*N
-  datatype_size[DataType::Output] =
+  // Output: P*Q*K*N
+  datatype_size[2] =
       dimension_sizes[2] * dimension_sizes[3] *
       dimension_sizes[5] * dimension_sizes[6];
   
