@@ -45,6 +45,10 @@ unsigned NumDimensions;
 std::map<Dimension, std::string> DimensionName;
 std::map<char, Dimension> DimensionID;
 
+// unsigned NumParameters;
+// std::map<Parameter, std::string> ParameterName;
+// std::map<std::string, Parameter> ParameterID;
+
 unsigned NumDataSpaces;
 std::map<DataSpaceID, std::string> DataSpaceIDToName;
 std::map<std::string, DataSpaceID> DataSpaceNameToID;
@@ -59,28 +63,6 @@ void ParseProblemShape()
   NumDimensions = 7;
   NumDataSpaces = 3;
   
-  enum class WeightDimension {
-    R,
-    S,
-    C,
-    K,
-    Num
-  };
-  enum class InputDimension {
-    W,
-    H,
-    C,
-    N,
-    Num
-  };
-  enum class OutputDimension {
-    P,
-    Q,
-    K,
-    N,
-    Num
-  };
-
   DataSpaceIDToName = {
     {0, "Weights"},
     {1, "Inputs"},
@@ -93,11 +75,10 @@ void ParseProblemShape()
     {"Outputs", 2},
     {"Shared/Illegal", 3}};
 
-  DataSpaceOrder = {
-    unsigned(WeightDimension::Num),
-    unsigned(InputDimension::Num),
-    unsigned(OutputDimension::Num) };
-
+  DataSpaceOrder = { 4, // Weight
+                     4, // Input
+                     4 }; // Output
+  
   IsReadWriteDataSpace = [](const DataSpaceID d) -> bool
     {
       // ASSERT(d < DataSpaceID::Num);
@@ -126,28 +107,30 @@ void ParseProblemShape()
       {
         (void) wc;
 
-        Point weight_point(int(WeightDimension::Num));
+        Point weight_point(DataSpaceOrder[0]);
 
-        weight_point[int(WeightDimension::R)] = problem_point[0]; // R
-        weight_point[int(WeightDimension::S)] = problem_point[1]; // S
-        weight_point[int(WeightDimension::C)] = problem_point[4]; // C
-        weight_point[int(WeightDimension::K)] = problem_point[5]; // K
+        // R,S,C,K
+        weight_point[0] = problem_point[0]; // R
+        weight_point[1] = problem_point[1]; // S
+        weight_point[2] = problem_point[4]; // C
+        weight_point[3] = problem_point[5]; // K
 
         return weight_point;
       },
       [](WorkloadConfig* wc, const OperationPoint& problem_point)
       {
-        Point input_point(int(InputDimension::Num));
-        
-        input_point[int(InputDimension::W)] =
+        Point input_point(DataSpaceOrder[1]);
+
+        // W,H,C,N
+        input_point[0] =
           wc->getWstride() * problem_point[2] +  // P
           wc->getWdilation() * problem_point[0]; // R
-        input_point[int(InputDimension::H)] =
+        input_point[1] =
           wc->getHstride() * problem_point[3] +  // Q
           wc->getHdilation() * problem_point[1]; // S
         
-        input_point[int(InputDimension::C)] = problem_point[4]; // C
-        input_point[int(InputDimension::N)] = problem_point[6]; // N
+        input_point[2] = problem_point[4]; // C
+        input_point[3] = problem_point[6]; // N
 
         return input_point;
       },
@@ -155,13 +138,14 @@ void ParseProblemShape()
       {
         (void) wc;
 
-        Point output_point(int(OutputDimension::Num));
+        Point output_point(DataSpaceOrder[2]);
+
+        // P,Q,K,N
+        output_point[0] = problem_point[2]; // P
+        output_point[1] = problem_point[3]; // Q
         
-        output_point[int(OutputDimension::P)] = problem_point[2]; // P
-        output_point[int(OutputDimension::Q)] = problem_point[3]; // Q
-        
-        output_point[int(OutputDimension::K)] = problem_point[5]; // K
-        output_point[int(OutputDimension::N)] = problem_point[6]; // N
+        output_point[2] = problem_point[5]; // K
+        output_point[3] = problem_point[6]; // N
 
         return output_point;
       }
