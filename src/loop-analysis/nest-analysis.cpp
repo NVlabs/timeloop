@@ -130,19 +130,21 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
 {
   std::vector<problem::PerDataSpace<std::size_t>> working_set_sizes;
 
-  problem::PerProblemDimension<int> dimension_sizes;
-  dimension_sizes.fill(1);
+  problem::OperationPoint origin;
+  problem::OperationPoint dimension_sizes;
+  dimension_sizes.IncrementAllDimensions(); // initialize to { 1, 1, 1... }
 
   unsigned tiling_level = 0;
   for (unsigned loop_level = 0; loop_level < nest_state_.size(); loop_level++)
   {
     auto & loop = nest_state_.at(loop_level).descriptor;
     ASSERT(loop.stride == 1);
-    dimension_sizes[int(loop.dimension)] *= loop.end;
+    dimension_sizes[loop.dimension] *= loop.end;
         
     if (loop_level == storage_tiling_boundaries_.at(tiling_level))
     {
-      working_set_sizes.push_back(problem::GetMaxWorkingSetSizes(dimension_sizes));
+      problem::OperationSpace maxtile(workload_config_, origin, dimension_sizes, false);
+      working_set_sizes.push_back(maxtile.GetSizes());
       tiling_level++;
     }
   }

@@ -30,11 +30,13 @@
 namespace problem
 {
 
-// ======================================== //
-//             OperationSpace               //
-// ======================================== //
+extern std::vector<std::function<Point(const WorkloadConfig*, const OperationPoint&)>> Projectors;
 
-OperationSpace::OperationSpace(WorkloadConfig* wc) :
+// ======================================= //
+//              OperationSpace             //
+// ======================================= //
+
+OperationSpace::OperationSpace(const WorkloadConfig* wc) :
     workload_config_(wc)
 {
   for (unsigned space_id = 0; space_id < NumDataSpaces; space_id++)
@@ -45,7 +47,7 @@ OperationSpace::OperationSpace() :
     OperationSpace(nullptr)
 { }
 
-OperationSpace::OperationSpace(WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high) :
+OperationSpace::OperationSpace(const WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high, bool inclusive) :
     workload_config_(wc)
 {
   for (unsigned space_id = 0; space_id < NumDataSpaces; space_id++)
@@ -54,7 +56,8 @@ OperationSpace::OperationSpace(WorkloadConfig* wc, const OperationPoint& low, co
     auto space_high = Projectors.at(space_id)(workload_config_, high);
     // Increment the high points by 1 because the AAHR constructor wants
     // an exclusive max point.
-    space_high.IncrementAllDimensions();
+    if (inclusive)
+      space_high.IncrementAllDimensions();
     data_spaces_.push_back(DataSpace(DataSpaceOrder.at(space_id), space_low, space_high));
   }
 }

@@ -48,8 +48,6 @@ class OperationPoint : public Point
   }
 };
 
-extern std::vector<std::function<Point(WorkloadConfig*, const OperationPoint&)>> Projectors;
-
 // ======================================== //
 //              OperationSpace              //
 // ======================================== //
@@ -57,14 +55,15 @@ extern std::vector<std::function<Point(WorkloadConfig*, const OperationPoint&)>>
 class OperationSpace
 {
  private:
-  WorkloadConfig* workload_config_;
+  const WorkloadConfig* workload_config_;
 
   std::vector<DataSpace> data_spaces_;
   
  public:
   OperationSpace();
-  OperationSpace(WorkloadConfig* wc);
-  OperationSpace(WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high);
+  OperationSpace(const WorkloadConfig* wc);
+  OperationSpace(const WorkloadConfig* wc, const OperationPoint& low,
+                 const OperationPoint& high, bool inclusive = true);
 
   void Reset();
   OperationSpace& operator+=(const OperationSpace& s);

@@ -34,6 +34,5 @@ namespace problem
 {
 
 void ParseProblemShape();
-PerDataSpace<std::size_t> GetMaxWorkingSetSizes(PerProblemDimension<int> dimension_sizes);
 
 } // namespace problem

@@ -57,7 +57,7 @@ std::vector<unsigned> DataSpaceOrder;
 
 std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
 
-std::vector<std::function<Point(WorkloadConfig*, const OperationPoint&)>> Projectors;
+std::vector<std::function<Point(const WorkloadConfig*, const OperationPoint&)>> Projectors;
 
 void ParseProblemShape()
 {
@@ -125,7 +125,7 @@ void ParseProblemShape()
 
   Projectors =
     {
-      [](WorkloadConfig* wc, const OperationPoint& problem_point)
+      [](const WorkloadConfig* wc, const OperationPoint& problem_point)
       {
         (void) wc;
 
@@ -139,7 +139,7 @@ void ParseProblemShape()
 
         return weight_point;
       },
-      [](WorkloadConfig* wc, const OperationPoint& problem_point)
+      [](const WorkloadConfig* wc, const OperationPoint& problem_point)
       {
         Point input_point(DataSpaceOrder[1]);
 
@@ -156,7 +156,7 @@ void ParseProblemShape()
 
         return input_point;
       },
-      [](WorkloadConfig* wc, const OperationPoint& problem_point)
+      [](const WorkloadConfig* wc, const OperationPoint& problem_point)
       {
         (void) wc;
 
@@ -172,30 +172,6 @@ void ParseProblemShape()
         return output_point;
       }
     };  
-}
-
-PerDataSpace<std::size_t> GetMaxWorkingSetSizes(
-    problem::PerProblemDimension<int> dimension_sizes)
-{
-  PerDataSpace<std::size_t> datatype_size;
-
-  // Weight: R*S*C*K
-  datatype_size[0] =
-      dimension_sizes[0] * dimension_sizes[1] *
-      dimension_sizes[4] * dimension_sizes[5];
-
-  // Input: (P+R-1)*(Q+S-1)*C*N
-  datatype_size[1] =
-      (dimension_sizes[2] + dimension_sizes[0] - 1) *
-      (dimension_sizes[3] + dimension_sizes[1] - 1) *
-      dimension_sizes[4] * dimension_sizes[6];
-
-  // Output: P*Q*K*N
-  datatype_size[2] =
-      dimension_sizes[2] * dimension_sizes[3] *
-      dimension_sizes[5] * dimension_sizes[6];
-  
-  return datatype_size;
 }
 
 }  // namespace problem

@@ -924,11 +924,12 @@ class Uber : public MapSpace
 
     bool success = true;
 
-    problem::PerProblemDimension<int> x_dimensions;
-    problem::PerProblemDimension<int> y_dimensions;
+    problem::OperationPoint origin;
+    problem::OperationPoint x_dimensions;
+    problem::OperationPoint y_dimensions;
 
-    x_dimensions.fill(1);
-    y_dimensions.fill(1);
+    x_dimensions.IncrementAllDimensions(); // initialize to { 1, 1, 1, ...}
+    y_dimensions.IncrementAllDimensions(); // initialize to { 1, 1, 1, ...}
 
     std::size_t dimension_expansion = 1;
     
@@ -944,13 +945,13 @@ class Uber : public MapSpace
       if (i < spatial_split)
       {
         // X
-        x_dimensions[int(loop.dimension)] = loop.end;
+        x_dimensions[loop.dimension] = loop.end;
         loop.spacetime_dimension = spacetime::Dimension::SpaceX;
       }
       else
       {
         // Y
-        y_dimensions[int(loop.dimension)] = loop.end;
+        y_dimensions[loop.dimension] = loop.end;
         loop.spacetime_dimension = spacetime::Dimension::SpaceY;
       }
 
@@ -967,9 +968,12 @@ class Uber : public MapSpace
     // to keep copies of each datatype. In other words, any potential multicast
     // happens from *this* level down, not from the next level down. Fortunately,
     // the tile analysis stage seems to be doing the right thing later on.
+
+    problem::OperationSpace x_space(&workload_config_, origin, x_dimensions, false);
+    problem::OperationSpace y_space(&workload_config_, origin, y_dimensions, false);
     
-    auto x_sizes = problem::GetMaxWorkingSetSizes(x_dimensions);
-    auto y_sizes = problem::GetMaxWorkingSetSizes(y_dimensions);
+    auto x_sizes = x_space.GetSizes();
+    auto y_sizes = y_space.GetSizes();
 
     std::size_t fanout_max;
     
