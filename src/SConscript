@@ -61,7 +61,7 @@ if not os.path.isdir('../src/pat'):
     Exit(1)
     
 timeloop_sources = Split("""
-cnn/cnn-layers.cpp
+data/cnn/cnn-layers.cpp
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
 pat/pat.cpp
@@ -80,7 +80,7 @@ workload/operation-space.cpp
 """)
 
 evaluator_sources = Split("""
-cnn/cnn-layers.cpp
+data/cnn/cnn-layers.cpp
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
 pat/pat.cpp

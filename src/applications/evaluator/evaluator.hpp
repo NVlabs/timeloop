@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "cnn/cnn-layers.hpp"
+#include "data/cnn/cnn-layers.hpp"
 #include "mapping/parser.hpp"
 
 #include <fstream>

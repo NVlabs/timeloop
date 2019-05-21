@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "cnn/cnn-layers.hpp"
+#include "data/cnn/cnn-layers.hpp"
 #include "mapspaces/mapspace-factory.hpp"
 #include "search/search-factory.hpp"
 

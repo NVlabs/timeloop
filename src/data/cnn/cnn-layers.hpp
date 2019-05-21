@@ -31,8 +31,8 @@
 #include <tuple>
 #include <libconfig.h++>
 
-#include "problem-config.hpp"
-#include "workload-config.hpp"
+#include "workload/problem-config.hpp"
+#include "workload/workload-config.hpp"
 
 namespace problem
 {
