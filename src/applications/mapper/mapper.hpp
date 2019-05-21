@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include "data/cnn/cnn-layers.hpp"
 #include "mapspaces/mapspace-factory.hpp"
 #include "search/search-factory.hpp"
 
@@ -99,7 +98,7 @@ class Application
     // Problem configuration.
     problem::ParseProblemShape();
     libconfig::Setting& problem = config.lookup("problem");
-    problem::ParseConfig(problem, workload_config_);
+    problem::ParseWorkload(problem, workload_config_);
     std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.

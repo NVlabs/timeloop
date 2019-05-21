@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include "data/cnn/cnn-layers.hpp"
 #include "mapping/parser.hpp"
 
 #include <fstream>
@@ -72,7 +71,7 @@ class Application
   {
     // Problem configuration.
     libconfig::Setting& problem = config.lookup("problem");
-    problem::ParseConfig(problem, workload_config_);
+    problem::ParseWorkload(problem, workload_config_);
     std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
