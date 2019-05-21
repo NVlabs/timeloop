@@ -46,13 +46,13 @@
 //#define POINT_SET_IMPL POINT_SET_GENERIC_SLOW
 #define POINT_SET_IMPL POINT_SET_AAHR
 
-typedef std::int32_t Magnitude;
+typedef std::int32_t Coordinate;
 
 class Point
 {
  protected:
   std::uint32_t order_;
-  std::vector<Magnitude> coordinates_;
+  std::vector<Coordinate> coordinates_;
 
  public:
   Point() = delete;
@@ -77,17 +77,17 @@ class Point
 
   std::uint32_t Order() const { return order_; }
 
-  Magnitude& operator[] (std::uint32_t i)
+  Coordinate& operator[] (std::uint32_t i)
   {
     return coordinates_[i];
   }
 
-  const Magnitude& operator[] (std::uint32_t i) const
+  const Coordinate& operator[] (std::uint32_t i) const
   {
     return coordinates_[i];
   }
 
-  void IncrementAllDimensions(Magnitude m = 1)
+  void IncrementAllDimensions(Coordinate m = 1)
   {
     for (auto& c : coordinates_)
       c += m;

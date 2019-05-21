@@ -25,7 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <algorithm>
+#include <vector>
+#include <list>
 
 #include "loop-analysis/point-set.hpp"
 
@@ -58,14 +59,7 @@ std::vector<unsigned> DataSpaceOrder;
 std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
 
 std::vector<std::function<Point(const WorkloadConfig*, const OperationPoint&)>> Projectors;
-
-// Projection AST: the projection function for each dataspace dimension is a
-//                 Sum-Of-Products where each Product is the product of a
-//                 Coefficient and a Dimension. This is fairly restrictive
-//                 but efficient. We can generalize later if needed.
-
-// typedef std::pair<CoefficientID, DimensionNameToID> 
-
+std::vector<Projection> Projections;
 
 // API.
 void ParseProblemShape()
@@ -131,6 +125,29 @@ void ParseProblemShape()
   
   IsReadWriteDataSpace = [](const DataSpaceID d) -> bool
     { return d == 2; }; // Output
+
+  Projections.resize(NumDataSpaces);
+
+  // Weights
+  Projections[0].resize(DataSpaceOrder[0]);
+  Projections[0][0] = {{ NumCoefficients, 0 }}; // 1 * R
+  Projections[0][1] = {{ NumCoefficients, 1 }}; // 1 * S
+  Projections[0][2] = {{ NumCoefficients, 4 }}; // 1 * C
+  Projections[0][3] = {{ NumCoefficients, 5 }}; // 1 * K
+
+  // Inputs
+  Projections[1].resize(DataSpaceOrder[1]);
+  Projections[1][0] = {{ 2, 0 }, { 0, 2 }}; // Wdilation*R + Wstride*P
+  Projections[1][1] = {{ 3, 1 }, { 1, 3 }}; // Hdilation*S + Hstride*Q
+  Projections[1][2] = {{ NumCoefficients, 4 }}; // 1 * C
+  Projections[1][3] = {{ NumCoefficients, 6 }}; // 1 * N
+  
+  // Outputs
+  Projections[2].resize(DataSpaceOrder[2]);
+  Projections[2][0] = {{ NumCoefficients, 2 }}; // 1 * P
+  Projections[2][1] = {{ NumCoefficients, 3 }}; // 1 * Q
+  Projections[2][2] = {{ NumCoefficients, 5 }}; // 1 * K
+  Projections[2][3] = {{ NumCoefficients, 6 }}; // 1 * N
 
   Projectors =
     {

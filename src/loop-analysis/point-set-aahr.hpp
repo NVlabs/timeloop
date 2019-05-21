@@ -32,14 +32,14 @@
 #include "point-set.hpp"
 
 // ---------------------------------------------
-//        AAHR Point Set implementation
+//                   Gradient
 // ---------------------------------------------
 
 struct Gradient
 {
   std::uint32_t order;
   std::uint32_t dimension;
-  Magnitude magnitude;
+  std::int32_t value;
 
   Gradient() = delete;
 
@@ -52,16 +52,16 @@ struct Gradient
   void Reset()
   {
     dimension = 0;
-    magnitude = 0;
+    value = 0;
   }
   
-  Magnitude Sign() const
+  std::int32_t Sign() const
   {
-    if (magnitude < 0)
+    if (value < 0)
     {
       return -1;
     }
-    else if (magnitude == 0)
+    else if (value == 0)
     {
       return 0;
     }
@@ -77,13 +77,17 @@ struct Gradient
     for (unsigned i = 0; i < order; i++)
     {
       if (i == dimension)
-        std::cout << magnitude << " ";
+        std::cout << value << " ";
       else
         std::cout << "0 ";
     }
     std::cout << ">";
   }
 };
+
+// ---------------------------------------------
+//        AAHR Point Set implementation
+// ---------------------------------------------
 
 class AxisAlignedHyperRectangle
 {
@@ -327,7 +331,7 @@ class AxisAlignedHyperRectangle
           if (s.max_[dim] <= max_[dim])
           {
             gradient.dimension = dim;
-            gradient.magnitude = s.max_[dim] - min_[dim];
+            gradient.value = s.max_[dim] - min_[dim];
             updated.min_[dim] = s.max_[dim];
           }
           else
@@ -354,7 +358,7 @@ class AxisAlignedHyperRectangle
           else
           {
             gradient.dimension = dim;
-            gradient.magnitude = s.min_[dim] - max_[dim];
+            gradient.value = s.min_[dim] - max_[dim];
             updated.max_[dim] = s.min_[dim];
           }
         }
@@ -405,12 +409,12 @@ class AxisAlignedHyperRectangle
     // Now check if the newly-calculated gradient is different from the gradient
     // of the operand. UGH, this is ugly. This code shouldn't be in the math
     // library, it should be outside.
-    if (s.gradient_.magnitude == 0)
+    if (s.gradient_.value == 0)
     {
       // Gradient was zero. Use newly-computed gradient.
       gradient_ = g;
     }
-    else if (g.magnitude == 0 && delta.size() == 0)
+    else if (g.value == 0 && delta.size() == 0)
     {
       // Note the delta size check. We need that because the gradient can
       // be zero in two cases:

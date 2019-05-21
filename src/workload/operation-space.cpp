@@ -31,6 +31,7 @@ namespace problem
 {
 
 extern std::vector<std::function<Point(const WorkloadConfig*, const OperationPoint&)>> Projectors;
+extern std::vector<Projection> Projections;
 
 // ======================================= //
 //              OperationSpace             //
@@ -60,6 +61,28 @@ OperationSpace::OperationSpace(const WorkloadConfig* wc, const OperationPoint& l
       space_high.IncrementAllDimensions();
     data_spaces_.push_back(DataSpace(DataSpaceOrder.at(space_id), space_low, space_high));
   }
+}
+
+void OperationSpace::Project(DataSpaceID d,
+                             const WorkloadConfig* wc,
+                             const OperationPoint& problem_point)
+{
+  Point data_space_point(DataSpaceOrder[d]);
+
+  for (unsigned data_space_dim = 0; data_space_dim < DataSpaceOrder[d]; data_space_dim++)
+  {
+    data_space_point[data_space_dim] = 0;
+    for (auto& term : Projections[d][data_space_dim])
+    {
+      Coordinate x = problem_point[term.second];
+      // FIXME: somehow "compile" the coefficients down for a given
+      // workload config so that we avoid the branch and lookup below.
+      if (term.first != NumCoefficients)
+        data_space_point[data_space_dim] += (x * wc->getCoefficient(term.first));
+      else
+        data_space_point[data_space_dim] += x;
+    }
+  }    
 }
 
 void OperationSpace::Reset()
