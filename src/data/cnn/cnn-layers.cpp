@@ -846,16 +846,16 @@ void ParseConfig(libconfig::Setting& config, WorkloadConfig &workload)
   }
   workload.setBounds(bounds);
 
-  int Wstride = 1, Hstride = 1;
-  int Wdilation = 1, Hdilation = 1;
-  config.lookupValue("Wstride", Wstride);
-  config.lookupValue("Hstride", Hstride);
-  config.lookupValue("Wdilation", Wdilation);
-  config.lookupValue("Hdilation", Hdilation);
-  workload.setWstride(Wstride);
-  workload.setHstride(Hstride);
-  workload.setWdilation(Wdilation);
-  workload.setHdilation(Hdilation);
+  Parameters parameters;
+  parameters[0] = 1;
+  parameters[1] = 1;
+  parameters[2] = 1;
+  parameters[3] = 1;
+  config.lookupValue("Wstride", parameters[0]);
+  config.lookupValue("Hstride", parameters[1]);
+  config.lookupValue("Wdilation", parameters[2]);
+  config.lookupValue("Hdilation", parameters[3]);
+  workload.setParameters(parameters);
   
   Densities densities;
   // See if user wants to override default densities.

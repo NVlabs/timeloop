@@ -36,6 +36,7 @@ namespace problem
 {
 
 typedef std::map<Dimension, int> Bounds;
+typedef std::map<ParameterID, int> Parameters;
 typedef std::map<DataSpaceID, double> Densities;
 
 // ======================================== //
@@ -45,12 +46,9 @@ typedef std::map<DataSpaceID, double> Densities;
 class WorkloadConfig
 {
   Bounds bounds_;
+  Parameters parameters_;
   Densities densities_;
 
-  // Stride and dilation. FIXME: ugly.
-  int Wstride, Hstride;
-  int Wdilation, Hdilation;
-  
  public:
   WorkloadConfig() {}
 
@@ -58,30 +56,28 @@ class WorkloadConfig
   {
     return bounds_.at(dim);
   }
+
+  int getParameter(problem::ParameterID p) const
+  {
+    return parameters_.at(p);
+  }
   
   double getDensity(problem::DataSpaceID pv) const
   {
     return densities_.at(pv);
   }
 
-  int getWstride() const { return Wstride; }
-  void setWstride(const int s) { Wstride = s; }
-  
-  int getHstride() const { return Hstride; }
-  void setHstride(const int s) { Hstride = s; }
-
-  int getWdilation() const { return Wdilation; }
-  void setWdilation(const int s) { Wdilation = s; }
-
-  int getHdilation() const { return Hdilation; }
-  void setHdilation(const int s) { Hdilation = s; }
-
-  void setBounds(const std::map<problem::Dimension, int> &bounds)
+  void setBounds(const Bounds& bounds)
   {
     bounds_ = bounds;
   }
   
-  void setDensities(const std::map<problem::DataSpaceID, double> &densities)
+  void setParameters(const Parameters& parameters)
+  {
+    parameters_ = parameters;
+  }
+  
+  void setDensities(const Densities& densities)
   {
     densities_ = densities;
   }
@@ -95,6 +91,7 @@ class WorkloadConfig
     if (version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(bounds_);
+      ar& BOOST_SERIALIZATION_NVP(parameters_);
       ar& BOOST_SERIALIZATION_NVP(densities_);
     }
   }

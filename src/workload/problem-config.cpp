@@ -45,9 +45,9 @@ unsigned NumDimensions;
 std::map<Dimension, std::string> DimensionName;
 std::map<char, Dimension> DimensionID;
 
-// unsigned NumParameters;
-// std::map<Parameter, std::string> ParameterName;
-// std::map<std::string, Parameter> ParameterID;
+unsigned NumParameters;
+std::map<ParameterID, std::string> ParameterIDToName;
+std::map<std::string, ParameterID> ParameterNameToID;
 
 unsigned NumDataSpaces;
 std::map<DataSpaceID, std::string> DataSpaceIDToName;
@@ -60,7 +60,41 @@ std::vector<std::function<Point(WorkloadConfig*, const OperationPoint&)>> Projec
 
 void ParseProblemShape()
 {
+  // Dimensions.
   NumDimensions = 7;
+
+  DimensionName = {{0, "R"},
+                   {1, "S"},
+                   {2, "P"},
+                   {3, "Q"},
+                   {4, "C"},
+                   {5, "K"},
+                   {6, "N"}, };
+
+  DimensionID = {{'R', 0 },
+                 {'S', 1 },
+                 {'P', 2 },
+                 {'Q', 3 },
+                 {'C', 4 },
+                 {'K', 5 },
+                 {'N', 6 }, };
+
+  // Parameters.
+  NumParameters = 4;
+
+  ParameterIDToName = {
+    { 0, "Wstride" },
+    { 1, "Hstride" },
+    { 2, "Wdilation" },
+    { 3, "Hdilation" }};
+
+  ParameterNameToID = {
+    { "Wstride", 0 },
+    { "Hstride", 1 },
+    { "Wdilation", 2 },
+    { "Hdilation", 3 }};
+
+  // Data Spaces.
   NumDataSpaces = 3;
   
   DataSpaceIDToName = {
@@ -80,26 +114,7 @@ void ParseProblemShape()
                      4 }; // Output
   
   IsReadWriteDataSpace = [](const DataSpaceID d) -> bool
-    {
-      // ASSERT(d < DataSpaceID::Num);
-      return d == 2; // DataSpaceID::Output;
-    };
-  
-  DimensionName = {{0, "R"},
-                   {1, "S"},
-                   {2, "P"},
-                   {3, "Q"},
-                   {4, "C"},
-                   {5, "K"},
-                   {6, "N"}, };
-
-  DimensionID = {{'R', 0 },
-                 {'S', 1 },
-                 {'P', 2 },
-                 {'Q', 3 },
-                 {'C', 4 },
-                 {'K', 5 },
-                 {'N', 6 }, };
+    { return d == 2; }; // Output
 
   Projectors =
     {
@@ -123,11 +138,11 @@ void ParseProblemShape()
 
         // W,H,C,N
         input_point[0] =
-          wc->getWstride() * problem_point[2] +  // P
-          wc->getWdilation() * problem_point[0]; // R
+          wc->getParameter(0) * problem_point[2] +  // Wstride * P
+          wc->getParameter(2) * problem_point[0];   // Wdilation * R
         input_point[1] =
-          wc->getHstride() * problem_point[3] +  // Q
-          wc->getHdilation() * problem_point[1]; // S
+          wc->getParameter(1) * problem_point[3] +  // Hstride * Q
+          wc->getParameter(3) * problem_point[1];   // Hdilation * S
         
         input_point[2] = problem_point[4]; // C
         input_point[3] = problem_point[6]; // N

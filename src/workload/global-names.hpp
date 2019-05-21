@@ -35,13 +35,16 @@ namespace problem
 {
 
 typedef unsigned Dimension;
-
 extern unsigned NumDimensions;
 extern std::map<Dimension, std::string> DimensionName;
 extern std::map<char, Dimension> DimensionID;
 
-typedef unsigned DataSpaceID;
+typedef unsigned ParameterID;
+extern unsigned NumParameters;
+extern std::map<std::string, ParameterID> ParameterNameToID;
+extern std::map<ParameterID, std::string> ParameterIDToName;
 
+typedef unsigned DataSpaceID;
 extern unsigned NumDataSpaces;
 extern std::map<std::string, DataSpaceID> DataSpaceNameToID;
 extern std::map<DataSpaceID, std::string> DataSpaceIDToName;
