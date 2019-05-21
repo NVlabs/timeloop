@@ -48,6 +48,7 @@ std::map<char, Dimension> DimensionID;
 unsigned NumParameters;
 std::map<ParameterID, std::string> ParameterIDToName;
 std::map<std::string, ParameterID> ParameterNameToID;
+Parameters DefaultParameters;
 
 unsigned NumDataSpaces;
 std::map<DataSpaceID, std::string> DataSpaceIDToName;
@@ -93,6 +94,12 @@ void ParseProblemShape()
     { "Hstride", 1 },
     { "Wdilation", 2 },
     { "Hdilation", 3 }};
+
+  DefaultParameters = {
+    { 0, 1 },
+    { 1, 1 },
+    { 2, 1 },
+    { 3, 1 }};
 
   // Data Spaces.
   NumDataSpaces = 3;

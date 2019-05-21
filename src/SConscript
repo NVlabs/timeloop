@@ -76,6 +76,7 @@ model/topology.cpp
 util/numeric.cpp
 util/map2d.cpp
 workload/problem-config.cpp
+workload/workload-config.cpp
 workload/operation-space.cpp
 """)
 
@@ -95,6 +96,7 @@ model/topology.cpp
 util/numeric.cpp
 util/map2d.cpp
 workload/problem-config.cpp
+workload/workload-config.cpp
 workload/operation-space.cpp
 """)
 
@@ -111,6 +113,7 @@ model/topology.cpp
 util/numeric.cpp
 util/map2d.cpp
 workload/problem-config.cpp
+workload/workload-config.cpp
 workload/operation-space.cpp
 """)
 

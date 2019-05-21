@@ -886,5 +886,4 @@ void ParseConfig(libconfig::Setting& config, WorkloadConfig &workload)
   workload.setDensities(densities);
 }
 
-
 } // namespace problem

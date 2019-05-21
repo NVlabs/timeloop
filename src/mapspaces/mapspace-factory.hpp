@@ -44,7 +44,7 @@ namespace mapspace
 
 MapSpace* ParseAndConstruct(libconfig::Setting& config,
                             model::Engine::Specs& arch_specs,
-                            const problem::WorkloadConfig& problem_config)
+                            const problem::WorkloadConfig& workload_config)
 {
   MapSpace* mapspace = nullptr;
   
@@ -53,21 +53,21 @@ MapSpace* ParseAndConstruct(libconfig::Setting& config,
     
   if (mapspace_template == "uber")
   {
-    mapspace = new Uber(config, arch_specs, problem_config);
+    mapspace = new Uber(config, arch_specs, workload_config);
   }
   // else if (mapspace_template == "eyeriss")
   // {
   //   assert(false);
-  //   //mapspace = new Eyeriss(config, problem_config);
+  //   //mapspace = new Eyeriss(config, workload_config);
   // }
   // else if (mapspace_template == "CRAFT")
   // {
-  //   mapspace = new CRAFT(config, arch_specs, problem_config);
+  //   mapspace = new CRAFT(config, arch_specs, workload_config);
   // }
   // else if (mapspace_template == "bollywood")
   // {
   //   assert(false);
-  //   //mapspace = new Bollywood(config, problem_config);
+  //   //mapspace = new Bollywood(config, workload_config);
   // }
   else
   {

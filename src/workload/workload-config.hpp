@@ -29,15 +29,12 @@
 
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
+#include <libconfig.h++>
 
 #include "global-names.hpp"
 
 namespace problem
 {
-
-typedef std::map<Dimension, int> Bounds;
-typedef std::map<ParameterID, int> Parameters;
-typedef std::map<DataSpaceID, double> Densities;
 
 // ======================================== //
 //              WorkloadConfig              //
@@ -96,5 +93,7 @@ class WorkloadConfig
     }
   }
 };
+
+void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload);
 
 } // namespace problem

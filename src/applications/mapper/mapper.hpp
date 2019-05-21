@@ -58,7 +58,7 @@ struct EvaluationResult
 class Application
 {
  protected:
-  problem::WorkloadConfig problem_config_;
+  problem::WorkloadConfig workload_config_;
 
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
@@ -88,7 +88,7 @@ class Application
   {
     if(version == 0)
     {
-      ar& BOOST_SERIALIZATION_NVP(problem_config_);
+      ar& BOOST_SERIALIZATION_NVP(workload_config_);
     }
   }
 
@@ -99,7 +99,7 @@ class Application
     // Problem configuration.
     problem::ParseProblemShape();
     libconfig::Setting& problem = config.lookup("problem");
-    problem::ParseConfig(problem, problem_config_);
+    problem::ParseConfig(problem, workload_config_);
     std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
@@ -166,7 +166,7 @@ class Application
 
     // MapSpace configuration.
     libconfig::Setting& mapspace = config.lookup("mapspace");
-    mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, problem_config_);
+    mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_config_);
     split_mapspaces_ = mapspace_->Split(num_threads_);
     std::cout << "Mapspace construction complete." << std::endl;
 
@@ -581,7 +581,7 @@ class Application
                                           log_suboptimal_,
                                           optimization_metrics_,
                                           arch_specs_,
-                                          problem_config_,
+                                          workload_config_,
                                           &best_));
     }
 

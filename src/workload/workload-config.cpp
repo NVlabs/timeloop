@@ -25,36 +25,46 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
-#include <map>
-#include <functional>
-#include <vector>
+#include "workload-config.hpp"
 
 namespace problem
 {
 
-typedef unsigned Dimension;
-typedef std::map<Dimension, int> Bounds;
-extern unsigned NumDimensions;
-extern std::map<Dimension, std::string> DimensionName;
-extern std::map<char, Dimension> DimensionID;
+void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload)
+{
+  // Loop bounds for each problem dimension.
+  Bounds bounds;
+  for (unsigned i = 0; i < NumDimensions; i++)
+    assert(config.lookupValue(DimensionName.at(i), bounds[i]));
+  workload.setBounds(bounds);
 
-typedef unsigned ParameterID;
-typedef std::map<ParameterID, int> Parameters;
-extern unsigned NumParameters;
-extern std::map<std::string, ParameterID> ParameterNameToID;
-extern std::map<ParameterID, std::string> ParameterIDToName;
-extern Parameters DefaultParameters;
-
-typedef unsigned DataSpaceID;
-typedef std::map<DataSpaceID, double> Densities;
-extern unsigned NumDataSpaces;
-extern std::map<std::string, DataSpaceID> DataSpaceNameToID;
-extern std::map<DataSpaceID, std::string> DataSpaceIDToName;
-extern std::vector<unsigned> DataSpaceOrder;
-
-extern std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
+  Parameters parameters;
+  for (unsigned i = 0; i < NumParameters; i++)
+  {
+    parameters[i] = DefaultParameters[i];
+    config.lookupValue(ParameterIDToName.at(i), parameters[i]);
+  }
+  workload.setParameters(parameters);
+  
+  Densities densities;
+  double common_density;
+  if (config.lookupValue("commonDensity", common_density))
+  {
+    for (unsigned i = 0; i < NumDataSpaces; i++)
+      densities[i] = common_density;
+  }
+  else if (config.exists("densities"))
+  {
+    libconfig::Setting &config_densities = config.lookup("densities");
+    for (unsigned i = 0; i < NumDataSpaces; i++)
+      assert(config_densities.lookupValue(DataSpaceIDToName.at(i), densities[i]));
+  }
+  else
+  {
+    for (unsigned i = 0; i < NumDataSpaces; i++)
+      densities[i] = 1.0;
+  }
+  workload.setDensities(densities);
+}
 
 } // namespace problem
-

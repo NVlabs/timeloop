@@ -48,7 +48,7 @@
 class Application
 {
  protected:
-  problem::WorkloadConfig problem_config_;
+  problem::WorkloadConfig workload_config_;
   model::Engine::Specs arch_specs_;
   model::Engine engine_;
   Mapping mapping_;
@@ -62,7 +62,7 @@ class Application
   {
     if(version == 0)
     {
-      ar& BOOST_SERIALIZATION_NVP(problem_config_);
+      ar& BOOST_SERIALIZATION_NVP(workload_config_);
     }
   }
 
@@ -72,7 +72,7 @@ class Application
   {
     // Problem configuration.
     libconfig::Setting& problem = config.lookup("problem");
-    problem::ParseConfig(problem, problem_config_);
+    problem::ParseConfig(problem, workload_config_);
     std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
@@ -83,7 +83,7 @@ class Application
 
     // Mapping configuration: expressed as a mapspace or mapping.
     libconfig::Setting& mapping = config.lookup("mapping");
-    mapping_ = mapping::ParseAndConstruct(mapping, arch_specs_, problem_config_);
+    mapping_ = mapping::ParseAndConstruct(mapping, arch_specs_, workload_config_);
     std::cout << "Mapping construction complete." << std::endl;
   }
 
@@ -98,7 +98,7 @@ class Application
   // Run the evaluation.
   void Run()
   {
-    bool success = engine_.Evaluate(mapping_, problem_config_);
+    bool success = engine_.Evaluate(mapping_, workload_config_);
     if (!success)
     {
       return;

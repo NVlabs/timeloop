@@ -90,9 +90,9 @@ class Uber : public MapSpace
   Uber(
     libconfig::Setting& config,
     model::Engine::Specs arch_specs,
-    const problem::WorkloadConfig& problem_config,
+    const problem::WorkloadConfig& workload_config,
     bool skip_init = false) :
-      MapSpace(arch_specs, problem_config),
+      MapSpace(arch_specs, workload_config),
       split_id_(0),
       num_parent_splits_(0),
       min_utilization_(0.0)
@@ -256,7 +256,7 @@ class Uber : public MapSpace
     }
 
     // We're now ready to initialize the object.
-    index_factorization_space_.Init(problem_config_, cofactors_order, prefactors);
+    index_factorization_space_.Init(workload_config_, cofactors_order, prefactors);
 
     // Update the size of the mapspace.
     size_[int(mapspace::Dimension::IndexFactorization)] = index_factorization_space_.Size();
@@ -1462,15 +1462,15 @@ class Uber : public MapSpace
         if (end == 0)
         {
           std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-          end = problem_config_.getBound(dimension);
+          end = workload_config_.getBound(dimension);
         }
-        else if (end > problem_config_.getBound(dimension))
+        else if (end > workload_config_.getBound(dimension))
         {
           std::cerr << "WARNING: Constraint " << dimension << "=" << end
                     << " exceeds problem dimension " << dimension << "="
-                    << problem_config_.getBound(dimension) << ". Setting constraint "
-                    << dimension << "=" << problem_config_.getBound(dimension) << std::endl;
-          end = problem_config_.getBound(dimension);
+                    << workload_config_.getBound(dimension) << ". Setting constraint "
+                    << dimension << "=" << workload_config_.getBound(dimension) << std::endl;
+          end = workload_config_.getBound(dimension);
         }
         else
         {
