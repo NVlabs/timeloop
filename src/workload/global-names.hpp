@@ -40,12 +40,12 @@ extern unsigned NumDimensions;
 extern std::map<Dimension, std::string> DimensionName;
 extern std::map<char, Dimension> DimensionID;
 
-typedef unsigned ParameterID;
-typedef std::map<ParameterID, int> Parameters;
-extern unsigned NumParameters;
-extern std::map<std::string, ParameterID> ParameterNameToID;
-extern std::map<ParameterID, std::string> ParameterIDToName;
-extern Parameters DefaultParameters;
+typedef unsigned CoefficientID;
+typedef std::map<CoefficientID, int> Coefficients;
+extern unsigned NumCoefficients;
+extern std::map<std::string, CoefficientID> CoefficientNameToID;
+extern std::map<CoefficientID, std::string> CoefficientIDToName;
+extern Coefficients DefaultCoefficients;
 
 typedef unsigned DataSpaceID;
 typedef std::map<DataSpaceID, double> Densities;

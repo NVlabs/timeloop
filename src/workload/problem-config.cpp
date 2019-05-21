@@ -45,10 +45,10 @@ unsigned NumDimensions;
 std::map<Dimension, std::string> DimensionName;
 std::map<char, Dimension> DimensionID;
 
-unsigned NumParameters;
-std::map<ParameterID, std::string> ParameterIDToName;
-std::map<std::string, ParameterID> ParameterNameToID;
-Parameters DefaultParameters;
+unsigned NumCoefficients;
+std::map<CoefficientID, std::string> CoefficientIDToName;
+std::map<std::string, CoefficientID> CoefficientNameToID;
+Coefficients DefaultCoefficients;
 
 unsigned NumDataSpaces;
 std::map<DataSpaceID, std::string> DataSpaceIDToName;
@@ -80,22 +80,22 @@ void ParseProblemShape()
                  {'K', 5 },
                  {'N', 6 }, };
 
-  // Parameters.
-  NumParameters = 4;
+  // Coefficients.
+  NumCoefficients = 4;
 
-  ParameterIDToName = {
+  CoefficientIDToName = {
     { 0, "Wstride" },
     { 1, "Hstride" },
     { 2, "Wdilation" },
     { 3, "Hdilation" }};
 
-  ParameterNameToID = {
+  CoefficientNameToID = {
     { "Wstride", 0 },
     { "Hstride", 1 },
     { "Wdilation", 2 },
     { "Hdilation", 3 }};
 
-  DefaultParameters = {
+  DefaultCoefficients = {
     { 0, 1 },
     { 1, 1 },
     { 2, 1 },
@@ -145,11 +145,11 @@ void ParseProblemShape()
 
         // W,H,C,N
         input_point[0] =
-          wc->getParameter(0) * problem_point[2] +  // Wstride * P
-          wc->getParameter(2) * problem_point[0];   // Wdilation * R
+          wc->getCoefficient(0) * problem_point[2] +  // Wstride * P
+          wc->getCoefficient(2) * problem_point[0];   // Wdilation * R
         input_point[1] =
-          wc->getParameter(1) * problem_point[3] +  // Hstride * Q
-          wc->getParameter(3) * problem_point[1];   // Hdilation * S
+          wc->getCoefficient(1) * problem_point[3] +  // Hstride * Q
+          wc->getCoefficient(3) * problem_point[1];   // Hdilation * S
         
         input_point[2] = problem_point[4]; // C
         input_point[3] = problem_point[6]; // N

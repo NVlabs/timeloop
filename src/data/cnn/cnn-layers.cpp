@@ -34,7 +34,7 @@
 namespace problem
 {
 
-// FIXME: Add stride parameter U
+// FIXME: Add stride coefficient U
 // Alexnet layers from Eyeriss ISCA Paper Table II
 // Batch size = 1 in these definitions. We will
 // use the appropriate batch size based on config file.
@@ -846,16 +846,16 @@ void ParseConfig(libconfig::Setting& config, WorkloadConfig &workload)
   }
   workload.setBounds(bounds);
 
-  Parameters parameters;
-  parameters[0] = 1;
-  parameters[1] = 1;
-  parameters[2] = 1;
-  parameters[3] = 1;
-  config.lookupValue("Wstride", parameters[0]);
-  config.lookupValue("Hstride", parameters[1]);
-  config.lookupValue("Wdilation", parameters[2]);
-  config.lookupValue("Hdilation", parameters[3]);
-  workload.setParameters(parameters);
+  Coefficients coefficients;
+  coefficients[0] = 1;
+  coefficients[1] = 1;
+  coefficients[2] = 1;
+  coefficients[3] = 1;
+  config.lookupValue("Wstride", coefficients[0]);
+  config.lookupValue("Hstride", coefficients[1]);
+  config.lookupValue("Wdilation", coefficients[2]);
+  config.lookupValue("Hdilation", coefficients[3]);
+  workload.setCoefficients(coefficients);
   
   Densities densities;
   // See if user wants to override default densities.

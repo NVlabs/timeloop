@@ -43,7 +43,7 @@ namespace problem
 class WorkloadConfig
 {
   Bounds bounds_;
-  Parameters parameters_;
+  Coefficients coefficients_;
   Densities densities_;
 
  public:
@@ -54,9 +54,9 @@ class WorkloadConfig
     return bounds_.at(dim);
   }
 
-  int getParameter(problem::ParameterID p) const
+  int getCoefficient(problem::CoefficientID p) const
   {
-    return parameters_.at(p);
+    return coefficients_.at(p);
   }
   
   double getDensity(problem::DataSpaceID pv) const
@@ -69,9 +69,9 @@ class WorkloadConfig
     bounds_ = bounds;
   }
   
-  void setParameters(const Parameters& parameters)
+  void setCoefficients(const Coefficients& coefficients)
   {
-    parameters_ = parameters;
+    coefficients_ = coefficients;
   }
   
   void setDensities(const Densities& densities)
@@ -88,7 +88,7 @@ class WorkloadConfig
     if (version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(bounds_);
-      ar& BOOST_SERIALIZATION_NVP(parameters_);
+      ar& BOOST_SERIALIZATION_NVP(coefficients_);
       ar& BOOST_SERIALIZATION_NVP(densities_);
     }
   }

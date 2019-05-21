@@ -38,13 +38,13 @@ void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload)
     assert(config.lookupValue(DimensionName.at(i), bounds[i]));
   workload.setBounds(bounds);
 
-  Parameters parameters;
-  for (unsigned i = 0; i < NumParameters; i++)
+  Coefficients coefficients;
+  for (unsigned i = 0; i < NumCoefficients; i++)
   {
-    parameters[i] = DefaultParameters[i];
-    config.lookupValue(ParameterIDToName.at(i), parameters[i]);
+    coefficients[i] = DefaultCoefficients[i];
+    config.lookupValue(CoefficientIDToName.at(i), coefficients[i]);
   }
-  workload.setParameters(parameters);
+  workload.setCoefficients(coefficients);
   
   Densities densities;
   double common_density;
