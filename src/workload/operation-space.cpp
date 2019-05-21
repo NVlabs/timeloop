@@ -30,7 +30,6 @@
 namespace problem
 {
 
-extern std::vector<std::function<Point(const WorkloadConfig*, const OperationPoint&)>> Projectors;
 extern std::vector<Projection> Projections;
 
 // ======================================= //
@@ -53,8 +52,8 @@ OperationSpace::OperationSpace(const WorkloadConfig* wc, const OperationPoint& l
 {
   for (unsigned space_id = 0; space_id < NumDataSpaces; space_id++)
   {
-    auto space_low = Projectors.at(space_id)(workload_config_, low);
-    auto space_high = Projectors.at(space_id)(workload_config_, high);
+    auto space_low = Project(space_id, workload_config_, low);
+    auto space_high = Project(space_id, workload_config_, high);
     // Increment the high points by 1 because the AAHR constructor wants
     // an exclusive max point.
     if (inclusive)
@@ -63,9 +62,9 @@ OperationSpace::OperationSpace(const WorkloadConfig* wc, const OperationPoint& l
   }
 }
 
-void OperationSpace::Project(DataSpaceID d,
-                             const WorkloadConfig* wc,
-                             const OperationPoint& problem_point)
+Point OperationSpace::Project(DataSpaceID d,
+                              const WorkloadConfig* wc,
+                              const OperationPoint& problem_point)
 {
   Point data_space_point(DataSpaceOrder[d]);
 
@@ -82,7 +81,9 @@ void OperationSpace::Project(DataSpaceID d,
       else
         data_space_point[data_space_dim] += x;
     }
-  }    
+  }
+
+  return data_space_point;
 }
 
 void OperationSpace::Reset()
@@ -102,7 +103,7 @@ OperationSpace& OperationSpace::operator += (const OperationSpace& s)
 OperationSpace& OperationSpace::operator += (const OperationPoint& p)
 {
   for (unsigned i = 0; i < data_spaces_.size(); i++)
-    data_spaces_.at(i) += Projectors.at(i)(workload_config_, p);
+    data_spaces_.at(i) += Project(i, workload_config_, p);
 
   return (*this);
 }

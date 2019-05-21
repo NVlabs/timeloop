@@ -58,7 +58,6 @@ std::vector<unsigned> DataSpaceOrder;
 
 std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
 
-std::vector<std::function<Point(const WorkloadConfig*, const OperationPoint&)>> Projectors;
 std::vector<Projection> Projections;
 
 // API.
@@ -148,56 +147,6 @@ void ParseProblemShape()
   Projections[2][1] = {{ NumCoefficients, 3 }}; // 1 * Q
   Projections[2][2] = {{ NumCoefficients, 5 }}; // 1 * K
   Projections[2][3] = {{ NumCoefficients, 6 }}; // 1 * N
-
-  Projectors =
-    {
-      [](const WorkloadConfig* wc, const OperationPoint& problem_point)
-      {
-        (void) wc;
-
-        Point weight_point(DataSpaceOrder[0]);
-
-        // R,S,C,K
-        weight_point[0] = problem_point[0]; // R
-        weight_point[1] = problem_point[1]; // S
-        weight_point[2] = problem_point[4]; // C
-        weight_point[3] = problem_point[5]; // K
-
-        return weight_point;
-      },
-      [](const WorkloadConfig* wc, const OperationPoint& problem_point)
-      {
-        Point input_point(DataSpaceOrder[1]);
-
-        // W,H,C,N
-        input_point[0] =
-          wc->getCoefficient(0) * problem_point[2] +  // Wstride * P
-          wc->getCoefficient(2) * problem_point[0];   // Wdilation * R
-        input_point[1] =
-          wc->getCoefficient(1) * problem_point[3] +  // Hstride * Q
-          wc->getCoefficient(3) * problem_point[1];   // Hdilation * S
-        
-        input_point[2] = problem_point[4]; // C
-        input_point[3] = problem_point[6]; // N
-
-        return input_point;
-      },
-      [](const WorkloadConfig* wc, const OperationPoint& problem_point)
-      {
-        (void) wc;
-
-        Point output_point(DataSpaceOrder[2]);
-
-        // P,Q,K,N
-        output_point[0] = problem_point[2]; // P
-        output_point[1] = problem_point[3]; // Q
-        
-        output_point[2] = problem_point[5]; // K
-        output_point[3] = problem_point[6]; // N
-
-        return output_point;
-      }
-    };  
 }
 
 }  // namespace problem

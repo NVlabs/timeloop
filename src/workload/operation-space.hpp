@@ -60,8 +60,8 @@ class OperationSpace
   std::vector<DataSpace> data_spaces_;
 
  private:
-  void Project(DataSpaceID d, const WorkloadConfig* wc,
-               const OperationPoint& problem_point);
+  Point Project(DataSpaceID d, const WorkloadConfig* wc,
+                const OperationPoint& problem_point);
   
  public:
   OperationSpace();

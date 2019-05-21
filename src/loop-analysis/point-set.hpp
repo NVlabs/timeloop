@@ -43,7 +43,6 @@
 #define POINT_SET_4D           3
 #define POINT_SET_AAHR         4
 
-//#define POINT_SET_IMPL POINT_SET_GENERIC_SLOW
 #define POINT_SET_IMPL POINT_SET_AAHR
 
 typedef std::int32_t Coordinate;
