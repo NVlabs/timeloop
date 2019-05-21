@@ -35,6 +35,9 @@
 namespace problem
 {
 
+typedef std::map<Dimension, int> Bounds;
+typedef std::map<DataSpaceID, double> Densities;
+
 // ======================================== //
 //              WorkloadConfig              //
 // ======================================== //

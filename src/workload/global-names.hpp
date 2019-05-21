@@ -49,8 +49,5 @@ extern std::vector<unsigned> DataSpaceOrder;
 
 extern std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
 
-typedef std::map<Dimension, int> Bounds;
-typedef std::map<DataSpaceID, double> Densities;
-
 } // namespace problem
 
