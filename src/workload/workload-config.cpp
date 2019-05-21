@@ -35,7 +35,7 @@ void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload)
   // Loop bounds for each problem dimension.
   Bounds bounds;
   for (unsigned i = 0; i < NumDimensions; i++)
-    assert(config.lookupValue(DimensionName.at(i), bounds[i]));
+    assert(config.lookupValue(DimensionIDToName.at(i), bounds[i]));
   workload.setBounds(bounds);
 
   Coefficients coefficients;

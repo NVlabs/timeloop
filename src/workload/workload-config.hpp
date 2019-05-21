@@ -49,7 +49,7 @@ class WorkloadConfig
  public:
   WorkloadConfig() {}
 
-  int getBound(problem::Dimension dim) const
+  int getBound(problem::DimensionID dim) const
   {
     return bounds_.at(dim);
   }

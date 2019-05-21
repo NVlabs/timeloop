@@ -68,7 +68,7 @@ void Nest::AddLoop(Descriptor descriptor)
   loops.push_back(descriptor);
 }
 
-void Nest::AddLoop(problem::Dimension dimension, int start, int end, int stride,
+void Nest::AddLoop(problem::DimensionID dimension, int start, int end, int stride,
                    spacetime::Dimension spacetime_dimension)
 {
   AddLoop(loop::Descriptor(dimension, start, end, stride, spacetime_dimension));

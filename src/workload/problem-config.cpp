@@ -40,10 +40,10 @@ namespace problem
 //              Problem Shape               //
 // ======================================== //
 
-// Globals
+// Globals.
 unsigned NumDimensions;
-std::map<Dimension, std::string> DimensionName;
-std::map<char, Dimension> DimensionID;
+std::map<DimensionID, std::string> DimensionIDToName;
+std::map<char, DimensionID> DimensionNameToID;
 
 unsigned NumCoefficients;
 std::map<CoefficientID, std::string> CoefficientIDToName;
@@ -59,12 +59,21 @@ std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
 
 std::vector<std::function<Point(const WorkloadConfig*, const OperationPoint&)>> Projectors;
 
+// Projection AST: the projection function for each dataspace dimension is a
+//                 Sum-Of-Products where each Product is the product of a
+//                 Coefficient and a Dimension. This is fairly restrictive
+//                 but efficient. We can generalize later if needed.
+
+// typedef std::pair<CoefficientID, DimensionNameToID> 
+
+
+// API.
 void ParseProblemShape()
 {
   // Dimensions.
   NumDimensions = 7;
 
-  DimensionName = {{0, "R"},
+  DimensionIDToName = {{0, "R"},
                    {1, "S"},
                    {2, "P"},
                    {3, "Q"},
@@ -72,7 +81,7 @@ void ParseProblemShape()
                    {5, "K"},
                    {6, "N"}, };
 
-  DimensionID = {{'R', 0 },
+  DimensionNameToID = {{'R', 0 },
                  {'S', 1 },
                  {'P', 2 },
                  {'Q', 3 },

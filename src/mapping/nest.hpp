@@ -62,7 +62,7 @@ class Nest
   bool operator == (const Nest& n) const; 
 
   void AddLoop(Descriptor descriptor);
-  void AddLoop(problem::Dimension dimension, int start, int end, int stride,
+  void AddLoop(problem::DimensionID dimension, int start, int end, int stride,
                spacetime::Dimension spacetime_dimension);
   bool AddStorageTilingBoundary();
 

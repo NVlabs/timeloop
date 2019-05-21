@@ -34,11 +34,11 @@
 namespace problem
 {
 
-typedef unsigned Dimension;
-typedef std::map<Dimension, int> Bounds;
+typedef unsigned DimensionID;
+typedef std::map<DimensionID, int> Bounds;
 extern unsigned NumDimensions;
-extern std::map<Dimension, std::string> DimensionName;
-extern std::map<char, Dimension> DimensionID;
+extern std::map<DimensionID, std::string> DimensionIDToName;
+extern std::map<char, DimensionID> DimensionNameToID;
 
 typedef unsigned CoefficientID;
 typedef std::map<CoefficientID, int> Coefficients;

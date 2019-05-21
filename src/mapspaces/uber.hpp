@@ -59,8 +59,8 @@ class Uber : public MapSpace
   std::uint64_t num_parent_splits_;
   
   // Parsed metadata needed to construct subspaces.
-  std::map<unsigned, std::map<problem::Dimension, int>> user_factors_;
-  std::map<unsigned, std::vector<problem::Dimension>> user_permutations_;
+  std::map<unsigned, std::map<problem::DimensionID, int>> user_factors_;
+  std::map<unsigned, std::vector<problem::DimensionID>> user_permutations_;
   std::map<unsigned, std::uint32_t> user_spatial_splits_;
   problem::PerDataSpace<std::string> user_bypass_strings_;
 
@@ -210,7 +210,7 @@ class Uber : public MapSpace
   //
   // InitIndexFactorizationSpace()
   //
-  void InitIndexFactorizationSpace(std::map<unsigned, std::map<problem::Dimension, int>>& user_factors)
+  void InitIndexFactorizationSpace(std::map<unsigned, std::map<problem::DimensionID, int>>& user_factors)
   {
     assert(user_factors.size() <= num_total_tiling_levels_);
 
@@ -219,17 +219,17 @@ class Uber : public MapSpace
     // split up into. In other words, this is the order of the cofactors vector for each
     // problem dimension.
     
-    std::map<problem::Dimension, std::uint64_t> cofactors_order;
+    std::map<problem::DimensionID, std::uint64_t> cofactors_order;
     for (unsigned i = 0; i < unsigned(problem::NumDimensions); i++)
     {
       // Factorize each problem dimension into num_tiling_levels partitions.
-      cofactors_order[problem::Dimension(i)] = num_total_tiling_levels_;
+      cofactors_order[problem::DimensionID(i)] = num_total_tiling_levels_;
     }
 
     // Next, for each problem dimension, we need to tell the index_factorization_space_
     // object if any of the cofactors have been fixed and provided by the user. 
 
-    std::map<problem::Dimension, std::map<unsigned, unsigned long>> prefactors;
+    std::map<problem::DimensionID, std::map<unsigned, unsigned long>> prefactors;
     std::vector<bool> exhausted_um_loops(int(problem::NumDimensions), false);
 
     for (unsigned level = 0; level < num_total_tiling_levels_; level++)
@@ -265,15 +265,15 @@ class Uber : public MapSpace
   //
   // InitLoopPermutationSpace()
   //
-  void InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Dimension>>& user_permutations,
-                                std::map<unsigned, std::vector<problem::Dimension>> pruned_dimensions = {})
+  void InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::DimensionID>>& user_permutations,
+                                std::map<unsigned, std::vector<problem::DimensionID>> pruned_dimensions = {})
   {
     permutation_space_.Init(num_total_tiling_levels_);
     
     for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
     {
       // Extract the user-provided pattern for this level.
-      std::vector<problem::Dimension> user_prefix;
+      std::vector<problem::DimensionID> user_prefix;
       auto it = user_permutations.find(level);
       if (it != user_permutations.end())
       {
@@ -558,7 +558,7 @@ class Uber : public MapSpace
     uint128_t mapping_index_factorization_id = index_factorization_id * num_parent_splits_ + split_id_;
 
     // Create a set of pruned dimensions (one per tiling level).
-    std::map<unsigned, std::vector<problem::Dimension>> pruned_dimensions;
+    std::map<unsigned, std::vector<problem::DimensionID>> pruned_dimensions;
     std::map<unsigned, unsigned> unit_factors;
 
     // Extract the index factors resulting from this ID for all loops at all levels.
@@ -566,7 +566,7 @@ class Uber : public MapSpace
     {
       for (unsigned idim = 0; idim < unsigned(problem::NumDimensions); idim++)
       { 
-        auto dim = problem::Dimension(idim);
+        auto dim = problem::DimensionID(idim);
         auto factor = index_factorization_space_.GetFactor(
           mapping_index_factorization_id, dim, level);
         if (factor == 1)
@@ -675,7 +675,7 @@ class Uber : public MapSpace
         {
           // Add a trivial temporal nest to make sure
           // we have at least one subnest in each level.
-          mapping->loop_nest.AddLoop(problem::Dimension(int(problem::NumDimensions) - 1),
+          mapping->loop_nest.AddLoop(problem::DimensionID(int(problem::NumDimensions) - 1),
                                      0, 1, 1, spacetime::Dimension::Time);
         }
         mapping->loop_nest.AddStorageTilingBoundary();
@@ -708,7 +708,7 @@ class Uber : public MapSpace
       for (int idim = 0; idim < int(problem::NumDimensions); idim++)
       {
         loop::Descriptor loop;
-        loop.dimension = problem::Dimension(idim); // Placeholder.
+        loop.dimension = problem::DimensionID(idim); // Placeholder.
         loop.start = 0;
         loop.end = 0;                              // Placeholder.
         loop.stride = 1;                           // FIXME.
@@ -1288,8 +1288,8 @@ class Uber : public MapSpace
   //
   void ParseUserConstraints(
     libconfig::Setting& config,
-    std::map<unsigned, std::map<problem::Dimension, int>>& user_factors,
-    std::map<unsigned, std::vector<problem::Dimension>>& user_permutations,
+    std::map<unsigned, std::map<problem::DimensionID, int>>& user_factors,
+    std::map<unsigned, std::vector<problem::DimensionID>>& user_permutations,
     std::map<unsigned, std::uint32_t>& user_spatial_splits,
     problem::PerDataSpace<std::string>& user_bypass_strings)
   {
@@ -1448,9 +1448,9 @@ class Uber : public MapSpace
   //
   // Parse user factors.
   //
-  std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& constraint)
+  std::map<problem::DimensionID, int> ParseUserFactors(libconfig::Setting& constraint)
   {
-    std::map<problem::Dimension, int> retval;
+    std::map<problem::DimensionID, int> retval;
     
     std::string buffer;
     if (constraint.lookupValue("factors", buffer))
@@ -1459,7 +1459,7 @@ class Uber : public MapSpace
       char token;
       while (iss >> token)
       {
-        auto dimension = problem::DimensionID.at(token); // note: can fault.
+        auto dimension = problem::DimensionNameToID.at(token); // note: can fault.
         
         int end;
         iss >> end;
@@ -1492,9 +1492,9 @@ class Uber : public MapSpace
   //
   // Parse user permutations.
   //
-  std::vector<problem::Dimension> ParseUserPermutations(libconfig::Setting& constraint)
+  std::vector<problem::DimensionID> ParseUserPermutations(libconfig::Setting& constraint)
   {
-    std::vector<problem::Dimension> retval;
+    std::vector<problem::DimensionID> retval;
     
     std::string buffer;
     if (constraint.lookupValue("permutation", buffer))
@@ -1503,7 +1503,7 @@ class Uber : public MapSpace
       char token;
       while (iss >> token)
       {
-        auto dimension = problem::DimensionID.at(token); // note: can fault.
+        auto dimension = problem::DimensionNameToID.at(token); // note: can fault.
         retval.push_back(dimension);
       }
     }

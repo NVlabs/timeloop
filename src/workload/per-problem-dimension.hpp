@@ -53,7 +53,7 @@ class PerProblemDimension : public DynamicArray<T>
   {
     for (unsigned i = 0; i < x.size(); i++)
     {
-      out << DimensionName[i] << ": " << x[i] << std::endl;
+      out << DimensionIDToName[i] << ": " << x[i] << std::endl;
     }
     return out;
   }

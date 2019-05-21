@@ -42,8 +42,8 @@ problem::WorkloadConfig workload_config_;
 // Forward declarations.
 //
 unsigned FindTargetTilingLevel(libconfig::Setting& constraint, std::string type);
-std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& constraint);
-std::vector<problem::Dimension> ParseUserPermutations(libconfig::Setting& constraint);
+std::map<problem::DimensionID, int> ParseUserFactors(libconfig::Setting& constraint);
+std::vector<problem::DimensionID> ParseUserPermutations(libconfig::Setting& constraint);
 void ParseUserDatatypeBypassSettings(libconfig::Setting& constraint,
                                      unsigned level,
                                      problem::PerDataSpace<std::string>& user_bypass_strings);
@@ -57,8 +57,8 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
   arch_props_.Construct(arch_specs);
   workload_config_ = workload_config;
   
-  std::map<unsigned, std::map<problem::Dimension, int>> user_factors;
-  std::map<unsigned, std::vector<problem::Dimension>> user_permutations;
+  std::map<unsigned, std::map<problem::DimensionID, int>> user_factors;
+  std::map<unsigned, std::vector<problem::DimensionID>> user_permutations;
   std::map<unsigned, std::uint32_t> user_spatial_splits;
   problem::PerDataSpace<std::string> user_bypass_strings;
 
@@ -170,7 +170,7 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
       {
         // Add a trivial temporal nest to make sure
         // we have at least one subnest in each level.
-        mapping.loop_nest.AddLoop(problem::Dimension(int(problem::NumDimensions) - 1),
+        mapping.loop_nest.AddLoop(problem::DimensionID(int(problem::NumDimensions) - 1),
                                    0, 1, 1, spacetime::Dimension::Time);
       }
       mapping.loop_nest.AddStorageTilingBoundary();
@@ -274,9 +274,9 @@ unsigned FindTargetTilingLevel(libconfig::Setting& directive, std::string type)
 //
 // Parse user factors.
 //
-std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& directive)
+std::map<problem::DimensionID, int> ParseUserFactors(libconfig::Setting& directive)
 {
-  std::map<problem::Dimension, int> retval;
+  std::map<problem::DimensionID, int> retval;
     
   std::string buffer;
   if (directive.lookupValue("factors", buffer))
@@ -285,7 +285,7 @@ std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& directive
     char token;
     while (iss >> token)
     {
-      auto dimension = problem::DimensionID.at(token); // note: can fault.
+      auto dimension = problem::DimensionNameToID.at(token); // note: can fault.
         
       int end;
       iss >> end;
@@ -318,9 +318,9 @@ std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& directive
 //
 // Parse user permutations.
 //
-std::vector<problem::Dimension> ParseUserPermutations(libconfig::Setting& directive)
+std::vector<problem::DimensionID> ParseUserPermutations(libconfig::Setting& directive)
 {
-  std::vector<problem::Dimension> retval;
+  std::vector<problem::DimensionID> retval;
     
   std::string buffer;
   if (directive.lookupValue("permutation", buffer))
@@ -329,7 +329,7 @@ std::vector<problem::Dimension> ParseUserPermutations(libconfig::Setting& direct
     char token;
     while (iss >> token)
     {
-      auto dimension = problem::DimensionID.at(token); // note: can fault.
+      auto dimension = problem::DimensionNameToID.at(token); // note: can fault.
       retval.push_back(dimension);
     }
   }

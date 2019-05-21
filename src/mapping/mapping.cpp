@@ -89,7 +89,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
   for (unsigned storage_level = 0; storage_level < num_storage_levels; storage_level++)
   {
     std::map<spacetime::Dimension, std::string> permutations;
-    std::map<spacetime::Dimension, std::map<problem::Dimension, unsigned>> factors;
+    std::map<spacetime::Dimension, std::map<problem::DimensionID, unsigned>> factors;
     unsigned spatial_split;
 
     for (unsigned sdi = 0; sdi < unsigned(spacetime::Dimension::Num); sdi++)
@@ -97,7 +97,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
       auto sd = spacetime::Dimension(sdi);
       permutations[sd] = "";
       for (unsigned idim = 0; idim < unsigned(problem::NumDimensions); idim++)
-        factors[sd][problem::Dimension(idim)] = 1;
+        factors[sd][problem::DimensionID(idim)] = 1;
     }
 
     for (; loop_level <= loop_nest.storage_tiling_boundaries.at(storage_level); loop_level++)
@@ -106,7 +106,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
       if (loop.end > 1)
       {
         factors.at(loop.spacetime_dimension).at(loop.dimension) = loop.end;
-        permutations.at(loop.spacetime_dimension) += problem::DimensionName.at(loop.dimension);
+        permutations.at(loop.spacetime_dimension) += problem::DimensionIDToName.at(loop.dimension);
       }
     }
 
@@ -123,15 +123,15 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     {
       std::string spatial_factor_string = "";
 
-      std::map<problem::Dimension, unsigned> spatial_factors;
+      std::map<problem::DimensionID, unsigned> spatial_factors;
       for (unsigned idim = 0; idim < unsigned(problem::NumDimensions); idim++)
       {
-        auto dim = problem::Dimension(idim);
+        auto dim = problem::DimensionID(idim);
         spatial_factors[dim] =
           factors.at(spacetime::Dimension::SpaceX).at(dim) *
           factors.at(spacetime::Dimension::SpaceY).at(dim);
 
-        spatial_factor_string += problem::DimensionName.at(dim);
+        spatial_factor_string += problem::DimensionIDToName.at(dim);
         char factor[8];
         sprintf(factor, "%d", spatial_factors.at(dim));
         spatial_factor_string += factor;
@@ -140,7 +140,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
         
         // If the factor is 1, concatenate it to the permutation.
         if (spatial_factors.at(dim) == 1)
-          spatial_permutation += problem::DimensionName.at(dim);
+          spatial_permutation += problem::DimensionIDToName.at(dim);
       }
       
       libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);
@@ -158,9 +158,9 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     // Temporal factors: if the factor is 1, concatenate it into the permutation.
     for (unsigned idim = 0; idim < unsigned(problem::NumDimensions); idim++)
     {
-      auto dim = problem::Dimension(idim);
+      auto dim = problem::DimensionID(idim);
 
-      temporal_factor_string += problem::DimensionName.at(dim);
+      temporal_factor_string += problem::DimensionIDToName.at(dim);
       char factor[8];
       sprintf(factor, "%d", temporal_factors.at(dim));
       temporal_factor_string += factor;
@@ -168,7 +168,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
         temporal_factor_string += " ";
       
       if (temporal_factors.at(dim) == 1)
-        temporal_permutation += problem::DimensionName.at(dim);
+        temporal_permutation += problem::DimensionIDToName.at(dim);
     }
 
     libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);

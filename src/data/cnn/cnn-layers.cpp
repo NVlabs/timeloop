@@ -717,10 +717,10 @@ Bounds GetLayerBounds(std::string layer_name, bool pad_primes)
   {
     for (int pd = 0; pd < int(problem::NumDimensions); pd++)
     {
-      if (nearest_composite.count(prob[problem::Dimension(pd)]) != 0)
+      if (nearest_composite.count(prob[problem::DimensionID(pd)]) != 0)
       {
-        prob[problem::Dimension(pd)] =
-            nearest_composite.at(prob[problem::Dimension(pd)]);
+        prob[problem::DimensionID(pd)] =
+            nearest_composite.at(prob[problem::DimensionID(pd)]);
       }
     }
   }
