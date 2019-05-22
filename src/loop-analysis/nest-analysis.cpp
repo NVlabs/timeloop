@@ -302,7 +302,7 @@ void NestAnalysis::CollectWorkingSets()
         // *** UPDATE *** this is now handled within the main
         // ComputeWorkingSets() recursive loop.
         //
-        // if (problem::IsReadWriteDataSpace(problem::DataSpaceID(pv))) {
+        // if (problem::IsReadWriteDataSpace[pv]) {
         //   for (uint64_t i = 0; i < condensed_state.accesses[pv].size(); i++) {
         //     condensed_state.accesses[pv][i] *= 2;
         //   }
@@ -531,7 +531,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     {
       // Write-backs of read-modify-write data types consume 2
       // accesses *except* for the first write.
-      if (problem::IsReadWriteDataSpace(problem::DataSpaceID(pv)) &&
+      if (problem::IsReadWriteDataSpace[pv] &&
           cur_state.accesses[pv][0] != 0)
       {
         cur_state.accesses[pv][0] += body_iterations; // (2 * body_iterations); This fixup now happens in model/buffer.cpp.
@@ -695,7 +695,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       {
         // Write-backs of read-modify-write data types consume 2
         // accesses *except* for the first write.
-        if (problem::IsReadWriteDataSpace(problem::DataSpaceID(pv)) &&
+        if (problem::IsReadWriteDataSpace[pv] &&
             cur_state.accesses[pv][0] != 0)
         {
           cur_state.accesses[pv][0] += final_delta_sizes[pv] * num_epochs_; // (2 * final_delta_sizes[pv] * num_epochs_); This fixup now happens in model/buffer.cpp.

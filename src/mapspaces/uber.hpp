@@ -1459,7 +1459,7 @@ class Uber : public MapSpace
       char token;
       while (iss >> token)
       {
-        auto dimension = problem::DimensionNameToID.at(token); // note: can fault.
+        auto dimension = problem::DimensionNameToID.at(std::string(1, token)); // note: can fault.
         
         int end;
         iss >> end;
@@ -1503,7 +1503,7 @@ class Uber : public MapSpace
       char token;
       while (iss >> token)
       {
-        auto dimension = problem::DimensionNameToID.at(token); // note: can fault.
+        auto dimension = problem::DimensionNameToID.at(std::string(1, token)); // note: can fault.
         retval.push_back(dimension);
       }
     }

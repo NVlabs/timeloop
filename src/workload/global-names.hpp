@@ -37,12 +37,14 @@
 namespace problem
 {
 
+extern bool ShapeParsed;
+
 typedef unsigned DimensionID;
 typedef std::map<DimensionID, Coordinate> Bounds;
 
 extern unsigned NumDimensions;
 extern std::map<DimensionID, std::string> DimensionIDToName;
-extern std::map<char, DimensionID> DimensionNameToID;
+extern std::map<std::string, DimensionID> DimensionNameToID;
 
 typedef int Coefficient;
 typedef unsigned CoefficientID;
@@ -60,9 +62,8 @@ typedef std::map<DataSpaceID, Density> Densities;
 extern unsigned NumDataSpaces;
 extern std::map<std::string, DataSpaceID> DataSpaceNameToID;
 extern std::map<DataSpaceID, std::string> DataSpaceIDToName;
-extern std::vector<unsigned> DataSpaceOrder;
-
-extern std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
+extern std::map<DataSpaceID, unsigned> DataSpaceOrder;
+extern std::map<DataSpaceID, bool> IsReadWriteDataSpace;
 
 // Projection AST: the projection function for each dataspace dimension is a
 //                 Sum-Of-Products where each Product is the product of a

@@ -32,6 +32,13 @@ namespace problem
 
 void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload)
 {
+  if (!ShapeParsed)
+  {
+    std::cerr << "ERROR: cannot parse workload before problem shape "
+              << "has been parsed and set up." << std::endl;
+    exit(1);
+  }
+  
   // Loop bounds for each problem dimension.
   Bounds bounds;
   for (unsigned i = 0; i < NumDimensions; i++)

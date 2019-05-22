@@ -42,9 +42,11 @@ namespace problem
 // ======================================== //
 
 // Globals.
+bool ShapeParsed = false;
+
 unsigned NumDimensions;
 std::map<DimensionID, std::string> DimensionIDToName;
-std::map<char, DimensionID> DimensionNameToID;
+std::map<std::string, DimensionID> DimensionNameToID;
 
 unsigned NumCoefficients;
 std::map<CoefficientID, std::string> CoefficientIDToName;
@@ -54,99 +56,141 @@ Coefficients DefaultCoefficients;
 unsigned NumDataSpaces;
 std::map<DataSpaceID, std::string> DataSpaceIDToName;
 std::map<std::string, DataSpaceID> DataSpaceNameToID;
-std::vector<unsigned> DataSpaceOrder;
-
-std::function<bool(const DataSpaceID d)> IsReadWriteDataSpace;
+std::map<DataSpaceID, unsigned> DataSpaceOrder;
+std::map<DataSpaceID, bool> IsReadWriteDataSpace;
 
 std::vector<Projection> Projections;
 
 // API.
-void ParseProblemShape()
+void ParseProblemShape(libconfig::Setting& config)
 {
+  if (!config.exists("shape"))
+  {
+    std::cerr << "ERROR: problem shape not found. Please specify a problem shape, or @include a pre-existing shape in the .cfg file." << std::endl;
+    exit(1);
+  }
+  libconfig::Setting& shape = config.lookup("shape");
+  
+  // Not sure what to do with the name, since we only ever
+  // parse one shape per invocation.
+  std::string name = "";
+  shape.lookupValue("name", name);
+
   // Dimensions.
-  NumDimensions = 7;
+  libconfig::Setting& dimensions = shape.lookup("dimensions");
+  assert(dimensions.isArray());
 
-  DimensionIDToName = {{0, "R"},
-                   {1, "S"},
-                   {2, "P"},
-                   {3, "Q"},
-                   {4, "C"},
-                   {5, "K"},
-                   {6, "N"}, };
-
-  DimensionNameToID = {{'R', 0 },
-                 {'S', 1 },
-                 {'P', 2 },
-                 {'Q', 3 },
-                 {'C', 4 },
-                 {'K', 5 },
-                 {'N', 6 }, };
+  NumDimensions = 0;
+  for (const std::string& dim_name : dimensions)
+  {
+    if (dim_name.length() != 1)
+    {
+      std::cerr << "ERROR: unfortunately, dimension names can only be 1 character in length. To remove this limitation, improve the constraint-parsing code in ParseUserPermutations() and ParseUserFactors() in mapping/parser.cpp and mapspaces/uber.hpp." << std::endl;
+      exit(1);
+    }
+    DimensionIDToName[NumDimensions] = dim_name;
+    DimensionNameToID[dim_name] = NumDimensions;
+    NumDimensions++;
+  }
 
   // Coefficients.
-  NumCoefficients = 4;
+  libconfig::Setting& coefficients = shape.lookup("coefficients");
+  assert(coefficients.isList());
 
-  CoefficientIDToName = {
-    { 0, "Wstride" },
-    { 1, "Hstride" },
-    { 2, "Wdilation" },
-    { 3, "Hdilation" }};
+  NumCoefficients = 0;
+  for (auto& coefficient : coefficients)
+  {
+    std::string name;
+    assert(coefficient.lookupValue("name", name));
+           
+    Coefficient default_value;
+    assert(coefficient.lookupValue("default", default_value));
 
-  CoefficientNameToID = {
-    { "Wstride", 0 },
-    { "Hstride", 1 },
-    { "Wdilation", 2 },
-    { "Hdilation", 3 }};
-
-  DefaultCoefficients = {
-    { 0, 1 },
-    { 1, 1 },
-    { 2, 1 },
-    { 3, 1 }};
-
+    CoefficientIDToName[NumCoefficients] = name;
+    CoefficientNameToID[name] = NumCoefficients;
+    DefaultCoefficients[NumCoefficients] = default_value;
+    NumCoefficients++;
+  }
+  
   // Data Spaces.
-  NumDataSpaces = 3;
-  
-  DataSpaceIDToName = {
-    {0, "Weights"},
-    {1, "Inputs"},
-    {2, "Outputs"},
-    {3, "Shared/Illegal"}};
+  libconfig::Setting& data_spaces = shape.lookup("data-spaces");
+  assert(data_spaces.isList());
 
-  DataSpaceNameToID = {
-    {"Weights", 0},
-    {"Inputs", 1},
-    {"Outputs", 2},
-    {"Shared/Illegal", 3}};
+  NumDataSpaces = 0;
+  for (auto& data_space : data_spaces)
+  {
+    std::string name;
+    assert(data_space.lookupValue("name", name));
 
-  DataSpaceOrder = { 4, // Weight
-                     4, // Input
-                     4 }; // Output
-  
-  IsReadWriteDataSpace = [](const DataSpaceID d) -> bool
-    { return d == 2; }; // Output
+    DataSpaceIDToName[NumDataSpaces] = name;
+    DataSpaceNameToID[name] = NumDataSpaces;
 
-  Projections.resize(NumDataSpaces);
+    bool read_write = false;
+    data_space.lookupValue("read-write", read_write);
+    IsReadWriteDataSpace[NumDataSpaces] = read_write;
 
-  // Weights
-  Projections[0].resize(DataSpaceOrder[0]);
-  Projections[0][0] = {{ NumCoefficients, 0 }}; // 1 * R
-  Projections[0][1] = {{ NumCoefficients, 1 }}; // 1 * S
-  Projections[0][2] = {{ NumCoefficients, 4 }}; // 1 * C
-  Projections[0][3] = {{ NumCoefficients, 5 }}; // 1 * K
+    Projection projection;
+    libconfig::Setting& projection_cfg = data_space.lookup("projection");
+    if (projection_cfg.isArray())
+    {
+      DataSpaceOrder[NumDataSpaces] = 0;
+      for (const std::string& dim_name : projection_cfg)
+      {
+        auto& dim_id = DimensionNameToID.at(dim_name);
+        projection.push_back({{ NumCoefficients, dim_id }});        
+        DataSpaceOrder[NumDataSpaces]++;
+      }
+    }
+    else if (projection_cfg.isList())
+    {
+      DataSpaceOrder[NumDataSpaces] = 0;
+      for (auto& dimension : projection_cfg)
+      {
+        // Process one data-space dimension.
+        ProjectionExpression expression;
 
-  // Inputs
-  Projections[1].resize(DataSpaceOrder[1]);
-  Projections[1][0] = {{ 2, 0 }, { 0, 2 }}; // Wdilation*R + Wstride*P
-  Projections[1][1] = {{ 3, 1 }, { 1, 3 }}; // Hdilation*S + Hstride*Q
-  Projections[1][2] = {{ NumCoefficients, 4 }}; // 1 * C
-  Projections[1][3] = {{ NumCoefficients, 6 }}; // 1 * N
-  
-  // Outputs
-  Projections[2].resize(DataSpaceOrder[2]);
-  Projections[2][0] = {{ NumCoefficients, 2 }}; // 1 * P
-  Projections[2][1] = {{ NumCoefficients, 3 }}; // 1 * Q
-  Projections[2][2] = {{ NumCoefficients, 5 }}; // 1 * K
-  Projections[2][3] = {{ NumCoefficients, 6 }}; // 1 * N
+        // Each expression is a list of terms. Each term can be
+        // a libconfig array or list.
+        for (auto& term : dimension)
+        {
+          assert(term.isArray());
+          
+          // Each term may have exactly 1 or 2 items.
+          if (term.getLength() == 1)
+          {
+            const std::string& dim_name = term[0];
+            auto& dim_id = DimensionNameToID.at(dim_name);
+            expression.push_back({ NumCoefficients, dim_id });
+          }
+          else if (term.getLength() == 2)
+          {
+            const std::string& dim_name = term[0];
+            const std::string& coeff_name = term[1];
+            auto& dim_id = DimensionNameToID.at(dim_name);
+            auto& coeff_id = CoefficientNameToID.at(coeff_name);
+            expression.push_back({ coeff_id, dim_id });
+          }
+          else
+          {
+            assert(false);
+          }
+        }
+        
+        projection.push_back(expression);
+        DataSpaceOrder[NumDataSpaces]++;
+      }
+    }
+    else
+    {
+      assert(false);
+    }
+
+    Projections.push_back(projection);
+    NumDataSpaces++;
+  }
+  // FIXME: deal with Shared/Illegal
+
+  ShapeParsed = true;
 }
 
 }  // namespace problem

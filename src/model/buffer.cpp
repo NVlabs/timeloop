@@ -595,7 +595,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
 
     assert((tile[pvi].size == 0) == (tile[pvi].content_accesses == 0));
 
-    if (problem::IsReadWriteDataSpace(pv))
+    if (problem::IsReadWriteDataSpace[pv])
     {
       // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
       assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
@@ -667,7 +667,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
     // 1. link transfers should result in buffer accesses to a peer.
     // 2. should reductions via link transfers be counted as spatial or temporal?
     stats_.network.link_transfers[pv] = tile[pvi].link_transfers;
-    if (problem::IsReadWriteDataSpace(pv))
+    if (problem::IsReadWriteDataSpace[pv])
     {
       stats_.network.spatial_reductions[pv] += tile[pvi].link_transfers;
     }
@@ -692,7 +692,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
         {
           stats_.network.multicast_factor[pv] = factor;
         }
-        if (problem::IsReadWriteDataSpace(pv))
+        if (problem::IsReadWriteDataSpace[pv])
         {
           stats_.network.spatial_reductions[pv] += (i * stats_.network.ingresses[pv][i]);
         }
@@ -990,7 +990,7 @@ void BufferLevel::ComputeReductionEnergy()
   for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
     auto pv = problem::DataSpaceID(pvi);
-    if (problem::IsReadWriteDataSpace(pv))
+    if (problem::IsReadWriteDataSpace[pv])
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
         pat::AdderEnergy(specs_.WordBits(pv).Get(), specs_.NetworkWordBits(pv).Get());
@@ -1347,8 +1347,11 @@ void BufferLevel::Print(std::ostream& out) const
     {
       out << indent << "= " << specs.Name(pv).Get() << " =" << std::endl;
     }
-    
-    out << indent << pv << ":" << std::endl;
+
+    if (pv == problem::NumDataSpaces)
+      out << indent << "Shared:" << std::endl;
+    else
+      out << indent << problem::DataSpaceIDToName.at(pv) << ":" << std::endl;      
     out << indent << indent << "Technology           : " << specs.Tech(pv) << std::endl;
     out << indent << indent << "Size                 : " << specs.Size(pv) << std::endl;
     out << indent << indent << "Word bits            : " << specs.WordBits(pv) << std::endl;    
@@ -1404,7 +1407,7 @@ void BufferLevel::Print(std::ostream& out) const
 
     if (stats.keep.at(pv))
     {
-      out << indent << pv << std::endl;    
+      out << indent << problem::DataSpaceIDToName.at(pv) << ":" << std::endl;
 
       // Partition size calculation is incorrect in nest-analysis.cpp, so do NOT print it out.
       // out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
@@ -1440,7 +1443,7 @@ void BufferLevel::Print(std::ostream& out) const
     if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Partitioned)
     {
       if (stats.utilized_capacity.at(pv) == 0 && specs.Size(pv).IsSpecified() && specs.Size(pv).Get() > 0)
-        out << indent << pv << std::endl;
+        out << indent << problem::DataSpaceIDToName.at(pv) << std::endl;
       
       if (stats.utilized_capacity.at(pv) > 0 || (specs.Size(pv).IsSpecified() && specs.Size(pv).Get() > 0))
         out << indent + indent << "Area (per-instance)                      : " << stats.area.at(pv) << " um2" << std::endl;
@@ -1451,7 +1454,7 @@ void BufferLevel::Print(std::ostream& out) const
   if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Shared)
   {
     auto pv = problem::NumDataSpaces;
-    out << indent << "Shared" << std::endl;
+    out << indent << "Shared:" << std::endl;
     out << indent + indent << "Area (per-instance)                      : " << stats.area.at(pv) << " um2" << std::endl;
   }
   
@@ -1462,7 +1465,7 @@ void BufferLevel::Print(std::ostream& out) const
   for (unsigned pvi = 0; pvi < unsigned(problem::NumDataSpaces); pvi++)
   {
     auto pv = problem::DataSpaceID(pvi);
-    out << indent << pv << std::endl;
+    out << indent << problem::DataSpaceIDToName.at(pv) << ":" << std::endl;
 
     out << indent + indent << "Fanout                                  : "
         << stats.network.fanout.at(pv) << std::endl;

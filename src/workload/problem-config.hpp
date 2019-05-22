@@ -27,12 +27,14 @@
 
 #pragma once
 
+#include <libconfig.h++>
+
 #include "per-data-space.hpp"
 #include "per-problem-dimension.hpp"
 
 namespace problem
 {
 
-void ParseProblemShape();
+void ParseProblemShape(libconfig::Setting& config);
 
 } // namespace problem

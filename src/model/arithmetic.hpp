@@ -181,7 +181,7 @@ class ArithmeticUnits : public Level
       // Scale energy for sparsity.
       for (unsigned d = 0; d < problem::NumDataSpaces; d++)
       {
-        if (!problem::IsReadWriteDataSpace(d))
+        if (!problem::IsReadWriteDataSpace[d])
           energy_ *= workload_config.getDensity(d);
       }
       
