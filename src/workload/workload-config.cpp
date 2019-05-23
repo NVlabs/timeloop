@@ -31,30 +31,36 @@
 namespace problem
 {
 
+
+std::string ShapeFileName(const std::string shape_name)
+{
+  const char* timeloopdir = std::getenv("TIMELOOPDIR");
+  if (!timeloopdir)
+  {
+    timeloopdir = BUILD_BASE_DIR;
+    std::cerr << "WARNING: environment variable TIMELOOPDIR not found, assuming it to be: " << timeloopdir << std::endl;
+  }
+    
+  std::string shape_file_name = std::string(timeloopdir) + "/problem-shapes/" + shape_name + ".cfg";
+  std::cout << "Attempting to read problem shape from file: " << shape_file_name << std::endl;
+  return shape_file_name;
+}
+
 void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload)
 {
+  std::string shape_name;
   if (!config.exists("shape"))
   {
-    std::cerr << "ERROR: problem shape not found. Please specify a complete problem shape or a string corresponding to a pre-existing shape." << std::endl;
-    exit(1);
-  }
-
-  std::string shape_name = "";
-  if (config.lookupValue("shape", shape_name))
-  {
-    const char* timeloopdir = std::getenv("TIMELOOPDIR");
-    if (!timeloopdir)
-    {
-      timeloopdir = BUILD_BASE_DIR;
-      std::cerr << "WARNING: environment variable TIMELOOPDIR not found, assuming it to be: " << timeloopdir << std::endl;
-    }
-    
-    std::string shape_file_name = std::string(timeloopdir) + "/problem-shapes/" + shape_name + ".cfg";
-
-    std::cout << "Attempting to read problem shape from file: " << shape_file_name << std::endl;
-      
+    std::cerr << "WARNING: found neither a problem shape description nor a string corresponding to a to a pre-existing shape description. Assuming shape: cnn-layer." << std::endl;
     libconfig::Config shape_config;
-    shape_config.readFile(shape_file_name.c_str());
+    shape_config.readFile(ShapeFileName("cnn-layer").c_str());
+    libconfig::Setting& shape = shape_config.lookup("shape");
+    ParseProblemShape(shape);    
+  }
+  else if (config.lookupValue("shape", shape_name))
+  {    
+    libconfig::Config shape_config;
+    shape_config.readFile(ShapeFileName(shape_name).c_str());
     libconfig::Setting& shape = shape_config.lookup("shape");
     ParseProblemShape(shape);    
   }

@@ -49,8 +49,10 @@ class Application
  protected:
   problem::WorkloadConfig workload_config_;
   model::Engine::Specs arch_specs_;
-  model::Engine engine_;
-  Mapping mapping_;
+
+  // The mapping has to be a dynamic object because we cannot
+  // instantiate it before the problem shape has been parsed. UGH.
+  Mapping* mapping_;
   
  private:
 
@@ -77,12 +79,11 @@ class Application
     // Architecture configuration.
     libconfig::Setting& arch = config.lookup("arch");
     arch_specs_ = model::Engine::ParseSpecs(arch);
-    engine_.Spec(arch_specs_);
     std::cout << "Architecture configuration complete." << std::endl;
 
     // Mapping configuration: expressed as a mapspace or mapping.
     libconfig::Setting& mapping = config.lookup("mapping");
-    mapping_ = mapping::ParseAndConstruct(mapping, arch_specs_, workload_config_);
+    mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_config_));
     std::cout << "Mapping construction complete." << std::endl;
   }
 
@@ -92,33 +93,40 @@ class Application
 
   ~Application()
   {
+    if (mapping_)
+      delete mapping_;
   }
 
   // Run the evaluation.
   void Run()
   {
-    bool success = engine_.Evaluate(mapping_, workload_config_);
+    model::Engine engine;
+    engine.Spec(arch_specs_);
+
+    auto& mapping = *mapping_;
+    
+    bool success = engine.Evaluate(mapping, workload_config_);
     if (!success)
     {
       return;
     }
 
-    std::cerr << "Utilization = " << engine_.Utilization() << " pJ/MACC = "
-              << engine_.Energy() / engine_.GetTopology().MACCs() << std::endl;
+    std::cerr << "Utilization = " << engine.Utilization() << " pJ/MACC = "
+              << engine.Energy() / engine.GetTopology().MACCs() << std::endl;
       
     std::cout << std::endl;
     
-    if (engine_.IsEvaluated())
+    if (engine.IsEvaluated())
     {
-      std::cout << mapping_ << std::endl;
-      std::cout << engine_ << std::endl;
+      std::cout << mapping << std::endl;
+      std::cout << engine << std::endl;
     }
 
     // Printing the engine stats and mapping to an XML file
     std::ofstream ofs("timeLoopOutput.xml");
     boost::archive::xml_oarchive ar(ofs);
-    ar << BOOST_SERIALIZATION_NVP(engine_);
-    ar << BOOST_SERIALIZATION_NVP(mapping_);
+    ar << BOOST_SERIALIZATION_NVP(engine);
+    ar << BOOST_SERIALIZATION_NVP(mapping);
     const Application* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
   }
