@@ -62,15 +62,8 @@ std::map<DataSpaceID, bool> IsReadWriteDataSpace;
 std::vector<Projection> Projections;
 
 // API.
-void ParseProblemShape(libconfig::Setting& config)
+void ParseProblemShape(libconfig::Setting& shape)
 {
-  if (!config.exists("shape"))
-  {
-    std::cerr << "ERROR: problem shape not found. Please specify a problem shape, or @include a pre-existing shape in the .cfg file." << std::endl;
-    exit(1);
-  }
-  libconfig::Setting& shape = config.lookup("shape");
-  
   // Not sure what to do with the name, since we only ever
   // parse one shape per invocation.
   std::string name = "";
@@ -188,7 +181,6 @@ void ParseProblemShape(libconfig::Setting& config)
     Projections.push_back(projection);
     NumDataSpaces++;
   }
-  // FIXME: deal with Shared/Illegal
 
   ShapeParsed = true;
 }

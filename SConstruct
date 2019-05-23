@@ -32,4 +32,5 @@ VariantDir('build', 'src', duplicate=0)
     
 env = Environment(ENV = os.environ)    
 env.Append(CCFLAGS = ['-g', '-O3'])
+env.Append(BUILD_BASE_DIR = Dir('.').abspath)
 env.SConscript('build/SConscript', exports='env')

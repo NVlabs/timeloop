@@ -25,6 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "problem-config.hpp"
 #include "workload-config.hpp"
 
 namespace problem
@@ -32,6 +33,37 @@ namespace problem
 
 void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload)
 {
+  if (!config.exists("shape"))
+  {
+    std::cerr << "ERROR: problem shape not found. Please specify a complete problem shape or a string corresponding to a pre-existing shape." << std::endl;
+    exit(1);
+  }
+
+  std::string shape_name = "";
+  if (config.lookupValue("shape", shape_name))
+  {
+    const char* timeloopdir = std::getenv("TIMELOOPDIR");
+    if (!timeloopdir)
+    {
+      timeloopdir = BUILD_BASE_DIR;
+      std::cerr << "WARNING: environment variable TIMELOOPDIR not found, assuming it to be: " << timeloopdir << std::endl;
+    }
+    
+    std::string shape_file_name = std::string(timeloopdir) + "/problem-shapes/" + shape_name + ".cfg";
+
+    std::cout << "Attempting to read problem shape from file: " << shape_file_name << std::endl;
+      
+    libconfig::Config shape_config;
+    shape_config.readFile(shape_file_name.c_str());
+    libconfig::Setting& shape = shape_config.lookup("shape");
+    ParseProblemShape(shape);    
+  }
+  else
+  {
+    libconfig::Setting& shape = config.lookup("shape");
+    ParseProblemShape(shape);
+  }
+  
   if (!ShapeParsed)
   {
     std::cerr << "ERROR: cannot parse workload before problem shape "

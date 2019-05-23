@@ -306,14 +306,14 @@ void BufferLevel::ParseBufferSpecs(libconfig::Setting& buffer, problem::DataSpac
       (tmp_entries / tmp_block_size) + 1;  
     tmp_access_energy = pat::SRAMEnergy(height, width, specs.NumBanks(pv).Get(), specs.NumPorts(pv).Get()) / tmp_cluster_size;
     tmp_storage_area = pat::SRAMArea(height, width, specs.NumBanks(pv).Get(), specs.NumPorts(pv).Get()) / tmp_cluster_size;
-    std::cout << "Entries = " << tmp_entries
-              << ", word_size = " << tmp_word_bits
-              << ", block_size = " << tmp_block_size
-              << ", cluster_size = " << tmp_cluster_size
-              << ", num_banks = " << specs.NumBanks(pv).Get()
-              << ", num_ports = " << specs.NumPorts(pv).Get()
-              << ", energy = " << tmp_access_energy
-              << ", area = " << tmp_storage_area << std::endl;
+    // std::cout << "Entries = " << tmp_entries
+    //           << ", word_size = " << tmp_word_bits
+    //           << ", block_size = " << tmp_block_size
+    //           << ", cluster_size = " << tmp_cluster_size
+    //           << ", num_banks = " << specs.NumBanks(pv).Get()
+    //           << ", num_ports = " << specs.NumPorts(pv).Get()
+    //           << ", energy = " << tmp_access_energy
+    //           << ", area = " << tmp_storage_area << std::endl;
   }
 
   specs.VectorAccessEnergy(pv) = tmp_access_energy;
