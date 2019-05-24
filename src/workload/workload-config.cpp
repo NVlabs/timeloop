@@ -34,15 +34,29 @@ namespace problem
 
 std::string ShapeFileName(const std::string shape_name)
 {
-  const char* timeloopdir = std::getenv("TIMELOOPDIR");
-  if (!timeloopdir)
+  std::string shape_file_name;
+  std::string shape_dir;
+ 
+  const char* shape_dir_env = std::getenv("TIMELOOP_PROBLEM_SHAPE_DIR");
+  if (shape_dir_env)
   {
-    timeloopdir = BUILD_BASE_DIR;
-    std::cerr << "WARNING: environment variable TIMELOOPDIR not found, assuming it to be: " << timeloopdir << std::endl;
+    shape_dir = std::string(shape_dir_env) + "/";
+  }
+  else
+  {  
+    const char* timeloopdir = std::getenv("TIMELOOP_DIR");
+    if (!timeloopdir)
+    {
+      timeloopdir = BUILD_BASE_DIR;
+    }
+    shape_dir = std::string(timeloopdir) + "/problem-shapes/";
   }
     
-  std::string shape_file_name = std::string(timeloopdir) + "/problem-shapes/" + shape_name + ".cfg";
-  std::cout << "Attempting to read problem shape from file: " << shape_file_name << std::endl;
+  shape_file_name = shape_dir + shape_name + ".cfg";
+  
+  std::cerr << "MESSAGE: reading problem shapes from: " << shape_dir << std::endl;
+  std::cout << "MESSAGE: attempting to read problem shape from file: " << shape_file_name << std::endl;
+
   return shape_file_name;
 }
 
