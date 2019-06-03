@@ -33,7 +33,7 @@
 
 #include <boost/serialization/vector.hpp>
 
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 #include "spacetime.hpp"
 
 namespace loop

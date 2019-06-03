@@ -30,7 +30,7 @@
 
 #include "loop-analysis/point-set.hpp"
 
-#include "problem-config.hpp"
+#include "problem-shape.hpp"
 #include "workload-config.hpp"
 #include "operation-space.hpp"
 

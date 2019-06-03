@@ -32,7 +32,7 @@
 
 #include "loop-analysis/loop-state.hpp"
 #include "loop-analysis/tiling.hpp"
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 
 namespace loop {
 

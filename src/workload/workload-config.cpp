@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "problem-config.hpp"
+#include "problem-shape.hpp"
 #include "workload-config.hpp"
 
 namespace problem

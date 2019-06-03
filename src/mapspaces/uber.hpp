@@ -33,7 +33,7 @@
 
 #include "util/numeric.hpp"
 #include "util/misc.hpp"
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 #include "mapspaces/mapspace-base.hpp"
 #include "mapspaces/subspaces.hpp"
 

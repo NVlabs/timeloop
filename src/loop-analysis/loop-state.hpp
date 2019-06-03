@@ -28,7 +28,7 @@
 #pragma once
 
 #include "mapping/loop.hpp"
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 #include "workload/operation-space.hpp"
 
 namespace analysis

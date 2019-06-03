@@ -34,7 +34,7 @@
 #include <set>
 
 #include "util/numeric.hpp"
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 
 namespace mapspace
 {
