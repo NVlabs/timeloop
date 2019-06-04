@@ -57,7 +57,7 @@ struct EvaluationResult
 class Application
 {
  protected:
-  problem::WorkloadConfig workload_config_;
+  problem::Workload workload_config_;
 
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
@@ -309,7 +309,7 @@ class Application
     bool log_suboptimal_;
     std::vector<std::string> optimization_metrics_;
     model::Engine::Specs arch_specs_;
-    problem::WorkloadConfig &workload_config_;
+    problem::Workload &workload_config_;
     EvaluationResult* best_;
 
     // Thread-local data.
@@ -330,7 +330,7 @@ class Application
       bool log_suboptimal,
       std::vector<std::string> optimization_metrics,
       model::Engine::Specs arch_specs,
-      problem::WorkloadConfig &workload_config,
+      problem::Workload &workload_config,
       EvaluationResult* best
       ) :
         thread_id_(thread_id),

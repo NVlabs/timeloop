@@ -72,46 +72,46 @@ class PerDataSpaceOrShared
     shared = val;
   }
 
-  T & operator [] (problem::DataSpaceID pv)
+  T & operator [] (problem::Shape::DataSpaceID pv)
   {
-    if (pv == problem::NumDataSpaces)
+    if (pv == problem::GetShape()->NumDataSpaces)
     {
       assert(is_shared);
       return shared;
     }
     else
     {
-      assert(pv < problem::NumDataSpaces);
+      assert(pv < problem::GetShape()->NumDataSpaces);
       assert(is_per_data_space);
       return per_data_space[pv];
     }
   }
 
-  T & at(problem::DataSpaceID pv)
+  T & at(problem::Shape::DataSpaceID pv)
   {
-    if (pv == problem::NumDataSpaces)
+    if (pv == problem::GetShape()->NumDataSpaces)
     {
       assert(is_shared);
       return shared;
     }
     else
     {
-      assert(pv < problem::NumDataSpaces);
+      assert(pv < problem::GetShape()->NumDataSpaces);
       assert(is_per_data_space);
       return per_data_space[pv];
     }
   }
 
-  const T & at(problem::DataSpaceID pv) const
+  const T & at(problem::Shape::DataSpaceID pv) const
   {
-    if (pv == problem::NumDataSpaces)
+    if (pv == problem::GetShape()->NumDataSpaces)
     {
       assert(is_shared);
       return shared;
     }
     else
     {
-      assert(pv < problem::NumDataSpaces);
+      assert(pv < problem::GetShape()->NumDataSpaces);
       assert(is_per_data_space);
       return per_data_space[pv];
     }
@@ -196,17 +196,17 @@ class BufferLevel : public Level
     unsigned start_pvi, end_pvi;
     if (sharing == DataSpaceIDSharing::Shared)
     {
-      start_pvi = end_pvi = unsigned(problem::NumDataSpaces);
+      start_pvi = end_pvi = unsigned(problem::GetShape()->NumDataSpaces);
     }
     else
     {
       start_pvi = 0;
-      end_pvi = unsigned(problem::NumDataSpaces)-1;
+      end_pvi = unsigned(problem::GetShape()->NumDataSpaces)-1;
     }
 
     for (unsigned pvi = start_pvi; pvi <= end_pvi; pvi++)
     {
-      functor(problem::DataSpaceID(pvi));
+      functor(problem::Shape::DataSpaceID(pvi));
     }
   }
 
@@ -387,30 +387,30 @@ class BufferLevel : public Level
 
     // ----- Macro to add Accessors -----
 #define ADD_ACCESSORS(FuncName, MemberName, Type)                   \
-    Attribute<Type> & FuncName(problem::DataSpaceID pv)                \
+    Attribute<Type> & FuncName(problem::Shape::DataSpaceID pv)      \
     {                                                               \
       return (sharing_type == DataSpaceIDSharing::Partitioned)         \
              ? MemberName[pv]                                       \
-             : MemberName[problem::NumDataSpaces];                  \
+             : MemberName[problem::GetShape()->NumDataSpaces];                  \
     }                                                               \
                                                                     \
-    const Attribute<Type> & FuncName(problem::DataSpaceID pv) const    \
+    const Attribute<Type> & FuncName(problem::Shape::DataSpaceID pv) const    \
     {                                                               \
       return (sharing_type == DataSpaceIDSharing::Partitioned)         \
              ? MemberName.at(pv)                                    \
-             : MemberName.at(problem::NumDataSpaces);               \
+             : MemberName.at(problem::GetShape()->NumDataSpaces);               \
     }                                                               \
                                                                     \
     Attribute<Type> & FuncName()                                    \
     {                                                               \
       assert(sharing_type == DataSpaceIDSharing::Shared);              \
-      return MemberName[problem::NumDataSpaces];                    \
+      return MemberName[problem::GetShape()->NumDataSpaces];                    \
     }                                                               \
                                                                     \
     const Attribute<Type> & FuncName() const                        \
     {                                                               \
       assert(sharing_type == DataSpaceIDSharing::Shared);              \
-      return MemberName.at(problem::NumDataSpaces);                 \
+      return MemberName.at(problem::GetShape()->NumDataSpaces);                 \
     }                                                               
     // ----- End Macro -----
 
@@ -419,7 +419,7 @@ class BufferLevel : public Level
     {
       return sharing_type == DataSpaceIDSharing::Shared
                              ? 1
-                             : size_t(problem::NumDataSpaces);
+                             : size_t(problem::GetShape()->NumDataSpaces);
     }
 
     ADD_ACCESSORS(Name, name, std::string)
@@ -580,7 +580,7 @@ class BufferLevel : public Level
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
   static Specs ParseSpecs(libconfig::Setting& setting);
-  static void ParseBufferSpecs(libconfig::Setting& buffer, problem::DataSpaceID pv, Specs& specs);
+  static void ParseBufferSpecs(libconfig::Setting& buffer, problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
   
   bool DistributedMulticastSupported() override;
@@ -601,20 +601,20 @@ class BufferLevel : public Level
   void ComputeAddrGenEnergy();
 
   // Accessors (post-evaluation).
-  double StorageEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
-  double NetworkEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
-  double TemporalReductionEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
-  double SpatialReductionEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
-  double AddrGenEnergy(problem::DataSpaceID pv = problem::NumDataSpaces) const;
+  double StorageEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+  double NetworkEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+  double TemporalReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+  double SpatialReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+  double AddrGenEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
   
-  double Energy(problem::DataSpaceID pv = problem::NumDataSpaces) const override;
+  double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
  
   std::string Name() const override;
   double Area() const override;
   double AreaPerInstance() const override;
   double Size();
   std::uint64_t Cycles() const override;
-  std::uint64_t Accesses(problem::DataSpaceID pv = problem::NumDataSpaces) const override;
+  std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   double CapacityUtilization() override;
   
   std::uint64_t MaxFanout() const override

@@ -41,7 +41,7 @@ namespace mapspace
 
 MapSpace* ParseAndConstruct(libconfig::Setting& config,
                             model::Engine::Specs& arch_specs,
-                            const problem::WorkloadConfig& workload_config)
+                            const problem::Workload& workload_config)
 {
   MapSpace* mapspace = nullptr;
   

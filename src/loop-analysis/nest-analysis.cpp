@@ -49,7 +49,7 @@ NestAnalysis::NestAnalysis()
 {
 }
 
-void NestAnalysis::Init(problem::WorkloadConfig* wc, const loop::Nest* nest)
+void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest)
 {
   assert(nest != NULL);
   assert(wc != NULL);
@@ -267,7 +267,7 @@ void NestAnalysis::CollectWorkingSets()
     {
       // Contains the collected state for this level.
       analysis::ElementState condensed_state;
-      for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         // Sanity check: All elements in a given level should
         // have similar working sets, accesses etc.
@@ -302,7 +302,7 @@ void NestAnalysis::CollectWorkingSets()
         // *** UPDATE *** this is now handled within the main
         // ComputeWorkingSets() recursive loop.
         //
-        // if (problem::IsReadWriteDataSpace[pv]) {
+        // if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
         //   for (uint64_t i = 0; i < condensed_state.accesses[pv].size(); i++) {
         //     condensed_state.accesses[pv][i] *= 2;
         //   }
@@ -332,7 +332,7 @@ void NestAnalysis::CollectWorkingSets()
       }
 
       // Transfer data from condensed_state to working_sets_
-      for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         tiling::TileInfo tile;
         tile.size                   = condensed_state.max_size[pv];
@@ -492,7 +492,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   // We use the pre-computed molds within this level range.
   // Above this level range, we use the transform problem-point to
   // translate, rotate or otherwise transform the mold.
-  for (unsigned dim = 0; dim < unsigned(problem::NumDimensions); dim++)
+  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumDimensions); dim++)
   {
     low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
     high_problem_point[dim] = cur_transform_[dim] + mold_high_[level][dim];
@@ -527,11 +527,11 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       body_info_.accesses += body_iterations;
     }
 
-    for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       // Write-backs of read-modify-write data types consume 2
       // accesses *except* for the first write.
-      if (problem::IsReadWriteDataSpace[pv] &&
+      if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
           cur_state.accesses[pv][0] != 0)
       {
         cur_state.accesses[pv][0] += body_iterations; // (2 * body_iterations); This fixup now happens in model/buffer.cpp.
@@ -685,17 +685,17 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       auto num_deltas = temporal_delta_sizes.size();
       for (unsigned i = 0; i < num_deltas; i++)
       {
-        for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
         {
           final_delta_sizes[pv] += (temporal_delta_sizes[i][pv] * temporal_delta_scale[i]);
         }
       }
 
-      for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         // Write-backs of read-modify-write data types consume 2
         // accesses *except* for the first write.
-        if (problem::IsReadWriteDataSpace[pv] &&
+        if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
             cur_state.accesses[pv][0] != 0)
         {
           cur_state.accesses[pv][0] += final_delta_sizes[pv] * num_epochs_; // (2 * final_delta_sizes[pv] * num_epochs_); This fixup now happens in model/buffer.cpp.
@@ -782,7 +782,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   problem::PerDataSpace<std::vector<std::uint64_t>*>
     accesses, scatter_factors, cumulative_hops;
   
-  for (unsigned pvi = 0; pvi < problem::NumDataSpaces; pvi++)
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
     accesses_without_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
     accesses_with_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
@@ -843,9 +843,9 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
                                        cumulative_hops_with_link_transfers);
 
     // Compare.
-    for (unsigned pvi = 0; pvi < problem::NumDataSpaces; pvi++)
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
-      // if (problem::DataSpaceID(pvi) == problem::DataSpaceID::Weight)
+      // if (problem::Shape::DataSpaceID(pvi) == problem::Shape::DataSpaceID::Weight)
       // {
       //   std::cout << "ACCESSES *WITH* LINK TRANSFERS\n";
       //   for (unsigned i = 0; i < accesses_with_link_transfers[pvi].size(); i++)
@@ -878,7 +878,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
     }
   }
 
-  for (unsigned pvi = 0; pvi < problem::NumDataSpaces; pvi++)
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
     for (unsigned i = 0; i < cur_state.accesses[pvi].size(); i++)
     {
@@ -915,7 +915,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   }
 
   // Consistency check.
-  for (unsigned pvi = 0; pvi < problem::NumDataSpaces; pvi++)
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
     std::uint64_t fanout = 0;
     for (unsigned i = 0; i < cur_state.accesses[pvi].size(); i++)
@@ -1145,7 +1145,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
 
   // for (std::uint64_t i = 0; i < num_deltas; i++)
   // {
-  //   auto pv = problem::DataSpaceID::Weight;
+  //   auto pv = problem::Shape::DataSpaceID::Weight;
   //   if (unaccounted_delta[i][int(pv)])
   //     std::cout << "UNACCOUNTED: ";
   //   else
@@ -1162,7 +1162,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     
     problem::PerDataSpace<std::vector<std::uint64_t>> match_set;
 
-    for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       if (!unaccounted_delta[i][pv])
       {
@@ -1191,7 +1191,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     }
 
     // update the number of accesses at different multicast factors.
-    for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       if (num_matches[pv] > 0)
       {
@@ -1242,7 +1242,7 @@ void CompareSpatioTemporalDeltas(
   auto& cur_delta = cur_spatial_deltas[cur_spatial_index];
   auto& prev_delta = prev_spatial_deltas[prev_spatial_index];
 
-  for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
     if (!cur_delta.IsEmpty(pv))
     {
@@ -1269,7 +1269,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // std::cout << "CUR BEFORE:" << std::endl;
   // for (std::uint64_t i = 0; i < cur_spatial_deltas.size(); i++)
   // {
-  //   auto pv = problem::DataSpaceID::Weight;
+  //   auto pv = problem::Shape::DataSpaceID::Weight;
   //   if (unaccounted_delta[i][int(pv)])
   //     std::cout << "  UNACCOUNTED: ";
   //   else
@@ -1298,7 +1298,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // std::cout << "PREV:" << std::endl;
   // for (std::uint64_t i = 0; i < prev_spatial_deltas.size(); i++)
   // {
-  //   auto pv = problem::DataSpaceID::Weight;
+  //   auto pv = problem::Shape::DataSpaceID::Weight;
   //   std::cout << "  "; prev_spatial_deltas[i].Print(pv);
   // }
   
@@ -1372,7 +1372,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // by using link transfers
   for (int i = 0; i < num_spatial_elems; i++)
   {
-    for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       if (inter_elem_reuse[i][pv])
       {
@@ -1401,7 +1401,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // std::cout << "AFTER:" << std::endl;
   // for (std::uint64_t i = 0; i < cur_spatial_deltas.size(); i++)
   // {
-  //   auto pv = problem::DataSpaceID::Weight;
+  //   auto pv = problem::Shape::DataSpaceID::Weight;
   //   if (unaccounted_delta[i][int(pv)])
   //     std::cout << "  UNACCOUNTED: ";
   //   else
@@ -1538,7 +1538,7 @@ void NestAnalysis::InitSpatialFanouts()
 
 void NestAnalysis::InitPerLevelDimScales()
 {
-  for (unsigned dim = 0; dim < problem::NumDimensions; dim++)
+  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
   {
     cur_transform_[dim] = 0;
   }
@@ -1558,14 +1558,14 @@ void NestAnalysis::InitPerLevelDimScales()
     auto desc = nest_state_[level].descriptor;
     int dim = int(desc.dimension);
 
-    for (std::uint64_t dim = 0; dim < problem::NumDimensions; dim++)
+    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
     {
       per_level_dim_scales_[level][dim] = cur_scale[dim];
     }
 
     cur_scale[dim] *= (desc.end - desc.start);  // FIXME: assuming stride = 1
 
-    for (std::uint64_t dim = 0; dim < problem::NumDimensions; dim++)
+    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
     {
       mold_low_[level][dim] = desc.start;
       mold_high_[level][dim] = cur_scale[dim] - 1; // FIXME: this is wrong.
@@ -1584,7 +1584,7 @@ problem::OperationPoint NestAnalysis::IndexToOperationPoint_(
   const std::vector<int>& indices) const
 {
   problem::OperationPoint point;
-  for (unsigned dim = 0; dim < problem::NumDimensions; dim++)
+  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
   {
     point[dim] = 0;
   }
@@ -1667,7 +1667,7 @@ void NestAnalysis::ComputeApproxMulticastedAccesses(
 
     problem::PerDataSpace<bool> is_multicast;
     is_multicast.fill(true);
-    for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       for (uint64_t i = 1; i < indices_to_compare.size(); i++)
       {
@@ -1682,7 +1682,7 @@ void NestAnalysis::ComputeApproxMulticastedAccesses(
       }
     }
 
-    for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       is_multicast_level[pv][level] = is_multicast[pv];
     }
@@ -1693,14 +1693,14 @@ void NestAnalysis::ComputeApproxMulticastedAccesses(
   for (uint64_t i = 0; i < spatial_deltas.size(); i++)
   {
     auto delta_sizes = spatial_deltas[i].GetSizes();
-    for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       summed_deltas[pv] += delta_sizes[pv];
     }
   }
 
   problem::PerDataSpace<std::size_t> multicast_factors;
-  for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
     uint64_t product_of_multicast_levels = 1;
     for (uint64_t level = 0; level < num_spatial_levels; level++)
@@ -1715,7 +1715,7 @@ void NestAnalysis::ComputeApproxMulticastedAccesses(
 
   // compute and update the number of accesses at various multicast factors.
   auto& accesses = nest_state_[master_level].live_state[spatial_id_].accesses;
-  for (unsigned pv = 0; pv < problem::NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
     ASSERT(accesses[pv].size() == spatial_deltas.size());
     ASSERT(summed_deltas[pv] % multicast_factors[pv] == 0);

@@ -31,50 +31,78 @@
 #include <boost/archive/text_iarchive.hpp>
 #include <libconfig.h++>
 
-#include "global-names.hpp"
+#include "loop-analysis/point-set.hpp"
+
+#include "problem-shape.hpp"
 
 namespace problem
 {
 
 // ======================================== //
-//              WorkloadConfig              //
+//              Shape instance              //
+// ======================================== //
+// Sadly, this has to be a static instance outside Workload for now
+// because a large section of the codebase was written assuming there would
+// only be one active shape instance. To fix this, we need to make the shape
+// instance a member of Workload, and pass pointers to the Workload
+// object *everywhere*. The most problematic classes are PerDataSpace and
+// PerProblemDimension. If we can figure out a clean implementation of these
+// classes that does not require querying Shape::NumDimensions or
+// Shape::NumDataSpaces then most of the problem is possibly solved.
+
+const Shape* GetShape();
+
+// ======================================== //
+//                 Workload                 //
 // ======================================== //
 
-class WorkloadConfig
+class Workload
 {
+ public:
+  typedef std::map<Shape::DimensionID, Coordinate> Bounds;
+  typedef std::map<Shape::CoefficientID, int> Coefficients;
+  typedef std::map<Shape::DataSpaceID, double> Densities;  
+  
+ protected:
   Bounds bounds_;
   Coefficients coefficients_;
   Densities densities_;
 
  public:
-  WorkloadConfig() {}
+  Workload() {}
 
-  int getBound(problem::DimensionID dim) const
+  const Shape* GetShape() const
+  {
+    // Just a trampolene to the global function at the moment.
+    return problem::GetShape();
+  }
+
+  int GetBound(Shape::DimensionID dim) const
   {
     return bounds_.at(dim);
   }
 
-  int getCoefficient(problem::CoefficientID p) const
+  int GetCoefficient(Shape::CoefficientID p) const
   {
     return coefficients_.at(p);
   }
   
-  double getDensity(problem::DataSpaceID pv) const
+  double GetDensity(Shape::DataSpaceID pv) const
   {
     return densities_.at(pv);
   }
 
-  void setBounds(const Bounds& bounds)
+  void SetBounds(const Bounds& bounds)
   {
     bounds_ = bounds;
   }
   
-  void setCoefficients(const Coefficients& coefficients)
+  void SetCoefficients(const Coefficients& coefficients)
   {
     coefficients_ = coefficients;
   }
   
-  void setDensities(const Densities& densities)
+  void SetDensities(const Densities& densities)
   {
     densities_ = densities;
   }
@@ -94,6 +122,6 @@ class WorkloadConfig
   }
 };
 
-void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload);
+void ParseWorkload(libconfig::Setting& config, Workload& workload);
 
 } // namespace problem

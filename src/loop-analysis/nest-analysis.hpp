@@ -28,6 +28,7 @@
 #pragma once
 
 #include "mapping/nest.hpp"
+#include "workload/per-problem-dimension.hpp"
 
 namespace analysis
 {
@@ -86,7 +87,7 @@ class NestAnalysis
 
   bool working_sets_computed_ = false;
 
-  problem::WorkloadConfig* workload_config_ = nullptr;
+  problem::Workload* workload_config_ = nullptr;
 
   // Internal helper methods.
   void ComputeWorkingSets();
@@ -142,7 +143,7 @@ class NestAnalysis
  public:  
   // API
   NestAnalysis();
-  void Init(problem::WorkloadConfig* wc, const loop::Nest* nest);
+  void Init(problem::Workload* wc, const loop::Nest* nest);
   void Reset();
  
   std::vector<problem::PerDataSpace<std::size_t>> GetWorkingSetSizes_LTW() const;

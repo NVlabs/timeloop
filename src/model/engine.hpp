@@ -94,13 +94,13 @@ class Engine : public Module
 
   const Topology& GetTopology() const { return topology_; }
 
-  bool PreEvaluationCheck(const Mapping& mapping, problem::WorkloadConfig& workload_config)
+  bool PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload_config)
   {
     nest_analysis_.Init(&workload_config, &mapping.loop_nest);
     return topology_.PreEvaluationCheck(mapping, &nest_analysis_);
   }
 
-  bool Evaluate(Mapping& mapping, problem::WorkloadConfig& workload_config)
+  bool Evaluate(Mapping& mapping, problem::Workload& workload_config)
   {
     nest_analysis_.Init(&workload_config, &mapping.loop_nest);
     

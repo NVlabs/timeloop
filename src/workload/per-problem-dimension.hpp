@@ -39,21 +39,21 @@ class PerProblemDimension : public DynamicArray<T>
 {
  public:
   PerProblemDimension() :
-    DynamicArray<T>(unsigned(NumDimensions))
+      DynamicArray<T>(GetShape()->NumDimensions)
   {
   }
 
   PerProblemDimension(std::initializer_list<T> l) :
     DynamicArray<T>(l)
   {
-    assert(this->size() == unsigned(NumDimensions));
+    assert(this->size() == GetShape()->NumDimensions);
   }
 
   friend std::ostream& operator << (std::ostream& out, const PerProblemDimension<T>& x)
   {
     for (unsigned i = 0; i < x.size(); i++)
     {
-      out << DimensionIDToName[i] << ": " << x[i] << std::endl;
+      out << GetShape()->DimensionIDToName.at(i) << ": " << x[i] << std::endl;
     }
     return out;
   }

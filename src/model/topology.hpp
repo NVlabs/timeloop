@@ -115,7 +115,7 @@ class Topology : public Module
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
   
   bool PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis);
-  bool Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::WorkloadConfig& workload_config);
+  bool Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload_config);
 
   double Energy() const;
   double Area() const;

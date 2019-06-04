@@ -31,6 +31,21 @@
 namespace problem
 {
 
+// ======================================== //
+//              Shape instance              //
+// ======================================== //
+// See comment in .hpp file.
+
+Shape shape_;
+
+const Shape* GetShape()
+{
+  return &shape_;
+}
+
+// ======================================== //
+//                 Workload                 //
+// ======================================== //
 
 std::string ShapeFileName(const std::string shape_name)
 {
@@ -60,7 +75,7 @@ std::string ShapeFileName(const std::string shape_name)
   return shape_file_name;
 }
 
-void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload)
+void ParseWorkload(libconfig::Setting& config, Workload& workload)
 {
   std::string shape_name;
   if (!config.exists("shape"))
@@ -69,61 +84,54 @@ void ParseWorkload(libconfig::Setting& config, WorkloadConfig& workload)
     libconfig::Config shape_config;
     shape_config.readFile(ShapeFileName("cnn-layer").c_str());
     libconfig::Setting& shape = shape_config.lookup("shape");
-    ParseProblemShape(shape);    
+    shape_.Parse(shape);    
   }
   else if (config.lookupValue("shape", shape_name))
   {    
     libconfig::Config shape_config;
     shape_config.readFile(ShapeFileName(shape_name).c_str());
     libconfig::Setting& shape = shape_config.lookup("shape");
-    ParseProblemShape(shape);    
+    shape_.Parse(shape);    
   }
   else
   {
     libconfig::Setting& shape = config.lookup("shape");
-    ParseProblemShape(shape);
-  }
-  
-  if (!ShapeParsed)
-  {
-    std::cerr << "ERROR: cannot parse workload before problem shape "
-              << "has been parsed and set up." << std::endl;
-    exit(1);
+    shape_.Parse(shape);
   }
   
   // Loop bounds for each problem dimension.
-  Bounds bounds;
-  for (unsigned i = 0; i < NumDimensions; i++)
-    assert(config.lookupValue(DimensionIDToName.at(i), bounds[i]));
-  workload.setBounds(bounds);
+  Workload::Bounds bounds;
+  for (unsigned i = 0; i < GetShape()->NumDimensions; i++)
+    assert(config.lookupValue(GetShape()->DimensionIDToName.at(i), bounds[i]));
+  workload.SetBounds(bounds);
 
-  Coefficients coefficients;
-  for (unsigned i = 0; i < NumCoefficients; i++)
+  Workload::Coefficients coefficients;
+  for (unsigned i = 0; i < GetShape()->NumCoefficients; i++)
   {
-    coefficients[i] = DefaultCoefficients[i];
-    config.lookupValue(CoefficientIDToName.at(i), coefficients[i]);
+    coefficients[i] = GetShape()->DefaultCoefficients.at(i);
+    config.lookupValue(GetShape()->CoefficientIDToName.at(i), coefficients[i]);
   }
-  workload.setCoefficients(coefficients);
+  workload.SetCoefficients(coefficients);
   
-  Densities densities;
+  Workload::Densities densities;
   double common_density;
   if (config.lookupValue("commonDensity", common_density))
   {
-    for (unsigned i = 0; i < NumDataSpaces; i++)
+    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
       densities[i] = common_density;
   }
   else if (config.exists("densities"))
   {
     libconfig::Setting &config_densities = config.lookup("densities");
-    for (unsigned i = 0; i < NumDataSpaces; i++)
-      assert(config_densities.lookupValue(DataSpaceIDToName.at(i), densities[i]));
+    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
+      assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), densities[i]));
   }
   else
   {
-    for (unsigned i = 0; i < NumDataSpaces; i++)
+    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
       densities[i] = 1.0;
   }
-  workload.setDensities(densities);
+  workload.SetDensities(densities);
 }
 
 } // namespace problem

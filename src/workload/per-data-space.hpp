@@ -31,7 +31,7 @@
 #include <boost/archive/text_iarchive.hpp>
 
 #include "util/dynamic-array.hpp"
-#include "global-names.hpp"
+#include "workload-config.hpp"
 
 namespace problem
 {
@@ -43,12 +43,12 @@ class PerDataSpace : public DynamicArray<T>
 {
  public:
   PerDataSpace() :
-    DynamicArray<T>(NumDataSpaces)
+      DynamicArray<T>(GetShape()->NumDataSpaces)
   {
   }
 
   PerDataSpace(const T & val) :
-    DynamicArray<T>(NumDataSpaces)
+      DynamicArray<T>(GetShape()->NumDataSpaces)
   {
     this->fill(val);
   }
@@ -56,17 +56,17 @@ class PerDataSpace : public DynamicArray<T>
   PerDataSpace(std::initializer_list<T> l) :
     DynamicArray<T>(l)
   {
-    assert(this->size() == NumDataSpaces);
+    assert(this->size() == GetShape()->NumDataSpaces);
   }
 
   T & operator [] (unsigned pv)
   {
-    assert(pv < NumDataSpaces);
+    assert(pv < GetShape()->NumDataSpaces);
     return DynamicArray<T>::at(pv);
   }
   const T & operator [] (unsigned pv) const
   {
-    assert(pv < NumDataSpaces);
+    assert(pv < GetShape()->NumDataSpaces);
     return DynamicArray<T>::at(pv);
   }
 
@@ -109,9 +109,9 @@ class PerDataSpace : public DynamicArray<T>
 
   friend std::ostream& operator << (std::ostream& out, const PerDataSpace<T>& x)
   {
-    for (unsigned pvi = 0; pvi < NumDataSpaces; pvi++)
+    for (unsigned pvi = 0; pvi < GetShape()->NumDataSpaces; pvi++)
     {
-      out << std::setw(10) << DataSpaceIDToName[pvi] << ": " << x[pvi] << std::endl;
+      out << std::setw(10) << GetShape()->DataSpaceIDToName.at(pvi) << ": " << x[pvi] << std::endl;
     }
     return out;
   }
@@ -131,15 +131,14 @@ class PerDataSpace : public DynamicArray<T>
   }
 };
 
-template<class T>
-std::ostream& operator<<(std::ostream& out, const PerDataSpace<T>& px)
-{
-  for (unsigned i = 0; i < NumDataSpaces; i++)
-  {
-    out << px[i] << " ";
-  }
-  return out;
-}
-
+// template<class T>
+// std::ostream& operator<<(std::ostream& out, const PerDataSpace<T>& px)
+// {
+//   for (unsigned i = 0; i < NumDataSpaces; i++)
+//   {
+//     out << px[i] << " ";
+//   }
+//   return out;
+// }
 
 } // namespace problem

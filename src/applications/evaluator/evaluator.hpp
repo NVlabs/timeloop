@@ -47,7 +47,7 @@
 class Application
 {
  protected:
-  problem::WorkloadConfig workload_config_;
+  problem::Workload workload_config_;
   model::Engine::Specs arch_specs_;
 
   // The mapping has to be a dynamic object because we cannot

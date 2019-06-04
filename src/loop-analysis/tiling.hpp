@@ -32,6 +32,7 @@
 #include "mapping/loop.hpp"
 #include "util/numeric.hpp"
 #include "workload/problem-shape.hpp"
+#include "workload/per-data-space.hpp"
 
 namespace tiling
 {

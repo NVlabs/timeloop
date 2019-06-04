@@ -32,46 +32,9 @@
 #include <vector>
 #include <list>
 
-#include "loop-analysis/point-set.hpp"
-
 namespace problem
 {
 
-extern bool ShapeParsed;
-
-typedef unsigned DimensionID;
-typedef std::map<DimensionID, Coordinate> Bounds;
-
-extern unsigned NumDimensions;
-extern std::map<DimensionID, std::string> DimensionIDToName;
-extern std::map<std::string, DimensionID> DimensionNameToID;
-
-typedef int Coefficient;
-typedef unsigned CoefficientID;
-typedef std::map<CoefficientID, int> Coefficients;
-
-extern unsigned NumCoefficients;
-extern std::map<std::string, CoefficientID> CoefficientNameToID;
-extern std::map<CoefficientID, std::string> CoefficientIDToName;
-extern Coefficients DefaultCoefficients;
-
-typedef double Density;
-typedef unsigned DataSpaceID;
-typedef std::map<DataSpaceID, Density> Densities;
-
-extern unsigned NumDataSpaces;
-extern std::map<std::string, DataSpaceID> DataSpaceNameToID;
-extern std::map<DataSpaceID, std::string> DataSpaceIDToName;
-extern std::map<DataSpaceID, unsigned> DataSpaceOrder;
-extern std::map<DataSpaceID, bool> IsReadWriteDataSpace;
-
-// Projection AST: the projection function for each dataspace dimension is a
-//                 Sum-Of-Products where each Product is the product of a
-//                 Coefficient and a Dimension. This is fairly restrictive
-//                 but efficient. We can generalize later if needed.
-typedef std::pair<CoefficientID, DimensionID> ProjectionTerm;
-typedef std::list<ProjectionTerm> ProjectionExpression;
-typedef std::vector<ProjectionExpression> Projection;
 
 } // namespace problem
 

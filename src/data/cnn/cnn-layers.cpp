@@ -51,7 +51,7 @@ const unsigned kDataSpaceWeight = 0;
 const unsigned kDataSpaceInput = 1;
 const unsigned kDataSpaceOutput = 2;
 
-std::map<std::string, Bounds> layers = {
+std::map<std::string, Workload::Bounds> layers = {
 
   {"TEST", {{kDimensionR, 3},
             {kDimensionS, 3},
@@ -676,7 +676,7 @@ std::map<std::string, Bounds> layers = {
                         {kDimensionN, 1}}}
 };
 
-std::ostream& operator << (std::ostream& out, Bounds& bounds)
+std::ostream& operator << (std::ostream& out, Workload::Bounds& bounds)
 {
   out << kDimensionR << " = " << bounds[kDimensionR] << std::endl;
   out << kDimensionS << " = " << bounds[kDimensionS] << std::endl;
@@ -698,9 +698,9 @@ const std::map<uint32_t, uint32_t> nearest_composite = {
   {11, 12}, {13, 15}, {27, 28}, {55, 56}, {57, 60}};
 
 // Function to get the layer config from a layer name.
-Bounds GetLayerBounds(std::string layer_name, bool pad_primes)
+Workload::Bounds GetLayerBounds(std::string layer_name, bool pad_primes)
 {
-  Bounds prob;
+  Workload::Bounds prob;
 
   try
   {
@@ -715,12 +715,12 @@ Bounds GetLayerBounds(std::string layer_name, bool pad_primes)
 
   if (pad_primes)
   {
-    for (int pd = 0; pd < int(problem::NumDimensions); pd++)
+    for (int pd = 0; pd < int(problem::GetShape()->NumDimensions); pd++)
     {
-      if (nearest_composite.count(prob[problem::DimensionID(pd)]) != 0)
+      if (nearest_composite.count(prob[problem::Shape::DimensionID(pd)]) != 0)
       {
-        prob[problem::DimensionID(pd)] =
-            nearest_composite.at(prob[problem::DimensionID(pd)]);
+        prob[problem::Shape::DimensionID(pd)] =
+            nearest_composite.at(prob[problem::Shape::DimensionID(pd)]);
       }
     }
   }
@@ -729,9 +729,9 @@ Bounds GetLayerBounds(std::string layer_name, bool pad_primes)
 }
 
 // Function to get the layer density from a layer name.
-Densities GetLayerDensities(std::string layer_name)
+Workload::Densities GetLayerDensities(std::string layer_name)
 {
-  Densities dens;
+  Workload::Densities dens;
 
   try
   {
@@ -799,7 +799,7 @@ void DumpDensities_CPP(std::string filename)
   // file << "const unsigned kDataSpaceOutput = " << kDataSpaceOutput << ";" << std::endl;
   // file << std::endl;
   
-  file << "std::map<std::string, Densities> densities = {" << std::endl;
+  file << "std::map<std::string, Workload::Densities> densities = {" << std::endl;
   
   for (auto & layer : densities)
   {
@@ -815,9 +815,9 @@ void DumpDensities_CPP(std::string filename)
 }
 
 // Libconfig Parsers.
-void ParseConfig(libconfig::Setting& config, WorkloadConfig &workload)
+void ParseConfig(libconfig::Setting& config, Workload &workload)
 {
-  Bounds bounds;
+  Workload::Bounds bounds;
   std::string layer_name = "";
   if (config.lookupValue("layer", layer_name))
   {
@@ -844,9 +844,9 @@ void ParseConfig(libconfig::Setting& config, WorkloadConfig &workload)
     assert(config.lookupValue("K", bounds[kDimensionK]));
     assert(config.lookupValue("N", bounds[kDimensionN]));
   }
-  workload.setBounds(bounds);
+  workload.SetBounds(bounds);
 
-  Coefficients coefficients;
+  Workload::Coefficients coefficients;
   coefficients[0] = 1;
   coefficients[1] = 1;
   coefficients[2] = 1;
@@ -855,9 +855,9 @@ void ParseConfig(libconfig::Setting& config, WorkloadConfig &workload)
   config.lookupValue("Hstride", coefficients[1]);
   config.lookupValue("Wdilation", coefficients[2]);
   config.lookupValue("Hdilation", coefficients[3]);
-  workload.setCoefficients(coefficients);
+  workload.SetCoefficients(coefficients);
   
-  Densities densities;
+  Workload::Densities densities;
   // See if user wants to override default densities.
   double common_density;
   if (config.lookupValue("commonDensity", common_density))
@@ -883,7 +883,7 @@ void ParseConfig(libconfig::Setting& config, WorkloadConfig &workload)
     densities[kDataSpaceInput] = 1.0;
     densities[kDataSpaceOutput] = 1.0;
   }
-  workload.setDensities(densities);
+  workload.SetDensities(densities);
 }
 
 } // namespace problem

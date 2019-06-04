@@ -25,11 +25,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <vector>
-#include <list>
-
-#include "loop-analysis/point-set.hpp"
-
 #include "problem-shape.hpp"
 #include "workload-config.hpp"
 #include "operation-space.hpp"
@@ -41,28 +36,7 @@ namespace problem
 //              Problem Shape               //
 // ======================================== //
 
-// Globals.
-bool ShapeParsed = false;
-
-unsigned NumDimensions;
-std::map<DimensionID, std::string> DimensionIDToName;
-std::map<std::string, DimensionID> DimensionNameToID;
-
-unsigned NumCoefficients;
-std::map<CoefficientID, std::string> CoefficientIDToName;
-std::map<std::string, CoefficientID> CoefficientNameToID;
-Coefficients DefaultCoefficients;
-
-unsigned NumDataSpaces;
-std::map<DataSpaceID, std::string> DataSpaceIDToName;
-std::map<std::string, DataSpaceID> DataSpaceNameToID;
-std::map<DataSpaceID, unsigned> DataSpaceOrder;
-std::map<DataSpaceID, bool> IsReadWriteDataSpace;
-
-std::vector<Projection> Projections;
-
-// API.
-void ParseProblemShape(libconfig::Setting& shape)
+void Shape::Parse(libconfig::Setting& shape)
 {
   // Not sure what to do with the name, since we only ever
   // parse one shape per invocation.
@@ -181,8 +155,6 @@ void ParseProblemShape(libconfig::Setting& shape)
     Projections.push_back(projection);
     NumDataSpaces++;
   }
-
-  ShapeParsed = true;
 }
 
 }  // namespace problem

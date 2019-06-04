@@ -36,7 +36,7 @@ namespace loop
 
 Descriptor::Descriptor() {}
 
-Descriptor::Descriptor(const problem::DimensionID _dimension, const int _start,
+Descriptor::Descriptor(const problem::Shape::DimensionID _dimension, const int _start,
                        const int _end, const int _stride,
                        const spacetime::Dimension _spacetime_dimension)
 {
@@ -50,7 +50,7 @@ Descriptor::Descriptor(const problem::DimensionID _dimension, const int _start,
   spacetime_dimension = _spacetime_dimension;
 }
 
-Descriptor::Descriptor(const problem::DimensionID _dimension,
+Descriptor::Descriptor(const problem::Shape::DimensionID _dimension,
                        const int _end,
                        const spacetime::Dimension _spacetime_dimension)
 {

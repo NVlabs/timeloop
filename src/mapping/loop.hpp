@@ -45,7 +45,7 @@ namespace loop
 class Descriptor
 {
  public:
-  problem::DimensionID dimension;
+  problem::Shape::DimensionID dimension;
   int start;
   int end;
   int stride;
@@ -53,11 +53,11 @@ class Descriptor
 
   Descriptor();
 
-  Descriptor(const problem::DimensionID _dimension, const int _start,
+  Descriptor(const problem::Shape::DimensionID _dimension, const int _start,
              const int _end, const int _stride,
              const spacetime::Dimension _spacetime_dimension);
 
-  Descriptor(const problem::DimensionID _dimension,
+  Descriptor(const problem::Shape::DimensionID _dimension,
              const int _end,
              const spacetime::Dimension _spacetime_dimension = spacetime::Dimension::Time);
 

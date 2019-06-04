@@ -43,7 +43,7 @@ class OperationPoint : public Point
 {
  public:
   OperationPoint() :
-      Point(int(NumDimensions))
+      Point(GetShape()->NumDimensions)
   {
   }
 };
@@ -55,18 +55,18 @@ class OperationPoint : public Point
 class OperationSpace
 {
  private:
-  const WorkloadConfig* workload_config_;
+  const Workload* workload_config_;
 
   std::vector<DataSpace> data_spaces_;
 
  private:
-  Point Project(DataSpaceID d, const WorkloadConfig* wc,
+  Point Project(Shape::DataSpaceID d, const Workload* wc,
                 const OperationPoint& problem_point);
   
  public:
   OperationSpace();
-  OperationSpace(const WorkloadConfig* wc);
-  OperationSpace(const WorkloadConfig* wc, const OperationPoint& low,
+  OperationSpace(const Workload* wc);
+  OperationSpace(const Workload* wc, const OperationPoint& low,
                  const OperationPoint& high, bool inclusive = true);
 
   void Reset();
@@ -79,7 +79,7 @@ class OperationSpace
   bool CheckEquality(const OperationSpace& rhs, const int t) const;
   void PrintSizes();
   void Print() const;
-  void Print(DataSpaceID pv) const;
+  void Print(Shape::DataSpaceID pv) const;
 };
 
 } // namespace problem

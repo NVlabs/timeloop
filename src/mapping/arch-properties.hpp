@@ -75,7 +75,7 @@ class ArchProperties
       bool is_spatial_2D = false;
 
       auto& specs = *specs_.topology.GetStorageLevel(i);
-      auto lambda = [&] (problem::DataSpaceID pv)
+      auto lambda = [&] (problem::Shape::DataSpaceID pv)
         {
           if (specs.Fanout(pv).Get() > 1)
             is_spatial = true;

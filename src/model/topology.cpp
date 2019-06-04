@@ -143,22 +143,22 @@ void Topology::Validate(Topology::Specs& specs)
   unsigned inner_start_pvi, inner_end_pvi;
   if (inner.sharing_type == BufferLevel::DataSpaceIDSharing::Shared)
   {
-    inner_start_pvi = inner_end_pvi = unsigned(problem::NumDataSpaces);
+    inner_start_pvi = inner_end_pvi = unsigned(problem::GetShape()->NumDataSpaces);
   }
   else
   {
     inner_start_pvi = 0;
-    inner_end_pvi = unsigned(problem::NumDataSpaces) - 1;
+    inner_end_pvi = unsigned(problem::GetShape()->NumDataSpaces) - 1;
   }
-  auto inner_start_pv = problem::DataSpaceID(inner_start_pvi);
+  auto inner_start_pv = problem::Shape::DataSpaceID(inner_start_pvi);
 
   if (inner.Instances(inner_start_pv).Get() == arithmetic_specs.Instances().Get())
   {
     for (unsigned pvi = inner_start_pvi; pvi <= inner_end_pvi; pvi++)
     {
-      inner.FanoutX(problem::DataSpaceID(pvi)) = 1;
-      inner.FanoutY(problem::DataSpaceID(pvi)) = 1;
-      inner.Fanout(problem::DataSpaceID(pvi)) = 1;
+      inner.FanoutX(problem::Shape::DataSpaceID(pvi)) = 1;
+      inner.FanoutY(problem::Shape::DataSpaceID(pvi)) = 1;
+      inner.Fanout(problem::Shape::DataSpaceID(pvi)) = 1;
     }
   }
   else
@@ -167,19 +167,19 @@ void Topology::Validate(Topology::Specs& specs)
     assert(arithmetic_specs.Instances().Get() % inner.Instances(inner_start_pv).Get() == 0);
     unsigned fanout_in = arithmetic_specs.Instances().Get() / inner.Instances(inner_start_pv).Get();
     for (unsigned pvi = inner_start_pvi; pvi <= inner_end_pvi; pvi++)
-      inner.Fanout(problem::DataSpaceID(pvi)) = fanout_in;
+      inner.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout_in;
     // fanout x
     assert(arithmetic_specs.MeshX().IsSpecified());
     assert(arithmetic_specs.MeshX().Get() % inner.MeshX(inner_start_pv).Get() == 0);
     unsigned fanoutX_in = arithmetic_specs.MeshX().Get() / inner.MeshX(inner_start_pv).Get();
     for (unsigned pvi = inner_start_pvi; pvi <= inner_end_pvi; pvi++)
-      inner.FanoutX(problem::DataSpaceID(pvi)) = fanoutX_in;
+      inner.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX_in;
     // fanout y
     assert(arithmetic_specs.MeshY().IsSpecified());
     assert(arithmetic_specs.MeshY().Get() % inner.MeshY(inner_start_pv).Get() == 0);
     unsigned fanoutY_in = arithmetic_specs.MeshY().Get() / inner.MeshY(inner_start_pv).Get();
     for (unsigned pvi = inner_start_pvi; pvi <= inner_end_pvi; pvi++)
-      inner.FanoutY(problem::DataSpaceID(pvi)) = fanoutY_in;
+      inner.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY_in;
   }
 
   for (unsigned i = 0; i < specs.NumStorageLevels()-1; i++)
@@ -199,26 +199,26 @@ void Topology::Validate(Topology::Specs& specs)
     unsigned inner_start_pvi, inner_end_pvi;
     if (inner.sharing_type == BufferLevel::DataSpaceIDSharing::Shared)
     {
-      inner_start_pvi = inner_end_pvi = unsigned(problem::NumDataSpaces);
+      inner_start_pvi = inner_end_pvi = unsigned(problem::GetShape()->NumDataSpaces);
     }
     else
     {
       inner_start_pvi = 0;
-      inner_end_pvi = unsigned(problem::NumDataSpaces) - 1;
+      inner_end_pvi = unsigned(problem::GetShape()->NumDataSpaces) - 1;
     }
-    auto inner_start_pv = problem::DataSpaceID(inner_start_pvi);
+    auto inner_start_pv = problem::Shape::DataSpaceID(inner_start_pvi);
     
     unsigned outer_start_pvi, outer_end_pvi;
     if (outer.sharing_type == BufferLevel::DataSpaceIDSharing::Shared)
     {
-      outer_start_pvi = outer_end_pvi = unsigned(problem::NumDataSpaces);
+      outer_start_pvi = outer_end_pvi = unsigned(problem::GetShape()->NumDataSpaces);
     }
     else
     {
       outer_start_pvi = 0;
-      outer_end_pvi = unsigned(problem::NumDataSpaces) - 1;
+      outer_end_pvi = unsigned(problem::GetShape()->NumDataSpaces) - 1;
     }
-    auto outer_start_pv = problem::DataSpaceID(outer_start_pvi);
+    auto outer_start_pv = problem::Shape::DataSpaceID(outer_start_pvi);
     
     assert(inner.Instances(inner_start_pv).Get() % outer.Instances(outer_start_pv).Get() == 0);
     unsigned fanout = inner.Instances(inner_start_pv).Get() / outer.Instances(outer_start_pv).Get();
@@ -227,7 +227,7 @@ void Topology::Validate(Topology::Specs& specs)
     else
     {
       for (unsigned pvi = outer_start_pvi; pvi <= outer_end_pvi; pvi++)
-        outer.Fanout(problem::DataSpaceID(pvi)) = fanout;
+        outer.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout;
     }
 
     assert(inner.MeshX(inner_start_pv).Get() % outer.MeshX(outer_start_pv).Get() == 0);
@@ -237,7 +237,7 @@ void Topology::Validate(Topology::Specs& specs)
     else
     {
       for (unsigned pvi = outer_start_pvi; pvi <= outer_end_pvi; pvi++)
-        outer.FanoutX(problem::DataSpaceID(pvi)) = fanoutX;
+        outer.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX;
     }
 
     assert(inner.MeshY(inner_start_pv).Get() % outer.MeshY(outer_start_pv).Get() == 0);
@@ -247,7 +247,7 @@ void Topology::Validate(Topology::Specs& specs)
     else
     {
       for (unsigned pvi = outer_start_pvi; pvi <= outer_end_pvi; pvi++)
-        outer.FanoutY(problem::DataSpaceID(pvi)) = fanoutY;
+        outer.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY;
     }
 
     assert(outer.Fanout(outer_start_pv).Get() ==
@@ -347,7 +347,7 @@ bool Topology::PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis
 }
 
 bool Topology::Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
-                        const problem::WorkloadConfig& workload_config)
+                        const problem::Workload& workload_config)
 {
   assert(is_specced_);
 
@@ -361,7 +361,7 @@ bool Topology::Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
 
   // Create a mask indicating which levels support distributed multicast.
   tiling::CompoundMaskNest distribution_supported;
-  for (unsigned pv = 0; pv < unsigned(problem::NumDataSpaces); pv++)
+  for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++)
   {
     distribution_supported[pv].reset();
     for (unsigned storage_level = 0; storage_level < NumStorageLevels(); storage_level++)
@@ -374,7 +374,7 @@ bool Topology::Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
   }
   
   // Collapse tiles into a specified number of tiling levels. The solutions are
-  // received in a set of per-problem::DataSpaceID arrays.
+  // received in a set of per-problem::Shape::DataSpaceID arrays.
   auto collapsed_tiles = tiling::CollapseTiles(ws_tiles, specs_.NumStorageLevels(),
                                                mapping.datatype_bypass_nest,
                                                distribution_supported);

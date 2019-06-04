@@ -30,27 +30,25 @@
 namespace problem
 {
 
-extern std::vector<Projection> Projections;
-
 // ======================================= //
 //              OperationSpace             //
 // ======================================= //
 
-OperationSpace::OperationSpace(const WorkloadConfig* wc) :
+OperationSpace::OperationSpace(const Workload* wc) :
     workload_config_(wc)
 {
-  for (unsigned space_id = 0; space_id < NumDataSpaces; space_id++)
-    data_spaces_.push_back(DataSpace(DataSpaceOrder.at(space_id)));
+  for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
+    data_spaces_.push_back(DataSpace(wc->GetShape()->DataSpaceOrder.at(space_id)));
 }
 
 OperationSpace::OperationSpace() :
     OperationSpace(nullptr)
 { }
 
-OperationSpace::OperationSpace(const WorkloadConfig* wc, const OperationPoint& low, const OperationPoint& high, bool inclusive) :
+OperationSpace::OperationSpace(const Workload* wc, const OperationPoint& low, const OperationPoint& high, bool inclusive) :
     workload_config_(wc)
 {
-  for (unsigned space_id = 0; space_id < NumDataSpaces; space_id++)
+  for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
   {
     auto space_low = Project(space_id, workload_config_, low);
     auto space_high = Project(space_id, workload_config_, high);
@@ -58,26 +56,26 @@ OperationSpace::OperationSpace(const WorkloadConfig* wc, const OperationPoint& l
     // an exclusive max point.
     if (inclusive)
       space_high.IncrementAllDimensions();
-    data_spaces_.push_back(DataSpace(DataSpaceOrder.at(space_id), space_low, space_high));
+    data_spaces_.push_back(DataSpace(wc->GetShape()->DataSpaceOrder.at(space_id), space_low, space_high));
   }
 }
 
-Point OperationSpace::Project(DataSpaceID d,
-                              const WorkloadConfig* wc,
+Point OperationSpace::Project(Shape::DataSpaceID d,
+                              const Workload* wc,
                               const OperationPoint& problem_point)
 {
-  Point data_space_point(DataSpaceOrder[d]);
+  Point data_space_point(wc->GetShape()->DataSpaceOrder.at(d));
 
-  for (unsigned data_space_dim = 0; data_space_dim < DataSpaceOrder[d]; data_space_dim++)
+  for (unsigned data_space_dim = 0; data_space_dim < wc->GetShape()->DataSpaceOrder.at(d); data_space_dim++)
   {
     data_space_point[data_space_dim] = 0;
-    for (auto& term : Projections[d][data_space_dim])
+    for (auto& term : wc->GetShape()->Projections.at(d).at(data_space_dim))
     {
       Coordinate x = problem_point[term.second];
       // FIXME: somehow "compile" the coefficients down for a given
       // workload config so that we avoid the branch and lookup below.
-      if (term.first != NumCoefficients)
-        data_space_point[data_space_dim] += (x * wc->getCoefficient(term.first));
+      if (term.first != wc->GetShape()->NumCoefficients)
+        data_space_point[data_space_dim] += (x * wc->GetCoefficient(term.first));
       else
         data_space_point[data_space_dim] += x;
     }
@@ -146,8 +144,8 @@ bool OperationSpace::CheckEquality(const OperationSpace& rhs, const int t) const
 void OperationSpace::PrintSizes()
 {
   for (unsigned i = 0; i < data_spaces_.size()-1; i++)
-    std::cout << DataSpaceIDToName[i] << " = " << data_spaces_.at(i).size() << ", ";
-  std::cout << DataSpaceIDToName[data_spaces_.size()-1] << " = " << data_spaces_.back().size() << std::endl;
+    std::cout << workload_config_->GetShape()->DataSpaceIDToName.at(i) << " = " << data_spaces_.at(i).size() << ", ";
+  std::cout << workload_config_->GetShape()->DataSpaceIDToName.at(data_spaces_.size()-1) << " = " << data_spaces_.back().size() << std::endl;
 }
 
 void OperationSpace::Print() const
@@ -156,7 +154,7 @@ void OperationSpace::Print() const
     d.Print();
 }
 
-void OperationSpace::Print(DataSpaceID pv) const
+void OperationSpace::Print(Shape::DataSpaceID pv) const
 {
   auto& d = data_spaces_.at(unsigned(pv));
   d.Print();

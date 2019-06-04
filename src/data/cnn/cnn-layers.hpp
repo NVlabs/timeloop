@@ -37,11 +37,11 @@
 namespace problem
 {
 
-Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
-Densities GetLayerDensities(std::string layer_name);
+Workload::Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
+Workload::Densities GetLayerDensities(std::string layer_name);
 void ReadDensities(std::string filename);
 void DumpDensities(std::string filename);
 void DumpDensities_CPP(std::string filename);
-void ParseConfig(libconfig::Setting& problem, WorkloadConfig& workload);
+void ParseConfig(libconfig::Setting& problem, Workload& workload);
 
 }

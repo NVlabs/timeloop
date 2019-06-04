@@ -27,14 +27,52 @@
 
 #pragma once
 
+#include <map>
+#include <vector>
+#include <list>
 #include <libconfig.h++>
-
-#include "per-data-space.hpp"
-#include "per-problem-dimension.hpp"
 
 namespace problem
 {
 
-void ParseProblemShape(libconfig::Setting& config);
+class Shape
+{
+ public:
+  typedef unsigned DimensionID;
+  
+  unsigned NumDimensions;
+  std::map<DimensionID, std::string> DimensionIDToName;
+  std::map<std::string, DimensionID> DimensionNameToID;
+
+  typedef int Coefficient;
+  typedef unsigned CoefficientID;
+  typedef std::map<CoefficientID, int> Coefficients;
+
+  unsigned NumCoefficients;
+  std::map<std::string, CoefficientID> CoefficientNameToID;
+  std::map<CoefficientID, std::string> CoefficientIDToName;
+  std::map<CoefficientID, int> DefaultCoefficients;
+
+  typedef unsigned DataSpaceID;
+
+  unsigned NumDataSpaces;
+  std::map<std::string, DataSpaceID> DataSpaceNameToID;
+  std::map<DataSpaceID, std::string> DataSpaceIDToName;
+  std::map<DataSpaceID, unsigned> DataSpaceOrder;
+  std::map<DataSpaceID, bool> IsReadWriteDataSpace;
+
+  // Projection AST: the projection function for each dataspace dimension is a
+  //                 Sum-Of-Products where each Product is the product of a
+  //                 Coefficient and a Dimension. This is fairly restrictive
+  //                 but efficient. We can generalize later if needed.
+  typedef std::pair<CoefficientID, DimensionID> ProjectionTerm;
+  typedef std::list<ProjectionTerm> ProjectionExpression;
+  typedef std::vector<ProjectionExpression> Projection;
+
+  std::vector<Projection> Projections;
+
+ public: 
+  void Parse(libconfig::Setting& config); 
+};
 
 } // namespace problem
