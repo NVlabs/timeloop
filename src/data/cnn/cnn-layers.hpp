@@ -32,7 +32,7 @@
 #include <libconfig.h++>
 
 #include "workload/problem-shape.hpp"
-#include "workload/workload-config.hpp"
+#include "workload/workload.hpp"
 
 namespace problem
 {

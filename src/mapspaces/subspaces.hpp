@@ -54,7 +54,7 @@ class IndexFactorizationSpace
       tiling_counter_(problem::GetShape()->NumDimensions)
   { }
 
-  void Init(const problem::Workload &workload_config,
+  void Init(const problem::Workload &workload,
             std::map<problem::Shape::DimensionID, std::uint64_t> cofactors_order,
             std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> prefactors =
             std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>>()
@@ -65,9 +65,9 @@ class IndexFactorizationSpace
     {
       auto dim = problem::Shape::DimensionID(idim);
       if (prefactors.find(dim) == prefactors.end())
-        dimension_factors_[idim] = Factors(workload_config.GetBound(dim), cofactors_order[dim]);
+        dimension_factors_[idim] = Factors(workload.GetBound(dim), cofactors_order[dim]);
       else
-        dimension_factors_[idim] = Factors(workload_config.GetBound(dim), cofactors_order[dim], prefactors[dim]);
+        dimension_factors_[idim] = Factors(workload.GetBound(dim), cofactors_order[dim], prefactors[dim]);
       counter_base[idim] = dimension_factors_[idim].size();
     }
 

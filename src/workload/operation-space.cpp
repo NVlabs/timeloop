@@ -35,7 +35,7 @@ namespace problem
 // ======================================= //
 
 OperationSpace::OperationSpace(const Workload* wc) :
-    workload_config_(wc)
+    workload_(wc)
 {
   for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
     data_spaces_.push_back(DataSpace(wc->GetShape()->DataSpaceOrder.at(space_id)));
@@ -46,12 +46,12 @@ OperationSpace::OperationSpace() :
 { }
 
 OperationSpace::OperationSpace(const Workload* wc, const OperationPoint& low, const OperationPoint& high, bool inclusive) :
-    workload_config_(wc)
+    workload_(wc)
 {
   for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
   {
-    auto space_low = Project(space_id, workload_config_, low);
-    auto space_high = Project(space_id, workload_config_, high);
+    auto space_low = Project(space_id, workload_, low);
+    auto space_high = Project(space_id, workload_, high);
     // Increment the high points by 1 because the AAHR constructor wants
     // an exclusive max point.
     if (inclusive)
@@ -101,14 +101,14 @@ OperationSpace& OperationSpace::operator += (const OperationSpace& s)
 OperationSpace& OperationSpace::operator += (const OperationPoint& p)
 {
   for (unsigned i = 0; i < data_spaces_.size(); i++)
-    data_spaces_.at(i) += Project(i, workload_config_, p);
+    data_spaces_.at(i) += Project(i, workload_, p);
 
   return (*this);
 }
 
 OperationSpace OperationSpace::operator - (const OperationSpace& p)
 {
-  OperationSpace retval(workload_config_);
+  OperationSpace retval(workload_);
 
   for (unsigned i = 0; i < data_spaces_.size(); i++)
     retval.data_spaces_.at(i) = data_spaces_.at(i) - p.data_spaces_.at(i);
@@ -144,8 +144,8 @@ bool OperationSpace::CheckEquality(const OperationSpace& rhs, const int t) const
 void OperationSpace::PrintSizes()
 {
   for (unsigned i = 0; i < data_spaces_.size()-1; i++)
-    std::cout << workload_config_->GetShape()->DataSpaceIDToName.at(i) << " = " << data_spaces_.at(i).size() << ", ";
-  std::cout << workload_config_->GetShape()->DataSpaceIDToName.at(data_spaces_.size()-1) << " = " << data_spaces_.back().size() << std::endl;
+    std::cout << workload_->GetShape()->DataSpaceIDToName.at(i) << " = " << data_spaces_.at(i).size() << ", ";
+  std::cout << workload_->GetShape()->DataSpaceIDToName.at(data_spaces_.size()-1) << " = " << data_spaces_.back().size() << std::endl;
 }
 
 void OperationSpace::Print() const

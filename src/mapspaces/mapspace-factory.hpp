@@ -41,7 +41,7 @@ namespace mapspace
 
 MapSpace* ParseAndConstruct(libconfig::Setting& config,
                             model::Engine::Specs& arch_specs,
-                            const problem::Workload& workload_config)
+                            const problem::Workload& workload)
 {
   MapSpace* mapspace = nullptr;
   
@@ -50,7 +50,7 @@ MapSpace* ParseAndConstruct(libconfig::Setting& config,
     
   if (mapspace_template == "uber")
   {
-    mapspace = new Uber(config, arch_specs, workload_config);
+    mapspace = new Uber(config, arch_specs, workload);
   }
   else
   {

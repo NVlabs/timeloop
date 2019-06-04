@@ -26,7 +26,7 @@
  */
 
 #include "problem-shape.hpp"
-#include "workload-config.hpp"
+#include "workload.hpp"
 
 namespace problem
 {

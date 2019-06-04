@@ -36,7 +36,7 @@ namespace mapping
 //
 
 ArchProperties arch_props_;
-problem::Workload workload_config_;
+problem::Workload workload_;
 
 //
 // Forward declarations.
@@ -52,10 +52,10 @@ void ParseUserDatatypeBypassSettings(libconfig::Setting& constraint,
 //
 Mapping ParseAndConstruct(libconfig::Setting& config,
                           model::Engine::Specs& arch_specs,
-                          problem::Workload workload_config)
+                          problem::Workload workload)
 {
   arch_props_.Construct(arch_specs);
-  workload_config_ = workload_config;
+  workload_ = workload;
   
   std::map<unsigned, std::map<problem::Shape::DimensionID, int>> user_factors;
   std::map<unsigned, std::vector<problem::Shape::DimensionID>> user_permutations;
@@ -292,15 +292,15 @@ std::map<problem::Shape::DimensionID, int> ParseUserFactors(libconfig::Setting& 
       if (end == 0)
       {
         std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-        end = workload_config_.GetBound(dimension);
+        end = workload_.GetBound(dimension);
       }
-      else if (end > workload_config_.GetBound(dimension))
+      else if (end > workload_.GetBound(dimension))
       {
         std::cerr << "WARNING: Directive " << dimension << "=" << end
                   << " exceeds problem dimension " << dimension << "="
-                  << workload_config_.GetBound(dimension) << ". Setting directive "
-                  << dimension << "=" << workload_config_.GetBound(dimension) << std::endl;
-        end = workload_config_.GetBound(dimension);
+                  << workload_.GetBound(dimension) << ". Setting directive "
+                  << dimension << "=" << workload_.GetBound(dimension) << std::endl;
+        end = workload_.GetBound(dimension);
       }
       else
       {

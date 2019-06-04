@@ -28,7 +28,7 @@
 #pragma once
 
 #include "global-names.hpp"
-#include "workload-config.hpp"
+#include "workload.hpp"
 #include "data-space.hpp"
 #include "per-data-space.hpp"
 
@@ -55,7 +55,7 @@ class OperationPoint : public Point
 class OperationSpace
 {
  private:
-  const Workload* workload_config_;
+  const Workload* workload_;
 
   std::vector<DataSpace> data_spaces_;
 

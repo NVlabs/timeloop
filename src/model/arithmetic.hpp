@@ -156,7 +156,7 @@ class ArithmeticUnits : public Level
   // --- Temporary hack interfaces, these will be removed ---
   
   bool HackEvaluate(analysis::NestAnalysis* analysis,
-                    const problem::Workload& workload_config)
+                    const problem::Workload& workload)
   {
     assert(is_specced_);
 
@@ -182,7 +182,7 @@ class ArithmeticUnits : public Level
       for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
       {
         if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
-          energy_ *= workload_config.GetDensity(d);
+          energy_ *= workload.GetDensity(d);
       }
       
       is_evaluated_ = true;    

@@ -31,7 +31,7 @@
 #include <boost/archive/text_iarchive.hpp>
 
 #include "util/dynamic-array.hpp"
-#include "workload-config.hpp"
+#include "workload.hpp"
 
 namespace problem
 {

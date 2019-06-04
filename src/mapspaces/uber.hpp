@@ -90,9 +90,9 @@ class Uber : public MapSpace
   Uber(
     libconfig::Setting& config,
     model::Engine::Specs arch_specs,
-    const problem::Workload& workload_config,
+    const problem::Workload& workload,
     bool skip_init = false) :
-      MapSpace(arch_specs, workload_config),
+      MapSpace(arch_specs, workload),
       split_id_(0),
       num_parent_splits_(0),
       min_utilization_(0.0)
@@ -256,7 +256,7 @@ class Uber : public MapSpace
     }
 
     // We're now ready to initialize the object.
-    index_factorization_space_.Init(workload_config_, cofactors_order, prefactors);
+    index_factorization_space_.Init(workload_, cofactors_order, prefactors);
 
     // Update the size of the mapspace.
     size_[int(mapspace::Dimension::IndexFactorization)] = index_factorization_space_.Size();
@@ -969,8 +969,8 @@ class Uber : public MapSpace
     // happens from *this* level down, not from the next level down. Fortunately,
     // the tile analysis stage seems to be doing the right thing later on.
 
-    problem::OperationSpace x_space(&workload_config_, origin, x_dimensions, false);
-    problem::OperationSpace y_space(&workload_config_, origin, y_dimensions, false);
+    problem::OperationSpace x_space(&workload_, origin, x_dimensions, false);
+    problem::OperationSpace y_space(&workload_, origin, y_dimensions, false);
     
     auto x_sizes = x_space.GetSizes();
     auto y_sizes = y_space.GetSizes();
@@ -1466,15 +1466,15 @@ class Uber : public MapSpace
         if (end == 0)
         {
           std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-          end = workload_config_.GetBound(dimension);
+          end = workload_.GetBound(dimension);
         }
-        else if (end > workload_config_.GetBound(dimension))
+        else if (end > workload_.GetBound(dimension))
         {
           std::cerr << "WARNING: Constraint " << dimension << "=" << end
                     << " exceeds problem dimension " << dimension << "="
-                    << workload_config_.GetBound(dimension) << ". Setting constraint "
-                    << dimension << "=" << workload_config_.GetBound(dimension) << std::endl;
-          end = workload_config_.GetBound(dimension);
+                    << workload_.GetBound(dimension) << ". Setting constraint "
+                    << dimension << "=" << workload_.GetBound(dimension) << std::endl;
+          end = workload_.GetBound(dimension);
         }
         else
         {

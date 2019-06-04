@@ -64,14 +64,14 @@ class MapSpace
 {
  protected:
   model::Engine::Specs arch_specs_;
-  const problem::Workload& workload_config_;
+  const problem::Workload& workload_;
   std::array<uint128_t, int(Dimension::Num)> size_;
 
  public:
   MapSpace(model::Engine::Specs arch_specs,
-           const problem::Workload& workload_config) :
+           const problem::Workload& workload) :
       arch_specs_(arch_specs),
-      workload_config_(workload_config),
+      workload_(workload),
       size_({})
   {}
 

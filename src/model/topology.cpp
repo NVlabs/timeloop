@@ -347,7 +347,7 @@ bool Topology::PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis
 }
 
 bool Topology::Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
-                        const problem::Workload& workload_config)
+                        const problem::Workload& workload)
 {
   assert(is_specced_);
 
@@ -416,7 +416,7 @@ bool Topology::Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
     inner_tile_area = cur_level_area + (inner_tile_area * storage_level->MaxFanout());
   }
   
-  success &= GetArithmeticLevel()->HackEvaluate(analysis, workload_config);
+  success &= GetArithmeticLevel()->HackEvaluate(analysis, workload);
 
   if (success)
     is_evaluated_ = true;

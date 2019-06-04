@@ -54,7 +54,7 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest)
   assert(nest != NULL);
   assert(wc != NULL);
 
-  workload_config_ = wc;
+  workload_ = wc;
 
   if (working_sets_computed_ && cached_nest == *nest)
   {
@@ -143,7 +143,7 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
         
     if (loop_level == storage_tiling_boundaries_.at(tiling_level))
     {
-      problem::OperationSpace maxtile(workload_config_, origin, dimension_sizes, false);
+      problem::OperationSpace maxtile(workload_, origin, dimension_sizes, false);
       working_set_sizes.push_back(maxtile.GetSizes());
       tiling_level++;
     }
@@ -382,7 +382,7 @@ problem::OperationSpace NestAnalysis::ComputeWorkingSetsRecursive_(
   // state at this level to grow indefinitely, which isn't what we're trying to
   // model. The responsibility of this level is to supply all the deltas
   // demanded by the next-inner level for this invocation.
-  problem::OperationSpace point_set(workload_config_);
+  problem::OperationSpace point_set(workload_);
 
   if (loop::IsSpatial(cur->descriptor.spacetime_dimension))
   {
@@ -429,7 +429,7 @@ problem::OperationSpace NestAnalysis::ComputeWorkingSetsRecursive_(
   }
   
   // Calculate delta to send up to caller.
-  problem::OperationSpace delta(workload_config_);
+  problem::OperationSpace delta(workload_);
   if (!skip_delta)
   {
     delta = point_set - cur_state.last_point_set;
@@ -501,7 +501,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   // Compute the polyhedron between the low and high problem
   // points (exclusive). Note that this special constructor
   // is only available for certain point-set implementations.
-  point_set += problem::OperationSpace(workload_config_, low_problem_point, high_problem_point);
+  point_set += problem::OperationSpace(workload_, low_problem_point, high_problem_point);
 
   if (dump)
   {
@@ -732,7 +732,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   // Deltas needed by each of the spatial elements.
   // This array will be filled by recursive calls.
   std::vector<problem::OperationSpace> spatial_deltas(num_spatial_elems,
-                                                    problem::OperationSpace(workload_config_));
+                                                    problem::OperationSpace(workload_));
 
   // Indicates if each of the elements of the array above, was ever updated
   // by a recursive call. Only needed to ensure correctness.
@@ -971,7 +971,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
   // Sum of all point sets that are filled at this level.
   // We need to do this accumulation on a per-level basis
   // to makes sure point_set always has nice cuboidal shapes.
-  problem::OperationSpace cur_level_point_set(workload_config_);
+  problem::OperationSpace cur_level_point_set(workload_);
 
   bool dump = false; // (level >= 4);
   if (dump)
@@ -1087,7 +1087,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
     // is only available for certain point-set implementations.
     // Note: we aren't using +=. This means we're ignoring subvolumes
     // returned to us by recursive FillSpatialDeltas calls.
-    cur_level_point_set = problem::OperationSpace(workload_config_, low_problem_point, high_problem_point);
+    cur_level_point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
   } // level > 0
 
   if (dump)

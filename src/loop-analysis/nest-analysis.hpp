@@ -87,7 +87,7 @@ class NestAnalysis
 
   bool working_sets_computed_ = false;
 
-  problem::Workload* workload_config_ = nullptr;
+  problem::Workload* workload_ = nullptr;
 
   // Internal helper methods.
   void ComputeWorkingSets();

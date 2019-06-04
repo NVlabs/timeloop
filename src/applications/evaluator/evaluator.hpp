@@ -47,7 +47,7 @@
 class Application
 {
  protected:
-  problem::Workload workload_config_;
+  problem::Workload workload_;
   model::Engine::Specs arch_specs_;
 
   // The mapping has to be a dynamic object because we cannot
@@ -63,7 +63,7 @@ class Application
   {
     if(version == 0)
     {
-      ar& BOOST_SERIALIZATION_NVP(workload_config_);
+      ar& BOOST_SERIALIZATION_NVP(workload_);
     }
   }
 
@@ -73,7 +73,7 @@ class Application
   {
     // Problem configuration.
     libconfig::Setting& problem = config.lookup("problem");
-    problem::ParseWorkload(problem, workload_config_);
+    problem::ParseWorkload(problem, workload_);
     std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
@@ -83,7 +83,7 @@ class Application
 
     // Mapping configuration: expressed as a mapspace or mapping.
     libconfig::Setting& mapping = config.lookup("mapping");
-    mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_config_));
+    mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
     std::cout << "Mapping construction complete." << std::endl;
   }
 
@@ -105,7 +105,7 @@ class Application
 
     auto& mapping = *mapping_;
     
-    bool success = engine.Evaluate(mapping, workload_config_);
+    bool success = engine.Evaluate(mapping, workload_);
     if (!success)
     {
       return;
