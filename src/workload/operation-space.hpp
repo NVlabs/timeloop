@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include "global-names.hpp"
 #include "workload.hpp"
 #include "data-space.hpp"
 #include "per-data-space.hpp"
