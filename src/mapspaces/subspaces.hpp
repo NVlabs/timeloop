@@ -31,9 +31,10 @@
 #include <map>
 #include <numeric>
 #include <functional>
+#include <set>
 
 #include "util/numeric.hpp"
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 
 namespace mapspace
 {
@@ -46,38 +47,40 @@ class IndexFactorizationSpace
 {
  private:
   problem::PerProblemDimension<Factors> dimension_factors_;
-  CartesianCounter<int(problem::Dimension::Num)> tiling_counter_;
+  CartesianCounterDynamic tiling_counter_;
 
  public:
-  IndexFactorizationSpace() {}
+  IndexFactorizationSpace() :
+      tiling_counter_(problem::GetShape()->NumDimensions)
+  { }
 
-  void Init(const problem::WorkloadConfig &problem_config,
-            std::map<problem::Dimension, std::uint64_t> cofactors_order,
-            std::map<problem::Dimension, std::map<unsigned, unsigned long>> prefactors =
-            std::map<problem::Dimension, std::map<unsigned, unsigned long>>()
+  void Init(const problem::Workload &workload,
+            std::map<problem::Shape::DimensionID, std::uint64_t> cofactors_order,
+            std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> prefactors =
+            std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>>()
            )
   {
     problem::PerProblemDimension<uint128_t> counter_base;
-    for (int idim = 0; idim < int(problem::Dimension::Num); idim++)
+    for (int idim = 0; idim < int(problem::GetShape()->NumDimensions); idim++)
     {
-      auto dim = problem::Dimension(idim);
+      auto dim = problem::Shape::DimensionID(idim);
       if (prefactors.find(dim) == prefactors.end())
-        dimension_factors_[idim] = Factors(problem_config.getBound(dim), cofactors_order[dim]);
+        dimension_factors_[idim] = Factors(workload.GetBound(dim), cofactors_order[dim]);
       else
-        dimension_factors_[idim] = Factors(problem_config.getBound(dim), cofactors_order[dim], prefactors[dim]);
+        dimension_factors_[idim] = Factors(workload.GetBound(dim), cofactors_order[dim], prefactors[dim]);
       counter_base[idim] = dimension_factors_[idim].size();
     }
 
     tiling_counter_.Init(counter_base);
 
     std::cout << "Initializing Index Factorization subspace." << std::endl;
-    for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+    for (int dim = 0; dim < int(problem::GetShape()->NumDimensions); dim++)
     {
-      std::cout << "  Factorization options along problem dimension " << problem::Dimension(dim) << " = " << counter_base[dim] << std::endl;
+      std::cout << "  Factorization options along problem dimension " << problem::Shape::DimensionID(dim) << " = " << counter_base[dim] << std::endl;
     }
   }
 
-  unsigned long GetFactor(uint128_t nest_id, problem::Dimension dim, unsigned level)
+  unsigned long GetFactor(uint128_t nest_id, problem::Shape::DimensionID dim, unsigned level)
   {
     auto idim = unsigned(dim);
     tiling_counter_.Set(nest_id);
@@ -101,20 +104,20 @@ class PermutationSpace
   std::uint64_t num_levels_;
   struct Pattern
   {
-    std::vector<problem::Dimension> baked_prefix;
-    std::vector<problem::Dimension> permutable_suffix;
+    std::vector<problem::Shape::DimensionID> baked_prefix;
+    std::vector<problem::Shape::DimensionID> permutable_suffix;
   };
   std::map<unsigned, Pattern> patterns_;
-  std::vector<problem::Dimension> canonical_pattern_;
+  std::vector<problem::Shape::DimensionID> canonical_pattern_;
   std::map<unsigned, std::uint64_t> size_;    
-  Factoradic<problem::Dimension> factoradic_;
+  Factoradic<problem::Shape::DimensionID> factoradic_;
 
  public:
   PermutationSpace()
   {
-    for (unsigned i = 0; i < unsigned(problem::Dimension::Num); i++)
+    for (unsigned i = 0; i < unsigned(problem::GetShape()->NumDimensions); i++)
     {
-      canonical_pattern_.push_back(problem::Dimension(i));
+      canonical_pattern_.push_back(problem::Shape::DimensionID(i));
     }
   }
 
@@ -130,8 +133,8 @@ class PermutationSpace
     InitLevel(level, canonical_pattern_);
   }
 
-  void InitLevel(uint64_t level, std::vector<problem::Dimension> user_prefix,
-                 std::vector<problem::Dimension> pruned_dimensions = {})
+  void InitLevel(uint64_t level, std::vector<problem::Shape::DimensionID> user_prefix,
+                 std::vector<problem::Shape::DimensionID> pruned_dimensions = {})
   {
     assert(level < num_levels_);
 
@@ -140,47 +143,47 @@ class PermutationSpace
     // <unit-factors><user-specified-non-unit-factors><free-non-unit-factors>
     // <unit-factors><user-specified-non-unit-factors> = baked_prefix
     // <free-non-unit-factors> = permutable_suffix
-    std::vector<problem::Dimension> baked_prefix = pruned_dimensions;
+    std::vector<problem::Shape::DimensionID> baked_prefix = pruned_dimensions;
 
     for (auto dim : user_prefix)
       if (std::find(pruned_dimensions.begin(), pruned_dimensions.end(), dim) == pruned_dimensions.end())
         baked_prefix.push_back(dim);
 
-    std::set<problem::Dimension> unspecified_dimensions;
-    for (unsigned i = 0; i < unsigned(problem::Dimension::Num); i++)
-      unspecified_dimensions.insert(problem::Dimension(i));
+    std::set<problem::Shape::DimensionID> unspecified_dimensions;
+    for (unsigned i = 0; i < unsigned(problem::GetShape()->NumDimensions); i++)
+      unspecified_dimensions.insert(problem::Shape::DimensionID(i));
     
     for (auto& dim : baked_prefix)
       unspecified_dimensions.erase(dim);
     
-    std::vector<problem::Dimension> permutable_suffix;
+    std::vector<problem::Shape::DimensionID> permutable_suffix;
     for (auto& dim : unspecified_dimensions)
       permutable_suffix.push_back(dim);
 
-    assert(baked_prefix.size() + permutable_suffix.size() == unsigned(problem::Dimension::Num));
+    assert(baked_prefix.size() + permutable_suffix.size() == unsigned(problem::GetShape()->NumDimensions));
 
     patterns_[level] = { baked_prefix, permutable_suffix };
     size_[level] = factoradic_.Factorial(permutable_suffix.size());
   }
 
-  std::vector<std::vector<problem::Dimension>> GetPatterns(uint128_t id)
+  std::vector<std::vector<problem::Shape::DimensionID>> GetPatterns(uint128_t id)
   {
-    std::vector<std::vector<problem::Dimension>> retval;
+    std::vector<std::vector<problem::Shape::DimensionID>> retval;
 
     for (unsigned level = 0; level < num_levels_; level++)
     {
       auto& pattern = patterns_.at(level);
-      if (pattern.baked_prefix.size() == unsigned(problem::Dimension::Num))
+      if (pattern.baked_prefix.size() == unsigned(problem::GetShape()->NumDimensions))
       {
         retval.push_back(pattern.baked_prefix);
       }
       else
       {
-        std::vector<problem::Dimension> permuted_suffix = pattern.permutable_suffix;
+        std::vector<problem::Shape::DimensionID> permuted_suffix = pattern.permutable_suffix;
         factoradic_.Permute(permuted_suffix.data(), permuted_suffix.size(),
                             std::uint64_t(id % size_.at(level)));
         id = id / size_.at(level);
-        std::vector<problem::Dimension> final_pattern = pattern.baked_prefix;
+        std::vector<problem::Shape::DimensionID> final_pattern = pattern.baked_prefix;
         final_pattern.insert(final_pattern.end(), permuted_suffix.begin(), permuted_suffix.end());
 
         retval.push_back(final_pattern);
@@ -239,7 +242,7 @@ class SpatialSplitSpace
     assert(level < num_levels_);
     is_user_specified_[level] = false;
     unit_factors_[level] = unit_factors;
-    size_[level] = int(problem::Dimension::Num) + 1 - unit_factors;
+    size_[level] = int(problem::GetShape()->NumDimensions) + 1 - unit_factors;
   }
 
   void InitLevelUserSpecified(uint64_t level, std::uint32_t user_split)

@@ -31,7 +31,7 @@
 
 #include "mapping/mapping.hpp"
 #include "model/engine.hpp"
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 
 using namespace boost::multiprecision;
 
@@ -64,14 +64,14 @@ class MapSpace
 {
  protected:
   model::Engine::Specs arch_specs_;
-  const problem::WorkloadConfig& problem_config_;
+  const problem::Workload& workload_;
   std::array<uint128_t, int(Dimension::Num)> size_;
 
  public:
   MapSpace(model::Engine::Specs arch_specs,
-           const problem::WorkloadConfig& problem_config) :
+           const problem::Workload& workload) :
       arch_specs_(arch_specs),
-      problem_config_(problem_config),
+      workload_(workload),
       size_({})
   {}
 

@@ -30,10 +30,7 @@
 #include <libconfig.h++>
 
 #include "mapspaces/uber.hpp"
-//#include "mapspaces/eyeriss.hpp"
-//#include "mapspaces/craft.hpp"
-//#include "mapspaces/bollywood.hpp"
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 
 namespace mapspace
 {
@@ -44,7 +41,7 @@ namespace mapspace
 
 MapSpace* ParseAndConstruct(libconfig::Setting& config,
                             model::Engine::Specs& arch_specs,
-                            const problem::WorkloadConfig& problem_config)
+                            const problem::Workload& workload)
 {
   MapSpace* mapspace = nullptr;
   
@@ -53,22 +50,8 @@ MapSpace* ParseAndConstruct(libconfig::Setting& config,
     
   if (mapspace_template == "uber")
   {
-    mapspace = new Uber(config, arch_specs, problem_config);
+    mapspace = new Uber(config, arch_specs, workload);
   }
-  // else if (mapspace_template == "eyeriss")
-  // {
-  //   assert(false);
-  //   //mapspace = new Eyeriss(config, problem_config);
-  // }
-  // else if (mapspace_template == "CRAFT")
-  // {
-  //   mapspace = new CRAFT(config, arch_specs, problem_config);
-  // }
-  // else if (mapspace_template == "bollywood")
-  // {
-  //   assert(false);
-  //   //mapspace = new Bollywood(config, problem_config);
-  // }
   else
   {
     std::cerr << "ERROR: unsupported mapspace template: " << mapspace_template << std::endl;

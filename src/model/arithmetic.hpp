@@ -116,7 +116,7 @@ class ArithmeticUnits : public Level
   // the dynamic Spec() call later.
   static Specs ParseSpecs(libconfig::Setting& setting);
   
-  double Energy(problem::DataType pv = problem::DataType::Num) const override;
+  double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   double Area() const override;
   double AreaPerInstance() const override;
   std::uint64_t Cycles() const override;
@@ -141,7 +141,7 @@ class ArithmeticUnits : public Level
   }
   
   std::string Name() const override { return "__NONAME__"; }
-  std::uint64_t Accesses(problem::DataType pv = problem::DataType::Num) const override
+  std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
   {
     (void) pv;
     return 0;
@@ -156,7 +156,7 @@ class ArithmeticUnits : public Level
   // --- Temporary hack interfaces, these will be removed ---
   
   bool HackEvaluate(analysis::NestAnalysis* analysis,
-                    const problem::WorkloadConfig& workload_config)
+                    const problem::Workload& workload)
   {
     assert(is_specced_);
 
@@ -176,10 +176,14 @@ class ArithmeticUnits : public Level
     {
       cycles_ = compute_cycles;
       maccs_ = utilized_instances_ * compute_cycles;
-      energy_ = maccs_
-              * workload_config.getDensity(problem::DataType::Weight)
-              * workload_config.getDensity(problem::DataType::Input)
-              * specs_.EnergyPerOp().Get();
+      energy_ = maccs_ * specs_.EnergyPerOp().Get();
+
+      // Scale energy for sparsity.
+      for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
+      {
+        if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
+          energy_ *= workload.GetDensity(d);
+      }
       
       is_evaluated_ = true;    
     }

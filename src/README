@@ -1,10 +1,8 @@
 High-level organization of all the source files
 -----------------------------------------------
-cnn/problem-config.*
-  Describes the template of a CNN layer shape: the number of dimensions
-  in the complete problem space (R, S, C, K, P, Q, N), the number of
-  dimensions in each operand space (e.g., Weights = C, K, R, S) and
-  the inter-relationship between these various spaces.
+cnn/problem-shape.*
+  Data structures to describe the shape of a problem, and routines to parse
+  a specific shape (e.g., a CNN layer) into these data structures.
 
 mapspaces/*
   A mapspace is the space of legal mappings for a specific architecture

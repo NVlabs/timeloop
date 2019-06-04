@@ -35,6 +35,6 @@
 namespace mapping
 {
 
-Mapping ParseAndConstruct(libconfig::Setting& config, model::Engine::Specs& arch_specs, problem::WorkloadConfig problem_config);
+Mapping ParseAndConstruct(libconfig::Setting& config, model::Engine::Specs& arch_specs, problem::Workload workload);
 
 } // namespace mapping

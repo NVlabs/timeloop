@@ -27,8 +27,9 @@
 
 #pragma once
 
-#include <array>
+#include <vector>
 #include <cassert>
+#include <iostream>
 
 // We should have asserts turned on in this code.
 // They aren't very costly and we aren't fully sure if we are doing
@@ -42,23 +43,74 @@
 #define POINT_SET_4D           3
 #define POINT_SET_AAHR         4
 
-//#define POINT_SET_IMPL POINT_SET_GENERIC_SLOW
 #define POINT_SET_IMPL POINT_SET_AAHR
 
-typedef std::int32_t Magnitude;
+typedef std::int32_t Coordinate;
 
-template <std::uint32_t order>
-using Point = std::array<Magnitude, order>;
+class Point
+{
+ protected:
+  std::uint32_t order_;
+  std::vector<Coordinate> coordinates_;
+
+ public:
+  Point() = delete;
+
+  Point(const Point& p) :
+      order_(p.order_),
+      coordinates_(p.coordinates_)
+  {
+  }
+
+  Point(std::uint32_t order) :
+      order_(order)
+  {
+    coordinates_.resize(order_);
+    Reset();
+  }
+  
+  void Reset()
+  {
+    std::fill(coordinates_.begin(), coordinates_.end(), 0);
+  }
+
+  std::uint32_t Order() const { return order_; }
+
+  Coordinate& operator[] (std::uint32_t i)
+  {
+    return coordinates_[i];
+  }
+
+  const Coordinate& operator[] (std::uint32_t i) const
+  {
+    return coordinates_[i];
+  }
+
+  void IncrementAllDimensions(Coordinate m = 1)
+  {
+    for (auto& c : coordinates_)
+      c += m;
+  }
+
+  std::ostream& Print(std::ostream& out = std::cout) const
+  {
+    out << "[" << order_ << "]: ";
+    for (auto& c : coordinates_)
+      out << c << " ";
+    return out;
+  }
+};
 
 #include "point-set-aahr.hpp"
-#include "point-set-generic-slow.hpp"
+//#include "point-set-generic-slow.hpp"
 //#include "point-set-4d.hpp"
 //#include "point-set-generic-fast.hpp"
 
 #if POINT_SET_IMPL == POINT_SET_AAHR
-template <std::uint32_t order> using PointSet = AxisAlignedHyperRectangle<order>;
+typedef AxisAlignedHyperRectangle PointSet;
 #elif POINT_SET_IMPL == POINT_SET_GENERIC_SLOW
-template <std::uint32_t order> using PointSet = PointSetGenericSlow<order>;
+#error fix API error with PointSetGenericSlow
+// typedef PointSetGenericSlow PointSet;
 #elif POINT_SET_IMPL == POINT_SET_4D
 #error fix API error with PointSet4D
 #elif POINT_SET_IMPL == POINT_SET_GENERIC_FAST

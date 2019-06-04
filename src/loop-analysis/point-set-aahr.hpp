@@ -32,22 +32,36 @@
 #include "point-set.hpp"
 
 // ---------------------------------------------
-//        AAHR Point Set implementation
+//                   Gradient
 // ---------------------------------------------
 
-template<std::uint32_t order>
 struct Gradient
 {
+  std::uint32_t order;
   std::uint32_t dimension;
-  Magnitude magnitude;
-  
-  Magnitude Sign() const
+  std::int32_t value;
+
+  Gradient() = delete;
+
+  Gradient(std::uint32_t _order) :
+      order(_order)
   {
-    if (magnitude < 0)
+    Reset();
+  }
+
+  void Reset()
+  {
+    dimension = 0;
+    value = 0;
+  }
+  
+  std::int32_t Sign() const
+  {
+    if (value < 0)
     {
       return -1;
     }
-    else if (magnitude == 0)
+    else if (value == 0)
     {
       return 0;
     }
@@ -63,7 +77,7 @@ struct Gradient
     for (unsigned i = 0; i < order; i++)
     {
       if (i == dimension)
-        std::cout << magnitude << " ";
+        std::cout << value << " ";
       else
         std::cout << "0 ";
     }
@@ -71,39 +85,63 @@ struct Gradient
   }
 };
 
-template<std::uint32_t order>
+// ---------------------------------------------
+//        AAHR Point Set implementation
+// ---------------------------------------------
+
 class AxisAlignedHyperRectangle
 {
- private:
-  Point<order> min_, max_; // min inclusive, max: exclusive
-  Gradient<order> gradient_ = {0, 0};
+ protected:
+  
+  std::uint32_t order_;
+  Point min_, max_; // min inclusive, max: exclusive
+  Gradient gradient_;
 
  public:
-  AxisAlignedHyperRectangle()
+
+  AxisAlignedHyperRectangle() = delete;
+  
+  AxisAlignedHyperRectangle(std::uint32_t order) :
+      order_(order),
+      min_(order),
+      max_(order),
+      gradient_(order)
   {
     Reset();
   }
 
-  AxisAlignedHyperRectangle(const Point<order> unit)
+  AxisAlignedHyperRectangle(std::uint32_t order, const Point unit) :
+      AxisAlignedHyperRectangle(order)
   {
+    ASSERT(order_ == unit.Order());
     min_ = unit;
-    for (unsigned dim = 0; dim < order; dim++)
+    for (unsigned dim = 0; dim < order_; dim++)
     {
       max_[dim] = min_[dim] + 1;
     }
   }
 
-  AxisAlignedHyperRectangle(const Point<order> min, const Point<order> max) :
-      min_(min), max_(max)
+  AxisAlignedHyperRectangle(std::uint32_t order, const Point min, const Point max) :
+      AxisAlignedHyperRectangle(order)
+  {
+    min_ = min;
+    max_ = max;
+  }
+
+  AxisAlignedHyperRectangle(const AxisAlignedHyperRectangle& a) :
+      order_(a.order_),
+      min_(a.min_),
+      max_(a.max_),
+      gradient_(a.gradient_)
   {
   }
 
-  Point<order> Min() const
+  Point Min() const
   {
     return min_;
   }
 
-  Point<order> Max() const
+  Point Max() const
   {
     return max_;
   }
@@ -111,7 +149,7 @@ class AxisAlignedHyperRectangle
   std::size_t size() const
   {
     std::size_t size = max_[0] - min_[0];
-    for (unsigned i = 1; i < order; i++)
+    for (unsigned i = 1; i < order_; i++)
     {
       size *= (max_[i] - min_[i]);
     }
@@ -125,18 +163,20 @@ class AxisAlignedHyperRectangle
 
   void Reset()
   {
-    min_.fill(0);
-    max_.fill(0);
-    gradient_ = { 0, 0 };
+    min_.Reset();
+    max_.Reset();
+    gradient_.Reset();
   }
 
-  void Add(const Point<order>& p)
+  void Add(const Point& p)
   {
-    Add(AxisAlignedHyperRectangle(p));
+    Add(AxisAlignedHyperRectangle(order_, p));
   }  
 
-  void Add(const AxisAlignedHyperRectangle<order>& s)
+  void Add(const AxisAlignedHyperRectangle& s)
   {
+    ASSERT(order_ == s.order_);
+    
     // Special cases.
     if (size() == 0)
     {
@@ -159,7 +199,7 @@ class AxisAlignedHyperRectangle
     // Both AAHRs should have identical min_, max_ along all-but-one axes, and
     // must be contiguous along the but-one axis.
     bool found = false;
-    for (unsigned dim = 0; dim < order; dim++)
+    for (unsigned dim = 0; dim < order_; dim++)
     {
       if (s.max_[dim] >= min_[dim] && max_[dim] >= s.min_[dim])
       {
@@ -236,39 +276,41 @@ class AxisAlignedHyperRectangle
     }
   }
 
-  Gradient<order> Subtract(const AxisAlignedHyperRectangle<order>& s)
+  Gradient Subtract(const AxisAlignedHyperRectangle& s)
   {
+    ASSERT(order_ == s.order_);
+    
     // Special cases.
     if (size() == 0 || s.size() == 0)
     {
-      return { 0, 0 };
+      return Gradient(order_);
     }
 
     if (*this == s)
     {
       Reset();
-      return { 0, 0 };
+      return Gradient(order_);
     }
 
-    for (unsigned dim = 0; dim < order; dim++)
+    for (unsigned dim = 0; dim < order_; dim++)
     {
       if (s.max_[dim] <= min_[dim] || s.min_[dim] >= max_[dim])
       {
         // No overlap along even a single dimension means there's
         // no intersection at all. Skip this function.
-        return { 0, 0 };
+        return Gradient(order_);
       }
     }
  
     auto updated = *this;
-    Gradient<order> gradient = { 0, 0 };
+    Gradient gradient(order_);
     
     // General case: Both AAHRs should have identical min_, max_ along
     // all-but-one axes, and be contiguous or overlapping along the but-one
     // axis. If this isn't true, then torpedo everything, keep the source
     // as the result, and set gradient to 0.
     bool found = false;
-    for (unsigned dim = 0; dim < order; dim++)
+    for (unsigned dim = 0; dim < order_; dim++)
     {
       if (min_[dim] != s.min_[dim] || max_[dim] != s.max_[dim])
       {
@@ -279,7 +321,7 @@ class AxisAlignedHyperRectangle
           // which is something we do want to do occasionally. However,
           // there may be bugs causing non-AAHR shapes, which will be
           // masked by this step.
-          return { 0, 0 };
+          return Gradient(order_);
         }
         
         found = true;
@@ -288,12 +330,13 @@ class AxisAlignedHyperRectangle
         {
           if (s.max_[dim] <= max_[dim])
           {
-            gradient = { dim, s.max_[dim] - min_[dim] };
+            gradient.dimension = dim;
+            gradient.value = s.max_[dim] - min_[dim];
             updated.min_[dim] = s.max_[dim];
           }
           else
           {
-            gradient = { 0, 0 };
+            gradient.Reset();
             updated.max_[dim] = min_[dim];
           }
         }
@@ -310,11 +353,12 @@ class AxisAlignedHyperRectangle
             // Subtraction is causing a fracture. This can happen during
             // macro tile changes with sliding windows. Discard the operand,
             // and return a zero gradient.
-            return { 0, 0 };
+            return Gradient(order_);
           }
           else
           {
-            gradient = { dim, s.min_[dim] - max_[dim] };
+            gradient.dimension = dim;
+            gradient.value = s.min_[dim] - max_[dim];
             updated.max_[dim] = s.min_[dim];
           }
         }
@@ -329,7 +373,7 @@ class AxisAlignedHyperRectangle
         {
           // Discard updated, we're going to Reset ourselves anyway.
           Reset();
-          return { 0, 0 };
+          return Gradient(order_);
         }
       }
     }
@@ -341,22 +385,22 @@ class AxisAlignedHyperRectangle
     return gradient;
   }
 
-  AxisAlignedHyperRectangle<order>& operator+=(const Point<order>& p)
+  AxisAlignedHyperRectangle& operator += (const Point& p)
   {
     Add(p);
     return *this;
   }
 
-  AxisAlignedHyperRectangle<order>& operator+=(const AxisAlignedHyperRectangle<order>& s)
+  AxisAlignedHyperRectangle& operator += (const AxisAlignedHyperRectangle& s)
   {
     Add(s);
     return *this;
   }
 
-  AxisAlignedHyperRectangle<order> operator-(const AxisAlignedHyperRectangle<order>& s)
+  AxisAlignedHyperRectangle operator - (const AxisAlignedHyperRectangle& s)
   {
     // Calculate the delta.
-    AxisAlignedHyperRectangle<order> delta(*this);
+    AxisAlignedHyperRectangle delta(*this);
 
 #define RESET_ON_GRADIENT_CHANGE
 #ifdef RESET_ON_GRADIENT_CHANGE
@@ -365,12 +409,12 @@ class AxisAlignedHyperRectangle
     // Now check if the newly-calculated gradient is different from the gradient
     // of the operand. UGH, this is ugly. This code shouldn't be in the math
     // library, it should be outside.
-    if (s.gradient_.magnitude == 0)
+    if (s.gradient_.value == 0)
     {
       // Gradient was zero. Use newly-computed gradient.
       gradient_ = g;
     }
-    else if (g.magnitude == 0 && delta.size() == 0)
+    else if (g.value == 0 && delta.size() == 0)
     {
       // Note the delta size check. We need that because the gradient can
       // be zero in two cases:
@@ -392,7 +436,7 @@ class AxisAlignedHyperRectangle
       // direction (+/-) in the same dimension. Discard my residual state,
       // and re-initialize gradient.
       delta = *this;
-      gradient_ = { 0, 0 };
+      gradient_ = Gradient(order_);
     }
 
 #else
@@ -402,14 +446,16 @@ class AxisAlignedHyperRectangle
 #endif
     
     // The delta itself doesn't carry a gradient.
-    delta.gradient_ = { 0, 0 };
+    delta.gradient_ = Gradient(order_);
 
     return delta;
   }
 
-  bool operator==(const AxisAlignedHyperRectangle<order>& s) const
+  bool operator == (const AxisAlignedHyperRectangle& s) const
   {
-    for (unsigned dim = 0; dim < order; dim++)
+    ASSERT(order_ == s.order_);
+    
+    for (unsigned dim = 0; dim < order_; dim++)
     {
       if (min_[dim] != s.min_[dim] || max_[dim] != s.max_[dim])
       {
@@ -422,12 +468,12 @@ class AxisAlignedHyperRectangle
   void Print() const
   {
     std::cout << "min = < "; 
-    for (unsigned dim = 0; dim < order; dim++)
+    for (unsigned dim = 0; dim < order_; dim++)
     {
       std::cout << min_[dim] << " ";
     }
     std::cout << "> max = < "; 
-    for (unsigned dim = 0; dim < order; dim++)
+    for (unsigned dim = 0; dim < order_; dim++)
     {
       std::cout << max_[dim] << " ";
     }

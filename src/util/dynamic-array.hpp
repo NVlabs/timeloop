@@ -27,8 +27,9 @@
 
 #pragma once
 
-#include<algorithm>
-#include<limits>
+#include <algorithm>
+#include <limits>
+#include <cassert>
 
 // This is meant to be a drop-in replacement for std::array
 // that does not need a statically constant size,

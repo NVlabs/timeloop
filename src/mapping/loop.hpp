@@ -33,7 +33,7 @@
 
 #include <boost/serialization/vector.hpp>
 
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 #include "spacetime.hpp"
 
 namespace loop
@@ -45,7 +45,7 @@ namespace loop
 class Descriptor
 {
  public:
-  problem::Dimension dimension;
+  problem::Shape::DimensionID dimension;
   int start;
   int end;
   int stride;
@@ -53,11 +53,11 @@ class Descriptor
 
   Descriptor();
 
-  Descriptor(const problem::Dimension _dimension, const int _start,
+  Descriptor(const problem::Shape::DimensionID _dimension, const int _start,
              const int _end, const int _stride,
              const spacetime::Dimension _spacetime_dimension);
 
-  Descriptor(const problem::Dimension _dimension,
+  Descriptor(const problem::Shape::DimensionID _dimension,
              const int _end,
              const spacetime::Dimension _spacetime_dimension = spacetime::Dimension::Time);
 

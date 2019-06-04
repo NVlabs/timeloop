@@ -53,7 +53,7 @@ def parse_timeloop_stats(filename):
     root = tree.getroot()
     
     # Parse out the problem shape
-    problem_dims = root.findall('a')[0].findall('problem_config_')[0].findall('bounds_')[0].findall('item')
+    problem_dims = root.findall('a')[0].findall('workload_')[0].findall('bounds_')[0].findall('item')
     problem = {'FH': int(problem_dims[0].findall('second')[0].text),\
                'FW': int(problem_dims[1].findall('second')[0].text),\
                'OH': int(problem_dims[2].findall('second')[0].text),\

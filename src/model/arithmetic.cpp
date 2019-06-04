@@ -122,10 +122,10 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(libconfig::Setting& setting)
   
 // Accessors.
 
-double ArithmeticUnits::Energy(problem::DataType pv) const
+double ArithmeticUnits::Energy(problem::Shape::DataSpaceID pv) const
 {
   assert(is_evaluated_);
-  assert(pv == problem::DataType::Num);
+  assert(pv == problem::GetShape()->NumDataSpaces);
   return energy_;
 }
 

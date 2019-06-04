@@ -47,7 +47,7 @@ std::vector<FlexPoint> Expand(const FlexPoint min, const FlexPoint max)
   if (order == 1)
   {
     // Base case.
-    for (Magnitude x = min[0]; x < max[0]; x++)
+    for (Coordinate x = min[0]; x < max[0]; x++)
     {
       FlexPoint point(1);
       point[0] = x;
@@ -56,11 +56,11 @@ std::vector<FlexPoint> Expand(const FlexPoint min, const FlexPoint max)
   }
   else
   {
-    // Recursive case: iterate over the magnitude of the highest
+    // Recursive case: iterate over the coordinate of the highest
     // dimension. At each step, create a lower-dimensional point
     // vector and extrude it into this high-dimensional space at the
-    // high-dim magnitude.
-    for (Magnitude x = min[order-1]; x < max[order-1]; x++)
+    // high-dim coordinate.
+    for (Coordinate x = min[order-1]; x < max[order-1]; x++)
     {
       // Low-dimension min and max.
       FlexPoint low_dim_min(order-1), low_dim_max(order-1);
@@ -81,7 +81,7 @@ std::vector<FlexPoint> Expand(const FlexPoint min, const FlexPoint max)
         // The high-dim point we will insert into this vector.
         FlexPoint point(order);
 
-        // Copy over all low dimension magnitudes.
+        // Copy over all low dimension coordinates.
         for (unsigned dim = 0; dim < order-1; dim++)
         {
           point[dim] = low_dim_point[dim];

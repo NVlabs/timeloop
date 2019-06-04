@@ -32,7 +32,7 @@
 
 #include "loop-analysis/loop-state.hpp"
 #include "loop-analysis/tiling.hpp"
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 
 namespace loop {
 
@@ -62,7 +62,7 @@ class Nest
   bool operator == (const Nest& n) const; 
 
   void AddLoop(Descriptor descriptor);
-  void AddLoop(problem::Dimension dimension, int start, int end, int stride,
+  void AddLoop(problem::Shape::DimensionID dimension, int start, int end, int stride,
                spacetime::Dimension spacetime_dimension);
   bool AddStorageTilingBoundary();
 

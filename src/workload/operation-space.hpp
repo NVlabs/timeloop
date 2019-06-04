@@ -27,20 +27,58 @@
 
 #pragma once
 
-#include <string>
-#include <tuple>
-#include <libconfig.h++>
-
-#include "problem-config.hpp"
+#include "workload.hpp"
+#include "data-space.hpp"
+#include "per-data-space.hpp"
 
 namespace problem
 {
 
-Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
-Densities GetLayerDensities(std::string layer_name);
-void ReadDensities(std::string filename);
-void DumpDensities(std::string filename);
-void DumpDensities_CPP(std::string filename);
-void ParseConfig(libconfig::Setting& problem, WorkloadConfig& workload);
+// ======================================== //
+//              OperationPoint              //
+// ======================================== //
 
-}
+class OperationPoint : public Point
+{
+ public:
+  OperationPoint() :
+      Point(GetShape()->NumDimensions)
+  {
+  }
+};
+
+// ======================================== //
+//              OperationSpace              //
+// ======================================== //
+
+class OperationSpace
+{
+ private:
+  const Workload* workload_;
+
+  std::vector<DataSpace> data_spaces_;
+
+ private:
+  Point Project(Shape::DataSpaceID d, const Workload* wc,
+                const OperationPoint& problem_point);
+  
+ public:
+  OperationSpace();
+  OperationSpace(const Workload* wc);
+  OperationSpace(const Workload* wc, const OperationPoint& low,
+                 const OperationPoint& high, bool inclusive = true);
+
+  void Reset();
+  OperationSpace& operator+=(const OperationSpace& s);
+  OperationSpace& operator+=(const OperationPoint& p);
+  OperationSpace operator-(const OperationSpace& p);
+  PerDataSpace<std::size_t> GetSizes() const;
+  std::size_t GetSize(const int t) const;
+  bool IsEmpty(const int t) const;
+  bool CheckEquality(const OperationSpace& rhs, const int t) const;
+  void PrintSizes();
+  void Print() const;
+  void Print(Shape::DataSpaceID pv) const;
+};
+
+} // namespace problem

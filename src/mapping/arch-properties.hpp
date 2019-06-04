@@ -75,14 +75,14 @@ class ArchProperties
       bool is_spatial_2D = false;
 
       auto& specs = *specs_.topology.GetStorageLevel(i);
-      auto lambda = [&] (problem::DataType pv)
+      auto lambda = [&] (problem::Shape::DataSpaceID pv)
         {
           if (specs.Fanout(pv).Get() > 1)
             is_spatial = true;
           if (specs.FanoutX(pv).Get() > 1 && specs.FanoutY(pv).Get() > 1)
             is_spatial_2D = true;
         };
-      model::BufferLevel::ForEachDataType(lambda, specs.sharing_type);
+      model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
 
       if (is_spatial)
       {

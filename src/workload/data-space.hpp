@@ -27,52 +27,59 @@
 
 #pragma once
 
-#include "mapping/parser.hpp"
+#include "loop-analysis/point-set.hpp"
 
-#include <fstream>
-
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/bitset.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/xml_iarchive.hpp>
-#include <boost/archive/xml_oarchive.hpp>
-
-//--------------------------------------------//
-//                Application                 //
-//--------------------------------------------//
-
-class Application
+namespace problem
 {
- protected:
-  model::Engine::Specs arch_specs_;
-  model::Engine engine_;
+
+// ======================================== //
+//                 DataSpace                //
+// ======================================== //
+
+typedef PointSet DataSpace;
+
+// class DataSpace : public PointSet
+// {
+//  private:
+//   std::string name_;
+
+//  public:
+//   DataSpace() = delete;
+
+//   DataSpace(std::string name, std::uint32_t order) :
+//       PointSet(order),
+//       name_(name)
+//   { }
   
- public:
+//   DataSpace(std::string name, std::uint32_t order, Point base, Point bound) :
+//       PointSet(order, base, bound),
+//       name_(name)
+//   { }
 
-  Application(libconfig::Config& config)
-  {
-    // Architecture configuration.
-    libconfig::Setting& arch = config.lookup("arch");
-    arch_specs_ = model::Engine::ParseSpecs(arch);
-    engine_.Spec(arch_specs_);
-    std::cout << "Architecture configuration complete." << std::endl;
-  }
+//   DataSpace(const PointSet& p) :
+//       PointSet(p),
+//       name_("__UNNAMED__")
+//   { }
 
-  // This class does not support being copied
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
+//   std::string Name() const
+//   {
+//     return name_;
+//   }
 
-  ~Application()
-  {
-  }
+//   DataSpace operator - (const DataSpace& d)
+//   {
+//     PointSet delta = PointSet::operator - (d);
+//     DataSpace retval(delta);
+//     retval.name_ = name_;
+//     return retval;
+//   }
 
-  // Run the evaluation.
-  void Run()
-  {
-    std::cout << engine_ << std::endl;
-  }
-};
+//   void Print() const
+//   {
+//     std::cout << Name() << "[" << size() << "]: ";
+//     PointSet::Print();
+//     std::cout << std::endl;
+//   }
+// };
 
+} // namespace problem

@@ -27,52 +27,52 @@
 
 #pragma once
 
-#include "mapping/parser.hpp"
+#include <map>
+#include <vector>
+#include <list>
+#include <libconfig.h++>
 
-#include <fstream>
-
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/bitset.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/xml_iarchive.hpp>
-#include <boost/archive/xml_oarchive.hpp>
-
-//--------------------------------------------//
-//                Application                 //
-//--------------------------------------------//
-
-class Application
+namespace problem
 {
- protected:
-  model::Engine::Specs arch_specs_;
-  model::Engine engine_;
-  
+
+class Shape
+{
  public:
+  typedef unsigned DimensionID;
+  
+  unsigned NumDimensions;
+  std::map<DimensionID, std::string> DimensionIDToName;
+  std::map<std::string, DimensionID> DimensionNameToID;
 
-  Application(libconfig::Config& config)
-  {
-    // Architecture configuration.
-    libconfig::Setting& arch = config.lookup("arch");
-    arch_specs_ = model::Engine::ParseSpecs(arch);
-    engine_.Spec(arch_specs_);
-    std::cout << "Architecture configuration complete." << std::endl;
-  }
+  typedef int Coefficient;
+  typedef unsigned CoefficientID;
+  typedef std::map<CoefficientID, int> Coefficients;
 
-  // This class does not support being copied
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
+  unsigned NumCoefficients;
+  std::map<std::string, CoefficientID> CoefficientNameToID;
+  std::map<CoefficientID, std::string> CoefficientIDToName;
+  std::map<CoefficientID, int> DefaultCoefficients;
 
-  ~Application()
-  {
-  }
+  typedef unsigned DataSpaceID;
 
-  // Run the evaluation.
-  void Run()
-  {
-    std::cout << engine_ << std::endl;
-  }
+  unsigned NumDataSpaces;
+  std::map<std::string, DataSpaceID> DataSpaceNameToID;
+  std::map<DataSpaceID, std::string> DataSpaceIDToName;
+  std::map<DataSpaceID, unsigned> DataSpaceOrder;
+  std::map<DataSpaceID, bool> IsReadWriteDataSpace;
+
+  // Projection AST: the projection function for each dataspace dimension is a
+  //                 Sum-Of-Products where each Product is the product of a
+  //                 Coefficient and a Dimension. This is fairly restrictive
+  //                 but efficient. We can generalize later if needed.
+  typedef std::pair<CoefficientID, DimensionID> ProjectionTerm;
+  typedef std::list<ProjectionTerm> ProjectionExpression;
+  typedef std::vector<ProjectionExpression> Projection;
+
+  std::vector<Projection> Projections;
+
+ public: 
+  void Parse(libconfig::Setting& config); 
 };
 
+} // namespace problem

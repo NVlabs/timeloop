@@ -49,12 +49,12 @@ NestAnalysis::NestAnalysis()
 {
 }
 
-void NestAnalysis::Init(problem::WorkloadConfig* wc, const loop::Nest* nest)
+void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest)
 {
   assert(nest != NULL);
   assert(wc != NULL);
 
-  workload_config_ = wc;
+  workload_ = wc;
 
   if (working_sets_computed_ && cached_nest == *nest)
   {
@@ -104,7 +104,7 @@ void NestAnalysis::Reset()
   }
 
   per_level_dim_scales_.clear();
-  cur_transform_ = problem::ProblemPoint();
+  cur_transform_ = problem::OperationPoint();
   mold_low_.clear();
   mold_high_.clear();
 
@@ -130,19 +130,21 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
 {
   std::vector<problem::PerDataSpace<std::size_t>> working_set_sizes;
 
-  problem::PerProblemDimension<int> dimension_sizes;
-  dimension_sizes.fill(1);
+  problem::OperationPoint origin;
+  problem::OperationPoint dimension_sizes;
+  dimension_sizes.IncrementAllDimensions(); // initialize to { 1, 1, 1... }
 
   unsigned tiling_level = 0;
   for (unsigned loop_level = 0; loop_level < nest_state_.size(); loop_level++)
   {
     auto & loop = nest_state_.at(loop_level).descriptor;
     ASSERT(loop.stride == 1);
-    dimension_sizes[int(loop.dimension)] *= loop.end;
+    dimension_sizes[loop.dimension] *= loop.end;
         
     if (loop_level == storage_tiling_boundaries_.at(tiling_level))
     {
-      working_set_sizes.push_back(problem::GetMaxWorkingSetSizes(dimension_sizes));
+      problem::OperationSpace maxtile(workload_, origin, dimension_sizes, false);
+      working_set_sizes.push_back(maxtile.GetSizes());
       tiling_level++;
     }
   }
@@ -265,7 +267,7 @@ void NestAnalysis::CollectWorkingSets()
     {
       // Contains the collected state for this level.
       analysis::ElementState condensed_state;
-      for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         // Sanity check: All elements in a given level should
         // have similar working sets, accesses etc.
@@ -300,7 +302,7 @@ void NestAnalysis::CollectWorkingSets()
         // *** UPDATE *** this is now handled within the main
         // ComputeWorkingSets() recursive loop.
         //
-        // if (problem::IsReadWriteDataType(problem::DataType(pv))) {
+        // if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
         //   for (uint64_t i = 0; i < condensed_state.accesses[pv].size(); i++) {
         //     condensed_state.accesses[pv][i] *= 2;
         //   }
@@ -330,7 +332,7 @@ void NestAnalysis::CollectWorkingSets()
       }
 
       // Transfer data from condensed_state to working_sets_
-      for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         tiling::TileInfo tile;
         tile.size                   = condensed_state.max_size[pv];
@@ -367,7 +369,7 @@ void NestAnalysis::CollectWorkingSets()
 // Working set computation (recursive call).
 // Unless skip_delta is true, returns the delta between the working set of the
 // previous iteration and the current iteration of the current level.
-problem::AllPointSets NestAnalysis::ComputeWorkingSetsRecursive_(
+problem::OperationSpace NestAnalysis::ComputeWorkingSetsRecursive_(
     std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta)
 {
   ASSERT(cur != nest_state_.rend());
@@ -380,7 +382,7 @@ problem::AllPointSets NestAnalysis::ComputeWorkingSetsRecursive_(
   // state at this level to grow indefinitely, which isn't what we're trying to
   // model. The responsibility of this level is to supply all the deltas
   // demanded by the next-inner level for this invocation.
-  problem::AllPointSets point_set(workload_config_);
+  problem::OperationSpace point_set(workload_);
 
   if (loop::IsSpatial(cur->descriptor.spacetime_dimension))
   {
@@ -427,7 +429,7 @@ problem::AllPointSets NestAnalysis::ComputeWorkingSetsRecursive_(
   }
   
   // Calculate delta to send up to caller.
-  problem::AllPointSets delta(workload_config_);
+  problem::OperationSpace delta(workload_);
   if (!skip_delta)
   {
     delta = point_set - cur_state.last_point_set;
@@ -448,7 +450,7 @@ problem::AllPointSets NestAnalysis::ComputeWorkingSetsRecursive_(
 }
 
 void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                     problem::AllPointSets& point_set,
+                                     problem::OperationSpace& point_set,
                                      analysis::ElementState& cur_state)
 {
   // We do two things in this function: (a) calculate the size of the temporal
@@ -484,13 +486,13 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   // Step I: Compute Temporal Working Set.
   //
 
-  problem::ProblemPoint low_problem_point;
-  problem::ProblemPoint high_problem_point;
+  problem::OperationPoint low_problem_point;
+  problem::OperationPoint high_problem_point;
 
   // We use the pre-computed molds within this level range.
   // Above this level range, we use the transform problem-point to
   // translate, rotate or otherwise transform the mold.
-  for (unsigned dim = 0; dim < unsigned(problem::Dimension::Num); dim++)
+  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumDimensions); dim++)
   {
     low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
     high_problem_point[dim] = cur_transform_[dim] + mold_high_[level][dim];
@@ -499,7 +501,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   // Compute the polyhedron between the low and high problem
   // points (exclusive). Note that this special constructor
   // is only available for certain point-set implementations.
-  point_set += problem::AllPointSets(workload_config_, low_problem_point, high_problem_point);
+  point_set += problem::OperationSpace(workload_, low_problem_point, high_problem_point);
 
   if (dump)
   {
@@ -525,11 +527,11 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       body_info_.accesses += body_iterations;
     }
 
-    for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       // Write-backs of read-modify-write data types consume 2
       // accesses *except* for the first write.
-      if (problem::IsReadWriteDataType(problem::DataType(pv)) &&
+      if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
           cur_state.accesses[pv][0] != 0)
       {
         cur_state.accesses[pv][0] += body_iterations; // (2 * body_iterations); This fixup now happens in model/buffer.cpp.
@@ -683,17 +685,17 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       auto num_deltas = temporal_delta_sizes.size();
       for (unsigned i = 0; i < num_deltas; i++)
       {
-        for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
         {
           final_delta_sizes[pv] += (temporal_delta_sizes[i][pv] * temporal_delta_scale[i]);
         }
       }
 
-      for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         // Write-backs of read-modify-write data types consume 2
         // accesses *except* for the first write.
-        if (problem::IsReadWriteDataType(problem::DataType(pv)) &&
+        if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
             cur_state.accesses[pv][0] != 0)
         {
           cur_state.accesses[pv][0] += final_delta_sizes[pv] * num_epochs_; // (2 * final_delta_sizes[pv] * num_epochs_); This fixup now happens in model/buffer.cpp.
@@ -719,7 +721,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 }
 
 void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                            problem::AllPointSets& point_set)
+                                            problem::OperationSpace& point_set)
 {
   int level = cur->level;
   ASSERT(master_spatial_level_[level]);
@@ -729,8 +731,8 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 
   // Deltas needed by each of the spatial elements.
   // This array will be filled by recursive calls.
-  std::vector<problem::AllPointSets> spatial_deltas(num_spatial_elems,
-                                                    problem::AllPointSets(workload_config_));
+  std::vector<problem::OperationSpace> spatial_deltas(num_spatial_elems,
+                                                    problem::OperationSpace(workload_));
 
   // Indicates if each of the elements of the array above, was ever updated
   // by a recursive call. Only needed to ensure correctness.
@@ -780,7 +782,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   problem::PerDataSpace<std::vector<std::uint64_t>*>
     accesses, scatter_factors, cumulative_hops;
   
-  for (unsigned pvi = 0; pvi < int(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
     accesses_without_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
     accesses_with_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
@@ -841,9 +843,9 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
                                        cumulative_hops_with_link_transfers);
 
     // Compare.
-    for (unsigned pvi = 0; pvi < int(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
-      // if (problem::DataType(pvi) == problem::DataType::Weight)
+      // if (problem::Shape::DataSpaceID(pvi) == problem::Shape::DataSpaceID::Weight)
       // {
       //   std::cout << "ACCESSES *WITH* LINK TRANSFERS\n";
       //   for (unsigned i = 0; i < accesses_with_link_transfers[pvi].size(); i++)
@@ -876,7 +878,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
     }
   }
 
-  for (unsigned pvi = 0; pvi < int(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
     for (unsigned i = 0; i < cur_state.accesses[pvi].size(); i++)
     {
@@ -913,7 +915,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   }
 
   // Consistency check.
-  for (unsigned pvi = 0; pvi < int(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
     std::uint64_t fanout = 0;
     for (unsigned i = 0; i < cur_state.accesses[pvi].size(); i++)
@@ -951,8 +953,8 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 // Computes deltas needed by the spatial elements in the next level.
 // Will update a subset of the elements of spatial_deltas
 void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
-                             problem::AllPointSets& point_set,
-                             std::vector<problem::AllPointSets>& spatial_deltas,
+                             problem::OperationSpace& point_set,
+                             std::vector<problem::OperationSpace>& spatial_deltas,
                              std::vector<bool>& valid_delta,
                              std::uint64_t base_index,
                              int depth)
@@ -969,7 +971,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
   // Sum of all point sets that are filled at this level.
   // We need to do this accumulation on a per-level basis
   // to makes sure point_set always has nice cuboidal shapes.
-  problem::AllPointSets cur_level_point_set(workload_config_);
+  problem::OperationSpace cur_level_point_set(workload_);
 
   bool dump = false; // (level >= 4);
   if (dump)
@@ -999,7 +1001,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       ASSERT(spatial_delta_index < spatial_deltas.size());
       ASSERT(!valid_delta[spatial_delta_index]);
 
-      spatial_deltas[spatial_delta_index] += IndexToProblemPoint_(indices_);
+      spatial_deltas[spatial_delta_index] += IndexToOperationPoint_(indices_);
       valid_delta[spatial_delta_index] = true;
       cur_level_point_set += spatial_deltas[spatial_delta_index];
     }
@@ -1077,15 +1079,15 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       indices_high[l] = nest_state_[l].descriptor.end - nest_state_[l].descriptor.stride;
     }
 
-    auto low_problem_point = IndexToProblemPoint_(indices_low);
-    auto high_problem_point = IndexToProblemPoint_(indices_high);
+    auto low_problem_point = IndexToOperationPoint_(indices_low);
+    auto high_problem_point = IndexToOperationPoint_(indices_high);
     
     // Compute the polyhedron between the low and high problem
     // points (exclusive). Note that this special constructor
     // is only available for certain point-set implementations.
     // Note: we aren't using +=. This means we're ignoring subvolumes
     // returned to us by recursive FillSpatialDeltas calls.
-    cur_level_point_set = problem::AllPointSets(workload_config_, low_problem_point, high_problem_point);
+    cur_level_point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
   } // level > 0
 
   if (dump)
@@ -1119,7 +1121,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 // Exhaustively compare all pairs of deltas and infer multicast opportunities.
 void NestAnalysis::ComputeAccurateMulticastedAccesses(
     std::vector<analysis::LoopState>::reverse_iterator cur,
-    const std::vector<problem::AllPointSets>& spatial_deltas,
+    const std::vector<problem::OperationSpace>& spatial_deltas,
     std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
     problem::PerDataSpace<std::vector<std::uint64_t>>& accesses,
     problem::PerDataSpace<std::vector<std::uint64_t>>& scatter_factors,
@@ -1143,7 +1145,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
 
   // for (std::uint64_t i = 0; i < num_deltas; i++)
   // {
-  //   auto pv = problem::DataType::Weight;
+  //   auto pv = problem::Shape::DataSpaceID::Weight;
   //   if (unaccounted_delta[i][int(pv)])
   //     std::cout << "UNACCOUNTED: ";
   //   else
@@ -1160,7 +1162,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     
     problem::PerDataSpace<std::vector<std::uint64_t>> match_set;
 
-    for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       if (!unaccounted_delta[i][pv])
       {
@@ -1189,7 +1191,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     }
 
     // update the number of accesses at different multicast factors.
-    for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       if (num_matches[pv] > 0)
       {
@@ -1231,8 +1233,8 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
 // Compares two deltas, and if they are equal,
 // records the opportunity for inter-PE link transfers.
 void CompareSpatioTemporalDeltas(
-    const std::vector<problem::AllPointSets>& cur_spatial_deltas,
-    const std::vector<problem::AllPointSets>& prev_spatial_deltas,
+    const std::vector<problem::OperationSpace>& cur_spatial_deltas,
+    const std::vector<problem::OperationSpace>& prev_spatial_deltas,
     const std::uint64_t cur_spatial_index,
     const std::uint64_t prev_spatial_index,
     std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse)
@@ -1240,7 +1242,7 @@ void CompareSpatioTemporalDeltas(
   auto& cur_delta = cur_spatial_deltas[cur_spatial_index];
   auto& prev_delta = prev_spatial_deltas[prev_spatial_index];
 
-  for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
     if (!cur_delta.IsEmpty(pv))
     {
@@ -1255,7 +1257,7 @@ void CompareSpatioTemporalDeltas(
 
 void NestAnalysis::ComputeNetworkLinkTransfers(
     std::vector<analysis::LoopState>::reverse_iterator cur,
-    const std::vector<problem::AllPointSets>& cur_spatial_deltas,
+    const std::vector<problem::OperationSpace>& cur_spatial_deltas,
     std::vector<problem::PerDataSpace<bool>>&
     unaccounted_delta,
     problem::PerDataSpace<std::uint64_t>& link_transfers)
@@ -1267,7 +1269,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // std::cout << "CUR BEFORE:" << std::endl;
   // for (std::uint64_t i = 0; i < cur_spatial_deltas.size(); i++)
   // {
-  //   auto pv = problem::DataType::Weight;
+  //   auto pv = problem::Shape::DataSpaceID::Weight;
   //   if (unaccounted_delta[i][int(pv)])
   //     std::cout << "  UNACCOUNTED: ";
   //   else
@@ -1296,7 +1298,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // std::cout << "PREV:" << std::endl;
   // for (std::uint64_t i = 0; i < prev_spatial_deltas.size(); i++)
   // {
-  //   auto pv = problem::DataType::Weight;
+  //   auto pv = problem::Shape::DataSpaceID::Weight;
   //   std::cout << "  "; prev_spatial_deltas[i].Print(pv);
   // }
   
@@ -1370,7 +1372,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // by using link transfers
   for (int i = 0; i < num_spatial_elems; i++)
   {
-    for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       if (inter_elem_reuse[i][pv])
       {
@@ -1399,7 +1401,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // std::cout << "AFTER:" << std::endl;
   // for (std::uint64_t i = 0; i < cur_spatial_deltas.size(); i++)
   // {
-  //   auto pv = problem::DataType::Weight;
+  //   auto pv = problem::Shape::DataSpaceID::Weight;
   //   if (unaccounted_delta[i][int(pv)])
   //     std::cout << "  UNACCOUNTED: ";
   //   else
@@ -1536,7 +1538,7 @@ void NestAnalysis::InitSpatialFanouts()
 
 void NestAnalysis::InitPerLevelDimScales()
 {
-  for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
   {
     cur_transform_[dim] = 0;
   }
@@ -1556,14 +1558,14 @@ void NestAnalysis::InitPerLevelDimScales()
     auto desc = nest_state_[level].descriptor;
     int dim = int(desc.dimension);
 
-    for (std::uint64_t dim = 0; dim < int(problem::Dimension::Num); dim++)
+    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
     {
       per_level_dim_scales_[level][dim] = cur_scale[dim];
     }
 
     cur_scale[dim] *= (desc.end - desc.start);  // FIXME: assuming stride = 1
 
-    for (std::uint64_t dim = 0; dim < int(problem::Dimension::Num); dim++)
+    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
     {
       mold_low_[level][dim] = desc.start;
       mold_high_[level][dim] = cur_scale[dim] - 1; // FIXME: this is wrong.
@@ -1578,11 +1580,11 @@ void NestAnalysis::InitPerLevelDimScales()
 // There is a not-so-complicated way to optimize this
 // by exploiting the global loop nest information.
 // instead of making naive local decisions.
-problem::ProblemPoint NestAnalysis::IndexToProblemPoint_(
+problem::OperationPoint NestAnalysis::IndexToOperationPoint_(
   const std::vector<int>& indices) const
 {
-  problem::ProblemPoint point;
-  for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+  problem::OperationPoint point;
+  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
   {
     point[dim] = 0;
   }
@@ -1607,7 +1609,7 @@ problem::ProblemPoint NestAnalysis::IndexToProblemPoint_(
 
 void NestAnalysis::ComputeApproxMulticastedAccesses(
     std::vector<analysis::LoopState>::reverse_iterator cur,
-    const std::vector<problem::AllPointSets>& spatial_deltas)
+    const std::vector<problem::OperationSpace>& spatial_deltas)
 {
   // Find number of spatial levels that correspond to this master spatial level.
   int master_level = cur->level;
@@ -1665,7 +1667,7 @@ void NestAnalysis::ComputeApproxMulticastedAccesses(
 
     problem::PerDataSpace<bool> is_multicast;
     is_multicast.fill(true);
-    for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       for (uint64_t i = 1; i < indices_to_compare.size(); i++)
       {
@@ -1680,7 +1682,7 @@ void NestAnalysis::ComputeApproxMulticastedAccesses(
       }
     }
 
-    for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       is_multicast_level[pv][level] = is_multicast[pv];
     }
@@ -1691,14 +1693,14 @@ void NestAnalysis::ComputeApproxMulticastedAccesses(
   for (uint64_t i = 0; i < spatial_deltas.size(); i++)
   {
     auto delta_sizes = spatial_deltas[i].GetSizes();
-    for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       summed_deltas[pv] += delta_sizes[pv];
     }
   }
 
   problem::PerDataSpace<std::size_t> multicast_factors;
-  for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
     uint64_t product_of_multicast_levels = 1;
     for (uint64_t level = 0; level < num_spatial_levels; level++)
@@ -1713,7 +1715,7 @@ void NestAnalysis::ComputeApproxMulticastedAccesses(
 
   // compute and update the number of accesses at various multicast factors.
   auto& accesses = nest_state_[master_level].live_state[spatial_id_].accesses;
-  for (int pv = 0; pv < int(problem::DataType::Num); pv++)
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
     ASSERT(accesses[pv].size() == spatial_deltas.size());
     ASSERT(summed_deltas[pv] % multicast_factors[pv] == 0);

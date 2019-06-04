@@ -35,7 +35,7 @@
 #include "point-set-aahr.hpp"
 
 // A FlexPoint is a variable-order point.
-typedef std::vector<Magnitude> FlexPoint;
+typedef std::vector<Coordinate> FlexPoint;
 
 // The following function expands two order-dimensional endpoints into a vector
 // of order-dimensional points that fill out the axis-aligned hyper-rectangle

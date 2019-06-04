@@ -29,6 +29,7 @@ import os
 
 Import('env')
 
+env.Append(CPPDEFINES = [('BUILD_BASE_DIR', '\\"' + env["BUILD_BASE_DIR"] + '\\"')])
 env.Append(CPPPATH = ['src/include'])
 env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++14', '-pthread'])
 env.Append(LINKFLAGS = ['-std=c++11', '-pthread', '-static-libgcc', '-static-libstdc++'])
@@ -61,10 +62,9 @@ if not os.path.isdir('../src/pat'):
     Exit(1)
     
 timeloop_sources = Split("""
-cnn/cnn-layers.cpp
+data/cnn/cnn-layers.cpp
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
-loop-analysis/point-set-generic-slow.cpp
 pat/pat.cpp
 applications/mapper/main.cpp
 mapping/loop.cpp
@@ -76,14 +76,15 @@ model/buffer.cpp
 model/topology.cpp
 util/numeric.cpp
 util/map2d.cpp
-workload/problem-config.cpp
+workload/problem-shape.cpp
+workload/workload.cpp
+workload/operation-space.cpp
 """)
 
 evaluator_sources = Split("""
-cnn/cnn-layers.cpp
+data/cnn/cnn-layers.cpp
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
-loop-analysis/point-set-generic-slow.cpp
 pat/pat.cpp
 applications/evaluator/main.cpp
 mapping/loop.cpp
@@ -95,13 +96,14 @@ model/buffer.cpp
 model/topology.cpp
 util/numeric.cpp
 util/map2d.cpp
-workload/problem-config.cpp
+workload/problem-shape.cpp
+workload/workload.cpp
+workload/operation-space.cpp
 """)
 
 metrics_sources = Split("""
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
-loop-analysis/point-set-generic-slow.cpp
 pat/pat.cpp
 applications/metrics/main.cpp
 mapping/loop.cpp
@@ -111,7 +113,9 @@ model/buffer.cpp
 model/topology.cpp
 util/numeric.cpp
 util/map2d.cpp
-workload/problem-config.cpp
+workload/problem-shape.cpp
+workload/workload.cpp
+workload/operation-space.cpp
 """)
 
 env.Program(target = 'timeloop', source = timeloop_sources)

@@ -28,6 +28,7 @@
 #pragma once
 
 #include "mapping/nest.hpp"
+#include "workload/per-problem-dimension.hpp"
 
 namespace analysis
 {
@@ -54,18 +55,18 @@ class NestAnalysis
   tiling::CompoundTileNest working_sets_;
   tiling::BodyInfo body_info_;
 
-  // Memoization structures to accelerate IndexToProblemPoint()
+  // Memoization structures to accelerate IndexToOperationPoint()
   std::vector<problem::PerProblemDimension<std::uint64_t>>
       per_level_dim_scales_;  // level * dim
-  problem::ProblemPoint cur_transform_;
-  std::vector<problem::ProblemPoint> mold_low_;
-  std::vector<problem::ProblemPoint> mold_high_;
+  problem::OperationPoint cur_transform_;
+  std::vector<problem::OperationPoint> mold_low_;
+  std::vector<problem::OperationPoint> mold_high_;
 
   // per-level properties.
   std::vector<uint64_t> num_spatial_elems_;
   std::vector<uint64_t> spatial_fanouts_;
 
-  // used to accelerate to IndexToProblemPoint computation
+  // used to accelerate to IndexToOperationPoint computation
   // relevant only for master spatial levels.
   std::vector<uint64_t> horizontal_sizes_;
   std::vector<uint64_t> vertical_sizes_;
@@ -86,7 +87,7 @@ class NestAnalysis
 
   bool working_sets_computed_ = false;
 
-  problem::WorkloadConfig* workload_config_ = nullptr;
+  problem::Workload* workload_ = nullptr;
 
   // Internal helper methods.
   void ComputeWorkingSets();
@@ -100,27 +101,27 @@ class NestAnalysis
   void InitializeLiveState();
   void CollectWorkingSets();
 
-  problem::ProblemPoint IndexToProblemPoint_(const std::vector<int>& indices) const;
+  problem::OperationPoint IndexToOperationPoint_(const std::vector<int>& indices) const;
   
-  problem::AllPointSets ComputeWorkingSetsRecursive_(
+  problem::OperationSpace ComputeWorkingSetsRecursive_(
     std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta = false);
 
   void ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                 problem::AllPointSets& point_set,
+                                 problem::OperationSpace& point_set,
                                  analysis::ElementState& cur_state);
   void ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                problem::AllPointSets& point_set);
+                                problem::OperationSpace& point_set);
 
   void FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
-                         problem::AllPointSets& point_set,
-                         std::vector<problem::AllPointSets>& spatial_deltas,
+                         problem::OperationSpace& point_set,
+                         std::vector<problem::OperationSpace>& spatial_deltas,
                          std::vector<bool>& valid_delta,
                          std::uint64_t base_index,
                          int depth = 0);
 
   void ComputeAccurateMulticastedAccesses(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::AllPointSets>& spatial_deltas,
+      const std::vector<problem::OperationSpace>& spatial_deltas,
       std::vector<problem::PerDataSpace<bool>>&
       unaccounted_delta,
       problem::PerDataSpace<std::vector<std::uint64_t>>& accesses,
@@ -130,11 +131,11 @@ class NestAnalysis
 
   void ComputeApproxMulticastedAccesses(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::AllPointSets>& spatial_deltas);
+      const std::vector<problem::OperationSpace>& spatial_deltas);
 
   void ComputeNetworkLinkTransfers(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::AllPointSets>& cur_spatial_deltas,
+      const std::vector<problem::OperationSpace>& cur_spatial_deltas,
       std::vector<problem::PerDataSpace<bool>>&
       unaccounted_delta,
       problem::PerDataSpace<std::uint64_t>& link_transfers);
@@ -142,7 +143,7 @@ class NestAnalysis
  public:  
   // API
   NestAnalysis();
-  void Init(problem::WorkloadConfig* wc, const loop::Nest* nest);
+  void Init(problem::Workload* wc, const loop::Nest* nest);
   void Reset();
  
   std::vector<problem::PerDataSpace<std::size_t>> GetWorkingSetSizes_LTW() const;

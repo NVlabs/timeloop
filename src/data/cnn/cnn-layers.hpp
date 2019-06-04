@@ -27,52 +27,21 @@
 
 #pragma once
 
-#include "mapping/parser.hpp"
+#include <string>
+#include <tuple>
+#include <libconfig.h++>
 
-#include <fstream>
+#include "workload/problem-shape.hpp"
+#include "workload/workload.hpp"
 
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/bitset.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/xml_iarchive.hpp>
-#include <boost/archive/xml_oarchive.hpp>
-
-//--------------------------------------------//
-//                Application                 //
-//--------------------------------------------//
-
-class Application
+namespace problem
 {
- protected:
-  model::Engine::Specs arch_specs_;
-  model::Engine engine_;
-  
- public:
 
-  Application(libconfig::Config& config)
-  {
-    // Architecture configuration.
-    libconfig::Setting& arch = config.lookup("arch");
-    arch_specs_ = model::Engine::ParseSpecs(arch);
-    engine_.Spec(arch_specs_);
-    std::cout << "Architecture configuration complete." << std::endl;
-  }
+Workload::Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
+Workload::Densities GetLayerDensities(std::string layer_name);
+void ReadDensities(std::string filename);
+void DumpDensities(std::string filename);
+void DumpDensities_CPP(std::string filename);
+void ParseConfig(libconfig::Setting& problem, Workload& workload);
 
-  // This class does not support being copied
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
-
-  ~Application()
-  {
-  }
-
-  // Run the evaluation.
-  void Run()
-  {
-    std::cout << engine_ << std::endl;
-  }
-};
-
+}

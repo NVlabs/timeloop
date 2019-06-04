@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include "cnn/cnn-layers.hpp"
 #include "mapspaces/mapspace-factory.hpp"
 #include "search/search-factory.hpp"
 
@@ -58,7 +57,7 @@ struct EvaluationResult
 class Application
 {
  protected:
-  problem::WorkloadConfig problem_config_;
+  problem::Workload workload_;
 
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
@@ -88,7 +87,7 @@ class Application
   {
     if(version == 0)
     {
-      ar& BOOST_SERIALIZATION_NVP(problem_config_);
+      ar& BOOST_SERIALIZATION_NVP(workload_);
     }
   }
 
@@ -98,7 +97,7 @@ class Application
   {
     // Problem configuration.
     libconfig::Setting& problem = config.lookup("problem");
-    problem::ParseConfig(problem, problem_config_);
+    problem::ParseWorkload(problem, workload_);
     std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
@@ -165,7 +164,7 @@ class Application
 
     // MapSpace configuration.
     libconfig::Setting& mapspace = config.lookup("mapspace");
-    mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, problem_config_);
+    mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
     split_mapspaces_ = mapspace_->Split(num_threads_);
     std::cout << "Mapspace construction complete." << std::endl;
 
@@ -310,7 +309,7 @@ class Application
     bool log_suboptimal_;
     std::vector<std::string> optimization_metrics_;
     model::Engine::Specs arch_specs_;
-    problem::WorkloadConfig &workload_config_;
+    problem::Workload &workload_;
     EvaluationResult* best_;
 
     // Thread-local data.
@@ -331,7 +330,7 @@ class Application
       bool log_suboptimal,
       std::vector<std::string> optimization_metrics,
       model::Engine::Specs arch_specs,
-      problem::WorkloadConfig &workload_config,
+      problem::Workload &workload,
       EvaluationResult* best
       ) :
         thread_id_(thread_id),
@@ -346,7 +345,7 @@ class Application
         log_suboptimal_(log_suboptimal),
         optimization_metrics_(optimization_metrics),
         arch_specs_(arch_specs),
-        workload_config_(workload_config),
+        workload_(workload),
         best_(best),
         thread_()
     {
@@ -475,7 +474,7 @@ class Application
         //          on, and run some lightweight pre-checks that the
         //          model can use to quickly reject a nest.
         engine.Spec(arch_specs_);
-        success &= engine.PreEvaluationCheck(mapping, workload_config_);
+        success &= engine.PreEvaluationCheck(mapping, workload_);
         if (!success)
         {
           invalid_mappings++;
@@ -484,7 +483,7 @@ class Application
         }
 
         // Stage 3: Heavyweight evaluation.
-        success &= engine.Evaluate(mapping, workload_config_);
+        success &= engine.Evaluate(mapping, workload_);
         if (!success)
         {
           invalid_mappings++;
@@ -580,7 +579,7 @@ class Application
                                           log_suboptimal_,
                                           optimization_metrics_,
                                           arch_specs_,
-                                          problem_config_,
+                                          workload_,
                                           &best_));
     }
 

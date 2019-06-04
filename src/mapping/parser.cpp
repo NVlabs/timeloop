@@ -36,14 +36,14 @@ namespace mapping
 //
 
 ArchProperties arch_props_;
-problem::WorkloadConfig problem_config_;
+problem::Workload workload_;
 
 //
 // Forward declarations.
 //
 unsigned FindTargetTilingLevel(libconfig::Setting& constraint, std::string type);
-std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& constraint);
-std::vector<problem::Dimension> ParseUserPermutations(libconfig::Setting& constraint);
+std::map<problem::Shape::DimensionID, int> ParseUserFactors(libconfig::Setting& constraint);
+std::vector<problem::Shape::DimensionID> ParseUserPermutations(libconfig::Setting& constraint);
 void ParseUserDatatypeBypassSettings(libconfig::Setting& constraint,
                                      unsigned level,
                                      problem::PerDataSpace<std::string>& user_bypass_strings);
@@ -52,23 +52,23 @@ void ParseUserDatatypeBypassSettings(libconfig::Setting& constraint,
 //
 Mapping ParseAndConstruct(libconfig::Setting& config,
                           model::Engine::Specs& arch_specs,
-                          problem::WorkloadConfig problem_config)
+                          problem::Workload workload)
 {
   arch_props_.Construct(arch_specs);
-  problem_config_ = problem_config;
+  workload_ = workload;
   
-  std::map<unsigned, std::map<problem::Dimension, int>> user_factors;
-  std::map<unsigned, std::vector<problem::Dimension>> user_permutations;
+  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> user_factors;
+  std::map<unsigned, std::vector<problem::Shape::DimensionID>> user_permutations;
   std::map<unsigned, std::uint32_t> user_spatial_splits;
   problem::PerDataSpace<std::string> user_bypass_strings;
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     std::string xxx(arch_props_.StorageLevels(), 'X');
     xxx.back() = '1';
-    user_bypass_strings[problem::DataType(pvi)] = xxx;
+    user_bypass_strings[problem::Shape::DataSpaceID(pvi)] = xxx;
   }
 
   // Parse user-provided mapping.
@@ -127,13 +127,13 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
   for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
   {
     auto& permutation = user_permutations.at(level);
-    assert(permutation.size() == std::size_t(problem::Dimension::Num));
+    assert(permutation.size() == std::size_t(problem::GetShape()->NumDimensions));
       
     auto& factors = user_factors.at(level);
-    assert(factors.size() == std::size_t(problem::Dimension::Num));
+    assert(factors.size() == std::size_t(problem::GetShape()->NumDimensions));
 
-    // Each partition has problem::Dimension::Num loops.
-    for (unsigned idim = 0; idim < unsigned(problem::Dimension::Num); idim++)
+    // Each partition has problem::GetShape()->NumDimensions loops.
+    for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
     {
       loop::Descriptor loop;
       loop.dimension = permutation.at(idim);
@@ -154,7 +154,7 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
-    for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+    for (int dim = 0; dim < int(problem::GetShape()->NumDimensions); dim++)
     {
       // Ignore trivial factors
       // This reduces computation time by 1.5x on average.
@@ -170,7 +170,7 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
       {
         // Add a trivial temporal nest to make sure
         // we have at least one subnest in each level.
-        mapping.loop_nest.AddLoop(problem::Dimension(int(problem::Dimension::Num) - 1),
+        mapping.loop_nest.AddLoop(problem::Shape::DimensionID(int(problem::GetShape()->NumDimensions) - 1),
                                    0, 1, 1, spacetime::Dimension::Time);
       }
       mapping.loop_nest.AddStorageTilingBoundary();
@@ -181,9 +181,9 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
   // The user_mask input is a set of per-datatype strings. Each string has a length
   // equal to num_storage_levels, and contains the characters 0 (bypass), 1 (keep),
   // or X (evaluate both).    
-  for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
-    auto pv = problem::DataType(pvi);
+    auto pv = problem::Shape::DataSpaceID(pvi);
 
     // Start parsing the user mask string.
     assert(user_bypass_strings.at(pv).length() <= arch_props_.StorageLevels());
@@ -274,9 +274,9 @@ unsigned FindTargetTilingLevel(libconfig::Setting& directive, std::string type)
 //
 // Parse user factors.
 //
-std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& directive)
+std::map<problem::Shape::DimensionID, int> ParseUserFactors(libconfig::Setting& directive)
 {
-  std::map<problem::Dimension, int> retval;
+  std::map<problem::Shape::DimensionID, int> retval;
     
   std::string buffer;
   if (directive.lookupValue("factors", buffer))
@@ -285,22 +285,22 @@ std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& directive
     char token;
     while (iss >> token)
     {
-      auto dimension = problem::DimensionID.at(token); // note: can fault.
+      auto dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token)); // note: can fault.
         
       int end;
       iss >> end;
       if (end == 0)
       {
         std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-        end = problem_config_.getBound(dimension);
+        end = workload_.GetBound(dimension);
       }
-      else if (end > problem_config_.getBound(dimension))
+      else if (end > workload_.GetBound(dimension))
       {
         std::cerr << "WARNING: Directive " << dimension << "=" << end
                   << " exceeds problem dimension " << dimension << "="
-                  << problem_config_.getBound(dimension) << ". Setting directive "
-                  << dimension << "=" << problem_config_.getBound(dimension) << std::endl;
-        end = problem_config_.getBound(dimension);
+                  << workload_.GetBound(dimension) << ". Setting directive "
+                  << dimension << "=" << workload_.GetBound(dimension) << std::endl;
+        end = workload_.GetBound(dimension);
       }
       else
       {
@@ -318,9 +318,9 @@ std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& directive
 //
 // Parse user permutations.
 //
-std::vector<problem::Dimension> ParseUserPermutations(libconfig::Setting& directive)
+std::vector<problem::Shape::DimensionID> ParseUserPermutations(libconfig::Setting& directive)
 {
-  std::vector<problem::Dimension> retval;
+  std::vector<problem::Shape::DimensionID> retval;
     
   std::string buffer;
   if (directive.lookupValue("permutation", buffer))
@@ -329,7 +329,7 @@ std::vector<problem::Dimension> ParseUserPermutations(libconfig::Setting& direct
     char token;
     while (iss >> token)
     {
-      auto dimension = problem::DimensionID.at(token); // note: can fault.
+      auto dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token)); // note: can fault.
       retval.push_back(dimension);
     }
   }
@@ -352,7 +352,7 @@ void ParseUserDatatypeBypassSettings(libconfig::Setting& directive,
       
     for (const std::string& datatype_string: keep)
     {
-      auto datatype = problem::DataTypeID.at(datatype_string);
+      auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
       user_bypass_strings.at(datatype).at(level) = '1';
     }
   }
@@ -365,7 +365,7 @@ void ParseUserDatatypeBypassSettings(libconfig::Setting& directive,
       
     for (const std::string& datatype_string: bypass)
     {
-      auto datatype = problem::DataTypeID.at(datatype_string);
+      auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
       user_bypass_strings.at(datatype).at(level) = '0';
     }
   }

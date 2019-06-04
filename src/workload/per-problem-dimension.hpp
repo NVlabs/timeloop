@@ -27,52 +27,53 @@
 
 #pragma once
 
-#include "mapping/parser.hpp"
+#include "util/dynamic-array.hpp"
 
-#include <fstream>
-
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/bitset.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/xml_iarchive.hpp>
-#include <boost/archive/xml_oarchive.hpp>
-
-//--------------------------------------------//
-//                Application                 //
-//--------------------------------------------//
-
-class Application
+namespace problem
 {
- protected:
-  model::Engine::Specs arch_specs_;
-  model::Engine engine_;
-  
+
+// Think of this as std::array<T, NumDimensions>, except that the goal is
+// to support dynamic values of NumDimensions determined by reading user input.
+template<class T>
+class PerProblemDimension : public DynamicArray<T>
+{
  public:
-
-  Application(libconfig::Config& config)
-  {
-    // Architecture configuration.
-    libconfig::Setting& arch = config.lookup("arch");
-    arch_specs_ = model::Engine::ParseSpecs(arch);
-    engine_.Spec(arch_specs_);
-    std::cout << "Architecture configuration complete." << std::endl;
-  }
-
-  // This class does not support being copied
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
-
-  ~Application()
+  PerProblemDimension() :
+      DynamicArray<T>(GetShape()->NumDimensions)
   {
   }
 
-  // Run the evaluation.
-  void Run()
+  PerProblemDimension(std::initializer_list<T> l) :
+    DynamicArray<T>(l)
   {
-    std::cout << engine_ << std::endl;
+    assert(this->size() == GetShape()->NumDimensions);
+  }
+
+  friend std::ostream& operator << (std::ostream& out, const PerProblemDimension<T>& x)
+  {
+    for (unsigned i = 0; i < x.size(); i++)
+    {
+      out << GetShape()->DimensionIDToName.at(i) << ": " << x[i] << std::endl;
+    }
+    return out;
+  }
+
+  // Serialization
+  friend class boost::serialization::access;
+
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar << boost::serialization::make_nvp(
+        "PerProblemDimension",
+        boost::serialization::make_array(this->begin(), this->size()));
+    }
   }
 };
 
+// template<class T>
+// std::ostream& operator<<(std::ostream& out, const PerProblemDimension<T>& x);
+
+}

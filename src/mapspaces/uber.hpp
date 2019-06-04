@@ -33,7 +33,7 @@
 
 #include "util/numeric.hpp"
 #include "util/misc.hpp"
-#include "workload/problem-config.hpp"
+#include "workload/problem-shape.hpp"
 #include "mapspaces/mapspace-base.hpp"
 #include "mapspaces/subspaces.hpp"
 
@@ -59,8 +59,8 @@ class Uber : public MapSpace
   std::uint64_t num_parent_splits_;
   
   // Parsed metadata needed to construct subspaces.
-  std::map<unsigned, std::map<problem::Dimension, int>> user_factors_;
-  std::map<unsigned, std::vector<problem::Dimension>> user_permutations_;
+  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> user_factors_;
+  std::map<unsigned, std::vector<problem::Shape::DimensionID>> user_permutations_;
   std::map<unsigned, std::uint32_t> user_spatial_splits_;
   problem::PerDataSpace<std::string> user_bypass_strings_;
 
@@ -90,9 +90,9 @@ class Uber : public MapSpace
   Uber(
     libconfig::Setting& config,
     model::Engine::Specs arch_specs,
-    const problem::WorkloadConfig& problem_config,
+    const problem::Workload& workload,
     bool skip_init = false) :
-      MapSpace(arch_specs, problem_config),
+      MapSpace(arch_specs, workload),
       split_id_(0),
       num_parent_splits_(0),
       min_utilization_(0.0)
@@ -175,14 +175,14 @@ class Uber : public MapSpace
       bool is_spatial_2D = false;
 
       auto& specs = *arch_specs_.topology.GetStorageLevel(i);
-      auto lambda = [&] (problem::DataType pv)
+      auto lambda = [&] (problem::Shape::DataSpaceID pv)
         {
           if (specs.Fanout(pv).Get() > 1)
             is_spatial = true;
           if (specs.FanoutX(pv).Get() > 1 && specs.FanoutY(pv).Get() > 1)
             is_spatial_2D = true;
         };
-      model::BufferLevel::ForEachDataType(lambda, specs.sharing_type);
+      model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
 
       if (is_spatial)
       {
@@ -210,7 +210,7 @@ class Uber : public MapSpace
   //
   // InitIndexFactorizationSpace()
   //
-  void InitIndexFactorizationSpace(std::map<unsigned, std::map<problem::Dimension, int>>& user_factors)
+  void InitIndexFactorizationSpace(std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors)
   {
     assert(user_factors.size() <= num_total_tiling_levels_);
 
@@ -219,18 +219,18 @@ class Uber : public MapSpace
     // split up into. In other words, this is the order of the cofactors vector for each
     // problem dimension.
     
-    std::map<problem::Dimension, std::uint64_t> cofactors_order;
-    for (unsigned i = 0; i < unsigned(problem::Dimension::Num); i++)
+    std::map<problem::Shape::DimensionID, std::uint64_t> cofactors_order;
+    for (unsigned i = 0; i < unsigned(problem::GetShape()->NumDimensions); i++)
     {
       // Factorize each problem dimension into num_tiling_levels partitions.
-      cofactors_order[problem::Dimension(i)] = num_total_tiling_levels_;
+      cofactors_order[problem::Shape::DimensionID(i)] = num_total_tiling_levels_;
     }
 
     // Next, for each problem dimension, we need to tell the index_factorization_space_
     // object if any of the cofactors have been fixed and provided by the user. 
 
-    std::map<problem::Dimension, std::map<unsigned, unsigned long>> prefactors;
-    std::vector<bool> exhausted_um_loops(int(problem::Dimension::Num), false);
+    std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> prefactors;
+    std::vector<bool> exhausted_um_loops(int(problem::GetShape()->NumDimensions), false);
 
     for (unsigned level = 0; level < num_total_tiling_levels_; level++)
     {
@@ -256,7 +256,7 @@ class Uber : public MapSpace
     }
 
     // We're now ready to initialize the object.
-    index_factorization_space_.Init(problem_config_, cofactors_order, prefactors);
+    index_factorization_space_.Init(workload_, cofactors_order, prefactors);
 
     // Update the size of the mapspace.
     size_[int(mapspace::Dimension::IndexFactorization)] = index_factorization_space_.Size();
@@ -265,15 +265,15 @@ class Uber : public MapSpace
   //
   // InitLoopPermutationSpace()
   //
-  void InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Dimension>>& user_permutations,
-                                std::map<unsigned, std::vector<problem::Dimension>> pruned_dimensions = {})
+  void InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
+                                std::map<unsigned, std::vector<problem::Shape::DimensionID>> pruned_dimensions = {})
   {
     permutation_space_.Init(num_total_tiling_levels_);
     
     for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
     {
       // Extract the user-provided pattern for this level.
-      std::vector<problem::Dimension> user_prefix;
+      std::vector<problem::Shape::DimensionID> user_prefix;
       auto it = user_permutations.find(level);
       if (it != user_permutations.end())
       {
@@ -350,11 +350,11 @@ class Uber : public MapSpace
     for (unsigned i = 0; i < arch_specs_.topology.NumStorageLevels(); i++)
     {
       auto& specs = *arch_specs_.topology.GetStorageLevel(i);
-      auto lambda = [&] (problem::DataType pv)
+      auto lambda = [&] (problem::Shape::DataSpaceID pv)
         {
           assert(specs.FanoutX(pv).IsSpecified() && specs.FanoutY(pv).IsSpecified());
         };
-      model::BufferLevel::ForEachDataType(lambda, specs.sharing_type);
+      model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
     }
   }
 
@@ -371,7 +371,7 @@ class Uber : public MapSpace
     // First, seed the space with a single mask with each bit set to 1.
     assert(datatype_bypass_nest_space_.empty());
     tiling::CompoundMaskNest seed_mask_nest;
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     {
       for (unsigned level = 0; level < arch_specs_.topology.NumStorageLevels(); level++)
       {
@@ -381,9 +381,9 @@ class Uber : public MapSpace
     datatype_bypass_nest_space_.push_back(seed_mask_nest);
 
     // Now parse the user strings and edit/expand the space as necessary.
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     {
-      auto pv = problem::DataType(pvi);
+      auto pv = problem::Shape::DataSpaceID(pvi);
 
       // Start parsing the user mask string.
       assert(user_bypass_strings.at(pv).length() <= arch_specs_.topology.NumStorageLevels());
@@ -558,15 +558,15 @@ class Uber : public MapSpace
     uint128_t mapping_index_factorization_id = index_factorization_id * num_parent_splits_ + split_id_;
 
     // Create a set of pruned dimensions (one per tiling level).
-    std::map<unsigned, std::vector<problem::Dimension>> pruned_dimensions;
+    std::map<unsigned, std::vector<problem::Shape::DimensionID>> pruned_dimensions;
     std::map<unsigned, unsigned> unit_factors;
 
     // Extract the index factors resulting from this ID for all loops at all levels.
     for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
     {
-      for (unsigned idim = 0; idim < unsigned(problem::Dimension::Num); idim++)
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
       { 
-        auto dim = problem::Dimension(idim);
+        auto dim = problem::Shape::DimensionID(idim);
         auto factor = index_factorization_space_.GetFactor(
           mapping_index_factorization_id, dim, level);
         if (factor == 1)
@@ -659,7 +659,7 @@ class Uber : public MapSpace
     for (uint64_t i = 0; i < num_total_tiling_levels_; i++)
     {
       uint64_t num_subnests_added = 0;
-      for (int dim = 0; dim < int(problem::Dimension::Num); dim++)
+      for (int dim = 0; dim < int(problem::GetShape()->NumDimensions); dim++)
       {
         // Ignore trivial factors
         // This reduces computation time by 1.5x on average.
@@ -675,7 +675,7 @@ class Uber : public MapSpace
         {
           // Add a trivial temporal nest to make sure
           // we have at least one subnest in each level.
-          mapping->loop_nest.AddLoop(problem::Dimension(int(problem::Dimension::Num) - 1),
+          mapping->loop_nest.AddLoop(problem::Shape::DimensionID(int(problem::GetShape()->NumDimensions) - 1),
                                      0, 1, 1, spacetime::Dimension::Time);
         }
         mapping->loop_nest.AddStorageTilingBoundary();
@@ -704,11 +704,11 @@ class Uber : public MapSpace
         ? spacetime::Dimension::SpaceX // Placeholder.
         : spacetime::Dimension::Time;
         
-      // Each partition has problem::Dimension::Num loops.
-      for (int idim = 0; idim < int(problem::Dimension::Num); idim++)
+      // Each partition has problem::GetShape()->NumDimensions loops.
+      for (int idim = 0; idim < int(problem::GetShape()->NumDimensions); idim++)
       {
         loop::Descriptor loop;
-        loop.dimension = problem::Dimension(idim); // Placeholder.
+        loop.dimension = problem::Shape::DimensionID(idim); // Placeholder.
         loop.start = 0;
         loop.end = 0;                              // Placeholder.
         loop.stride = 1;                           // FIXME.
@@ -805,7 +805,7 @@ class Uber : public MapSpace
 
       success &= (fanout_utilization >= min_utilization_);
       
-      // if (level_specs.SharingType() == model::Level::DataTypeSharing::Partitioned)
+      // if (level_specs.SharingType() == model::Level::DataSpaceIDSharing::Partitioned)
       // {
       //   success &= AssignSpatialTilingDirections_PartitionedLevel(
       //     mapping_spatial_id, subnests[level], level_specs);
@@ -863,7 +863,7 @@ class Uber : public MapSpace
 
     std::size_t fanout_max;
     
-    if (level_specs.SharingType() == model::BufferLevel::DataTypeSharing::Shared)
+    if (level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Shared)
     {
       if (x_expansion > level_specs.FanoutX().Get())
         success = false;
@@ -878,9 +878,9 @@ class Uber : public MapSpace
       std::size_t x_fanout_max = 0;
       std::size_t y_fanout_max = 0;
 
-      for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
       {
-        auto pv = problem::DataType(pvi);
+        auto pv = problem::Shape::DataSpaceID(pvi);
 
         if (x_expansion > level_specs.FanoutX(pv).Get())
           success = false;
@@ -924,11 +924,12 @@ class Uber : public MapSpace
 
     bool success = true;
 
-    problem::PerProblemDimension<int> x_dimensions;
-    problem::PerProblemDimension<int> y_dimensions;
+    problem::OperationPoint origin;
+    problem::OperationPoint x_dimensions;
+    problem::OperationPoint y_dimensions;
 
-    x_dimensions.fill(1);
-    y_dimensions.fill(1);
+    x_dimensions.IncrementAllDimensions(); // initialize to { 1, 1, 1, ...}
+    y_dimensions.IncrementAllDimensions(); // initialize to { 1, 1, 1, ...}
 
     std::size_t dimension_expansion = 1;
     
@@ -944,13 +945,13 @@ class Uber : public MapSpace
       if (i < spatial_split)
       {
         // X
-        x_dimensions[int(loop.dimension)] = loop.end;
+        x_dimensions[loop.dimension] = loop.end;
         loop.spacetime_dimension = spacetime::Dimension::SpaceX;
       }
       else
       {
         // Y
-        y_dimensions[int(loop.dimension)] = loop.end;
+        y_dimensions[loop.dimension] = loop.end;
         loop.spacetime_dimension = spacetime::Dimension::SpaceY;
       }
 
@@ -967,24 +968,27 @@ class Uber : public MapSpace
     // to keep copies of each datatype. In other words, any potential multicast
     // happens from *this* level down, not from the next level down. Fortunately,
     // the tile analysis stage seems to be doing the right thing later on.
+
+    problem::OperationSpace x_space(&workload_, origin, x_dimensions, false);
+    problem::OperationSpace y_space(&workload_, origin, y_dimensions, false);
     
-    auto x_sizes = problem::GetMaxWorkingSetSizes(x_dimensions);
-    auto y_sizes = problem::GetMaxWorkingSetSizes(y_dimensions);
+    auto x_sizes = x_space.GetSizes();
+    auto y_sizes = y_space.GetSizes();
 
     std::size_t fanout_max;
     
-    if (level_specs.SharingType() == model::BufferLevel::DataTypeSharing::Shared)
+    if (level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Shared)
     {
       // Shared level: required fanout is the max across all datatypes **kept at this level**.
       std::size_t x_max = 0;
       std::size_t y_max = 0;
 
-      for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
       {
         if (datatype_bypass_mask.at(pvi))
         {
-          x_max = std::max(x_max, x_sizes.at(problem::DataType(pvi)));
-          y_max = std::max(y_max, y_sizes.at(problem::DataType(pvi)));
+          x_max = std::max(x_max, x_sizes.at(problem::Shape::DataSpaceID(pvi)));
+          y_max = std::max(y_max, y_sizes.at(problem::Shape::DataSpaceID(pvi)));
         }
       }
 
@@ -1002,9 +1006,9 @@ class Uber : public MapSpace
       std::size_t x_fanout_max = 0;
       std::size_t y_fanout_max = 0;
 
-      for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
       {
-        auto pv = problem::DataType(pvi);
+        auto pv = problem::Shape::DataSpaceID(pvi);
         if (x_sizes.at(pv) > level_specs.FanoutX(pv).Get())
           success = false;
         if (y_sizes.at(pv) > level_specs.FanoutY(pv).Get())
@@ -1026,12 +1030,12 @@ class Uber : public MapSpace
     // if (success)
     // {
     //   std::cerr << "X: ";
-    //   for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
-    //     std::cerr << problem::DataType(pvi) << " = " << x_sizes.at(problem::DataType(pvi)) << " ";
+    //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    //     std::cerr << problem::Shape::DataSpaceID(pvi) << " = " << x_sizes.at(problem::Shape::DataSpaceID(pvi)) << " ";
     //   std::cerr << " max = " << x_max << " fanout = " << level_specs.FanoutX().Get() << std::endl;
     //   std::cerr << "Y: ";
-    //   for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
-    //     std::cerr << problem::DataType(pvi) << " = " << y_sizes.at(problem::DataType(pvi)) << " ";
+    //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    //     std::cerr << problem::Shape::DataSpaceID(pvi) << " = " << y_sizes.at(problem::Shape::DataSpaceID(pvi)) << " ";
     //   std::cerr << " max = " << y_max << " fanout = " << level_specs.FanoutY().Get() << std::endl;
     //   std::cerr << "util = " << fanout_utilization << std::endl;
     //   std::cerr << std::endl;
@@ -1062,7 +1066,7 @@ class Uber : public MapSpace
     // any purpose.
     (void)mapping_spatial_id;
     
-    assert(level_specs.SharingType() == model::BufferLevel::DataTypeSharing::Shared);
+    assert(level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Shared);
 
     bool success = true;
     
@@ -1082,9 +1086,9 @@ class Uber : public MapSpace
         // Iterate through each data type and determine how much this loop
         // would cause that datatype's fanout to inflate.
         problem::PerDataSpace<std::uint64_t> upd_fanout;
-        for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+        for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
         {
-          auto pv = problem::DataType(pvi);
+          auto pv = problem::Shape::DataSpaceID(pvi);
           if (true) // problem::IsSensitive(pv, loop->dimension))
           {
             upd_fanout[pv] = x_fanout[pv] * loop->end;
@@ -1114,9 +1118,9 @@ class Uber : public MapSpace
         // Iterate through each data type and determine how much this loop
         // would cause that datatype's fanout to inflate.
         problem::PerDataSpace<std::uint64_t> upd_fanout;
-        for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+        for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
         {
-          auto pv = problem::DataType(pvi);
+          auto pv = problem::Shape::DataSpaceID(pvi);
           if (true) // problem::IsSensitive(pv, loop->dimension))
           {
             upd_fanout[pv] = y_fanout[pv] * loop->end;
@@ -1161,7 +1165,7 @@ class Uber : public MapSpace
                                                       std::vector<loop::Descriptor>& level_nest,
                                                       model::BufferLevel::Specs& level_specs)
   {
-    assert(level_specs.SharingType() == model::BufferLevel::DataTypeSharing::Partitioned);
+    assert(level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Partitioned);
 
     (void)level_nest;
     assert(false);
@@ -1188,9 +1192,9 @@ class Uber : public MapSpace
     //     // Iterate through each data type and determine how much this loop
     //     // would cause that datatype's fanout to inflate.
     //     problem::PerDataSpace<std::uint64_t> upd_fanout;
-    //     for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    //     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     //     {
-    //       auto pv = problem::DataType(pvi);
+    //       auto pv = problem::Shape::DataSpaceID(pvi);
     //       if (problem::IsSensitive(pv, loop->dimension))
     //       {
     //         upd_fanout[pv] = x_fanout[pv] * loop->end;
@@ -1220,9 +1224,9 @@ class Uber : public MapSpace
     //     // Iterate through each data type and determine how much this loop
     //     // would cause that datatype's fanout to inflate.
     //     problem::PerDataSpace<std::uint64_t> upd_fanout;
-    //     for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    //     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     //     {
-    //       auto pv = problem::DataType(pvi);
+    //       auto pv = problem::Shape::DataSpaceID(pvi);
     //       if (problem::IsSensitive(pv, loop->dimension))
     //       {
     //         upd_fanout[pv] = y_fanout[pv] * loop->end;
@@ -1284,8 +1288,8 @@ class Uber : public MapSpace
   //
   void ParseUserConstraints(
     libconfig::Setting& config,
-    std::map<unsigned, std::map<problem::Dimension, int>>& user_factors,
-    std::map<unsigned, std::vector<problem::Dimension>>& user_permutations,
+    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
+    std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
     std::map<unsigned, std::uint32_t>& user_spatial_splits,
     problem::PerDataSpace<std::string>& user_bypass_strings)
   {
@@ -1303,11 +1307,11 @@ class Uber : public MapSpace
 
     // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
     // FIXME: there's probably a cleaner way/place to initialize this.
-    for (unsigned pvi = 0; pvi < unsigned(problem::DataType::Num); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     {
       std::string xxx(arch_specs_.topology.NumStorageLevels(), 'X');
       xxx.back() = '1';
-      user_bypass_strings[problem::DataType(pvi)] = xxx;
+      user_bypass_strings[problem::Shape::DataSpaceID(pvi)] = xxx;
     }
 
     // Iterate over all the constraints.
@@ -1444,9 +1448,9 @@ class Uber : public MapSpace
   //
   // Parse user factors.
   //
-  std::map<problem::Dimension, int> ParseUserFactors(libconfig::Setting& constraint)
+  std::map<problem::Shape::DimensionID, int> ParseUserFactors(libconfig::Setting& constraint)
   {
-    std::map<problem::Dimension, int> retval;
+    std::map<problem::Shape::DimensionID, int> retval;
     
     std::string buffer;
     if (constraint.lookupValue("factors", buffer))
@@ -1455,22 +1459,22 @@ class Uber : public MapSpace
       char token;
       while (iss >> token)
       {
-        auto dimension = problem::DimensionID.at(token); // note: can fault.
+        auto dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token)); // note: can fault.
         
         int end;
         iss >> end;
         if (end == 0)
         {
           std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-          end = problem_config_.getBound(dimension);
+          end = workload_.GetBound(dimension);
         }
-        else if (end > problem_config_.getBound(dimension))
+        else if (end > workload_.GetBound(dimension))
         {
           std::cerr << "WARNING: Constraint " << dimension << "=" << end
                     << " exceeds problem dimension " << dimension << "="
-                    << problem_config_.getBound(dimension) << ". Setting constraint "
-                    << dimension << "=" << problem_config_.getBound(dimension) << std::endl;
-          end = problem_config_.getBound(dimension);
+                    << workload_.GetBound(dimension) << ". Setting constraint "
+                    << dimension << "=" << workload_.GetBound(dimension) << std::endl;
+          end = workload_.GetBound(dimension);
         }
         else
         {
@@ -1488,9 +1492,9 @@ class Uber : public MapSpace
   //
   // Parse user permutations.
   //
-  std::vector<problem::Dimension> ParseUserPermutations(libconfig::Setting& constraint)
+  std::vector<problem::Shape::DimensionID> ParseUserPermutations(libconfig::Setting& constraint)
   {
-    std::vector<problem::Dimension> retval;
+    std::vector<problem::Shape::DimensionID> retval;
     
     std::string buffer;
     if (constraint.lookupValue("permutation", buffer))
@@ -1499,7 +1503,7 @@ class Uber : public MapSpace
       char token;
       while (iss >> token)
       {
-        auto dimension = problem::DimensionID.at(token); // note: can fault.
+        auto dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token)); // note: can fault.
         retval.push_back(dimension);
       }
     }
@@ -1522,7 +1526,7 @@ class Uber : public MapSpace
       
       for (const std::string& datatype_string: keep)
       {
-        auto datatype = problem::DataTypeID.at(datatype_string);
+        auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
         user_bypass_strings.at(datatype).at(level) = '1';
       }
     }
@@ -1535,7 +1539,7 @@ class Uber : public MapSpace
       
       for (const std::string& datatype_string: bypass)
       {
-        auto datatype = problem::DataTypeID.at(datatype_string);
+        auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
         user_bypass_strings.at(datatype).at(level) = '0';
       }
     }
