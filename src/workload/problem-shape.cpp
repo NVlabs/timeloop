@@ -60,23 +60,26 @@ void Shape::Parse(libconfig::Setting& shape)
     NumDimensions++;
   }
 
-  // Coefficients.
-  libconfig::Setting& coefficients = shape.lookup("coefficients");
-  assert(coefficients.isList());
-
+  // Coefficients (optional).
   NumCoefficients = 0;
-  for (auto& coefficient : coefficients)
+  if (shape.exists("coefficients"))
   {
-    std::string name;
-    assert(coefficient.lookupValue("name", name));
-           
-    Coefficient default_value;
-    assert(coefficient.lookupValue("default", default_value));
+    libconfig::Setting& coefficients = shape.lookup("coefficients");
+    assert(coefficients.isList());
 
-    CoefficientIDToName[NumCoefficients] = name;
-    CoefficientNameToID[name] = NumCoefficients;
-    DefaultCoefficients[NumCoefficients] = default_value;
-    NumCoefficients++;
+    for (auto& coefficient : coefficients)
+    {
+      std::string name;
+      assert(coefficient.lookupValue("name", name));
+           
+      Coefficient default_value;
+      assert(coefficient.lookupValue("default", default_value));
+
+      CoefficientIDToName[NumCoefficients] = name;
+      CoefficientNameToID[name] = NumCoefficients;
+      DefaultCoefficients[NumCoefficients] = default_value;
+      NumCoefficients++;
+    }
   }
   
   // Data Spaces.
