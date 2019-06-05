@@ -54,11 +54,29 @@ class Application
 
   Application(libconfig::Config& config)
   {
-    // Architecture configuration.
-    libconfig::Setting& arch = config.lookup("arch");
-    arch_specs_ = model::Engine::ParseSpecs(arch);
-    engine_.Spec(arch_specs_);
-    std::cout << "Architecture configuration complete." << std::endl;
+    try
+    {
+      // Architecture configuration.
+      libconfig::Setting& arch = config.lookup("arch");
+      arch_specs_ = model::Engine::ParseSpecs(arch);
+      engine_.Spec(arch_specs_);
+      std::cout << "Architecture configuration complete." << std::endl;
+    }
+    catch (const libconfig::SettingTypeException& e)
+    {
+      std::cerr << "ERROR: setting type exception at: " << e.getPath() << std::endl;
+      exit(1);
+    }
+    catch (const libconfig::SettingNotFoundException& e)
+    {
+      std::cerr << "ERROR: setting not found: " << e.getPath() << std::endl;
+      exit(1);
+    }
+    catch (const libconfig::SettingNameException& e)
+    {
+      std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;
+      exit(1);
+    }    
   }
 
   // This class does not support being copied

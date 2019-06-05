@@ -1382,19 +1382,22 @@ class Uber : public MapSpace
       for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++)
       {
         if (arch_specs_.topology.GetStorageLevel(storage_level_id)->level_name == storage_level_name)
-        {
           break;
-        }
+      }
+      if (storage_level_id == num_storage_levels)
+      {
+        std::cerr << "ERROR: target storage level not found: " << storage_level_name << std::endl;
       }
     }
     else
     {
       int id;
       assert(constraint.lookupValue("target", id));
-      assert(id >= 0);
+      assert(id >= 0 && id < int(num_storage_levels));
       storage_level_id = static_cast<unsigned>(id);
     }
-    assert(storage_level_id < num_storage_levels);
+    
+    assert(storage_level_id < num_storage_levels);    
 
     //
     // Translate this storage ID to a tiling ID.
@@ -1459,7 +1462,17 @@ class Uber : public MapSpace
       char token;
       while (iss >> token)
       {
-        auto dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token)); // note: can fault.
+        problem::Shape::DimensionID dimension;
+        try
+        {
+          dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token));
+        }
+        catch (const std::out_of_range& oor)
+        {
+          std::cerr << "ERROR: parsing factors: " << buffer << ": dimension " << token
+                    << " not found in problem shape." << std::endl;
+          exit(1);
+        }
         
         int end;
         iss >> end;
@@ -1503,7 +1516,17 @@ class Uber : public MapSpace
       char token;
       while (iss >> token)
       {
-        auto dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token)); // note: can fault.
+        problem::Shape::DimensionID dimension;
+        try
+        {
+          dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token));
+        }
+        catch (const std::out_of_range& oor)
+        {
+          std::cerr << "ERROR: parsing permutation: " << buffer << ": dimension " << token
+                    << " not found in problem shape." << std::endl;
+          exit(1);
+        }
         retval.push_back(dimension);
       }
     }
@@ -1526,7 +1549,17 @@ class Uber : public MapSpace
       
       for (const std::string& datatype_string: keep)
       {
-        auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
+        problem::Shape::DataSpaceID datatype;
+        try
+        {
+          datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
+        }
+        catch (std::out_of_range& oor)
+        {
+          std::cerr << "ERROR: parsing keep setting: data-space " << datatype_string
+                    << " not found in problem shape." << std::endl;
+          exit(1);
+        }
         user_bypass_strings.at(datatype).at(level) = '1';
       }
     }
@@ -1539,7 +1572,17 @@ class Uber : public MapSpace
       
       for (const std::string& datatype_string: bypass)
       {
-        auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
+        problem::Shape::DataSpaceID datatype;
+        try
+        {
+          datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
+        }
+        catch (std::out_of_range& oor)
+        {
+          std::cerr << "ERROR: parsing bypass setting: data-space " << datatype_string
+                    << " not found in problem shape." << std::endl;
+          exit(1);
+        }
         user_bypass_strings.at(datatype).at(level) = '0';
       }
     }

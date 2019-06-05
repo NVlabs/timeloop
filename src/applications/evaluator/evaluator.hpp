@@ -70,21 +70,39 @@ class Application
  public:
 
   Application(libconfig::Config& config)
-  {
-    // Problem configuration.
-    libconfig::Setting& problem = config.lookup("problem");
-    problem::ParseWorkload(problem, workload_);
-    std::cout << "Problem configuration complete." << std::endl;
+  {    
+    try
+    {
+      // Problem configuration.
+      libconfig::Setting& problem = config.lookup("problem");
+      problem::ParseWorkload(problem, workload_);
+      std::cout << "Problem configuration complete." << std::endl;
 
-    // Architecture configuration.
-    libconfig::Setting& arch = config.lookup("arch");
-    arch_specs_ = model::Engine::ParseSpecs(arch);
-    std::cout << "Architecture configuration complete." << std::endl;
+      // Architecture configuration.
+      libconfig::Setting& arch = config.lookup("arch");
+      arch_specs_ = model::Engine::ParseSpecs(arch);
+      std::cout << "Architecture configuration complete." << std::endl;
 
-    // Mapping configuration: expressed as a mapspace or mapping.
-    libconfig::Setting& mapping = config.lookup("mapping");
-    mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
-    std::cout << "Mapping construction complete." << std::endl;
+      // Mapping configuration: expressed as a mapspace or mapping.
+      libconfig::Setting& mapping = config.lookup("mapping");
+      mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
+      std::cout << "Mapping construction complete." << std::endl;
+    }
+    catch (const libconfig::SettingTypeException& e)
+    {
+      std::cerr << "ERROR: setting type exception at: " << e.getPath() << std::endl;
+      exit(1);
+    }
+    catch (const libconfig::SettingNotFoundException& e)
+    {
+      std::cerr << "ERROR: setting not found: " << e.getPath() << std::endl;
+      exit(1);
+    }
+    catch (const libconfig::SettingNameException& e)
+    {
+      std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;
+      exit(1);
+    }    
   }
 
   // This class does not support being copied
