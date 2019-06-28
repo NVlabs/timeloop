@@ -109,9 +109,15 @@ class Application
 
       // Mapper (this application) configuration.
       libconfig::Setting& mapper = config.lookup("mapper");
-      num_threads_ = 32;
-      mapper.lookupValue("num-threads", num_threads_);
-      std::cout << "Num threads = " << num_threads_ << std::endl;
+      num_threads_ = std::thread::hardware_concurrency();
+      if (mapper.lookupValue("num-threads", num_threads_))
+      {
+        std::cout << "Using threads = " << num_threads_ << std::endl;
+      }
+      else
+      {
+        std::cout << "Using all available hardware threads = " << num_threads_ << std::endl;
+      }
 
       std::string metric;
       if (mapper.lookupValue("optimization-metric", metric))

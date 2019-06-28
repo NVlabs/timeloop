@@ -54,7 +54,7 @@ class RandomPrunedSearch : public SearchAlgorithm
   // Config.
   mapspace::MapSpace* mapspace_;
   unsigned id_;
-  bool filter_revisits_;
+  uint128_t max_permutations_per_if_visit_;
 
   // Submodules.
   RandomGenerator128 if_pgen_;
@@ -63,8 +63,8 @@ class RandomPrunedSearch : public SearchAlgorithm
   // Live state.
   State state_;
   std::array<uint128_t, unsigned(mapspace::Dimension::Num)> iterator_;
-  uint128_t max_permutations_to_visit_;
-  uint128_t num_permutations_visited_;
+  uint128_t permutations_to_visit_;
+  uint128_t permutations_visited_;
   uint128_t valid_mappings_;
   std::uint64_t eval_fail_count_;
   std::unordered_set<uint128_t> visited_;
@@ -84,8 +84,9 @@ class RandomPrunedSearch : public SearchAlgorithm
       eval_fail_count_(0),
       best_cost_(0)
   {
-    filter_revisits_ = false;
-    config.lookupValue("filter-revisits", filter_revisits_);    
+    unsigned x = 16;
+    config.lookupValue("max-permutations-per-if-visit", x);
+    max_permutations_per_if_visit_ = x;
     
     for (unsigned i = 0; i < unsigned(mapspace::Dimension::Num); i++)
     {
@@ -109,9 +110,9 @@ class RandomPrunedSearch : public SearchAlgorithm
 
       // Determine how many loop permutations to evaluate within this index
       // factorization.
-      max_permutations_to_visit_ = lp_pgen_.Next() %
-        mapspace_->Size(mapspace::Dimension::LoopPermutation);
-      num_permutations_visited_ = 0;
+      permutations_to_visit_ = std::min(max_permutations_per_if_visit_,
+                                        mapspace_->Size(mapspace::Dimension::LoopPermutation));
+      permutations_visited_ = 0;
 
       // Also throw a random number for the first permutation.
       iterator_[unsigned(mapspace::Dimension::LoopPermutation)] = lp_pgen_.Next() %
@@ -156,9 +157,9 @@ class RandomPrunedSearch : public SearchAlgorithm
 
       // Determine how many loop permutations to evaluate within this index
       // factorization.
-      max_permutations_to_visit_ = lp_pgen_.Next() %
-        mapspace_->Size(mapspace::Dimension::LoopPermutation);
-      num_permutations_visited_ = 0;
+      permutations_to_visit_ = std::min(max_permutations_per_if_visit_,
+                                        mapspace_->Size(mapspace::Dimension::LoopPermutation));
+      permutations_visited_ = 0;
 
       // Also throw a random number for the first permutation.
       iterator_[unsigned(mapspace::Dimension::LoopPermutation)] = lp_pgen_.Next() %
@@ -179,15 +180,14 @@ class RandomPrunedSearch : public SearchAlgorithm
     }
     else if (dim == mapspace::Dimension::LoopPermutation)
     {
-      if (num_permutations_visited_ + 1 < max_permutations_to_visit_)
+      if (permutations_visited_ + 1 < permutations_to_visit_)
       {
         // Throw a random number to get the next loop permutation. However, the
         // pruned permutation-space may be smaller than the range of the RNG, so
         // apply a modulus.
         iterator_[unsigned(dim)] = lp_pgen_.Next() %
           mapspace_->Size(mapspace::Dimension::LoopPermutation);
-        num_permutations_visited_++;
-
+        permutations_visited_++;
         return true;
       }
       // Carry over to next higher-order mapspace dimension.
@@ -284,7 +284,7 @@ class RandomPrunedSearch : public SearchAlgorithm
         // this IF.
         iterator_[unsigned(mapspace::Dimension::Spatial)] =
           mapspace_->Size(mapspace::Dimension::Spatial) - 1;
-        num_permutations_visited_ = max_permutations_to_visit_ - 1;
+        permutations_visited_ = permutations_to_visit_ - 1;
       }
       eval_fail_count_ = 0;
     }
