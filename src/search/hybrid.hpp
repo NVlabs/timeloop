@@ -176,7 +176,7 @@ class HybridSearch : public SearchAlgorithm
     }
     else // All other dimensions *except* IndexFactorization.
     {
-      if (iterator_[unsigned(dim)] < mapspace_->Size(dim) - 1)
+      if (iterator_[unsigned(dim)] + 1 < mapspace_->Size(dim))
       {
         // Move to next integer in this mapspace dimension.
         iterator_[unsigned(dim)]++;
@@ -187,7 +187,7 @@ class HybridSearch : public SearchAlgorithm
       {
         // This cannot be the last position because that is reserved for
         // IndexFactorization.
-        assert(position < int(mapspace::Dimension::Num) - 1);
+        assert(position + 1 < int(mapspace::Dimension::Num));
         iterator_[unsigned(dim)] = 0;
         return IncrementRecursive_(position + 1);
       }
@@ -224,6 +224,7 @@ class HybridSearch : public SearchAlgorithm
   {
     assert(state_ == State::WaitingForStatus);
 
+    bool skip_datatype_bypass = false;
     if (status == Status::Success)
     {
       valid_mappings_++;
@@ -238,7 +239,8 @@ class HybridSearch : public SearchAlgorithm
       // Accelerate search by invalidating bad spaces.
       // ConstructMapping failure =>
       //   Combination of (IF, LP, S) is bad.
-      //   DB don't care.
+      //   Skip all DBs.
+      skip_datatype_bypass = true;
     }
     else if (status == Status::EvalFailure)
     {
@@ -249,8 +251,8 @@ class HybridSearch : public SearchAlgorithm
       eval_fail_count_++;
     }
 
-    if (iterator_[unsigned(mapspace::Dimension::DatatypeBypass)] ==
-        (mapspace_->Size(mapspace::Dimension::DatatypeBypass) - 1))
+    if (iterator_[unsigned(mapspace::Dimension::DatatypeBypass)] + 1 ==
+        mapspace_->Size(mapspace::Dimension::DatatypeBypass))
     {
       if (eval_fail_count_ == mapspace_->Size(mapspace::Dimension::DatatypeBypass))
       {
@@ -263,6 +265,12 @@ class HybridSearch : public SearchAlgorithm
           mapspace_->Size(mapspace::Dimension::LoopPermutation) - 1;
       }
       eval_fail_count_ = 0;
+    }
+
+    if (skip_datatype_bypass)
+    {
+      iterator_[unsigned(mapspace::Dimension::DatatypeBypass)] =
+        mapspace_->Size(mapspace::Dimension::DatatypeBypass) - 1;
     }
 
     bool mapspace_remaining = IncrementRecursive_();

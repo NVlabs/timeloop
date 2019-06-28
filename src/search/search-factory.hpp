@@ -34,6 +34,7 @@
 #include "search/exhaustive.hpp"
 #include "search/linear-pruned.hpp"
 #include "search/hybrid.hpp"
+#include "search/random-pruned.hpp"
 
 namespace search
 {
@@ -66,6 +67,10 @@ SearchAlgorithm* ParseAndConstruct(libconfig::Setting& config,
   else if (search_alg == "hybrid")
   {
     search = new HybridSearch(config, mapspace, id);
+  }
+  else if (search_alg == "random-pruned")
+  {
+    search = new RandomPrunedSearch(config, mapspace, id);
   }
   else
   {

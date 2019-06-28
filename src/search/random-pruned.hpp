@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@
 namespace search
 {
 
-class LinearPrunedSearch : public SearchAlgorithm
+class RandomPrunedSearch : public SearchAlgorithm
 {
  private:
   enum class State
@@ -54,35 +54,69 @@ class LinearPrunedSearch : public SearchAlgorithm
   // Config.
   mapspace::MapSpace* mapspace_;
   unsigned id_;
+  bool filter_revisits_;
 
+  // Submodules.
+  RandomGenerator128 if_pgen_;
+  RandomGenerator128 lp_pgen_;
+  
   // Live state.
   State state_;
   std::array<uint128_t, unsigned(mapspace::Dimension::Num)> iterator_;
+  uint128_t max_permutations_to_visit_;
+  uint128_t num_permutations_visited_;
   uint128_t valid_mappings_;
   std::uint64_t eval_fail_count_;
+  std::unordered_set<uint128_t> visited_;
 
   double best_cost_;
   std::ofstream best_cost_file_;
 
  public:
-  LinearPrunedSearch(libconfig::Setting& config, mapspace::MapSpace* mapspace, unsigned id) :
+  RandomPrunedSearch(libconfig::Setting& config, mapspace::MapSpace* mapspace, unsigned id) :
       SearchAlgorithm(),
       mapspace_(mapspace),
       id_(id),
+      if_pgen_(mapspace_->Size(mapspace::Dimension::IndexFactorization)),
+      lp_pgen_(mapspace_->Size(mapspace::Dimension::LoopPermutation)),
       state_(State::Ready),
       valid_mappings_(0),
       eval_fail_count_(0),
       best_cost_(0)
   {
-    (void) config;
+    filter_revisits_ = false;
+    config.lookupValue("filter-revisits", filter_revisits_);    
     
     for (unsigned i = 0; i < unsigned(mapspace::Dimension::Num); i++)
     {
       iterator_[i] = 0;
     }
 
-    // Prune the mapspace for the first time.
-    mapspace_->InitPruned(0);
+    // Special case: if the index factorization space has size 0
+    // (can happen with residual mapspaces) then we init in terminated
+    // state.
+    if (mapspace_->Size(mapspace::Dimension::IndexFactorization) == 0)
+    {
+      state_ = State::Terminated;
+    }
+    else
+    {
+      // Prepare the first random subspace IDs.
+      iterator_[unsigned(mapspace::Dimension::IndexFactorization)] = if_pgen_.Next();      
+
+      // Prune the mapspace for the first time.
+      mapspace_->InitPruned(iterator_[unsigned(mapspace::Dimension::IndexFactorization)]);
+
+      // Determine how many loop permutations to evaluate within this index
+      // factorization.
+      max_permutations_to_visit_ = lp_pgen_.Next() %
+        mapspace_->Size(mapspace::Dimension::LoopPermutation);
+      num_permutations_visited_ = 0;
+
+      // Also throw a random number for the first permutation.
+      iterator_[unsigned(mapspace::Dimension::LoopPermutation)] = lp_pgen_.Next() %
+          mapspace_->Size(mapspace::Dimension::LoopPermutation);
+    }
 
 #ifdef DUMP_COSTS
     // Dump best cost for each index factorization.
@@ -90,9 +124,11 @@ class LinearPrunedSearch : public SearchAlgorithm
 #endif
   }
 
-  ~LinearPrunedSearch()
+  ~RandomPrunedSearch()
   {
+#ifdef DUMP_COSTS
     best_cost_file_.close();
+#endif
   }
 
   // Order:
@@ -108,39 +144,76 @@ class LinearPrunedSearch : public SearchAlgorithm
   bool IncrementRecursive_(int position = 0)
   {
     auto dim = dim_order_[position];
-    if (iterator_[unsigned(dim)] + 1 < mapspace_->Size(dim))
-    {
-      // Move to next integer in this mapspace dimension.
-      iterator_[unsigned(dim)]++;
-      if (dim == mapspace::Dimension::IndexFactorization)
-      {
-        // We just changed the index factorization. Prune the sub-mapspace
-        // for this specific factorization index.
-        mapspace_->InitPruned(iterator_[unsigned(dim)]);
 
+    if (dim == mapspace::Dimension::IndexFactorization)
+    {
+      // Throw a random number to get the next index factorization.
+      iterator_[unsigned(dim)] = if_pgen_.Next();
+      
+      // We just changed the index factorization. Prune the sub-mapspace
+      // for this specific factorization index.
+      mapspace_->InitPruned(iterator_[unsigned(dim)]);
+
+      // Determine how many loop permutations to evaluate within this index
+      // factorization.
+      max_permutations_to_visit_ = lp_pgen_.Next() %
+        mapspace_->Size(mapspace::Dimension::LoopPermutation);
+      num_permutations_visited_ = 0;
+
+      // Also throw a random number for the first permutation.
+      iterator_[unsigned(mapspace::Dimension::LoopPermutation)] = lp_pgen_.Next() %
+          mapspace_->Size(mapspace::Dimension::LoopPermutation);
+      
 #ifdef DUMP_COSTS
-        // Dump the best cost observed for this index factorization.
-        // Note: best_cost_ == 0 implies this was a bad index factorization
-        // that failed mapping. We can choose to not report these, or
-        // grep them out in post-processing.
-        best_cost_file_ << best_cost_ << std::endl;
+      // Dump the best cost observed for this index factorization.
+      // Note: best_cost_ == 0 implies this was a bad index factorization
+      // that failed mapping. We can choose to not report these, or
+      // grep them out in post-processing.
+      best_cost_file_ << best_cost_ << std::endl;
 #endif
         
-        // Reset the best cost.
-        best_cost_ = 0;
-      }
+      // Reset the best cost.
+      best_cost_ = 0;
+
       return true;
     }
-    // Carry over to next higher-order mapspace dimension.
-    else if (position + 1 < int(mapspace::Dimension::Num))
+    else if (dim == mapspace::Dimension::LoopPermutation)
     {
-      iterator_[unsigned(dim)] = 0;
-      return IncrementRecursive_(position + 1);
+      if (num_permutations_visited_ + 1 < max_permutations_to_visit_)
+      {
+        // Throw a random number to get the next loop permutation. However, the
+        // pruned permutation-space may be smaller than the range of the RNG, so
+        // apply a modulus.
+        iterator_[unsigned(dim)] = lp_pgen_.Next() %
+          mapspace_->Size(mapspace::Dimension::LoopPermutation);
+        num_permutations_visited_++;
+
+        return true;
+      }
+      // Carry over to next higher-order mapspace dimension.
+      else
+      {
+        iterator_[unsigned(dim)] = 0;
+        return IncrementRecursive_(position + 1);
+      }
     }
-    else
+    else // All other dimensions *except* IndexFactorization and LoopPermutation.
     {
-      // Overflow! We are done.
-      return false;
+      if (iterator_[unsigned(dim)] + 1 < mapspace_->Size(dim))
+      {
+        // Move to next integer in this mapspace dimension.
+        iterator_[unsigned(dim)]++;
+        return true;
+      }
+      // Carry over to next higher-order mapspace dimension.
+      else
+      {
+        // This cannot be the last position because that is reserved for
+        // IndexFactorization.
+        assert(position + 1 < int(mapspace::Dimension::Num));
+        iterator_[unsigned(dim)] = 0;
+        return IncrementRecursive_(position + 1);
+      }
     }
   }
 
@@ -160,7 +233,7 @@ class LinearPrunedSearch : public SearchAlgorithm
     }
     
     state_ = State::WaitingForStatus;
-    
+
     // std::cerr << "MAPPING ID: IF(" << iterator_[unsigned(mapspace::Dimension::IndexFactorization)]
     //           << ") P(" << iterator_[unsigned(mapspace::Dimension::LoopPermutation)]
     //           << ") B(" << iterator_[unsigned(mapspace::Dimension::DatatypeBypass)]
@@ -211,8 +284,7 @@ class LinearPrunedSearch : public SearchAlgorithm
         // this IF.
         iterator_[unsigned(mapspace::Dimension::Spatial)] =
           mapspace_->Size(mapspace::Dimension::Spatial) - 1;
-        iterator_[unsigned(mapspace::Dimension::LoopPermutation)] =
-          mapspace_->Size(mapspace::Dimension::LoopPermutation) - 1;
+        num_permutations_visited_ = max_permutations_to_visit_ - 1;
       }
       eval_fail_count_ = 0;
     }

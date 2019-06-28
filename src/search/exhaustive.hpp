@@ -87,12 +87,12 @@ class ExhaustiveSearch : public SearchAlgorithm
   bool IncrementRecursive_(int position = 0)
   {
     auto dim = dim_order_[position];
-    if (iterator_[unsigned(dim)] < mapspace_->Size(dim) - 1)
+    if (iterator_[unsigned(dim)] + 1 < mapspace_->Size(dim))
     {
       iterator_[unsigned(dim)]++;
       return true;
     }
-    else if (position < int(mapspace::Dimension::Num) - 1)
+    else if (position + 1 < int(mapspace::Dimension::Num))
     {
       iterator_[unsigned(dim)] = 0;
       return IncrementRecursive_(position + 1);
@@ -130,6 +130,7 @@ class ExhaustiveSearch : public SearchAlgorithm
     
     assert(state_ == State::WaitingForStatus);
 
+    bool skip_datatype_bypass = false;
     if (status == Status::Success)
     {
       valid_mappings_++;
@@ -139,7 +140,8 @@ class ExhaustiveSearch : public SearchAlgorithm
       // Accelerate search by invalidating bad spaces.
       // ConstructMapping failure =>
       //   Combination of (IF, LP, S) is bad.
-      //   DB don't care.
+      //   Skip all DBs.
+      skip_datatype_bypass = true;
     }
     else if (status == Status::EvalFailure)
     {
@@ -150,8 +152,8 @@ class ExhaustiveSearch : public SearchAlgorithm
       eval_fail_count_++;
     }
 
-    if (iterator_[unsigned(mapspace::Dimension::DatatypeBypass)] ==
-        (mapspace_->Size(mapspace::Dimension::DatatypeBypass) - 1))
+    if (iterator_[unsigned(mapspace::Dimension::DatatypeBypass)] + 1 ==
+        mapspace_->Size(mapspace::Dimension::DatatypeBypass))
     {
       if (eval_fail_count_ == mapspace_->Size(mapspace::Dimension::DatatypeBypass))
       {
@@ -164,6 +166,12 @@ class ExhaustiveSearch : public SearchAlgorithm
           mapspace_->Size(mapspace::Dimension::LoopPermutation) - 1;
       }
       eval_fail_count_ = 0;
+    }
+
+    if (skip_datatype_bypass)
+    {
+      iterator_[unsigned(mapspace::Dimension::DatatypeBypass)] =
+        mapspace_->Size(mapspace::Dimension::DatatypeBypass) - 1;
     }
 
     bool mapspace_remaining = IncrementRecursive_();
