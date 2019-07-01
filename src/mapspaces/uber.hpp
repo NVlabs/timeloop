@@ -564,14 +564,21 @@ class Uber : public MapSpace
     // Extract the index factors resulting from this ID for all loops at all levels.
     for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
     {
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
-      { 
-        auto dim = problem::Shape::DimensionID(idim);
-        auto factor = index_factorization_space_.GetFactor(
-          mapping_index_factorization_id, dim, level);
-        if (factor == 1)
-        {
-          pruned_dimensions[level].push_back(dim);
+      // We won't prune spatial dimensions with user-specificed
+      // spatial splits, because pruning re-orders the dimensions, which
+      // changes the user-intended spatial split point. There's probably
+      // a smarter way to do this, but we'll use the easy way out for now.
+      if (user_spatial_splits_.find(level) == user_spatial_splits_.end())
+      {
+        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+        { 
+          auto dim = problem::Shape::DimensionID(idim);
+          auto factor = index_factorization_space_.GetFactor(
+            mapping_index_factorization_id, dim, level);
+          if (factor == 1)
+          {
+            pruned_dimensions[level].push_back(dim);
+          }
         }
       }
       unit_factors[level] = pruned_dimensions[level].size();
