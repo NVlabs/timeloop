@@ -1328,18 +1328,10 @@ void BufferLevel::Print(std::ostream& out) const
   // Print specs.
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
-  unsigned start_pv, end_pv;
-  if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Partitioned)
-  {
-    start_pv = 0;
-    end_pv = unsigned(problem::GetShape()->NumDataSpaces)-1;
-  }
-  else
-  {
-    start_pv = end_pv = unsigned(problem::GetShape()->NumDataSpaces);
-  }
+  unsigned start_pv = specs.DataSpaceIDIteratorStart();
+  unsigned end_pv = specs.DataSpaceIDIteratorEnd();
 
-  for (unsigned pvi = start_pv; pvi <= end_pv; pvi++)
+  for (unsigned pvi = start_pv; pvi < end_pv; pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
 

@@ -386,35 +386,50 @@ class BufferLevel : public Level
     }
 
     // ----- Macro to add Accessors -----
-#define ADD_ACCESSORS(FuncName, MemberName, Type)                   \
-    Attribute<Type> & FuncName(problem::Shape::DataSpaceID pv)      \
-    {                                                               \
-      return (sharing_type == DataSpaceIDSharing::Partitioned)         \
-             ? MemberName[pv]                                       \
-             : MemberName[problem::GetShape()->NumDataSpaces];                  \
-    }                                                               \
-                                                                    \
-    const Attribute<Type> & FuncName(problem::Shape::DataSpaceID pv) const    \
-    {                                                               \
-      return (sharing_type == DataSpaceIDSharing::Partitioned)         \
-             ? MemberName.at(pv)                                    \
-             : MemberName.at(problem::GetShape()->NumDataSpaces);               \
-    }                                                               \
-                                                                    \
-    Attribute<Type> & FuncName()                                    \
-    {                                                               \
-      assert(sharing_type == DataSpaceIDSharing::Shared);              \
-      return MemberName[problem::GetShape()->NumDataSpaces];                    \
-    }                                                               \
-                                                                    \
-    const Attribute<Type> & FuncName() const                        \
-    {                                                               \
-      assert(sharing_type == DataSpaceIDSharing::Shared);              \
-      return MemberName.at(problem::GetShape()->NumDataSpaces);                 \
+#define ADD_ACCESSORS(FuncName, MemberName, Type)                          \
+    Attribute<Type> & FuncName(problem::Shape::DataSpaceID pv)             \
+    {                                                                      \
+      return (sharing_type == DataSpaceIDSharing::Partitioned)             \
+             ? MemberName[pv]                                              \
+             : MemberName[problem::GetShape()->NumDataSpaces];             \
+    }                                                                      \
+                                                                           \
+    const Attribute<Type> & FuncName(problem::Shape::DataSpaceID pv) const \
+    {                                                                      \
+      return (sharing_type == DataSpaceIDSharing::Partitioned)             \
+             ? MemberName.at(pv)                                           \
+             : MemberName.at(problem::GetShape()->NumDataSpaces);          \
+    }                                                                      \
+                                                                           \
+    Attribute<Type> & FuncName()                                           \
+    {                                                                      \
+      assert(sharing_type == DataSpaceIDSharing::Shared);                  \
+      return MemberName[problem::GetShape()->NumDataSpaces];               \
+    }                                                                      \
+                                                                           \
+    const Attribute<Type> & FuncName() const                               \
+    {                                                                      \
+      assert(sharing_type == DataSpaceIDSharing::Shared);                  \
+      return MemberName.at(problem::GetShape()->NumDataSpaces);            \
     }                                                               
     // ----- End Macro -----
 
     DataSpaceIDSharing SharingType() const { return sharing_type; }
+
+    unsigned DataSpaceIDIteratorStart() const
+    {
+      return sharing_type == DataSpaceIDSharing::Shared
+                             ? unsigned(problem::GetShape()->NumDataSpaces)
+                             : 0;
+    }
+
+    unsigned DataSpaceIDIteratorEnd() const
+    {
+      return sharing_type == DataSpaceIDSharing::Shared
+                             ? unsigned(problem::GetShape()->NumDataSpaces) + 1
+                             : unsigned(problem::GetShape()->NumDataSpaces);
+    }
+
     size_t NumPartitions() const
     {
       return sharing_type == DataSpaceIDSharing::Shared

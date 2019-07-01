@@ -138,48 +138,40 @@ void Topology::Validate(Topology::Specs& specs)
   // eventually be factored out, at which point we can make the
   // interconnection more generic and specifiable.
 
-  BufferLevel::Specs& inner = *specs.GetStorageLevel(0);
-  ArithmeticUnits::Specs& arithmetic_specs = *specs.GetArithmeticLevel();
-  unsigned inner_start_pvi, inner_end_pvi;
-  if (inner.sharing_type == BufferLevel::DataSpaceIDSharing::Shared)
-  {
-    inner_start_pvi = inner_end_pvi = unsigned(problem::GetShape()->NumDataSpaces);
-  }
-  else
-  {
-    inner_start_pvi = 0;
-    inner_end_pvi = unsigned(problem::GetShape()->NumDataSpaces) - 1;
-  }
-  auto inner_start_pv = problem::Shape::DataSpaceID(inner_start_pvi);
+  BufferLevel::Specs& outer = *specs.GetStorageLevel(0);
+  ArithmeticUnits::Specs& inner = *specs.GetArithmeticLevel();
+  unsigned outer_start_pvi = outer.DataSpaceIDIteratorStart();
+  unsigned outer_end_pvi = outer.DataSpaceIDIteratorEnd();
+  auto outer_start_pv = problem::Shape::DataSpaceID(outer_start_pvi);
 
-  if (inner.Instances(inner_start_pv).Get() == arithmetic_specs.Instances().Get())
+  if (outer.Instances(outer_start_pv).Get() == inner.Instances().Get())
   {
-    for (unsigned pvi = inner_start_pvi; pvi <= inner_end_pvi; pvi++)
+    for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
     {
-      inner.FanoutX(problem::Shape::DataSpaceID(pvi)) = 1;
-      inner.FanoutY(problem::Shape::DataSpaceID(pvi)) = 1;
-      inner.Fanout(problem::Shape::DataSpaceID(pvi)) = 1;
+      outer.FanoutX(problem::Shape::DataSpaceID(pvi)) = 1;
+      outer.FanoutY(problem::Shape::DataSpaceID(pvi)) = 1;
+      outer.Fanout(problem::Shape::DataSpaceID(pvi)) = 1;
     }
   }
   else
   {
     // fanout
-    assert(arithmetic_specs.Instances().Get() % inner.Instances(inner_start_pv).Get() == 0);
-    unsigned fanout_in = arithmetic_specs.Instances().Get() / inner.Instances(inner_start_pv).Get();
-    for (unsigned pvi = inner_start_pvi; pvi <= inner_end_pvi; pvi++)
-      inner.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout_in;
+    assert(inner.Instances().Get() % outer.Instances(outer_start_pv).Get() == 0);
+    unsigned fanout_in = inner.Instances().Get() / outer.Instances(outer_start_pv).Get();
+    for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
+      outer.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout_in;
     // fanout x
-    assert(arithmetic_specs.MeshX().IsSpecified());
-    assert(arithmetic_specs.MeshX().Get() % inner.MeshX(inner_start_pv).Get() == 0);
-    unsigned fanoutX_in = arithmetic_specs.MeshX().Get() / inner.MeshX(inner_start_pv).Get();
-    for (unsigned pvi = inner_start_pvi; pvi <= inner_end_pvi; pvi++)
-      inner.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX_in;
+    assert(inner.MeshX().IsSpecified());
+    assert(inner.MeshX().Get() % outer.MeshX(outer_start_pv).Get() == 0);
+    unsigned fanoutX_in = inner.MeshX().Get() / outer.MeshX(outer_start_pv).Get();
+    for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
+      outer.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX_in;
     // fanout y
-    assert(arithmetic_specs.MeshY().IsSpecified());
-    assert(arithmetic_specs.MeshY().Get() % inner.MeshY(inner_start_pv).Get() == 0);
-    unsigned fanoutY_in = arithmetic_specs.MeshY().Get() / inner.MeshY(inner_start_pv).Get();
-    for (unsigned pvi = inner_start_pvi; pvi <= inner_end_pvi; pvi++)
-      inner.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY_in;
+    assert(inner.MeshY().IsSpecified());
+    assert(inner.MeshY().Get() % outer.MeshY(outer_start_pv).Get() == 0);
+    unsigned fanoutY_in = inner.MeshY().Get() / outer.MeshY(outer_start_pv).Get();
+    for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
+      outer.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY_in;
   }
 
   for (unsigned i = 0; i < specs.NumStorageLevels()-1; i++)
@@ -196,57 +188,43 @@ void Topology::Validate(Topology::Specs& specs)
     // All of this
     // will go away once we properly separate out partitions from
     // datatypes.
-    unsigned inner_start_pvi, inner_end_pvi;
-    if (inner.sharing_type == BufferLevel::DataSpaceIDSharing::Shared)
-    {
-      inner_start_pvi = inner_end_pvi = unsigned(problem::GetShape()->NumDataSpaces);
-    }
-    else
-    {
-      inner_start_pvi = 0;
-      inner_end_pvi = unsigned(problem::GetShape()->NumDataSpaces) - 1;
-    }
+    unsigned inner_start_pvi = inner.DataSpaceIDIteratorStart();
     auto inner_start_pv = problem::Shape::DataSpaceID(inner_start_pvi);
     
-    unsigned outer_start_pvi, outer_end_pvi;
-    if (outer.sharing_type == BufferLevel::DataSpaceIDSharing::Shared)
-    {
-      outer_start_pvi = outer_end_pvi = unsigned(problem::GetShape()->NumDataSpaces);
-    }
-    else
-    {
-      outer_start_pvi = 0;
-      outer_end_pvi = unsigned(problem::GetShape()->NumDataSpaces) - 1;
-    }
+    unsigned outer_start_pvi = outer.DataSpaceIDIteratorStart();
+    unsigned outer_end_pvi = outer.DataSpaceIDIteratorEnd();
     auto outer_start_pv = problem::Shape::DataSpaceID(outer_start_pvi);
     
+    // Fanout.
     assert(inner.Instances(inner_start_pv).Get() % outer.Instances(outer_start_pv).Get() == 0);
     unsigned fanout = inner.Instances(inner_start_pv).Get() / outer.Instances(outer_start_pv).Get();
     if (outer.Fanout(outer_start_pv).IsSpecified())
       assert(outer.Fanout(outer_start_pv).Get() == fanout);
     else
     {
-      for (unsigned pvi = outer_start_pvi; pvi <= outer_end_pvi; pvi++)
+      for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
         outer.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout;
     }
 
+    // FanoutX.
     assert(inner.MeshX(inner_start_pv).Get() % outer.MeshX(outer_start_pv).Get() == 0);
     unsigned fanoutX = inner.MeshX(inner_start_pv).Get() / outer.MeshX(outer_start_pv).Get();
     if (outer.FanoutX(outer_start_pv).IsSpecified())
       assert(outer.FanoutX(outer_start_pv).Get() == fanoutX);
     else
     {
-      for (unsigned pvi = outer_start_pvi; pvi <= outer_end_pvi; pvi++)
+      for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
         outer.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX;
     }
 
+    // FanoutY.
     assert(inner.MeshY(inner_start_pv).Get() % outer.MeshY(outer_start_pv).Get() == 0);
     unsigned fanoutY = inner.MeshY(inner_start_pv).Get() / outer.MeshY(outer_start_pv).Get();
     if (outer.FanoutY(outer_start_pv).IsSpecified())
       assert(outer.FanoutY(outer_start_pv).Get() == fanoutY);
     else
     {
-      for (unsigned pvi = outer_start_pvi; pvi <= outer_end_pvi; pvi++)
+      for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
         outer.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY;
     }
 
