@@ -400,7 +400,9 @@ class Application
     {
       uint128_t total_mappings = 0;
       uint128_t valid_mappings = 0;
-      uint128_t invalid_mappings = 0;
+      uint128_t invalid_mappings_mapcnstr = 0;
+      uint128_t invalid_mappings_eval = 0;
+      std::vector<uint128_t> invalid_mappings_eval_distr(arch_specs_.topology.NumLevels(), 0);
       std::uint32_t mappings_since_last_best_update = 0;
       
       model::Engine engine;
@@ -431,12 +433,20 @@ class Application
           break;
         }
         
-        if (invalid_mappings > 0 && invalid_mappings == timeout_)
+        if ((invalid_mappings_mapcnstr + invalid_mappings_eval) > 0 &&
+            (invalid_mappings_mapcnstr + invalid_mappings_eval) == timeout_)
         {
           mutex_->lock();
           std::cerr << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << timeout_
-                    << " invalid mappings found since the last valid mapping, terminating search."
-                    << std::endl;
+                    << " invalid mappings (" << invalid_mappings_mapcnstr << " mapcnstr, "
+                    << invalid_mappings_eval << " eval) found since the last valid mapping, "
+                    << " terminating search." << std::endl;
+          std::cerr << "  Per-level eval failure counts: " << std::endl;
+          for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
+          {
+            std::cerr << "    " << std::setw(24) << arch_specs_.topology.GetLevel(level_id)->level_name
+                      << ": " << invalid_mappings_eval_distr.at(level_id) << std::endl;
+          }
           mutex_->unlock();
           break;
         }
@@ -478,6 +488,7 @@ class Application
         // complexity and attempt to bail out as quickly as possible at each stage.
         //
         bool success = true;
+        std::vector<bool> success_per_level;
 
         // Stage 1: Construct a mapping from the mapping ID. This step can fail
         //          because the space of *legal* mappings isn't dense (unfortunately),
@@ -489,7 +500,7 @@ class Application
 
         if (!success)
         {
-          invalid_mappings++;
+          invalid_mappings_mapcnstr++;
           search_->Report(search::Status::MappingConstructionFailure);
           continue;
         }
@@ -498,19 +509,31 @@ class Application
         //          on, and run some lightweight pre-checks that the
         //          model can use to quickly reject a nest.
         engine.Spec(arch_specs_);
-        success &= engine.PreEvaluationCheck(mapping, workload_);
+        success_per_level = engine.PreEvaluationCheck(mapping, workload_);
+        success &= std::accumulate(success_per_level.begin(), success_per_level.end(),
+                                    true, std::logical_and<>{});
         if (!success)
         {
-          invalid_mappings++;
+          invalid_mappings_eval++;
+          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
+          {
+            invalid_mappings_eval_distr.at(level) += static_cast<int>(!success_per_level.at(level));
+          }
           search_->Report(search::Status::EvalFailure);
           continue;
         }
 
         // Stage 3: Heavyweight evaluation.
-        success &= engine.Evaluate(mapping, workload_);
+        success_per_level = engine.Evaluate(mapping, workload_);
+        success &= std::accumulate(success_per_level.begin(), success_per_level.end(),
+                                    true, std::logical_and<>{});
         if (!success)
         {
-          invalid_mappings++;
+          invalid_mappings_eval++;
+          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
+          {
+            invalid_mappings_eval_distr.at(level) += static_cast<int>(!success_per_level.at(level));
+          }
           search_->Report(search::Status::EvalFailure);
           continue;
         }
@@ -521,10 +544,11 @@ class Application
         {
           mutex_->lock();
           std::cerr << "[" << thread_id_ << "] INVALID " << total_mappings << " " << valid_mappings
-                    << " " << invalid_mappings << std::endl;
+                    << " " << invalid_mappings_mapcnstr + invalid_mappings_eval << std::endl;
           mutex_->unlock();
         }        
-        invalid_mappings = 0;
+        invalid_mappings_mapcnstr = 0;
+        invalid_mappings_eval = 0;
         search_->Report(search::Status::Success, Cost(engine, optimization_metrics_.at(0)));
 
         if (log_suboptimal_)

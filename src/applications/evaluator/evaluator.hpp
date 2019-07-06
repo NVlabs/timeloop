@@ -123,8 +123,8 @@ class Application
 
     auto& mapping = *mapping_;
     
-    bool success = engine.Evaluate(mapping, workload_);
-    if (!success)
+    auto success = engine.Evaluate(mapping, workload_);
+    if (!std::accumulate(success.begin(), success.end(), true, std::logical_and<>{}))
     {
       return;
     }

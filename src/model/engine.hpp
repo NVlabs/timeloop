@@ -94,21 +94,19 @@ class Engine : public Module
 
   const Topology& GetTopology() const { return topology_; }
 
-  bool PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload)
+  std::vector<bool> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload)
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest);
     return topology_.PreEvaluationCheck(mapping, &nest_analysis_);
   }
 
-  bool Evaluate(Mapping& mapping, problem::Workload& workload)
+  std::vector<bool> Evaluate(Mapping& mapping, problem::Workload& workload)
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest);
     
-    bool success = true;
+    auto success = topology_.Evaluate(mapping, &nest_analysis_, workload);
 
-    success &= topology_.Evaluate(mapping, &nest_analysis_, workload);
-
-    is_evaluated_ = success;
+    is_evaluated_ = std::accumulate(success.begin(), success.end(), true, std::logical_and<>{});
 
     return success;
   }

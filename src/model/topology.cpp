@@ -237,7 +237,25 @@ void Topology::Validate(Topology::Specs& specs)
 // Level accessors.
 //
 
-// Specs.
+void Topology::Specs::AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs)
+{
+  if (level_specs->Type() == "BufferLevel")
+  {
+    storage_map[typed_id] = levels.size();
+  }
+  else if (level_specs->Type() == "ArithmeticUnits")
+  {
+    assert(typed_id == 0);
+    arithmetic_map = levels.size();
+  }
+  else
+  {
+    std::cerr << "ERROR: illegal level specs type: " << level_specs->Type() << std::endl;
+    exit(1);
+  }
+  levels.push_back(level_specs);
+}
+
 unsigned Topology::Specs::NumLevels() const
 {
   return levels.size();
@@ -306,30 +324,28 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
 // can use to fail early.
 // FIXME: integrate with Evaluate() and re-factor.
 // FIXME: what about instances and fanout checks?
-bool Topology::PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis)
+std::vector<bool> Topology::PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis)
 {
   auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   auto working_set_sizes = analysis->GetWorkingSetSizes_LTW();
 
-  bool success = true;
-  for (unsigned storage_level = 0; storage_level < NumStorageLevels(); storage_level++)
+  std::vector<bool> success(NumLevels(), true);
+  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
-    success &= GetStorageLevel(storage_level)->PreEvaluationCheck(
-      working_set_sizes.at(storage_level), masks.at(storage_level));
-    if (!success)
-    {
-      break;
-    }
+    auto level_id = specs_.StorageMap(storage_level_id);
+    success.at(level_id) = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
+      working_set_sizes.at(storage_level_id), masks.at(storage_level_id));
   }
+
   return success;
 }
 
-bool Topology::Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
-                        const problem::Workload& workload)
+std::vector<bool> Topology::Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
+                                     const problem::Workload& workload)
 {
   assert(is_specced_);
 
-  bool success = true;
+  std::vector<bool> success(NumLevels(), true);
   
   // Compute working-set tile hierarchy for the nest.
   auto ws_tiles = analysis->GetWorkingSets();
@@ -377,12 +393,11 @@ bool Topology::Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
     
     // Evaluate Loop Nest on hardware structures: calculate
     // primary statistics.
-    success &= storage_level->Evaluate(tiles[storage_level_id],
-                                       keep_masks[storage_level_id],
-                                       inner_tile_area,
-                                       compute_cycles);
-    if (!success)
-      break;
+    auto level_id = specs_.StorageMap(storage_level_id);
+    success.at(level_id) = storage_level->Evaluate(tiles[storage_level_id],
+                                                   keep_masks[storage_level_id],
+                                                   inner_tile_area,
+                                                   compute_cycles);
     
     // The inner tile area is the area of the local sub-level that I will
     // send data to. Note that it isn't the area of the entire sub-level
@@ -394,9 +409,10 @@ bool Topology::Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
     inner_tile_area = cur_level_area + (inner_tile_area * storage_level->MaxFanout());
   }
   
-  success &= GetArithmeticLevel()->HackEvaluate(analysis, workload);
+  auto level_id = specs_.ArithmeticMap();
+  success.at(level_id) = GetArithmeticLevel()->HackEvaluate(analysis, workload);
 
-  if (success)
+  if (std::accumulate(success.begin(), success.end(), true, std::logical_and<>{}))
     is_evaluated_ = true;
 
   return success;

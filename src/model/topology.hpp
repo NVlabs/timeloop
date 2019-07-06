@@ -56,24 +56,7 @@ class Topology : public Module
     unsigned NumLevels() const;
     unsigned NumStorageLevels() const;
 
-    void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs)
-    {
-      if (level_specs->Type() == "BufferLevel")
-      {
-        storage_map[typed_id] = levels.size();
-      }
-      else if (level_specs->Type() == "ArithmeticUnits")
-      {
-        assert(typed_id == 0);
-        arithmetic_map = levels.size();
-      }
-      else
-      {
-        std::cerr << "ERROR: illegal level specs type: " << level_specs->Type() << std::endl;
-        exit(1);
-      }
-      levels.push_back(level_specs);
-    }
+    void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
 
     unsigned StorageMap(unsigned i) const { return storage_map.at(i); }
     unsigned ArithmeticMap() const { return arithmetic_map; }
@@ -114,8 +97,8 @@ class Topology : public Module
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
   
-  bool PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis);
-  bool Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload);
+  std::vector<bool> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis);
+  std::vector<bool> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload);
 
   double Energy() const;
   double Area() const;
