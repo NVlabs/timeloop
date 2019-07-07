@@ -333,7 +333,7 @@ class Application
     uint128_t sync_interval_;
     bool log_stats_;
     bool log_suboptimal_;
-    bool break_on_failure_;
+    bool diagnostics_on_;
     std::vector<std::string> optimization_metrics_;
     model::Engine::Specs arch_specs_;
     problem::Workload &workload_;
@@ -342,7 +342,8 @@ class Application
     // Thread-local data.
     std::thread thread_;
     EvaluationResult thread_best_;
-    std::vector<uint128_t> invalid_eval_per_level_counts_;
+    std::vector<uint128_t> invalid_eval_counts_;
+    std::vector<Mapping> invalid_eval_sample_mappings_;
 
    public:
     MapperThread(
@@ -356,7 +357,7 @@ class Application
       uint128_t sync_interval,
       bool log_stats,
       bool log_suboptimal,
-      bool break_on_failure,
+      bool diagnostics_on,
       std::vector<std::string> optimization_metrics,
       model::Engine::Specs arch_specs,
       problem::Workload &workload,
@@ -372,13 +373,14 @@ class Application
         sync_interval_(sync_interval),
         log_stats_(log_stats),
         log_suboptimal_(log_suboptimal),
-        break_on_failure_(break_on_failure),
+        diagnostics_on_(diagnostics_on),
         optimization_metrics_(optimization_metrics),
         arch_specs_(arch_specs),
         workload_(workload),
         best_(best),
         thread_(),
-        invalid_eval_per_level_counts_(arch_specs_.topology.NumLevels(), 0)
+        invalid_eval_counts_(arch_specs_.topology.NumLevels(), 0),
+        invalid_eval_sample_mappings_(arch_specs_.topology.NumLevels())
     {
     }
 
@@ -403,9 +405,14 @@ class Application
       return thread_best_.engine;
     }
 
-    std::vector<uint128_t>& InvalidEvalPerLevelCounts()
+    std::vector<uint128_t>& InvalidEvalCounts()
     {
-      return invalid_eval_per_level_counts_;
+      return invalid_eval_counts_;
+    }
+
+    std::vector<Mapping>& InvalidEvalSampleMappings()
+    {
+      return invalid_eval_sample_mappings_;
     }
 
     void Run()
@@ -418,7 +425,7 @@ class Application
       
       model::Engine engine;
 
-      // Main loop: Keep ask the search pattern generator to generate an index into each
+      // Main loop: Keep asking the search pattern generator to generate an index into each
       // mapping sub-space, and repeat until it refuses.
       mapspace::ID mapping_id;
       while (search_->Next(mapping_id) && !gTerminate)
@@ -514,30 +521,48 @@ class Application
         //          on, and run some lightweight pre-checks that the
         //          model can use to quickly reject a nest.
         engine.Spec(arch_specs_);
-        success_per_level = engine.PreEvaluationCheck(mapping, workload_, break_on_failure_);
+        success_per_level = engine.PreEvaluationCheck(mapping, workload_, !diagnostics_on_);
         success &= std::accumulate(success_per_level.begin(), success_per_level.end(),
-                                    true, std::logical_and<>{});
+                                   true, std::logical_and<>{});
         if (!success)
         {
           invalid_mappings_eval++;
-          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
+          if (diagnostics_on_)
           {
-            invalid_eval_per_level_counts_.at(level) += static_cast<int>(!success_per_level.at(level));
+            for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
+            {
+              if (!success_per_level.at(level))
+              {
+                // Collect 1 sample failed mapping per level.
+                if (invalid_eval_counts_.at(level) == 0)
+                  invalid_eval_sample_mappings_.at(level) = mapping;
+                invalid_eval_counts_.at(level)++;
+              }
+            }
           }
           search_->Report(search::Status::EvalFailure);
           continue;
         }
 
         // Stage 3: Heavyweight evaluation.
-        success_per_level = engine.Evaluate(mapping, workload_, break_on_failure_);
+        success_per_level = engine.Evaluate(mapping, workload_, !diagnostics_on_);
         success &= std::accumulate(success_per_level.begin(), success_per_level.end(),
-                                    true, std::logical_and<>{});
+                                   true, std::logical_and<>{});
         if (!success)
         {
           invalid_mappings_eval++;
-          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
+          if (diagnostics_on_)
           {
-            invalid_eval_per_level_counts_.at(level) += static_cast<int>(!success_per_level.at(level));
+            for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
+            {
+              if (!success_per_level.at(level))
+              {
+                // Collect 1 sample failed mapping per level.
+                if (invalid_eval_counts_.at(level) == 0)
+                  invalid_eval_sample_mappings_.at(level) = mapping;
+                invalid_eval_counts_.at(level)++;
+              }
+            }
           }
           search_->Report(search::Status::EvalFailure);
           continue;
@@ -630,7 +655,7 @@ class Application
                                           sync_interval_,
                                           log_stats_,
                                           log_suboptimal_,
-                                          !diagnostics_on_, // break_on_failure
+                                          diagnostics_on_,
                                           optimization_metrics_,
                                           arch_specs_,
                                           workload_,
@@ -650,29 +675,61 @@ class Application
     }
 
     // Diagnostics.
-
     if (diagnostics_on_)
     {
+      // Aggregate diagnostic data from all threads.
       std::vector<uint128_t> eval_fail_counts(arch_specs_.topology.NumLevels(), 0);
+      std::vector<Mapping> eval_fail_sample_mappings(arch_specs_.topology.NumLevels());
+      unsigned worst_eval_fail_level_id = 0;
+      uint128_t worst_eval_fail_count = 0;
+
       for (unsigned t = 0; t < num_threads_; t++)
       {
-        auto& thread_counts = threads_.at(t)->InvalidEvalPerLevelCounts();
+        auto& thread_counts = threads_.at(t)->InvalidEvalCounts();
+        auto& thread_sample_mappings = threads_.at(t)->InvalidEvalSampleMappings();
         for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
         {
+          // Pick up a sample mapping from the first thread with non-zero fails at this level.
+          if (eval_fail_counts.at(level_id) == 0 && thread_counts.at(level_id) != 0)
+            eval_fail_sample_mappings.at(level_id) = thread_sample_mappings.at(level_id);
+
           eval_fail_counts.at(level_id) += thread_counts.at(level_id);
         }
       }
 
+      for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
+      {
+        if (eval_fail_counts.at(level_id) > worst_eval_fail_count)
+        {
+          worst_eval_fail_count = eval_fail_counts.at(level_id);
+          worst_eval_fail_level_id = level_id;
+        }
+      }
+
+      // Print.
       std::cout << std::endl;
       std::cout << "===============================================" << std::endl;
       std::cout << "               BEGIN DIAGNOSTICS               " << std::endl;
       std::cout << "-----------------------------------------------" << std::endl;
-      std::cout << "  Per-level eval failure counts: " << std::endl;
+      std::cout << "Per-level eval failure counts: " << std::endl;
       for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
       {
-        std::cerr << "    " << std::setw(24) << arch_specs_.topology.GetLevel(level_id)->level_name
-                  << ": " << eval_fail_counts.at(level_id) << std::endl;
+        if (eval_fail_counts.at(level_id) > 0)
+        {
+          std::cout << std::setw(24) << arch_specs_.topology.GetLevel(level_id)->level_name
+                    << ": " << eval_fail_counts.at(level_id) << std::endl;
+        }
       }
+      
+      if (worst_eval_fail_count > 0)
+      {
+        std::cout << std::endl << "Level with most failures: "
+                  << arch_specs_.topology.GetLevel(worst_eval_fail_level_id)->level_name
+                  << ": " << worst_eval_fail_count << std::endl;
+        std::cout << "Sample failed mapping: " << std::endl;
+        std::cout << eval_fail_sample_mappings.at(worst_eval_fail_level_id);
+      }
+
       std::cout << "-----------------------------------------------" << std::endl;
       std::cout << "                 END DIAGNOSTICS               " << std::endl;
       std::cout << "===============================================" << std::endl;
