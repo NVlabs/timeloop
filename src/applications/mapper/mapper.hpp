@@ -71,6 +71,7 @@ class Application
   uint128_t sync_interval_;
   bool log_stats_;
   bool log_suboptimal_;
+  bool diagnostics_on_;
 
   std::vector<std::string> optimization_metrics_;
 
@@ -164,10 +165,11 @@ class Application
       // Misc.
       log_stats_ = false;
       mapper.lookupValue("log-stats", log_stats_);    
-      log_suboptimal_ = false;
-    
+      log_suboptimal_ = false;    
       mapper.lookupValue("log-suboptimal", log_suboptimal_);
       mapper.lookupValue("log-all", log_suboptimal_); // backwards compatibility.
+      diagnostics_on_ = false;
+      mapper.lookupValue("diagnostics", diagnostics_on_);
       std::cout << "Mapper configuration complete." << std::endl;
 
       // MapSpace configuration.
@@ -335,10 +337,11 @@ class Application
     model::Engine::Specs arch_specs_;
     problem::Workload &workload_;
     EvaluationResult* best_;
-
+    
     // Thread-local data.
     std::thread thread_;
-    EvaluationResult thread_best_;    
+    EvaluationResult thread_best_;
+    std::vector<uint128_t> invalid_eval_per_level_counts_;
 
    public:
     MapperThread(
@@ -371,7 +374,8 @@ class Application
         arch_specs_(arch_specs),
         workload_(workload),
         best_(best),
-        thread_()
+        thread_(),
+        invalid_eval_per_level_counts_(arch_specs_.topology.NumLevels(), 0)
     {
     }
 
@@ -396,13 +400,17 @@ class Application
       return thread_best_.engine;
     }
 
+    std::vector<uint128_t>& InvalidEvalPerLevelCounts()
+    {
+      return invalid_eval_per_level_counts_;
+    }
+
     void Run()
     {
       uint128_t total_mappings = 0;
       uint128_t valid_mappings = 0;
       uint128_t invalid_mappings_mapcnstr = 0;
       uint128_t invalid_mappings_eval = 0;
-      std::vector<uint128_t> invalid_mappings_eval_distr(arch_specs_.topology.NumLevels(), 0);
       std::uint32_t mappings_since_last_best_update = 0;
       
       model::Engine engine;
@@ -441,12 +449,6 @@ class Application
                     << " invalid mappings (" << invalid_mappings_mapcnstr << " mapcnstr, "
                     << invalid_mappings_eval << " eval) found since the last valid mapping, "
                     << " terminating search." << std::endl;
-          std::cerr << "  Per-level eval failure counts: " << std::endl;
-          for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
-          {
-            std::cerr << "    " << std::setw(24) << arch_specs_.topology.GetLevel(level_id)->level_name
-                      << ": " << invalid_mappings_eval_distr.at(level_id) << std::endl;
-          }
           mutex_->unlock();
           break;
         }
@@ -517,7 +519,7 @@ class Application
           invalid_mappings_eval++;
           for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
           {
-            invalid_mappings_eval_distr.at(level) += static_cast<int>(!success_per_level.at(level));
+            invalid_eval_per_level_counts_.at(level) += static_cast<int>(!success_per_level.at(level));
           }
           search_->Report(search::Status::EvalFailure);
           continue;
@@ -532,7 +534,7 @@ class Application
           invalid_mappings_eval++;
           for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
           {
-            invalid_mappings_eval_distr.at(level) += static_cast<int>(!success_per_level.at(level));
+            invalid_eval_per_level_counts_.at(level) += static_cast<int>(!success_per_level.at(level));
           }
           search_->Report(search::Status::EvalFailure);
           continue;
@@ -643,6 +645,35 @@ class Application
       threads_.at(t)->Join();
     }
 
+    // Diagnostics.
+
+    if (diagnostics_on_)
+    {
+      std::vector<uint128_t> eval_fail_counts(arch_specs_.topology.NumLevels(), 0);
+      for (unsigned t = 0; t < num_threads_; t++)
+      {
+        auto& thread_counts = threads_.at(t)->InvalidEvalPerLevelCounts();
+        for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
+        {
+          eval_fail_counts.at(level_id) += thread_counts.at(level_id);
+        }
+      }
+
+      std::cout << std::endl;
+      std::cout << "===============================================" << std::endl;
+      std::cout << "               BEGIN DIAGNOSTICS               " << std::endl;
+      std::cout << "-----------------------------------------------" << std::endl;
+      std::cout << "  Per-level eval failure counts: " << std::endl;
+      for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
+      {
+        std::cerr << "    " << std::setw(24) << arch_specs_.topology.GetLevel(level_id)->level_name
+                  << ": " << eval_fail_counts.at(level_id) << std::endl;
+      }
+      std::cout << "-----------------------------------------------" << std::endl;
+      std::cout << "                 END DIAGNOSTICS               " << std::endl;
+      std::cout << "===============================================" << std::endl;
+    }
+
     // Select the best mapping from each thread.
     Mapping best_mapping;
     model::Engine best_mapped_engine;
@@ -670,6 +701,16 @@ class Application
     {
       std::cout << best_mapping << std::endl;
       std::cout << best_mapped_engine << std::endl;
+    }
+    else
+    {
+      std::cout << "MESSAGE: no valid mappings found within search criteria. Some suggestions:" << std::endl;
+      std::cout << "(1) Enable mapper's diagnostics (mapper.diagnostics = True) to track and emit " << std::endl
+                << "    more information about failed mappings." << std::endl;
+      std::cout << "(2) Check your architecture configuration (especially mapspace constraints). " << std::endl
+                << "    Try disabling some constraints. " << std::endl;
+      std::cout << "(3) Try other search algorithms, and relax the termination criteria: " << std::endl
+                << "    victory-condition, timeout and/or search-size." << std::endl;
     }
 
     // Printing the Timeloop Mapping to an XML file
