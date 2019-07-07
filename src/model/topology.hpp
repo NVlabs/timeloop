@@ -97,8 +97,8 @@ class Topology : public Module
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
   
-  std::vector<bool> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis);
-  std::vector<bool> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload);
+  std::vector<bool> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
+  std::vector<bool> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload, bool break_on_failure);
 
   double Energy() const;
   double Area() const;

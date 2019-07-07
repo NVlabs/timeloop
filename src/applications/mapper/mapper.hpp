@@ -333,6 +333,7 @@ class Application
     uint128_t sync_interval_;
     bool log_stats_;
     bool log_suboptimal_;
+    bool break_on_failure_;
     std::vector<std::string> optimization_metrics_;
     model::Engine::Specs arch_specs_;
     problem::Workload &workload_;
@@ -355,6 +356,7 @@ class Application
       uint128_t sync_interval,
       bool log_stats,
       bool log_suboptimal,
+      bool break_on_failure,
       std::vector<std::string> optimization_metrics,
       model::Engine::Specs arch_specs,
       problem::Workload &workload,
@@ -370,6 +372,7 @@ class Application
         sync_interval_(sync_interval),
         log_stats_(log_stats),
         log_suboptimal_(log_suboptimal),
+        break_on_failure_(break_on_failure),
         optimization_metrics_(optimization_metrics),
         arch_specs_(arch_specs),
         workload_(workload),
@@ -511,7 +514,7 @@ class Application
         //          on, and run some lightweight pre-checks that the
         //          model can use to quickly reject a nest.
         engine.Spec(arch_specs_);
-        success_per_level = engine.PreEvaluationCheck(mapping, workload_);
+        success_per_level = engine.PreEvaluationCheck(mapping, workload_, break_on_failure_);
         success &= std::accumulate(success_per_level.begin(), success_per_level.end(),
                                     true, std::logical_and<>{});
         if (!success)
@@ -526,7 +529,7 @@ class Application
         }
 
         // Stage 3: Heavyweight evaluation.
-        success_per_level = engine.Evaluate(mapping, workload_);
+        success_per_level = engine.Evaluate(mapping, workload_, break_on_failure_);
         success &= std::accumulate(success_per_level.begin(), success_per_level.end(),
                                     true, std::logical_and<>{});
         if (!success)
@@ -627,6 +630,7 @@ class Application
                                           sync_interval_,
                                           log_stats_,
                                           log_suboptimal_,
+                                          !diagnostics_on_, // break_on_failure
                                           optimization_metrics_,
                                           arch_specs_,
                                           workload_,
@@ -705,12 +709,15 @@ class Application
     else
     {
       std::cout << "MESSAGE: no valid mappings found within search criteria. Some suggestions:" << std::endl;
-      std::cout << "(1) Enable mapper's diagnostics (mapper.diagnostics = True) to track and emit " << std::endl
-                << "    more information about failed mappings." << std::endl;
-      std::cout << "(2) Check your architecture configuration (especially mapspace constraints). " << std::endl
+      std::cout << "(1) Check your architecture configuration (especially mapspace constraints). " << std::endl
                 << "    Try disabling some constraints. " << std::endl;
-      std::cout << "(3) Try other search algorithms, and relax the termination criteria: " << std::endl
+      std::cout << "(2) Try other search algorithms, and relax the termination criteria: " << std::endl
                 << "    victory-condition, timeout and/or search-size." << std::endl;
+      if (!diagnostics_on_)
+      {
+        std::cout << "(3) Enable mapper's diagnostics (mapper.diagnostics = True) to track and emit " << std::endl
+                  << "    more information about failed mappings." << std::endl;
+      }
     }
 
     // Printing the Timeloop Mapping to an XML file
