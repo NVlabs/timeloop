@@ -178,3 +178,9 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     constraint.add("permutation", libconfig::Setting::TypeString) = temporal_permutation;
   }
 }
+
+void Mapping::PrettyPrint(std::ostream& out, const std::vector<std::string>& level_names,
+                          const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes)
+{
+  loop_nest.PrettyPrint(out, level_names, tiling::TransposeMasks(datatype_bypass_nest), tile_sizes);
+}

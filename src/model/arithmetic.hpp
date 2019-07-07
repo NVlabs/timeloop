@@ -123,31 +123,47 @@ class ArithmeticUnits : public Level
 
   // --- Unsupported overrides ---
   bool DistributedMulticastSupported() override { return false; }
+
   bool PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
-                          const tiling::CompoundMask mask) override
+                          const tiling::CompoundMask mask,
+                          const bool break_on_failure) override
   {
     (void) working_set_sizes;
     (void) mask;
+    (void) break_on_failure;
     return true;
   }
+
   bool Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                const double inner_tile_area, const std::uint64_t compute_cycles) override
+                const double inner_tile_area, const std::uint64_t compute_cycles,
+                const bool break_on_failure) override
   {
     (void) tile;
     (void) mask;
     (void) inner_tile_area;
     (void) compute_cycles;
+    (void) break_on_failure;
     return false;
   }
   
   std::string Name() const override { return "__NONAME__"; }
+
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
   {
     (void) pv;
     return 0;
   }
-  double CapacityUtilization() override { return 0; }
+
+  double CapacityUtilization() const override { return 0; }
+
+  std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
+  {
+    (void) pv;
+    return 0;
+  }
+
   std::uint64_t MaxFanout() const override { return 0; }
+
   void Print(std::ostream& out) const override
   {
     (void) out;

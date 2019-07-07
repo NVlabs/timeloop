@@ -97,7 +97,7 @@ std::ostream& operator << (std::ostream& out, const Nest& nest)
   unsigned inv_storage_level = nest.storage_tiling_boundaries.size()-2; // Skip printing the first boundary.
 
   std::string indent = "";
-  for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--) // Ha! Try >= 0.
+  for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
   {
     if (inv_storage_level != static_cast<unsigned>(-1) &&
         nest.storage_tiling_boundaries.at(inv_storage_level) == loop_level)
@@ -112,6 +112,42 @@ std::ostream& operator << (std::ostream& out, const Nest& nest)
   }
   out << std::endl;
   return out;
+}
+
+void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& level_names,
+                       const tiling::NestOfCompoundMasks& mask_nest,
+                       const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes)
+{
+  unsigned num_loops = loops.size();
+  unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
+
+  std::string indent = "";
+  for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
+  {
+    if (inv_storage_level != static_cast<unsigned>(-1) &&
+        storage_tiling_boundaries.at(inv_storage_level) == loop_level)
+    {
+      out << "==========================================" << std::endl;
+      out << level_names.at(inv_storage_level+1) << std::endl; // +1 is to skip the arithmetic level FIXME.
+      auto& mask = mask_nest.at(inv_storage_level);
+      auto& tiles = tile_sizes.at(inv_storage_level);
+      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      {
+        if (mask.at(pvi))
+        {
+          out << std::setw(10) << problem::GetShape()->DataSpaceIDToName.at(pvi) << " tile: "
+              << tiles.at(pvi) << std::endl;
+        }
+      }
+      out << "------------------------------------------" << std::endl;
+      inv_storage_level--;
+    }
+    out << indent;
+    indent += "  ";
+    loops.at(loop_level).Print(out, true);
+    out << std::endl;
+  }
+  out << std::endl;
 }
 
 }  // namespace loop

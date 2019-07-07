@@ -44,9 +44,10 @@ class Level : public Module
 
   virtual bool DistributedMulticastSupported() = 0;
   virtual bool PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
-                                  const tiling::CompoundMask mask) = 0;
+                                  const tiling::CompoundMask mask, const bool break_on_failure) = 0;
   virtual bool Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                        const double inner_tile_area, const std::uint64_t compute_cycles) = 0;
+                        const double inner_tile_area, const std::uint64_t compute_cycles,
+                        const bool break_on_failure) = 0;
   
   virtual double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   
@@ -55,7 +56,8 @@ class Level : public Module
   virtual double AreaPerInstance() const = 0;
   virtual std::uint64_t Cycles() const = 0;
   virtual std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
-  virtual double CapacityUtilization() = 0;
+  virtual double CapacityUtilization() const = 0;
+  virtual std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   virtual std::uint64_t MaxFanout() const = 0;
   
   virtual void Print(std::ostream& out) const = 0;

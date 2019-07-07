@@ -602,12 +602,15 @@ class BufferLevel : public Level
   
   // Evaluation functions.
   bool PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
-                          const tiling::CompoundMask mask) override;
+                          const tiling::CompoundMask mask,
+                          const bool break_on_failure) override;
   bool Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                const double inner_tile_area, const std::uint64_t compute_cycles) override;
+                const double inner_tile_area, const std::uint64_t compute_cycles,
+                const bool break_on_failure) override;
 
   // Private helpers.
-  bool ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask);
+  bool ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                       const bool break_on_failure);
   void ComputeArea();
   void ComputePerformance(const std::uint64_t compute_cycles);
   void ComputeNetworkEnergy(const double inner_tile_area);
@@ -627,10 +630,11 @@ class BufferLevel : public Level
   std::string Name() const override;
   double Area() const override;
   double AreaPerInstance() const override;
-  double Size();
+  double Size() const;
   std::uint64_t Cycles() const override;
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
-  double CapacityUtilization() override;
+  double CapacityUtilization() const override;
+  std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   
   std::uint64_t MaxFanout() const override
   {

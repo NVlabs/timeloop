@@ -336,7 +336,8 @@ std::vector<bool> Topology::PreEvaluationCheck(const Mapping& mapping,
   {
     auto level_id = specs_.StorageMap(storage_level_id);
     bool s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
-      working_set_sizes.at(storage_level_id), masks.at(storage_level_id));
+      working_set_sizes.at(storage_level_id), masks.at(storage_level_id),
+      break_on_failure);
     success.at(level_id) = s;
     if (break_on_failure && !s)
       break;
@@ -403,7 +404,7 @@ std::vector<bool> Topology::Evaluate(Mapping& mapping,
     // primary statistics.
     auto level_id = specs_.StorageMap(storage_level_id);
     bool s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
-                                     inner_tile_area, compute_cycles);
+                                     inner_tile_area, compute_cycles, break_on_failure);
     success.at(level_id) = s;
     success_accum &= s;
 

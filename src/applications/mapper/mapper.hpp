@@ -343,7 +343,7 @@ class Application
     std::thread thread_;
     EvaluationResult thread_best_;
     std::vector<uint128_t> invalid_eval_counts_;
-    std::vector<Mapping> invalid_eval_sample_mappings_;
+    std::vector<EvaluationResult> invalid_eval_sample_results_;
 
    public:
     MapperThread(
@@ -380,7 +380,7 @@ class Application
         best_(best),
         thread_(),
         invalid_eval_counts_(arch_specs_.topology.NumLevels(), 0),
-        invalid_eval_sample_mappings_(arch_specs_.topology.NumLevels())
+        invalid_eval_sample_results_(arch_specs_.topology.NumLevels())
     {
     }
 
@@ -410,9 +410,9 @@ class Application
       return invalid_eval_counts_;
     }
 
-    std::vector<Mapping>& InvalidEvalSampleMappings()
+    std::vector<EvaluationResult>& InvalidEvalSampleResults()
     {
-      return invalid_eval_sample_mappings_;
+      return invalid_eval_sample_results_;
     }
 
     void Run()
@@ -524,6 +524,7 @@ class Application
         success_per_level = engine.PreEvaluationCheck(mapping, workload_, !diagnostics_on_);
         success &= std::accumulate(success_per_level.begin(), success_per_level.end(),
                                    true, std::logical_and<>{});
+
         if (!success)
         {
           invalid_mappings_eval++;
@@ -535,7 +536,7 @@ class Application
               {
                 // Collect 1 sample failed mapping per level.
                 if (invalid_eval_counts_.at(level) == 0)
-                  invalid_eval_sample_mappings_.at(level) = mapping;
+                  invalid_eval_sample_results_.at(level) = { mapping, engine };
                 invalid_eval_counts_.at(level)++;
               }
             }
@@ -559,7 +560,7 @@ class Application
               {
                 // Collect 1 sample failed mapping per level.
                 if (invalid_eval_counts_.at(level) == 0)
-                  invalid_eval_sample_mappings_.at(level) = mapping;
+                  invalid_eval_sample_results_.at(level) = { mapping, engine };
                 invalid_eval_counts_.at(level)++;
               }
             }
@@ -567,6 +568,7 @@ class Application
           search_->Report(search::Status::EvalFailure);
           continue;
         }
+        std::cout << "EVAL succeeded\n";
 
         // SUCCESS!!!
         valid_mappings++;
@@ -679,19 +681,19 @@ class Application
     {
       // Aggregate diagnostic data from all threads.
       std::vector<uint128_t> eval_fail_counts(arch_specs_.topology.NumLevels(), 0);
-      std::vector<Mapping> eval_fail_sample_mappings(arch_specs_.topology.NumLevels());
+      std::vector<EvaluationResult> eval_fail_sample_results(arch_specs_.topology.NumLevels());
       unsigned worst_eval_fail_level_id = 0;
       uint128_t worst_eval_fail_count = 0;
 
       for (unsigned t = 0; t < num_threads_; t++)
       {
         auto& thread_counts = threads_.at(t)->InvalidEvalCounts();
-        auto& thread_sample_mappings = threads_.at(t)->InvalidEvalSampleMappings();
+        auto& thread_sample_results = threads_.at(t)->InvalidEvalSampleResults();
         for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
         {
           // Pick up a sample mapping from the first thread with non-zero fails at this level.
           if (eval_fail_counts.at(level_id) == 0 && thread_counts.at(level_id) != 0)
-            eval_fail_sample_mappings.at(level_id) = thread_sample_mappings.at(level_id);
+            eval_fail_sample_results.at(level_id) = thread_sample_results.at(level_id);
 
           eval_fail_counts.at(level_id) += thread_counts.at(level_id);
         }
@@ -727,7 +729,34 @@ class Application
                   << arch_specs_.topology.GetLevel(worst_eval_fail_level_id)->level_name
                   << ": " << worst_eval_fail_count << std::endl;
         std::cout << "Sample failed mapping: " << std::endl;
-        std::cout << eval_fail_sample_mappings.at(worst_eval_fail_level_id);
+
+        auto& engine = eval_fail_sample_results.at(worst_eval_fail_level_id).engine;
+        auto& mapping = eval_fail_sample_results.at(worst_eval_fail_level_id).mapping;
+        if (!engine.IsEvaluated())
+          engine.Evaluate(mapping, workload_, false);
+
+        std::vector<std::string> level_names;
+        std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
+        for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
+        {
+          level_names.push_back(arch_specs_.topology.GetLevel(level_id)->level_name);
+          
+          // hack: skip level-0 (arithmetic) for utilized capacity.
+          if (level_id > 0)
+          {
+            auto buffer = std::static_pointer_cast<model::BufferLevel>(engine.GetTopology().GetLevel(level_id));
+            problem::PerDataSpace<std::uint64_t> uc;
+            std::cout << "  LEVEL " << level_id << std::endl;
+            for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+            {
+              auto pv = problem::Shape::DataSpaceID(pvi);
+              uc[pv] = buffer->UtilizedCapacity(pv);
+              std::cout << "    TILE " << problem::GetShape()->DataSpaceIDToName.at(pv) << ": " << uc[pv] << std::endl;
+            }
+            tile_sizes.push_back(uc);
+          }
+        }
+        mapping.PrettyPrint(std::cout, level_names, tile_sizes);
       }
 
       std::cout << "-----------------------------------------------" << std::endl;

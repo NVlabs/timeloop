@@ -474,7 +474,8 @@ bool BufferLevel::DistributedMulticastSupported()
 // FIXME: what about instances and fanout checks?
 bool BufferLevel::PreEvaluationCheck(
     const problem::PerDataSpace<std::size_t> working_set_sizes,
-    const tiling::CompoundMask mask)
+    const tiling::CompoundMask mask,
+    const bool break_on_failure)
 {
   bool success = true;
   
@@ -499,13 +500,15 @@ bool BufferLevel::PreEvaluationCheck(
         if (working_set_sizes.at(pv) > available_capacity)
         {
           success = false;
-          break;
+          if (break_on_failure)
+            break;
         }
         else if (working_set_sizes.at(pv) < specs_.EffectiveSize(pv).Get()
                                             * specs_.MinUtilization(pv).Get())
         {
           success = false;
-          break;
+          if (break_on_failure)
+            break;
         }
       }
     }
@@ -556,10 +559,11 @@ bool BufferLevel::PreEvaluationCheck(
 // FIXME: Derive FanoutX, FanoutY, MeshX, MeshY from mapping if unspecified.
 //
 bool BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                           const double inner_tile_area, const std::uint64_t compute_cycles)
+                           const double inner_tile_area, const std::uint64_t compute_cycles,
+                           const bool break_on_failure)
 {
-  bool success = ComputeAccesses(tile, mask);
-  if (success)
+  bool success = ComputeAccesses(tile, mask, break_on_failure);
+  if (!break_on_failure || success)
   {
     ComputeArea();
     ComputeBufferEnergy();
@@ -571,7 +575,9 @@ bool BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling::Compo
   return success;
 }
 
-bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask)
+bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
+                                  const tiling::CompoundMask& mask,
+                                  const bool break_on_failure)
 {
   bool success = true;
   
@@ -752,7 +758,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile, const tiling
       // because the calculation is a little more involved. We will do
       // this later in the ComputePerformance() function.
       
-      if (!success)
+      if (break_on_failure && !success)
         break;
     }
   }
@@ -1150,22 +1156,22 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
 // Accessors.
 //
 
-#define STAT_ACCESSOR(Type, FuncName, Expression)                         \
-Type BufferLevel::FuncName(problem::Shape::DataSpaceID pv) const                    \
-{                                                                         \
+#define STAT_ACCESSOR(Type, FuncName, Expression)                                     \
+Type BufferLevel::FuncName(problem::Shape::DataSpaceID pv) const                      \
+{                                                                                     \
   if (pv != problem::GetShape()->NumDataSpaces)                                       \
-  {                                                                       \
-    return Expression;                                                    \
-  }                                                                       \
-  else                                                                    \
-  {                                                                       \
-    Type stat = 0;                                                        \
+  {                                                                                   \
+    return Expression;                                                                \
+  }                                                                                   \
+  else                                                                                \
+  {                                                                                   \
+    Type stat = 0;                                                                    \
     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) \
-    {                                                                     \
-      stat += FuncName(problem::Shape::DataSpaceID(pvi));                           \
-    }                                                                     \
-    return stat;                                                          \
-  }                                                                       \
+    {                                                                                 \
+      stat += FuncName(problem::Shape::DataSpaceID(pvi));                             \
+    }                                                                                 \
+    return stat;                                                                      \
+  }                                                                                   \
 }
 
 // double BufferLevel::StorageEnergy(problem::Shape::DataSpaceID pv) const
@@ -1198,6 +1204,7 @@ STAT_ACCESSOR(double, Energy,
               AddrGenEnergy(pv))
 
 STAT_ACCESSOR(std::uint64_t, Accesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv)))
+STAT_ACCESSOR(std::uint64_t, UtilizedCapacity, stats_.utilized_capacity.at(pv))
 
 std::string BufferLevel::Name() const
 {
@@ -1243,7 +1250,7 @@ double BufferLevel::AreaPerInstance() const
   return area;
 }
 
-double BufferLevel::Size()
+double BufferLevel::Size() const
 {
   // FIXME: this is per-instance. This is inconsistent with the naming
   // convention of some of the other methods, which are summed across instances.
@@ -1253,7 +1260,7 @@ double BufferLevel::Size()
   return size;
 }
 
-double BufferLevel::CapacityUtilization()
+double BufferLevel::CapacityUtilization() const
 {
   double utilized_capacity = 0;
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
