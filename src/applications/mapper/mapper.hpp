@@ -746,12 +746,12 @@ class Application
           {
             auto buffer = std::static_pointer_cast<model::BufferLevel>(engine.GetTopology().GetLevel(level_id));
             problem::PerDataSpace<std::uint64_t> uc;
-            std::cout << "  LEVEL " << level_id << std::endl;
+            // std::cout << "  LEVEL " << level_id << std::endl;
             for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
             {
               auto pv = problem::Shape::DataSpaceID(pvi);
               uc[pv] = buffer->UtilizedCapacity(pv);
-              std::cout << "    TILE " << problem::GetShape()->DataSpaceIDToName.at(pv) << ": " << uc[pv] << std::endl;
+              // std::cout << "    TILE " << problem::GetShape()->DataSpaceIDToName.at(pv) << ": " << uc[pv] << std::endl;
             }
             tile_sizes.push_back(uc);
           }
