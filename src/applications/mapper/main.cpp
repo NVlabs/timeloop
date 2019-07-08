@@ -33,11 +33,29 @@
 #include "util/banner.hpp"
 
 bool gTerminate = false;
+bool gTerminateEval = false;
 
 void handler(int s)
 {
-  std::cerr << strsignal(s) << " caught, terminating execution." << std::endl;
-  gTerminate = true;
+  if (!gTerminate)
+  {
+    std::cerr << strsignal(s) << " caught. Mapper threads will terminate after "
+              << "completing any ongoing evaluations." << std::endl;
+    gTerminate = true;
+  }
+  else if (!gTerminateEval)
+  {
+    std::cerr << "Second " << strsignal(s) << " caught. Mapper threads will "
+              << "abandon ongoing evaluations and terminate immediately."
+              << std::endl;
+    gTerminateEval = true;
+  }
+  else
+  {
+    std::cerr << "Third " << strsignal(s) << " caught. Existing disgracefully."
+              << std::endl;
+    exit(0);
+  }
 }
 
 //--------------------------------------------//

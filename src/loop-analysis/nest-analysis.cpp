@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <stdexcept>
 
 // FIXME: num_spatial_elems, spatial_fanouts, replication_factor etc. are
 //        all maintained across datatypes. They should be per-datatype at
@@ -41,6 +42,8 @@
 #include "util/misc.hpp"
 
 #include "nest-analysis.hpp"
+
+extern bool gTerminateEval;
 
 namespace analysis
 {
@@ -380,6 +383,11 @@ problem::OperationSpace NestAnalysis::ComputeWorkingSetsRecursive_(
 {
   ASSERT(cur != nest_state_.rend());
   ASSERT(spatial_id_ < cur->live_state.size());
+
+  if (gTerminateEval)
+  {
+    throw std::runtime_error("terminated");
+  }
 
   auto& cur_state = cur->live_state[spatial_id_];
   

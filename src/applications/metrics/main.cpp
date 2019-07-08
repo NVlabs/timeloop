@@ -32,6 +32,8 @@
 #include "metrics.hpp"
 #include "util/banner.hpp"
 
+bool gTerminateEval = false; // FIXME: cleanup.
+
 //--------------------------------------------//
 //                    MAIN                    //
 //--------------------------------------------//

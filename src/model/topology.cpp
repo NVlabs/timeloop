@@ -27,6 +27,7 @@
 
 #include <cassert>
 #include <string>
+#include <stdexcept>
 
 #include "model/topology.hpp"
 
@@ -357,7 +358,16 @@ std::vector<bool> Topology::Evaluate(Mapping& mapping,
   bool success_accum = true;
   
   // Compute working-set tile hierarchy for the nest.
-  auto ws_tiles = analysis->GetWorkingSets();
+  problem::PerDataSpace<std::vector<tiling::TileInfo>> ws_tiles;
+  try
+  {
+    ws_tiles = analysis->GetWorkingSets();
+  }
+  catch (std::runtime_error& e)
+  {
+    std::fill(success.begin(), success.end(), false);
+    return success;
+  }
 
   // Ugh... FIXME.
   auto compute_cycles = analysis->GetBodyInfo().accesses;
