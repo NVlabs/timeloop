@@ -976,8 +976,17 @@ class Uber : public MapSpace
     // happens from *this* level down, not from the next level down. Fortunately,
     // the tile analysis stage seems to be doing the right thing later on.
 
-    problem::OperationSpace x_space(&workload_, origin, x_dimensions, false);
-    problem::OperationSpace y_space(&workload_, origin, y_dimensions, false);
+    // origin gives us the low corner (inclusive) of the operation space.
+    // x/y_dimensions gives the high corner (exclusive) of the operation space.
+    // We need the inclusive high corner to build the operation space. See
+    // OperationSpace constructor for details.
+    problem::OperationPoint x_high = x_dimensions;
+    x_high.IncrementAllDimensions(-1);
+    problem::OperationPoint y_high = y_dimensions;
+    y_high.IncrementAllDimensions(-1);
+
+    problem::OperationSpace x_space(&workload_, origin, x_high);
+    problem::OperationSpace y_space(&workload_, origin, y_high);
     
     auto x_sizes = x_space.GetSizes();
     auto y_sizes = y_space.GetSizes();

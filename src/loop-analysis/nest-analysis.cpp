@@ -143,7 +143,13 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
         
     if (loop_level == storage_tiling_boundaries_.at(tiling_level))
     {
-      problem::OperationSpace maxtile(workload_, origin, dimension_sizes, false);
+      // origin gives us the low corner (inclusive) of the operation space.
+      // dimension_sizes gives the high corner (exclusive) of the operation space.
+      // We need the inclusive high corner to build the operation space. See
+      // OperationSpace constructor for details.
+      problem::OperationPoint high = dimension_sizes;
+      high.IncrementAllDimensions(-1);
+      problem::OperationSpace maxtile(workload_, origin, high);
       working_set_sizes.push_back(maxtile.GetSizes());
       tiling_level++;
     }

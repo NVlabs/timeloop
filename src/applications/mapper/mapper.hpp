@@ -733,7 +733,9 @@ class Application
         auto& engine = eval_fail_sample_results.at(worst_eval_fail_level_id).engine;
         auto& mapping = eval_fail_sample_results.at(worst_eval_fail_level_id).mapping;
         if (!engine.IsEvaluated())
+        {
           engine.Evaluate(mapping, workload_, false);
+        }
 
         std::vector<std::string> level_names;
         std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;

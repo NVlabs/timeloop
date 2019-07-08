@@ -66,7 +66,7 @@ class OperationSpace
   OperationSpace();
   OperationSpace(const Workload* wc);
   OperationSpace(const Workload* wc, const OperationPoint& low,
-                 const OperationPoint& high, bool inclusive = true);
+                 const OperationPoint& high);
 
   void Reset();
   OperationSpace& operator+=(const OperationSpace& s);

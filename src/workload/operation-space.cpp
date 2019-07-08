@@ -45,17 +45,19 @@ OperationSpace::OperationSpace() :
     OperationSpace(nullptr)
 { }
 
-OperationSpace::OperationSpace(const Workload* wc, const OperationPoint& low, const OperationPoint& high, bool inclusive) :
+OperationSpace::OperationSpace(const Workload* wc, const OperationPoint& low, const OperationPoint& high) :
     workload_(wc)
 {
+  // Note: high *must* be inclusive. Projecting an exclusive high operation-point into
+  // a data-space may not result in the exclusive high point in that data-space.
   for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
   {
     auto space_low = Project(space_id, workload_, low);
     auto space_high = Project(space_id, workload_, high);
+
     // Increment the high points by 1 because the AAHR constructor wants
     // an exclusive max point.
-    if (inclusive)
-      space_high.IncrementAllDimensions();
+    space_high.IncrementAllDimensions();
     data_spaces_.push_back(DataSpace(wc->GetShape()->DataSpaceOrder.at(space_id), space_low, space_high));
   }
 }
