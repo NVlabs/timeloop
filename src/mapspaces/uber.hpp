@@ -1368,7 +1368,7 @@ class Uber : public MapSpace
                                         tiling_to_storage_map_[level_id],
                                         user_bypass_strings);
       }
-      else if (type == "utilization")
+      else if (type == "utilization" || type == "parallelism")
       {
         assert(constraint.lookupValue("min", min_utilization_));
       }
@@ -1440,7 +1440,7 @@ class Uber : public MapSpace
         exit(1);
       }
     }
-    else if (type == "utilization")
+    else if (type == "utilization" || type == "parallelism")
     {
       // For now, we only allow utilization to be specified for level 0.
       // Note that this is the level 0 storage, not arithmetic. Fanout from
