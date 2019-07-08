@@ -44,13 +44,16 @@ class ArithmeticUnits : public Level
   {
     static const std::uint64_t kDefaultWordBits = 16;
     const std::string Type() const override { return "ArithmeticUnits"; }
-    
+
+    Attribute<std::string> name;
     Attribute<std::size_t> instances;
     Attribute<std::size_t> mesh_x;
     Attribute<std::size_t> mesh_y;
     Attribute<std::uint64_t> word_bits;
     Attribute<double> energy_per_op;
 
+    Attribute<std::string>& Name() { return name; }
+    const Attribute<std::string>& Name() const { return name; }
     Attribute<std::size_t>& Instances() { return instances; }
     const Attribute<std::size_t>& Instances() const { return instances; }
     Attribute<std::size_t>& MeshX() { return mesh_x; }
@@ -116,6 +119,7 @@ class ArithmeticUnits : public Level
   // the dynamic Spec() call later.
   static Specs ParseSpecs(libconfig::Setting& setting);
   
+  std::string Name() const override;
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   double Area() const override;
   double AreaPerInstance() const override;
@@ -146,8 +150,6 @@ class ArithmeticUnits : public Level
     return false;
   }
   
-  std::string Name() const override { return "__NONAME__"; }
-
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
   {
     (void) pv;

@@ -161,7 +161,7 @@ class Engine : public Module
       auto num_maccs = body_info.accesses * body_info.replication_factor;
       out << "MACCs = " << num_maccs << std::endl;
       out << "pJ/MACC" << std::endl;
-      unsigned align = 20;
+      unsigned align = 24;
       // out << "    " << std::setw(align) << std::left << "MulAdd" << "= "
       //     << engine.GetTopology().GetArithmeticLevel()->Energy() / num_maccs << std::endl;
 

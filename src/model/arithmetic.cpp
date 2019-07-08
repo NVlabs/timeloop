@@ -49,6 +49,11 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(libconfig::Setting& setting)
 {
   Specs specs;
 
+  // Name.
+  std::string name = "__ARITH__";
+  setting.lookupValue("name", name);
+  specs.Name() = name;
+
   // Instances.
   std::uint32_t instances;
   if (!setting.lookupValue("instances", instances))
@@ -121,6 +126,12 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(libconfig::Setting& setting)
 }
   
 // Accessors.
+
+std::string ArithmeticUnits::Name() const
+{
+  assert(is_specced_);
+  return specs_.Name().Get();
+}
 
 double ArithmeticUnits::Energy(problem::Shape::DataSpaceID pv) const
 {
