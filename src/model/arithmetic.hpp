@@ -125,6 +125,8 @@ class ArithmeticUnits : public Level
   double AreaPerInstance() const override;
   std::uint64_t Cycles() const override;
 
+  void Print(std::ostream& out) const override;
+    
   // --- Unsupported overrides ---
   bool DistributedMulticastSupported() override { return false; }
 
@@ -166,11 +168,6 @@ class ArithmeticUnits : public Level
 
   std::uint64_t MaxFanout() const override { return 0; }
 
-  void Print(std::ostream& out) const override
-  {
-    (void) out;
-  }
-    
   // --- Temporary hack interfaces, these will be removed ---
   
   bool HackEvaluate(analysis::NestAnalysis* analysis,

@@ -158,4 +158,33 @@ std::uint64_t ArithmeticUnits::Cycles() const
   return cycles_;
 }
 
+void ArithmeticUnits::Print(std::ostream& out) const
+{
+  std::string indent = "    ";
+
+  // Print level name.
+  out << "=== " << specs_.Name() << " ===" << std::endl;  
+  out << std::endl;
+
+  // Print specs.
+  out << indent << "SPECS" << std::endl;
+  out << indent << "-----" << std::endl;
+
+  out << indent << "Word bits            : " << specs_.WordBits() << std::endl;    
+  out << indent << "Instances            : " << specs_.Instances() << " ("
+      << specs_.MeshX() << "*" << specs_.MeshY() << ")" << std::endl;
+  out << indent << "Energy-per-op        : " << specs_.EnergyPerOp() << " pJ" << std::endl;
+  out << std::endl;
+
+  // Print stats.
+  out << indent << "STATS" << std::endl;
+  out << indent << "-----" << std::endl;
+
+  out << indent << "Utilized instances   : " << utilized_instances_ << std::endl;
+  out << indent << "Cycles               : " << Cycles() << std::endl;
+  out << indent << "Energy (total)       : " << Energy() << " pJ" << std::endl;
+  out << indent << "Area (total)         : " << Area() << " um^2" << std::endl;
+  out << std::endl;
+}
+
 } // namespace model
