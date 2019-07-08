@@ -286,6 +286,7 @@ void BufferLevel::ParseBufferSpecs(libconfig::Setting& buffer, problem::Shape::D
   // Vector Access Energy
   double tmp_access_energy = 0;
   double tmp_storage_area = 0;
+
   if (specs.Tech(pv).Get() == Technology::DRAM) {
     assert(specs.ClusterSize(pv).Get() == 1);
     tmp_access_energy = pat::DRAMEnergy(specs.NetworkWordBits(pv).Get() * specs.BlockSize(pv).Get());
@@ -315,6 +316,9 @@ void BufferLevel::ParseBufferSpecs(libconfig::Setting& buffer, problem::Shape::D
     //           << ", energy = " << tmp_access_energy
     //           << ", area = " << tmp_storage_area << std::endl;
   }
+
+  // Allow user to override the access energy. FIXME: clean up this code.
+  buffer.lookupValue("vector-access-energy", tmp_access_energy);
 
   specs.VectorAccessEnergy(pv) = tmp_access_energy;
   specs.StorageArea(pv) = tmp_storage_area; //FIXME: check with Angshu
