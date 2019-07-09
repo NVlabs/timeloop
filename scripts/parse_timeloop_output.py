@@ -174,18 +174,21 @@ def parse_timeloop_stats(filename):
  
     energy_pJ =  sum([value['energy'] for key, value in energy_breakdown_pJ.items()])
 
-    output = {\
-    'problem': problem,\
-    'utilization': arithmetic_utilization,\
-    'cycles': cycles,\
-    'energy_pJ': energy_pJ,\
-    'energy_per_mac': energy_pJ/macs,\
-    'macs': macs,\
-    'energy_breakdown_pJ': energy_breakdown_pJ\
-    }
-    #pprint.pprint(output)
-    return output
+    # Crude check to find out if timeloop produced an output.
+    if arithmetic_level_found:
+        output = {
+            'problem': problem,
+            'utilization': arithmetic_utilization,
+            'cycles': cycles,
+            'energy_pJ': energy_pJ,
+            'energy_per_mac': energy_pJ/macs,
+            'macs': macs,
+            'energy_breakdown_pJ': energy_breakdown_pJ
+        }
+    else:
+        output = {}
 
+    return output
 
 def main():
     parser = argparse.ArgumentParser(

@@ -458,7 +458,7 @@ class Application
           std::cerr << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << timeout_
                     << " invalid mappings (" << invalid_mappings_mapcnstr << " mapcnstr, "
                     << invalid_mappings_eval << " eval) found since the last valid mapping, "
-                    << " terminating search." << std::endl;
+                    << "terminating search." << std::endl;
           mutex_->unlock();
           break;
         }
