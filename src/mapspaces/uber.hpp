@@ -785,6 +785,8 @@ class Uber : public MapSpace
     auto spatial_splits = spatial_split_space_.GetSplits(mapping_spatial_id);
     //auto datatype_bypass_masks = tiling::TransposeMasks(datatype_bypass_nest);
     
+    double cumulative_fanout_utilization = 1.0;
+
     for (uint64_t level = 0; level < num_total_tiling_levels_ && success; level++)
     {
       if (!IsSpatialTilingLevel(level))
@@ -801,17 +803,13 @@ class Uber : public MapSpace
       //assert (storage_level >= 1);
       //auto& datatype_bypass_mask = datatype_bypass_masks.at(storage_level-1);
 
-      double fanout_utilization = 1.0;
-      
       success &= AssignSpatialTilingDirections_Level_Expand(
         spatial_splits.at(level),
         subnests[level],
         *level_specs,
         //datatype_bypass_mask,
-        fanout_utilization);
+        cumulative_fanout_utilization);
 
-      success &= (fanout_utilization >= min_utilization_);
-      
       // if (level_specs.SharingType() == model::Level::DataSpaceIDSharing::Partitioned)
       // {
       //   success &= AssignSpatialTilingDirections_PartitionedLevel(
@@ -825,6 +823,8 @@ class Uber : public MapSpace
       
     } // for (level)
     
+    success &= (cumulative_fanout_utilization >= min_utilization_);
+      
     return success;
   }
 
