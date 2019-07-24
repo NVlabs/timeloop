@@ -79,6 +79,7 @@ util/map2d.cpp
 workload/problem-shape.cpp
 workload/workload.cpp
 workload/operation-space.cpp
+compound-config/compound-config.cpp
 """)
 
 evaluator_sources = Split("""

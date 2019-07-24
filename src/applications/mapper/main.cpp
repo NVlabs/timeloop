@@ -31,6 +31,7 @@
 
 #include "mapper.hpp"
 #include "util/banner.hpp"
+#include "compound-config/compound-config.hpp"
 
 bool gTerminate = false;
 bool gTerminateEval = false;
@@ -73,14 +74,14 @@ int main(int argc, char* argv[])
   sigaction(SIGINT, &action, NULL);
   
   char* config_file = argv[1];
-
-  libconfig::Config config;
-  config.readFile(config_file);
+  auto cConfig = new config::CompoundConfig(config_file);
+  libconfig::Config& lconfig = cConfig->getLConfig();
   
   // Should we override the layer to be evaluated?
+  // FIXME: handle this special config editing later
   if (argc == 3)
   {
-    libconfig::Setting& root = config.getRoot();
+    libconfig::Setting& root = lconfig.getRoot();
     if (!root.exists("problem"))
       root.add("problem", libconfig::Setting::TypeGroup);
     libconfig::Setting& problem = root["problem"];
@@ -95,7 +96,7 @@ int main(int argc, char* argv[])
   }
   std::cout << std::endl;
   
-  Application application(config);
+  Application application(cConfig);
   
   application.Run();
 

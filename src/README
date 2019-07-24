@@ -42,3 +42,7 @@ search/*
 applications/*
   Applications using the timeloop infrastructure. The nominal "timeloop"
   application is expressed in applications/mapper.hpp.
+
+compound-config/*
+  A wrapper class to support both yaml and libconfig inputs transparently.
+

@@ -29,6 +29,7 @@
 
 #include "mapspaces/mapspace-factory.hpp"
 #include "search/search-factory.hpp"
+#include "compound-config/compound-config.hpp"
 
 #include <fstream>
 #include <thread>
@@ -94,22 +95,23 @@ class Application
 
  public:
 
-  Application(libconfig::Config& config)
+  Application(config::CompoundConfig* config)
   {
-    try
-    {
+    //try
+    //{
+      auto rootNode = config->getRoot();
       // Problem configuration.
-      libconfig::Setting& problem = config.lookup("problem");
-      problem::ParseWorkload(problem, workload_);
+      auto problem = rootNode.lookup("problem");
+      problem::ParseWorkload(problem.getLNode(), workload_);
       std::cout << "Problem configuration complete." << std::endl;
 
       // Architecture configuration.
-      libconfig::Setting& arch = config.lookup("arch");
-      arch_specs_ = model::Engine::ParseSpecs(arch);
+      auto arch = rootNode.lookup("arch");
+      arch_specs_ = model::Engine::ParseSpecs(arch.getLNode());
       std::cout << "Architecture configuration complete." << std::endl;
 
       // Mapper (this application) configuration.
-      libconfig::Setting& mapper = config.lookup("mapper");
+      auto mapper = rootNode.lookup("mapper");
       num_threads_ = std::thread::hardware_concurrency();
       if (mapper.lookupValue("num-threads", num_threads_))
       {
@@ -127,12 +129,7 @@ class Application
       }
       else if (mapper.exists("optimization-metrics"))
       {
-        auto& metrics = mapper.lookup("optimization-metrics");
-        assert(metrics.isArray());
-        for (const std::string& m: metrics)
-        {
-          optimization_metrics_.push_back(m);
-        }
+        mapper.lookupArrayValue("optimization-metrics", optimization_metrics_);
       }
       else
       {
@@ -173,19 +170,21 @@ class Application
       std::cout << "Mapper configuration complete." << std::endl;
 
       // MapSpace configuration.
-      libconfig::Setting& mapspace = config.lookup("mapspace");
-      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
+      //libconfig::Setting& mapspace = config.lookup("mapspace");
+      auto mapspace = rootNode.lookup("mapspace");
+      mapspace_ = mapspace::ParseAndConstruct(mapspace.getLNode(), arch_specs_, workload_);
       split_mapspaces_ = mapspace_->Split(num_threads_);
       std::cout << "Mapspace construction complete." << std::endl;
 
       // Search configuration.
-      libconfig::Setting& search = config.lookup("mapper");
+      auto search = rootNode.lookup("mapper");
       for (unsigned t = 0; t < num_threads_; t++)
       {
-        search_.push_back(search::ParseAndConstruct(search, split_mapspaces_.at(t), t));
+        search_.push_back(search::ParseAndConstruct(search.getLNode(), split_mapspaces_.at(t), t));
       }
       std::cout << "Search configuration complete." << std::endl;
-    }
+    //}
+    /* TODO: Move this to the compound-config
     catch (const libconfig::SettingTypeException& e)
     {
       std::cerr << "ERROR: setting type exception at: " << e.getPath() << std::endl;
@@ -201,12 +200,15 @@ class Application
       std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;
       exit(1);
     }
-    
+    */
     // Store the complete configuration in a string.
-    std::size_t len;
-    FILE* cfg_stream = open_memstream(&cfg_string_, &len);
-    config.write(cfg_stream);
-    fclose(cfg_stream);
+    if (config->hasLConfig()) {
+      std::size_t len;
+      FILE* cfg_stream = open_memstream(&cfg_string_, &len);
+      auto& lconfig = config->getLConfig();
+      lconfig.write(cfg_stream);
+      fclose(cfg_stream);
+    }
   }
 
   // This class does not support being copied
