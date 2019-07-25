@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include <libconfig.h++>
 #include <boost/serialization/shared_ptr.hpp>
 
 #include "model/model-base.hpp"
@@ -35,6 +34,7 @@
 #include "model/topology.hpp"
 #include "mapping/mapping.hpp"
 #include "loop-analysis/nest-analysis.hpp"
+#include "compound-config/compound-config.hpp"
 
 namespace model
 {
@@ -73,12 +73,12 @@ class Engine : public Module
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(libconfig::Setting& setting)
+  static Specs ParseSpecs(config::CompoundConfigNode setting)
   {
     Specs specs;
 
-    libconfig::Setting& arithmetic = setting.lookup("arithmetic");
-    libconfig::Setting& topology = setting.lookup("storage");
+    auto arithmetic = setting.lookup("arithmetic");
+    auto topology = setting.lookup("storage");
     
     specs.topology = Topology::ParseSpecs(topology, arithmetic);
 

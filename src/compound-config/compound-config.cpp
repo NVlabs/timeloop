@@ -142,6 +142,30 @@ bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::str
   }
 }
 
+bool CompoundConfigNode::isList() const {
+  if(LNode) return LNode->isList();
+  else {
+    assert(false);
+    return false;
+  }
+}
+
+uint64_t CompoundConfigNode::getLength() const {
+  if(LNode) return LNode->getLength();
+  else {
+    assert(false);
+    return false;
+  }
+}
+
+CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
+  assert(isList());
+  if(LNode) return CompoundConfigNode(&(*LNode)[idx], nullptr);
+  else {
+    assert(false);
+    return CompoundConfigNode(nullptr, nullptr);
+  }
+}
 /* CompoundConfig */
 
 CompoundConfig::CompoundConfig(char* inputFile) {

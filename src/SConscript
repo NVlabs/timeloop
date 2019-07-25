@@ -100,6 +100,7 @@ util/map2d.cpp
 workload/problem-shape.cpp
 workload/workload.cpp
 workload/operation-space.cpp
+compound-config/compound-config.cpp
 """)
 
 metrics_sources = Split("""
@@ -117,6 +118,7 @@ util/map2d.cpp
 workload/problem-shape.cpp
 workload/workload.cpp
 workload/operation-space.cpp
+compound-config/compound-config.cpp
 """)
 
 env.Program(target = 'timeloop', source = timeloop_sources)

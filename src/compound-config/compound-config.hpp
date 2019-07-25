@@ -98,6 +98,11 @@ class CompoundConfigNode
   inline bool lookupArrayValue(const std::string &name, std::vector<std::string> &vectorValue) const
   { return(lookupArrayValue(name.c_str(), vectorValue));}
 
+  bool isList() const;
+  uint64_t getLength() const;
+
+  CompoundConfigNode operator [](int idx) const;
+
 };
 
 class CompoundConfig

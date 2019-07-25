@@ -29,7 +29,6 @@
 
 #include <iostream>
 #include <memory>
-#include <libconfig.h++>
 
 #include "loop-analysis/tiling.hpp"
 #include "loop-analysis/nest-analysis.hpp"
@@ -38,6 +37,7 @@
 #include "model/level.hpp"
 #include "model/arithmetic.hpp"
 #include "model/buffer.hpp"
+#include "compound-config/compound-config.hpp"
 
 namespace model
 {
@@ -86,7 +86,7 @@ class Topology : public Module
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(libconfig::Setting& setting, libconfig::Setting& arithmetic_specs);
+  static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs);
   static void Validate(Specs& specs);
   
   void Spec(const Specs& specs);

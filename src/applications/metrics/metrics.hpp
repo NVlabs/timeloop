@@ -28,6 +28,7 @@
 #pragma once
 
 #include "mapping/parser.hpp"
+#include "compound-config/compound-config.hpp"
 
 #include <fstream>
 
@@ -52,16 +53,18 @@ class Application
   
  public:
 
-  Application(libconfig::Config& config)
+  Application(config::CompoundConfig* config)
   {
-    try
-    {
+    //try
+    //{
+      auto rootNode = config->getRoot(); 
       // Architecture configuration.
-      libconfig::Setting& arch = config.lookup("arch");
+      auto arch = rootNode.lookup("arch");
       arch_specs_ = model::Engine::ParseSpecs(arch);
       engine_.Spec(arch_specs_);
       std::cout << "Architecture configuration complete." << std::endl;
-    }
+    //}
+    /*
     catch (const libconfig::SettingTypeException& e)
     {
       std::cerr << "ERROR: setting type exception at: " << e.getPath() << std::endl;
@@ -76,7 +79,8 @@ class Application
     {
       std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;
       exit(1);
-    }    
+    }
+    */
   }
 
   // This class does not support being copied

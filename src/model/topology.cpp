@@ -99,8 +99,8 @@ void Topology::Spec(const Topology::Specs& specs)
 
 // This function implements the "classic" hierarchical topology
 // with arithmetic units at level 0 and storage units at level 1+.
-Topology::Specs Topology::ParseSpecs(libconfig::Setting& storage,
-                                     libconfig::Setting& arithmetic)
+Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
+                                     config::CompoundConfigNode arithmetic)
 {
   Specs specs;
   
@@ -114,7 +114,7 @@ Topology::Specs Topology::ParseSpecs(libconfig::Setting& storage,
   int num_storage_levels = storage.getLength();
   for (int i = 0; i < num_storage_levels; i++)
   {
-    libconfig::Setting& level = storage[i];
+    libconfig::Setting& level = storage[i].getLNode();
     auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(level));
     specs.AddLevel(i, std::static_pointer_cast<LevelSpecs>(level_specs_p));
   }

@@ -28,6 +28,7 @@
 #pragma once
 
 #include "mapping/parser.hpp"
+#include "compound-config/compound-config.hpp"
 
 #include <fstream>
 
@@ -69,25 +70,27 @@ class Application
 
  public:
 
-  Application(libconfig::Config& config)
+  Application(config::CompoundConfig* config)
   {    
-    try
-    {
+    //try
+    //{
+      auto rootNode = config->getRoot();
       // Problem configuration.
-      libconfig::Setting& problem = config.lookup("problem");
+      auto problem = rootNode.lookup("problem");
       problem::ParseWorkload(problem, workload_);
       std::cout << "Problem configuration complete." << std::endl;
 
       // Architecture configuration.
-      libconfig::Setting& arch = config.lookup("arch");
+      auto arch = rootNode.lookup("arch");
       arch_specs_ = model::Engine::ParseSpecs(arch);
       std::cout << "Architecture configuration complete." << std::endl;
 
       // Mapping configuration: expressed as a mapspace or mapping.
-      libconfig::Setting& mapping = config.lookup("mapping");
-      mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
+      auto mapping = rootNode.lookup("mapping");
+      mapping_ = new Mapping(mapping::ParseAndConstruct(mapping.getLNode(), arch_specs_, workload_));
       std::cout << "Mapping construction complete." << std::endl;
-    }
+    //}
+    /*
     catch (const libconfig::SettingTypeException& e)
     {
       std::cerr << "ERROR: setting type exception at: " << e.getPath() << std::endl;
@@ -102,7 +105,8 @@ class Application
     {
       std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;
       exit(1);
-    }    
+    }
+    */
   }
 
   // This class does not support being copied

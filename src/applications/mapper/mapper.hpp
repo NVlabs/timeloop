@@ -102,12 +102,12 @@ class Application
       auto rootNode = config->getRoot();
       // Problem configuration.
       auto problem = rootNode.lookup("problem");
-      problem::ParseWorkload(problem.getLNode(), workload_);
+      problem::ParseWorkload(problem, workload_);
       std::cout << "Problem configuration complete." << std::endl;
 
       // Architecture configuration.
       auto arch = rootNode.lookup("arch");
-      arch_specs_ = model::Engine::ParseSpecs(arch.getLNode());
+      arch_specs_ = model::Engine::ParseSpecs(arch);
       std::cout << "Architecture configuration complete." << std::endl;
 
       // Mapper (this application) configuration.

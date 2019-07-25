@@ -43,17 +43,15 @@ int main(int argc, char* argv[])
   assert(argc == 2);
 
   char* config_file = argv[1];
+  auto cConfig = new config::CompoundConfig(config_file);
 
-  libconfig::Config config;
-  config.readFile(config_file);
-  
   for (auto& line: banner)
   {
     std::cout << line << std::endl;
   }
   std::cout << std::endl;
   
-  Application application(config);
+  Application application(cConfig);
   
   application.Run();
 

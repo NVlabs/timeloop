@@ -45,7 +45,7 @@ ArithmeticUnits::ArithmeticUnits(const Specs& specs) :
   area_ = pat::MultiplierArea(specs_.WordBits().Get(), specs_.WordBits().Get());
 }
 
-ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(libconfig::Setting& setting)
+ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting)
 {
   Specs specs;
 

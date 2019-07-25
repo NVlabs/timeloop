@@ -29,9 +29,9 @@
 
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
-#include <libconfig.h++>
 
 #include "loop-analysis/point-set.hpp"
+#include "compound-config/compound-config.hpp"
 
 #include "problem-shape.hpp"
 
@@ -122,6 +122,6 @@ class Workload
   }
 };
 
-void ParseWorkload(libconfig::Setting& config, Workload& workload);
+void ParseWorkload(config::CompoundConfigNode config, Workload& workload);
 
 } // namespace problem
