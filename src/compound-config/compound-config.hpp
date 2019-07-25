@@ -93,15 +93,18 @@ class CompoundConfigNode
   inline bool exists(const std::string &name) const
   { return(exists(name.c_str())); }
 
-  bool lookupArrayValue(const char*name, std::vector<std::string> &vectorValue) const;
+  bool lookupArrayValue(const char* name, std::vector<std::string> &vectorValue) const;
 
   inline bool lookupArrayValue(const std::string &name, std::vector<std::string> &vectorValue) const
   { return(lookupArrayValue(name.c_str(), vectorValue));}
 
   bool isList() const;
+  bool isArray() const;
   int getLength() const;
 
   CompoundConfigNode operator [](int idx) const;
+
+  bool getArrayValue(std::vector<std::string> &vectorValue);
 
 };
 
@@ -115,7 +118,9 @@ class CompoundConfig
 
  public:
   CompoundConfig(){assert(false);}
-  CompoundConfig(char* inputFile);
+  CompoundConfig(const char* inputFile);
+  CompoundConfig(char* inputFile) : CompoundConfig((const char*) inputFile) {}
+
   ~CompoundConfig(){}
 
   libconfig::Config& getLConfig();

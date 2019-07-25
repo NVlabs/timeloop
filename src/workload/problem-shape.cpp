@@ -36,7 +36,7 @@ namespace problem
 //              Problem Shape               //
 // ======================================== //
 
-void Shape::Parse(libconfig::Setting& shape)
+void Shape::Parse(config::CompoundConfigNode shape)
 {
   // Not sure what to do with the name, since we only ever
   // parse one shape per invocation.
@@ -44,12 +44,14 @@ void Shape::Parse(libconfig::Setting& shape)
   shape.lookupValue("name", name);
 
   // Dimensions.
-  libconfig::Setting& dimensions = shape.lookup("dimensions");
+  config::CompoundConfigNode dimensions = shape.lookup("dimensions");
   assert(dimensions.isArray());
 
   NumDimensions = 0;
-  for (const std::string& dim_name : dimensions)
-  {
+  std::vector<std::string> dim_names;
+  shape.lookupArrayValue("dimensions", dim_names);
+  for (const std::string& dim_name : dim_names )
+  { 
     if (dim_name.length() != 1)
     {
       std::cerr << "ERROR: unfortunately, dimension names can only be 1 character in length. To remove this limitation, improve the constraint-parsing code in ParseUserPermutations() and ParseUserFactors() in mapping/parser.cpp and mapspaces/uber.hpp." << std::endl;
@@ -64,11 +66,11 @@ void Shape::Parse(libconfig::Setting& shape)
   NumCoefficients = 0;
   if (shape.exists("coefficients"))
   {
-    libconfig::Setting& coefficients = shape.lookup("coefficients");
+    config::CompoundConfigNode coefficients = shape.lookup("coefficients");
     assert(coefficients.isList());
-
-    for (auto& coefficient : coefficients)
+    for (int c = 0; c < coefficients.getLength(); c++)
     {
+      auto coefficient = coefficients[c];
       std::string name;
       assert(coefficient.lookupValue("name", name));
            
@@ -83,12 +85,13 @@ void Shape::Parse(libconfig::Setting& shape)
   }
   
   // Data Spaces.
-  libconfig::Setting& data_spaces = shape.lookup("data-spaces");
+  config::CompoundConfigNode data_spaces = shape.lookup("data-spaces");
   assert(data_spaces.isList());
 
   NumDataSpaces = 0;
-  for (auto& data_space : data_spaces)
+  for (int d = 0; d < data_spaces.getLength(); d++)
   {
+    auto data_space = data_spaces[d];
     std::string name;
     assert(data_space.lookupValue("name", name));
 
@@ -100,11 +103,13 @@ void Shape::Parse(libconfig::Setting& shape)
     IsReadWriteDataSpace[NumDataSpaces] = read_write;
 
     Projection projection;
-    libconfig::Setting& projection_cfg = data_space.lookup("projection");
+    config::CompoundConfigNode projection_cfg = data_space.lookup("projection");
     if (projection_cfg.isArray())
     {
       DataSpaceOrder[NumDataSpaces] = 0;
-      for (const std::string& dim_name : projection_cfg)
+      std::vector<std::string> dim_names;
+      data_space.lookupArrayValue("projection", dim_names);
+      for (const std::string& dim_name : dim_names)
       {
         auto& dim_id = DimensionNameToID.at(dim_name);
         projection.push_back({{ NumCoefficients, dim_id }});        
@@ -114,28 +119,30 @@ void Shape::Parse(libconfig::Setting& shape)
     else if (projection_cfg.isList())
     {
       DataSpaceOrder[NumDataSpaces] = 0;
-      for (auto& dimension : projection_cfg)
+      for (int k = 0; k < projection_cfg.getLength(); k++)
       {
         // Process one data-space dimension.
         ProjectionExpression expression;
-
+        auto dimension = projection_cfg[k];
         // Each expression is a list of terms. Each term can be
         // a libconfig array or list.
-        for (auto& term : dimension)
+        for (int t = 0; t < dimension.getLength(); t++)
         {
+          auto term = dimension[t];
           assert(term.isArray());
-          
+          std::vector<std::string> nameAndCoeff;
+          term.getArrayValue(nameAndCoeff);
           // Each term may have exactly 1 or 2 items.
           if (term.getLength() == 1)
           {
-            const std::string& dim_name = term[0];
+            const std::string& dim_name = nameAndCoeff[0];
             auto& dim_id = DimensionNameToID.at(dim_name);
             expression.push_back({ NumCoefficients, dim_id });
           }
           else if (term.getLength() == 2)
           {
-            const std::string& dim_name = term[0];
-            const std::string& coeff_name = term[1];
+            const std::string& dim_name = nameAndCoeff[0];
+            const std::string& coeff_name = nameAndCoeff[1];
             auto& dim_id = DimensionNameToID.at(dim_name);
             auto& coeff_id = CoefficientNameToID.at(coeff_name);
             expression.push_back({ coeff_id, dim_id });

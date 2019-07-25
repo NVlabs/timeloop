@@ -815,7 +815,7 @@ void DumpDensities_CPP(std::string filename)
 }
 
 // Libconfig Parsers.
-void ParseConfig(libconfig::Setting& config, Workload &workload)
+void ParseConfig(config::CompoundConfigNode config, Workload &workload)
 {
   Workload::Bounds bounds;
   std::string layer_name = "";
@@ -868,7 +868,7 @@ void ParseConfig(libconfig::Setting& config, Workload &workload)
   }
   else if (config.exists("densities"))
   {
-    libconfig::Setting &config_densities = config.lookup("densities");
+    config::CompoundConfigNode config_densities = config.lookup("densities");
     assert(config_densities.lookupValue("weights", densities[kDataSpaceWeight]));
     assert(config_densities.lookupValue("inputs", densities[kDataSpaceInput]));
     assert(config_densities.lookupValue("outputs", densities[kDataSpaceOutput]));

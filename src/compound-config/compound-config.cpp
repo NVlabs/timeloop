@@ -150,6 +150,14 @@ bool CompoundConfigNode::isList() const {
   }
 }
 
+bool CompoundConfigNode::isArray() const {
+  if(LNode) return LNode->isArray();
+  else {
+    assert(false);
+    return false;
+  }
+}
+
 int CompoundConfigNode::getLength() const {
   if(LNode) return LNode->getLength();
   else {
@@ -159,16 +167,30 @@ int CompoundConfigNode::getLength() const {
 }
 
 CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
-  assert(isList());
+  assert(isList() || isArray());
   if(LNode) return CompoundConfigNode(&(*LNode)[idx], nullptr);
   else {
     assert(false);
     return CompoundConfigNode(nullptr, nullptr);
   }
 }
+
+bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
+  if (LNode) {
+    for (const std::string& m: *LNode)
+    {
+      vectorValue.push_back(m);
+    }
+    return true;
+  } else {
+    assert(false);
+    return false;
+  }
+}
+
 /* CompoundConfig */
 
-CompoundConfig::CompoundConfig(char* inputFile) {
+CompoundConfig::CompoundConfig(const char* inputFile) {
   //FIXME: parse the input to decide which format it is
   LConfig.readFile(inputFile);
   auto& lroot = LConfig.getRoot();

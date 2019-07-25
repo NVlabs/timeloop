@@ -29,10 +29,10 @@
 
 #include <string>
 #include <tuple>
-#include <libconfig.h++>
 
 #include "workload/problem-shape.hpp"
 #include "workload/workload.hpp"
+#include "compound-config/compound-config.hpp"
 
 namespace problem
 {
@@ -42,6 +42,6 @@ Workload::Densities GetLayerDensities(std::string layer_name);
 void ReadDensities(std::string filename);
 void DumpDensities(std::string filename);
 void DumpDensities_CPP(std::string filename);
-void ParseConfig(libconfig::Setting& problem, Workload& workload);
+void ParseConfig(config::CompoundConfigNode problem, Workload& workload);
 
 }

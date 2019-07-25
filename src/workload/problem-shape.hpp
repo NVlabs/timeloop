@@ -30,7 +30,8 @@
 #include <map>
 #include <vector>
 #include <list>
-#include <libconfig.h++>
+
+#include "compound-config/compound-config.hpp"
 
 namespace problem
 {
@@ -72,7 +73,7 @@ class Shape
   std::vector<Projection> Projections;
 
  public: 
-  void Parse(libconfig::Setting& config); 
+  void Parse(config::CompoundConfigNode config); 
 };
 
 } // namespace problem

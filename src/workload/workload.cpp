@@ -82,23 +82,20 @@ void ParseWorkload(config::CompoundConfigNode config, Workload& workload)
   if (!config.exists("shape"))
   {
     std::cerr << "WARNING: found neither a problem shape description nor a string corresponding to a to a pre-existing shape description. Assuming shape: cnn-layer." << std::endl;
-    libconfig::Config shape_config;
-    shape_config.readFile(ShapeFileName("cnn-layer").c_str());
-    libconfig::Setting& shape = shape_config.lookup("shape");
+    config::CompoundConfig shape_config(ShapeFileName("cnn-layer").c_str());
+    auto shape = shape_config.getRoot().lookup("shape");
     shape_.Parse(shape);    
   }
   else if (config.lookupValue("shape", shape_name))
   {    
-    libconfig::Config shape_config;
-    shape_config.readFile(ShapeFileName(shape_name).c_str());
-    libconfig::Setting& shape = shape_config.lookup("shape");
+    config::CompoundConfig shape_config(ShapeFileName(shape_name).c_str());
+    auto shape = shape_config.getRoot().lookup("shape");
     shape_.Parse(shape);    
   }
   else
   {
-    //libconfig::Setting& shape = config.lookup("shape");
     auto shape = config.lookup("shape");
-    shape_.Parse(shape.getLNode());
+    shape_.Parse(shape);
   }
   
   // Loop bounds for each problem dimension.
@@ -124,7 +121,6 @@ void ParseWorkload(config::CompoundConfigNode config, Workload& workload)
   }
   else if (config.exists("densities"))
   {
-    //libconfig::Setting &config_densities = config.lookup("densities");
     auto config_densities = config.lookup("densities");
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
       assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), densities[i]));
