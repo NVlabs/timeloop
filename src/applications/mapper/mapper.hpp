@@ -170,9 +170,8 @@ class Application
       std::cout << "Mapper configuration complete." << std::endl;
 
       // MapSpace configuration.
-      //libconfig::Setting& mapspace = config.lookup("mapspace");
       auto mapspace = rootNode.lookup("mapspace");
-      mapspace_ = mapspace::ParseAndConstruct(mapspace.getLNode(), arch_specs_, workload_);
+      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
       split_mapspaces_ = mapspace_->Split(num_threads_);
       std::cout << "Mapspace construction complete." << std::endl;
 
@@ -180,7 +179,7 @@ class Application
       auto search = rootNode.lookup("mapper");
       for (unsigned t = 0; t < num_threads_; t++)
       {
-        search_.push_back(search::ParseAndConstruct(search.getLNode(), split_mapspaces_.at(t), t));
+        search_.push_back(search::ParseAndConstruct(search, split_mapspaces_.at(t), t));
       }
       std::cout << "Search configuration complete." << std::endl;
     //}

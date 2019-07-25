@@ -114,8 +114,7 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
   int num_storage_levels = storage.getLength();
   for (int i = 0; i < num_storage_levels; i++)
   {
-    libconfig::Setting& level = storage[i].getLNode();
-    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(level));
+    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i]));
     specs.AddLevel(i, std::static_pointer_cast<LevelSpecs>(level_specs_p));
   }
 

@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include <libconfig.h++>
 
 #include "search/search.hpp"
 #include "search/random.hpp"
@@ -35,6 +34,7 @@
 #include "search/linear-pruned.hpp"
 #include "search/hybrid.hpp"
 #include "search/random-pruned.hpp"
+#include "compound-config/compound-config.hpp"
 
 namespace search
 {
@@ -43,7 +43,7 @@ namespace search
 //             Parser and Factory             //
 //--------------------------------------------//
 
-SearchAlgorithm* ParseAndConstruct(libconfig::Setting& config,
+SearchAlgorithm* ParseAndConstruct(config::CompoundConfigNode config,
                                    mapspace::MapSpace* mapspace,
                                    unsigned id)
 {

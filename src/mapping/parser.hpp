@@ -27,14 +27,13 @@
 
 #pragma once
 
-#include <libconfig.h++>
-
 #include "mapping.hpp"
 #include "model/engine.hpp"
+#include "compound-config/compound-config.hpp"
 
 namespace mapping
 {
 
-Mapping ParseAndConstruct(libconfig::Setting& config, model::Engine::Specs& arch_specs, problem::Workload workload);
+Mapping ParseAndConstruct(config::CompoundConfigNode config, model::Engine::Specs& arch_specs, problem::Workload workload);
 
 } // namespace mapping

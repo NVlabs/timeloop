@@ -87,7 +87,7 @@ class Application
 
       // Mapping configuration: expressed as a mapspace or mapping.
       auto mapping = rootNode.lookup("mapping");
-      mapping_ = new Mapping(mapping::ParseAndConstruct(mapping.getLNode(), arch_specs_, workload_));
+      mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
       std::cout << "Mapping construction complete." << std::endl;
     //}
     /*

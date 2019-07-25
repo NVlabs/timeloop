@@ -87,7 +87,7 @@ class RandomSearch : public SearchAlgorithm
   }
 
  public:
-  RandomSearch(libconfig::Setting& config, mapspace::MapSpace* mapspace) :
+  RandomSearch(config::CompoundConfigNode config, mapspace::MapSpace* mapspace) :
       SearchAlgorithm(),
       mapspace_(mapspace),
       state_(State::Ready),

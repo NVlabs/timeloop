@@ -65,7 +65,7 @@ class LinearPrunedSearch : public SearchAlgorithm
   std::ofstream best_cost_file_;
 
  public:
-  LinearPrunedSearch(libconfig::Setting& config, mapspace::MapSpace* mapspace, unsigned id) :
+  LinearPrunedSearch(config::CompoundConfigNode config, mapspace::MapSpace* mapspace, unsigned id) :
       SearchAlgorithm(),
       mapspace_(mapspace),
       id_(id),

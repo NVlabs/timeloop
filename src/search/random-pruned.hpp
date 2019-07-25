@@ -73,7 +73,7 @@ class RandomPrunedSearch : public SearchAlgorithm
   std::ofstream best_cost_file_;
 
  public:
-  RandomPrunedSearch(libconfig::Setting& config, mapspace::MapSpace* mapspace, unsigned id) :
+  RandomPrunedSearch(config::CompoundConfigNode config, mapspace::MapSpace* mapspace, unsigned id) :
       SearchAlgorithm(),
       mapspace_(mapspace),
       id_(id),

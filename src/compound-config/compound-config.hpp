@@ -99,7 +99,7 @@ class CompoundConfigNode
   { return(lookupArrayValue(name.c_str(), vectorValue));}
 
   bool isList() const;
-  uint64_t getLength() const;
+  int getLength() const;
 
   CompoundConfigNode operator [](int idx) const;
 

@@ -28,13 +28,13 @@
 #pragma once
 
 #include <iostream>
-#include <libconfig.h++>
 #include <boost/serialization/export.hpp>
 
 #include "model/model-base.hpp"
 #include "model/level.hpp"
 #include "loop-analysis/tiling.hpp"
 #include "mapping/nest.hpp"
+#include "compound-config/compound-config.hpp"
 
 namespace model
 {
@@ -594,8 +594,8 @@ class BufferLevel : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(libconfig::Setting& setting);
-  static void ParseBufferSpecs(libconfig::Setting& buffer, problem::Shape::DataSpaceID pv, Specs& specs);
+  static Specs ParseSpecs(config::CompoundConfigNode setting);
+  static void ParseBufferSpecs(config::CompoundConfigNode buffer, problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
   
   bool DistributedMulticastSupported() override;

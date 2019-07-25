@@ -28,7 +28,6 @@
 #pragma once
 
 #include <iterator>
-#include <libconfig.h++>
 #include <mutex>
 
 #include "util/numeric.hpp"
@@ -36,6 +35,7 @@
 #include "workload/problem-shape.hpp"
 #include "mapspaces/mapspace-base.hpp"
 #include "mapspaces/subspaces.hpp"
+#include "compound-config/compound-config.hpp"
 
 namespace mapspace
 {
@@ -88,7 +88,7 @@ class Uber : public MapSpace
   //          customized pre-mapped tiles.
   //
   Uber(
-    libconfig::Setting& config,
+    config::CompoundConfigNode config,
     model::Engine::Specs arch_specs,
     const problem::Workload& workload,
     bool skip_init = false) :
@@ -113,7 +113,7 @@ class Uber : public MapSpace
   //
   // Init() - called by derived classes or by constructor.
   //
-  void Init(libconfig::Setting& config)
+  void Init(config::CompoundConfigNode config)
   {
     // Setup Map space.
     user_factors_.clear();
@@ -1303,7 +1303,7 @@ class Uber : public MapSpace
   // Parse user-provided constraints.
   //
   void ParseUserConstraints(
-    libconfig::Setting& config,
+    config::CompoundConfigNode config,
     std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
     std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
     std::map<unsigned, std::uint32_t>& user_spatial_splits,
@@ -1318,7 +1318,7 @@ class Uber : public MapSpace
 
     // Find the name of the constraint.
     name = std::string("constraints_") + name;
-    libconfig::Setting& constraints = config.lookup(name);
+    auto constraints = config.lookup(name);
     assert(constraints.isList());
 
     // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
@@ -1331,8 +1331,10 @@ class Uber : public MapSpace
     }
 
     // Iterate over all the constraints.
-    for (auto& constraint: constraints)
+    int len = constraints.getLength();
+    for (int i = 0; i < len; i++)
     {
+      auto constraint = constraints[i];
       // Find out if this is a temporal constraint or a spatial constraint.
       std::string type;
       assert(constraint.lookupValue("type", type));
@@ -1382,7 +1384,7 @@ class Uber : public MapSpace
   //
   // FindTargetTilingLevel()
   //
-  unsigned FindTargetTilingLevel(libconfig::Setting& constraint, std::string type)
+  unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type)
   {
     auto num_storage_levels = arch_specs_.topology.NumStorageLevels();
     
@@ -1467,7 +1469,7 @@ class Uber : public MapSpace
   //
   // Parse user factors.
   //
-  std::map<problem::Shape::DimensionID, int> ParseUserFactors(libconfig::Setting& constraint)
+  std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConfigNode constraint)
   {
     std::map<problem::Shape::DimensionID, int> retval;
     
@@ -1521,7 +1523,7 @@ class Uber : public MapSpace
   //
   // Parse user permutations.
   //
-  std::vector<problem::Shape::DimensionID> ParseUserPermutations(libconfig::Setting& constraint)
+  std::vector<problem::Shape::DimensionID> ParseUserPermutations(config::CompoundConfigNode constraint)
   {
     std::vector<problem::Shape::DimensionID> retval;
     
@@ -1553,17 +1555,16 @@ class Uber : public MapSpace
   //
   // Parse user datatype bypass settings.
   //
-  void ParseUserDatatypeBypassSettings(libconfig::Setting& constraint,
+  void ParseUserDatatypeBypassSettings(config::CompoundConfigNode constraint,
                                        unsigned level,
                                        problem::PerDataSpace<std::string>& user_bypass_strings)
   {
     // Datatypes to "keep" at this level.
     if (constraint.exists("keep"))
     {
-      auto& keep = constraint.lookup("keep");
-      assert(keep.isArray());
-      
-      for (const std::string& datatype_string: keep)
+      std::vector<std::string> datatype_strings;
+      constraint.lookupArrayValue("keep", datatype_strings);
+      for (const std::string& datatype_string: datatype_strings)
       {
         problem::Shape::DataSpaceID datatype;
         try
@@ -1583,10 +1584,9 @@ class Uber : public MapSpace
     // Datatypes to "bypass" at this level.
     if (constraint.exists("bypass"))
     {
-      auto& bypass = constraint.lookup("bypass");
-      assert(bypass.isArray());
-      
-      for (const std::string& datatype_string: bypass)
+      std::vector<std::string> datatype_strings;
+      constraint.lookupArrayValue("bypass", datatype_strings);
+      for (const std::string& datatype_string: datatype_strings)
       {
         problem::Shape::DataSpaceID datatype;
         try

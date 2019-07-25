@@ -53,7 +53,7 @@ BufferLevel::BufferLevel(const Specs& specs) :
   is_evaluated_ = false;
 }
 
-void BufferLevel::ParseBufferSpecs(libconfig::Setting& buffer, problem::Shape::DataSpaceID pv, Specs& specs)
+void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::Shape::DataSpaceID pv, Specs& specs)
 {
   // Word Bits.
   std::uint32_t word_bits;
@@ -328,7 +328,7 @@ void BufferLevel::ParseBufferSpecs(libconfig::Setting& buffer, problem::Shape::D
 // affect the internal specs_ data structure, which is set by
 // the dynamic Spec() call later.
 // FIXME: re-factor level-specific code to Buffer class.
-BufferLevel::Specs BufferLevel::ParseSpecs(libconfig::Setting& level)
+BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level)
 {
   // Legacy code treats partitioned and shared in completely different code paths.
   // Much of that code still exists across this buffer implementation. However,
@@ -355,16 +355,17 @@ BufferLevel::Specs BufferLevel::ParseSpecs(libconfig::Setting& level)
   {
     assert(level.lookupValue("name", specs.level_name));
 
-    auto& buffers = level.lookup("buffers");
+    auto buffers = level.lookup("buffers");
     assert(buffers.isList());
     assert(buffers.getLength() == int(problem::GetShape()->NumDataSpaces));
 
     // Ugly, FIXME: buffer specs are serially assigned to pvis.
     unsigned pvi = 0;
-    for (auto& buffer: buffers)
+    int len = buffers.getLength();
+    for (int i = 0; i < len; i ++)
     {
       // Sophia
-      ParseBufferSpecs(buffer, problem::Shape::DataSpaceID(pvi), specs);
+      ParseBufferSpecs(buffers[i], problem::Shape::DataSpaceID(pvi), specs);
       pvi++;
     }
   }

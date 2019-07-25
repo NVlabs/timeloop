@@ -27,10 +27,10 @@
 
 #pragma once
 
-#include <libconfig.h++>
 
 #include "mapspaces/uber.hpp"
 #include "workload/problem-shape.hpp"
+#include "compound-config/compound-config.hpp"
 
 namespace mapspace
 {
@@ -39,7 +39,7 @@ namespace mapspace
 //       Parser and Mapspace Factory          //
 //--------------------------------------------//
 
-MapSpace* ParseAndConstruct(libconfig::Setting& config,
+MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
                             model::Engine::Specs& arch_specs,
                             const problem::Workload& workload)
 {

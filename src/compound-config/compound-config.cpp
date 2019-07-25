@@ -150,7 +150,7 @@ bool CompoundConfigNode::isList() const {
   }
 }
 
-uint64_t CompoundConfigNode::getLength() const {
+int CompoundConfigNode::getLength() const {
   if(LNode) return LNode->getLength();
   else {
     assert(false);

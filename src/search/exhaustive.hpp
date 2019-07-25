@@ -59,7 +59,7 @@ class ExhaustiveSearch : public SearchAlgorithm
   std::uint64_t eval_fail_count_;
 
  public:
-  ExhaustiveSearch(libconfig::Setting& config, mapspace::MapSpace* mapspace) :
+  ExhaustiveSearch(config::CompoundConfigNode config, mapspace::MapSpace* mapspace) :
       SearchAlgorithm(),
       mapspace_(mapspace),
       state_(State::Ready),

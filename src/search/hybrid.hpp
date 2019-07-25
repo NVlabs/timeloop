@@ -70,7 +70,7 @@ class HybridSearch : public SearchAlgorithm
   std::ofstream best_cost_file_;
 
  public:
-  HybridSearch(libconfig::Setting& config, mapspace::MapSpace* mapspace, unsigned id) :
+  HybridSearch(config::CompoundConfigNode config, mapspace::MapSpace* mapspace, unsigned id) :
       SearchAlgorithm(),
       mapspace_(mapspace),
       id_(id),

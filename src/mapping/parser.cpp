@@ -41,16 +41,16 @@ problem::Workload workload_;
 //
 // Forward declarations.
 //
-unsigned FindTargetTilingLevel(libconfig::Setting& constraint, std::string type);
-std::map<problem::Shape::DimensionID, int> ParseUserFactors(libconfig::Setting& constraint);
-std::vector<problem::Shape::DimensionID> ParseUserPermutations(libconfig::Setting& constraint);
-void ParseUserDatatypeBypassSettings(libconfig::Setting& constraint,
+unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type);
+std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConfigNode constraint);
+std::vector<problem::Shape::DimensionID> ParseUserPermutations(config::CompoundConfigNode constraint);
+void ParseUserDatatypeBypassSettings(config::CompoundConfigNode constraint,
                                      unsigned level,
                                      problem::PerDataSpace<std::string>& user_bypass_strings);
 //
 // Parse mapping in libconfig format and generate data structure.
 //
-Mapping ParseAndConstruct(libconfig::Setting& config,
+Mapping ParseAndConstruct(config::CompoundConfigNode config,
                           model::Engine::Specs& arch_specs,
                           problem::Workload workload)
 {
@@ -75,8 +75,10 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
   assert(config.isList());
   
   // Iterate over all the directives.
-  for (auto& directive: config)
+  int len = config.getLength();
+  for (int i = 0; i < len; i ++)
   {
+    auto directive = config[i];
     // Find out if this is a temporal directive or a spatial directive.
     std::string type;
     assert(directive.lookupValue("type", type));
@@ -219,7 +221,7 @@ Mapping ParseAndConstruct(libconfig::Setting& config,
 //
 // FindTargetTilingLevel()
 //
-unsigned FindTargetTilingLevel(libconfig::Setting& directive, std::string type)
+unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string type)
 {
   auto num_storage_levels = arch_props_.StorageLevels();
     
@@ -274,7 +276,7 @@ unsigned FindTargetTilingLevel(libconfig::Setting& directive, std::string type)
 //
 // Parse user factors.
 //
-std::map<problem::Shape::DimensionID, int> ParseUserFactors(libconfig::Setting& directive)
+std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConfigNode directive)
 {
   std::map<problem::Shape::DimensionID, int> retval;
     
@@ -318,7 +320,7 @@ std::map<problem::Shape::DimensionID, int> ParseUserFactors(libconfig::Setting& 
 //
 // Parse user permutations.
 //
-std::vector<problem::Shape::DimensionID> ParseUserPermutations(libconfig::Setting& directive)
+std::vector<problem::Shape::DimensionID> ParseUserPermutations(config::CompoundConfigNode directive)
 {
   std::vector<problem::Shape::DimensionID> retval;
     
@@ -340,17 +342,16 @@ std::vector<problem::Shape::DimensionID> ParseUserPermutations(libconfig::Settin
 //
 // Parse user datatype bypass settings.
 //
-void ParseUserDatatypeBypassSettings(libconfig::Setting& directive,
+void ParseUserDatatypeBypassSettings(config::CompoundConfigNode directive,
                                      unsigned level,
                                      problem::PerDataSpace<std::string>& user_bypass_strings)
 {
   // Datatypes to "keep" at this level.
   if (directive.exists("keep"))
   {
-    auto& keep = directive.lookup("keep");
-    assert(keep.isArray());
-      
-    for (const std::string& datatype_string: keep)
+    std::vector<std::string> datatype_strings;
+    directive.lookupArrayValue("keep", datatype_strings);
+    for (const std::string& datatype_string: datatype_strings)
     {
       auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
       user_bypass_strings.at(datatype).at(level) = '1';
@@ -360,10 +361,9 @@ void ParseUserDatatypeBypassSettings(libconfig::Setting& directive,
   // Datatypes to "bypass" at this level.
   if (directive.exists("bypass"))
   {
-    auto& bypass = directive.lookup("bypass");
-    assert(bypass.isArray());
-      
-    for (const std::string& datatype_string: bypass)
+    std::vector<std::string> datatype_strings;
+    directive.lookupArrayValue("bypass", datatype_strings);
+    for (const std::string& datatype_string: datatype_strings)
     {
       auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
       user_bypass_strings.at(datatype).at(level) = '0';
