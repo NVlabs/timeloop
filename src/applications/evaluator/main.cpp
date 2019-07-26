@@ -75,19 +75,6 @@ int main(int argc, char* argv[])
   
   char* config_file = argv[1];
   auto cConfig = new config::CompoundConfig(config_file);
-  libconfig::Config& lconfig = cConfig->getLConfig();
-
-  // Should we override the layer to be evaluated?
-  if (argc == 3)
-  {
-    libconfig::Setting& root = lconfig.getRoot();
-    if (!root.exists("problem"))
-      root.add("problem", libconfig::Setting::TypeGroup);
-    libconfig::Setting& problem = root["problem"];
-    if (!problem.exists("layer"))
-      problem.add("layer", libconfig::Setting::TypeString);
-    problem["layer"] = argv[2];
-  }
 
   for (auto& line: banner)
   {
