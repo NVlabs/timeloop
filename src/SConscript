@@ -33,7 +33,7 @@ env.Append(CPPDEFINES = [('BUILD_BASE_DIR', '\\"' + env["BUILD_BASE_DIR"] + '\\"
 env.Append(CPPPATH = ['src/include'])
 env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++14', '-pthread'])
 env.Append(LINKFLAGS = ['-std=c++11', '-pthread', '-static-libgcc', '-static-libstdc++'])
-env.Append(LIBS = ['config++'])
+env.Append(LIBS = ['config++', 'yaml-cpp'])
 env.Append(LIBS = ['boost_iostreams', 'boost_serialization'])
 
 if os.environ.get('BOOSTDIR'):

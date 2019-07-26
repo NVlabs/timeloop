@@ -37,14 +37,14 @@ class CompoundConfigNode
 {
  private:
   libconfig::Setting* LNode;
-  YAML::Node* YNode;
+  YAML::Node YNode;
 
  public:
   CompoundConfigNode(){}
-  CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node* _ynode);
+  CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode);
 
   libconfig::Setting& getLNode() {return *LNode;}
-  YAML::Node* getYNode() {return YNode;}
+  YAML::Node getYNode() {return YNode;}
 
   CompoundConfigNode lookup(const char *path) const;
   inline CompoundConfigNode lookup(const std::string &path) const

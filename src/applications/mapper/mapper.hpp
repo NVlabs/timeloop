@@ -187,6 +187,8 @@ class Application
       auto& lconfig = config->getLConfig();
       lconfig.write(cfg_stream);
       fclose(cfg_stream);
+    } else {
+      cfg_string_ = nullptr;
     }
   }
 
@@ -793,6 +795,8 @@ class Application
     ar << BOOST_SERIALIZATION_NVP(best_mapping);
     const Application* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
+
+    if (!cfg_string_)  return; // empty because input was yml
 
     // Create an output cfg starting with the original cfg contents.
     libconfig::Config config;
