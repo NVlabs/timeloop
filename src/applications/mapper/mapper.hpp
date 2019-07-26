@@ -97,109 +97,89 @@ class Application
 
   Application(config::CompoundConfig* config)
   {
-    //try
-    //{
-      auto rootNode = config->getRoot();
-      // Problem configuration.
-      auto problem = rootNode.lookup("problem");
-      problem::ParseWorkload(problem, workload_);
-      std::cout << "Problem configuration complete." << std::endl;
+    auto rootNode = config->getRoot();
+    // Problem configuration.
+    auto problem = rootNode.lookup("problem");
+    problem::ParseWorkload(problem, workload_);
+    std::cout << "Problem configuration complete." << std::endl;
 
-      // Architecture configuration.
-      auto arch = rootNode.lookup("arch");
-      arch_specs_ = model::Engine::ParseSpecs(arch);
-      std::cout << "Architecture configuration complete." << std::endl;
+    // Architecture configuration.
+    auto arch = rootNode.lookup("arch");
+    arch_specs_ = model::Engine::ParseSpecs(arch);
+    std::cout << "Architecture configuration complete." << std::endl;
 
-      // Mapper (this application) configuration.
-      auto mapper = rootNode.lookup("mapper");
-      num_threads_ = std::thread::hardware_concurrency();
-      if (mapper.lookupValue("num-threads", num_threads_))
-      {
-        std::cout << "Using threads = " << num_threads_ << std::endl;
-      }
-      else
-      {
-        std::cout << "Using all available hardware threads = " << num_threads_ << std::endl;
-      }
-
-      std::string metric;
-      if (mapper.lookupValue("optimization-metric", metric))
-      {
-        optimization_metrics_ = { metric };
-      }
-      else if (mapper.exists("optimization-metrics"))
-      {
-        mapper.lookupArrayValue("optimization-metrics", optimization_metrics_);
-      }
-      else
-      {
-        optimization_metrics_ = { "edp" };
-      }
-
-      // Search size (divide between threads).
-      std::uint32_t search_size = 0;
-      mapper.lookupValue("search-size", search_size);
-      mapper.lookupValue("search_size", search_size); // backwards compatibility.
-      if (search_size > 0)
-        search_size = 1 + (search_size - 1) / num_threads_;
-      search_size_ = static_cast<uint128_t>(search_size);
-    
-      // Number of consecutive invalid mappings to trigger termination.
-      timeout_ = 1000;
-      mapper.lookupValue("timeout", timeout_);
-      mapper.lookupValue("heartbeat", timeout_); // backwards compatibility.
-
-      // Number of suboptimal valid mappings to trigger victory
-      // (do NOT divide between threads).
-      victory_condition_ = 500;
-      mapper.lookupValue("victory-condition", victory_condition_);
-
-      // Inter-thread sync interval.
-      std::uint32_t sync_interval = 0;
-      mapper.lookupValue("sync-interval", sync_interval);
-      sync_interval_ = static_cast<uint128_t>(sync_interval);
-    
-      // Misc.
-      log_stats_ = false;
-      mapper.lookupValue("log-stats", log_stats_);    
-      log_suboptimal_ = false;    
-      mapper.lookupValue("log-suboptimal", log_suboptimal_);
-      mapper.lookupValue("log-all", log_suboptimal_); // backwards compatibility.
-      diagnostics_on_ = false;
-      mapper.lookupValue("diagnostics", diagnostics_on_);
-      std::cout << "Mapper configuration complete." << std::endl;
-
-      // MapSpace configuration.
-      auto mapspace = rootNode.lookup("mapspace");
-      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
-      split_mapspaces_ = mapspace_->Split(num_threads_);
-      std::cout << "Mapspace construction complete." << std::endl;
-
-      // Search configuration.
-      auto search = rootNode.lookup("mapper");
-      for (unsigned t = 0; t < num_threads_; t++)
-      {
-        search_.push_back(search::ParseAndConstruct(search, split_mapspaces_.at(t), t));
-      }
-      std::cout << "Search configuration complete." << std::endl;
-    //}
-    /* TODO: Move this to the compound-config
-    catch (const libconfig::SettingTypeException& e)
+    // Mapper (this application) configuration.
+    auto mapper = rootNode.lookup("mapper");
+    num_threads_ = std::thread::hardware_concurrency();
+    if (mapper.lookupValue("num-threads", num_threads_))
     {
-      std::cerr << "ERROR: setting type exception at: " << e.getPath() << std::endl;
-      exit(1);
+      std::cout << "Using threads = " << num_threads_ << std::endl;
     }
-    catch (const libconfig::SettingNotFoundException& e)
+    else
     {
-      std::cerr << "ERROR: setting not found: " << e.getPath() << std::endl;
-      exit(1);
+      std::cout << "Using all available hardware threads = " << num_threads_ << std::endl;
     }
-    catch (const libconfig::SettingNameException& e)
+
+    std::string metric;
+    if (mapper.lookupValue("optimization-metric", metric))
     {
-      std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;
-      exit(1);
+      optimization_metrics_ = { metric };
     }
-    */
+    else if (mapper.exists("optimization-metrics"))
+    {
+      mapper.lookupArrayValue("optimization-metrics", optimization_metrics_);
+    }
+    else
+    {
+      optimization_metrics_ = { "edp" };
+    }
+
+    // Search size (divide between threads).
+    std::uint32_t search_size = 0;
+    mapper.lookupValue("search-size", search_size);
+    mapper.lookupValue("search_size", search_size); // backwards compatibility.
+    if (search_size > 0)
+      search_size = 1 + (search_size - 1) / num_threads_;
+    search_size_ = static_cast<uint128_t>(search_size);
+  
+    // Number of consecutive invalid mappings to trigger termination.
+    timeout_ = 1000;
+    mapper.lookupValue("timeout", timeout_);
+    mapper.lookupValue("heartbeat", timeout_); // backwards compatibility.
+
+    // Number of suboptimal valid mappings to trigger victory
+    // (do NOT divide between threads).
+    victory_condition_ = 500;
+    mapper.lookupValue("victory-condition", victory_condition_);
+
+    // Inter-thread sync interval.
+    std::uint32_t sync_interval = 0;
+    mapper.lookupValue("sync-interval", sync_interval);
+    sync_interval_ = static_cast<uint128_t>(sync_interval);
+  
+    // Misc.
+    log_stats_ = false;
+    mapper.lookupValue("log-stats", log_stats_);    
+    log_suboptimal_ = false;    
+    mapper.lookupValue("log-suboptimal", log_suboptimal_);
+    mapper.lookupValue("log-all", log_suboptimal_); // backwards compatibility.
+    diagnostics_on_ = false;
+    mapper.lookupValue("diagnostics", diagnostics_on_);
+    std::cout << "Mapper configuration complete." << std::endl;
+
+    // MapSpace configuration.
+    auto mapspace = rootNode.lookup("mapspace");
+    mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
+    split_mapspaces_ = mapspace_->Split(num_threads_);
+    std::cout << "Mapspace construction complete." << std::endl;
+
+    // Search configuration.
+    auto search = rootNode.lookup("mapper");
+    for (unsigned t = 0; t < num_threads_; t++)
+    {
+      search_.push_back(search::ParseAndConstruct(search, split_mapspaces_.at(t), t));
+    }
+    std::cout << "Search configuration complete." << std::endl;
     // Store the complete configuration in a string.
     if (config->hasLConfig()) {
       std::size_t len;

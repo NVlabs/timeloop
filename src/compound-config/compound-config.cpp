@@ -27,6 +27,29 @@
 
 #include "compound-config.hpp"
 
+#include <iostream>
+
+#define EXCEPTION_PROLOGUE                                                          \
+    try { 
+
+#define EXCEPTION_EPILOGUE                                                          \
+    }                                                                               \
+    catch (const libconfig::SettingTypeException& e)                                \
+    {                                                                               \
+      std::cerr << "ERROR: setting type exception at: " << e.getPath() << std::endl;\
+      exit(1);                                                                      \
+    }                                                                               \
+    catch (const libconfig::SettingNotFoundException& e)                            \
+    {                                                                               \
+      std::cerr << "ERROR: setting not found: " << e.getPath() << std::endl;        \
+      exit(1);                                                                      \
+    }                                                                               \
+    catch (const libconfig::SettingNameException& e)                                \
+    {                                                                               \
+      std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;\
+      exit(1);                                                                      \
+    }                                                                               
+
 namespace config
 {
 
@@ -38,97 +61,131 @@ CompoundConfigNode::CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node* _
 }
 
 CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) {
     libconfig::Setting& nextNode = LNode->lookup(path);
     return CompoundConfigNode(&nextNode, nullptr);
   } else {
     assert(false);
   }
+
+  EXCEPTION_EPILOGUE;
 }
 
 
 bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
+  EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else {
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::lookupValue(const char *name, int &value) const {
+  EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else {
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) return LNode->lookupValue(name, value);
   else {
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
+
 }
 
 bool CompoundConfigNode::lookupValue(const char *name, long long &value) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) return LNode->lookupValue(name, value);
   else {
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) return LNode->lookupValue(name, value);
   else {
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) return LNode->lookupValue(name, value);
   else {
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) return LNode->lookupValue(name, value);
   else {
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::lookupValue(const char *name, const char *&value) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) return LNode->lookupValue(name, value);
   else {
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) return LNode->lookupValue(name, value);
   else {
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::exists(const char *name) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) return LNode->exists(name);
   else {
     assert(false);
     return false;
   }
-
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::string> &vectorValue) const {
+  EXCEPTION_PROLOGUE;
+
   if (LNode) {
     assert(LNode->lookup(name).isArray());
     for (const std::string& m: LNode->lookup(name))
@@ -140,6 +197,7 @@ bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::str
     assert(false);
     return false;
   }
+  EXCEPTION_EPILOGUE;
 }
 
 bool CompoundConfigNode::isList() const {
@@ -177,6 +235,7 @@ CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
 
 bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
   if (LNode) {
+    assert(isArray());
     for (const std::string& m: *LNode)
     {
       vectorValue.push_back(m);

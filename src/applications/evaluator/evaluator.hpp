@@ -72,41 +72,21 @@ class Application
 
   Application(config::CompoundConfig* config)
   {    
-    //try
-    //{
-      auto rootNode = config->getRoot();
-      // Problem configuration.
-      auto problem = rootNode.lookup("problem");
-      problem::ParseWorkload(problem, workload_);
-      std::cout << "Problem configuration complete." << std::endl;
+    auto rootNode = config->getRoot();
+    // Problem configuration.
+    auto problem = rootNode.lookup("problem");
+    problem::ParseWorkload(problem, workload_);
+    std::cout << "Problem configuration complete." << std::endl;
 
-      // Architecture configuration.
-      auto arch = rootNode.lookup("arch");
-      arch_specs_ = model::Engine::ParseSpecs(arch);
-      std::cout << "Architecture configuration complete." << std::endl;
+    // Architecture configuration.
+    auto arch = rootNode.lookup("arch");
+    arch_specs_ = model::Engine::ParseSpecs(arch);
+    std::cout << "Architecture configuration complete." << std::endl;
 
-      // Mapping configuration: expressed as a mapspace or mapping.
-      auto mapping = rootNode.lookup("mapping");
-      mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
-      std::cout << "Mapping construction complete." << std::endl;
-    //}
-    /*
-    catch (const libconfig::SettingTypeException& e)
-    {
-      std::cerr << "ERROR: setting type exception at: " << e.getPath() << std::endl;
-      exit(1);
-    }
-    catch (const libconfig::SettingNotFoundException& e)
-    {
-      std::cerr << "ERROR: setting not found: " << e.getPath() << std::endl;
-      exit(1);
-    }
-    catch (const libconfig::SettingNameException& e)
-    {
-      std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;
-      exit(1);
-    }
-    */
+    // Mapping configuration: expressed as a mapspace or mapping.
+    auto mapping = rootNode.lookup("mapping");
+    mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
+    std::cout << "Mapping construction complete." << std::endl;
   }
 
   // This class does not support being copied
