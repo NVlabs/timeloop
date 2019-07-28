@@ -903,10 +903,18 @@ void BufferLevel::ComputeBufferEnergy()
 
     // Spread out the cost between the utilized instances in each cluster.
     // This is because all the later stat-processing is per-instance.
-    double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
-      double(stats_.utilized_clusters.at(pv));
-    stats_.energy[pv] = cluster_access_energy / cluster_utilization;
-    stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
+    if (stats_.utilized_instances.at(pv) > 0)
+    {
+      double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
+        double(stats_.utilized_clusters.at(pv));
+      stats_.energy[pv] = cluster_access_energy / cluster_utilization;
+      stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
+    }
+    else
+    {
+      stats_.energy[pv] = 0;
+      stats_.energy_per_access[pv] = 0;
+    }
   }
 }
 
