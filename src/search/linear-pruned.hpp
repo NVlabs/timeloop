@@ -81,8 +81,18 @@ class LinearPrunedSearch : public SearchAlgorithm
       iterator_[i] = 0;
     }
 
-    // Prune the mapspace for the first time.
-    mapspace_->InitPruned(0);
+    // Special case: if the index factorization space has size 0
+    // (can happen with residual mapspaces) then we init in terminated
+    // state.
+    if (mapspace_->Size(mapspace::Dimension::IndexFactorization) == 0)
+    {
+      state_ = State::Terminated;
+    }
+    else
+    {
+      // Prune the mapspace for the first time.
+      mapspace_->InitPruned(0);
+    }
 
 #ifdef DUMP_COSTS
     // Dump best cost for each index factorization.

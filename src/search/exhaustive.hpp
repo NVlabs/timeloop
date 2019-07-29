@@ -72,6 +72,14 @@ class ExhaustiveSearch : public SearchAlgorithm
     {
       iterator_[i] = 0;
     }
+
+    // Special case: if the index factorization space has size 0
+    // (can happen with residual mapspaces) then we init in terminated
+    // state.
+    if (mapspace_->Size(mapspace::Dimension::IndexFactorization) == 0)
+    {
+      state_ = State::Terminated;
+    }
   }
 
   // Order:

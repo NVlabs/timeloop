@@ -318,10 +318,18 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
   }
 
   // Allow user to override the access energy. FIXME: clean up this code.
-  buffer.lookupValue("vector-access-energy", tmp_access_energy);
+  // Ugh. libconfig needs us to look for both int and float values.
+  std::uint32_t tmp_access_energy_int = 0;
+  buffer.lookupValue("vector-access-energy", tmp_access_energy_int);
+  if (tmp_access_energy_int > 0)
+    tmp_access_energy = static_cast<double>(tmp_access_energy_int);
+  else
+    buffer.lookupValue("vector-access-energy", tmp_access_energy);
 
   specs.VectorAccessEnergy(pv) = tmp_access_energy;
   specs.StorageArea(pv) = tmp_storage_area; //FIXME: check with Angshu
+
+  std::cout << "BUFFER " << specs.Name(pv) << " vector access energy = " << specs.VectorAccessEnergy(pv) << std::endl;
 }
 
 // The hierarchical ParseSpecs functions are static and do not
@@ -896,10 +904,18 @@ void BufferLevel::ComputeBufferEnergy()
 
     // Spread out the cost between the utilized instances in each cluster.
     // This is because all the later stat-processing is per-instance.
-    double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
-      double(stats_.utilized_clusters.at(pv));
-    stats_.energy[pv] = cluster_access_energy / cluster_utilization;
-    stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
+    if (stats_.utilized_instances.at(pv) > 0)
+    {
+      double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
+        double(stats_.utilized_clusters.at(pv));
+      stats_.energy[pv] = cluster_access_energy / cluster_utilization;
+      stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
+    }
+    else
+    {
+      stats_.energy[pv] = 0;
+      stats_.energy_per_access[pv] = 0;
+    }
   }
 }
 
