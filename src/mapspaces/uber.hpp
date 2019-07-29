@@ -546,10 +546,12 @@ class Uber : public MapSpace
   {
     assert(!IsSplit());
 
-    // The last split-ID may overflow because the search algorithm may not know
-    // that it drew the short straw.
+    // Each split knows its private IF size and should never generate an out-of-range ID.
     if (index_factorization_id >= size_[int(mapspace::Dimension::IndexFactorization)])
     {
+      std::cerr << "if size = " << size_[int(mapspace::Dimension::IndexFactorization)] << std::endl;
+      std::cerr << "if id = " << index_factorization_id << std::endl;
+      std::cerr << "split id = " << split_id_ << std::endl;
       assert(false);
       return;
     }
