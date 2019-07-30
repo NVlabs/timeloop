@@ -83,7 +83,9 @@ class IndexFactorizationSpace
     std::cout << "Initializing Index Factorization subspace." << std::endl;
     for (int dim = 0; dim < int(problem::GetShape()->NumDimensions); dim++)
     {
-      std::cout << "  Factorization options along problem dimension " << problem::Shape::DimensionID(dim) << " = " << counter_base[dim] << std::endl;
+      std::cout << "  Factorization options along problem dimension "
+                << problem::GetShape()->DimensionIDToName.at(dim) << " = "
+                << counter_base[dim] << std::endl;
     }
   }
 

@@ -1533,8 +1533,8 @@ class Uber : public MapSpace
         }
         else if (end > workload_.GetBound(dimension))
         {
-          std::cerr << "WARNING: Constraint " << dimension << "=" << end
-                    << " exceeds problem dimension " << dimension << "="
+          std::cerr << "WARNING: Constraint " << dimension_name << "=" << end
+                    << " exceeds problem dimension " << dimension_name << "="
                     << workload_.GetBound(dimension) << ". Setting constraint "
                     << dimension << "=" << workload_.GetBound(dimension) << std::endl;
           end = workload_.GetBound(dimension);
