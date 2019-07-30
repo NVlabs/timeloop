@@ -90,6 +90,7 @@ class Factors
     }
   }
 
+  // Return a vector of all order-way cofactor sets of n.
   std::vector<std::vector<unsigned long>> MultiplicativeSplitRecursive_(
       unsigned long n, int order)
   {
@@ -204,18 +205,55 @@ class Factors
     }
   }
 
-  std::vector<unsigned long>& operator[](int index) {
+  void PruneMax(std::map<unsigned, unsigned long>& max)
+  {
+    // Prune the vector of cofactor sets by removing those sets that have factors
+    // outside user-specified min/max range. We should really have done this during
+    // MultiplicativeSplitRecursive. However, the "given" map complicates things
+    // because given factors may be scattered, and we'll need a map table to
+    // find the original rank from the "compressed" rank seen by
+    // MultiplicativeSplitRecursive. Doing it now is slower but cleaner and less
+    // bug-prone.
+
+    auto cofactors_it = cofactors_.begin();
+    while (cofactors_it != cofactors_.end())
+    {
+      bool illegal = false;
+      for (auto& max_factor : max)
+      {
+        auto index = max_factor.first;
+        auto max = max_factor.second;
+        assert(index <= cofactors_it->size());
+        auto value = cofactors_it->at(index);
+        if (value > max)
+        {
+          illegal = true;
+          break;
+        }
+      }
+      
+      if (illegal)
+        cofactors_it = cofactors_.erase(cofactors_it);
+      else
+        cofactors_it++;
+    }
+  }
+
+  std::vector<unsigned long>& operator[](int index)
+  {
     return cofactors_[index];
   }
 
   std::size_t size() { return cofactors_.size(); }
 
-  void Print() {
+  void Print()
+  {
     PrintAllFactors();
     PrintCoFactors();
   }
 
-  void PrintAllFactors() {
+  void PrintAllFactors()
+  {
     std::cout << "All factors of " << n_ << ": ";
     bool first = true;
     for (auto f = all_factors_.begin(); f != all_factors_.end(); f++) {

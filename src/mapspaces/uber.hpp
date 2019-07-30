@@ -29,6 +29,7 @@
 
 #include <iterator>
 #include <mutex>
+#include <regex>
 
 #include "util/numeric.hpp"
 #include "util/misc.hpp"
@@ -60,6 +61,7 @@ class Uber : public MapSpace
   
   // Parsed metadata needed to construct subspaces.
   std::map<unsigned, std::map<problem::Shape::DimensionID, int>> user_factors_;
+  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> user_max_factors_;
   std::map<unsigned, std::vector<problem::Shape::DimensionID>> user_permutations_;
   std::map<unsigned, std::uint32_t> user_spatial_splits_;
   problem::PerDataSpace<std::string> user_bypass_strings_;
@@ -122,10 +124,11 @@ class Uber : public MapSpace
     user_bypass_strings_.clear();
 
     // Parse user-provided constraints.
-    ParseUserConstraints(config, user_factors_, user_permutations_, user_spatial_splits_, user_bypass_strings_);
+    ParseUserConstraints(config, user_factors_, user_max_factors_, user_permutations_,
+                         user_spatial_splits_, user_bypass_strings_);
 
     // Setup all the mapping sub-spaces.
-    InitIndexFactorizationSpace(user_factors_);
+    InitIndexFactorizationSpace(user_factors_, user_max_factors_);
     InitLoopPermutationSpace(user_permutations_);
     InitSpatialSpace(user_spatial_splits_);
     InitDatatypeBypassNestSpace(user_bypass_strings_);
@@ -210,7 +213,8 @@ class Uber : public MapSpace
   //
   // InitIndexFactorizationSpace()
   //
-  void InitIndexFactorizationSpace(std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors)
+  void InitIndexFactorizationSpace(std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
+                                   std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors)
   {
     assert(user_factors.size() <= num_total_tiling_levels_);
 
@@ -227,11 +231,14 @@ class Uber : public MapSpace
     }
 
     // Next, for each problem dimension, we need to tell the index_factorization_space_
-    // object if any of the cofactors have been fixed and provided by the user. 
+    // object if any of the cofactors have been given a fixed, min or max value by
+    // the user. 
 
     std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> prefactors;
+    std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> maxfactors;
     std::vector<bool> exhausted_um_loops(int(problem::GetShape()->NumDimensions), false);
 
+    // Find user-specified fixed factors.
     for (unsigned level = 0; level < num_total_tiling_levels_; level++)
     {
       auto it = user_factors.find(level);
@@ -255,8 +262,24 @@ class Uber : public MapSpace
       }
     }
 
+    // Find user-specified max factors.
+    for (unsigned level = 0; level < num_total_tiling_levels_; level++)
+    {
+      auto it = user_max_factors.find(level);
+      if (it != user_max_factors.end())
+      {
+        // Some max factors exist for this level.        
+        for (auto& factor : it->second)
+        {
+          auto& dimension = factor.first;
+          auto& max = factor.second;
+          maxfactors[dimension][level] = max;
+        }
+      }
+    }
+
     // We're now ready to initialize the object.
-    index_factorization_space_.Init(workload_, cofactors_order, prefactors);
+    index_factorization_space_.Init(workload_, cofactors_order, prefactors, maxfactors);
 
     // Update the size of the mapspace.
     size_[int(mapspace::Dimension::IndexFactorization)] = index_factorization_space_.Size();
@@ -1307,6 +1330,7 @@ class Uber : public MapSpace
   void ParseUserConstraints(
     config::CompoundConfigNode config,
     std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
+    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors,
     std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
     std::map<unsigned, std::uint32_t>& user_spatial_splits,
     problem::PerDataSpace<std::string>& user_bypass_strings)
@@ -1350,7 +1374,13 @@ class Uber : public MapSpace
         {
           user_factors[level_id] = level_factors;
         }
-        
+
+        auto level_max_factors = ParseUserMaxFactors(constraint);
+        if (level_max_factors.size() > 0)
+        {
+          user_max_factors[level_id] = level_max_factors;
+        }
+
         auto level_permutations = ParseUserPermutations(constraint);
         if (level_permutations.size() > 0)
         {
@@ -1474,28 +1504,30 @@ class Uber : public MapSpace
   std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConfigNode constraint)
   {
     std::map<problem::Shape::DimensionID, int> retval;
-    
+
     std::string buffer;
     if (constraint.lookupValue("factors", buffer))
     {
-      std::istringstream iss(buffer);
-      char token;
-      while (iss >> token)
+      std::regex re("([A-Za-z]+)[[:space:]]*([0-9]+)", std::regex::extended);
+      std::smatch sm;
+      std::string str = std::string(buffer);
+
+      while (std::regex_search(str, sm, re))
       {
+        std::string dimension_name = sm[1];
         problem::Shape::DimensionID dimension;
         try
         {
-          dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token));
+          dimension = problem::GetShape()->DimensionNameToID.at(dimension_name);
         }
         catch (const std::out_of_range& oor)
         {
-          std::cerr << "ERROR: parsing factors: " << buffer << ": dimension " << token
+          std::cerr << "ERROR: parsing factors: " << buffer << ": dimension " << dimension_name
                     << " not found in problem shape." << std::endl;
           exit(1);
         }
-        
-        int end;
-        iss >> end;
+
+        int end = std::stoi(sm[2]);
         if (end == 0)
         {
           std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
@@ -1503,8 +1535,8 @@ class Uber : public MapSpace
         }
         else if (end > workload_.GetBound(dimension))
         {
-          std::cerr << "WARNING: Constraint " << dimension << "=" << end
-                    << " exceeds problem dimension " << dimension << "="
+          std::cerr << "WARNING: Constraint " << dimension_name << "=" << end
+                    << " exceeds problem dimension " << dimension_name << "="
                     << workload_.GetBound(dimension) << ". Setting constraint "
                     << dimension << "=" << workload_.GetBound(dimension) << std::endl;
           end = workload_.GetBound(dimension);
@@ -1516,6 +1548,54 @@ class Uber : public MapSpace
 
         // Found all the information we need to setup a factor!
         retval[dimension] = end;
+
+        str = sm.suffix().str();
+      }
+    }
+
+    return retval;
+  }
+
+  //
+  // Parse user max factors.
+  //
+  std::map<problem::Shape::DimensionID, int> ParseUserMaxFactors(libconfig::Setting& constraint)
+  {
+    std::map<problem::Shape::DimensionID, int> retval;
+
+    std::string buffer;
+    if (constraint.lookupValue("factors", buffer))
+    {
+      std::regex re("([A-Za-z]+)[[:space:]]*<=[[:space:]]*([0-9]+)", std::regex::extended);
+      std::smatch sm;
+      std::string str = std::string(buffer);
+
+      while (std::regex_search(str, sm, re))
+      {
+        std::string dimension_name = sm[1];
+        problem::Shape::DimensionID dimension;
+        try
+        {
+          dimension = problem::GetShape()->DimensionNameToID.at(dimension_name);
+        }
+        catch (const std::out_of_range& oor)
+        {
+          std::cerr << "ERROR: parsing factors: " << buffer << ": dimension " << dimension_name
+                    << " not found in problem shape." << std::endl;
+          exit(1);
+        }
+
+        int max = std::stoi(sm[2]);
+        if (max <= 0)
+        {
+          std::cerr << "ERROR: max factor must be positive in constraint: " << buffer << std::endl;
+          exit(1);
+        }
+
+        // Found all the information we need to setup a factor!
+        retval[dimension] = max;
+
+        str = sm.suffix().str();
       }
     }
 
