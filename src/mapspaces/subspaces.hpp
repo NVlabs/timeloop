@@ -57,6 +57,8 @@ class IndexFactorizationSpace
   void Init(const problem::Workload &workload,
             std::map<problem::Shape::DimensionID, std::uint64_t> cofactors_order,
             std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> prefactors =
+            std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>>(),
+            std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> maxfactors =
             std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>>()
            )
   {
@@ -64,10 +66,15 @@ class IndexFactorizationSpace
     for (int idim = 0; idim < int(problem::GetShape()->NumDimensions); idim++)
     {
       auto dim = problem::Shape::DimensionID(idim);
+
       if (prefactors.find(dim) == prefactors.end())
         dimension_factors_[idim] = Factors(workload.GetBound(dim), cofactors_order[dim]);
       else
         dimension_factors_[idim] = Factors(workload.GetBound(dim), cofactors_order[dim], prefactors[dim]);
+
+      if (maxfactors.find(dim) != maxfactors.end())
+        dimension_factors_[idim].PruneMax(maxfactors[dim]);
+
       counter_base[idim] = dimension_factors_[idim].size();
     }
 
