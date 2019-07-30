@@ -1559,7 +1559,7 @@ class Uber : public MapSpace
   //
   // Parse user max factors.
   //
-  std::map<problem::Shape::DimensionID, int> ParseUserMaxFactors(libconfig::Setting& constraint)
+  std::map<problem::Shape::DimensionID, int> ParseUserMaxFactors(config::CompoundConfigNode constraint)
   {
     std::map<problem::Shape::DimensionID, int> retval;
 
