@@ -29,6 +29,7 @@
 
 #include <libconfig.h++>
 #include <yaml-cpp/yaml.h>
+#include <cassert>
 
 namespace config
 {

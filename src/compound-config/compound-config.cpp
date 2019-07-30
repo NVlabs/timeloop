@@ -28,6 +28,7 @@
 #include "compound-config.hpp"
 
 #include <iostream>
+#include <fstream>
 #include <cstring>
 
 #define EXCEPTION_PROLOGUE                                                          \
@@ -68,7 +69,6 @@ CompoundConfigNode::CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _y
 
 CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
   EXCEPTION_PROLOGUE;
-
   if (LNode) {
     libconfig::Setting& nextNode = LNode->lookup(path);
     return CompoundConfigNode(&nextNode, YAML::Node());
@@ -78,7 +78,6 @@ CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
   } else {
     assert(false);
   }
-
   EXCEPTION_EPILOGUE;
 }
 
@@ -326,8 +325,11 @@ CompoundConfig::CompoundConfig(const char* inputFile) {
     useLConfig = true;
     root = CompoundConfigNode(&lroot, YAML::Node());
   } else if (std::strstr(inputFile, ".yml") != nullptr || std::strstr(inputFile, ".yaml")) {
-    YConfig = YAML::LoadFile(std::string(inputFile));
+    std::ifstream f;
+    f.open(inputFile);
+    YConfig = YAML::Load(f);
     root = CompoundConfigNode(nullptr, YConfig);
+    useLConfig = false;
     std::cout << YConfig << std::endl;
   } else {
     std::cerr << "ERROR: Input configuration file does not end with .cfg, .yml, or .yaml" << std::endl;

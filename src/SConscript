@@ -55,6 +55,11 @@ elif "HDF5PATH_INCLUDE" in os.environ:
     env["CPPPATH"] += ['-I' + HDF5PATH_INCLUDE]
     env["LIBS"] += ['hdf5_cpp', 'hdf5_hl_cpp', 'hdf5_serial', 'hdf5_serial_hl']
 
+if "YAMLCPPPATH" in os.environ:
+    YAMLCPPPATH = os.environ["YAMLCPPPATH"]
+    env["LIBPATH"] += [YAMLCPPPATH + '/lib']
+    env["CPPFLAGS"] += ['-I' + YAMLCPPPATH + '/include']
+
 env["CPPPATH"] += ["."]
 
 if not os.path.isdir('../src/pat'):
