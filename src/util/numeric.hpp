@@ -227,7 +227,6 @@ class Factors
         auto value = cofactors_it->at(index);
         if (value > max)
         {
-          std::cerr << "PRUNING: index = " << index << " value = " << value << " max = " << max << std::endl;
           illegal = true;
           break;
         }
