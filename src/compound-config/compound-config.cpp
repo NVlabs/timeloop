@@ -254,7 +254,7 @@ bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::str
 
 bool CompoundConfigNode::isList() const {
   if(LNode) return LNode->isList();
-  else if (YNode) return YNode.IsSequence();
+  else if (YNode) return YNode.IsSequence() && !YNode[0].IsScalar();
   else {
     assert(false);
     return false;
@@ -263,7 +263,7 @@ bool CompoundConfigNode::isList() const {
 
 bool CompoundConfigNode::isArray() const {
   if(LNode) return LNode->isArray();
-  else if (YNode) return YNode.IsSequence();
+  else if (YNode) return YNode.IsSequence() && YNode[0].IsScalar();
   else {
     assert(false);
     return false;
@@ -319,12 +319,12 @@ bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
 
 CompoundConfig::CompoundConfig(const char* inputFile) {
   //FIXME: parse the input to decide which format it is
-  if (std::strstr(inputFile, ".cfg") != nullptr) {
+  if (std::strstr(inputFile, ".cfg")) {
     LConfig.readFile(inputFile);
     auto& lroot = LConfig.getRoot();
     useLConfig = true;
     root = CompoundConfigNode(&lroot, YAML::Node());
-  } else if (std::strstr(inputFile, ".yml") != nullptr || std::strstr(inputFile, ".yaml")) {
+  } else if (std::strstr(inputFile, ".yml") || std::strstr(inputFile, ".yaml")) {
     std::ifstream f;
     f.open(inputFile);
     YConfig = YAML::Load(f);
