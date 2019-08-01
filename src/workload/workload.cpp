@@ -25,6 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cstring>
+
 #include "problem-shape.hpp"
 #include "workload.hpp"
 
@@ -66,8 +68,16 @@ std::string ShapeFileName(const std::string shape_name)
     }
     shape_dir = std::string(timeloopdir) + "/problem-shapes/";
   }
-    
-  shape_file_name = shape_dir + shape_name + ".cfg";
+ 
+  // support filename directly
+  if (std::strstr(shape_name.c_str(), ".yml") || std::strstr(shape_name.c_str(), ".yaml") || std::strstr(shape_name.c_str(), ".cfg"))
+  {
+    shape_file_name = shape_dir + shape_name;
+  }
+  else
+  {
+    shape_file_name = shape_dir + shape_name + ".cfg";
+  }
   
   std::cerr << "MESSAGE: reading problem shapes from: " << shape_dir << std::endl;
   std::cout << "MESSAGE: attempting to read problem shape from file: " << shape_file_name << std::endl;
@@ -78,7 +88,6 @@ std::string ShapeFileName(const std::string shape_name)
 void ParseWorkload(config::CompoundConfigNode config, Workload& workload)
 {
   std::string shape_name;
-  // FIXME: replace this ShapeFileName to also use compound-config
   if (!config.exists("shape"))
   {
     std::cerr << "WARNING: found neither a problem shape description nor a string corresponding to a to a pre-existing shape description. Assuming shape: cnn-layer." << std::endl;
