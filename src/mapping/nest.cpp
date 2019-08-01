@@ -25,6 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sstream>
+
 #include "nest.hpp"
 
 namespace loop
@@ -157,14 +159,22 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   unsigned num_loops = loops.size();
   unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
 
+  // Don't dump directly into out stream. We need to collect the list of varnames
+  // as we walk through the nest, so collect outputs into an intermediate buffer.
+  std::ostringstream buffer(std::ostringstream::ate);
+
+  std::vector<std::string> dimnames;
+  std::vector<int> dimbounds;
+  std::vector<std::string> varnames;
+
   std::string indent = "";
   for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
   {
     if (inv_storage_level != static_cast<unsigned>(-1) &&
         storage_tiling_boundaries.at(inv_storage_level) == loop_level)
     {
-      out << std::endl;
-      out << indent << "// " << storage_level_names.at(inv_storage_level) << " tiles " << std::endl;
+      buffer << std::endl;
+      buffer << indent << "// " << storage_level_names.at(inv_storage_level) << " tiles " << std::endl;
       auto& mask = mask_nest.at(inv_storage_level);
       auto& tiles = tile_sizes.at(inv_storage_level);
 
@@ -175,37 +185,71 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
         std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
         if (mask.at(pvi))
         {
-          out << indent << tensor_name << ".AddTileLevel(" << tiles.at(pvi) << ");" << std::endl;
-          out << indent << tensor_name << ".BindCurrentTileLevel(" << level_string << ");" << std::endl;
+          buffer << indent << tensor_name << ".AddTileLevel(" << tiles.at(pvi) << ");" << std::endl;
+          buffer << indent << tensor_name << ".BindCurrentTileLevel(" << level_string << ");" << std::endl;
         }
         else
         {
-          out << indent << tensor_name << ".BypassTileLevel();" << std::endl;
+          buffer << indent << tensor_name << ".BypassTileLevel();" << std::endl;
         }        
       }
       inv_storage_level--;
-      out << std::endl;
+      buffer << std::endl;
     }
-    out << indent;
+    buffer << indent;
     indent += "  ";
-    loops.at(loop_level).PrintWhoop(out, inv_storage_level + 1); // We decremented above.
-    out << std::endl;
+    loops.at(loop_level).PrintWhoop(buffer, inv_storage_level + 1,  // We decremented above.
+                                    dimnames, dimbounds, varnames);
+    buffer << std::endl;
   }
 
-  out << std::endl;
-  out << indent << "// === COMPUTE ===" << std::endl;
-  out << std::endl;
+  buffer << std::endl;
+  buffer << indent << "// === COMPUTE ===" << std::endl;
+  buffer << std::endl;
 
   for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
   {
     indent = "";
     for (unsigned i = 0; i < loop_level; i++)
       indent += "  ";
-    out << indent << "} end();";
-    out << std::endl;
+    buffer << indent << "} end();";
+    buffer << std::endl;
   }
 
+  buffer << std::endl;
+
+  // Print the tensors.
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+  {
+    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
+    out << "Tensor " << tensor_name << "(\"" << tensor_name << "\");" << std::endl;
+  }
   out << std::endl;
+
+  // Print tensor sizes.
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+  {
+    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
+    out << tensor_name << ".Resize({ /* === FILL ME IN === */ });" << std::endl;
+  }
+  out << std::endl;
+
+  // Print tiled dimension bounds.
+  for (unsigned i = 0; i < dimnames.size(); i++)
+  {
+    out << "static const int " << dimnames[i] << " = " << dimbounds[i] << ";" << std::endl;
+  }
+  out << std::endl;  
+
+  // Print the collected varnames.
+  for (auto& varname: varnames)
+  {
+    out << "Var " << varname << "(\"" << varname << "\");" << std::endl;
+  }
+  out << std::endl;
+
+  // Finally, dump out the buffer.
+  out << buffer.str();
 }
 
 }  // namespace loop
