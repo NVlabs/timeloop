@@ -56,6 +56,7 @@ class Topology : public Module
     unsigned NumLevels() const;
     unsigned NumStorageLevels() const;
     std::vector<std::string> LevelNames() const;
+    std::vector<std::string> StorageLevelNames() const;
 
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
 

@@ -68,11 +68,11 @@ class Nest
 
   friend std::ostream& operator << (std::ostream& out, const Nest& nest);
 
-  void PrettyPrint(std::ostream& out, const std::vector<std::string>& level_names,
+  void PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
                    const tiling::NestOfCompoundMasks& mask_nest,
                    const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes);
 
-  void PrintWhoopNest(std::ostream& out, const std::vector<std::string>& level_names,
+  void PrintWhoopNest(std::ostream& out, const std::vector<std::string>& storage_level_names,
                       const tiling::NestOfCompoundMasks& mask_nest,
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes);
 };

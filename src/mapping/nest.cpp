@@ -114,7 +114,7 @@ std::ostream& operator << (std::ostream& out, const Nest& nest)
   return out;
 }
 
-void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& level_names,
+void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
                        const tiling::NestOfCompoundMasks& mask_nest,
                        const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes)
 {
@@ -128,7 +128,7 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& level_
         storage_tiling_boundaries.at(inv_storage_level) == loop_level)
     {
       out << "==========================================" << std::endl;
-      out << level_names.at(inv_storage_level+1) << std::endl; // +1 is to skip the arithmetic level FIXME.
+      out << storage_level_names.at(inv_storage_level) << std::endl;
       auto& mask = mask_nest.at(inv_storage_level);
       auto& tiles = tile_sizes.at(inv_storage_level);
       for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
@@ -150,7 +150,7 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& level_
   out << std::endl;
 }
 
-void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& level_names,
+void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& storage_level_names,
                           const tiling::NestOfCompoundMasks& mask_nest,
                           const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes)
 {
@@ -164,11 +164,11 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& lev
         storage_tiling_boundaries.at(inv_storage_level) == loop_level)
     {
       out << std::endl;
-      out << indent << "// " << level_names.at(inv_storage_level+1) << " tiles " << std::endl; // +1 is to skip the arithmetic level FIXME.
+      out << indent << "// " << storage_level_names.at(inv_storage_level) << " tiles " << std::endl;
       auto& mask = mask_nest.at(inv_storage_level);
       auto& tiles = tile_sizes.at(inv_storage_level);
 
-      std::string level_string = "\"" + level_names.at(inv_storage_level+1) + "\"";
+      std::string level_string = "\"" + storage_level_names.at(inv_storage_level) + "\"";
 
       for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
       {
@@ -188,7 +188,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& lev
     }
     out << indent;
     indent += "  ";
-    loops.at(loop_level).PrintWhoop(out);
+    loops.at(loop_level).PrintWhoop(out, inv_storage_level + 1); // We decremented above.
     out << std::endl;
   }
 

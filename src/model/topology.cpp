@@ -134,6 +134,16 @@ std::vector<std::string> Topology::Specs::LevelNames() const
   return level_names;
 }
 
+std::vector<std::string> Topology::Specs::StorageLevelNames() const
+{
+  std::vector<std::string> storage_level_names;
+  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+  {
+    storage_level_names.push_back(GetStorageLevel(storage_level_id)->level_name);
+  }
+  return storage_level_names;
+}
+
 // Make sure the topology is consistent,
 // and update unspecified parameters if they can
 // be inferred from other specified parameters.

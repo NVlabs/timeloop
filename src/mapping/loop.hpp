@@ -65,7 +65,7 @@ class Descriptor
   
   void Print(std::ostream& out, bool long_form = true) const;
 
-  void PrintWhoop(std::ostream& out) const;
+  void PrintWhoop(std::ostream& out, int storage_level) const;
 
   // Serialization
   friend class boost::serialization::access;

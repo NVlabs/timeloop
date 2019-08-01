@@ -738,7 +738,8 @@ class Application
         {
           engine.Evaluate(mapping, workload_, false);
         }
-        mapping.PrettyPrint(std::cout, arch_specs_.topology.LevelNames(), engine.GetTopology().TileSizes());
+        mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
+                            engine.GetTopology().TileSizes());
       }
 
       std::cout << "-----------------------------------------------" << std::endl;
@@ -777,7 +778,8 @@ class Application
       if (emit_whoop_nest_)
       {
         std::ofstream whoopcpp("out.whoop.cpp");
-        best_mapping.PrintWhoopNest(whoopcpp, arch_specs_.topology.LevelNames(), best_mapped_engine.GetTopology().TileSizes());
+        best_mapping.PrintWhoopNest(whoopcpp, arch_specs_.topology.StorageLevelNames(),
+                                    best_mapped_engine.GetTopology().TileSizes());
         whoopcpp.close();
       }
     }
@@ -811,12 +813,20 @@ class Application
 
     // Update the mapper constraints.
     libconfig::Setting& mapper = root.lookup("mapper");
+
+    if (mapper.exists("algorithm"))
+      mapper["algorithm"] = "exhaustive";
+    else
+      mapper.add("algorithm", libconfig::Setting::TypeString) = "exhaustive";
+
     if (mapper.exists("num-threads"))
       mapper["num-threads"] = 1;
     else
       mapper.add("num-threads", libconfig::Setting::TypeInt) = 1;
+
     if (mapper.exists("search_size"))
       mapper.remove("search_size");
+
     if (mapper.exists("search-size"))
       mapper["search-size"] = 1;
     else
