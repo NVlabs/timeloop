@@ -103,6 +103,15 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
   }
 }
 
+void Descriptor::PrintWhoop(std::ostream& out) const
+{
+  if (IsSpatial(spacetime_dimension))
+    out << "s_for(";
+  else
+    out << "t_for(";
+  out << problem::GetShape()->DimensionIDToName.at(dimension) << ", " << start << ", " << end << "); {";
+}
+
 std::ostream& operator << (std::ostream& out, const Descriptor& loop)
 {
   loop.Print(out, true);

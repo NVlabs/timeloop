@@ -67,9 +67,14 @@ class Nest
   bool AddStorageTilingBoundary();
 
   friend std::ostream& operator << (std::ostream& out, const Nest& nest);
+
   void PrettyPrint(std::ostream& out, const std::vector<std::string>& level_names,
                    const tiling::NestOfCompoundMasks& mask_nest,
                    const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes);
+
+  void PrintWhoopNest(std::ostream& out, const std::vector<std::string>& level_names,
+                      const tiling::NestOfCompoundMasks& mask_nest,
+                      const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes);
 };
 
 } // namespace loop

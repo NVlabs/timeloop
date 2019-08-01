@@ -124,6 +124,16 @@ Topology::Specs Topology::ParseSpecs(libconfig::Setting& storage,
   return specs;
 }
 
+std::vector<std::string> Topology::Specs::LevelNames() const
+{
+  std::vector<std::string> level_names;
+  for (unsigned level_id = 0; level_id < NumLevels(); level_id++)
+  {
+    level_names.push_back(GetLevel(level_id)->level_name);
+  }
+  return level_names;
+}
+
 // Make sure the topology is consistent,
 // and update unspecified parameters if they can
 // be inferred from other specified parameters.
@@ -481,6 +491,22 @@ double Topology::Utilization() const
 {
   // FIXME.
   return (GetArithmeticLevel()->IdealCycles() / Cycles());
+}
+
+std::vector<problem::PerDataSpace<std::uint64_t>> Topology::TileSizes() const
+{
+  std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
+  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+  {
+    problem::PerDataSpace<std::uint64_t> uc;
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      uc[pv] = GetStorageLevel(storage_level_id)->UtilizedCapacity(pv);
+    }
+    tile_sizes.push_back(uc);
+  }
+  return tile_sizes;
 }
 
 std::uint64_t Topology::MACCs() const

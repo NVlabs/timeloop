@@ -150,4 +150,62 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& level_
   out << std::endl;
 }
 
+void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& level_names,
+                          const tiling::NestOfCompoundMasks& mask_nest,
+                          const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes)
+{
+  unsigned num_loops = loops.size();
+  unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
+
+  std::string indent = "";
+  for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
+  {
+    if (inv_storage_level != static_cast<unsigned>(-1) &&
+        storage_tiling_boundaries.at(inv_storage_level) == loop_level)
+    {
+      out << std::endl;
+      out << indent << "// " << level_names.at(inv_storage_level+1) << " tiles " << std::endl; // +1 is to skip the arithmetic level FIXME.
+      auto& mask = mask_nest.at(inv_storage_level);
+      auto& tiles = tile_sizes.at(inv_storage_level);
+
+      std::string level_string = "\"" + level_names.at(inv_storage_level+1) + "\"";
+
+      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      {
+        std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
+        if (mask.at(pvi))
+        {
+          out << indent << tensor_name << ".AddTileLevel(" << tiles.at(pvi) << ");" << std::endl;
+          out << indent << tensor_name << ".BindCurrentTileLevel(" << level_string << ");" << std::endl;
+        }
+        else
+        {
+          out << indent << tensor_name << ".BypassTileLevel();" << std::endl;
+        }        
+      }
+      inv_storage_level--;
+      out << std::endl;
+    }
+    out << indent;
+    indent += "  ";
+    loops.at(loop_level).PrintWhoop(out);
+    out << std::endl;
+  }
+
+  out << std::endl;
+  out << indent << "// === COMPUTE ===" << std::endl;
+  out << std::endl;
+
+  for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
+  {
+    indent = "";
+    for (unsigned i = 0; i < loop_level; i++)
+      indent += "  ";
+    out << indent << "} end();";
+    out << std::endl;
+  }
+
+  out << std::endl;
+}
+
 }  // namespace loop
