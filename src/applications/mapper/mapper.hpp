@@ -779,7 +779,8 @@ class Application
       {
         std::ofstream whoopcpp("out.whoop.cpp");
         best_mapping.PrintWhoopNest(whoopcpp, arch_specs_.topology.StorageLevelNames(),
-                                    best_mapped_engine.GetTopology().TileSizes());
+                                    best_mapped_engine.GetTopology().TileSizes(),
+                                    best_mapped_engine.GetTopology().UtilizedInstances());
         whoopcpp.close();
       }
     }

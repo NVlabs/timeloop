@@ -155,7 +155,8 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
 
 void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& storage_level_names,
                           const tiling::NestOfCompoundMasks& mask_nest,
-                          const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes)
+                          const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
+                          const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances)
 {
   unsigned num_loops = loops.size();
   unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
@@ -304,6 +305,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
       out << indent << "// " << storage_level_names.at(inv_storage_level) << " tiles " << std::endl;
       auto& mask = mask_nest.at(inv_storage_level);
       auto& tiles = tile_sizes.at(inv_storage_level);
+      auto& instances = utilized_instances.at(inv_storage_level);
 
       std::string level_string = "\"" + storage_level_names.at(inv_storage_level) + "\"";
 
@@ -313,7 +315,13 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
         if (mask.at(pvi))
         {
           out << indent << tensor_name << ".AddTileLevel(" << tiles.at(pvi) << ");" << std::endl;
-          out << indent << tensor_name << ".BindCurrentTileLevel(" << level_string << ");" << std::endl;
+          // FIXME: utilized instances are directly mapped to expansion factor.
+          // This will cause under-utilized instances to greedily consume physical
+          // instances, which may be difficult/sub-optimal for the hardware to
+          // route. Ideally we want the underutilized instances to be bound in
+          // a pattern dictated by the loop nest.
+          out << indent << tensor_name << ".BindCurrentTileLevel(" << level_string
+              << ", " << instances.at(pvi) << ");" << std::endl;
         }
         else
         {

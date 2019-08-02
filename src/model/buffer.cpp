@@ -1225,6 +1225,7 @@ STAT_ACCESSOR(double, Energy,
 
 STAT_ACCESSOR(std::uint64_t, Accesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv)))
 STAT_ACCESSOR(std::uint64_t, UtilizedCapacity, stats_.utilized_capacity.at(pv))
+STAT_ACCESSOR(std::uint64_t, UtilizedInstances, stats_.utilized_instances.at(pv))
 
 std::string BufferLevel::Name() const
 {

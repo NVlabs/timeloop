@@ -519,6 +519,22 @@ std::vector<problem::PerDataSpace<std::uint64_t>> Topology::TileSizes() const
   return tile_sizes;
 }
 
+std::vector<problem::PerDataSpace<std::uint64_t>> Topology::UtilizedInstances() const
+{
+  std::vector<problem::PerDataSpace<std::uint64_t>> utilized_instances;
+  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+  {
+    problem::PerDataSpace<std::uint64_t> uc;
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      uc[pv] = GetStorageLevel(storage_level_id)->UtilizedInstances(pv);
+    }
+    utilized_instances.push_back(uc);
+  }
+  return utilized_instances;
+}
+
 std::uint64_t Topology::MACCs() const
 {
   return GetArithmeticLevel()->MACCs();

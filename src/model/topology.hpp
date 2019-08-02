@@ -108,6 +108,7 @@ class Topology : public Module
   std::uint64_t Cycles() const;
   double Utilization() const;
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const;
+  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const;
   std::uint64_t MACCs() const;
   
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
