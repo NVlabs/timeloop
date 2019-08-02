@@ -66,6 +66,7 @@ class Descriptor
   void Print(std::ostream& out, bool long_form = true) const;
 
   void PrintWhoop(std::ostream& out, int storage_level,
+                  std::vector<problem::Shape::DimensionID>& dimids,
                   std::vector<std::string>& dimnames,
                   std::vector<int>& dimbounds,
                   std::vector<std::string>& varnames) const;

@@ -104,6 +104,7 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
 }
 
 void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
+                            std::vector<problem::Shape::DimensionID>& dimids,
                             std::vector<std::string>& dimnames,
                             std::vector<int>& dimbounds,
                             std::vector<std::string>& varnames) const
@@ -133,6 +134,7 @@ void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
     out << "t_for(";
   out << varname << ", " << start << ", " << dimname << "); {";
 
+  dimids.push_back(dimension);
   dimnames.push_back(dimname);
   dimbounds.push_back(end);
   varnames.push_back(varname);

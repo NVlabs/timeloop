@@ -26,6 +26,7 @@
  */
 
 #include <sstream>
+#include <unordered_set>
 
 #include "nest.hpp"
 
@@ -163,6 +164,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   // as we walk through the nest, so collect outputs into an intermediate buffer.
   std::ostringstream buffer(std::ostringstream::ate);
 
+  std::vector<problem::Shape::DimensionID> dimids;
   std::vector<std::string> dimnames;
   std::vector<int> dimbounds;
   std::vector<std::string> varnames;
@@ -199,7 +201,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
     buffer << indent;
     indent += "  ";
     loops.at(loop_level).PrintWhoop(buffer, inv_storage_level + 1,  // We decremented above.
-                                    dimnames, dimbounds, varnames);
+                                    dimids, dimnames, dimbounds, varnames);
     buffer << std::endl;
   }
 
@@ -226,20 +228,66 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   }
   out << std::endl;
 
-  // Print tensor sizes.
-  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-  {
-    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
-    out << tensor_name << ".Resize({ /* === FILL ME IN === */ });" << std::endl;
-  }
-  out << std::endl;
-
   // Print tiled dimension bounds.
   for (unsigned i = 0; i < dimnames.size(); i++)
   {
     out << "static const int " << dimnames[i] << " = " << dimbounds[i] << ";" << std::endl;
   }
   out << std::endl;  
+
+  // Prepare a set of "sensitive" dimensions for each tensor.
+  std::vector<std::vector<std::string>> tiled_dimnames(problem::GetShape()->NumDataSpaces);
+  std::vector<std::vector<std::string>> tiled_varnames(problem::GetShape()->NumDataSpaces);
+
+  // std::vector<std::unordered_set<problem::Shape::DimensionID>> sensitive_dims(problem::GetShape()->NumDataSpaces);
+  // for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+  // {
+  //   auto d = problem::Shape::DataSpaceID(pvi);
+  //   for (unsigned data_space_dim = 0; data_space_dim < problem::GetShape()->DataSpaceOrder.at(d); data_space_dim++)
+  //     for (auto& term: problem::GetShape()->Projections.at(d).at(data_space_dim))
+  //       sensitive_dims.at(d).insert(term.second);
+  // }
+
+  // Print tiled tensor sizes.
+  // FIXME: the following is a hacky approach and does not work with sliding windows.
+  // We need to maintain tile sizes in algebraic form through the nest analysis.
+  out << "// WARNING: The following tiled-tensor shapes are possibly buggy." << std::endl;
+  out << "//          Please examine carefully and edit." << std::endl;
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+  {
+    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
+    out << tensor_name << ".Resize({ ";
+
+    // Prepare a set of problem-space dimensions that this data-space is sensitive to.
+    std::unordered_set<problem::Shape::DimensionID> sensitive_dims;
+
+    auto d = problem::Shape::DataSpaceID(pvi);
+    for (unsigned data_space_dim = 0; data_space_dim < problem::GetShape()->DataSpaceOrder.at(d); data_space_dim++)
+    {
+      for (auto& term: problem::GetShape()->Projections.at(d).at(data_space_dim))
+      {
+        sensitive_dims.insert(term.second);
+      }
+    }
+
+    // Now walk through the list of loops and include the dimension of that loop if
+    // this data-space is sensitive to it.
+    bool found_first = false;
+    for (unsigned i = 0; i < dimids.size(); i++)
+    {
+      auto dim = dimids.at(i);
+      auto it = sensitive_dims.find(dim);
+      if (it != sensitive_dims.end())
+      {
+        if (found_first)
+          out << ", ";
+        found_first = true;
+        out << dimnames.at(i);
+      }
+    }
+    out << " });" << std::endl;
+  }
+  out << std::endl;
 
   // Print the collected varnames.
   for (auto& varname: varnames)
