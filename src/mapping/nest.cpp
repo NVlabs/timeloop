@@ -237,9 +237,27 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   }    
 
   //
-  // Print the tensors.
+  // Start printing.
   //
   std::string indent = "  ";
+
+  out << indent << "// =====================================================================" << std::endl
+      << indent << "// WARNING: this is auto-generated, untested code and will probably need" << std::endl
+      << indent << "// a good amount of massaging to work properly. In specific, please fix " << std::endl
+      << indent << "// the following:" << std::endl
+      << indent << "// (1) Tiled-tensor shapes will probably not work for sliding windows." << std::endl
+      << indent << "// (2) Shrink sizes (the 2nd parameter in AddTileLevel()) are incorrect" << std::endl
+      << indent << "//     for sliding windows." << std::endl
+      << indent << "// (3) Tile-access granularities (3rd/1st parameter in Add/BypassTileLevel()" << std::endl
+      << indent << "//     and multiplier for the 4th/2nd parameter) need to be massaged." << std::endl
+      << indent << "// (4) Verify that the latency (kXXXLatency) variables are defined." << std::endl
+      << indent << "// (5) Compute code only contains the tensors. An expression needs to be" << std::endl
+      << indent << "//     filled in." << std::endl;
+  out << std::endl;
+
+  //
+  // Print the tensors.
+  //
 
   for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
@@ -260,8 +278,6 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   //
   // Print tiled tensor sizes.
   //
-  out << indent << "// WARNING: The following tiled-tensor shapes are possibly buggy." << std::endl;
-  out << indent << "//          Please examine carefully and edit." << std::endl;
   for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
     auto d = problem::Shape::DataSpaceID(pvi);
@@ -293,6 +309,9 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   // Finally, print out the loop nest.
   //
   unsigned idx = 0;
+
+  std::string prev_level_name = "BackingStore";
+
   inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
   for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
   {
@@ -307,14 +326,17 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
       auto& tiles = tile_sizes.at(inv_storage_level);
       auto& instances = utilized_instances.at(inv_storage_level);
 
-      std::string level_string = "\"" + storage_level_names.at(inv_storage_level) + "\"";
+      std::string level_name = storage_level_names.at(inv_storage_level);
+      std::string level_string = "\"" + level_name + "\"";
 
       for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
       {
         std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
         if (mask.at(pvi))
         {
-          out << indent << tensor_name << ".AddTileLevel(" << tiles.at(pvi) << ");" << std::endl;
+          out << indent << tensor_name << ".AddTileLevel(" << tiles.at(pvi) << ", "
+              << tiles.at(pvi) << ", 1, 1 * k" << prev_level_name << "Latency);"
+              << std::endl;
           // FIXME: utilized instances are directly mapped to expansion factor.
           // This will cause under-utilized instances to greedily consume physical
           // instances, which may be difficult/sub-optimal for the hardware to
@@ -325,11 +347,14 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
         }
         else
         {
-          out << indent << tensor_name << ".BypassTileLevel();" << std::endl;
+          out << indent << tensor_name << ".BypassTileLevel(1, 1 * k"
+              << prev_level_name << "Latency);" << std::endl;
         }        
       }
-      inv_storage_level--;
       out << std::endl;
+
+      inv_storage_level--;
+      prev_level_name = level_name;
     }
 
     out << indent;
