@@ -159,15 +159,33 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
                           const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances)
 {
   unsigned num_loops = loops.size();
+  unsigned num_storage_levels = tile_sizes.size();
   unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
 
-  //
-  // First, process each loop and generate var names, dim names etc.
-  //
+  // Prepare a set of "sensitive" dimensions for each tensor.
+  std::vector<std::unordered_set<problem::Shape::DimensionID>> sensitive_dims(problem::GetShape()->NumDataSpaces);
+  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+  {
+    auto d = problem::Shape::DataSpaceID(pvi);
+    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(d);
+
+    // Prepare a set of problem-space dimensions that this data-space is sensitive to.
+    for (unsigned data_space_dim = 0; data_space_dim < problem::GetShape()->DataSpaceOrder.at(d); data_space_dim++)
+      for (auto& term: problem::GetShape()->Projections.at(d).at(data_space_dim))
+        sensitive_dims.at(d).insert(term.second);
+  }
+
+  // Process each loop and generate var names, dim names etc.
   std::vector<problem::Shape::DimensionID> dimids;
   std::vector<std::string> dimnames;
   std::vector<int> dimbounds;
   std::vector<std::string> varnames;
+  std::map<std::string, int> dimname_to_bound;
+
+  std::vector<std::vector<std::string>> tiled_dimnames(problem::GetShape()->NumDataSpaces);
+  std::vector<std::vector<std::string>> tiled_varnames(problem::GetShape()->NumDataSpaces);
+  std::vector<problem::PerDataSpace<std::vector<std::string>>> tile_dimensions_algebraic(num_storage_levels);
+  //std::vector<problem::PerDataSpace<std::vector<std::string>>> tile_instances_algebraic;
 
   for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
   {
@@ -203,39 +221,36 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
     dimnames.push_back(dimname);
     dimbounds.push_back(loop.end);
     varnames.push_back(varname);
+    dimname_to_bound[dimname] = loop.end;
+
+    // FIXME: the following is a hacky approach and does not work with sliding windows.
+    // We need to maintain tile sizes in algebraic form through the nest analysis.
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto d = problem::Shape::DataSpaceID(pvi);
+      auto it = sensitive_dims.at(d).find(loop.dimension);
+      if (it != sensitive_dims.at(d).end())
+      {
+        tiled_dimnames.at(d).push_back(dimname);
+        tiled_varnames.at(d).push_back(varname);
+        tile_dimensions_algebraic.at(storage_level).at(d).push_back(dimname);
+      }
+    }    
+    
+  }
+
+  // Tile dimensions are cumulative.
+  for (unsigned storage_level = 1; storage_level < num_storage_levels; storage_level++)
+  {
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      tile_dimensions_algebraic.at(storage_level).at(pvi).insert(
+        tile_dimensions_algebraic.at(storage_level).at(pvi).end(),
+        tile_dimensions_algebraic.at(storage_level-1).at(pvi).begin(),
+        tile_dimensions_algebraic.at(storage_level-1).at(pvi).end());
+    }
   }
   
-  // Prepare a set of "sensitive" dimensions for each tensor.
-  std::vector<std::vector<std::string>> tiled_dimnames(problem::GetShape()->NumDataSpaces);
-  std::vector<std::vector<std::string>> tiled_varnames(problem::GetShape()->NumDataSpaces);
-
-  // FIXME: the following is a hacky approach and does not work with sliding windows.
-  // We need to maintain tile sizes in algebraic form through the nest analysis.
-  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-  {
-    auto d = problem::Shape::DataSpaceID(pvi);
-    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(d);
-
-    // Prepare a set of problem-space dimensions that this data-space is sensitive to.
-    std::unordered_set<problem::Shape::DimensionID> sensitive_dims;
-    for (unsigned data_space_dim = 0; data_space_dim < problem::GetShape()->DataSpaceOrder.at(d); data_space_dim++)
-      for (auto& term: problem::GetShape()->Projections.at(d).at(data_space_dim))
-        sensitive_dims.insert(term.second);
-
-    // Now walk through the list of loops and include the dimension of that loop if
-    // this data-space is sensitive to it.
-    for (unsigned i = 0; i < dimids.size(); i++)
-    {
-      auto dim = dimids.at(i);
-      auto it = sensitive_dims.find(dim);
-      if (it != sensitive_dims.end())
-      {
-        tiled_dimnames.at(d).push_back(dimnames.at(i));
-        tiled_varnames.at(d).push_back(varnames.at(i));
-      }
-    }
-  }    
-
   //
   // Start printing.
   //
@@ -334,9 +349,24 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
         std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
         if (mask.at(pvi))
         {
-          out << indent << tensor_name << ".AddTileLevel(" << tiles.at(pvi) << ", "
-              << tiles.at(pvi) << ", 1, 1 * k" << prev_level_name << "Latency);"
-              << std::endl;
+          out << indent << tensor_name << ".AddTileLevel(";
+          for (auto& dimname: tile_dimensions_algebraic.at(inv_storage_level).at(pvi))
+            out << dimname << "*";
+          out << "1, ";
+          for (auto& dimname: tile_dimensions_algebraic.at(inv_storage_level).at(pvi))
+            out << dimname << "*";
+          out << "1, 1 * k" << prev_level_name << "Latency);";
+
+          // Verify that algebraic and real tile-sizes match.
+          unsigned tile_size = 1;
+          for (auto& dimname: tile_dimensions_algebraic.at(inv_storage_level).at(pvi))
+          {
+            tile_size *= dimname_to_bound.at(dimname);
+          }
+          if (tile_size != tiles.at(pvi))
+            std::cerr << " // ERROR: algebraic tile formula does not equate to computed tile size.";
+          out << std::endl;
+
           // FIXME: utilized instances are directly mapped to expansion factor.
           // This will cause under-utilized instances to greedily consume physical
           // instances, which may be difficult/sub-optimal for the hardware to
