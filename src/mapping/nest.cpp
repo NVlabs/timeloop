@@ -374,7 +374,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
           out << "1, ";
           for (auto& dimname: tile_dimensions_algebraic.at(inv_storage_level).at(pvi))
             out << dimname << "*";
-          out << "1, 1 * k" << prev_level_name << "Latency);";
+          out << "1, 1, 1 * k" << prev_level_name << "Latency);";
 
           // Verify that algebraic and real tile-sizes match.
           unsigned tile_size = 1;
