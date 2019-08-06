@@ -185,7 +185,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   std::vector<std::vector<std::string>> tiled_dimnames(problem::GetShape()->NumDataSpaces);
   std::vector<std::vector<std::string>> tiled_varnames(problem::GetShape()->NumDataSpaces);
   std::vector<problem::PerDataSpace<std::vector<std::string>>> tile_dimensions_algebraic(num_storage_levels);
-  //std::vector<problem::PerDataSpace<std::vector<std::string>>> tile_instances_algebraic;
+  std::vector<problem::PerDataSpace<std::vector<std::string>>> spatial_instances_algebraic(num_storage_levels);
 
   for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
   {
@@ -235,11 +235,17 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
         tiled_varnames.at(d).push_back(varname);
         tile_dimensions_algebraic.at(storage_level).at(d).push_back(dimname);
       }
+    }
+
+    if (IsSpatial(loop.spacetime_dimension) && storage_level != 0)
+    {
+      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+        spatial_instances_algebraic.at(storage_level-1).at(pvi).push_back(dimname);
     }    
     
   }
 
-  // Tile dimensions are cumulative.
+  // Tile dimensions are cumulative from inner to outer.
   for (unsigned storage_level = 1; storage_level < num_storage_levels; storage_level++)
   {
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
@@ -249,6 +255,19 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
         tile_dimensions_algebraic.at(storage_level-1).at(pvi).begin(),
         tile_dimensions_algebraic.at(storage_level-1).at(pvi).end());
     }
+  }
+
+  // Spatial instances are cumulative from outer to inner.
+  assert(num_storage_levels >= 2);
+  for (unsigned storage_level = num_storage_levels-2; storage_level != static_cast<unsigned>(-1); storage_level--)
+  {
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      spatial_instances_algebraic.at(storage_level).at(pvi).insert(
+        spatial_instances_algebraic.at(storage_level).at(pvi).begin(),
+        spatial_instances_algebraic.at(storage_level+1).at(pvi).begin(),
+        spatial_instances_algebraic.at(storage_level+1).at(pvi).end());
+    }    
   }
   
   //
@@ -364,7 +383,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
             tile_size *= dimname_to_bound.at(dimname);
           }
           if (tile_size != tiles.at(pvi))
-            std::cerr << " // ERROR: algebraic tile formula does not equate to computed tile size.";
+            out << " // ERROR: mismatch algebraic = " << tile_size << " modeled = " << tiles.at(pvi);
           out << std::endl;
 
           // FIXME: utilized instances are directly mapped to expansion factor.
@@ -372,8 +391,20 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
           // instances, which may be difficult/sub-optimal for the hardware to
           // route. Ideally we want the underutilized instances to be bound in
           // a pattern dictated by the loop nest.
-          out << indent << tensor_name << ".BindCurrentTileLevel(" << level_string
-              << ", " << instances.at(pvi) << ");" << std::endl;
+          out << indent << tensor_name << ".BindCurrentTileLevel(" << level_string << ", ";
+          for (auto& dimname: spatial_instances_algebraic.at(inv_storage_level).at(pvi))
+            out << dimname << "*";
+          out << "1);";
+
+          // Verify that algebraic and real spatial instances match.
+          unsigned spatial_instances = 1;
+          for (auto& dimname: spatial_instances_algebraic.at(inv_storage_level).at(pvi))
+          {
+            spatial_instances *= dimname_to_bound.at(dimname);
+          }
+          if (spatial_instances != instances.at(pvi))
+            out << " // ERROR: mismatch algebraic = " << spatial_instances << " modeled = " << instances.at(pvi);
+          out << std::endl;
         }
         else
         {
