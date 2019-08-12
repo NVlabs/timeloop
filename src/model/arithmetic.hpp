@@ -166,6 +166,12 @@ class ArithmeticUnits : public Level
     return 0;
   }
 
+  std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
+  {
+    (void) pv;
+    return 0;
+  }
+
   std::uint64_t MaxFanout() const override { return 0; }
 
   // --- Temporary hack interfaces, these will be removed ---

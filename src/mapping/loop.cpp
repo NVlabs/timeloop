@@ -103,6 +103,43 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
   }
 }
 
+void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
+                            std::vector<problem::Shape::DimensionID>& dimids,
+                            std::vector<std::string>& dimnames,
+                            std::vector<int>& dimbounds,
+                            std::vector<std::string>& varnames) const
+{
+  std::locale loc;
+  std::string dimname = problem::GetShape()->DimensionIDToName.at(dimension);
+  std::string varname = dimname;
+
+  for (unsigned i = 0; i < dimname.length(); i++)
+    varname = tolower(dimname[i], loc);
+
+  if (varname == dimname)
+    varname = "cur_" + varname;
+
+  varname += std::to_string(storage_level);
+  dimname += std::to_string(storage_level);
+
+  if (IsSpatial(spacetime_dimension))
+  {
+    varname += "s";
+    dimname += "s";
+  }
+
+  if (IsSpatial(spacetime_dimension))
+    out << "s_for(";
+  else
+    out << "t_for(";
+  out << varname << ", " << start << ", " << dimname << "); {";
+
+  dimids.push_back(dimension);
+  dimnames.push_back(dimname);
+  dimbounds.push_back(end);
+  varnames.push_back(varname);
+}
+
 std::ostream& operator << (std::ostream& out, const Descriptor& loop)
 {
   loop.Print(out, true);

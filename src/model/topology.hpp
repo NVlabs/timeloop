@@ -55,6 +55,8 @@ class Topology : public Module
    public:
     unsigned NumLevels() const;
     unsigned NumStorageLevels() const;
+    std::vector<std::string> LevelNames() const;
+    std::vector<std::string> StorageLevelNames() const;
 
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
 
@@ -105,6 +107,8 @@ class Topology : public Module
   // double Size() const;
   std::uint64_t Cycles() const;
   double Utilization() const;
+  std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const;
+  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const;
   std::uint64_t MACCs() const;
   
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);

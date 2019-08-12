@@ -58,6 +58,7 @@ class Level : public Module
   virtual std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   virtual double CapacityUtilization() const = 0;
   virtual std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
+  virtual std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   virtual std::uint64_t MaxFanout() const = 0;
   
   virtual void Print(std::ostream& out) const = 0;

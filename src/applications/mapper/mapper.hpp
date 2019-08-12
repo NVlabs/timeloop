@@ -73,6 +73,7 @@ class Application
   bool log_stats_;
   bool log_suboptimal_;
   bool diagnostics_on_;
+  bool emit_whoop_nest_;
 
   std::vector<std::string> optimization_metrics_;
 
@@ -165,6 +166,8 @@ class Application
     mapper.lookupValue("log-all", log_suboptimal_); // backwards compatibility.
     diagnostics_on_ = false;
     mapper.lookupValue("diagnostics", diagnostics_on_);
+    std::cout << "Mapper configuration complete." << std::endl;
+    mapper.lookupValue("emit-whoop-nest", emit_whoop_nest_);
     std::cout << "Mapper configuration complete." << std::endl;
 
     // MapSpace configuration.
@@ -718,27 +721,8 @@ class Application
         {
           engine.Evaluate(mapping, workload_, false);
         }
-
-        std::vector<std::string> level_names;
-        std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
-        for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
-        {
-          level_names.push_back(arch_specs_.topology.GetLevel(level_id)->level_name);
-          
-          // hack: skip level-0 (arithmetic) for utilized capacity.
-          if (level_id > 0)
-          {
-            auto buffer = std::static_pointer_cast<model::BufferLevel>(engine.GetTopology().GetLevel(level_id));
-            problem::PerDataSpace<std::uint64_t> uc;
-            for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-            {
-              auto pv = problem::Shape::DataSpaceID(pvi);
-              uc[pv] = buffer->UtilizedCapacity(pv);
-            }
-            tile_sizes.push_back(uc);
-          }
-        }
-        mapping.PrettyPrint(std::cout, level_names, tile_sizes);
+        mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
+                            engine.GetTopology().TileSizes());
       }
 
       std::cout << "-----------------------------------------------" << std::endl;
@@ -773,6 +757,15 @@ class Application
     {
       std::cout << best_mapping << std::endl;
       std::cout << best_mapped_engine << std::endl;
+
+      if (emit_whoop_nest_)
+      {
+        std::ofstream whoopcpp("out.whoop.cpp");
+        best_mapping.PrintWhoopNest(whoopcpp, arch_specs_.topology.StorageLevelNames(),
+                                    best_mapped_engine.GetTopology().TileSizes(),
+                                    best_mapped_engine.GetTopology().UtilizedInstances());
+        whoopcpp.close();
+      }
     }
     else
     {
@@ -806,10 +799,24 @@ class Application
 
     // Update the mapper constraints.
     libconfig::Setting& mapper = root.lookup("mapper");
+
+    if (mapper.exists("algorithm"))
+      mapper["algorithm"] = "exhaustive";
+    else
+      mapper.add("algorithm", libconfig::Setting::TypeString) = "exhaustive";
+
     if (mapper.exists("num-threads"))
       mapper["num-threads"] = 1;
     else
       mapper.add("num-threads", libconfig::Setting::TypeInt) = 1;
+
+    if (mapper.exists("search_size"))
+      mapper.remove("search_size");
+
+    if (mapper.exists("search-size"))
+      mapper["search-size"] = 1;
+    else
+      mapper.add("search-size", libconfig::Setting::TypeInt) = 1;
 
     // Delete the mapspace constraint.
     root.remove("mapspace");
