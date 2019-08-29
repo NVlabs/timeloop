@@ -50,12 +50,12 @@
     {                                                                               \
       std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;\
       exit(1);                                                                      \
-    }                                                                               
-    /*catch (YAML::Exception e)                                                       \
+    }                                                                               \
+    catch (YAML::Exception e)                                                       \
     {                                                                               \
       std::cerr << "ERROR: YAML exception: " << e.msg << std::endl;                 \
       exit(1);                                                                      \
-    } */
+    }
 
 namespace config
 {
@@ -318,7 +318,6 @@ bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
 /* CompoundConfig */
 
 CompoundConfig::CompoundConfig(const char* inputFile) {
-  //FIXME: parse the input to decide which format it is
   if (std::strstr(inputFile, ".cfg")) {
     LConfig.readFile(inputFile);
     auto& lroot = LConfig.getRoot();
