@@ -105,7 +105,12 @@ class Application
     std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
-    auto arch = rootNode.lookup("arch");
+    config::CompoundConfigNode arch;
+    if (rootNode.exists("arch")) {
+      arch = rootNode.lookup("arch");
+    } else if (rootNode.exists("architecture")) {
+      arch = rootNode.lookup("architecture");
+    }
     arch_specs_ = model::Engine::ParseSpecs(arch);
     std::cout << "Architecture configuration complete." << std::endl;
 

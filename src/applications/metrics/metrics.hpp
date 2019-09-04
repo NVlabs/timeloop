@@ -55,9 +55,14 @@ class Application
 
   Application(config::CompoundConfig* config)
   {
-    auto rootNode = config->getRoot(); 
+    auto rootNode = config->getRoot();
     // Architecture configuration.
-    auto arch = rootNode.lookup("arch");
+    config::CompoundConfigNode arch;
+    if (rootNode.exists("arch")) {
+      arch = rootNode.lookup("arch");
+    } else if (rootNode.exists("architecture")) {
+      arch = rootNode.lookup("architecture");
+    }
     arch_specs_ = model::Engine::ParseSpecs(arch);
     engine_.Spec(arch_specs_);
     std::cout << "Architecture configuration complete." << std::endl;
