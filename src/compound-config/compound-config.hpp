@@ -131,4 +131,7 @@ class CompoundConfig
   bool hasLConfig() { return useLConfig;}
 };
 
+  uint32_t parseElementSize(std::string name);
+  std::string parseName(std::string name);
+
 } // namespace config

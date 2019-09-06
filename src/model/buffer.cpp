@@ -53,8 +53,22 @@ BufferLevel::BufferLevel(const Specs& specs) :
   is_evaluated_ = false;
 }
 
-void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::Shape::DataSpaceID pv, Specs& specs)
+void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t nElements, problem::Shape::DataSpaceID pv, Specs& specs)
 {
+  // Name. This has to go first. Since the rest can be attributes
+  std::string name;
+  if (buffer.lookupValue("name", name))
+  {
+    specs.Name(pv) = config::parseName(name);
+  }
+
+  std::string className = "";
+  if (buffer.exists("attribute")) {
+    buffer.lookupValue("class", className);
+    assert(className == "DRAM" || className == "SRAM" || className == "reg");
+    buffer = buffer.lookup("attribute");
+  }
+
   // Word Bits.
   std::uint32_t word_bits;
   if (buffer.lookupValue("word-bits", word_bits))
@@ -94,23 +108,19 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
     specs.ClusterSize(pv) = cluster_size;
   }
 
-  // Name.
-  std::string name;
-  if (buffer.lookupValue("name", name))
-  {
-    specs.Name(pv) = name;
-  }
-      
   // Technology.
+  // Unfortunately ".technology" means different things between ISPASS format
+  // and Accelergy v0.2 format. So we use the class name to find out what to
+  // assume.
   std::string technology;
   specs.Tech(pv) = Technology::SRAM;
   if (buffer.lookupValue("technology", technology))
   {
-    if (technology == "DRAM")
+    if (technology == "DRAM" || className == "DRAM")
     {
       specs.Tech(pv) = Technology::DRAM;
     } else {
-      assert(technology == "SRAM");
+      assert(technology == "SRAM" || className == "SRAM" || className == "reg");
     }
   }
 
@@ -226,6 +236,8 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
   if (buffer.lookupValue("instances", instances))
   {
     specs.Instances(pv) = instances;
+  } else {
+    specs.Instances(pv) = nElements;
   }
 
   // MeshX.
@@ -336,7 +348,7 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
 // affect the internal specs_ data structure, which is set by
 // the dynamic Spec() call later.
 // FIXME: re-factor level-specific code to Buffer class.
-BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level)
+BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uint32_t nElements)
 {
   // Legacy code treats partitioned and shared in completely different code paths.
   // Much of that code still exists across this buffer implementation. However,
@@ -373,13 +385,13 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level)
     for (int i = 0; i < len; i ++)
     {
       // Sophia
-      ParseBufferSpecs(buffers[i], problem::Shape::DataSpaceID(pvi), specs);
+      ParseBufferSpecs(buffers[i], nElements, problem::Shape::DataSpaceID(pvi), specs);
       pvi++;
     }
   }
   else
   {
-    ParseBufferSpecs(level, problem::GetShape()->NumDataSpaces, specs);
+    ParseBufferSpecs(level, nElements, problem::GetShape()->NumDataSpaces, specs);
     specs.level_name = specs.Name().Get();
   }
 

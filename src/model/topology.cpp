@@ -107,14 +107,15 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
   assert(storage.isList());
 
   // Level 0: arithmetic.
-  auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic));
+  // Use multiplication factor == 0 to ensure .instances attribute is set
+  auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic, 0));
   specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
 
   // Storage levels.
   int num_storage_levels = storage.getLength();
   for (int i = 0; i < num_storage_levels; i++)
   {
-    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i]));
+    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i], 0));
     specs.AddLevel(i, std::static_pointer_cast<LevelSpecs>(level_specs_p));
   }
 
@@ -122,6 +123,77 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
 
   return specs;
 }
+
+// This function implements the "tree-like" hierarchical architecture description
+// used in Accelergy v0.2. The lowest level is level 0 and should have
+// arithmetic units, while other level are level 1+ with some buffer/storage units
+Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
+{
+  Specs specs;
+  auto curNode = designRoot;
+  typedef std::pair< uint32_t, std::shared_ptr<LevelSpecs> > sPair;
+  std::vector<sPair> storages; // level, ptr pair
+  uint32_t curStep = 0;
+  uint32_t arithLevel = (uint32_t) -1;
+  uint32_t multiplication = 1;
+  // FIXME: Walk the tree to find each buffer and arithmetic units
+  // and add them to the specs.
+  while (curNode.exists("subtree")) {
+    curNode = curNode.lookup("subtree");
+    std::string curNodeName;
+    curNode.lookupValue("name", curNodeName);
+    uint32_t subTreeSize = config::parseElementSize(curNodeName);
+    multiplication *= subTreeSize;
+
+    if (curNode.exists("local")) {
+      auto curLocal = curNode.lookup("local");
+      assert(curLocal.isList());
+
+      for (int c = 0; c < curLocal.getLength() ; c++) {
+        std::string cName, cClass;
+        curLocal[c].lookupValue("name", cName);
+        curLocal[c].lookupValue("class", cClass);
+        uint32_t localElementSize = config::parseElementSize(cName);
+        uint32_t nElements = multiplication * localElementSize;
+        if (cClass == "DRAM" || cClass == "SRAM" || cClass == "reg") {
+          // create a buffer
+          std::cout << "Creating buffer: " << cClass << " at level " << curStep << std::endl;
+          auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
+          storages.push_back({curStep, level_specs_p});
+        } else if (cClass == "mac") {
+          // create arithmetic
+          assert(arithLevel == (uint32_t) -1);
+          arithLevel = curStep;
+          std::cout << "Creating arith: " << cClass << " at level " << curStep << std::endl;
+          auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
+          specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
+        } else {
+          std::cerr << "Unkwown class:" << cClass << " for component: " << cName << std::endl;
+          exit(1);
+        }
+
+      }
+
+    }
+
+    curStep++;
+  } // end while
+
+  // Add storages to specs. We can only do this after walking the whole tree
+  // to learn the depth of the tree and the arithmetic units.
+  for (uint32_t i = 0; i < curStep; i++) {
+    uint32_t level = arithLevel - storages[i].first;
+    auto storage = storages[i].second;
+    std::cout << "AddLevel: " << level << " " << storage->level_name << std::endl;
+    specs.AddLevel(level, storage);
+  }
+ 
+  std::cout << "Validating" << std::endl;
+  Validate(specs);
+  std::cout << "Validation done" << std::endl;
+
+  return specs;
+};
 
 std::vector<std::string> Topology::Specs::LevelNames() const
 {

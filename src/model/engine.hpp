@@ -76,11 +76,20 @@ class Engine : public Module
   static Specs ParseSpecs(config::CompoundConfigNode setting)
   {
     Specs specs;
-
-    auto arithmetic = setting.lookup("arithmetic");
-    auto topology = setting.lookup("storage");
-    
-    specs.topology = Topology::ParseSpecs(topology, arithmetic);
+    std::string version;
+    if (!setting.exists("version") || (setting.lookupValue("version", version) && version != "0.2")) {
+        // format used in the ISPASS paper
+        std::cout << "ParseSpecs" << std::endl;
+        auto arithmetic = setting.lookup("arithmetic");
+        auto topology = setting.lookup("storage");
+        specs.topology = Topology::ParseSpecs(topology, arithmetic);
+    } else {
+        // format used in Accelergy v0.2
+        // The first level is always a root node with subtree to the design
+        std::cout << "ParseTreeSpecs" << std::endl;
+        auto design = setting.lookup("subtree");
+        specs.topology = Topology::ParseTreeSpecs(design);
+    }
 
     return specs;
   }

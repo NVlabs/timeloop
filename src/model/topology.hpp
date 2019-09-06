@@ -89,6 +89,7 @@ class Topology : public Module
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs);
+  static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot);
   static void Validate(Specs& specs);
   
   void Spec(const Specs& specs);

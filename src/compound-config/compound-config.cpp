@@ -348,4 +348,25 @@ CompoundConfigNode CompoundConfig::getRoot() const {
   return root;
 }
 
+uint32_t parseElementSize(std::string name) {
+  auto posBegin = name.find("[");
+  auto posEnd = name.find("]");
+  if (posBegin != std::string::npos && posEnd != std::string::npos) {
+    assert(posBegin < posEnd);
+    auto elementSize = name.substr(posBegin + 1, posEnd - posBegin - 1);
+    return std::stoi(elementSize);
+  } else {
+    return 1;
+  }
+}
+
+std::string parseName(std::string name) {
+  auto posStart = name.find("[");
+  if (posStart != std::string::npos) {
+    return name.substr(0, name.find("["));
+  } else {
+    return name;
+  }
+}
+
 } // namespace config
