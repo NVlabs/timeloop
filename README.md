@@ -9,6 +9,7 @@ libconfig++-dev
 libboost-dev
 libboost-iostreams-dev
 libboost-serialization-dev
+libyaml-cpp-dev
 ```
 
 * Clone the timeloop repository.
