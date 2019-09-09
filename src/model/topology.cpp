@@ -157,14 +157,15 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
         uint32_t nElements = multiplication * localElementSize;
         if (cClass == "DRAM" || cClass == "SRAM" || cClass == "reg") {
           // create a buffer
-          std::cout << "Creating buffer: " << cClass << " at level " << curStep << std::endl;
+          // std::cout << "Creating buffer: " << cClass << " at level " << curStep << std::endl;
           auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
           storages.push_back({curStep, level_specs_p});
         } else if (cClass == "mac") {
           // create arithmetic
           assert(arithLevel == (uint32_t) -1);
           arithLevel = curStep;
-          std::cout << "Creating arith: " << cClass << " at level " << curStep << std::endl;
+          // std::cout << "Creating arith: " << cClass << " at level " << curStep << std::endl;
+          std::cout << "AddLevel (arithmetic) : 0 " << cName << std::endl;
           auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
         } else {
@@ -181,16 +182,15 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
 
   // Add storages to specs. We can only do this after walking the whole tree
   // to learn the depth of the tree and the arithmetic units.
-  for (uint32_t i = 0; i < curStep; i++) {
+  // Insert the level in reverse order (from small to large) to match ParseSpec().
+  for (int32_t i = storages.size() - 1; i >= 0; i--) {
     uint32_t level = arithLevel - storages[i].first;
     auto storage = storages[i].second;
-    std::cout << "AddLevel: " << level << " " << storage->level_name << std::endl;
+    std::cout << "AddLevel (storage) : " << level << " " << storage->level_name << std::endl;
     specs.AddLevel(level, storage);
   }
  
-  std::cout << "Validating" << std::endl;
   Validate(specs);
-  std::cout << "Validation done" << std::endl;
 
   return specs;
 };
