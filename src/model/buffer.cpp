@@ -65,13 +65,15 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   std::string className = "";
   if (buffer.exists("attribute")) {
     buffer.lookupValue("class", className);
-    assert(className == "DRAM" || className == "SRAM" || className == "reg");
+    assert(className == "DRAM" || className == "SRAM" || className == "regfile");
     buffer = buffer.lookup("attribute");
   }
 
   // Word Bits.
   std::uint32_t word_bits;
-  if (buffer.lookupValue("word-bits", word_bits))
+  if (buffer.lookupValue("word-bits", word_bits) ||
+      buffer.lookupValue("word_width", word_bits) ||
+      buffer.lookupValue("datawidth", word_bits) )
   {
     specs.WordBits(pv) = word_bits;
   }
@@ -80,22 +82,11 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
     specs.WordBits(pv) = Specs::kDefaultWordBits;
   }
 
-  // Size.
-  std::uint32_t size;
-  if (buffer.lookupValue("entries", size))
-  {
-    assert(buffer.exists("sizeKB") == false);
-    specs.Size(pv) = size;
-  }
-  else if (buffer.lookupValue("sizeKB", size))
-  {
-    specs.Size(pv) = size * 1024 * 8 / specs.WordBits(pv).Get();
-  }
-
   // Block size.
   std::uint32_t block_size;
   specs.BlockSize(pv) = 1; // FIXME: derive block size from tile.
-  if (buffer.lookupValue("block-size", block_size))
+  if (buffer.lookupValue("block-size", block_size) ||
+      buffer.lookupValue("n_words", block_size) )
   {
     specs.BlockSize(pv) = block_size;
   }
@@ -107,6 +98,26 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   {
     specs.ClusterSize(pv) = cluster_size;
   }
+
+  // Size.
+  // It has dependency on BlockSize and thus is initialized after BlockSize.
+  std::uint32_t size;
+  if (buffer.lookupValue("entries", size) )
+  {
+    assert(buffer.exists("sizeKB") == false);
+    specs.Size(pv) = size;
+  }
+  else if (buffer.lookupValue("depth", size))
+  {
+    assert(buffer.exists("sizeKB") == false);
+    assert(buffer.exists("entires") == false);
+    specs.Size(pv) = size * specs.BlockSize(pv).Get();
+  }
+  else if (buffer.lookupValue("sizeKB", size))
+  {
+    specs.Size(pv) = size * 1024 * 8 / specs.WordBits(pv).Get();
+  }
+
 
   // Technology.
   // Unfortunately ".technology" means different things between ISPASS format
@@ -120,7 +131,7 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
     {
       specs.Tech(pv) = Technology::DRAM;
     } else {
-      assert(technology == "SRAM" || className == "SRAM" || className == "reg");
+      assert(technology == "SRAM" || className == "SRAM" || className == "regfile");
     }
   }
 

@@ -155,7 +155,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
         curLocal[c].lookupValue("class", cClass);
         uint32_t localElementSize = config::parseElementSize(cName);
         uint32_t nElements = multiplication * localElementSize;
-        if (cClass == "DRAM" || cClass == "SRAM" || cClass == "reg") {
+        if (cClass == "DRAM" || cClass == "SRAM" || cClass == "regfile") {
           // create a buffer
           // std::cout << "Creating buffer: " << cClass << " at level " << curStep << std::endl;
           auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
