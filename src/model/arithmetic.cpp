@@ -42,7 +42,7 @@ ArithmeticUnits::ArithmeticUnits(const Specs& specs) :
 {
   is_specced_ = true;
   is_evaluated_ = false;
-  area_ = pat::MultiplierArea(specs_.WordBits().Get(), specs_.WordBits().Get());
+  area_ = specs_.Area().Get();
 }
 
 ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting)
@@ -111,8 +111,13 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   }
 
   // Energy (override).
+  int energy_int;
   double energy;
-  if (setting.lookupValue("energy", energy))
+  if (setting.lookupValue("energy", energy_int))
+  {
+    specs.EnergyPerOp() = static_cast<double>(energy_int);
+  }
+  else if (setting.lookupValue("energy", energy))
   {
     specs.EnergyPerOp() = energy;
   }
@@ -122,6 +127,23 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
       pat::MultiplierEnergy(specs.WordBits().Get(), specs.WordBits().Get());
   }
     
+  // Area (override).
+  int area_int;
+  double area;
+  if (setting.lookupValue("area", area_int))
+  {
+    specs.Area() = static_cast<double>(area_int);
+  }
+  else if (setting.lookupValue("area", area))
+  {
+    specs.Area() = area;
+  }
+  else
+  {
+    specs.Area() =
+      pat::MultiplierArea(specs.WordBits().Get(), specs.WordBits().Get());
+  }
+
   return specs;
 }
   

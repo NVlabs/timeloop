@@ -51,6 +51,7 @@ class ArithmeticUnits : public Level
     Attribute<std::size_t> mesh_y;
     Attribute<std::uint64_t> word_bits;
     Attribute<double> energy_per_op;
+    Attribute<double> area;
 
     Attribute<std::string>& Name() { return name; }
     const Attribute<std::string>& Name() const { return name; }
@@ -64,6 +65,8 @@ class ArithmeticUnits : public Level
     const Attribute<std::uint64_t>& WordBits() const { return word_bits; }
     Attribute<double>& EnergyPerOp() { return energy_per_op; }
     const Attribute<double>& EnergyPerOp() const { return energy_per_op; }
+    Attribute<double>& Area() { return area; }
+    const Attribute<double>& Area() const { return area; }
 
     // Serialization
     friend class boost::serialization::access;
@@ -205,7 +208,7 @@ class ArithmeticUnits : public Level
         if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
           energy_ *= workload.GetDensity(d);
       }
-      
+
       is_evaluated_ = true;    
     }
     else
