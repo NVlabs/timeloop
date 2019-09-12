@@ -326,10 +326,26 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
   else
     buffer.lookupValue("vector-access-energy", tmp_access_energy);
 
+  // Allow user to override the cluster area. FIXME: clean up this code.
+  // Ugh. libconfig needs us to look for both int and float values.
+  std::uint32_t tmp_cluster_area_int = 0;
+  double tmp_cluster_area = 0;
+  buffer.lookupValue("cluster-area", tmp_cluster_area_int);
+  if (tmp_cluster_area_int > 0)
+    tmp_cluster_area = static_cast<double>(tmp_cluster_area_int);
+  else
+    buffer.lookupValue("cluster-area", tmp_cluster_area);
+  if (tmp_cluster_area > 0)
+    tmp_storage_area = tmp_cluster_area / specs.ClusterSize(pv).Get();
+
+  // Set final area and energy.
   specs.VectorAccessEnergy(pv) = tmp_access_energy;
   specs.StorageArea(pv) = tmp_storage_area; //FIXME: check with Angshu
 
-  std::cout << "BUFFER " << specs.Name(pv) << " vector access energy = " << specs.VectorAccessEnergy(pv) << std::endl;
+  std::cout << "BUFFER " << specs.Name(pv) << " vector access energy = "
+            << specs.VectorAccessEnergy(pv) << " pJ, cluster area = "
+            << specs.StorageArea(pv).Get() * specs.ClusterSize(pv).Get()
+            << " um^2" << std::endl;
 }
 
 // The hierarchical ParseSpecs functions are static and do not
