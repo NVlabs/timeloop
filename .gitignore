@@ -5,6 +5,8 @@
 timeLoopOutput.xml
 timeloop-output.pkl
 out.cfg
+timeloop.log
+out.whoop.cpp
 
 ### Common, non-project-specific generated files.
 # Scons caches

@@ -72,6 +72,7 @@ class Application
   uint128_t sync_interval_;
   bool log_stats_;
   bool log_suboptimal_;
+  bool live_status_;
   bool diagnostics_on_;
   bool emit_whoop_nest_;
 
@@ -164,10 +165,12 @@ class Application
     log_suboptimal_ = false;    
     mapper.lookupValue("log-suboptimal", log_suboptimal_);
     mapper.lookupValue("log-all", log_suboptimal_); // backwards compatibility.
+    live_status_ = false;
+    mapper.lookupValue("live-status", live_status_);
     diagnostics_on_ = false;
     mapper.lookupValue("diagnostics", diagnostics_on_);
     emit_whoop_nest_ = false;
-    mapper.lookupValue("emit-whoop-nest", emit_whoop_nest_);
+    mapper.lookupValue("emit-whoop-nest", emit_whoop_nest_);    
     std::cout << "Mapper configuration complete." << std::endl;
 
     // MapSpace configuration.
@@ -319,6 +322,8 @@ class Application
     uint128_t sync_interval_;
     bool log_stats_;
     bool log_suboptimal_;
+    std::ostream& log_stream_;
+    bool live_status_;
     bool diagnostics_on_;
     std::vector<std::string> optimization_metrics_;
     model::Engine::Specs arch_specs_;
@@ -343,6 +348,8 @@ class Application
       uint128_t sync_interval,
       bool log_stats,
       bool log_suboptimal,
+      std::ostream& log_stream,
+      bool live_status,
       bool diagnostics_on,
       std::vector<std::string> optimization_metrics,
       model::Engine::Specs arch_specs,
@@ -359,6 +366,8 @@ class Application
         sync_interval_(sync_interval),
         log_stats_(log_stats),
         log_suboptimal_(log_suboptimal),
+        log_stream_(log_stream),
+        live_status_(live_status),
         diagnostics_on_(diagnostics_on),
         optimization_metrics_(optimization_metrics),
         arch_specs_(arch_specs),
@@ -560,8 +569,8 @@ class Application
         if (log_stats_)
         {
           mutex_->lock();
-          std::cerr << "[" << thread_id_ << "] INVALID " << total_mappings << " " << valid_mappings
-                    << " " << invalid_mappings_mapcnstr + invalid_mappings_eval << std::endl;
+          log_stream_ << "[" << thread_id_ << "] INVALID " << total_mappings << " " << valid_mappings
+                      << " " << invalid_mappings_mapcnstr + invalid_mappings_eval << std::endl;
           mutex_->unlock();
         }        
         invalid_mappings_mapcnstr = 0;
@@ -573,13 +582,13 @@ class Application
           auto num_storage_levels = engine.GetTopology().NumStorageLevels();
           auto num_maccs = engine.GetTopology().GetArithmeticLevel()->MACCs();
           mutex_->lock();
-          std::cerr << "[" << thread_id_ << "] Utilization = " << engine.Utilization() << " pJ/MACC = "
-                    << engine.Energy() / num_maccs << " LL-accesses/MACC = "
-                    << double(engine.GetTopology().GetStorageLevel(num_storage_levels-1)->Accesses()) / num_maccs
-                    << " CapUtil = ";
+          log_stream_ << "[" << thread_id_ << "] Utilization = " << engine.Utilization() << " pJ/MACC = "
+                      << engine.Energy() / num_maccs << " LL-accesses/MACC = "
+                      << double(engine.GetTopology().GetStorageLevel(num_storage_levels-1)->Accesses()) / num_maccs
+                      << " CapUtil = ";
           for (unsigned i = 0; i < num_storage_levels; i++)
-            std::cerr << engine.GetTopology().GetStorageLevel(i)->CapacityUtilization() << " ";
-          std::cerr << std::endl;
+            log_stream_ << engine.GetTopology().GetStorageLevel(i)->CapacityUtilization() << " ";
+          log_stream_ << std::endl;
           mutex_->unlock();
         }
 
@@ -593,8 +602,8 @@ class Application
               (Cost(thread_best_.engine, optimization_metrics_.at(0)) - Cost(engine, optimization_metrics_.at(0))) /
               Cost(thread_best_.engine, optimization_metrics_.at(0)) : 1.0;
             mutex_->lock();
-            std::cerr << "[" << thread_id_ << "] UPDATE " << total_mappings << " " << valid_mappings
-                      << " " << mappings_since_last_best_update << " " << improvement << std::endl;
+            log_stream_ << "[" << thread_id_ << "] UPDATE " << total_mappings << " " << valid_mappings
+                        << " " << mappings_since_last_best_update << " " << improvement << std::endl;
             mutex_->unlock();
           }
           
@@ -604,9 +613,9 @@ class Application
           if (!log_suboptimal_)
           {
             mutex_->lock();
-            std::cerr << "[" << std::setw(3) << thread_id_ << "]" 
-                      << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
-                      << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+            log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
+                        << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
+                        << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
               engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
             mutex_->unlock();
           }
@@ -628,6 +637,13 @@ class Application
   // Main mapper's Run function.
   void Run()
   {
+    // Prepare log stream.
+    std::ofstream log_file;
+    if (live_status_)
+    {
+      log_file.open("timeloop.log");
+    }
+
     // Prepare the threads.
     std::mutex mutex;
     std::vector<MapperThread*> threads_;
@@ -642,6 +658,8 @@ class Application
                                           sync_interval_,
                                           log_stats_,
                                           log_suboptimal_,
+                                          live_status_ ? log_file : std::cerr,
+                                          live_status_,
                                           diagnostics_on_,
                                           optimization_metrics_,
                                           arch_specs_,
@@ -828,6 +846,12 @@ class Application
     best_mapping.FormatAsConstraints(mapspace);
 
     config.writeFile("out.cfg");
+
+    // Close log.
+    if (live_status_)
+    {
+      log_file.close();
+    }
   }
 };
 
