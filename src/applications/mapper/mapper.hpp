@@ -166,7 +166,7 @@ class Application
     mapper.lookupValue("log-all", log_suboptimal_); // backwards compatibility.
     diagnostics_on_ = false;
     mapper.lookupValue("diagnostics", diagnostics_on_);
-    std::cout << "Mapper configuration complete." << std::endl;
+    emit_whoop_nest_ = false;
     mapper.lookupValue("emit-whoop-nest", emit_whoop_nest_);
     std::cout << "Mapper configuration complete." << std::endl;
 
