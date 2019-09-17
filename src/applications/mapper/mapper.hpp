@@ -31,6 +31,7 @@
 #include <thread>
 #include <mutex>
 #include <iomanip>
+#include <ncurses.h>
 
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/array.hpp>
@@ -216,11 +217,40 @@ class Application
   // ---------------
   void Run()
   {
-    // Prepare log stream.
+    // Prepare live status/log stream.
     std::ofstream log_file;
+
+    // std::streambuf* streambuf_cout = std::cout.rdbuf(); 
+    std::streambuf* streambuf_cerr = std::cerr.rdbuf();
+
     if (live_status_)
     {
       log_file.open("timeloop.log");
+      // std::cout.rdbuf(log_file.rdbuf());
+      std::cerr.rdbuf(log_file.rdbuf());
+  
+      initscr();
+      cbreak();
+      noecho();
+      clear();
+
+      std::stringstream line0, line1, line2, line3, line4, line5;
+      line0 << "================================================================================";
+      line1 << "                             TIMELOOP: MAPPER STATUS";
+      line2 << "================================================================================";
+      line3 << std::setw(3) << "TID" << std::setw(11) << "Total" << std::setw(11) << "Invalid"
+            << std::setw(11) << "Valid" <<  std::setw(11) << "Consec." << std::setw(11) << "Last"
+            << std::setw(11) << "Opt.util" << std::setw(11) << "Opt.energy";
+      line4 << std::setw(3) << " " << std::setw(11) << " " << std::setw(11) << " "
+            << std::setw(11) << " " <<  std::setw(11) << "invalid" << std::setw(11) << "update";
+      line5 << "--------------------------------------------------------------------------------";
+      mvaddstr(0, 0, line0.str().c_str());
+      mvaddstr(1, 0, line1.str().c_str());
+      mvaddstr(2, 0, line2.str().c_str());      
+      mvaddstr(3, 0, line3.str().c_str());
+      mvaddstr(4, 0, line4.str().c_str());
+      mvaddstr(5, 0, line5.str().c_str());      
+      refresh();
     }
 
     // Prepare the threads.
@@ -426,10 +456,13 @@ class Application
 
     config.writeFile("out.cfg");
 
-    // Close log.
+    // Close log and end curses.
     if (live_status_)
     {
+      // std::cout.rdbuf(streambuf_cout);
+      std::cerr.rdbuf(streambuf_cerr);
       log_file.close();
+      endwin();
     }
   }
 };

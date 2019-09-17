@@ -244,13 +244,44 @@ class MapperThread
     mapspace::ID mapping_id;
     while (search_->Next(mapping_id) && !gTerminate)
     {
+      if (live_status_)
+      {
+        std::stringstream msg;
+
+        msg << std::setw(3) << thread_id_ << std::setw(11) << total_mappings
+            << std::setw(11) << (total_mappings - valid_mappings)  << std::setw(11) << valid_mappings
+            << std::setw(11) << invalid_mappings_mapcnstr + invalid_mappings_eval
+            << std::setw(11) << mappings_since_last_best_update;
+
+        if (valid_mappings > 0)
+        {
+          msg << std::setw(11) << std::fixed << std::setprecision(2) << thread_best_.engine.Utilization()
+              << std::setw(11) << std::fixed << std::setprecision(3) << thread_best_.engine.Energy() /
+            thread_best_.engine.GetTopology().GetArithmeticLevel()->MACCs();
+        }
+
+        mutex_->lock();
+        mvaddstr(thread_id_ + 6, 0, msg.str().c_str());
+        refresh();
+        mutex_->unlock();
+      }
+
       // Termination conditions.
       if (search_size_ > 0 && valid_mappings == search_size_)
       {
         mutex_->lock();
-        std::cerr << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << search_size_
-                  << " valid mappings found, terminating search."
-                  << std::endl;
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << search_size_
+                    << " valid mappings found, terminating search."
+                    << std::endl;
+        // if (live_status_)
+        // {
+        //   std::stringstream msg;
+        //   msg << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << search_size_
+        //       << " valid mappings found, terminating search."
+        //       << std::endl;
+        //   mvaddstr(thread_id_, 0, msg.str().c_str());
+        //   refresh();
+        // }
         mutex_->unlock();
         break;
       }
@@ -258,9 +289,18 @@ class MapperThread
       if (victory_condition_ > 0 && mappings_since_last_best_update == victory_condition_)
       {
         mutex_->lock();
-        std::cerr << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << victory_condition_
-                  << " suboptimal mappings found since the last upgrade, terminating search."
-                  << std::endl;
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << victory_condition_
+                    << " suboptimal mappings found since the last upgrade, terminating search."
+                    << std::endl;
+        // if (live_status_)
+        // {
+        //   std::stringstream msg;
+        //   msg << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << victory_condition_
+        //       << " suboptimal mappings found since the last upgrade, terminating search."
+        //       << std::endl;
+        //   mvaddstr(thread_id_, 0, msg.str().c_str());
+        //   refresh();
+        // }
         mutex_->unlock();
         break;
       }
@@ -269,10 +309,20 @@ class MapperThread
           (invalid_mappings_mapcnstr + invalid_mappings_eval) == timeout_)
       {
         mutex_->lock();
-        std::cerr << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << timeout_
-                  << " invalid mappings (" << invalid_mappings_mapcnstr << " mapcnstr, "
-                  << invalid_mappings_eval << " eval) found since the last valid mapping, "
-                  << "terminating search." << std::endl;
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << timeout_
+                    << " invalid mappings (" << invalid_mappings_mapcnstr << " mapcnstr, "
+                    << invalid_mappings_eval << " eval) found since the last valid mapping, "
+                    << "terminating search." << std::endl;
+        // if (live_status_)
+        // {
+        //   std::stringstream msg;
+        //   msg << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << timeout_
+        //       << " invalid mappings (" << invalid_mappings_mapcnstr << " mapcnstr, "
+        //       << invalid_mappings_eval << " eval) found since the last valid mapping, "
+        //       << "terminating search." << std::endl;
+        //   mvaddstr(thread_id_, 0, msg.str().c_str());
+        //   refresh();
+        // }
         mutex_->unlock();
         break;
       }
@@ -436,6 +486,18 @@ class MapperThread
                       << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
                       << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
             engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
+
+          // if (live_status_)
+          // {
+          //   std::stringstream msg;
+          //   msg << "[" << std::setw(3) << thread_id_ << "]" 
+          //       << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
+          //       << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+          //     engine.GetTopology().GetArithmeticLevel()->MACCs();
+          //   mvaddstr(thread_id_, 0, msg.str().c_str());
+          //   refresh();
+          // }
+
           mutex_->unlock();
         }
 
@@ -447,8 +509,8 @@ class MapperThread
       }
     } // while ()
       
-      //
-      // End Mapping.
-      //
+    //
+    // End Mapping.
+    //
   }
 };
