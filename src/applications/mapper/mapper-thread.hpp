@@ -236,13 +236,15 @@ class MapperThread
     uint128_t invalid_mappings_mapcnstr = 0;
     uint128_t invalid_mappings_eval = 0;
     std::uint32_t mappings_since_last_best_update = 0;
+
+    const int ncurses_line_offset = 6;
       
     model::Engine engine;
 
-    // Main loop: Keep asking the search pattern generator to generate an index into each
-    // mapping sub-space, and repeat until it refuses.
-    mapspace::ID mapping_id;
-    while (search_->Next(mapping_id) && !gTerminate)
+    // =================
+    // Main mapper loop.
+    // =================
+    while (true)
     {
       if (live_status_)
       {
@@ -261,29 +263,32 @@ class MapperThread
         }
 
         mutex_->lock();
-        mvaddstr(thread_id_ + 6, 0, msg.str().c_str());
+        mvaddstr(thread_id_ + ncurses_line_offset, 0, msg.str().c_str());
         refresh();
         mutex_->unlock();
       }
 
       // Termination conditions.
+      bool terminate = false;
+
+      if (gTerminate)
+      {
+        mutex_->lock();
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: "
+                    << "global termination flag activated, terminating search."
+                    << std::endl;
+        mutex_->unlock();
+        terminate = true;
+      }
+
       if (search_size_ > 0 && valid_mappings == search_size_)
       {
         mutex_->lock();
         log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << search_size_
                     << " valid mappings found, terminating search."
                     << std::endl;
-        // if (live_status_)
-        // {
-        //   std::stringstream msg;
-        //   msg << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << search_size_
-        //       << " valid mappings found, terminating search."
-        //       << std::endl;
-        //   mvaddstr(thread_id_, 0, msg.str().c_str());
-        //   refresh();
-        // }
         mutex_->unlock();
-        break;
+        terminate = true;
       }
 
       if (victory_condition_ > 0 && mappings_since_last_best_update == victory_condition_)
@@ -292,17 +297,8 @@ class MapperThread
         log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << victory_condition_
                     << " suboptimal mappings found since the last upgrade, terminating search."
                     << std::endl;
-        // if (live_status_)
-        // {
-        //   std::stringstream msg;
-        //   msg << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << victory_condition_
-        //       << " suboptimal mappings found since the last upgrade, terminating search."
-        //       << std::endl;
-        //   mvaddstr(thread_id_, 0, msg.str().c_str());
-        //   refresh();
-        // }
         mutex_->unlock();
-        break;
+        terminate = true;
       }
         
       if ((invalid_mappings_mapcnstr + invalid_mappings_eval) > 0 &&
@@ -313,17 +309,32 @@ class MapperThread
                     << " invalid mappings (" << invalid_mappings_mapcnstr << " mapcnstr, "
                     << invalid_mappings_eval << " eval) found since the last valid mapping, "
                     << "terminating search." << std::endl;
-        // if (live_status_)
-        // {
-        //   std::stringstream msg;
-        //   msg << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << timeout_
-        //       << " invalid mappings (" << invalid_mappings_mapcnstr << " mapcnstr, "
-        //       << invalid_mappings_eval << " eval) found since the last valid mapping, "
-        //       << "terminating search." << std::endl;
-        //   mvaddstr(thread_id_, 0, msg.str().c_str());
-        //   refresh();
-        // }
         mutex_->unlock();
+        terminate = true;
+      }
+
+      // Try to obtain the next mapping from the search algorithm.
+      mapspace::ID mapping_id;
+      if (!search_->Next(mapping_id))
+      {
+        mutex_->lock();
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: "
+                    << "search algorithm is done, terminating search."
+                    << std::endl;        
+        mutex_->unlock();
+        terminate = true;
+      }
+
+      // Terminate.
+      if (terminate)
+      {
+        if (live_status_)
+        {
+          mutex_->lock();
+          mvaddstr(thread_id_ + ncurses_line_offset, 0, "-");
+          refresh();
+          mutex_->unlock();
+        }
         break;
       }
 

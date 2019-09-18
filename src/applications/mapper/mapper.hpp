@@ -236,7 +236,7 @@ class Application
 
       std::stringstream line0, line1, line2, line3, line4, line5;
       line0 << "================================================================================";
-      line1 << "                             TIMELOOP: MAPPER STATUS";
+      line1 << "                                TIMELOOP MAPPER";
       line2 << "================================================================================";
       line3 << std::setw(3) << "TID" << std::setw(11) << "Total" << std::setw(11) << "Invalid"
             << std::setw(11) << "Valid" <<  std::setw(11) << "Consec." << std::setw(11) << "Last"
@@ -286,6 +286,18 @@ class Application
     for (unsigned t = 0; t < num_threads_; t++)
     {
       threads_.at(t)->Join();
+    }
+
+    // Close log and end curses.
+    if (live_status_)
+    {
+      // std::cout.rdbuf(streambuf_cout);
+      std::cerr.rdbuf(streambuf_cerr);
+      log_file.close();
+
+      mvaddstr(LINES-1, 0, "Press any key to exit.");
+      getch();
+      endwin();
     }
 
     // Diagnostics.
@@ -455,15 +467,6 @@ class Application
     best_mapping.FormatAsConstraints(mapspace);
 
     config.writeFile("out.cfg");
-
-    // Close log and end curses.
-    if (live_status_)
-    {
-      // std::cout.rdbuf(streambuf_cout);
-      std::cerr.rdbuf(streambuf_cerr);
-      log_file.close();
-      endwin();
-    }
   }
 };
 
