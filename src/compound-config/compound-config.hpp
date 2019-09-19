@@ -121,6 +121,7 @@ class CompoundConfig
   CompoundConfig(){assert(false);}
   CompoundConfig(const char* inputFile);
   CompoundConfig(char* inputFile) : CompoundConfig((const char*) inputFile) {}
+  CompoundConfig(std::vector<std::string> inputFiles);
 
   ~CompoundConfig(){}
 

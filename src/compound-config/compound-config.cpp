@@ -30,6 +30,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <streambuf>
 
 #define EXCEPTION_PROLOGUE                                                          \
     try { 
@@ -327,6 +328,35 @@ CompoundConfig::CompoundConfig(const char* inputFile) {
     std::ifstream f;
     f.open(inputFile);
     YConfig = YAML::Load(f);
+    root = CompoundConfigNode(nullptr, YConfig);
+    useLConfig = false;
+    std::cout << YConfig << std::endl;
+  } else {
+    std::cerr << "ERROR: Input configuration file does not end with .cfg, .yml, or .yaml" << std::endl;
+    exit(1);
+  }
+}
+
+CompoundConfig::CompoundConfig(std::vector<std::string> inputFiles) {
+  assert(inputFiles.size() > 0);
+  std::string combinedString;
+  for (auto fName : inputFiles) {
+    std::ifstream fin;
+    fin.open(fName);
+    std::string f((std::istreambuf_iterator<char>(fin)),
+                   std::istreambuf_iterator<char>());
+    combinedString += f;
+    combinedString+= "\n"; // just to avoid files end with no newline
+  }
+
+  if (std::strstr(inputFiles[0].c_str(), ".cfg")) {
+    LConfig.readString(combinedString);
+    auto& lroot = LConfig.getRoot();
+    useLConfig = true;
+    root = CompoundConfigNode(&lroot, YAML::Node());
+  } else if (std::strstr(inputFiles[0].c_str(), ".yml") || std::strstr(inputFiles[0].c_str(), ".yaml")) {
+    std::istringstream combinedStream(combinedString);
+    YConfig = YAML::Load(combinedStream);
     root = CompoundConfigNode(nullptr, YConfig);
     useLConfig = false;
     std::cout << YConfig << std::endl;

@@ -40,10 +40,10 @@ bool gTerminateEval = false; // FIXME: cleanup.
 
 int main(int argc, char* argv[])
 {
-  assert(argc == 2);
+  assert(argc >= 2);
 
-  char* config_file = argv[1];
-  auto cConfig = new config::CompoundConfig(config_file);
+  std::vector<std::string> inputFiles(argv + 1, argv + argc);
+  auto cConfig = new config::CompoundConfig(inputFiles);
 
   for (auto& line: banner)
   {
