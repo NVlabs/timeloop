@@ -33,6 +33,9 @@ import pickle
 import pprint
 import xml.etree.ElementTree as ET
 
+# Output file names.
+out_prefix = "timeloop."
+xml_file_name = out_prefix + "map+stats.xml";
 
 def get_stat(stats, stat, cast):
     items = stats.findall(stat)[0].findall('PerDataSpace')[0].findall('item')
@@ -48,7 +51,7 @@ def get_stat(stats, stat, cast):
 
 def parse_timeloop_stats(filename):
     if (os.path.isdir(filename)):
-        filename = os.path.join(filename, 'timeLoopOutput.xml')
+        filename = os.path.join(filename, xml_file_name)
     tree = ET.parse(filename)
     root = tree.getroot()
     
@@ -193,7 +196,7 @@ def parse_timeloop_stats(filename):
 def main():
     parser = argparse.ArgumentParser(
             description='A simple tool for generating pickle files from timeloop output.')
-    parser.add_argument('infile', nargs='?', default='timeLoopOutput.xml', type=str,
+    parser.add_argument('infile', nargs='?', default=xml_file_name, type=str,
             help='raw Timeloop XML output file')
     parser.add_argument('outfile', nargs='?', default='timeloop-output.pkl', type=argparse.FileType('wb'),
             help='write the output of infile to outfile')

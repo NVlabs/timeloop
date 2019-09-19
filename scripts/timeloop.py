@@ -33,6 +33,21 @@ import timeit
 
 import libconf
 
+# Output file names.
+out_prefix = "timeloop."
+log_file_name = out_prefix + "log";
+stats_file_name = out_prefix + "stats.txt";
+xml_file_name = out_prefix + "map+stats.xml";
+map_txt_file_name = out_prefix + "map.txt";
+map_cfg_file_name = out_prefix + "map.cfg";
+map_cpp_file_name = out_prefix + "map.cpp";
+output_file_names = [ log_file_name,
+                      stats_file_name,
+                      xml_file_name,
+                      map_txt_file_name,
+                      map_cfg_file_name,
+                      map_cpp_file_name ]
+
 def prod (l):
     return functools.reduce(lambda x, y: x*y, l)
 
@@ -99,7 +114,7 @@ def run_timeloop(dirname, configfile, logfile='timeloop.log', workload_bounds=No
     time = t.timeit(1)
     print('Time to run timeloop = ', time)
     
-    # Copy timeloop results xml to the right directory
-    subprocess.check_call(['mv', 'timeLoopOutput.xml', dirname])
-    subprocess.check_call(['mv', 'out.cfg', dirname])
-
+    # Move timeloop output files to the right directory
+    for f in output_file_names:
+        if os.path.exists(f):
+            os.rename(f, dirname + '/' + f)

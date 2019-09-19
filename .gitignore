@@ -2,11 +2,13 @@
 /src/pat
 
 # Generated output
-timeLoopOutput.xml
 timeloop-output.pkl
-out.cfg
 timeloop.log
-out.whoop.cpp
+timeloop.stats.txt
+timeloop.map+stats.xml
+timeloop.map.txt
+timeloop.map.cfg
+timeloop.map.cpp
 
 ### Common, non-project-specific generated files.
 # Scons caches

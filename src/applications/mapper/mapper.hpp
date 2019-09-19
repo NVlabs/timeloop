@@ -217,6 +217,15 @@ class Application
   // ---------------
   void Run()
   {
+    // Output file names.
+    const std::string out_prefix = "timeloop.";
+    const std::string log_file_name = out_prefix + "log";
+    const std::string stats_file_name = out_prefix + "stats.txt";
+    const std::string xml_file_name = out_prefix + "map+stats.xml";
+    const std::string map_txt_file_name = out_prefix + "map.txt";
+    const std::string map_cfg_file_name = out_prefix + "map.cfg";
+    const std::string map_cpp_file_name = out_prefix + "map.cpp";
+    
     // Prepare live status/log stream.
     std::ofstream log_file;
 
@@ -225,7 +234,7 @@ class Application
 
     if (live_status_)
     {
-      log_file.open("timeloop.log");
+      log_file.open(log_file_name);
       // std::cout.rdbuf(log_file.rdbuf());
       std::cerr.rdbuf(log_file.rdbuf());
   
@@ -394,16 +403,21 @@ class Application
 
     if (best_mapped_engine.IsEvaluated())
     {
-      std::cout << best_mapping << std::endl;
-      std::cout << best_mapped_engine << std::endl;
+      std::ofstream map_txt_file(map_txt_file_name);
+      map_txt_file << best_mapping << std::endl;
+      map_txt_file.close();
+
+      std::ofstream stats_file(stats_file_name);
+      stats_file << best_mapped_engine << std::endl;
+      stats_file.close();
 
       if (emit_whoop_nest_)
       {
-        std::ofstream whoopcpp("out.whoop.cpp");
-        best_mapping.PrintWhoopNest(whoopcpp, arch_specs_.topology.StorageLevelNames(),
+        std::ofstream map_cpp_file(map_cpp_file_name);
+        best_mapping.PrintWhoopNest(map_cpp_file, arch_specs_.topology.StorageLevelNames(),
                                     best_mapped_engine.GetTopology().TileSizes(),
                                     best_mapped_engine.GetTopology().UtilizedInstances());
-        whoopcpp.close();
+        map_cpp_file.close();
       }
     }
     else
@@ -421,7 +435,7 @@ class Application
     }
 
     // Printing the Timeloop Mapping to an XML file
-    std::ofstream ofs("timeLoopOutput.xml");
+    std::ofstream ofs(xml_file_name);
     boost::archive::xml_oarchive ar(ofs);
     ar << BOOST_SERIALIZATION_NVP(best_mapped_engine);
     ar << BOOST_SERIALIZATION_NVP(best_mapping);
@@ -466,7 +480,7 @@ class Application
     // Format the best mapping as libconfig constraints.
     best_mapping.FormatAsConstraints(mapspace);
 
-    config.writeFile("out.cfg");
+    config.writeFile(map_cfg_file_name.c_str());
   }
 };
 
