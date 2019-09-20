@@ -60,10 +60,14 @@ This builds 3 different tools:
 cd configs/timeloop
 ../../build/timeloop ./sample.cfg > sample.out
 ```
-This will place timeloop's log as well as simulation results in `sample.out`,
-an XML-formatted copy of the simulation results in `timeLoopOutput.xml`, and
-a copy of the full architecture configuration with the optimal mapping
-baked-in in `out.cfg`.
+This will place timeloop's log in `sample.out` and generate the following outputs:
+* `timeloop.stats.txt` Simulation stats (performance, energy, etc.)
+* `timeloop.map.txt/cfg` The optimal mapping in different formats
+  (the latter can be used in conjunction with the
+  input architecture and problem spec to re-run the model on the optimal
+  mapping.)
+* `timeloop.map+stats.xml` An XML-formatted copy of the stats and optimal mapping
+  which is used by various Python scripts to extract results from batch runs.
 
 ## Further reading
 [ISPASS 2019 paper](http://parashar.org/ispass19.pdf)
