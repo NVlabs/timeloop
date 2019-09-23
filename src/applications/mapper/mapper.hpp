@@ -112,6 +112,7 @@ class Application
       arch = rootNode.lookup("architecture");
     }
     arch_specs_ = model::Engine::ParseSpecs(arch);
+
     std::cout << "Architecture configuration complete." << std::endl;
 
     // Mapper (this application) configuration.

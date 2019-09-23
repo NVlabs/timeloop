@@ -130,7 +130,7 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
 Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
 {
   Specs specs;
-  auto curNode = designRoot;
+  auto curNode = designRoot[0];
   typedef std::pair< uint32_t, std::shared_ptr<LevelSpecs> > sPair;
   std::vector<sPair> storages; // level, ptr pair
   uint32_t curStep = 0;
@@ -139,7 +139,10 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
   // FIXME: Walk the tree to find each buffer and arithmetic units
   // and add them to the specs.
   while (curNode.exists("subtree")) {
-    curNode = curNode.lookup("subtree");
+    auto subTrees = curNode.lookup("subtree");
+    // Timeloop currently supports one buffer per level.
+    assert(subTrees.isList() && subTrees.getLength() == 1);
+    curNode = subTrees[0];
     std::string curNodeName;
     curNode.lookupValue("name", curNodeName);
     uint32_t subTreeSize = config::parseElementSize(curNodeName);
@@ -157,14 +160,14 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
         uint32_t nElements = multiplication * localElementSize;
         if (cClass == "DRAM" || cClass == "SRAM" || cClass == "regfile") {
           // create a buffer
-          // std::cout << "Creating buffer: " << cClass << " at level " << curStep << std::endl;
+          // std::cout << "Creating buffer: " << cClass << " at level " << curStep << " Elements: " << nElements << std::endl;
           auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
           storages.push_back({curStep, level_specs_p});
-        } else if (cClass == "mac") {
+        } else if (cClass == "mac" || cClass == "intmac" || cClass == "fpmac") {
           // create arithmetic
           assert(arithLevel == (uint32_t) -1);
           arithLevel = curStep;
-          // std::cout << "Creating arith: " << cClass << " at level " << curStep << std::endl;
+          // std::cout << "Creating arith: " << cClass << " at level " << curStep << " Elements: " << nElements << std::endl;
           std::cout << "AddLevel (arithmetic) : 0 " << cName << std::endl;
           auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));

@@ -381,10 +381,13 @@ CompoundConfigNode CompoundConfig::getRoot() const {
 uint32_t parseElementSize(std::string name) {
   auto posBegin = name.find("[");
   auto posEnd = name.find("]");
-  if (posBegin != std::string::npos && posEnd != std::string::npos) {
-    assert(posBegin < posEnd);
-    auto elementSize = name.substr(posBegin + 1, posEnd - posBegin - 1);
-    return std::stoi(elementSize);
+  auto posDots = name.find("..");
+  if (posBegin != std::string::npos && posEnd != std::string::npos && posDots != std::string::npos) {
+    assert(posBegin < posEnd && posDots < posEnd && posBegin < posDots);
+    //auto elementSize = name.substr(posBegin + 1, posEnd - posBegin - 1);
+    auto beginIdx = name.substr(posBegin + 1, posDots - posBegin - 1);
+    auto endIdx = name.substr(posDots + 2, posEnd - posDots - 2);
+    return std::stoi(endIdx) - std::stoi(beginIdx) + 1;
   } else {
     return 1;
   }
