@@ -316,6 +316,24 @@ bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
   }
 }
 
+bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) {
+  if (LNode) {
+    assert(LNode->isGroup());
+    for (auto it = LNode->begin(); it != LNode->end(); it++) {
+      mapKeys.push_back(std::string(it->getName()));
+    }
+    return true;
+  } else if (YNode) {
+    assert(YNode.IsMap());
+    for (auto it = YNode.begin(); it != YNode.end(); it++) {
+      mapKeys.push_back(it->first.as<std::string>());
+    }
+    return true;
+  } else {
+    assert(false);
+    return false;
+  }
+}
 /* CompoundConfig */
 
 CompoundConfig::CompoundConfig(const char* inputFile) {

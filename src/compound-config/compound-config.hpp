@@ -106,6 +106,8 @@ class CompoundConfigNode
   CompoundConfigNode operator [](int idx) const;
 
   bool getArrayValue(std::vector<std::string> &vectorValue);
+  // iterate through all maps and get the keys within a node
+  bool getMapKeys(std::vector<std::string> &mapKeys);
 
 };
 
