@@ -136,7 +136,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
   uint32_t curStep = 0;
   uint32_t arithLevel = (uint32_t) -1;
   uint32_t multiplication = 1;
-  // FIXME: Walk the tree to find each buffer and arithmetic units
+  // Walk the tree to find each buffer and arithmetic units
   // and add them to the specs.
   while (curNode.exists("subtree")) {
     auto subTrees = curNode.lookup("subtree");
@@ -197,6 +197,85 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
 
   return specs;
 };
+
+void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
+  std::cout << "Replacing energy numbers..." << std::endl;
+  std::vector<std::string> keys;
+  ert.getMapKeys(keys);
+
+  for (auto key : keys) {
+    auto componentERT = ert.lookup(key);
+    auto pos = key.rfind(".");
+    auto componentName = key.substr(pos + 1, key.size() - pos - 1);
+    // std::cout << componentName << std::endl;
+
+    // update levels by name and the type of it
+    if (componentName == "wire" || componentName == "Wire") { // special case, update interal wire model
+      float transferEnergy;
+      auto actionERT = componentERT.lookup("transfer");
+      if (actionERT.lookupValue("energy", transferEnergy)) {
+        for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
+          auto bufferSpec = GetStorageLevel(i);
+          auto pv = problem::GetShape()->NumDataSpaces;
+          bufferSpec->WireEnergy(pv) = transferEnergy;
+        }
+      }
+    } else {
+      // find the level that matches this name and see what type it is
+      bool isArithmeticUnit = false;
+      bool isBuffer = false;
+      std::shared_ptr<LevelSpecs> specToUpdate;
+      for (auto level : levels) {
+        //std::cout << "  level: " << level->level_name << std::endl;
+        if (level->level_name == componentName) {
+          specToUpdate = level;
+          if (level->Type() == "BufferLevel") isBuffer = true;
+          if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
+        }
+      }
+
+      config::CompoundConfigNode actionERT;
+      float opEnergy;
+      if (isArithmeticUnit) {
+        if (componentERT.exists("mac_random")) {
+          actionERT = componentERT.lookup("mac_random");
+          if (actionERT.lookupValue("energy", opEnergy)) {
+            std::cout << "  Replace " << componentName << " energy with mac_random energy " << opEnergy << std::endl;
+            auto arithmeticSpec = GetArithmeticLevel();
+            arithmeticSpec->EnergyPerOp() = opEnergy;
+          }
+        }
+      } else if (isBuffer) {
+        auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
+
+        // register case
+        if (componentERT.exists("process")) {
+          actionERT = componentERT.lookup("process");
+          if (actionERT.lookupValue("energy", opEnergy)) {
+            std::cout << "  Replace " << componentName << " read write fill energy with process energy " << opEnergy << std::endl;
+            auto pv = problem::GetShape()->NumDataSpaces;
+            bufferSpec->VectorAccessEnergy(pv) = opEnergy / bufferSpec->ClusterSize(pv).Get();
+          }
+        }
+
+        // SRAM/smart buffer case, replace read/update/fill energy
+        if (componentERT.exists("read")) {
+          actionERT = componentERT.lookup("read")[0];
+          if (actionERT.lookupValue("energy", opEnergy)) {
+            std::cout << "  Replace " << componentName << " read energy with read energy " << opEnergy << std::endl;
+            auto pv = problem::GetShape()->NumDataSpaces;
+            bufferSpec->VectorAccessEnergy(pv) = opEnergy / bufferSpec->ClusterSize(pv).Get();
+          }
+        }
+
+      } else {
+        std::cout << "  Unused component ERT: "  << key << std::endl;
+      }
+    }
+  }
+
+  return;
+}
 
 std::vector<std::string> Topology::Specs::LevelNames() const
 {

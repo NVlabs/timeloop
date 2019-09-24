@@ -61,7 +61,6 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   {
     specs.Name(pv) = config::parseName(name);
   }
-
   std::string className = "";
   if (buffer.exists("attribute")) {
     buffer.lookupValue("class", className);
@@ -305,6 +304,11 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   double router_energy = 0;
   buffer.lookupValue("router-energy", router_energy);
   specs.RouterEnergy(pv) = router_energy;
+
+  // Wire energy.
+  double wire_energy = 0.0;
+  buffer.lookupValue("wire-energy", wire_energy);
+  specs.WireEnergy(pv) = wire_energy;
 
   // Vector Access Energy
   double tmp_access_energy = 0;
@@ -958,6 +962,10 @@ void BufferLevel::ComputeNetworkEnergy(const double inner_tile_area)
 
     double energy_per_hop =
             WireEnergyPerHop(specs_.NetworkWordBits(pv).Get(), inner_tile_area);
+    double energy_wire = specs_.WireEnergy(pv).Get();
+    if (energy_wire != 0.0) { // user provided energy per wire length per bit
+      energy_per_hop = specs_.NetworkWordBits(pv).Get() * inner_tile_area * energy_wire;
+    }
     double energy_per_router = specs_.RouterEnergy(pv).Get();
     
     auto fanout = stats_.network.distributed_multicast.at(pv) ?

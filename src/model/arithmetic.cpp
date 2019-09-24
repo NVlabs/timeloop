@@ -53,6 +53,7 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   std::string name = "__ARITH__";
   setting.lookupValue("name", name);
   specs.Name() = config::parseName(name);
+  specs.level_name = specs.Name().Get();
   if (setting.exists("attribute"))
   { // parse v0.2, tree like description
     setting = setting.lookup("attribute");

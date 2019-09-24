@@ -58,6 +58,8 @@ class Topology : public Module
     std::vector<std::string> LevelNames() const;
     std::vector<std::string> StorageLevelNames() const;
 
+    void ParseAccelergyERT(config::CompoundConfigNode ert);
+
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
 
     unsigned StorageMap(unsigned i) const { return storage_map.at(i); }
