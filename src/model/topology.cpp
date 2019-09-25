@@ -159,12 +159,12 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
 
         if (cClass == "DRAM" || cClass == "SRAM" || cClass == "regfile" || cClass == "smartbuffer") {
           // create a buffer
-          // std::cout << "Creating buffer: " << cClass << " at level " << curStep << " Elements: " << nElements << std::endl;
+          // std::cout << "Creating buffer: " << cClass << " Elements: " << nElements << std::endl;
           auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
           localStorages.push_back(level_specs_p);
         } else if (cClass == "mac" || cClass == "intmac" || cClass == "fpmac") {
           // create arithmetic
-          // std::cout << "Creating arith: " << cClass << " at level " << curStep << " Elements: " << nElements << std::endl;
+          // std::cout << "Creating arith: " << cClass << " Elements: " << nElements << std::endl;
           std::cout << "AddLevel (arithmetic) : 0 " << cName << std::endl;
           auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));

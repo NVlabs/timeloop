@@ -54,9 +54,9 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   setting.lookupValue("name", name);
   specs.Name() = config::parseName(name);
   specs.level_name = specs.Name().Get();
-  if (setting.exists("attribute"))
+  if (setting.exists("attributes"))
   { // parse v0.2, tree like description
-    setting = setting.lookup("attribute");
+    setting = setting.lookup("attributes");
   }
 
   // Instances.

@@ -68,6 +68,7 @@ class Topology : public Module
     std::shared_ptr<LevelSpecs> GetLevel(unsigned level_id) const;
     std::shared_ptr<BufferLevel::Specs> GetStorageLevel(unsigned storage_level_id) const;
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
+
   };
   
  private:

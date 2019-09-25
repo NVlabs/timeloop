@@ -62,10 +62,10 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
     specs.Name(pv) = config::parseName(name);
   }
   std::string className = "";
-  if (buffer.exists("attribute")) {
+  if (buffer.exists("attributes")) {
     buffer.lookupValue("class", className);
     assert(className == "DRAM" || className == "SRAM" || className == "regfile");
-    buffer = buffer.lookup("attribute");
+    buffer = buffer.lookup("attributes");
   }
 
   // Word Bits.
@@ -109,7 +109,7 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   else if (buffer.lookupValue("depth", size))
   {
     assert(buffer.exists("sizeKB") == false);
-    assert(buffer.exists("entires") == false);
+    assert(buffer.exists("entries") == false);
     specs.Size(pv) = size * specs.BlockSize(pv).Get();
   }
   else if (buffer.lookupValue("sizeKB", size))
@@ -124,14 +124,11 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   // assume.
   std::string technology;
   specs.Tech(pv) = Technology::SRAM;
-  if (buffer.lookupValue("technology", technology))
+  if (className == "DRAM") specs.Tech(pv) = Technology::DRAM;
+
+  if (buffer.lookupValue("technology", technology) && technology == "DRAM")
   {
-    if (technology == "DRAM" || className == "DRAM")
-    {
-      specs.Tech(pv) = Technology::DRAM;
-    } else {
-      assert(technology == "SRAM" || className == "SRAM" || className == "regfile");
-    }
+    specs.Tech(pv) = Technology::DRAM;
   }
 
   // SRAM Type.
