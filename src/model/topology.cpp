@@ -130,17 +130,14 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
 Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
 {
   Specs specs;
-  auto curNode = designRoot[0];
-  typedef std::pair< uint32_t, std::shared_ptr<LevelSpecs> > sPair;
-  std::vector<sPair> storages; // level, ptr pair
-  uint32_t curStep = 0;
-  uint32_t arithLevel = (uint32_t) -1;
+  auto curNode = designRoot;
+  std::vector< std::shared_ptr<LevelSpecs> > storages; // serialize all storages
   uint32_t multiplication = 1;
   // Walk the tree to find each buffer and arithmetic units
   // and add them to the specs.
   while (curNode.exists("subtree")) {
     auto subTrees = curNode.lookup("subtree");
-    // Timeloop currently supports one buffer per level.
+    // Timeloop currently supports one subtree per level.
     assert(subTrees.isList() && subTrees.getLength() == 1);
     curNode = subTrees[0];
     std::string curNodeName;
@@ -151,6 +148,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
     if (curNode.exists("local")) {
       auto curLocal = curNode.lookup("local");
       assert(curLocal.isList());
+      std::vector< std::shared_ptr<LevelSpecs> > localStorages;
 
       for (int c = 0; c < curLocal.getLength() ; c++) {
         std::string cName, cClass;
@@ -158,39 +156,32 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
         curLocal[c].lookupValue("class", cClass);
         uint32_t localElementSize = config::parseElementSize(cName);
         uint32_t nElements = multiplication * localElementSize;
-        if (cClass == "DRAM" || cClass == "SRAM" || cClass == "regfile") {
+
+        if (cClass == "DRAM" || cClass == "SRAM" || cClass == "regfile" || cClass == "smartbuffer") {
           // create a buffer
           // std::cout << "Creating buffer: " << cClass << " at level " << curStep << " Elements: " << nElements << std::endl;
           auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
-          storages.push_back({curStep, level_specs_p});
+          localStorages.push_back(level_specs_p);
         } else if (cClass == "mac" || cClass == "intmac" || cClass == "fpmac") {
           // create arithmetic
-          assert(arithLevel == (uint32_t) -1);
-          arithLevel = curStep;
           // std::cout << "Creating arith: " << cClass << " at level " << curStep << " Elements: " << nElements << std::endl;
           std::cout << "AddLevel (arithmetic) : 0 " << cName << std::endl;
           auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
         } else {
-          std::cerr << "Unkwown class:" << cClass << " for component: " << cName << std::endl;
-          exit(1);
+          std::cout << "  Neglect component: " << cName << " due to unknown class: " << cClass << std::endl;
         }
-
       }
-
+      // the deeper the tree, the closer the buffer to be with ArithmeticUnits.
+      storages.insert(storages.begin(), localStorages.begin(), localStorages.end());
     }
-
-    curStep++;
   } // end while
 
-  // Add storages to specs. We can only do this after walking the whole tree
-  // to learn the depth of the tree and the arithmetic units.
-  // Insert the level in reverse order (from small to large) to match ParseSpec().
-  for (int32_t i = storages.size() - 1; i >= 0; i--) {
-    uint32_t level = arithLevel - storages[i].first;
-    auto storage = storages[i].second;
-    std::cout << "AddLevel (storage) : " << level << " " << storage->level_name << std::endl;
-    specs.AddLevel(level, storage);
+  // Add storages to specs. We can do this only after walking the whole tree.
+  for (uint32_t i = 0; i < storages.size(); i++) {
+    auto storage = storages[i];
+    std::cout << "AddLevel (storage) : " << i << " " << storage->level_name << std::endl;
+    specs.AddLevel(i, storage);
   }
  
   Validate(specs);
@@ -201,10 +192,12 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
 void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
   std::cout << "Replacing energy numbers..." << std::endl;
   std::vector<std::string> keys;
-  ert.getMapKeys(keys);
+  assert(ert.exists("tables"));
+  auto table = ert.lookup("tables");
+  table.getMapKeys(keys);
 
   for (auto key : keys) {
-    auto componentERT = ert.lookup(key);
+    auto componentERT = table.lookup(key);
     auto pos = key.rfind(".");
     auto componentName = key.substr(pos + 1, key.size() - pos - 1);
     // std::cout << componentName << std::endl;

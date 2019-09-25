@@ -88,10 +88,8 @@ class Engine : public Module
       specs.topology = Topology::ParseSpecs(topology, arithmetic);
     } else {
       // format used in Accelergy v0.2
-      // The first level is always a root node with subtree to the design
       std::cout << "ParseTreeSpecs" << std::endl;
-      auto design = setting.lookup("subtree");
-      specs.topology = Topology::ParseTreeSpecs(design);
+      specs.topology = Topology::ParseTreeSpecs(setting);
     }
 
     return specs;
