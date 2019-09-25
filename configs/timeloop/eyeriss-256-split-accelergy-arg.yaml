@@ -1,0 +1,68 @@
+architecture:
+  version: 0.2
+  subtree:
+    - name: eyeriss
+      attributes:
+        techonlogy: 40nm
+      local:
+        - name: Wire
+          class: wire
+          attributes:
+            datawidth: 1
+            length: 1
+        - name: DummyBuffer[0..15]
+          class: regfile
+          attributes:
+            datawidth: 16
+            entries: 0
+            meshX: 16
+        - name: GlobalBuffer
+          class: SRAM
+          attributes:
+            word_width: 16
+            n_words: 4
+            width: word_width * n_words
+            depth: 16384
+            meshX: 1
+            read_bandwidth: 16
+            write_bandwidth: 16
+        - name: DRAM
+          class: DRAM
+          attributes:
+            word_width: 16
+      subtree:
+        - name: PE[0..255]
+          attributes:
+            memory_width: 16
+          local:
+            - name: PsumRegFile
+              class: regfile
+              attributes:
+                entries: 16
+                datawidth: 16
+                meshX: 16
+                read_bandwidth: 2
+                write_bandwidth: 2
+            - name: WeightRegFile
+              class: regfile
+              attributes:
+                entries: 192
+                datawidth: 16
+                meshX: 16
+                read_bandwidth: 2
+                write_bandwidth: 2
+            - name: InputRegFile
+              class: regfile
+              attributes:
+                entries: 12
+                datawidth: 16
+                meshX: 16
+                read_bandwidth: 2
+                write_bandwidth: 2
+            - name: MACs
+              class: intmac
+              attributes:
+                datawidth: 16
+compound_components:
+  version: 0.2
+  classes: !includedir /home/poant/symphony/accelergy/examples/hierarchy_v0.2/input/components/
