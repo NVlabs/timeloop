@@ -205,7 +205,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
     // update levels by name and the type of it
     if (componentName == "wire" || componentName == "Wire") { // special case, update interal wire model
       float transferEnergy;
-      auto actionERT = componentERT.lookup("transfer");
+      auto actionERT = componentERT.lookup("transfer_random");
       if (actionERT.lookupValue("energy", transferEnergy)) {
         for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
           auto bufferSpec = GetStorageLevel(i);
