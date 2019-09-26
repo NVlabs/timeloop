@@ -52,11 +52,6 @@
       std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;\
       exit(1);                                                                      \
     }                                                                               \
-    catch (YAML::Exception e)                                                       \
-    {                                                                               \
-      std::cerr << "ERROR: YAML exception: " << e.msg << std::endl;                 \
-      exit(1);                                                                      \
-    }
 
 namespace config
 {
@@ -87,7 +82,7 @@ bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
-    if (YNode.IsScalar() || !YNode[name].IsDefined()) return false;
+    if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<bool>();
     return true;
   }
@@ -102,7 +97,7 @@ bool CompoundConfigNode::lookupValue(const char *name, int &value) const {
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
-    if (YNode.IsScalar() || !YNode[name].IsDefined()) return false;
+    if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<int>();
     return true;
   }
@@ -117,7 +112,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) cons
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
-    if (YNode.IsScalar() || !YNode[name].IsDefined()) return false;
+    if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<unsigned int>();
     return true;
   }
@@ -133,7 +128,7 @@ bool CompoundConfigNode::lookupValue(const char *name, long long &value) const {
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
-    if (YNode.IsScalar() || !YNode[name].IsDefined()) return false;
+    if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<long long>();
     return true;
   }
@@ -148,7 +143,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
-    if (YNode.IsScalar() || !YNode[name].IsDefined()) return false;
+    if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<unsigned long long>();
     return true;
   }
@@ -163,7 +158,7 @@ bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
-    if (YNode.IsScalar() || !YNode[name].IsDefined()) return false;
+    if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<double>();
     return true;
   }
@@ -178,7 +173,7 @@ bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
-    if (YNode.IsScalar() || !YNode[name].IsDefined()) return false;
+    if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<float>();
     return true;
   }
@@ -193,7 +188,7 @@ bool CompoundConfigNode::lookupValue(const char *name, const char *&value) const
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
-    if (YNode.IsScalar() || !YNode[name].IsDefined()) return false;
+    if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<std::string>().c_str();
     return true;
   }
@@ -208,7 +203,7 @@ bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
-    if (YNode.IsScalar() || !YNode[name].IsDefined()) return false;
+    if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<std::string>();
     return true;
   }
@@ -255,7 +250,14 @@ bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::str
 
 bool CompoundConfigNode::isList() const {
   if(LNode) return LNode->isList();
-  else if (YNode) return YNode.IsSequence() && !YNode[0].IsScalar();
+  else if (YNode) {
+    if (YNode.IsSequence()) {
+      if (YNode.size() == 0) return true;
+      else return !YNode[0].IsScalar();
+    } else {
+      return false;
+    }
+  }
   else {
     assert(false);
     return false;
