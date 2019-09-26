@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include <stdlib.h>
+
 #include <boost/serialization/shared_ptr.hpp>
 
 #include "model/model-base.hpp"
@@ -76,11 +78,19 @@ class Engine : public Module
   static Specs ParseSpecs(config::CompoundConfigNode setting)
   {
     Specs specs;
+    std::string version;
 
-    auto arithmetic = setting.lookup("arithmetic");
-    auto topology = setting.lookup("storage");
-    
-    specs.topology = Topology::ParseSpecs(topology, arithmetic);
+    if (!setting.exists("version") || (setting.lookupValue("version", version) && version != "0.2")) {
+      // format used in the ISPASS paper
+      std::cout << "ParseSpecs" << std::endl;
+      auto arithmetic = setting.lookup("arithmetic");
+      auto topology = setting.lookup("storage");
+      specs.topology = Topology::ParseSpecs(topology, arithmetic);
+    } else {
+      // format used in Accelergy v0.2
+      std::cout << "ParseTreeSpecs" << std::endl;
+      specs.topology = Topology::ParseTreeSpecs(setting);
+    }
 
     return specs;
   }

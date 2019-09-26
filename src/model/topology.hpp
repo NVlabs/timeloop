@@ -58,6 +58,8 @@ class Topology : public Module
     std::vector<std::string> LevelNames() const;
     std::vector<std::string> StorageLevelNames() const;
 
+    void ParseAccelergyERT(config::CompoundConfigNode ert);
+
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
 
     unsigned StorageMap(unsigned i) const { return storage_map.at(i); }
@@ -66,6 +68,7 @@ class Topology : public Module
     std::shared_ptr<LevelSpecs> GetLevel(unsigned level_id) const;
     std::shared_ptr<BufferLevel::Specs> GetStorageLevel(unsigned storage_level_id) const;
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
+
   };
   
  private:
@@ -89,6 +92,7 @@ class Topology : public Module
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs);
+  static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot);
   static void Validate(Specs& specs);
   
   void Spec(const Specs& specs);

@@ -79,8 +79,20 @@ class Application
     std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
-    auto arch = rootNode.lookup("arch");
+    config::CompoundConfigNode arch;
+    if (rootNode.exists("arch")) {
+      arch = rootNode.lookup("arch");
+    } else if (rootNode.exists("architecture")) {
+      arch = rootNode.lookup("architecture");
+    }
     arch_specs_ = model::Engine::ParseSpecs(arch);
+
+    if (rootNode.exists("ERT")) {
+      auto ert = rootNode.lookup("ERT");
+      std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
+      arch_specs_.topology.ParseAccelergyERT(ert);
+    }
+
     std::cout << "Architecture configuration complete." << std::endl;
 
     // Mapping configuration: expressed as a mapspace or mapping.

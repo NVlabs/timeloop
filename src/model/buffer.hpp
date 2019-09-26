@@ -256,6 +256,7 @@ class BufferLevel : public Level
       PerDataSpaceOrShared<Attribute<std::uint64_t>> fanoutX;
       PerDataSpaceOrShared<Attribute<std::uint64_t>> fanoutY;
       PerDataSpaceOrShared<Attribute<double>> routerEnergy;
+      PerDataSpaceOrShared<Attribute<double>> wireEnergy;
 
       // Serialization
       friend class boost::serialization::access;
@@ -271,6 +272,7 @@ class BufferLevel : public Level
           ar& BOOST_SERIALIZATION_NVP(fanoutX);
           ar& BOOST_SERIALIZATION_NVP(fanoutY);
           ar& BOOST_SERIALIZATION_NVP(routerEnergy);
+          ar& BOOST_SERIALIZATION_NVP(wireEnergy);
         }
       }
     } network;
@@ -351,6 +353,7 @@ class BufferLevel : public Level
         network.fanoutX.SetPerDataSpace();
         network.fanoutY.SetPerDataSpace();
         network.routerEnergy.SetPerDataSpace();
+        network.wireEnergy.SetPerDataSpace();
       }
       else // sharing_type == DataSpaceIDSharing::Shared
       {
@@ -381,6 +384,7 @@ class BufferLevel : public Level
         network.fanoutX.SetShared();
         network.fanoutY.SetShared();
         network.routerEnergy.SetShared();
+        network.wireEnergy.SetShared();
       }
     
     }
@@ -464,6 +468,8 @@ class BufferLevel : public Level
     ADD_ACCESSORS(FanoutX, network.fanoutX, std::uint64_t)
     ADD_ACCESSORS(FanoutY, network.fanoutY, std::uint64_t)
     ADD_ACCESSORS(RouterEnergy, network.routerEnergy, double)
+    ADD_ACCESSORS(WireEnergy, network.wireEnergy, double)
+
   };
   
   struct Stats
@@ -594,8 +600,8 @@ class BufferLevel : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting);
-  static void ParseBufferSpecs(config::CompoundConfigNode buffer, problem::Shape::DataSpaceID pv, Specs& specs);
+  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
+  static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t nElements, problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
   
   bool DistributedMulticastSupported() override;

@@ -1,0 +1,127 @@
+mapspace:
+  constraints_rowstationary:
+  - type: datatype
+    target: PsumRegFile
+    bypass:
+    - Inputs
+    - Weights
+    keep:
+    - Outputs
+  - type: datatype
+    target: WeightRegFile
+    bypass:
+    - Inputs
+    - Outputs
+    keep:
+    - Weights
+  - type: datatype
+    target: InputRegFile
+    bypass:
+    - Weights
+    - Outputs
+    keep:
+    - Inputs
+  - type: datatype
+    target: DummyBuffer
+    bypass:
+    - Inputs
+    - Outputs
+    - Weights
+  - type: datatype
+    target: GlobalBuffer
+    bypass:
+    - Weights
+    keep:
+    - Inputs
+    - Outputs
+  - split: 4
+    permutation: NPQR SCK
+    type: spatial
+    target: DummyBuffer
+    factors: N1 P1 Q1 R1 S0
+  - split: 7
+    permutation: NCPRS QK
+    type: spatial
+    target: GlobalBuffer
+    factors: N1 C1 P1 R1 S1
+  - permutation: NCPQRS K
+    type: temporal
+    target: PsumRegFile
+    factors: N1 C1 P1 Q1 R1 S1
+  - permutation: NKPQS CR
+    type: temporal
+    target: WeightRegFile
+    factors: N1 K1 P1 Q1 S1 R0
+  - permutation: NKCPQRS
+    type: temporal
+    target: InputRegFile
+    factors: N1 K1 C1 P1 Q1 R1 S1
+  - permutation: NKCPQRS
+    type: temporal
+    target: DummyBuffer
+    factors: N1 K1 C1 P1 Q1 R1 S1
+  - permutation: QRSC PNK
+    type: temporal
+    target: GlobalBuffer
+    factors: Q1 R1 S1 C1 P0
+  - permutation: RSP CKNQ
+    type: temporal
+    target: DRAM
+    factors: R1 S1 P1
+  constraints: rowstationary
+mapper:
+  algorithm: linear-pruned
+problem:
+  Q: 56
+  P: 56
+  S: 3
+  R: 3
+  Hstride: 1
+  K: 256
+  Wstride: 1
+  C: 256
+  N: 1
+arch:
+  storage:
+  - instances: 256
+    read_bandwidth: 2
+    name: PsumRegFile
+    write_bandwidth: 2
+    entries: 16
+    meshX: 16
+    word-bits: 16
+  - instances: 256
+    read_bandwidth: 2
+    name: WeightRegFile
+    write_bandwidth: 2
+    entries: 192
+    meshX: 16
+    word-bits: 16
+  - instances: 256
+    read_bandwidth: 2
+    name: InputRegFile
+    write_bandwidth: 2
+    entries: 12
+    meshX: 16
+    word-bits: 16
+  - meshX: 16
+    instances: 16
+    name: DummyBuffer
+    word-bits: 16
+    entries: 0
+  - instances: 1
+    read_bandwidth: 16
+    name: GlobalBuffer
+    write_bandwidth: 16
+    meshX: 1
+    word-bits: 16
+    sizeKB: 128
+    block-size: 4
+  - word-bits: 16
+    instances: 1
+    technology: DRAM
+    name: DRAM
+  arithmetic:
+    word-bits: 16
+    instances: 256
+    name: MACs

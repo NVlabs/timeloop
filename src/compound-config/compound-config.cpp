@@ -30,6 +30,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <streambuf>
 
 #define EXCEPTION_PROLOGUE                                                          \
     try { 
@@ -315,6 +316,24 @@ bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
   }
 }
 
+bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) {
+  if (LNode) {
+    assert(LNode->isGroup());
+    for (auto it = LNode->begin(); it != LNode->end(); it++) {
+      mapKeys.push_back(std::string(it->getName()));
+    }
+    return true;
+  } else if (YNode) {
+    assert(YNode.IsMap());
+    for (auto it = YNode.begin(); it != YNode.end(); it++) {
+      mapKeys.push_back(it->first.as<std::string>());
+    }
+    return true;
+  } else {
+    assert(false);
+    return false;
+  }
+}
 /* CompoundConfig */
 
 CompoundConfig::CompoundConfig(const char* inputFile) {
@@ -336,6 +355,35 @@ CompoundConfig::CompoundConfig(const char* inputFile) {
   }
 }
 
+CompoundConfig::CompoundConfig(std::vector<std::string> inputFiles) {
+  assert(inputFiles.size() > 0);
+  std::string combinedString;
+  for (auto fName : inputFiles) {
+    std::ifstream fin;
+    fin.open(fName);
+    std::string f((std::istreambuf_iterator<char>(fin)),
+                   std::istreambuf_iterator<char>());
+    combinedString += f;
+    combinedString+= "\n"; // just to avoid files end with no newline
+  }
+
+  if (std::strstr(inputFiles[0].c_str(), ".cfg")) {
+    LConfig.readString(combinedString);
+    auto& lroot = LConfig.getRoot();
+    useLConfig = true;
+    root = CompoundConfigNode(&lroot, YAML::Node());
+  } else if (std::strstr(inputFiles[0].c_str(), ".yml") || std::strstr(inputFiles[0].c_str(), ".yaml")) {
+    std::istringstream combinedStream(combinedString);
+    YConfig = YAML::Load(combinedStream);
+    root = CompoundConfigNode(nullptr, YConfig);
+    useLConfig = false;
+    std::cout << YConfig << std::endl;
+  } else {
+    std::cerr << "ERROR: Input configuration file does not end with .cfg, .yml, or .yaml" << std::endl;
+    exit(1);
+  }
+}
+
 libconfig::Config& CompoundConfig::getLConfig() {
   return LConfig;
 }
@@ -346,6 +394,30 @@ YAML::Node& CompoundConfig::getYConfig() {
 
 CompoundConfigNode CompoundConfig::getRoot() const {
   return root;
+}
+
+uint32_t parseElementSize(std::string name) {
+  auto posBegin = name.find("[");
+  auto posEnd = name.find("]");
+  auto posDots = name.find("..");
+  if (posBegin != std::string::npos && posEnd != std::string::npos && posDots != std::string::npos) {
+    assert(posBegin < posEnd && posDots < posEnd && posBegin < posDots);
+    //auto elementSize = name.substr(posBegin + 1, posEnd - posBegin - 1);
+    auto beginIdx = name.substr(posBegin + 1, posDots - posBegin - 1);
+    auto endIdx = name.substr(posDots + 2, posEnd - posDots - 2);
+    return std::stoi(endIdx) - std::stoi(beginIdx) + 1;
+  } else {
+    return 1;
+  }
+}
+
+std::string parseName(std::string name) {
+  auto posStart = name.find("[");
+  if (posStart != std::string::npos) {
+    return name.substr(0, name.find("["));
+  } else {
+    return name;
+  }
 }
 
 } // namespace config

@@ -106,6 +106,8 @@ class CompoundConfigNode
   CompoundConfigNode operator [](int idx) const;
 
   bool getArrayValue(std::vector<std::string> &vectorValue);
+  // iterate through all maps and get the keys within a node
+  bool getMapKeys(std::vector<std::string> &mapKeys);
 
 };
 
@@ -121,6 +123,7 @@ class CompoundConfig
   CompoundConfig(){assert(false);}
   CompoundConfig(const char* inputFile);
   CompoundConfig(char* inputFile) : CompoundConfig((const char*) inputFile) {}
+  CompoundConfig(std::vector<std::string> inputFiles);
 
   ~CompoundConfig(){}
 
@@ -130,5 +133,8 @@ class CompoundConfig
 
   bool hasLConfig() { return useLConfig;}
 };
+
+  uint32_t parseElementSize(std::string name);
+  std::string parseName(std::string name);
 
 } // namespace config

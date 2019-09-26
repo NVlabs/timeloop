@@ -45,27 +45,39 @@ ArithmeticUnits::ArithmeticUnits(const Specs& specs) :
   area_ = specs_.Area().Get();
 }
 
-ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting)
+ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements)
 {
   Specs specs;
 
   // Name.
   std::string name = "__ARITH__";
   setting.lookupValue("name", name);
-  specs.Name() = name;
+  specs.Name() = config::parseName(name);
+  specs.level_name = specs.Name().Get();
+  if (setting.exists("attributes"))
+  { // parse v0.2, tree like description
+    setting = setting.lookup("attributes");
+  }
 
   // Instances.
   std::uint32_t instances;
   if (!setting.lookupValue("instances", instances))
   {
-    std::cerr << "instances is a required arithmetic parameter" << std::endl;
-    assert(false);
-  }    
+    if (nElements == 0)
+    {
+      std::cerr << "instances is a required arithmetic parameter" << std::endl;
+      assert(false);
+    }
+    instances = nElements;
+    //std::cout << "ArithUnit: " << specs.Name() << " size: " << instances << std::endl;
+  }
+
   specs.Instances() = instances;
-    
+
   // Word size (in bits).
   std::uint32_t word_bits;
-  if (setting.lookupValue("word-bits", word_bits))
+  if (setting.lookupValue("word-bits", word_bits) ||
+      setting.lookupValue("datawidth", word_bits) )
   {
     specs.WordBits() = word_bits;
   }

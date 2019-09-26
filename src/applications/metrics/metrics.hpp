@@ -55,10 +55,22 @@ class Application
 
   Application(config::CompoundConfig* config)
   {
-    auto rootNode = config->getRoot(); 
+    auto rootNode = config->getRoot();
     // Architecture configuration.
-    auto arch = rootNode.lookup("arch");
+    config::CompoundConfigNode arch;
+    if (rootNode.exists("arch")) {
+      arch = rootNode.lookup("arch");
+    } else if (rootNode.exists("architecture")) {
+      arch = rootNode.lookup("architecture");
+    }
     arch_specs_ = model::Engine::ParseSpecs(arch);
+
+    if (rootNode.exists("ERT")) {
+      auto ert = rootNode.lookup("ERT");
+      std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
+      arch_specs_.topology.ParseAccelergyERT(ert);
+    }
+
     engine_.Spec(arch_specs_);
     std::cout << "Architecture configuration complete." << std::endl;
   }

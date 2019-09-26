@@ -107,20 +107,167 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
   assert(storage.isList());
 
   // Level 0: arithmetic.
-  auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic));
+  // Use multiplication factor == 0 to ensure .instances attribute is set
+  auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic, 0));
   specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
 
   // Storage levels.
   int num_storage_levels = storage.getLength();
   for (int i = 0; i < num_storage_levels; i++)
   {
-    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i]));
+    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i], 0));
     specs.AddLevel(i, std::static_pointer_cast<LevelSpecs>(level_specs_p));
   }
 
   Validate(specs);
 
   return specs;
+}
+
+// This function implements the "tree-like" hierarchical architecture description
+// used in Accelergy v0.2. The lowest level is level 0 and should have
+// arithmetic units, while other level are level 1+ with some buffer/storage units
+Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
+{
+  Specs specs;
+  auto curNode = designRoot;
+  std::vector< std::shared_ptr<LevelSpecs> > storages; // serialize all storages
+  uint32_t multiplication = 1;
+  // Walk the tree to find each buffer and arithmetic units
+  // and add them to the specs.
+  while (curNode.exists("subtree")) {
+    auto subTrees = curNode.lookup("subtree");
+    // Timeloop currently supports one subtree per level.
+    assert(subTrees.isList() && subTrees.getLength() == 1);
+    curNode = subTrees[0];
+    std::string curNodeName;
+    curNode.lookupValue("name", curNodeName);
+    uint32_t subTreeSize = config::parseElementSize(curNodeName);
+    multiplication *= subTreeSize;
+
+    if (curNode.exists("local")) {
+      auto curLocal = curNode.lookup("local");
+      assert(curLocal.isList());
+      std::vector< std::shared_ptr<LevelSpecs> > localStorages;
+
+      for (int c = 0; c < curLocal.getLength() ; c++) {
+        std::string cName, cClass;
+        curLocal[c].lookupValue("name", cName);
+        curLocal[c].lookupValue("class", cClass);
+        uint32_t localElementSize = config::parseElementSize(cName);
+        uint32_t nElements = multiplication * localElementSize;
+
+        if (cClass == "DRAM" || cClass == "SRAM" || cClass == "regfile" || cClass == "smartbuffer") {
+          // create a buffer
+          // std::cout << "Creating buffer: " << cClass << " Elements: " << nElements << std::endl;
+          auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
+          localStorages.push_back(level_specs_p);
+        } else if (cClass == "mac" || cClass == "intmac" || cClass == "fpmac") {
+          // create arithmetic
+          // std::cout << "Creating arith: " << cClass << " Elements: " << nElements << std::endl;
+          std::cout << "AddLevel (arithmetic) : 0 " << cName << std::endl;
+          auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
+          specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
+        } else {
+          std::cout << "  Neglect component: " << cName << " due to unknown class: " << cClass << std::endl;
+        }
+      }
+      // the deeper the tree, the closer the buffer to be with ArithmeticUnits.
+      storages.insert(storages.begin(), localStorages.begin(), localStorages.end());
+    }
+  } // end while
+
+  // Add storages to specs. We can do this only after walking the whole tree.
+  for (uint32_t i = 0; i < storages.size(); i++) {
+    auto storage = storages[i];
+    std::cout << "AddLevel (storage) : " << i << " " << storage->level_name << std::endl;
+    specs.AddLevel(i, storage);
+  }
+ 
+  Validate(specs);
+
+  return specs;
+};
+
+void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
+  std::cout << "Replacing energy numbers..." << std::endl;
+  std::vector<std::string> keys;
+  assert(ert.exists("tables"));
+  auto table = ert.lookup("tables");
+  table.getMapKeys(keys);
+
+  for (auto key : keys) {
+    auto componentERT = table.lookup(key);
+    auto pos = key.rfind(".");
+    auto componentName = key.substr(pos + 1, key.size() - pos - 1);
+    // std::cout << componentName << std::endl;
+
+    // update levels by name and the type of it
+    if (componentName == "wire" || componentName == "Wire") { // special case, update interal wire model
+      float transferEnergy;
+      auto actionERT = componentERT.lookup("transfer");
+      if (actionERT.lookupValue("energy", transferEnergy)) {
+        for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
+          auto bufferSpec = GetStorageLevel(i);
+          auto pv = problem::GetShape()->NumDataSpaces;
+          bufferSpec->WireEnergy(pv) = transferEnergy;
+        }
+      }
+    } else {
+      // find the level that matches this name and see what type it is
+      bool isArithmeticUnit = false;
+      bool isBuffer = false;
+      std::shared_ptr<LevelSpecs> specToUpdate;
+      for (auto level : levels) {
+        //std::cout << "  level: " << level->level_name << std::endl;
+        if (level->level_name == componentName) {
+          specToUpdate = level;
+          if (level->Type() == "BufferLevel") isBuffer = true;
+          if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
+        }
+      }
+
+      config::CompoundConfigNode actionERT;
+      float opEnergy;
+      if (isArithmeticUnit) {
+        if (componentERT.exists("mac_random")) {
+          actionERT = componentERT.lookup("mac_random");
+          if (actionERT.lookupValue("energy", opEnergy)) {
+            std::cout << "  Replace " << componentName << " energy with mac_random energy " << opEnergy << std::endl;
+            auto arithmeticSpec = GetArithmeticLevel();
+            arithmeticSpec->EnergyPerOp() = opEnergy;
+          }
+        }
+      } else if (isBuffer) {
+        auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
+
+        // register case
+        if (componentERT.exists("process")) {
+          actionERT = componentERT.lookup("process");
+          if (actionERT.lookupValue("energy", opEnergy)) {
+            std::cout << "  Replace " << componentName << " read write fill energy with process energy " << opEnergy << std::endl;
+            auto pv = problem::GetShape()->NumDataSpaces;
+            bufferSpec->VectorAccessEnergy(pv) = opEnergy / bufferSpec->ClusterSize(pv).Get();
+          }
+        }
+
+        // SRAM/smart buffer case, replace read/update/fill energy
+        if (componentERT.exists("read")) {
+          actionERT = componentERT.lookup("read")[0];
+          if (actionERT.lookupValue("energy", opEnergy)) {
+            std::cout << "  Replace " << componentName << " read energy with read energy " << opEnergy << std::endl;
+            auto pv = problem::GetShape()->NumDataSpaces;
+            bufferSpec->VectorAccessEnergy(pv) = opEnergy / bufferSpec->ClusterSize(pv).Get();
+          }
+        }
+
+      } else {
+        std::cout << "  Unused component ERT: "  << key << std::endl;
+      }
+    }
+  }
+
+  return;
 }
 
 std::vector<std::string> Topology::Specs::LevelNames() const

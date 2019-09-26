@@ -65,7 +65,7 @@ void handler(int s)
 
 int main(int argc, char* argv[])
 {
-  assert(argc == 2 || argc == 3);
+  assert(argc >= 2);
 
   struct sigaction action;
   action.sa_handler = handler;
@@ -73,8 +73,8 @@ int main(int argc, char* argv[])
   action.sa_flags = 0;
   sigaction(SIGINT, &action, NULL);
   
-  char* config_file = argv[1];
-  auto cConfig = new config::CompoundConfig(config_file);
+  std::vector<std::string> inputFiles(argv + 1, argv + argc);
+  auto cConfig = new config::CompoundConfig(inputFiles);
 
   for (auto& line: banner)
   {

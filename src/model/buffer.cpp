@@ -53,11 +53,26 @@ BufferLevel::BufferLevel(const Specs& specs) :
   is_evaluated_ = false;
 }
 
-void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::Shape::DataSpaceID pv, Specs& specs)
+void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t nElements, problem::Shape::DataSpaceID pv, Specs& specs)
 {
+  // Name. This has to go first. Since the rest can be attributes
+  std::string name;
+  if (buffer.lookupValue("name", name))
+  {
+    specs.Name(pv) = config::parseName(name);
+  }
+  std::string className = "";
+  if (buffer.exists("attributes")) {
+    buffer.lookupValue("class", className);
+    assert(className == "DRAM" || className == "SRAM" || className == "regfile");
+    buffer = buffer.lookup("attributes");
+  }
+
   // Word Bits.
   std::uint32_t word_bits;
-  if (buffer.lookupValue("word-bits", word_bits))
+  if (buffer.lookupValue("word-bits", word_bits) ||
+      buffer.lookupValue("word_width", word_bits) ||
+      buffer.lookupValue("datawidth", word_bits) )
   {
     specs.WordBits(pv) = word_bits;
   }
@@ -66,22 +81,11 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
     specs.WordBits(pv) = Specs::kDefaultWordBits;
   }
 
-  // Size.
-  std::uint32_t size;
-  if (buffer.lookupValue("entries", size))
-  {
-    assert(buffer.exists("sizeKB") == false);
-    specs.Size(pv) = size;
-  }
-  else if (buffer.lookupValue("sizeKB", size))
-  {
-    specs.Size(pv) = size * 1024 * 8 / specs.WordBits(pv).Get();
-  }
-
   // Block size.
   std::uint32_t block_size;
   specs.BlockSize(pv) = 1; // FIXME: derive block size from tile.
-  if (buffer.lookupValue("block-size", block_size))
+  if (buffer.lookupValue("block-size", block_size) ||
+      buffer.lookupValue("n_words", block_size) )
   {
     specs.BlockSize(pv) = block_size;
   }
@@ -94,24 +98,37 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
     specs.ClusterSize(pv) = cluster_size;
   }
 
-  // Name.
-  std::string name;
-  if (buffer.lookupValue("name", name))
+  // Size.
+  // It has dependency on BlockSize and thus is initialized after BlockSize.
+  std::uint32_t size;
+  if (buffer.lookupValue("entries", size) )
   {
-    specs.Name(pv) = name;
+    assert(buffer.exists("sizeKB") == false);
+    specs.Size(pv) = size;
   }
-      
+  else if (buffer.lookupValue("depth", size))
+  {
+    assert(buffer.exists("sizeKB") == false);
+    assert(buffer.exists("entries") == false);
+    specs.Size(pv) = size * specs.BlockSize(pv).Get();
+  }
+  else if (buffer.lookupValue("sizeKB", size))
+  {
+    specs.Size(pv) = size * 1024 * 8 / specs.WordBits(pv).Get();
+  }
+
+
   // Technology.
+  // Unfortunately ".technology" means different things between ISPASS format
+  // and Accelergy v0.2 format. So we use the class name to find out what to
+  // assume.
   std::string technology;
   specs.Tech(pv) = Technology::SRAM;
-  if (buffer.lookupValue("technology", technology))
+  if (className == "DRAM") specs.Tech(pv) = Technology::DRAM;
+
+  if (buffer.lookupValue("technology", technology) && technology == "DRAM")
   {
-    if (technology == "DRAM")
-    {
-      specs.Tech(pv) = Technology::DRAM;
-    } else {
-      assert(technology == "SRAM");
-    }
+    specs.Tech(pv) = Technology::DRAM;
   }
 
   // SRAM Type.
@@ -226,6 +243,8 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
   if (buffer.lookupValue("instances", instances))
   {
     specs.Instances(pv) = instances;
+  } else {
+    specs.Instances(pv) = nElements;
   }
 
   // MeshX.
@@ -282,6 +301,11 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
   double router_energy = 0;
   buffer.lookupValue("router-energy", router_energy);
   specs.RouterEnergy(pv) = router_energy;
+
+  // Wire energy.
+  double wire_energy = 0.0;
+  buffer.lookupValue("wire-energy", wire_energy);
+  specs.WireEnergy(pv) = wire_energy;
 
   // Vector Access Energy
   double tmp_access_energy = 0;
@@ -352,7 +376,7 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, problem::S
 // affect the internal specs_ data structure, which is set by
 // the dynamic Spec() call later.
 // FIXME: re-factor level-specific code to Buffer class.
-BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level)
+BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uint32_t nElements)
 {
   // Legacy code treats partitioned and shared in completely different code paths.
   // Much of that code still exists across this buffer implementation. However,
@@ -389,13 +413,13 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level)
     for (int i = 0; i < len; i ++)
     {
       // Sophia
-      ParseBufferSpecs(buffers[i], problem::Shape::DataSpaceID(pvi), specs);
+      ParseBufferSpecs(buffers[i], nElements, problem::Shape::DataSpaceID(pvi), specs);
       pvi++;
     }
   }
   else
   {
-    ParseBufferSpecs(level, problem::GetShape()->NumDataSpaces, specs);
+    ParseBufferSpecs(level, nElements, problem::GetShape()->NumDataSpaces, specs);
     specs.level_name = specs.Name().Get();
   }
 
@@ -951,6 +975,10 @@ void BufferLevel::ComputeNetworkEnergy(const double inner_tile_area)
 
     double energy_per_hop =
             WireEnergyPerHop(specs_.NetworkWordBits(pv).Get(), inner_tile_area);
+    double energy_wire = specs_.WireEnergy(pv).Get();
+    if (energy_wire != 0.0) { // user provided energy per wire length per bit
+      energy_per_hop = specs_.NetworkWordBits(pv).Get() * inner_tile_area * energy_wire;
+    }
     double energy_per_router = specs_.RouterEnergy(pv).Get();
     
     auto fanout = stats_.network.distributed_multicast.at(pv) ?

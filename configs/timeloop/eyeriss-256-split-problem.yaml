@@ -1,0 +1,84 @@
+mapspace:
+  constraints_rowstationary:
+  - type: datatype
+    target: PsumRegFile
+    bypass:
+    - Inputs
+    - Weights
+    keep:
+    - Outputs
+  - type: datatype
+    target: WeightRegFile
+    bypass:
+    - Inputs
+    - Outputs
+    keep:
+    - Weights
+  - type: datatype
+    target: InputRegFile
+    bypass:
+    - Weights
+    - Outputs
+    keep:
+    - Inputs
+  - type: datatype
+    target: DummyBuffer
+    bypass:
+    - Inputs
+    - Outputs
+    - Weights
+  - type: datatype
+    target: GlobalBuffer
+    bypass:
+    - Weights
+    keep:
+    - Inputs
+    - Outputs
+  - split: 4
+    permutation: NPQR SCK
+    type: spatial
+    target: DummyBuffer
+    factors: N1 P1 Q1 R1 S0
+  - split: 7
+    permutation: NCPRS QK
+    type: spatial
+    target: GlobalBuffer
+    factors: N1 C1 P1 R1 S1
+  - permutation: NCPQRS K
+    type: temporal
+    target: PsumRegFile
+    factors: N1 C1 P1 Q1 R1 S1
+  - permutation: NKPQS CR
+    type: temporal
+    target: WeightRegFile
+    factors: N1 K1 P1 Q1 S1 R0
+  - permutation: NKCPQRS
+    type: temporal
+    target: InputRegFile
+    factors: N1 K1 C1 P1 Q1 R1 S1
+  - permutation: NKCPQRS
+    type: temporal
+    target: DummyBuffer
+    factors: N1 K1 C1 P1 Q1 R1 S1
+  - permutation: QRSC PNK
+    type: temporal
+    target: GlobalBuffer
+    factors: Q1 R1 S1 C1 P0
+  - permutation: RSP CKNQ
+    type: temporal
+    target: DRAM
+    factors: R1 S1 P1
+  constraints: rowstationary
+mapper:
+  algorithm: linear-pruned
+problem:
+  Q: 56
+  P: 56
+  S: 3
+  R: 3
+  Hstride: 1
+  K: 256
+  Wstride: 1
+  C: 256
+  N: 1
+

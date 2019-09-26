@@ -120,7 +120,7 @@ class ArithmeticUnits : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting);
+  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
   
   std::string Name() const override;
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
