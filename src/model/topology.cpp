@@ -183,7 +183,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
     std::cout << "AddLevel (storage) : " << i << " " << storage->level_name << std::endl;
     specs.AddLevel(i, storage);
   }
- 
+
   Validate(specs);
 
   return specs;
