@@ -459,16 +459,20 @@ class MapperThread
 
       if (log_suboptimal_)
       {
-        auto num_storage_levels = engine.GetTopology().NumStorageLevels();
-        auto num_maccs = engine.GetTopology().GetArithmeticLevel()->MACCs();
+        // auto num_storage_levels = engine.GetTopology().NumStorageLevels();
+        // auto num_maccs = engine.GetTopology().GetArithmeticLevel()->MACCs();
         mutex_->lock();
-        log_stream_ << "[" << thread_id_ << "] Utilization = " << engine.Utilization() << " pJ/MACC = "
-                    << engine.Energy() / num_maccs << " LL-accesses/MACC = "
-                    << double(engine.GetTopology().GetStorageLevel(num_storage_levels-1)->Accesses()) / num_maccs
-                    << " CapUtil = ";
-        for (unsigned i = 0; i < num_storage_levels; i++)
-          log_stream_ << engine.GetTopology().GetStorageLevel(i)->CapacityUtilization() << " ";
-        log_stream_ << std::endl;
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
+                    << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
+                    << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+          engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
+        // log_stream_ << "[" << thread_id_ << "] Utilization = " << engine.Utilization() << " pJ/MACC = "
+        //             << engine.Energy() / num_maccs << " LL-accesses/MACC = "
+        //             << double(engine.GetTopology().GetStorageLevel(num_storage_levels-1)->Accesses()) / num_maccs
+        //             << " CapUtil = ";
+        // for (unsigned i = 0; i < num_storage_levels; i++)
+        //   log_stream_ << engine.GetTopology().GetStorageLevel(i)->CapacityUtilization() << " ";
+        // log_stream_ << std::endl;
         mutex_->unlock();
       }
 
