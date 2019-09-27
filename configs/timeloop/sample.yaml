@@ -64,9 +64,8 @@ arch:
     bandwidth: 10.0
 
 mapspace:
-  template: uber
-  constraints: ckspatial
-  constraints_ckspatial:
+  constraints:
+  # Level Bypass
   - target: AccumulationBuffer
     type: datatype
     keep:

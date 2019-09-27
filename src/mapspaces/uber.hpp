@@ -1335,15 +1335,23 @@ class Uber : public MapSpace
     std::map<unsigned, std::uint32_t>& user_spatial_splits,
     problem::PerDataSpace<std::string>& user_bypass_strings)
   {
+    // Constraints can be specified either anonymously as a list, or indirected
+    // via a string name.
     std::string name;
-    if (!config.lookupValue("constraints", name))
+    if (config.lookup("constraints").isList())
     {
-      // No constraint name specified, nothing to do.
+      name = "constraints";
+    }
+    else if (config.lookupValue("constraints", name))
+    {
+      name = std::string("constraints_") + name;
+    }
+    else
+    {
+      // No constraints specified, nothing to do.
       return;
     }
 
-    // Find the name of the constraint.
-    name = std::string("constraints_") + name;
     auto constraints = config.lookup(name);
     assert(constraints.isList());
 
