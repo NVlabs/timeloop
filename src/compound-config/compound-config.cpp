@@ -379,7 +379,7 @@ CompoundConfig::CompoundConfig(std::vector<std::string> inputFiles) {
     YConfig = YAML::Load(combinedStream);
     root = CompoundConfigNode(nullptr, YConfig);
     useLConfig = false;
-    std::cout << YConfig << std::endl;
+    // std::cout << YConfig << std::endl;
   } else {
     std::cerr << "ERROR: Input configuration file does not end with .cfg, .yml, or .yaml" << std::endl;
     exit(1);

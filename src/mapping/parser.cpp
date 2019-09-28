@@ -128,19 +128,31 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   // and spatial split points.
   for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
   {
-    auto& permutation = user_permutations.at(level);
-    assert(permutation.size() == std::size_t(problem::GetShape()->NumDimensions));
+    auto permutation = user_permutations.find(level);
+    if (permutation == user_permutations.end())
+    {
+      std::cerr << "ERROR: parsing mapping: permutation not found for level: "
+                << arch_props_.TilingLevelName(level) << std::endl;
+      exit(1);
+    }
+    assert(permutation->second.size() == std::size_t(problem::GetShape()->NumDimensions));
       
-    auto& factors = user_factors.at(level);
-    assert(factors.size() == std::size_t(problem::GetShape()->NumDimensions));
+    auto factors = user_factors.find(level);
+    if (factors == user_factors.end())
+    {
+      std::cerr << "ERROR: parsing mapping: factors not found for level: "
+                << arch_props_.TilingLevelName(level) << std::endl;
+      exit(1);
+    }
+    assert(factors->second.size() == std::size_t(problem::GetShape()->NumDimensions));
 
     // Each partition has problem::GetShape()->NumDimensions loops.
     for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
     {
       loop::Descriptor loop;
-      loop.dimension = permutation.at(idim);
+      loop.dimension = permutation->second.at(idim);
       loop.start = 0;
-      loop.end = factors.at(loop.dimension);
+      loop.end = factors->second.at(loop.dimension);
       loop.stride = 1; // FIXME.
       loop.spacetime_dimension = arch_props_.IsSpatial(level)
         ? (idim < user_spatial_splits.at(level) ? spacetime::Dimension::SpaceX : spacetime::Dimension::SpaceY)
@@ -204,6 +216,11 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
         case '1':
           mapping.datatype_bypass_nest.at(pvi).set(level);
           break;
+
+        case 'X':
+          // We allow this to be left un-specified by the user. Default is "keep".
+          mapping.datatype_bypass_nest.at(pvi).set(level);
+          break;          
             
         default:
           assert(false);

@@ -446,7 +446,7 @@ class Application
       }
     }
 
-    // Printing the Timeloop Mapping to an XML file
+    // Print the engine stats and mapping to an XML file
     std::ofstream ofs(xml_file_name);
     boost::archive::xml_oarchive ar(ofs);
     ar << BOOST_SERIALIZATION_NVP(best_mapped_engine);

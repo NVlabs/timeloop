@@ -111,17 +111,17 @@ class ArchProperties
   // Accessors.
   //
   
-  unsigned& TemporalToTiling(const unsigned l)
+  const unsigned& TemporalToTiling(const unsigned l) const
   {
     return temporal_to_tiling_map_.at(l);
   }
 
-  unsigned& SpatialToTiling(const unsigned l)
+  const unsigned& SpatialToTiling(const unsigned l) const
   {
     return spatial_to_tiling_map_.at(l);
   }
 
-  unsigned& TilingToStorage(const unsigned l)
+  const unsigned& TilingToStorage(const unsigned l) const
   {
     return tiling_to_storage_map_.at(l);
   }
@@ -141,8 +141,25 @@ class ArchProperties
     return specs_;
   }
 
-  bool IsSpatial(int level)
+  bool IsSpatial(int level) const
   {
-    return spatial_mask_[level];
-  }  
+    return spatial_mask_.at(level);
+  }
+
+  //
+  // Helpers.
+  //
+  std::string StorageLevelName(unsigned l) const
+  {
+    return specs_.topology.GetStorageLevel(l)->level_name;
+  }
+
+  std::string TilingLevelName(unsigned l) const
+  {
+    std::string retval;
+    auto& storage_level = TilingToStorage(l);
+    retval = specs_.topology.GetStorageLevel(storage_level)->level_name;
+    retval += IsSpatial(l) ? " (spatial)" : " (temporal)";
+    return retval;
+  }
 };

@@ -82,13 +82,13 @@ class Engine : public Module
 
     if (!setting.exists("version") || (setting.lookupValue("version", version) && version != "0.2")) {
       // format used in the ISPASS paper
-      std::cout << "ParseSpecs" << std::endl;
+      // std::cout << "ParseSpecs" << std::endl;
       auto arithmetic = setting.lookup("arithmetic");
       auto topology = setting.lookup("storage");
       specs.topology = Topology::ParseSpecs(topology, arithmetic);
     } else {
       // format used in Accelergy v0.2
-      std::cout << "ParseTreeSpecs" << std::endl;
+      // std::cout << "ParseTreeSpecs" << std::endl;
       specs.topology = Topology::ParseTreeSpecs(setting);
     }
 

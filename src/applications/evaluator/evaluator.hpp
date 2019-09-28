@@ -114,6 +114,12 @@ class Application
   // Run the evaluation.
   void Run()
   {
+    // Output file names.
+    const std::string out_prefix = "evaluator.";
+    const std::string stats_file_name = out_prefix + "stats.txt";
+    const std::string xml_file_name = out_prefix + "map+stats.xml";
+    const std::string map_txt_file_name = out_prefix + "map.txt";
+
     model::Engine engine;
     engine.Spec(arch_specs_);
 
@@ -122,22 +128,27 @@ class Application
     auto success = engine.Evaluate(mapping, workload_);
     if (!std::accumulate(success.begin(), success.end(), true, std::logical_and<>{}))
     {
+      std::cout << "Illegal mapping, evaluation failed." << std::endl;
       return;
     }
 
-    std::cerr << "Utilization = " << engine.Utilization() << " pJ/MACC = "
-              << engine.Energy() / engine.GetTopology().MACCs() << std::endl;
-      
-    std::cout << std::endl;
-    
     if (engine.IsEvaluated())
     {
-      std::cout << mapping << std::endl;
-      std::cout << engine << std::endl;
+      std::cout << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
+                << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+          engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
+    
+      std::ofstream map_txt_file(map_txt_file_name);
+      map_txt_file << mapping << std::endl;
+      map_txt_file.close();
+
+      std::ofstream stats_file(stats_file_name);
+      stats_file << engine << std::endl;
+      stats_file.close();
     }
 
-    // Printing the engine stats and mapping to an XML file
-    std::ofstream ofs("timeLoopOutput.xml");
+    // Print the engine stats and mapping to an XML file
+    std::ofstream ofs(xml_file_name);
     boost::archive::xml_oarchive ar(ofs);
     ar << BOOST_SERIALIZATION_NVP(engine);
     ar << BOOST_SERIALIZATION_NVP(mapping);
