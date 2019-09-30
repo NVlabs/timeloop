@@ -52,6 +52,22 @@
       std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;\
       exit(1);                                                                      \
     }                                                                               \
+    catch (YAML::KeyNotFound e)                                                     \
+    {                                                                               \
+      std::cerr << "ERROR: " << e.msg << ", at line: " << e.mark.line+1<< std::endl;\
+      exit(1);                                                                      \
+    }                                                                               \
+    catch (YAML::InvalidNode e)                                                     \
+    {                                                                               \
+      std::cerr << "ERROR: " << e.msg << ", at line: " << e.mark.line+1<< std::endl;\
+      exit(1);                                                                      \
+    }                                                                               \
+    catch (YAML::BadConversion e)                                                   \
+    {                                                                               \
+      std::cerr << "ERROR: " << e.msg << ", at line: " << e.mark.line+1<< std::endl;\
+      exit(1);                                                                      \
+    }                                                                               \
+
 
 namespace config
 {
@@ -69,6 +85,7 @@ CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
     libconfig::Setting& nextNode = LNode->lookup(path);
     return CompoundConfigNode(&nextNode, YAML::Node());
   } else if (YNode) {
+    if (!YNode[path]) throw YAML::KeyNotFound(YNode.Mark(), std::string(path));
     YAML::Node nextNode = YNode[path];
     return CompoundConfigNode(nullptr, nextNode);
   } else {
