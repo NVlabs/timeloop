@@ -157,7 +157,7 @@ class Application
           engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
     
       std::ofstream map_txt_file(map_txt_file_name);
-      map_txt_file << mapping << std::endl;
+      mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().TileSizes());
       map_txt_file.close();
 
       std::ofstream stats_file(stats_file_name);

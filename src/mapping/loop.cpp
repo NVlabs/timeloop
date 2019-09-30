@@ -80,7 +80,7 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
 {
   if (long_form)
   {
-    out << "for " << problem::GetShape()->DimensionIDToName.at(dimension) << " in [" << start << "," << end << ")";
+    out << "for " << problem::GetShape()->DimensionIDToName.at(dimension) << " in [" << start << ":" << end << ")";
     if (IsSpatial(spacetime_dimension))
     {
       if (IsSpatialX(spacetime_dimension))
