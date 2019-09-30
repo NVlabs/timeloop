@@ -27,9 +27,6 @@
 
 #pragma once
 
-#include "mapping/parser.hpp"
-#include "compound-config/compound-config.hpp"
-
 #include <fstream>
 
 #include <boost/serialization/vector.hpp>
@@ -40,6 +37,10 @@
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
+
+#include "util/banner.hpp"
+#include "mapping/parser.hpp"
+#include "compound-config/compound-config.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -73,10 +74,24 @@ class Application
   Application(config::CompoundConfig* config)
   {    
     auto rootNode = config->getRoot();
+
+    // Evaluator application configuration.
+    bool verbose = false;
+    if (rootNode.exists("evaluator")) {
+      auto evaluator = rootNode.lookup("evaluator");
+      evaluator.lookupValue("verbose", verbose);
+    }
+    if (verbose) {
+      for (auto& line: banner)
+        std::cout << line << std::endl;
+      std::cout << std::endl;
+    }
+
     // Problem configuration.
     auto problem = rootNode.lookup("problem");
     problem::ParseWorkload(problem, workload_);
-    std::cout << "Problem configuration complete." << std::endl;
+    if (verbose)
+      std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
     config::CompoundConfigNode arch;
@@ -89,16 +104,19 @@ class Application
 
     if (rootNode.exists("ERT")) {
       auto ert = rootNode.lookup("ERT");
-      std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
+      if (verbose)
+        std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
     }
 
-    std::cout << "Architecture configuration complete." << std::endl;
+    if (verbose)
+      std::cout << "Architecture configuration complete." << std::endl;
 
     // Mapping configuration: expressed as a mapspace or mapping.
     auto mapping = rootNode.lookup("mapping");
     mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
-    std::cout << "Mapping construction complete." << std::endl;
+    if (verbose)
+      std::cout << "Mapping construction complete." << std::endl;
   }
 
   // This class does not support being copied
@@ -134,7 +152,7 @@ class Application
 
     if (engine.IsEvaluated())
     {
-      std::cout << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
+      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
                 << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
           engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
     

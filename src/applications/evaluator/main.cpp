@@ -30,7 +30,6 @@
 #include <cstring>
 
 #include "evaluator.hpp"
-#include "util/banner.hpp"
 #include "compound-config/compound-config.hpp"
 
 bool gTerminate = false;
@@ -76,12 +75,6 @@ int main(int argc, char* argv[])
   std::vector<std::string> inputFiles(argv + 1, argv + argc);
   auto cConfig = new config::CompoundConfig(inputFiles);
 
-  for (auto& line: banner)
-  {
-    std::cout << line << std::endl;
-  }
-  std::cout << std::endl;
-  
   Application application(cConfig);
   
   application.Run();
