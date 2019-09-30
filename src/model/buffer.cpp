@@ -366,10 +366,10 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   specs.VectorAccessEnergy(pv) = tmp_access_energy;
   specs.StorageArea(pv) = tmp_storage_area; //FIXME: check with Angshu
 
-  std::cout << "BUFFER " << specs.Name(pv) << " vector access energy = "
-            << specs.VectorAccessEnergy(pv) << " pJ, cluster area = "
-            << specs.StorageArea(pv).Get() * specs.ClusterSize(pv).Get()
-            << " um^2" << std::endl;
+  // std::cout << "BUFFER " << specs.Name(pv) << " vector access energy = "
+  //           << specs.VectorAccessEnergy(pv) << " pJ, cluster area = "
+  //           << specs.StorageArea(pv).Get() * specs.ClusterSize(pv).Get()
+  //           << " um^2" << std::endl;
 }
 
 // The hierarchical ParseSpecs functions are static and do not
