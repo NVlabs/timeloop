@@ -173,10 +173,18 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value
 
 bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
   EXCEPTION_PROLOGUE;
-  if (LNode) return LNode->lookupValue(name, value);
+  if (LNode) {
+    int i_value = 0;
+    if (LNode->lookupValue(name, i_value)) {
+      value = static_cast<double>(i_value);
+      return true;
+    } else {
+      return LNode->lookupValue(name, value);
+    }
+  }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
-    value = YNode[name].as<double>();
+    value = YNode[name].as<double, int>(0);
     return true;
   }
   else {
@@ -188,10 +196,18 @@ bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
   EXCEPTION_PROLOGUE;
-  if (LNode) return LNode->lookupValue(name, value);
+  if (LNode) {
+    int i_value = 0;
+    if (LNode->lookupValue(name, i_value)) {
+      value = static_cast<float>(i_value);
+      return true;
+    } else {
+      return LNode->lookupValue(name, value);
+    }
+  }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
-    value = YNode[name].as<float>();
+    value = YNode[name].as<float, int>(0);
     return true;
   }
   else {

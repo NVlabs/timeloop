@@ -153,57 +153,31 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   }
 
   // Bandwidth.
-  // Have to parse both int and double because $#@%$# libconfig
-  // won't parse an int as a double.
-  double d_bandwidth;
-  unsigned i_bandwidth;
-  if (buffer.lookupValue("bandwidth", d_bandwidth))
+  double bandwidth;
+  if (buffer.lookupValue("bandwidth", bandwidth))
   {
     std::cerr << "WARNING: bandwidth is deprecated. Assuming read_bandwidth = write_bandwidth = bandwidth/2" << std::endl;
-    specs.ReadBandwidth(pv)  = d_bandwidth / 2;
-    specs.WriteBandwidth(pv) = d_bandwidth / 2;
-  }
-  else if (buffer.lookupValue("bandwidth", i_bandwidth))
-  {
-    std::cerr << "WARNING: bandwidth is deprecated. Assuming read_bandwidth = write_bandwidth = bandwidth/2" << std::endl;
-    specs.ReadBandwidth(pv) = static_cast<double>(i_bandwidth) / 2;
-    specs.WriteBandwidth(pv) = static_cast<double>(i_bandwidth) / 2;
+    specs.ReadBandwidth(pv)  = bandwidth / 2;
+    specs.WriteBandwidth(pv) = bandwidth / 2;
   }
 
-  double d_read_bandwidth;
-  unsigned i_read_bandwidth;
-  if (buffer.lookupValue("read_bandwidth", d_read_bandwidth))
+  double read_bandwidth;
+  if (buffer.lookupValue("read_bandwidth", read_bandwidth))
   {
-    specs.ReadBandwidth(pv) = d_read_bandwidth;
-  }
-  else if (buffer.lookupValue("read_bandwidth", i_read_bandwidth))
-  {
-    specs.ReadBandwidth(pv) = static_cast<double>(i_read_bandwidth);
+    specs.ReadBandwidth(pv) = read_bandwidth;
   }
 
-  double d_write_bandwidth;
-  unsigned i_write_bandwidth;
-  if (buffer.lookupValue("write_bandwidth", d_write_bandwidth))
+  double write_bandwidth;
+  if (buffer.lookupValue("write_bandwidth", write_bandwidth))
   {
-    specs.WriteBandwidth(pv) = d_write_bandwidth;
-  }
-  else if (buffer.lookupValue("write_bandwidth", i_write_bandwidth))
-  {
-    specs.WriteBandwidth(pv) = static_cast<double>(i_write_bandwidth);
+    specs.WriteBandwidth(pv) = write_bandwidth;
   }
 
   // Multiple-buffering factor (e.g., 2.0 means double buffering)
-  // Have to parse both int and double because libconfig
-  // won't parse an int as a double.
-  double d_multiple_buffering;
-  unsigned i_multiple_buffering;
-  if (buffer.lookupValue("multiple-buffering", d_multiple_buffering))
+  double multiple_buffering;
+  if (buffer.lookupValue("multiple-buffering", multiple_buffering))
   {
-    specs.MultipleBuffering(pv) = d_multiple_buffering;
-  }
-  else if (buffer.lookupValue("multiple-buffering", i_multiple_buffering))
-  {
-    specs.MultipleBuffering(pv) = static_cast<double>(i_multiple_buffering);
+    specs.MultipleBuffering(pv) = multiple_buffering;
   }
   else
   {
@@ -217,17 +191,10 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   }
 
   // Minimum utilization factor (e.g., 1.0 requires full utilization of effective capacity)
-  // Have to parse both int and double because libconfig
-  // won't parse an int as a double.
-  double d_min_utilizaiton;
-  unsigned i_min_utilizaiton;
-  if (buffer.lookupValue("min-utilization", d_min_utilizaiton))
+  double min_utilizaiton;
+  if (buffer.lookupValue("min-utilization", min_utilizaiton))
   {
-    specs.MinUtilization(pv) = d_min_utilizaiton;
-  }
-  else if (buffer.lookupValue("min-utilization", i_min_utilizaiton))
-  {
-    specs.MinUtilization(pv) = static_cast<double>(i_min_utilizaiton);
+    specs.MinUtilization(pv) = min_utilizaiton;
   }
   else
   {
@@ -341,24 +308,12 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
     //           << ", area = " << tmp_storage_area << std::endl;
   }
 
-  // Allow user to override the access energy. FIXME: clean up this code.
-  // Ugh. libconfig needs us to look for both int and float values.
-  std::uint32_t tmp_access_energy_int = 0;
-  buffer.lookupValue("vector-access-energy", tmp_access_energy_int);
-  if (tmp_access_energy_int > 0)
-    tmp_access_energy = static_cast<double>(tmp_access_energy_int);
-  else
-    buffer.lookupValue("vector-access-energy", tmp_access_energy);
+  // Allow user to override the access energy.
+  buffer.lookupValue("vector-access-energy", tmp_access_energy);
 
-  // Allow user to override the cluster area. FIXME: clean up this code.
-  // Ugh. libconfig needs us to look for both int and float values.
-  std::uint32_t tmp_cluster_area_int = 0;
+  // Allow user to override the cluster area.
   double tmp_cluster_area = 0;
-  buffer.lookupValue("cluster-area", tmp_cluster_area_int);
-  if (tmp_cluster_area_int > 0)
-    tmp_cluster_area = static_cast<double>(tmp_cluster_area_int);
-  else
-    buffer.lookupValue("cluster-area", tmp_cluster_area);
+  buffer.lookupValue("cluster-area", tmp_cluster_area);
   if (tmp_cluster_area > 0)
     tmp_storage_area = tmp_cluster_area / specs.ClusterSize(pv).Get();
 
