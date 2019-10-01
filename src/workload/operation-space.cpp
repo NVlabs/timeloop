@@ -108,6 +108,14 @@ OperationSpace& OperationSpace::operator += (const OperationPoint& p)
   return (*this);
 }
 
+OperationSpace& OperationSpace::ExtrudeAdd(const OperationSpace& s)
+{
+  for (unsigned i = 0; i < data_spaces_.size(); i++)
+    data_spaces_.at(i).ExtrudeAdd(s.data_spaces_.at(i));
+
+  return (*this);
+}
+
 OperationSpace OperationSpace::operator - (const OperationSpace& p)
 {
   OperationSpace retval(workload_);
@@ -146,20 +154,37 @@ bool OperationSpace::CheckEquality(const OperationSpace& rhs, const int t) const
 void OperationSpace::PrintSizes()
 {
   for (unsigned i = 0; i < data_spaces_.size()-1; i++)
+  {
     std::cout << workload_->GetShape()->DataSpaceIDToName.at(i) << " = " << data_spaces_.at(i).size() << ", ";
+  }
   std::cout << workload_->GetShape()->DataSpaceIDToName.at(data_spaces_.size()-1) << " = " << data_spaces_.back().size() << std::endl;
 }
 
-void OperationSpace::Print() const
+void OperationSpace::Print(std::ostream& out) const
 {
-  for (auto& d : data_spaces_)
-    d.Print();
+  for (unsigned i = 0; i < data_spaces_.size(); i++)
+  {
+    out << workload_->GetShape()->DataSpaceIDToName.at(i) << ": ";
+    data_spaces_.at(i).Print(out);
+    out << " ";
+  }
+  // for (auto& d : data_spaces_)
+  // {
+  //   d.Print(out);
+  //   out << " ";
+  // }
 }
 
-void OperationSpace::Print(Shape::DataSpaceID pv) const
+void OperationSpace::Print(Shape::DataSpaceID pv, std::ostream& out) const
 {
   auto& d = data_spaces_.at(unsigned(pv));
-  d.Print();
+  d.Print(out);
+}
+
+std::ostream& operator << (std::ostream& out, const OperationSpace& os)
+{
+  os.Print(out);
+  return out;
 }
 
 } // namespace problem

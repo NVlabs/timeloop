@@ -71,14 +71,17 @@ class OperationSpace
   void Reset();
   OperationSpace& operator+=(const OperationSpace& s);
   OperationSpace& operator+=(const OperationPoint& p);
+  OperationSpace& ExtrudeAdd(const OperationSpace& s);
   OperationSpace operator-(const OperationSpace& p);
   PerDataSpace<std::size_t> GetSizes() const;
   std::size_t GetSize(const int t) const;
   bool IsEmpty(const int t) const;
   bool CheckEquality(const OperationSpace& rhs, const int t) const;
   void PrintSizes();
-  void Print() const;
-  void Print(Shape::DataSpaceID pv) const;
+  void Print(std::ostream& out = std::cerr) const;
+  void Print(Shape::DataSpaceID pv, std::ostream& out = std::cerr) const;
 };
+
+std::ostream& operator << (std::ostream& out, const OperationSpace& os);
 
 } // namespace problem

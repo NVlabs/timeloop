@@ -71,17 +71,17 @@ struct Gradient
     }
   }
   
-  void Print() const
+  void Print(std::ostream& out = std::cout) const
   {
-    std::cout << "< ";
+    out << "< ";
     for (unsigned i = 0; i < order; i++)
     {
       if (i == dimension)
-        std::cout << value << " ";
+        out << value << " ";
       else
-        std::cout << "0 ";
+        out << "0 ";
     }
-    std::cout << ">";
+    out << ">";
   }
 };
 
@@ -168,12 +168,17 @@ class AxisAlignedHyperRectangle
     gradient_.Reset();
   }
 
-  void Add(const Point& p)
+  void Add(const Point& p, bool extrude_if_discontiguous = false)
   {
-    Add(AxisAlignedHyperRectangle(order_, p));
-  }  
+    Add(AxisAlignedHyperRectangle(order_, p), extrude_if_discontiguous);
+  }
 
-  void Add(const AxisAlignedHyperRectangle& s)
+  void ExtrudeAdd(const AxisAlignedHyperRectangle& s)
+  {
+    Add(s, true);
+  }
+
+  void Add(const AxisAlignedHyperRectangle& s, bool extrude_if_discontiguous = false)
   {
     ASSERT(order_ == s.order_);
     
@@ -235,43 +240,45 @@ class AxisAlignedHyperRectangle
       }
       else
       {
-#undef DISALLOW_DISCONTIGUOUS_ADD
-#ifdef DISALLOW_DISCONTIGUOUS_ADD
-        std::cout << "AAHR Add error: discontiguous volumes\n";
-        orig.Print(); std::cout << std::endl;
-        s.Print(); std::cout << std::endl;          
-        assert(false);
-#else
-        auto u = *this;
-        bool need_update = false;
-        
-        if (s.max_[dim] < min_[dim])
+        if (!extrude_if_discontiguous)
         {
-          u.min_[dim] = s.min_[dim];
-          need_update = true;
+          std::cout << "AAHR Add error: discontiguous volumes (and extrude is disabled)\n";
+          orig.Print(); std::cout << std::endl;
+          s.Print(); std::cout << std::endl;          
+          assert(false);
         }
         else
         {
-          u.max_[dim] = s.max_[dim];
-          need_update = true;
-        }
+          auto u = *this;
+          bool need_update = false;
         
-        if (need_update)
-        {
-          if (found)
+          if (s.max_[dim] < min_[dim])
           {
-            std::cout << "AAHR Add error: non-HR shape\n";
-            orig.Print(); std::cout << std::endl;
-            s.Print(); std::cout << std::endl;          
-            assert(false);
+            u.min_[dim] = s.min_[dim];
+            need_update = true;
           }
           else
           {
-            *this = u;
-            found = true;
+            u.max_[dim] = s.max_[dim];
+            need_update = true;
           }
-        }
-#endif
+        
+          if (need_update)
+          {
+            if (found)
+            {
+              std::cout << "AAHR Add error: non-HR shape\n";
+              orig.Print(); std::cout << std::endl;
+              s.Print(); std::cout << std::endl;          
+              assert(false);
+            }
+            else
+            {
+              *this = u;
+              found = true;
+            }
+          }
+        } // extrude_if_discontiguous
       }
     }
   }
@@ -387,13 +394,13 @@ class AxisAlignedHyperRectangle
 
   AxisAlignedHyperRectangle& operator += (const Point& p)
   {
-    Add(p);
+    Add(p, true); // true => always extrude.
     return *this;
   }
 
   AxisAlignedHyperRectangle& operator += (const AxisAlignedHyperRectangle& s)
   {
-    Add(s);
+    Add(s, true); // true => always extrude.
     return *this;
   }
 
@@ -465,20 +472,23 @@ class AxisAlignedHyperRectangle
     return true;
   }
 
-  void Print() const
+  void Print(std::ostream& out = std::cout) const
   {
-    std::cout << "min = < "; 
-    for (unsigned dim = 0; dim < order_; dim++)
+    out << "["; 
+    for (unsigned dim = 0; dim < order_-1; dim++)
     {
-      std::cout << min_[dim] << " ";
+      out << min_[dim] << ",";
     }
-    std::cout << "> max = < "; 
-    for (unsigned dim = 0; dim < order_; dim++)
+    out << min_[order_-1];
+    out << ":";
+    for (unsigned dim = 0; dim < order_-1; dim++)
     {
-      std::cout << max_[dim] << " ";
+      out << max_[dim] << ",";
     }
-    std::cout << "> gradient = ";
-    gradient_.Print();
+    out << max_[order_-1];
+    out << ")";
+    // out << " gradient = ";
+    // gradient_.Print(out);
   }
   
 };

@@ -44,6 +44,7 @@
 #include "nest-analysis.hpp"
 
 extern bool gTerminateEval;
+bool gComputeAccurateReadsWITU = false;
 
 namespace analysis
 {
@@ -345,7 +346,10 @@ void NestAnalysis::CollectWorkingSets()
       {
         tiling::TileInfo tile;
         tile.size                   = condensed_state.max_size[pv];
-        tile.partition_size         = condensed_state.dataspace_partition_size[pv];
+        if (gComputeAccurateReadsWITU)
+          tile.partition_size         = condensed_state.dataspace_partition_size[pv];
+        else
+          tile.partition_size         = condensed_state.max_size[pv];
         tile.accesses               = condensed_state.accesses[pv]; // network accesses
         tile.fills                  = 0; // will be set later
         tile.scatter_factors        = condensed_state.scatter_factors[pv];
@@ -420,10 +424,15 @@ problem::OperationSpace NestAnalysis::ComputeWorkingSetsRecursive_(
                    cur_state.max_size.begin(),
                    [](std::size_t x, std::size_t y) { return std::max(x, y); });
 
-    // Track the complete dataspace partition that this element walks through
-    // over the course of execution of the full workload. Instead of using the
-    // += operator or the Add() method, we use the ExtrudeAdd() method.
-    cur_state.dataspace_partition += point_set;
+    if (gComputeAccurateReadsWITU)
+    {
+      // Track the complete dataspace partition that this element walks through
+      // over the course of execution of the full workload. Note that the Add
+      // operation will probably result in addition of discontiguous point sets.
+      // The behavior we want here is to include the entire subspace between
+      // these point sets. To do that, we use the ExtrudeAdd() operation.
+      cur_state.dataspace_partition.ExtrudeAdd(point_set);
+    }
   }
 
   // Reset indices
@@ -568,7 +577,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<std::uint64_t> temporal_delta_scale;
 
     bool EXTRAPOLATE_UNIFORM = true;
-    bool RUN_LAST_ITERATION = false;
+    bool RUN_LAST_ITERATION = gComputeAccurateReadsWITU;
       
     if (EXTRAPOLATE_UNIFORM)
     {
