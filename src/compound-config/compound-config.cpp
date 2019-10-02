@@ -85,7 +85,17 @@ CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
     libconfig::Setting& nextNode = LNode->lookup(path);
     return CompoundConfigNode(&nextNode, YAML::Node());
   } else if (YNode) {
-    if (!YNode[path]) throw YAML::KeyNotFound(YNode.Mark(), std::string(path));
+    if (!YNode[path]) {
+      // The best implementation is to just throw exception here, but
+      // yaml-cpp-0.5 API does not have Node::Mark(), so this is a workaround
+      // to force an expection and get the Mark and then throw the correct
+      // exception on our own.
+      try {
+        YNode[path].as<int>(); // force an exception!
+      } catch (YAML::Exception e) {
+        throw YAML::KeyNotFound(e.mark, std::string(path));
+      }
+    }
     YAML::Node nextNode = YNode[path];
     return CompoundConfigNode(nullptr, nextNode);
   } else {
