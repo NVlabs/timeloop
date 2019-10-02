@@ -113,7 +113,6 @@ class NestAnalysis
                                 problem::OperationSpace& point_set);
 
   void FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
-                         problem::OperationSpace& point_set,
                          std::vector<problem::OperationSpace>& spatial_deltas,
                          std::vector<bool>& valid_delta,
                          std::uint64_t base_index,

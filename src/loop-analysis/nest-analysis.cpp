@@ -45,6 +45,7 @@
 
 extern bool gTerminateEval;
 bool gComputeAccurateReadsWITU = false;
+bool gEnableLinkTransferWarning = false;
 
 namespace analysis
 {
@@ -524,7 +525,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   // Compute the polyhedron between the low and high problem
   // points (exclusive). Note that this special constructor
   // is only available for certain point-set implementations.
-  point_set += problem::OperationSpace(workload_, low_problem_point, high_problem_point);
+  point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
 
   if (dump)
   {
@@ -749,6 +750,33 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   int level = cur->level;
   ASSERT(master_spatial_level_[level]);
 
+  //
+  // Step I - Compute Spatial Working Set.
+  //
+
+  problem::OperationPoint low_problem_point;
+  problem::OperationPoint high_problem_point;
+
+  // We use the pre-computed molds within this level range.
+  // Above this level range, we use the transform problem-point to
+  // translate, rotate or otherwise transform the mold.
+  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumDimensions); dim++)
+  {
+    low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
+    high_problem_point[dim] = cur_transform_[dim] + mold_high_[level][dim];
+  }
+
+  // Compute the polyhedron between the low and high problem
+  // points (exclusive). Note that this special constructor
+  // is only available for certain point-set implementations.
+  // Note: we aren't using +=. This means we're ignoring subvolumes
+  // returned to us by recursive FillSpatialDeltas calls.
+  point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
+
+  //
+  // Step II: Compute Spatial Deltas, etc.
+  //
+
   std::uint64_t num_spatial_elems = spatial_fanouts_[level];
   spatial_id_ *= num_spatial_elems;
 
@@ -761,7 +789,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   // by a recursive call. Only needed to ensure correctness.
   std::vector<bool> valid_delta(num_spatial_elems, false);
 
-  FillSpatialDeltas(cur, point_set, spatial_deltas, valid_delta, 0 /* base_index */);
+  FillSpatialDeltas(cur, spatial_deltas, valid_delta, 0 /* base_index */);
   
   // Check if each element of spatial_deltas was updated by recursive calls.
   for (auto it : valid_delta)
@@ -840,7 +868,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
                                      cumulative_hops_without_link_transfers);
 
   static bool warning_printed = false;
-  if (!warning_printed)
+  if (gEnableLinkTransferWarning && !warning_printed)
   {
     std::cerr << "WARNING: disabling link transfer computations. Link transfers "
               << "cause the multicast/scatter signature to change. We need to "
@@ -976,11 +1004,10 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 // Computes deltas needed by the spatial elements in the next level.
 // Will update a subset of the elements of spatial_deltas
 void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
-                             problem::OperationSpace& point_set,
-                             std::vector<problem::OperationSpace>& spatial_deltas,
-                             std::vector<bool>& valid_delta,
-                             std::uint64_t base_index,
-                             int depth)
+                                     std::vector<problem::OperationSpace>& spatial_deltas,
+                                     std::vector<bool>& valid_delta,
+                                     std::uint64_t base_index,
+                                     int depth)
 {
   int level = cur->level;
 
@@ -990,11 +1017,6 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
   // Very similar to how spatial_id_ is used to identify the spatial element
   // that we are currently computing the working set for.
   base_index *= cur->descriptor.end;
-
-  // Sum of all point sets that are filled at this level.
-  // We need to do this accumulation on a per-level basis
-  // to makes sure point_set always has nice cuboidal shapes.
-  problem::OperationSpace cur_level_point_set(workload_);
 
   bool dump = false; // (level >= 4);
   if (dump)
@@ -1026,7 +1048,6 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
       spatial_deltas[spatial_delta_index] += IndexToOperationPoint_(indices_);
       valid_delta[spatial_delta_index] = true;
-      cur_level_point_set += spatial_deltas[spatial_delta_index];
     }
   }
   else // level > 0
@@ -1044,7 +1065,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       {
         ++cur;
 
-        FillSpatialDeltas(cur, cur_level_point_set, spatial_deltas, valid_delta,
+        FillSpatialDeltas(cur, spatial_deltas, valid_delta,
                           base_index + indices_[level], depth+1);
 
         --cur;
@@ -1083,62 +1104,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       // restore to original value
       spatial_id_ = orig_spatial_id;
     }
-
-    //
-    // Compute Spatial Working Set using the polyhedral approach.
-    //
-
-    // Prepare low and high corners of problem space.
-    auto indices_low = indices_;
-    auto indices_high = indices_;
-
-    // For every level below and including this one,
-    // low and high points cover the full problem subspace
-    // that the subnests walk over.
-    for (int l = 0; l <= level; l++)
-    {
-      ASSERT(nest_state_[l].level == l);
-      indices_low[l] = nest_state_[l].descriptor.start;
-      indices_high[l] = nest_state_[l].descriptor.end - nest_state_[l].descriptor.stride;
-    }
-
-    auto low_problem_point = IndexToOperationPoint_(indices_low);
-    auto high_problem_point = IndexToOperationPoint_(indices_high);
-    
-    // Compute the polyhedron between the low and high problem
-    // points (exclusive). Note that this special constructor
-    // is only available for certain point-set implementations.
-    // Note: we aren't using +=. This means we're ignoring subvolumes
-    // returned to us by recursive FillSpatialDeltas calls.
-    cur_level_point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
   } // level > 0
-
-  if (dump)
-  {
-    std::cout << "-------\n";
-    std::cout << "LEVEL " << level << std::endl;
-    std::cout << "-------\n";
-
-    std::cout << "analysis::LoopState:\n";
-    for (int l = level; l < int(nest_state_.size()); l++)
-    {
-      std::cout << "    Level " << l << ": "
-                << nest_state_[l].descriptor.dimension
-                << " = " << indices_[l] << std::endl;
-    }
-    std::cout << "Spatial Point Set Before Add:\n    ";
-    point_set.Print();
-    std::cout << "Adding:\n    ";
-    cur_level_point_set.Print();
-  }
-  
-  point_set += cur_level_point_set;
-
-  if (dump)
-  {
-    std::cout << "Spatial Point Set After Add:\n    ";
-    point_set.Print();
-  }
 }
 
 // Exhaustively compare all pairs of deltas and infer multicast opportunities.
