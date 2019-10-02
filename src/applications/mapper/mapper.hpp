@@ -416,7 +416,8 @@ class Application
     if (best_mapped_engine.IsEvaluated())
     {
       std::ofstream map_txt_file(map_txt_file_name);
-      map_txt_file << best_mapping << std::endl;
+      best_mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
+                               best_mapped_engine.GetTopology().TileSizes());
       map_txt_file.close();
 
       std::ofstream stats_file(stats_file_name);

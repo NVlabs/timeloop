@@ -124,25 +124,31 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
   unsigned num_loops = loops.size();
   unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
 
-  std::string indent = "";
+  std::string indent = "| ";
   for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
   {
     if (inv_storage_level != static_cast<unsigned>(-1) &&
         storage_tiling_boundaries.at(inv_storage_level) == loop_level)
     {
-      out << "==========================================" << std::endl;
-      out << storage_level_names.at(inv_storage_level) << std::endl;
+      out << std::endl;
+
+      std::ostringstream str;
+      str << storage_level_names.at(inv_storage_level) << " [ ";
       auto& mask = mask_nest.at(inv_storage_level);
       auto& tiles = tile_sizes.at(inv_storage_level);
       for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
       {
         if (mask.at(pvi))
         {
-          out << std::setw(10) << problem::GetShape()->DataSpaceIDToName.at(pvi) << " tile: "
-              << tiles.at(pvi) << std::endl;
+          str << problem::GetShape()->DataSpaceIDToName.at(pvi) << ":" << tiles.at(pvi) << " ";
         }
       }
-      out << "------------------------------------------" << std::endl;
+      str << "] " << std::endl;
+      out << str.str();
+      for (unsigned i = 0; i < str.str().length()-2; i++)
+        out << "-";
+      out << std::endl;
+
       inv_storage_level--;
     }
     out << indent;

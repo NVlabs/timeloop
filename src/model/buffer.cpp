@@ -614,7 +614,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
       // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
       assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
 
-      stats_.reads[pv] = tile[pvi].content_accesses - tile[pvi].size;
+      stats_.reads[pv] = tile[pvi].content_accesses - tile[pvi].partition_size;
       stats_.updates[pv] = tile[pvi].content_accesses;
       stats_.fills[pv] = tile[pvi].fills;
       stats_.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
@@ -1429,8 +1429,8 @@ void BufferLevel::Print(std::ostream& out) const
     {
       out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
-      // Partition size calculation is incorrect in nest-analysis.cpp, so do NOT print it out.
-      // out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
+      // Note: Partition size calculation is only correct with accurate ReadsWITU (see nest-analysis code).
+      out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
       out << indent + indent << "Utilized capacity                        : " << stats.utilized_capacity.at(pv) << std::endl;
       out << indent + indent << "Utilized instances (max)                 : " << stats.utilized_instances.at(pv) << std::endl;
       out << indent + indent << "Utilized clusters (max)                  : " << stats.utilized_clusters.at(pv) << std::endl;
