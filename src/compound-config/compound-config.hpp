@@ -37,7 +37,7 @@ namespace config
 class CompoundConfigNode
 {
  private:
-  libconfig::Setting* LNode;
+  libconfig::Setting* LNode = nullptr;
   YAML::Node YNode;
 
  public:
