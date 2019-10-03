@@ -204,7 +204,7 @@ void NestAnalysis::ComputeWorkingSets()
 
     // Recursive call starting from the last element of the list.
     num_epochs_ = 1;
-    ComputeWorkingSetsRecursive_(nest_state_.rbegin());
+    ComputeDeltas(nest_state_.rbegin());
 
     CollectWorkingSets();
   }
@@ -380,10 +380,10 @@ void NestAnalysis::CollectWorkingSets()
   }
 }
 
-// Working set computation (recursive call).
+// Delta computation (recursive call).
 // Unless skip_delta is true, returns the delta between the working set of the
 // previous iteration and the current iteration of the current level.
-problem::OperationSpace NestAnalysis::ComputeWorkingSetsRecursive_(
+problem::OperationSpace NestAnalysis::ComputeDeltas(
     std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta)
 {
   ASSERT(cur != nest_state_.rend());
@@ -603,7 +603,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       {
         // Invoke next (inner) loop level.
         ++cur;
-        auto temporal_delta = ComputeWorkingSetsRecursive_(cur, false);
+        auto temporal_delta = ComputeDeltas(cur, false);
         --cur;
 
         temporal_delta_sizes.push_back(temporal_delta.GetSizes());
@@ -626,7 +626,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         num_epochs_ *= virtual_iterations;
 
         ++cur;
-        auto temporal_delta = ComputeWorkingSetsRecursive_(cur, false);
+        auto temporal_delta = ComputeDeltas(cur, false);
         --cur;
 
         num_epochs_ = saved_epochs;
@@ -644,7 +644,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       {
         // Invoke next (inner) loop level.
         ++cur;
-        auto temporal_delta = ComputeWorkingSetsRecursive_(cur, false);
+        auto temporal_delta = ComputeDeltas(cur, false);
         --cur;
 
         // If we ran the virtual-iteration logic above, we shouldn't actually
@@ -680,7 +680,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       {
         // Invoke next (inner) loop level.
         ++cur;
-        auto temporal_delta = ComputeWorkingSetsRecursive_(cur);
+        auto temporal_delta = ComputeDeltas(cur);
         --cur;
 
         temporal_delta_sizes.push_back(temporal_delta.GetSizes());
@@ -1089,7 +1089,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
         // Entering temporal dimension
         spatial_id_ = orig_spatial_id + spatial_delta_index;
-        spatial_deltas[spatial_delta_index] = ComputeWorkingSetsRecursive_(cur);
+        spatial_deltas[spatial_delta_index] = ComputeDeltas(cur);
 
         //std::cout << "    Received Spatial Delta from Recursive call (B):\n        ";
         //spatial_deltas[spatial_delta_index].Print();
