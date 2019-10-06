@@ -46,6 +46,8 @@
 extern bool gTerminateEval;
 bool gComputeAccurateReadsWITU = false;
 bool gEnableLinkTransferWarning = false;
+bool gExtrapolateUniformTemporal = true;
+bool gExtrapolateUniformSpatial = true;
 
 namespace analysis
 {
@@ -284,14 +286,17 @@ void NestAnalysis::CollectWorkingSets()
         // have similar working sets, accesses etc.
         // TODO Can we leverage this assertion to avoid redundant simulation
         // by only simulating one spatial element per level?
-        for (std::uint64_t i = 1; i < cur.live_state.size(); i++)
+        if (!gExtrapolateUniformSpatial)
         {
-          ASSERT(cur.live_state[i].accesses[pv] ==
-                 cur.live_state[i - 1].accesses[pv]);
-          ASSERT(cur.live_state[i].max_size[pv] ==
-                 cur.live_state[i - 1].max_size[pv]);
-          ASSERT(cur.live_state[i].link_transfers[pv] ==
-                 cur.live_state[i - 1].link_transfers[pv]);
+          for (std::uint64_t i = 1; i < cur.live_state.size(); i++)
+          {
+            ASSERT(cur.live_state[i].accesses[pv] ==
+                   cur.live_state[i - 1].accesses[pv]);
+            ASSERT(cur.live_state[i].max_size[pv] ==
+                   cur.live_state[i - 1].max_size[pv]);
+            ASSERT(cur.live_state[i].link_transfers[pv] ==
+                   cur.live_state[i - 1].link_transfers[pv]);
+          }
         }
 
         // Since, all elements have the same properties, use the properties
@@ -307,17 +312,6 @@ void NestAnalysis::CollectWorkingSets()
             cur.live_state[REPR_ELEM_ID].max_size[pv];
         condensed_state.link_transfers[pv] =
             cur.live_state[REPR_ELEM_ID].link_transfers[pv];
-
-        // account for write-backs of non-read-only data types
-        // multiply by a factor of '2' to account for writes.
-        // *** UPDATE *** this is now handled within the main
-        // ComputeWorkingSets() recursive loop.
-        //
-        // if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
-        //   for (uint64_t i = 0; i < condensed_state.accesses[pv].size(); i++) {
-        //     condensed_state.accesses[pv][i] *= 2;
-        //   }
-        // }
       }
 
       // Compute the size of the dataspace partition.
@@ -577,21 +571,21 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool EXTRAPOLATE_UNIFORM = true;
-    bool RUN_LAST_ITERATION = gComputeAccurateReadsWITU;
+    bool run_last_iteration = gComputeAccurateReadsWITU;
       
-    if (EXTRAPOLATE_UNIFORM)
+    if (gExtrapolateUniformTemporal)
     {
       // What we would like to do is to *NOT* iterate through the entire loop
       // for this level, but instead fire iterations #0, #1 and #last, and
       // extrapolate the remainder based on the result of iteration #1.
-      //
-      // Sadly, skipping iterations causes entire sub-trees of calls to get
-      // short-circuited, which leads to incorrect access counts.
-      //
-      // Therefore, instead of skipping the recursive calls altogether, we make
-      // the calls but with a flag to skip the *local* delta calculation
-      // within the call - which happens to be the single costliest step.
+
+      // Iteration #last is only required for accurate partition size tracking.
+      // Otherwise, we reset the point set on any gradient change, and so
+      // tracking the point set for the #last iteration is not needed.
+
+      // Note that this entire approach will break if there is any irregularity
+      // in working-set movement along the loop (e.g., a modulus in the index
+      // expression).
 
       int dim = int(cur->descriptor.dimension);
       int scale = per_level_dim_scales_[level][dim];
@@ -614,13 +608,13 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       }
 
       // Iterations #1 through #last-1/last.
-      if ((RUN_LAST_ITERATION && num_iterations >= 3) ||
-          (!RUN_LAST_ITERATION && num_iterations >= 2))
+      if ((run_last_iteration && num_iterations >= 3) ||
+          (!run_last_iteration && num_iterations >= 2))
       {
         // Invoke next (inner) loop level, scaling up the number of epochs
         // by the number of virtual iterations we want to simulate.
         std::uint64_t virtual_iterations =
-          RUN_LAST_ITERATION ? num_iterations - 2 : num_iterations - 1;
+          run_last_iteration ? num_iterations - 2 : num_iterations - 1;
 
         auto saved_epochs = num_epochs_;
         num_epochs_ *= virtual_iterations;
@@ -640,7 +634,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       }
 
       // Iteration #last.
-      if (RUN_LAST_ITERATION && num_iterations >= 2)
+      if (run_last_iteration && num_iterations >= 2)
       {
         // Invoke next (inner) loop level.
         ++cur;
@@ -667,7 +661,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
       cur_transform_[dim] = saved_transform;
     }
-    else // not EXTRAPOLATE_UNIFORM
+    else // not gExtrapolateUniformTemporal
     {
       int dim = int(cur->descriptor.dimension);
       int scale = per_level_dim_scales_[level][dim];
@@ -690,7 +684,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       }
 
       cur_transform_[dim] = saved_transform;
-    } // EXTRAPOLATE_UNIFORM
+    } // gExtrapolateUniformTemporal
     
     if (dump)
     {
@@ -1075,33 +1069,137 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
     }
     else // Next-inner loop level is temporal.
     {
-      // make a backup before modifying it inside the loop
-      uint64_t orig_spatial_id = spatial_id_;
-      for (indices_[level] = cur->descriptor.start;
-           indices_[level] < cur->descriptor.end;
-           indices_[level] += cur->descriptor.stride)
+      // Save state.
+      auto orig_spatial_id = spatial_id_;
+      auto saved_transform = cur_transform_[dim];
+
+      if (gExtrapolateUniformSpatial)
       {
-        ++cur;
+        // What we would like to do is to *NOT* iterate through the entire loop
+        // for this level. Observe that the ComputeTemporalWorkingSets() function
+        // only fires iterations #0, #1 (and optionally #last), and
+        // extrapolates the remainder based on the result of iteration #1. It
+        // can do that because it only needs to accumulate the *sizes* of the
+        // deltas and not the actual sets. However, here we need to track the
+        // actual sets for multicast detection later, so we need to fire
+        // iterations #0, #1 and #2, and translate the delta for #2 to the other
+        // iterations based on the vector between the starting point of #1 and #2.
+        
+        // Note that this entire approach will break if there is any irregularity
+        // in working-set movement along the loop (e.g., a modulus in the index
+        // expression).
 
-        std::uint64_t spatial_delta_index = base_index + indices_[level];
-        ASSERT(spatial_delta_index < spatial_deltas.size());
-        ASSERT(!valid_delta[spatial_delta_index]);
+        unsigned num_iterations = 1 +
+          ((cur->descriptor.end - 1 - cur->descriptor.start) /
+           cur->descriptor.stride);
 
-        // Entering temporal dimension
-        spatial_id_ = orig_spatial_id + spatial_delta_index;
-        spatial_deltas[spatial_delta_index] = ComputeDeltas(cur);
+        unsigned iterations_run = 0;
+        indices_[level] = cur->descriptor.start;
 
-        //std::cout << "    Received Spatial Delta from Recursive call (B):\n        ";
-        //spatial_deltas[spatial_delta_index].Print();
+        unsigned iterations_to_run = 3;
 
-        valid_delta[spatial_delta_index] = true;
+        // Iterations #0, #1, #2
+        for (indices_[level] = cur->descriptor.start;
+             indices_[level] < cur->descriptor.end && iterations_run < iterations_to_run;
+             indices_[level] += cur->descriptor.stride, iterations_run++)
+        {
+          ++cur;
 
-        --cur;
-        cur_transform_[dim] += scale;        
+          std::uint64_t spatial_delta_index = base_index + indices_[level];
+          ASSERT(spatial_delta_index < spatial_deltas.size());
+          ASSERT(!valid_delta[spatial_delta_index]);
+
+          spatial_id_ = orig_spatial_id + spatial_delta_index;
+          spatial_deltas[spatial_delta_index] = ComputeDeltas(cur);
+          valid_delta[spatial_delta_index] = true;
+
+          --cur;
+          cur_transform_[dim] += scale;
+        }
+
+        if (iterations_run < num_iterations)
+        {
+          // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
+          std::vector<Point> translation_vectors;
+
+          auto& opspace_lastrun = spatial_deltas[base_index + indices_[level] - cur->descriptor.stride];
+          auto& opspace_secondlastrun = spatial_deltas[base_index + indices_[level] - 2*cur->descriptor.stride];
+
+          for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+          {
+            translation_vectors.push_back(
+              opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv)));
+          }
+
+          // Iterations #3 through #last.
+          problem::OperationSpace* prev_temporal_delta = &opspace_lastrun;
+          for (;
+               indices_[level] < cur->descriptor.end;
+               indices_[level] += cur->descriptor.stride, iterations_run++)
+          {
+            std::uint64_t spatial_delta_index = base_index + indices_[level];
+            ASSERT(spatial_delta_index < spatial_deltas.size());
+            ASSERT(!valid_delta[spatial_delta_index]);
+
+            spatial_id_ = orig_spatial_id + spatial_delta_index;
+
+            auto& temporal_delta = spatial_deltas[spatial_delta_index];
+            for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+            {
+              temporal_delta.GetDataSpace(pv) = prev_temporal_delta->GetDataSpace(pv);
+              temporal_delta.GetDataSpace(pv).Translate(translation_vectors.at(pv));
+            }
+            valid_delta[spatial_delta_index] = true;
+
+            prev_temporal_delta = &temporal_delta;
+
+            // // Debug
+            // ++cur;
+            // auto test = ComputeDeltas(cur);
+            // --cur;
+            // cur_transform_[dim] += scale;
+
+            // //std::cerr << "Extr: " << temporal_delta << std::endl;
+            // //std::cerr << "Ref:  " << test << std::endl;
+
+            // for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+            // {
+            //   if (test.CheckEquality(temporal_delta, pv) == false)
+            //   {
+            //     std::cerr << "EQ FAIL FOR pv = " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
+            //     ASSERT(false);
+            //   }
+            // }
+            // // End debug
+          }
+        }
       }
-      cur_transform_[dim] -= scale * (cur->descriptor.end - cur->descriptor.start);
-      
-      // restore to original value
+      else // !gExtrapolateUniformSpatial
+      {
+        
+        for (indices_[level] = cur->descriptor.start;
+             indices_[level] < cur->descriptor.end;
+             indices_[level] += cur->descriptor.stride)
+        {
+          ++cur;
+
+          std::uint64_t spatial_delta_index = base_index + indices_[level];
+          ASSERT(spatial_delta_index < spatial_deltas.size());
+          ASSERT(!valid_delta[spatial_delta_index]);
+
+          // Entering temporal dimension
+          spatial_id_ = orig_spatial_id + spatial_delta_index;
+          spatial_deltas[spatial_delta_index] = ComputeDeltas(cur);
+          valid_delta[spatial_delta_index] = true;
+
+          --cur;
+          cur_transform_[dim] += scale;        
+        }
+      } // gExtrapolateUniformSpatial
+
+      // Restore state.
+      // cur_transform_[dim] -= scale * (cur->descriptor.end - cur->descriptor.start);
+      cur_transform_[dim] = saved_transform;
       spatial_id_ = orig_spatial_id;
     }
   } // level > 0

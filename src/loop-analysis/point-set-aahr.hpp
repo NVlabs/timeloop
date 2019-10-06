@@ -472,6 +472,37 @@ class AxisAlignedHyperRectangle
     return true;
   }
 
+  Point GetTranslation(const AxisAlignedHyperRectangle& s) const
+  {
+    ASSERT(order_ == s.order_);
+
+    Point vector(order_);
+
+    for (unsigned dim = 0; dim < order_; dim++)
+    {
+      auto min_delta = s.min_[dim] - min_[dim];
+      auto max_delta = s.max_[dim] - max_[dim];
+
+      // Both AAHRs should have the same shape for this operation to be legal.
+      ASSERT(min_delta == max_delta);
+
+      vector[dim] = min_delta;
+    }    
+    
+    return vector;
+  }
+
+  void Translate(const Point& p)
+  {
+    ASSERT(order_ == p.Order());
+
+    for (unsigned dim = 0; dim < order_; dim++)
+    {
+      min_[dim] += p[dim];
+      max_[dim] += p[dim];
+    }    
+  }
+
   void Print(std::ostream& out = std::cout) const
   {
     out << "["; 

@@ -9,6 +9,10 @@ timeloop.map+stats.xml
 timeloop.map.txt
 timeloop.map.cfg
 timeloop.map.cpp
+evaluator.log
+evaluator.stats.txt
+evaluator.map+stats.xml
+evaluator.map.txt
 
 ### Common, non-project-specific generated files.
 # Scons caches
