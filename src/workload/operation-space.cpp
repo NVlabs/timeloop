@@ -92,6 +92,12 @@ void OperationSpace::Reset()
     d.Reset();
 }
 
+DataSpace& OperationSpace::GetDataSpace(Shape::DataSpaceID pv)
+{
+  return data_spaces_.at(pv);
+}
+
+
 OperationSpace& OperationSpace::operator += (const OperationSpace& s)
 {
   for (unsigned i = 0; i < data_spaces_.size(); i++)
