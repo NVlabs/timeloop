@@ -214,7 +214,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
         }
       }
     } else {
-      // find the level that matches this name and see what type it is
+      // Find the level that matches this name and see what type it is
       bool isArithmeticUnit = false;
       bool isBuffer = false;
       std::shared_ptr<LevelSpecs> specToUpdate;
@@ -226,43 +226,37 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
           if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
         }
       }
-
-      config::CompoundConfigNode actionERT;
-      float opEnergy;
-      if (isArithmeticUnit) {
-        if (componentERT.exists("mac_random")) {
-          actionERT = componentERT.lookup("mac_random");
-          if (actionERT.lookupValue("energy", opEnergy)) {
-            std::cout << "  Replace " << componentName << " energy with mac_random energy " << opEnergy << std::endl;
-            auto arithmeticSpec = GetArithmeticLevel();
-            arithmeticSpec->EnergyPerOp() = opEnergy;
+      // Find the most expensive action as the unit cost
+      std::vector<std::string> actions;
+      componentERT.getMapKeys(actions);
+      double opEnergy = 0.0;
+      double argEnergy = 0.0;
+      for (auto action : actions) {
+        auto actionERT = componentERT.lookup(action);
+        if (actionERT.isList()) { // action support argument
+          for (int i = 0; i < actionERT.getLength(); i ++) {
+            if (actionERT[i].lookupValue("energy", argEnergy)) {
+              opEnergy = std::max(argEnergy, opEnergy);
+            }
+          }
+        } else { // no argument action
+          if (actionERT.lookupValue("energy", argEnergy)) {
+            opEnergy = std::max(argEnergy, opEnergy);
           }
         }
+      }
+      // Replace the energy per action
+      if (isArithmeticUnit) {
+        // std::cout << "  Replace " << componentName << " energy with energy " << opEnergy << std::endl;
+        auto arithmeticSpec = GetArithmeticLevel();
+        arithmeticSpec->EnergyPerOp() = opEnergy;
       } else if (isBuffer) {
         auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
-
-        // register case
-        if (componentERT.exists("process")) {
-          actionERT = componentERT.lookup("process");
-          if (actionERT.lookupValue("energy", opEnergy)) {
-            std::cout << "  Replace " << componentName << " read write fill energy with process energy " << opEnergy << std::endl;
-            auto pv = problem::GetShape()->NumDataSpaces;
-            bufferSpec->VectorAccessEnergy(pv) = opEnergy / bufferSpec->ClusterSize(pv).Get();
-          }
-        }
-
-        // SRAM/smart buffer case, replace read/update/fill energy
-        if (componentERT.exists("read")) {
-          actionERT = componentERT.lookup("read")[0];
-          if (actionERT.lookupValue("energy", opEnergy)) {
-            std::cout << "  Replace " << componentName << " read energy with read energy " << opEnergy << std::endl;
-            auto pv = problem::GetShape()->NumDataSpaces;
-            bufferSpec->VectorAccessEnergy(pv) = opEnergy / bufferSpec->ClusterSize(pv).Get();
-          }
-        }
-
+        // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
+        auto pv = problem::GetShape()->NumDataSpaces;
+        bufferSpec->VectorAccessEnergy(pv) = opEnergy / bufferSpec->ClusterSize(pv).Get();
       } else {
-        std::cout << "  Unused component ERT: "  << key << std::endl;
+        // std::cout << "  Unused component ERT: "  << key << std::endl;
       }
     }
   }
@@ -684,6 +678,20 @@ std::vector<problem::PerDataSpace<std::uint64_t>> Topology::UtilizedInstances() 
 std::uint64_t Topology::MACCs() const
 {
   return GetArithmeticLevel()->MACCs();
+}
+
+bool isBufferClass(std::string className) {
+  for (auto s : bufferClasses) {
+    if (className.find(s) != std::string::npos) return true;
+  }
+  return false;
+}
+
+bool isComputeClass(std::string className) {
+  for (auto s : computeClasses) {
+    if (className.find(s) != std::string::npos) return true;
+  }
+  return false;
 }
 
 }  // namespace model

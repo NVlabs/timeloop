@@ -106,7 +106,8 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
     assert(buffer.exists("sizeKB") == false);
     specs.Size(pv) = size;
   }
-  else if (buffer.lookupValue("depth", size))
+  else if (buffer.lookupValue("depth", size) ||
+           buffer.lookupValue("memory_depth", size))
   {
     assert(buffer.exists("sizeKB") == false);
     assert(buffer.exists("entries") == false);
