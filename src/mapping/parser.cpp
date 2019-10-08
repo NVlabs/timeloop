@@ -108,7 +108,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
         }
       }
     }
-    else if (type == "datatype")
+    else if (type == "datatype" || type == "bypass")
     {
       ParseUserDatatypeBypassSettings(directive,
                                       arch_props_.TilingToStorage(level_id),
@@ -254,25 +254,29 @@ unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string
     for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++)
     {
       if (arch_props_.Specs().topology.GetStorageLevel(storage_level_id)->level_name == storage_level_name)
-      {
         break;
-      }
+    }
+    if (storage_level_id == num_storage_levels)
+    {
+      std::cerr << "ERROR: target storage level not found: " << storage_level_name << std::endl;
+      exit(1);
     }
   }
   else
   {
     int id;
     assert(directive.lookupValue("target", id));
-    assert(id >= 0);
+    assert(id >= 0  && id < int(num_storage_levels));
     storage_level_id = static_cast<unsigned>(id);
   }
+
   assert(storage_level_id < num_storage_levels);
 
   //
   // Translate this storage ID to a tiling ID.
   //
   unsigned tiling_level_id;
-  if (type == "temporal" || type == "datatype")
+  if (type == "temporal" || type == "datatype" || type == "bypass")
   {
     // This should always succeed.
     tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);
@@ -284,7 +288,8 @@ unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string
   }
   else
   {
-    assert(false);
+    std::cerr << "ERROR: unrecognized mapping directive type: " << type << std::endl;
+    exit(1);
   }
 
   return tiling_level_id;
