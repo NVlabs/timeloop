@@ -47,7 +47,7 @@ extern bool gTerminateEval;
 bool gComputeAccurateReadsWITU = false;
 bool gEnableLinkTransferWarning = false;
 bool gExtrapolateUniformTemporal = true;
-bool gExtrapolateUniformSpatial = true;
+bool gExtrapolateUniformSpatial = false;
 
 namespace analysis
 {
