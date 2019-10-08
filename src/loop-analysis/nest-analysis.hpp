@@ -103,7 +103,7 @@ class NestAnalysis
 
   problem::OperationPoint IndexToOperationPoint_(const std::vector<int>& indices) const;
   
-  problem::OperationSpace ComputeWorkingSetsRecursive_(
+  problem::OperationSpace ComputeDeltas(
     std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta = false);
 
   void ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,

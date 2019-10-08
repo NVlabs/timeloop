@@ -92,6 +92,12 @@ class Point
       c += m;
   }
 
+  void Scale(unsigned factor)
+  {
+    for (auto& c : coordinates_)
+      c *= factor;
+  }
+
   std::ostream& Print(std::ostream& out = std::cout) const
   {
     out << "[" << order_ << "]: ";

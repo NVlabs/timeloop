@@ -73,6 +73,7 @@ class OperationSpace
   OperationSpace& operator+=(const OperationPoint& p);
   OperationSpace& ExtrudeAdd(const OperationSpace& s);
   OperationSpace operator-(const OperationSpace& p);
+  DataSpace& GetDataSpace(Shape::DataSpaceID pv);
   PerDataSpace<std::size_t> GetSizes() const;
   std::size_t GetSize(const int t) const;
   bool IsEmpty(const int t) const;
