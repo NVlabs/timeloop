@@ -42,6 +42,15 @@
 namespace model
 {
 
+static std::string bufferClasses[4] = { "DRAM", \
+                                        "SRAM", \
+                                        "regfile", \
+                                        "smartbuffer"};
+
+static std::string computeClasses[3] = { "mac", \
+                                        "intmac", \
+                                        "fpmac"};
+
 class Topology : public Module
 {
  public:
@@ -114,7 +123,10 @@ class Topology : public Module
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const;
   std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const;
   std::uint64_t MACCs() const;
-  
+
+  bool isBufferClass(std::string className);
+  bool isComputeClass(std::string className);
+
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };
 
