@@ -165,7 +165,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
         } else if (cClass == "mac" || cClass == "intmac" || cClass == "fpmac") {
           // create arithmetic
           // std::cout << "Creating arith: " << cClass << " Elements: " << nElements << std::endl;
-          std::cout << "AddLevel (arithmetic) : 0 " << cName << std::endl;
+          // std::cout << "AddLevel (arithmetic) : 0 " << cName << std::endl;
           auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
         } else {
@@ -180,7 +180,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
   // Add storages to specs. We can do this only after walking the whole tree.
   for (uint32_t i = 0; i < storages.size(); i++) {
     auto storage = storages[i];
-    std::cout << "AddLevel (storage) : " << i << " " << storage->level_name << std::endl;
+    // std::cout << "AddLevel (storage) : " << i << " " << storage->level_name << std::endl;
     specs.AddLevel(i, storage);
   }
 
