@@ -2,7 +2,7 @@
 namespace accelergy
 {
   void invokeAccelergy(std::vector<std::string> inputFiles) {
-    std::string cmd = std::string(ACCELERGY_PATH) + "accelergy";
+    std::string cmd = std::string(ACCELERGY_PATH) + "/accelergy";
     for (auto inputFile : inputFiles) {
       cmd += " " + inputFile;
     }

@@ -101,11 +101,10 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
 
       if (type == "spatial")
       {
-        std::uint32_t user_split;
-        if (directive.lookupValue("split", user_split))
-        {
-          user_spatial_splits[level_id] = user_split;
-        }
+        // Initialize user spatial splits to map all dimensions to the hardware X-axis.
+        std::uint32_t user_split = unsigned(problem::GetShape()->NumDimensions);
+        directive.lookupValue("split", user_split);
+        user_spatial_splits[level_id] = user_split;
       }
     }
     else if (type == "datatype" || type == "bypass")
