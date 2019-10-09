@@ -14,6 +14,8 @@ namespace accelergy
       std::cout << "Cannot invoke Accelergy. Do you specify ACCELERGYPATH correctly?" << std::endl;
       exit(0);
     }
+#else
+    (void) inputFiles;
 #endif
     return;
   }
