@@ -1,3 +1,4 @@
+#include <cstring>
 
 namespace accelergy
 {
@@ -7,7 +8,11 @@ namespace accelergy
       cmd += " " + inputFile;
     }
     cmd += " -o ./ > ./accelergy.log 2>&1";
-    system(cmd.c_str());
+    int ret = system(cmd.c_str());
+    if (ret) {
+      std::cout << "Cannot invoke Accelergy. Do you specify ACCELERGYPATH correctly?" << std::endl;
+      exit(0);
+    }
     return;
   }
 } // namespace accelergy
