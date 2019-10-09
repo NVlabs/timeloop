@@ -190,7 +190,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
 };
 
 void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
-  std::cout << "Replacing energy numbers..." << std::endl;
+  // std::cout << "Replacing energy numbers..." << std::endl;
   std::vector<std::string> keys;
   assert(ert.exists("tables"));
   auto table = ert.lookup("tables");

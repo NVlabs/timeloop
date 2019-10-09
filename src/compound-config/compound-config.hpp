@@ -132,6 +132,9 @@ class CompoundConfig
   CompoundConfigNode getRoot() const;
 
   bool hasLConfig() { return useLConfig;}
+
+  std::vector<std::string> inFiles;
+
 };
 
   uint32_t parseElementSize(std::string name);

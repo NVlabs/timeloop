@@ -38,6 +38,7 @@
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
 
+#include "util/accelergy_interface.hpp"
 #include "util/banner.hpp"
 #include "mapping/parser.hpp"
 #include "compound-config/compound-config.hpp"
@@ -107,6 +108,18 @@ class Application
       if (verbose)
         std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
+    } else {
+#ifdef ACCELERGY_PATH
+      // Call accelergy ERT with all input files
+      if (arch.exists("subtree")) {
+        accelergy::invokeAccelergy(config->inFiles);
+        auto ertConfig = new config::CompoundConfig("ERT.yaml");
+        auto ert = ertConfig->getRoot().lookup("ERT");
+        if (verbose)
+          std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;
+        arch_specs_.topology.ParseAccelergyERT(ert);
+      }
+#endif
     }
 
     if (verbose)

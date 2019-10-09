@@ -29,6 +29,7 @@
 
 #include "mapping/parser.hpp"
 #include "compound-config/compound-config.hpp"
+#include "util/accelergy_interface.hpp"
 
 #include <fstream>
 
@@ -69,6 +70,16 @@ class Application
       auto ert = rootNode.lookup("ERT");
       std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
+    } else {
+#ifdef ACCELERGY_PATH
+      // Call accelergy ERT with all input files
+      if (arch.exists("subtree")) {
+        accelergy::invokeAccelergy(config->inFiles);
+        auto ertConfig = new config::CompoundConfig("ERT.yaml");
+        auto ert = ertConfig->getRoot().lookup("ERT");
+        arch_specs_.topology.ParseAccelergyERT(ert);
+      }
+#endif
     }
 
     engine_.Spec(arch_specs_);

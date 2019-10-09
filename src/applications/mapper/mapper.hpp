@@ -40,6 +40,7 @@
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
 
+#include "util/accelergy_interface.hpp"
 #include "mapspaces/mapspace-factory.hpp"
 #include "search/search-factory.hpp"
 #include "compound-config/compound-config.hpp"
@@ -112,6 +113,17 @@ class Application
       auto ert = rootNode.lookup("ERT");
       std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
+    } else {
+#ifdef ACCELERGY_PATH
+      // Call accelergy ERT with all input files
+      if (arch.exists("subtree")) {
+        accelergy::invokeAccelergy(config->inFiles);
+        auto ertConfig = new config::CompoundConfig("ERT.yaml");
+        auto ert = ertConfig->getRoot().lookup("ERT");
+        std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;
+        arch_specs_.topology.ParseAccelergyERT(ert);
+      }
+#endif
     }
 
     std::cout << "Architecture configuration complete." << std::endl;

@@ -60,6 +60,9 @@ if "YAMLCPPPATH" in os.environ:
     env["LIBPATH"] += [YAMLCPPPATH + '/lib']
     env["CPPFLAGS"] += ['-I' + YAMLCPPPATH + '/include']
 
+if "ACCELERGYPATH" in os.environ:
+    env["CPPDEFINES"] += [('ACCELERGY_PATH', '\\"' + os.environ["ACCELERGYPATH"] + '\\"')]
+
 env["CPPPATH"] += ["."]
 
 if not os.path.isdir('../src/pat'):
