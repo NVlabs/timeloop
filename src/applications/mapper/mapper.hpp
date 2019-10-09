@@ -116,7 +116,7 @@ class Application
     } else {
 #ifdef ACCELERGY_PATH
       // Call accelergy ERT with all input files
-      if (arch.exists("subtree")) {
+      if (arch.exists("subtree") || arch.exists("local")) {
         accelergy::invokeAccelergy(config->inFiles);
         auto ertConfig = new config::CompoundConfig("ERT.yaml");
         auto ert = ertConfig->getRoot().lookup("ERT");

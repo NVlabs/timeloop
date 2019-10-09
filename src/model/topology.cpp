@@ -157,19 +157,19 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
         uint32_t localElementSize = config::parseElementSize(cName);
         uint32_t nElements = multiplication * localElementSize;
 
-        if (cClass == "DRAM" || cClass == "SRAM" || cClass == "regfile" || cClass == "smartbuffer") {
+        if (isBufferClass(cClass)) {
           // create a buffer
           // std::cout << "Creating buffer: " << cClass << " Elements: " << nElements << std::endl;
           auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
           localStorages.push_back(level_specs_p);
-        } else if (cClass == "mac" || cClass == "intmac" || cClass == "fpmac") {
+        } else if (isComputeClass(cClass)) {
           // create arithmetic
           // std::cout << "Creating arith: " << cClass << " Elements: " << nElements << std::endl;
           // std::cout << "AddLevel (arithmetic) : 0 " << cName << std::endl;
           auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
         } else {
-          std::cout << "  Neglect component: " << cName << " due to unknown class: " << cClass << std::endl;
+          // std::cout << "  Neglect component: " << cName << " due to unknown class: " << cClass << std::endl;
         }
       }
       // the deeper the tree, the closer the buffer to be with ArithmeticUnits.

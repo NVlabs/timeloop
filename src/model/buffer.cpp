@@ -64,7 +64,6 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   std::string className = "";
   if (buffer.exists("attributes")) {
     buffer.lookupValue("class", className);
-    assert(className == "DRAM" || className == "SRAM" || className == "regfile");
     buffer = buffer.lookup("attributes");
   }
 
