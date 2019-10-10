@@ -178,8 +178,8 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       std::cerr << "ERROR: parsing mapping: product of all factors of dimension "
                 << problem::GetShape()->DimensionIDToName.at(dim) << " is "
                 << dimension_factor_products[dim] << ", which is not equal to "
-                << "the dimension bound " << workload_.GetBound(dim)
-                << std::endl;
+                << "the dimension size of the workload " << workload_.GetBound(dim)
+                << "." << std::endl;
       fault = true;
     }
   }
