@@ -192,8 +192,21 @@ class Application
     std::cout << "Mapper configuration complete." << std::endl;
 
     // MapSpace configuration.
-    auto mapspace = rootNode.lookup("mapspace");
-    mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
+    if (rootNode.exists("mapspace"))
+    {
+      auto mapspace = rootNode.lookup("mapspace");
+      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
+    }
+    else if (rootNode.exists("mapspace_constraints"))
+    {
+      auto mapspace = rootNode.lookup("mapspace_constraints");
+      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);      
+    }
+    else
+    {
+      std::cerr << "ERROR: compulsory \"mapspace\" directive not found." << std::endl;
+      exit(1);
+    }
     split_mapspaces_ = mapspace_->Split(num_threads_);
     std::cout << "Mapspace construction complete." << std::endl;
 

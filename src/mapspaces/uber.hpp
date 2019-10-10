@@ -123,9 +123,9 @@ class Uber : public MapSpace
     user_spatial_splits_.clear();
     user_bypass_strings_.clear();
 
-    // Parse user-provided constraints.
-    ParseUserConstraints(config, user_factors_, user_max_factors_, user_permutations_,
-                         user_spatial_splits_, user_bypass_strings_);
+    // Parse config.
+    ParseUserConfig(config, user_factors_, user_max_factors_, user_permutations_,
+                    user_spatial_splits_, user_bypass_strings_);
 
     // Setup all the mapping sub-spaces.
     InitIndexFactorizationSpace(user_factors_, user_max_factors_);
@@ -1323,11 +1323,10 @@ class Uber : public MapSpace
     return spatial_mask_[level];
   }
 
-
   //
-  // Parse user-provided constraints.
+  // Parse user config.
   //
-  void ParseUserConstraints(
+  void ParseUserConfig(
     config::CompoundConfigNode config,
     std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
     std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors,
@@ -1335,24 +1334,45 @@ class Uber : public MapSpace
     std::map<unsigned, std::uint32_t>& user_spatial_splits,
     problem::PerDataSpace<std::string>& user_bypass_strings)
   {
-    // Constraints can be specified either anonymously as a list, or indirected
-    // via a string name.
-    std::string name;
-    if (config.lookup("constraints").isList())
+    // This is primarily a wrapper function written to handle various ways to
+    // get to the list of constraints. The only reason there are multiple ways
+    // to get to this list is because of backwards compatibility.
+    if (config.isList())
     {
-      name = "constraints";
-    }
-    else if (config.lookupValue("constraints", name))
-    {
-      name = std::string("constraints_") + name;
+      // We're already at the constraints list.
+      
+      ParseUserConstraints(config, user_factors, user_max_factors, user_permutations,
+                           user_spatial_splits, user_bypass_strings);
     }
     else
     {
-      // No constraints specified, nothing to do.
-      return;
+      // Constraints can be specified either anonymously as a list, or indirected
+      // via a string name.
+      std::string name;
+      if (config.lookup("constraints").isList())
+        name = "constraints";
+      else if (config.lookupValue("constraints", name))
+        name = std::string("constraints_") + name;
+      else
+        // No constraints specified, nothing to do.
+        return;
+      auto constraints = config.lookup(name);
+      ParseUserConstraints(constraints, user_factors, user_max_factors, user_permutations,
+                           user_spatial_splits, user_bypass_strings);
     }
+  }  
 
-    auto constraints = config.lookup(name);
+  //
+  // Parse user-provided constraints.
+  //
+  void ParseUserConstraints(
+    config::CompoundConfigNode constraints,
+    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
+    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors,
+    std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
+    std::map<unsigned, std::uint32_t>& user_spatial_splits,
+    problem::PerDataSpace<std::string>& user_bypass_strings)
+  {
     assert(constraints.isList());
 
     // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
