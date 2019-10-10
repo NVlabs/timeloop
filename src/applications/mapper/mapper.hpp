@@ -463,13 +463,17 @@ class Application
     else
     {
       std::cout << "MESSAGE: no valid mappings found within search criteria. Some suggestions:" << std::endl;
-      std::cout << "(1) Check your architecture configuration (especially mapspace constraints). " << std::endl
-                << "    Try disabling some constraints. " << std::endl;
-      std::cout << "(2) Try other search algorithms, and relax the termination criteria: " << std::endl
+      std::cout << "(1) Observe each mapper thread's termination message. It will tell you the" << std::endl
+                << "    number of mappings that failed because of a spatial fanout violation and" << std::endl
+                << "    the number that failed because of a buffer capacity violation." << std::endl;
+      std::cout << "(2) Check your architecture configuration (especially mapspace constraints)." << std::endl
+                << "    Try to find the offending constraints that are likely to have caused the" << std::endl
+                << "    above violations, and disable those constraints." << std::endl;
+      std::cout << "(3) Try other search algorithms, and relax the termination criteria:" << std::endl
                 << "    victory-condition, timeout and/or search-size." << std::endl;
       if (!diagnostics_on_)
       {
-        std::cout << "(3) Enable mapper's diagnostics (mapper.diagnostics = True) to track and emit " << std::endl
+        std::cout << "(4) Enable mapper's diagnostics (mapper.diagnostics = True) to track and emit " << std::endl
                   << "    more information about failed mappings." << std::endl;
       }
     }

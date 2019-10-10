@@ -141,7 +141,12 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
                 << arch_props_.TilingLevelName(level) << std::endl;
       exit(1);
     }
-    assert(permutation->second.size() == std::size_t(problem::GetShape()->NumDimensions));
+    if (permutation->second.size() != std::size_t(problem::GetShape()->NumDimensions))
+    {
+      std::cerr << "ERROR: parsing mapping: permutation contains insufficient dimensions at level: "
+                << arch_props_.TilingLevelName(level) << std::endl;
+      exit(1);
+    }
       
     auto factors = user_factors.find(level);
     if (factors == user_factors.end())
@@ -150,7 +155,12 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
                 << arch_props_.TilingLevelName(level) << std::endl;
       exit(1);
     }
-    assert(factors->second.size() == std::size_t(problem::GetShape()->NumDimensions));
+    if (factors->second.size() != std::size_t(problem::GetShape()->NumDimensions))
+    {
+      std::cerr << "ERROR: parsing mapping: factors not provided for all dimensions at level: "
+                << arch_props_.TilingLevelName(level) << std::endl;
+      exit(1);
+    }
 
     // Each partition has problem::GetShape()->NumDimensions loops.
     for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
@@ -357,14 +367,14 @@ std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConf
         std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
         end = workload_.GetBound(dimension);
       }
-      else if (end > workload_.GetBound(dimension))
-      {
-        std::cerr << "WARNING: Directive " << dimension << "=" << end
-                  << " exceeds problem dimension " << dimension << "="
-                  << workload_.GetBound(dimension) << ". Setting directive "
-                  << dimension << "=" << workload_.GetBound(dimension) << std::endl;
-        end = workload_.GetBound(dimension);
-      }
+      // else if (end > workload_.GetBound(dimension))
+      // {
+      //   std::cerr << "WARNING: Directive " << dimension << "=" << end
+      //             << " exceeds problem dimension " << dimension << "="
+      //             << workload_.GetBound(dimension) << ". Setting directive "
+      //             << dimension << "=" << workload_.GetBound(dimension) << std::endl;
+      //   end = workload_.GetBound(dimension);
+      // }
       else
       {
         assert(end > 0);

@@ -306,8 +306,8 @@ class MapperThread
       {
         mutex_->lock();
         log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << timeout_
-                    << " invalid mappings (" << invalid_mappings_mapcnstr << " mapcnstr, "
-                    << invalid_mappings_eval << " eval) found since the last valid mapping, "
+                    << " invalid mappings (" << invalid_mappings_mapcnstr << " fanout, "
+                    << invalid_mappings_eval << " capacity) found since the last valid mapping, "
                     << "terminating search." << std::endl;
         mutex_->unlock();
         terminate = true;
