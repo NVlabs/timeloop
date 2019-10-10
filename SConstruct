@@ -30,7 +30,7 @@ import os
 
 VariantDir('build', 'src', duplicate=0)
 
-AddOption('--dynamic', dest='link_dynamic', default=False, action='store_true', help='Use dynamic linking (default is static)')
+AddOption('--static', dest='link_static', default=False, action='store_true', help='Use static linking (default is dynamic)')
     
 env = Environment(ENV = os.environ)    
 env.Append(CCFLAGS = ['-g', '-O3'])
