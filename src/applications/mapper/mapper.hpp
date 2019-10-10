@@ -459,6 +459,12 @@ class Application
                                     best_mapped_engine.GetTopology().UtilizedInstances());
         map_cpp_file.close();
       }
+
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl; 
+      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
+                << best_mapped_engine.Utilization() << " | pJ/MACC = " << std::setw(8)
+                << std::fixed << std::setprecision(3) << best_mapped_engine.Energy() /
+        best_mapped_engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
     }
     else
     {

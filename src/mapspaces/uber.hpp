@@ -140,7 +140,7 @@ class Uber : public MapSpace
     // Sanity checks.
     for (int i = 0; i < int(mapspace::Dimension::Num); i++)
     {
-      std::cout << "Mapping Dimension [" << mapspace::Dimension(i)
+      std::cout << "Mapspace Dimension [" << mapspace::Dimension(i)
                 << "] Size: " << size_[i] << std::endl;
     }
     
