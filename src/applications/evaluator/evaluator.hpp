@@ -146,7 +146,7 @@ class Application
   void Run()
   {
     // Output file names.
-    const std::string out_prefix = "evaluator.";
+    const std::string out_prefix = "timeloop-model.";
     const std::string stats_file_name = out_prefix + "stats.txt";
     const std::string xml_file_name = out_prefix + "map+stats.xml";
     const std::string map_txt_file_name = out_prefix + "map.txt";

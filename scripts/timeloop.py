@@ -34,7 +34,7 @@ import timeit
 import libconf
 
 # Output file names.
-out_prefix = "timeloop."
+out_prefix = "timeloop-mapper."
 log_file_name = out_prefix + "log";
 stats_file_name = out_prefix + "stats.txt";
 xml_file_name = out_prefix + "map+stats.xml";

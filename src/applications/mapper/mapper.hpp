@@ -242,7 +242,7 @@ class Application
   void Run()
   {
     // Output file names.
-    const std::string out_prefix = "timeloop.";
+    const std::string out_prefix = "timeloop-mapper.";
     const std::string log_file_name = out_prefix + "log";
     const std::string stats_file_name = out_prefix + "stats.txt";
     const std::string xml_file_name = out_prefix + "map+stats.xml";

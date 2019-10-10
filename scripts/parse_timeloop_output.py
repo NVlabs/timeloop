@@ -34,7 +34,7 @@ import pprint
 import xml.etree.ElementTree as ET
 
 # Output file names.
-out_prefix = "timeloop."
+out_prefix = "timeloop-mapper."
 xml_file_name = out_prefix + "map+stats.xml";
 
 def get_stat(stats, stat, cast):
