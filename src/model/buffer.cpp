@@ -92,9 +92,17 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   // Cluster size.
   std::uint32_t cluster_size;
   specs.ClusterSize(pv) = 1;
+  std::uint32_t width;
   if (buffer.lookupValue("cluster-size", cluster_size))
   {
     specs.ClusterSize(pv) = cluster_size;
+  }
+  else if (buffer.lookupValue("width", width))
+  {
+    word_bits = specs.WordBits(pv).Get();
+    block_size = specs.BlockSize(pv).Get();
+    assert(width % (word_bits * block_size)  == 0);
+    specs.ClusterSize(pv) = width / (word_bits * block_size);
   }
 
   // Size.
