@@ -204,12 +204,16 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
     unsigned storage_level = inv_storage_level + 1;   // We decremented above.
     auto& loop = loops.at(loop_level);
 
-    std::locale loc;
+    // std::locale loc;
     std::string dimname = problem::GetShape()->DimensionIDToName.at(loop.dimension);
     std::string varname = dimname;
 
     for (unsigned i = 0; i < dimname.length(); i++)
-      varname = tolower(dimname[i], loc);
+    {
+      // varname[i] = tolower(dimname[i], loc);
+      if (dimname[i] >= 'A' && dimname[i] <= 'Z')
+        varname[i] = dimname[i] + 'a' - 'A';
+    }
 
     if (varname == dimname)
       varname = "cur_" + varname;

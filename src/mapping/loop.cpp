@@ -109,12 +109,16 @@ void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
                             std::vector<int>& dimbounds,
                             std::vector<std::string>& varnames) const
 {
-  std::locale loc;
+  // std::locale loc;
   std::string dimname = problem::GetShape()->DimensionIDToName.at(dimension);
   std::string varname = dimname;
 
   for (unsigned i = 0; i < dimname.length(); i++)
-    varname = tolower(dimname[i], loc);
+  {
+    // varname[i] = tolower(dimname[i], loc);
+    if (dimname[i] >= 'A' && dimname[i] <= 'Z')
+      varname[i] = dimname[i] + 'a' - 'A';
+  }
 
   if (varname == dimname)
     varname = "cur_" + varname;

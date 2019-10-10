@@ -145,7 +145,7 @@ class Engine : public Module
   {
     std::ios state(NULL);
     state.copyfmt(out);
-    out.imbue(std::locale("en_US.UTF-8"));
+    // out.imbue(std::locale("en_US.UTF-8"));
     out << std::fixed << std::setprecision(2);
 
     out << "Topology" << std::endl;
@@ -184,7 +184,7 @@ class Engine : public Module
       out << "    " << std::setw(align) << std::left << "Total" << "= " << engine.Energy() / num_maccs << std::endl;
     }
 
-    out.imbue(std::locale::classic());
+    // out.imbue(std::locale::classic());
     out.copyfmt(state);
     
     return out;
