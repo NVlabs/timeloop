@@ -29,6 +29,8 @@
 import os
 
 VariantDir('build', 'src', duplicate=0)
+
+AddOption('--dynamic', dest='link_dynamic', default=False, action='store_true', help='Use dynamic linking (default is static)')
     
 env = Environment(ENV = os.environ)    
 env.Append(CCFLAGS = ['-g', '-O3'])

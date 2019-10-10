@@ -104,7 +104,7 @@ def run_timeloop(dirname, configfile, logfile='timeloop.log', workload_bounds=No
         with open(logfile_path, "w") as outfile:
             this_file_path = os.path.abspath(inspect.getfile(inspect.currentframe()))
             timeloop_executable_location = os.path.join(
-                    os.path.dirname(this_file_path), '..', 'build', 'timeloop')
+                    os.path.dirname(this_file_path), '..', 'build', 'timeloop-mapper')
             status = subprocess.call([timeloop_executable_location, configfile_path], stdout = outfile, stderr = outfile)
             if status != 0:
                 subprocess.check_call(['cat', logfile_path])
