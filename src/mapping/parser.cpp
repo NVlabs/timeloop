@@ -119,7 +119,12 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     {
       assert(false);
     }
-  }    
+  }
+
+  // Validity checks.
+  std::map<problem::Shape::DimensionID, int> dimension_factor_products;
+  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+    dimension_factor_products[dim] = 1;
 
   // Construct the mapping from the parsed sub-structures.
   // A set of subnests, one for each tiling level.
@@ -159,7 +164,28 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
         ? (idim < user_spatial_splits.at(level) ? spacetime::Dimension::SpaceX : spacetime::Dimension::SpaceY)
         : spacetime::Dimension::Time;
       subnests.at(level).push_back(loop);
+
+      dimension_factor_products[loop.dimension] *= loop.end;
     }
+  }
+
+  // All user-provided factors must multiply-up to the dimension size.
+  bool fault = false;
+  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+  {
+    if (dimension_factor_products[dim] != workload_.GetBound(dim))
+    {
+      std::cerr << "ERROR: parsing mapping: product of all factors of dimension "
+                << problem::GetShape()->DimensionIDToName.at(dim) << " is "
+                << dimension_factor_products[dim] << ", which is not equal to "
+                << "the dimension bound " << workload_.GetBound(dim)
+                << std::endl;
+      fault = true;
+    }
+  }
+  if (fault)
+  {
+    exit(1);
   }
 
   // Concatenate the subnests to form the final mapping nest.
