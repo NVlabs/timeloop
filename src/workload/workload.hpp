@@ -123,5 +123,6 @@ class Workload
 };
 
 void ParseWorkload(config::CompoundConfigNode config, Workload& workload);
+void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload);
 
 } // namespace problem

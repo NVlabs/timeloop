@@ -106,7 +106,21 @@ void ParseWorkload(config::CompoundConfigNode config, Workload& workload)
     auto shape = config.lookup("shape");
     shape_.Parse(shape);
   }
+
+  // Bounds may be specified directly (backwards-compat) or under a subkey.
+  if (config.exists("instance"))
+  {
+    auto bounds = config.lookup("instance");
+    ParseWorkloadInstance(bounds, workload);
+  }
+  else
+  {
+    ParseWorkloadInstance(config, workload);
+  }
+}
   
+void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload)
+{
   // Loop bounds for each problem dimension.
   Workload::Bounds bounds;
   for (unsigned i = 0; i < GetShape()->NumDimensions; i++)
