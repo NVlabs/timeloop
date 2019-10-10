@@ -204,7 +204,9 @@ class Application
     }
     else
     {
-      std::cerr << "ERROR: compulsory \"mapspace\" directive not found." << std::endl;
+      std::cerr << "ERROR: found neither \"mapspace\" nor \"mapspace_constraints\" "
+                << "directive. To run the mapper without any constraints set "
+                << "mapspace_constraints as an empty list []." << std::endl;
       exit(1);
     }
     split_mapspaces_ = mapspace_->Split(num_threads_);
