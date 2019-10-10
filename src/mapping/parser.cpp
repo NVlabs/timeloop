@@ -25,6 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <regex>
+
 #include "parser.hpp"
 #include "arch-properties.hpp"
 
@@ -304,14 +306,26 @@ std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConf
   std::string buffer;
   if (directive.lookupValue("factors", buffer))
   {
-    std::istringstream iss(buffer);
-    char token;
-    while (iss >> token)
+    std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)", std::regex::extended);
+    std::smatch sm;
+    std::string str = std::string(buffer);
+
+    while (std::regex_search(str, sm, re))
     {
-      auto dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token)); // note: can fault.
-        
-      int end;
-      iss >> end;
+      std::string dimension_name = sm[1];
+      problem::Shape::DimensionID dimension;
+      try
+      {
+        dimension = problem::GetShape()->DimensionNameToID.at(dimension_name);
+      }
+      catch (const std::out_of_range& oor)
+      {
+        std::cerr << "ERROR: parsing factors: " << buffer << ": dimension " << dimension_name
+                  << " not found in problem shape." << std::endl;
+        exit(1);
+      }
+
+      int end = std::stoi(sm[2]);
       if (end == 0)
       {
         std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
@@ -332,6 +346,8 @@ std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConf
 
       // Found all the information we need to setup a factor!
       retval[dimension] = end;
+
+      str = sm.suffix().str();
     }
   }
 

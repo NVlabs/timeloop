@@ -1518,7 +1518,7 @@ class Uber : public MapSpace
     std::string buffer;
     if (constraint.lookupValue("factors", buffer))
     {
-      std::regex re("([A-Za-z]+)[[:space:]]*([0-9]+)", std::regex::extended);
+      std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)", std::regex::extended);
       std::smatch sm;
       std::string str = std::string(buffer);
 
