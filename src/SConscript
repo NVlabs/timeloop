@@ -29,16 +29,18 @@ import os
 
 Import('env')
 
-if GetOption('link_dynamic'):
-    print("Using dynamic linking.")
-else:
-    print("Using static linking.")
-
 env.Append(CPPDEFINES = [('BUILD_BASE_DIR', '\\"' + env["BUILD_BASE_DIR"] + '\\"')])
 env.Append(CPPPATH = ['src/include'])
 env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++14', '-pthread'])
-env.Append(LINKFLAGS = ['-std=c++11', '-pthread', '-static-libgcc', '-static-libstdc++'])
-env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses'])
+
+env.Append(LINKFLAGS = ['-std=c++11', '-static-libgcc', '-static-libstdc++', '-pthread'])
+if GetOption('link_static'):
+    print("Using static linking.")
+    env.Append(LINKFLAGS = [ '-Wl,--whole-archive', '-static', '-lpthread', '-Wl,--no-whole-archive'])
+else:
+    print("Using dynamic linking.")
+
+env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses', 'tinfo', 'gpm'])
 env.Append(LIBS = ['boost_iostreams', 'boost_serialization'])
 
 if os.environ.get('BOOSTDIR'):
