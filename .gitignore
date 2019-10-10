@@ -3,16 +3,16 @@
 
 # Generated output
 timeloop-output.pkl
-timeloop.log
-timeloop.stats.txt
-timeloop.map+stats.xml
-timeloop.map.txt
-timeloop.map.cfg
-timeloop.map.cpp
-evaluator.log
-evaluator.stats.txt
-evaluator.map+stats.xml
-evaluator.map.txt
+timeloop-mapper.log
+timeloop-mapper.stats.txt
+timeloop-mapper.map+stats.xml
+timeloop-mapper.map.txt
+timeloop-mapper.map.cfg
+timeloop-mapper.map.cpp
+timeloop-model.log
+timeloop-model.stats.txt
+timeloop-model.map+stats.xml
+timeloop-model.map.txt
 
 ### Common, non-project-specific generated files.
 # Scons caches
