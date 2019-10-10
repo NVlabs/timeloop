@@ -44,10 +44,12 @@
 #include "nest-analysis.hpp"
 
 extern bool gTerminateEval;
-bool gComputeAccurateReadsWITU = false;
+
+bool gEnableLinkTransfers = (getenv("TIMELOOP_ENABLE_LINK_TRANSFERS") != NULL);
+bool gComputeAccurateReadsWITU = (getenv("TIMELOOP_ACCURATE_READS_WITU") != NULL);
 bool gEnableLinkTransferWarning = false;
 bool gExtrapolateUniformTemporal = true;
-bool gExtrapolateUniformSpatial = true;
+bool gExtrapolateUniformSpatial = (getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION") == NULL);
 
 namespace analysis
 {
@@ -861,16 +863,20 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
                                      scatter_factors_without_link_transfers,
                                      cumulative_hops_without_link_transfers);
 
-  static bool warning_printed = false;
-  if (gEnableLinkTransferWarning && !warning_printed)
+  if (!gEnableLinkTransfers && linked_spatial_level_[level])
   {
-    std::cerr << "WARNING: disabling link transfer computations. Link transfers "
-              << "cause the multicast/scatter signature to change. We need to "
-              << "record the impact of each potential multicast/scatter signature. "
-              << "FIXME." << std::endl;
-    warning_printed = true;
+    static bool warning_printed = false;
+    if (gEnableLinkTransferWarning && !warning_printed)
+    {
+      std::cerr << "WARNING: disabling link transfer computations. Link transfers "
+                << "cause the multicast/scatter signature to change. We need to "
+                << "record the impact of each potential multicast/scatter signature. "
+                << "FIXME." << std::endl;
+      warning_printed = true;
+    }
   }
-  if (false && linked_spatial_level_[level])
+
+  if (gEnableLinkTransfers && linked_spatial_level_[level])
   {
     // Reset unaccounted delta, and now count with link transfers.
     for (uint64_t i = 0; i < num_spatial_elems; i++)
