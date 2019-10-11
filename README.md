@@ -10,6 +10,9 @@ libboost-dev
 libboost-iostreams-dev
 libboost-serialization-dev
 libyaml-cpp-dev
+libncurses-dev
+libtinfo-dev
+libgpm-dev
 ```
 
 * Clone the timeloop repository.
@@ -41,6 +44,15 @@ ln -s ../../timeloop-pat[XXX]/src/pat .
 cd ..
 ```
 
+* Another way to provide a power/energy model to Timeloop is to integrate
+[Accelergy](http://accelergy.mit.edu) with Timeloop. To do so, you need to
+provide the path to Accelelergy binary as an environmental variable,
+`ACCELERGYPATH`, before building Timeloop. For example, if Accelergy is
+installed at /home/${USER}/.local/bin/, in `bash`, you will use:
+```
+export ACCELERGYPATH=/home/${USER}/.local/bin/
+```
+
 * Once the pat link is set up, you can build timeloop using scons.
 ```
 scons -j4
@@ -58,15 +70,16 @@ This builds 3 different tools:
 * Run timeloop with a sample configuration.
 ```
 cd configs/timeloop
-../../build/timeloop ./sample.cfg > sample.out
+../../build/timeloop-mapper ./sample.cfg > sample.out
 ```
+
 This will place timeloop's log in `sample.out` and generate the following outputs:
-* `timeloop.stats.txt` Simulation stats (performance, energy, etc.)
-* `timeloop.map.txt/cfg` The optimal mapping in different formats
+* `timeloop-mapper.stats.txt` Simulation stats (performance, energy, etc.)
+* `timeloop-mapper.map.txt/cfg` The optimal mapping in different formats
   (the latter can be used in conjunction with the
   input architecture and problem spec to re-run the model on the optimal
   mapping.)
-* `timeloop.map+stats.xml` An XML-formatted copy of the stats and optimal mapping
+* `timeloop-mapper.map+stats.xml` An XML-formatted copy of the stats and optimal mapping
   which is used by various Python scripts to extract results from batch runs.
 
 ## Further reading
