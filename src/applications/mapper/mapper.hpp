@@ -385,7 +385,7 @@ class Application
       std::cout << "===============================================" << std::endl;
       std::cout << "               BEGIN DIAGNOSTICS               " << std::endl;
       std::cout << "-----------------------------------------------" << std::endl;
-      std::cout << "Per-level eval failure counts: " << std::endl;
+      std::cout << "Per-level buffer capacity failure counts: " << std::endl;
       for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
       {
         if (eval_fail_counts.at(level_id) > 0)
@@ -469,9 +469,10 @@ class Application
     else
     {
       std::cout << "MESSAGE: no valid mappings found within search criteria. Some suggestions:" << std::endl;
-      std::cout << "(1) Observe each mapper thread's termination message. It will tell you the" << std::endl
-                << "    number of mappings that failed because of a spatial fanout violation and" << std::endl
-                << "    the number that failed because of a buffer capacity violation." << std::endl;
+      std::cout << "(1) Observe each mapper thread's termination message. If it terminated due to" << std::endl
+                << "    consecutive failed mappings, it will tell you the number of mappings that" << std::endl
+                << "    failed because of a spatial fanout violation and the number that failed" << std::endl
+                << "    because of a buffer capacity violation." << std::endl;
       std::cout << "(2) Check your architecture configuration (especially mapspace constraints)." << std::endl
                 << "    Try to find the offending constraints that are likely to have caused the" << std::endl
                 << "    above violations, and disable those constraints." << std::endl;
