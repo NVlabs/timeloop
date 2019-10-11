@@ -150,9 +150,9 @@ class Factors
     // If any of the given factors is not a factor of n, forcibly reset that to
     // be a free variable, otherwise accumulate them into a partial product.
     unsigned long partial_product = 1;
-    for (auto& f : given)
+    for (auto f = given.begin(); f != given.end(); f++)
     {
-      auto factor = f.second;
+      auto factor = f->second;
       if (n % (factor * partial_product) == 0)
       {
         partial_product *= factor;
@@ -166,7 +166,7 @@ class Factors
         // Ignore mapping constraint and set the factor to a free variable.
         std::cerr << ", ignoring mapping constraint and setting to a free variable."
                   << std::endl;
-        given.erase(f.first);
+        f = given.erase(f);
 #else       
         // Try to find the next *lower* integer that is a factor of n.
         // FIXME: there are multiple exceptions that can cause us to be here:
@@ -180,7 +180,7 @@ class Factors
         
         for (; factor >= 1 && (n % factor != 0); factor--);
         std::cerr << ", setting this to " << factor << " instead." << std::endl;
-        f.second = factor;
+        f->second = factor;
         partial_product *= factor;
 #endif
       }
