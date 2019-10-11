@@ -48,7 +48,8 @@ cd ..
 [Accelergy](http://accelergy.mit.edu) with Timeloop. To do so, you need to
 provide the path to Accelelergy binary as an environmental variable,
 `ACCELERGYPATH`, before building Timeloop. For example, if Accelergy is
-installed at `/home/${USER}/.local/bin/`, in `bash`, you will use:
+installed at `/home/${USER}/.local/bin/` (the default path when using pip3), in
+`bash`, you will use:
 ```
 export ACCELERGYPATH=/home/${USER}/.local/bin/
 ```
@@ -63,7 +64,7 @@ This builds 3 different tools:
   and reports statistics for the optimal mapping.
 * `timeloop-model` instantiates an architecture, evalutes a specific given
   mapping of a workload and reports the statistics.
-* `timeloo-metrics` simply instantiates an architecture and reports its
+* `timeloop-metrics` simply instantiates an architecture and reports its
   workload-independent characteristics such as area and energy-per-access
   for various architectural structures.
 
