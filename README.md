@@ -71,7 +71,7 @@ This builds 3 different tools:
 * Run timeloop with a sample configuration.
 ```
 cd configs/timeloop
-../../build/timeloop-mapper ./sample.cfg > sample.out
+../../build/timeloop-mapper ./sample.yaml > sample.out
 ```
 
 This will place timeloop's log in `sample.out` and generate the following outputs:
