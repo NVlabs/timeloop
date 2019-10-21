@@ -34,13 +34,15 @@ env.Append(CPPPATH = ['src/include'])
 env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++14', '-pthread'])
 
 env.Append(LINKFLAGS = ['-std=c++11', '-static-libgcc', '-static-libstdc++', '-pthread'])
+env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses'])
+
 if GetOption('link_static'):
     print("Using static linking.")
     env.Append(LINKFLAGS = [ '-Wl,--whole-archive', '-static', '-lpthread', '-Wl,--no-whole-archive'])
+    env.Append(LIBS = ['tinfo', 'gpm'])
 else:
     print("Using dynamic linking.")
 
-env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses', 'tinfo', 'gpm'])
 env.Append(LIBS = ['boost_iostreams', 'boost_serialization'])
 
 if os.environ.get('BOOSTDIR'):
