@@ -46,12 +46,15 @@ cd ..
 
 * Another way to provide a power/energy model to Timeloop is to integrate
 [Accelergy](http://accelergy.mit.edu) with Timeloop. To do so, you need to
-provide the path to Accelelergy binary as an environmental variable,
-`ACCELERGYPATH`, before building Timeloop. For example, if Accelergy is
-installed at `/home/${USER}/.local/bin/` (the default path when using pip3), in
-`bash`, you will use:
+either install Accelergy so that the shell can find it (i.e., `which accelergy`
+works), or provide the path to Accelergy binary as an environmental variable,
+`ACCELERGYPATH`, before building Timeloop.
+
+Then, when building timeloop in the next step, you need to provide the extra
+`--accelergy` flag to `scons` so that it build Timeloop with Accelergy.
+
 ```
-export ACCELERGYPATH=/home/${USER}/.local/bin/
+scons --accelergy
 ```
 
 * Once the pat link is set up, you can build timeloop using scons.

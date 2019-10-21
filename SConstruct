@@ -31,7 +31,8 @@ import os
 VariantDir('build', 'src', duplicate=0)
 
 AddOption('--static', dest='link_static', default=False, action='store_true', help='Use static linking (default is dynamic)')
-    
+AddOption('--accelergy', dest='use_accelergy', default=False, action='store_true', help='Build Timeloop with Accelergy (default is to use pat/src)')
+
 env = Environment(ENV = os.environ)    
 env.Append(CCFLAGS = ['-g', '-O3'])
 env.Append(BUILD_BASE_DIR = Dir('.').abspath)
