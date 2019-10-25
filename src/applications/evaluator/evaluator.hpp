@@ -109,7 +109,7 @@ class Application
         std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
     } else {
-#ifdef ACCELERGY_PATH
+#ifdef USE_ACCELERGY
       // Call accelergy ERT with all input files
       if (arch.exists("subtree") || arch.exists("local")) {
         accelergy::invokeAccelergy(config->inFiles);

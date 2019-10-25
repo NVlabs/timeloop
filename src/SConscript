@@ -70,21 +70,7 @@ if "YAMLCPPPATH" in os.environ:
     env["CPPFLAGS"] += ['-I' + YAMLCPPPATH + '/include']
 
 if GetOption('use_accelergy'):
-    accelergy_path = ""
-    if "ACCELERGYPATH" in os.environ: # user provided path
-        if os.path.exists(os.environ["ACCELERGYPATH"] + "/accelergy"):
-            accelergy_path = os.environ["ACCELERGYPATH"]
-    else: # search using `which`
-        shell_path = os.popen("which accelergy").read()
-        if "accelergy" in shell_path:
-            accelergy_path = shell_path.split("accelergy")[0]
-
-    if accelergy_path != "":
-        print "Found Accelergy under: " + accelergy_path
-        env["CPPDEFINES"] += [('ACCELERGY_PATH', '\\"' + accelergy_path + '\\"')]
-    else:
-        print "ERROR: Try to compile with Accelergy but Accelergy binary not found. Please either install Accelergy so that the binary can be found using `which`, or provide ACCELERGYPATH in your environment variables."
-        Exit(1)
+    env["CPPDEFINES"] += [('USE_ACCELERGY')]
 
 env["CPPPATH"] += ["."]
 

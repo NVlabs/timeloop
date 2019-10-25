@@ -48,10 +48,11 @@ cd ..
 [Accelergy](http://accelergy.mit.edu) with Timeloop. To do so, you need to
 either install Accelergy so that the shell can find it (i.e., `which accelergy`
 works), or provide the path to Accelergy binary as an environmental variable,
-`ACCELERGYPATH`, before building Timeloop.
+`ACCELERGYPATH`, when running Timeloop.
 
-Then, when building timeloop in the next step, you need to provide the extra
-`--accelergy` flag to `scons` so that it build Timeloop with Accelergy.
+When building timeloop in the next step, you also need to provide an extra
+`--accelergy` flag to `scons` so that it builds Timeloop and makes it use
+Accelergy for the energy model.
 
 ```
 scons --accelergy
