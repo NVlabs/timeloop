@@ -32,6 +32,7 @@ import sys
 import timeit
 
 import libconf
+import yaml
 
 # Output file names.
 out_prefix = "timeloop-mapper."
@@ -74,7 +75,11 @@ def rewrite_workload_bounds(src, dst, workload_bounds):
     print()
 
     with open(src, "r") as f:
-        config = libconf.load(f)
+        if "cfg" in src:
+            config = libconf.load(f)
+        elif "yaml" in src:
+            config = yaml.load(f, Loader = yaml.SafeLoader)
+
     config['problem']['R'] = r
     config['problem']['S'] = s
     config['problem']['P'] = p
@@ -88,7 +93,11 @@ def rewrite_workload_bounds(src, dst, workload_bounds):
     config['problem']['Hdilation'] = 1
 
     with open(dst, "w") as f:
-        f.write(libconf.dumps(config))
+        if "cfg" in src:
+            f.write(libconf.dumps(config))
+        elif "yaml" in src:
+            f.write(yaml.dump(config))
+
 
 
 def run_timeloop(dirname, configfile, logfile='timeloop.log', workload_bounds=None):

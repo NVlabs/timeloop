@@ -35,6 +35,7 @@ import xml.etree.ElementTree as ET
 
 import numpy as np
 import libconf
+import yaml
 
 this_file_path = os.path.abspath(inspect.getfile(inspect.currentframe()))
 this_directory = os.path.dirname(this_file_path)
@@ -45,11 +46,12 @@ from cnn_layers import *
 import timeloop
 import parse_timeloop_output
 
-config_abspath = os.path.join(root_dir, 'configs/timeloop/sample.cfg')
+config_abspath = os.path.join(root_dir, 'configs/timeloop/sample.yaml')
 
 # Just test that path points to a valid config file.
 with open(config_abspath, 'r') as f:
-    config = libconf.load(f)
+    config = yaml.load(f)
+    #config = libconf.load(f)
 
 for i in range(0, len(cnn_layers)):
     problem = cnn_layers[i]
