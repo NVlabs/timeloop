@@ -1336,10 +1336,10 @@ void BufferLevel::Print(std::ostream& out) const
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
 
-    if (specs.sharing_type == DataSpaceIDSharing::Partitioned && specs.Name(pv).IsSpecified())
-    {
-      out << indent << "= " << specs.Name(pv).Get() << " =" << std::endl;
-    }
+    // if (specs.sharing_type == DataSpaceIDSharing::Partitioned && specs.Name(pv).IsSpecified())
+    // {
+    //   out << indent << "= " << specs.Name(pv).Get() << " =" << std::endl;
+    // }
 
     if (pv == problem::GetShape()->NumDataSpaces)
       out << indent << "Shared:" << std::endl;
@@ -1352,8 +1352,6 @@ void BufferLevel::Print(std::ostream& out) const
     out << indent << indent << "Cluster size         : " << specs.ClusterSize(pv) << std::endl;
     out << indent << indent << "Instances            : " << specs.Instances(pv) << " ("
         << specs.MeshX(pv) << "*" << specs.MeshY(pv) << ")" << std::endl;
-    out << indent << indent << "Fanout               : " << specs.network.Fanout(pv) << " ("
-        << specs.network.FanoutX(pv) << "*" << specs.network.FanoutY(pv) << ")" << std::endl;
     out << indent << indent << "Read bandwidth       : " << specs.ReadBandwidth(pv) << std::endl;    
     out << indent << indent << "Write bandwidth      : " << specs.WriteBandwidth(pv) << std::endl;    
     out << indent << indent << "Multiple buffering   : " << specs.MultipleBuffering(pv) << std::endl;
@@ -1362,6 +1360,14 @@ void BufferLevel::Print(std::ostream& out) const
     out << indent << indent << "Vector access energy : " << specs.VectorAccessEnergy(pv) << " pJ" << std::endl;
     out << indent << indent << "Area                 : " << specs.StorageArea(pv) << " um^2" << std::endl;
   }
+
+  out << std::endl;
+
+  // Network specs are inlined for the moment.
+  out << indent << "NETWORK SPECS" << std::endl;
+  out << indent << "-------------" << std::endl;
+  out << specs.network;
+
   out << std::endl;
 
   // If the buffer hasn't been evaluated on a specific mapping yet, return.

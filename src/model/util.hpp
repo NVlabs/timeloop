@@ -216,6 +216,4 @@ Type BufferLevel::FuncName(problem::Shape::DataSpaceID pv) const                
   }                                                                                   \
 }
 
-
-
 } // namespace model

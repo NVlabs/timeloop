@@ -108,6 +108,29 @@ class Network
       }
     }
 
+    DataSpaceIDSharing SharingType() const { return sharing_type; }
+
+    unsigned DataSpaceIDIteratorStart() const
+    {
+      return sharing_type == DataSpaceIDSharing::Shared
+                             ? unsigned(problem::GetShape()->NumDataSpaces)
+                             : 0;
+    }
+
+    unsigned DataSpaceIDIteratorEnd() const
+    {
+      return sharing_type == DataSpaceIDSharing::Shared
+                             ? unsigned(problem::GetShape()->NumDataSpaces) + 1
+                             : unsigned(problem::GetShape()->NumDataSpaces);
+    }
+
+    size_t NumPartitions() const
+    {
+      return sharing_type == DataSpaceIDSharing::Shared
+                             ? 1
+                             : size_t(problem::GetShape()->NumDataSpaces);
+    }
+
     ADD_ACCESSORS(Type, type, NetworkType)
     ADD_ACCESSORS(WordBits, word_bits, std::uint64_t)
     ADD_ACCESSORS(Fanout, fanout, std::uint64_t)
@@ -115,6 +138,29 @@ class Network
     ADD_ACCESSORS(FanoutY, fanoutY, std::uint64_t)
     ADD_ACCESSORS(RouterEnergy, routerEnergy, double)
     ADD_ACCESSORS(WireEnergy, wireEnergy, double)
+
+    friend std::ostream& operator << (std::ostream& out, const Specs& specs)
+    {
+      std::string indent = "    ";
+
+      unsigned start_pv = specs.DataSpaceIDIteratorStart();
+      unsigned end_pv = specs.DataSpaceIDIteratorEnd();
+
+      for (unsigned pvi = start_pv; pvi < end_pv; pvi++)
+      {
+        auto pv = problem::Shape::DataSpaceID(pvi);
+        
+        if (pv == problem::GetShape()->NumDataSpaces)
+          out << indent << "Shared:" << std::endl;
+        else
+          out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;      
+
+        out << indent << indent << "Fanout               : " << specs.Fanout(pv) << " ("
+            << specs.FanoutX(pv) << "*" << specs.FanoutY(pv) << ")" << std::endl;
+      }
+
+      return out;
+    }
 
   }; // struct Specs
 
