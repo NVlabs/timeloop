@@ -180,9 +180,9 @@ class Uber : public MapSpace
       auto& specs = *arch_specs_.topology.GetStorageLevel(i);
       auto lambda = [&] (problem::Shape::DataSpaceID pv)
         {
-          if (specs.Fanout(pv).Get() > 1)
+          if (specs.network.Fanout(pv).Get() > 1)
             is_spatial = true;
-          if (specs.FanoutX(pv).Get() > 1 && specs.FanoutY(pv).Get() > 1)
+          if (specs.network.FanoutX(pv).Get() > 1 && specs.network.FanoutY(pv).Get() > 1)
             is_spatial_2D = true;
         };
       model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
@@ -375,7 +375,7 @@ class Uber : public MapSpace
       auto& specs = *arch_specs_.topology.GetStorageLevel(i);
       auto lambda = [&] (problem::Shape::DataSpaceID pv)
         {
-          assert(specs.FanoutX(pv).IsSpecified() && specs.FanoutY(pv).IsSpecified());
+          assert(specs.network.FanoutX(pv).IsSpecified() && specs.network.FanoutY(pv).IsSpecified());
         };
       model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
     }
@@ -895,15 +895,15 @@ class Uber : public MapSpace
 
     std::size_t fanout_max;
     
-    if (level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Shared)
+    if (level_specs.SharingType() == model::DataSpaceIDSharing::Shared)
     {
-      if (x_expansion > level_specs.FanoutX().Get())
+      if (x_expansion > level_specs.network.FanoutX().Get())
         success = false;
       
-      if (y_expansion > level_specs.FanoutY().Get())
+      if (y_expansion > level_specs.network.FanoutY().Get())
         success = false;
 
-      fanout_max = level_specs.FanoutX().Get() * level_specs.FanoutY().Get();
+      fanout_max = level_specs.network.FanoutX().Get() * level_specs.network.FanoutY().Get();
     }
     else
     {
@@ -914,15 +914,15 @@ class Uber : public MapSpace
       {
         auto pv = problem::Shape::DataSpaceID(pvi);
 
-        if (x_expansion > level_specs.FanoutX(pv).Get())
+        if (x_expansion > level_specs.network.FanoutX(pv).Get())
           success = false;
 
-        if (y_expansion > level_specs.FanoutY(pv).Get())
+        if (y_expansion > level_specs.network.FanoutY(pv).Get())
           success = false;
 
         // Track max available (not utilized) fanout across all datatypes.
-        x_fanout_max = std::max(x_fanout_max, level_specs.FanoutX(pv).Get());
-        y_fanout_max = std::max(y_fanout_max, level_specs.FanoutY(pv).Get());
+        x_fanout_max = std::max(x_fanout_max, level_specs.network.FanoutX(pv).Get());
+        y_fanout_max = std::max(y_fanout_max, level_specs.network.FanoutY(pv).Get());
       }
 
       fanout_max = x_fanout_max * y_fanout_max;
@@ -937,9 +937,9 @@ class Uber : public MapSpace
     // {
     //   std::cerr << "Level: " << level_specs.level_name << std::endl;
     //   std::cerr << "  X: ";
-    //   std::cerr << " expansion = " << x_expansion << " fanout = " << level_specs.FanoutX().Get() << std::endl;
+    //   std::cerr << " expansion = " << x_expansion << " fanout = " << level_specs.network.FanoutX().Get() << std::endl;
     //   std::cerr << "  Y: ";
-    //   std::cerr << " expansion = " << y_expansion << " fanout = " << level_specs.FanoutY().Get() << std::endl;
+    //   std::cerr << " expansion = " << y_expansion << " fanout = " << level_specs.network.FanoutY().Get() << std::endl;
     //   std::cerr << "  util = " << fanout_utilization << std::endl;
     //   std::cerr << std::endl;
     // }
@@ -1018,7 +1018,7 @@ class Uber : public MapSpace
 
     std::size_t fanout_max;
     
-    if (level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Shared)
+    if (level_specs.SharingType() == model::DataSpaceIDSharing::Shared)
     {
       // Shared level: required fanout is the max across all datatypes **kept at this level**.
       std::size_t x_max = 0;
@@ -1033,13 +1033,13 @@ class Uber : public MapSpace
         }
       }
 
-      if (x_max > level_specs.FanoutX().Get())
+      if (x_max > level_specs.network.FanoutX().Get())
         success = false;
       
-      if (y_max > level_specs.FanoutY().Get())
+      if (y_max > level_specs.network.FanoutY().Get())
         success = false;
 
-      fanout_max = level_specs.FanoutX().Get() * level_specs.FanoutY().Get();
+      fanout_max = level_specs.network.FanoutX().Get() * level_specs.network.FanoutY().Get();
     }
     else
     {
@@ -1050,14 +1050,14 @@ class Uber : public MapSpace
       for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
       {
         auto pv = problem::Shape::DataSpaceID(pvi);
-        if (x_sizes.at(pv) > level_specs.FanoutX(pv).Get())
+        if (x_sizes.at(pv) > level_specs.network.FanoutX(pv).Get())
           success = false;
-        if (y_sizes.at(pv) > level_specs.FanoutY(pv).Get())
+        if (y_sizes.at(pv) > level_specs.network.FanoutY(pv).Get())
           success = false;
 
         // Track max available (not utilized) fanout across all datatypes.
-        x_fanout_max = std::max(x_fanout_max, level_specs.FanoutX(pv).Get());
-        y_fanout_max = std::max(y_fanout_max, level_specs.FanoutY(pv).Get());
+        x_fanout_max = std::max(x_fanout_max, level_specs.network.FanoutX(pv).Get());
+        y_fanout_max = std::max(y_fanout_max, level_specs.network.FanoutY(pv).Get());
       }
 
       fanout_max = x_fanout_max * y_fanout_max;
@@ -1073,11 +1073,11 @@ class Uber : public MapSpace
     //   std::cerr << "X: ";
     //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     //     std::cerr << problem::Shape::DataSpaceID(pvi) << " = " << x_sizes.at(problem::Shape::DataSpaceID(pvi)) << " ";
-    //   std::cerr << " max = " << x_max << " fanout = " << level_specs.FanoutX().Get() << std::endl;
+    //   std::cerr << " max = " << x_max << " fanout = " << level_specs.network.FanoutX().Get() << std::endl;
     //   std::cerr << "Y: ";
     //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     //     std::cerr << problem::Shape::DataSpaceID(pvi) << " = " << y_sizes.at(problem::Shape::DataSpaceID(pvi)) << " ";
-    //   std::cerr << " max = " << y_max << " fanout = " << level_specs.FanoutY().Get() << std::endl;
+    //   std::cerr << " max = " << y_max << " fanout = " << level_specs.network.FanoutY().Get() << std::endl;
     //   std::cerr << "util = " << fanout_utilization << std::endl;
     //   std::cerr << std::endl;
     // }
@@ -1107,7 +1107,7 @@ class Uber : public MapSpace
     // any purpose.
     (void)mapping_spatial_id;
     
-    assert(level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Shared);
+    assert(level_specs.SharingType() == model::DataSpaceIDSharing::Shared);
 
     bool success = true;
     
@@ -1138,7 +1138,7 @@ class Uber : public MapSpace
 
         // See if we can accommodate this loop within the X dimension.           
         // Compare this fanout vs. the available fanout in the arch spec.
-        if (upd_fanout.Max() <= level_specs.FanoutX().Get())
+        if (upd_fanout.Max() <= level_specs.network.FanoutX().Get())
         {
           // Yes, we can accept this loop.
           loop->spacetime_dimension = spacetime::Dimension::SpaceX;
@@ -1169,7 +1169,7 @@ class Uber : public MapSpace
         }
 
         // Compare this fanout vs. the available fanout in the arch spec.
-        if (upd_fanout.Max() <= level_specs.FanoutY().Get())
+        if (upd_fanout.Max() <= level_specs.network.FanoutY().Get())
         {
           // Yes, we can accept this loop.
           loop->spacetime_dimension = spacetime::Dimension::SpaceY;
@@ -1179,9 +1179,9 @@ class Uber : public MapSpace
         {
           // We're out of dimensions. This mapping has failed.
           // std::cout << "FAIL x_fanout = " << x_fanout.Max()
-          //           << " spec_x_fanout = " << level_specs.FanoutX().Get()
+          //           << " spec_x_fanout = " << level_specs.network.FanoutX().Get()
           //           << " need y_fanout = " << y_fanout.Max()
-          //           << " spec_y_fanout = " << level_specs.FanoutY().Get()
+          //           << " spec_y_fanout = " << level_specs.network.FanoutY().Get()
           //           << std::endl;
           success = false;
         }
@@ -1206,7 +1206,7 @@ class Uber : public MapSpace
                                                       std::vector<loop::Descriptor>& level_nest,
                                                       model::BufferLevel::Specs& level_specs)
   {
-    assert(level_specs.SharingType() == model::BufferLevel::DataSpaceIDSharing::Partitioned);
+    assert(level_specs.SharingType() == model::DataSpaceIDSharing::Partitioned);
 
     (void)level_nest;
     assert(false);
@@ -1244,7 +1244,7 @@ class Uber : public MapSpace
 
     //     // See if we can accommodate this loop within the X dimension.           
     //     // Compare this fanout vs. the available fanout in the arch spec.
-    //     if (upd_fanout.Max() <= level_specs.FanoutX())
+    //     if (upd_fanout.Max() <= level_specs.network.FanoutX())
     //     {
     //       // Yes, we can accept this loop.
     //       loop->spacetime_dimension = spacetime::Dimension::SpaceX;
@@ -1275,7 +1275,7 @@ class Uber : public MapSpace
     //     }
 
     //     // Compare this fanout vs. the available fanout in the arch spec.
-    //     if (upd_fanout.Max() <= level_specs.FanoutY())
+    //     if (upd_fanout.Max() <= level_specs.network.FanoutY())
     //     {
     //       // Yes, we can accept this loop.
     //       loop->spacetime_dimension = spacetime::Dimension::SpaceY;

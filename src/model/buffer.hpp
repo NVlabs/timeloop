@@ -35,140 +35,11 @@
 #include "loop-analysis/tiling.hpp"
 #include "mapping/nest.hpp"
 #include "compound-config/compound-config.hpp"
+#include "model/util.hpp"
+#include "model/network.hpp"
 
 namespace model
 {
-
-// A special-purpose class with a std::map-like interface used to hold
-// *either* a collection of values of type T, one for each data space,
-// *or* a single value of type T accessed with the key DataSpaceID::Num.
-template<class T>
-class PerDataSpaceOrShared
-{
- private:
-  problem::PerDataSpace<T> per_data_space;
-  T shared;
-  bool is_per_data_space = false;
-  bool is_shared = false;
-
- public:
-  PerDataSpaceOrShared()
-  {
-  }
-
-  void SetPerDataSpace() {
-    assert(!is_shared);
-    is_per_data_space = true;
-    // Construct a separate T value for each element.
-    for (T& val : per_data_space)
-    {
-      val = T();
-    }
-  }
-
-  void SetShared(T val=T()) {
-    assert(!is_per_data_space);
-    is_shared = true;
-    shared = val;
-  }
-
-  T & operator [] (problem::Shape::DataSpaceID pv)
-  {
-    if (pv == problem::GetShape()->NumDataSpaces)
-    {
-      assert(is_shared);
-      return shared;
-    }
-    else
-    {
-      assert(pv < problem::GetShape()->NumDataSpaces);
-      assert(is_per_data_space);
-      return per_data_space[pv];
-    }
-  }
-
-  T & at(problem::Shape::DataSpaceID pv)
-  {
-    if (pv == problem::GetShape()->NumDataSpaces)
-    {
-      assert(is_shared);
-      return shared;
-    }
-    else
-    {
-      assert(pv < problem::GetShape()->NumDataSpaces);
-      assert(is_per_data_space);
-      return per_data_space[pv];
-    }
-  }
-
-  const T & at(problem::Shape::DataSpaceID pv) const
-  {
-    if (pv == problem::GetShape()->NumDataSpaces)
-    {
-      assert(is_shared);
-      return shared;
-    }
-    else
-    {
-      assert(pv < problem::GetShape()->NumDataSpaces);
-      assert(is_per_data_space);
-      return per_data_space[pv];
-    }
-  }
-
-  T Max() const
-  {
-    if (is_shared)
-    {
-      return shared;
-    }
-    else
-    {
-      assert(is_per_data_space);
-      return per_data_space.Max();
-    }
-  }
-
-  friend std::ostream& operator << (std::ostream& out, const PerDataSpaceOrShared<T>& x)
-  {
-    if (x.is_per_data_space)
-    {
-      out << "PerDataSpace:" << std::endl;
-      out << x.per_data_space;
-    }
-    else
-    {
-      assert(x.is_shared);
-      out << "Shared: " << x.shared << std::endl;
-    }
-    return out;
-  }
-
-  // Serialization
-  friend class boost::serialization::access;
-
-  template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0)
-  {
-    if (version == 0)
-    {
-      if (is_per_data_space)
-      {
-        ar& BOOST_SERIALIZATION_NVP(per_data_space);
-      }
-      else
-      {
-        assert(is_shared);
-        ar& BOOST_SERIALIZATION_NVP(shared);
-      }
-    }
-  }
-
-};
-
-template<class T>
-std::ostream& operator<<(std::ostream& out, const PerDataSpaceOrShared<T>& px);
 
 //--------------------------------------------//
 //                 BufferLevel                //
@@ -178,13 +49,6 @@ class BufferLevel : public Level
 {
  public:
   
-  // DataSpaceID sharing.
-  enum class DataSpaceIDSharing
-  {
-    Partitioned,
-    Shared
-  };
-
   // Memory technology (FIXME: separate latch arrays).
   enum class Technology { SRAM, DRAM };
   friend std::ostream& operator<<(std::ostream& out, const Technology& tech);
@@ -230,7 +94,6 @@ class BufferLevel : public Level
     PerDataSpaceOrShared<Attribute<std::uint64_t>> instances;    
     PerDataSpaceOrShared<Attribute<std::uint64_t>> meshX;
     PerDataSpaceOrShared<Attribute<std::uint64_t>> meshY;
-    // PerDataSpaceOrShared<Attribute<double>> bandwidth;
     PerDataSpaceOrShared<Attribute<double>> read_bandwidth;
     PerDataSpaceOrShared<Attribute<double>> write_bandwidth;
     PerDataSpaceOrShared<Attribute<double>> multiple_buffering;
@@ -242,40 +105,8 @@ class BufferLevel : public Level
     PerDataSpaceOrShared<Attribute<std::uint64_t>> num_ports;
     PerDataSpaceOrShared<Attribute<std::uint64_t>> num_banks;
 
-    struct Network
-    {
-      enum class Type
-      {
-        OneToOne,
-        OneToMany,
-        ManyToMany
-      };
-      PerDataSpaceOrShared<Attribute<Type>> type;
-      PerDataSpaceOrShared<Attribute<std::uint64_t>> word_bits;
-      PerDataSpaceOrShared<Attribute<std::uint64_t>> fanout;
-      PerDataSpaceOrShared<Attribute<std::uint64_t>> fanoutX;
-      PerDataSpaceOrShared<Attribute<std::uint64_t>> fanoutY;
-      PerDataSpaceOrShared<Attribute<double>> routerEnergy;
-      PerDataSpaceOrShared<Attribute<double>> wireEnergy;
-
-      // Serialization
-      friend class boost::serialization::access;
-
-      template <class Archive>
-      void serialize(Archive& ar, const unsigned int version = 0)
-      {
-        if (version == 0)
-        {
-          ar& BOOST_SERIALIZATION_NVP(type);
-          ar& BOOST_SERIALIZATION_NVP(word_bits);
-          ar& BOOST_SERIALIZATION_NVP(fanout);
-          ar& BOOST_SERIALIZATION_NVP(fanoutX);
-          ar& BOOST_SERIALIZATION_NVP(fanoutY);
-          ar& BOOST_SERIALIZATION_NVP(routerEnergy);
-          ar& BOOST_SERIALIZATION_NVP(wireEnergy);
-        }
-      }
-    } network;
+    // Network specs are inlined for the moment.
+    Network::Specs network;
 
     // Serialization
     friend class boost::serialization::access;
@@ -296,7 +127,6 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(instances);    
         ar& BOOST_SERIALIZATION_NVP(meshX);
         ar& BOOST_SERIALIZATION_NVP(meshY);
-        // ar& BOOST_SERIALIZATION_NVP(bandwidth);
         ar& BOOST_SERIALIZATION_NVP(read_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(write_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(multiple_buffering);
@@ -310,13 +140,15 @@ class BufferLevel : public Level
     }
     
     Specs() :
-        sharing_type(DataSpaceIDSharing::Shared)
+        sharing_type(DataSpaceIDSharing::Shared),
+        network(DataSpaceIDSharing::Shared)
     {
       Init();
     }
     
     Specs(DataSpaceIDSharing sharing) :
-        sharing_type(sharing)
+        sharing_type(sharing),
+        network(sharing)
     {
       Init();
     }
@@ -336,7 +168,6 @@ class BufferLevel : public Level
         instances.SetPerDataSpace();
         meshX.SetPerDataSpace();
         meshY.SetPerDataSpace();
-        // bandwidth.SetPerDataSpace();
         read_bandwidth.SetPerDataSpace();
         write_bandwidth.SetPerDataSpace();
         multiple_buffering.SetPerDataSpace();
@@ -346,14 +177,6 @@ class BufferLevel : public Level
         storage_area.SetPerDataSpace();
         num_ports.SetPerDataSpace();
         num_banks.SetPerDataSpace();
-
-        network.type.SetPerDataSpace();
-        network.word_bits.SetPerDataSpace();
-        network.fanout.SetPerDataSpace();
-        network.fanoutX.SetPerDataSpace();
-        network.fanoutY.SetPerDataSpace();
-        network.routerEnergy.SetPerDataSpace();
-        network.wireEnergy.SetPerDataSpace();
       }
       else // sharing_type == DataSpaceIDSharing::Shared
       {
@@ -367,7 +190,6 @@ class BufferLevel : public Level
         instances.SetShared();
         meshX.SetShared();
         meshY.SetShared();
-        // bandwidth.SetShared();
         read_bandwidth.SetShared();
         write_bandwidth.SetShared();
         multiple_buffering.SetShared();
@@ -377,46 +199,8 @@ class BufferLevel : public Level
         storage_area.SetShared();
         num_ports.SetShared();
         num_banks.SetShared();
-
-        network.type.SetShared();
-        network.word_bits.SetShared();
-        network.fanout.SetShared();
-        network.fanoutX.SetShared();
-        network.fanoutY.SetShared();
-        network.routerEnergy.SetShared();
-        network.wireEnergy.SetShared();
-      }
-    
+      }    
     }
-
-    // ----- Macro to add Accessors -----
-#define ADD_ACCESSORS(FuncName, MemberName, Type)                          \
-    Attribute<Type> & FuncName(problem::Shape::DataSpaceID pv)             \
-    {                                                                      \
-      return (sharing_type == DataSpaceIDSharing::Partitioned)             \
-             ? MemberName[pv]                                              \
-             : MemberName[problem::GetShape()->NumDataSpaces];             \
-    }                                                                      \
-                                                                           \
-    const Attribute<Type> & FuncName(problem::Shape::DataSpaceID pv) const \
-    {                                                                      \
-      return (sharing_type == DataSpaceIDSharing::Partitioned)             \
-             ? MemberName.at(pv)                                           \
-             : MemberName.at(problem::GetShape()->NumDataSpaces);          \
-    }                                                                      \
-                                                                           \
-    Attribute<Type> & FuncName()                                           \
-    {                                                                      \
-      assert(sharing_type == DataSpaceIDSharing::Shared);                  \
-      return MemberName[problem::GetShape()->NumDataSpaces];               \
-    }                                                                      \
-                                                                           \
-    const Attribute<Type> & FuncName() const                               \
-    {                                                                      \
-      assert(sharing_type == DataSpaceIDSharing::Shared);                  \
-      return MemberName.at(problem::GetShape()->NumDataSpaces);            \
-    }                                                               
-    // ----- End Macro -----
 
     DataSpaceIDSharing SharingType() const { return sharing_type; }
 
@@ -451,7 +235,6 @@ class BufferLevel : public Level
     ADD_ACCESSORS(Instances, instances, std::uint64_t)
     ADD_ACCESSORS(MeshX, meshX, std::uint64_t)
     ADD_ACCESSORS(MeshY, meshY, std::uint64_t)
-    // ADD_ACCESSORS(Bandwidth, bandwidth, double)    
     ADD_ACCESSORS(ReadBandwidth, read_bandwidth, double)    
     ADD_ACCESSORS(WriteBandwidth, write_bandwidth, double)    
     ADD_ACCESSORS(MultipleBuffering, multiple_buffering, double)
@@ -461,14 +244,6 @@ class BufferLevel : public Level
     ADD_ACCESSORS(StorageArea, storage_area, double)
     ADD_ACCESSORS(NumPorts, num_ports, std::uint64_t)
     ADD_ACCESSORS(NumBanks, num_banks, std::uint64_t)
-
-    ADD_ACCESSORS(NetworkType, network.type, Network::Type)
-    ADD_ACCESSORS(NetworkWordBits, network.word_bits, std::uint64_t)
-    ADD_ACCESSORS(Fanout, network.fanout, std::uint64_t)
-    ADD_ACCESSORS(FanoutX, network.fanoutX, std::uint64_t)
-    ADD_ACCESSORS(FanoutY, network.fanoutY, std::uint64_t)
-    ADD_ACCESSORS(RouterEnergy, network.routerEnergy, double)
-    ADD_ACCESSORS(WireEnergy, network.wireEnergy, double)
 
   };
   
@@ -495,45 +270,8 @@ class BufferLevel : public Level
     std::uint64_t cycles;
     double slowdown;
 
-    struct Network
-    {
-      problem::PerDataSpace<std::uint64_t> fanout;
-      problem::PerDataSpace<std::uint64_t> distributed_fanout;
-      problem::PerDataSpace<std::uint64_t> multicast_factor;
-      problem::PerDataSpace<std::vector<unsigned long>> ingresses;
-      problem::PerDataSpace<bool> distributed_multicast;
-      problem::PerDataSpace<unsigned long> link_transfers;
-      problem::PerDataSpace<unsigned long> spatial_reductions;
-      problem::PerDataSpace<double> link_transfer_energy;
-      problem::PerDataSpace<double> num_hops;
-      problem::PerDataSpace<std::vector<double>> avg_hops;
-      problem::PerDataSpace<double> energy_per_hop;
-      problem::PerDataSpace<double> energy;
-      problem::PerDataSpace<double> spatial_reduction_energy;
-
-      // Serialization
-      friend class boost::serialization::access;
-      
-      template <class Archive>
-      void serialize(Archive& ar, const unsigned int version = 0)
-      {
-        if (version == 0)
-        {
-          ar& BOOST_SERIALIZATION_NVP(fanout);
-          ar& BOOST_SERIALIZATION_NVP(distributed_fanout);
-          ar& BOOST_SERIALIZATION_NVP(multicast_factor);
-          ar& BOOST_SERIALIZATION_NVP(ingresses);
-          ar& BOOST_SERIALIZATION_NVP(distributed_multicast);
-          ar& BOOST_SERIALIZATION_NVP(link_transfers);
-          ar& BOOST_SERIALIZATION_NVP(spatial_reductions);
-          ar& BOOST_SERIALIZATION_NVP(link_transfer_energy);
-          ar& BOOST_SERIALIZATION_NVP(num_hops);
-          ar& BOOST_SERIALIZATION_NVP(energy_per_hop);
-          ar& BOOST_SERIALIZATION_NVP(energy);
-          ar& BOOST_SERIALIZATION_NVP(spatial_reduction_energy);
-        }
-      }      
-    } network;
+    // Network stats are inlined for now.
+    Network::Stats network;
 
     // Serialization
     friend class boost::serialization::access;
@@ -553,7 +291,6 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(fills);
         ar& BOOST_SERIALIZATION_NVP(address_generations);
         ar& BOOST_SERIALIZATION_NVP(temporal_reductions);
-        // ar& BOOST_SERIALIZATION_NVP(bandwidth);
         ar& BOOST_SERIALIZATION_NVP(read_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(write_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(energy_per_access);

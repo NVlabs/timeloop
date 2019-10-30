@@ -210,7 +210,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
         for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
           auto bufferSpec = GetStorageLevel(i);
           auto pv = problem::GetShape()->NumDataSpaces;
-          bufferSpec->WireEnergy(pv) = transferEnergy;
+          bufferSpec->network.WireEnergy(pv) = transferEnergy;
         }
       }
     } else {
@@ -309,9 +309,9 @@ void Topology::Validate(Topology::Specs& specs)
   {
     for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
     {
-      outer.FanoutX(problem::Shape::DataSpaceID(pvi)) = 1;
-      outer.FanoutY(problem::Shape::DataSpaceID(pvi)) = 1;
-      outer.Fanout(problem::Shape::DataSpaceID(pvi)) = 1;
+      outer.network.FanoutX(problem::Shape::DataSpaceID(pvi)) = 1;
+      outer.network.FanoutY(problem::Shape::DataSpaceID(pvi)) = 1;
+      outer.network.Fanout(problem::Shape::DataSpaceID(pvi)) = 1;
     }
   }
   else
@@ -320,19 +320,19 @@ void Topology::Validate(Topology::Specs& specs)
     assert(inner.Instances().Get() % outer.Instances(outer_start_pv).Get() == 0);
     unsigned fanout_in = inner.Instances().Get() / outer.Instances(outer_start_pv).Get();
     for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-      outer.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout_in;
+      outer.network.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout_in;
     // fanout x
     assert(inner.MeshX().IsSpecified());
     assert(inner.MeshX().Get() % outer.MeshX(outer_start_pv).Get() == 0);
     unsigned fanoutX_in = inner.MeshX().Get() / outer.MeshX(outer_start_pv).Get();
     for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-      outer.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX_in;
+      outer.network.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX_in;
     // fanout y
     assert(inner.MeshY().IsSpecified());
     assert(inner.MeshY().Get() % outer.MeshY(outer_start_pv).Get() == 0);
     unsigned fanoutY_in = inner.MeshY().Get() / outer.MeshY(outer_start_pv).Get();
     for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-      outer.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY_in;
+      outer.network.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY_in;
   }
 
   for (unsigned i = 0; i < specs.NumStorageLevels()-1; i++)
@@ -359,38 +359,38 @@ void Topology::Validate(Topology::Specs& specs)
     // Fanout.
     assert(inner.Instances(inner_start_pv).Get() % outer.Instances(outer_start_pv).Get() == 0);
     unsigned fanout = inner.Instances(inner_start_pv).Get() / outer.Instances(outer_start_pv).Get();
-    if (outer.Fanout(outer_start_pv).IsSpecified())
-      assert(outer.Fanout(outer_start_pv).Get() == fanout);
+    if (outer.network.Fanout(outer_start_pv).IsSpecified())
+      assert(outer.network.Fanout(outer_start_pv).Get() == fanout);
     else
     {
       for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-        outer.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout;
+        outer.network.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout;
     }
 
     // FanoutX.
     assert(inner.MeshX(inner_start_pv).Get() % outer.MeshX(outer_start_pv).Get() == 0);
     unsigned fanoutX = inner.MeshX(inner_start_pv).Get() / outer.MeshX(outer_start_pv).Get();
-    if (outer.FanoutX(outer_start_pv).IsSpecified())
-      assert(outer.FanoutX(outer_start_pv).Get() == fanoutX);
+    if (outer.network.FanoutX(outer_start_pv).IsSpecified())
+      assert(outer.network.FanoutX(outer_start_pv).Get() == fanoutX);
     else
     {
       for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-        outer.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX;
+        outer.network.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX;
     }
 
     // FanoutY.
     assert(inner.MeshY(inner_start_pv).Get() % outer.MeshY(outer_start_pv).Get() == 0);
     unsigned fanoutY = inner.MeshY(inner_start_pv).Get() / outer.MeshY(outer_start_pv).Get();
-    if (outer.FanoutY(outer_start_pv).IsSpecified())
-      assert(outer.FanoutY(outer_start_pv).Get() == fanoutY);
+    if (outer.network.FanoutY(outer_start_pv).IsSpecified())
+      assert(outer.network.FanoutY(outer_start_pv).Get() == fanoutY);
     else
     {
       for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-        outer.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY;
+        outer.network.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY;
     }
 
-    assert(outer.Fanout(outer_start_pv).Get() ==
-           outer.FanoutX(outer_start_pv).Get() * outer.FanoutY(outer_start_pv).Get());
+    assert(outer.network.Fanout(outer_start_pv).Get() ==
+           outer.network.FanoutX(outer_start_pv).Get() * outer.network.FanoutY(outer_start_pv).Get());
   }  
 }
 

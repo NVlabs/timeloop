@@ -241,11 +241,11 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   if (buffer.lookupValue("network-type", network_type))
   {
     if (network_type.compare("1:1") == 0)
-      specs.NetworkType(pv) = Specs::Network::Type::OneToOne;
+      specs.network.Type(pv) = Network::Specs::NetworkType::OneToOne;
     else if (network_type.compare("1:N") == 0)
-      specs.NetworkType(pv) = Specs::Network::Type::OneToMany;
+      specs.network.Type(pv) = Network::Specs::NetworkType::OneToMany;
     else if (network_type.compare("M:N") == 0)
-      specs.NetworkType(pv) = Specs::Network::Type::ManyToMany;
+      specs.network.Type(pv) = Network::Specs::NetworkType::ManyToMany;
     else
     {
       std::cerr << "ERROR: Unrecognized network type: " << network_type << std::endl;
@@ -257,11 +257,11 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   std::uint32_t network_word_bits;
   if (buffer.lookupValue("network-word-bits", network_word_bits))
   {
-    specs.NetworkWordBits(pv) = network_word_bits;
+    specs.network.WordBits(pv) = network_word_bits;
   }
   else
   {
-    specs.NetworkWordBits(pv) = specs.WordBits(pv).Get();
+    specs.network.WordBits(pv) = specs.WordBits(pv).Get();
   }
 
   // Fanout.
@@ -275,12 +275,12 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   // Router energy.
   double router_energy = 0;
   buffer.lookupValue("router-energy", router_energy);
-  specs.RouterEnergy(pv) = router_energy;
+  specs.network.RouterEnergy(pv) = router_energy;
 
   // Wire energy.
   double wire_energy = 0.0;
   buffer.lookupValue("wire-energy", wire_energy);
-  specs.WireEnergy(pv) = wire_energy;
+  specs.network.WireEnergy(pv) = wire_energy;
 
   // Vector Access Energy
   double tmp_access_energy = 0;
@@ -288,7 +288,7 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
 
   if (specs.Tech(pv).Get() == Technology::DRAM) {
     assert(specs.ClusterSize(pv).Get() == 1);
-    tmp_access_energy = pat::DRAMEnergy(specs.NetworkWordBits(pv).Get() * specs.BlockSize(pv).Get());
+    tmp_access_energy = pat::DRAMEnergy(specs.network.WordBits(pv).Get() * specs.BlockSize(pv).Get());
     tmp_storage_area = 0;
   } else if (specs.Size(pv).Get() == 0) {
     //SRAM
@@ -471,8 +471,8 @@ bool BufferLevel::DistributedMulticastSupported()
   for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    retval &= (specs_.NetworkType(pv).IsSpecified() &&
-               specs_.NetworkType(pv).Get() == Specs::Network::Type::ManyToMany);
+    retval &= (specs_.network.Type(pv).IsSpecified() &&
+               specs_.network.Type(pv).Get() == Network::Specs::NetworkType::ManyToMany);
   }
 
   return retval;
@@ -765,9 +765,9 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
       else if (stats_.utilized_instances.at(pv) > specs_.Instances(pv).Get())
         success = false;
       
-      if (!specs_.Fanout(pv).IsSpecified())
-        specs_.Fanout(pv) = stats_.network.fanout.at(pv);
-      else if (stats_.network.fanout.at(pv) > specs_.Fanout(pv).Get())
+      if (!specs_.network.Fanout(pv).IsSpecified())
+        specs_.network.Fanout(pv) = stats_.network.fanout.at(pv);
+      else if (stats_.network.fanout.at(pv) > specs_.network.Fanout(pv).Get())
         success = false;
 
       // Bandwidth constraints cannot be checked/inherited at this point
@@ -826,15 +826,15 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
     // Note: the following calculation uses the Max of fanouts
     // because it assumes that the fanout network is shared if the buffer
     // itself is shared. We should perhaps relax this.
-    if (!specs_.Fanout().IsSpecified())
-      specs_.Fanout() = stats_.network.fanout.Max();
-    else if (stats_.network.fanout.Max() > specs_.Fanout().Get())
+    if (!specs_.network.Fanout().IsSpecified())
+      specs_.network.Fanout() = stats_.network.fanout.Max();
+    else if (stats_.network.fanout.Max() > specs_.network.Fanout().Get())
     {
       // This CANNOT happen, mapspace should have taken care of this.
       // assert(false);
       std::cerr << "WARNING: fanout FAIL level = " << specs_.level_name << " req = "
                 << stats_.network.fanout.Max() << " avail = "
-                << specs_.Fanout().Get() << std::endl;
+                << specs_.network.Fanout().Get() << std::endl;
       std::cerr << "I'm invalidating this mapping, but the mapping constructor "
                 << "in the mapspace should have taken care of this." << std::endl;
       success = false;
@@ -937,12 +937,12 @@ void BufferLevel::ComputeNetworkEnergy(const double inner_tile_area)
     auto pv = problem::Shape::DataSpaceID(pvi);
 
     double energy_per_hop =
-            WireEnergyPerHop(specs_.NetworkWordBits(pv).Get(), inner_tile_area);
-    double energy_wire = specs_.WireEnergy(pv).Get();
+            WireEnergyPerHop(specs_.network.WordBits(pv).Get(), inner_tile_area);
+    double energy_wire = specs_.network.WireEnergy(pv).Get();
     if (energy_wire != 0.0) { // user provided energy per wire length per bit
-      energy_per_hop = specs_.NetworkWordBits(pv).Get() * inner_tile_area * energy_wire;
+      energy_per_hop = specs_.network.WordBits(pv).Get() * inner_tile_area * energy_wire;
     }
-    double energy_per_router = specs_.RouterEnergy(pv).Get();
+    double energy_per_router = specs_.network.RouterEnergy(pv).Get();
     
     auto fanout = stats_.network.distributed_multicast.at(pv) ?
       stats_.network.distributed_fanout.at(pv) :
@@ -1027,10 +1027,10 @@ void BufferLevel::ComputeReductionEnergy()
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
-        pat::AdderEnergy(specs_.WordBits(pv).Get(), specs_.NetworkWordBits(pv).Get());
+        pat::AdderEnergy(specs_.WordBits(pv).Get(), specs_.network.WordBits(pv).Get());
       
       stats_.network.spatial_reduction_energy[pv] = stats_.network.spatial_reductions[pv] * 
-        pat::AdderEnergy(specs_.NetworkWordBits(pv).Get(), specs_.NetworkWordBits(pv).Get());
+        pat::AdderEnergy(specs_.network.WordBits(pv).Get(), specs_.network.WordBits(pv).Get());
     }
     else
     {
@@ -1184,41 +1184,6 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
 // Accessors.
 //
 
-#define STAT_ACCESSOR(Type, FuncName, Expression)                                     \
-Type BufferLevel::FuncName(problem::Shape::DataSpaceID pv) const                      \
-{                                                                                     \
-  if (pv != problem::GetShape()->NumDataSpaces)                                       \
-  {                                                                                   \
-    return Expression;                                                                \
-  }                                                                                   \
-  else                                                                                \
-  {                                                                                   \
-    Type stat = 0;                                                                    \
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) \
-    {                                                                                 \
-      stat += FuncName(problem::Shape::DataSpaceID(pvi));                             \
-    }                                                                                 \
-    return stat;                                                                      \
-  }                                                                                   \
-}
-
-// double BufferLevel::StorageEnergy(problem::Shape::DataSpaceID pv) const
-// {                                                                         
-//   if (pv != problem::GetShape()->NumDataSpaces)                                       
-//   {                                                                       
-//     return stats_.energy.at(pv) * stats_.utilized_instances.at(pv);                                                    
-//   }                                                                       
-//   else                                                                    
-//   {                                                                       
-//     double stat = 0;                                                        
-//     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) 
-//     {                                                                     
-//       stat += StorageEnergy(problem::Shape::DataSpaceID(pvi));                           
-//     }                                                                     
-//     return stat;                                                          
-//   }                                                                       
-// }
-
 STAT_ACCESSOR(double, StorageEnergy, stats_.energy.at(pv) * stats_.utilized_instances.at(pv))
 STAT_ACCESSOR(double, NetworkEnergy, (stats_.network.link_transfer_energy.at(pv) + stats_.network.energy.at(pv)) * stats_.utilized_instances.at(pv))
 STAT_ACCESSOR(double, TemporalReductionEnergy, stats_.temporal_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
@@ -1371,7 +1336,7 @@ void BufferLevel::Print(std::ostream& out) const
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
 
-    if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Partitioned && specs.Name(pv).IsSpecified())
+    if (specs.sharing_type == DataSpaceIDSharing::Partitioned && specs.Name(pv).IsSpecified())
     {
       out << indent << "= " << specs.Name(pv).Get() << " =" << std::endl;
     }
@@ -1387,8 +1352,8 @@ void BufferLevel::Print(std::ostream& out) const
     out << indent << indent << "Cluster size         : " << specs.ClusterSize(pv) << std::endl;
     out << indent << indent << "Instances            : " << specs.Instances(pv) << " ("
         << specs.MeshX(pv) << "*" << specs.MeshY(pv) << ")" << std::endl;
-    out << indent << indent << "Fanout               : " << specs.Fanout(pv) << " ("
-        << specs.FanoutX(pv) << "*" << specs.FanoutY(pv) << ")" << std::endl;
+    out << indent << indent << "Fanout               : " << specs.network.Fanout(pv) << " ("
+        << specs.network.FanoutX(pv) << "*" << specs.network.FanoutY(pv) << ")" << std::endl;
     out << indent << indent << "Read bandwidth       : " << specs.ReadBandwidth(pv) << std::endl;    
     out << indent << indent << "Write bandwidth      : " << specs.WriteBandwidth(pv) << std::endl;    
     out << indent << indent << "Multiple buffering   : " << specs.MultipleBuffering(pv) << std::endl;
@@ -1468,7 +1433,7 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent << "Write Bandwidth (total)                  : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " bytes/cycle" << std::endl;
     }
 
-    if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Partitioned)
+    if (specs.sharing_type == DataSpaceIDSharing::Partitioned)
     {
       if (stats.utilized_capacity.at(pv) == 0 && specs.Size(pv).IsSpecified() && specs.Size(pv).Get() > 0)
         out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
@@ -1479,7 +1444,7 @@ void BufferLevel::Print(std::ostream& out) const
   }
 
   // Print area for shared buffers.
-  if (specs.sharing_type == BufferLevel::DataSpaceIDSharing::Shared)
+  if (specs.sharing_type == DataSpaceIDSharing::Shared)
   {
     auto pv = problem::GetShape()->NumDataSpaces;
     out << indent << "Shared:" << std::endl;
