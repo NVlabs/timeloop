@@ -46,7 +46,7 @@
 extern bool gTerminateEval;
 
 bool gEnableLinkTransfers = (getenv("TIMELOOP_ENABLE_LINK_TRANSFERS") != NULL);
-bool gComputeAccurateReadsWITU = (getenv("TIMELOOP_ACCURATE_READS_WITU") != NULL);
+bool gComputeAccurateReadsWITU = false; // (getenv("TIMELOOP_ACCURATE_READS_WITU") != NULL);
 bool gEnableLinkTransferWarning = false;
 bool gExtrapolateUniformTemporal = true;
 bool gExtrapolateUniformSpatial = (getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION") == NULL);
