@@ -34,6 +34,6 @@ AddOption('--static', dest='link_static', default=False, action='store_true', he
 AddOption('--accelergy', dest='use_accelergy', default=False, action='store_true', help='Build Timeloop with Accelergy (default is to use pat/src)')
 
 env = Environment(ENV = os.environ)    
-env.Append(CCFLAGS = ['-g', '-O3'])
+env.Append(CCFLAGS = ['-g', '-O0'])
 env.Append(BUILD_BASE_DIR = Dir('.').abspath)
 env.SConscript('build/SConscript', exports='env')

@@ -47,11 +47,19 @@ namespace model
 //             Buffer Level             //
 // ==================================== //
 
+BufferLevel::BufferLevel() :
+    network_((Level*)(this))
+{ }
+
 BufferLevel::BufferLevel(const Specs& specs) :
-    specs_(specs)
+    specs_(specs),
+    network_(specs.network, (Level*)(this))
 {
   is_evaluated_ = false;
 }
+
+BufferLevel::~BufferLevel()
+{ }
 
 void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t nElements, problem::Shape::DataSpaceID pv, Specs& specs)
 {
@@ -61,8 +69,10 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   {
     specs.Name(pv) = config::parseName(name);
   }
+
   std::string className = "";
-  if (buffer.exists("attributes")) {
+  if (buffer.exists("attributes"))
+  {
     buffer.lookupValue("class", className);
     buffer = buffer.lookup("attributes");
   }
@@ -82,7 +92,7 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
 
   // Block size.
   std::uint32_t block_size;
-  specs.BlockSize(pv) = 1; // FIXME: derive block size from tile.
+  specs.BlockSize(pv) = 1;
   if (buffer.lookupValue("block-size", block_size) ||
       buffer.lookupValue("n_words", block_size) )
   {
@@ -147,7 +157,9 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
     if (num_ports == 1)
     {
       specs.NumPorts(pv) = num_ports;
-    } else {
+    }
+    else
+    {
       assert(num_ports == 2);
     }
   }
@@ -236,65 +248,24 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
     specs.MeshY(pv) = meshY;
   }
 
-  // Network Type.
-  std::string network_type;
-  if (buffer.lookupValue("network-type", network_type))
-  {
-    if (network_type.compare("1:1") == 0)
-      specs.network.Type(pv) = Network::Specs::NetworkType::OneToOne;
-    else if (network_type.compare("1:N") == 0)
-      specs.network.Type(pv) = Network::Specs::NetworkType::OneToMany;
-    else if (network_type.compare("M:N") == 0)
-      specs.network.Type(pv) = Network::Specs::NetworkType::ManyToMany;
-    else
-    {
-      std::cerr << "ERROR: Unrecognized network type: " << network_type << std::endl;
-      exit(1);
-    }
-  }
-    
-  // Network Word Bits.
-  std::uint32_t network_word_bits;
-  if (buffer.lookupValue("network-word-bits", network_word_bits))
-  {
-    specs.network.WordBits(pv) = network_word_bits;
-  }
-  else
-  {
-    specs.network.WordBits(pv) = specs.WordBits(pv).Get();
-  }
-
-  // Fanout.
-  std::uint32_t fanout;
-  if (buffer.lookupValue("fanout", fanout))
-  {
-    std::cerr << "ERROR: Fanout cannot be specified, it must be derived." << std::endl;
-    exit(1);
-  }
-
-  // Router energy.
-  double router_energy = 0;
-  buffer.lookupValue("router-energy", router_energy);
-  specs.network.RouterEnergy(pv) = router_energy;
-
-  // Wire energy.
-  double wire_energy = 0.0;
-  buffer.lookupValue("wire-energy", wire_energy);
-  specs.network.WireEnergy(pv) = wire_energy;
-
   // Vector Access Energy
   double tmp_access_energy = 0;
   double tmp_storage_area = 0;
 
-  if (specs.Tech(pv).Get() == Technology::DRAM) {
+  if (specs.Tech(pv).Get() == Technology::DRAM)
+  {
     assert(specs.ClusterSize(pv).Get() == 1);
-    tmp_access_energy = pat::DRAMEnergy(specs.network.WordBits(pv).Get() * specs.BlockSize(pv).Get());
+    tmp_access_energy = pat::DRAMEnergy(specs.WordBits(pv).Get() * specs.BlockSize(pv).Get());
     tmp_storage_area = 0;
-  } else if (specs.Size(pv).Get() == 0) {
+  }
+  else if (specs.Size(pv).Get() == 0)
+  {
     //SRAM
     tmp_access_energy = 0;
     tmp_storage_area = 0;
-  } else {
+  }
+  else
+  {
     std::uint64_t tmp_entries = specs.Size(pv).Get();
     std::uint64_t tmp_word_bits = specs.WordBits(pv).Get();
     std::uint64_t tmp_block_size = specs.BlockSize(pv).Get();
@@ -375,14 +346,17 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
     int len = buffers.getLength();
     for (int i = 0; i < len; i ++)
     {
-      // Sophia
-      ParseBufferSpecs(buffers[i], nElements, problem::Shape::DataSpaceID(pvi), specs);
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      ParseBufferSpecs(buffers[i], nElements, pv, specs);
+      Network::ParseSpecs(buffers[i], pv, specs.WordBits(pv).Get(), specs.network);
       pvi++;
     }
   }
   else
   {
-    ParseBufferSpecs(level, nElements, problem::GetShape()->NumDataSpaces, specs);
+    auto pv = problem::GetShape()->NumDataSpaces;
+    ParseBufferSpecs(level, nElements, pv, specs);
+    Network::ParseSpecs(level, pv, specs.WordBits(pv).Get(), specs.network);
     specs.level_name = specs.Name().Get();
   }
 
@@ -466,16 +440,17 @@ void BufferLevel::ValidateTopology(BufferLevel::Specs& specs)
 
 bool BufferLevel::DistributedMulticastSupported()
 {
-  bool retval = true;
+  return network_.DistributedMulticastSupported();
+  // bool retval = true;
 
-  for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
-  {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-    retval &= (specs_.network.Type(pv).IsSpecified() &&
-               specs_.network.Type(pv).Get() == Network::Specs::NetworkType::ManyToMany);
-  }
+  // for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
+  // {
+  //   auto pv = problem::Shape::DataSpaceID(pvi);
+  //   retval &= (specs_.network.Type(pv).IsSpecified() &&
+  //              specs_.network.Type(pv).Get() == Network::Specs::NetworkType::ManyToMany);
+  // }
 
-  return retval;
+  // return retval;
 }
 
 // PreEvaluationCheck(): allows for a very fast capacity-check
@@ -585,9 +560,29 @@ bool BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling::Compo
     ComputeBufferEnergy();
     ComputeReductionEnergy();
     ComputeAddrGenEnergy();
-    ComputeNetworkEnergy(inner_tile_area);
     ComputePerformance(compute_cycles);
   }
+
+  if (!break_on_failure || success)
+  {
+    // Network access-count calculation for Read-Modify-Write datatypes depends on
+    // whether the unit receiving a Read-Write datatype has the ability to do
+    // a Read-Modify-Write (e.g. accumulate) locally. If the unit isn't capable
+    // of doing this, we need to account for additional network traffic.
+    // FIXME: take this information from an explicit arch spec.
+    // FIXME: need to account for the case when this level is bypassed. In this
+    //        case we'll have to query a different level. Also size will be 0,
+    //        we may have to maintain a network_size.
+    problem::PerDataSpace<bool> hw_reduction_supported;
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      hw_reduction_supported[pv] =
+        !(specs_.Tech(pv).IsSpecified() && specs_.Tech(pv).Get() == Technology::DRAM);
+    }
+    success &= network_.Evaluate(tile, inner_tile_area, hw_reduction_supported, break_on_failure);
+  }
+
   return success;
 }
 
@@ -601,14 +596,13 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
   // so just copy it from datatype #0.
   subnest_ = tile[0].subnest;
 
-  // Stats are always collected per-DataSpaceID.
+  //
+  // 1. Collect stats (stats are always collected per-DataSpaceID).
+  //
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
 
-    //
-    // Collect stats.
-    //
     stats_.keep[pv] = mask[pv];
     
     stats_.partition_size[pv] = tile[pvi].partition_size;
@@ -630,39 +624,7 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
       // FIXME: temporal reduction and network costs if hardware reduction isn't
       // supported appears to be wonky - network costs may need to trickle down
       // all the way to the level that has the reduction hardware.
-      stats_.temporal_reductions[pv] = tile[pvi].content_accesses - tile[pvi].size;
-
-      // Network access-count calculation for Read-Modify-Write datatypes depends on
-      // whether the unit receiving a Read-Write datatype has the ability to do
-      // a Read-Modify-Write (e.g. accumulate) locally. If the unit isn't capable
-      // of doing this, we need to account for additional network traffic.
-      // FIXME: take this information from an explicit arch spec.
-      // FIXME: need to account for the case when this level is bypassed. In this
-      //        case we'll have to query a different level. Also size will be 0,
-      //        we may have to maintain a network_size.
-      bool hw_reduction_supported =
-        !(specs_.Tech(pv).IsSpecified() && specs_.Tech(pv).Get() == Technology::DRAM);
-      
-      if (hw_reduction_supported)
-      {
-        stats_.network.ingresses[pv] = tile[pvi].accesses;
-      }
-      else
-      {
-        stats_.network.ingresses[pv].resize(tile[pvi].accesses.size());
-        for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
-        {
-          if (tile[pvi].accesses[i] > 0)
-          {
-            assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
-            stats_.network.ingresses[pv][i] = 2*tile[pvi].accesses[i] - tile[pvi].size;
-          }
-          else
-          {
-            stats_.network.ingresses[pv][i] = 0;
-          }
-        }
-      }
+      stats_.temporal_reductions[pv] = tile[pvi].content_accesses - tile[pvi].partition_size;
     }
     else // Read-only data type.
     {
@@ -671,59 +633,12 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
       stats_.fills[pv] = tile[pvi].fills;
       stats_.address_generations[pv] = stats_.reads[pv] + stats_.fills[pv]; // scalar
       stats_.temporal_reductions[pv] = 0;
-      stats_.network.ingresses[pv] = tile[pvi].accesses;
     }
-
-    stats_.network.spatial_reductions[pv] = 0;
-    stats_.network.distributed_multicast[pv] = tile[pvi].distributed_multicast;
-    stats_.network.avg_hops[pv].resize(tile[pvi].accesses.size());
-    for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
-    {
-      if (tile[pvi].accesses[i] > 0)
-      {
-        stats_.network.avg_hops[pv][i] = tile[pvi].cumulative_hops[i] / double(tile[pvi].scatter_factors[i]);
-      }
-    }
-    
-    // FIXME: issues with link-transfer modeling:
-    // 1. link transfers should result in buffer accesses to a peer.
-    // 2. should reductions via link transfers be counted as spatial or temporal?
-    stats_.network.link_transfers[pv] = tile[pvi].link_transfers;
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
-    {
-      stats_.network.spatial_reductions[pv] += tile[pvi].link_transfers;
-    }
-
-    stats_.network.fanout[pv] = tile[pvi].fanout;
-    if (stats_.network.distributed_multicast.at(pv))
-      stats_.network.distributed_fanout[pv] = tile[pvi].distributed_fanout;
-    else
-      stats_.network.distributed_fanout[pv] = 0;
-
-    // FIXME: multicast factor can be heterogeneous. This is correctly
-    // handled by energy calculations, but not correctly reported out
-    // in the stats.
-    stats_.network.multicast_factor[pv] = 0;
-
-    for (unsigned i = 0; i < stats_.network.ingresses[pv].size(); i++)
-    {
-      if (stats_.network.ingresses[pv][i] > 0)
-      {
-        auto factor = i + 1;
-        if (factor > stats_.network.multicast_factor[pv])
-        {
-          stats_.network.multicast_factor[pv] = factor;
-        }
-        if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
-        {
-          stats_.network.spatial_reductions[pv] += (i * stats_.network.ingresses[pv][i]);
-        }
-      }
-    }
-
   }
 
-  // Derive/validate architecture specs based on stats.
+  //
+  // 2. Derive/validate architecture specs based on stats.
+  //
   if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
   {
     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
@@ -765,11 +680,6 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
       else if (stats_.utilized_instances.at(pv) > specs_.Instances(pv).Get())
         success = false;
       
-      if (!specs_.network.Fanout(pv).IsSpecified())
-        specs_.network.Fanout(pv) = stats_.network.fanout.at(pv);
-      else if (stats_.network.fanout.at(pv) > specs_.network.Fanout(pv).Get())
-        success = false;
-
       // Bandwidth constraints cannot be checked/inherited at this point
       // because the calculation is a little more involved. We will do
       // this later in the ComputePerformance() function.
@@ -822,23 +732,6 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
       specs_.Instances() = stats_.utilized_instances.Max();
     else if (stats_.utilized_instances.Max() > specs_.Instances().Get())
       success = false;
-
-    // Note: the following calculation uses the Max of fanouts
-    // because it assumes that the fanout network is shared if the buffer
-    // itself is shared. We should perhaps relax this.
-    if (!specs_.network.Fanout().IsSpecified())
-      specs_.network.Fanout() = stats_.network.fanout.Max();
-    else if (stats_.network.fanout.Max() > specs_.network.Fanout().Get())
-    {
-      // This CANNOT happen, mapspace should have taken care of this.
-      // assert(false);
-      std::cerr << "WARNING: fanout FAIL level = " << specs_.level_name << " req = "
-                << stats_.network.fanout.Max() << " avail = "
-                << specs_.network.Fanout().Get() << std::endl;
-      std::cerr << "I'm invalidating this mapping, but the mapping constructor "
-                << "in the mapspace should have taken care of this." << std::endl;
-      success = false;
-    }
 
     // Bandwidth constraints cannot be checked/inherited at this point
     // because the calculation is a little more involved. We will do
@@ -922,105 +815,12 @@ void BufferLevel::ComputeBufferEnergy()
   }
 }
 
-// Compute network energy.
-void BufferLevel::ComputeNetworkEnergy(const double inner_tile_area)
-{
-#define PROBABILISTIC_MULTICAST 0
-#define PRECISE_MULTICAST 1
-#define EYERISS_HACK_MULTICAST 2  
-
-#define MULTICAST_MODEL PROBABILISTIC_MULTICAST
-  
-  // NOTE! Stats are always maintained per-DataSpaceID
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-  {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-
-    double energy_per_hop =
-            WireEnergyPerHop(specs_.network.WordBits(pv).Get(), inner_tile_area);
-    double energy_wire = specs_.network.WireEnergy(pv).Get();
-    if (energy_wire != 0.0) { // user provided energy per wire length per bit
-      energy_per_hop = specs_.network.WordBits(pv).Get() * inner_tile_area * energy_wire;
-    }
-    double energy_per_router = specs_.network.RouterEnergy(pv).Get();
-    
-    auto fanout = stats_.network.distributed_multicast.at(pv) ?
-      stats_.network.distributed_fanout.at(pv) :
-      stats_.network.fanout.at(pv);
-
-    double total_wire_hops = 0;
-    std::uint64_t total_routers_touched = 0;
-    double total_ingresses = 0;
-    
-    for (unsigned i = 0; i < stats_.network.ingresses[pv].size(); i++)
-    {
-      auto ingresses = stats_.network.ingresses.at(pv).at(i);
-      total_ingresses += ingresses;
-      if (ingresses > 0)
-      {
-        auto multicast_factor = i + 1;
-
-#if MULTICAST_MODEL == PROBABILISTIC_MULTICAST
-
-        auto num_hops = NumHops(multicast_factor, fanout);
-        total_routers_touched += (1 + num_hops) * ingresses;
-
-#elif MULTICAST_MODEL == PRECISE_MULTICAST
-
-        (void)fanout;
-        (void)multicast_factor;
-        if (stats_.network.distributed_multicast.at(pv))
-        {
-          std::cerr << "ERROR: precise multicast calculation does not work with distributed multicast." << std::endl;
-          exit(1);
-        }
-        auto num_hops = stats_.network.avg_hops.at(pv).at(i);
-        total_routers_touched += (1 + std::uint64_t(std::floor(num_hops))) * ingresses;
-
-#elif MULTICAST_MODEL == EYERISS_HACK_MULTICAST
-
-        (void)fanout;
-        unsigned num_hops = 0;
-        
-        // Weights are multicast, and energy is already captured in array access.
-        if (pv != problem::Shape::DataSpaceID::Weight)
-        {
-          // Input and Output activations are forwarded between neighboring PEs,
-          // so the number of link transfers is equal to the multicast factor-1.
-          num_hops = multicast_factor - 1;
-        }
-        
-        // We pick up the router energy from the .cfg file as the "array" energy
-        // as defined in the Eyeriss paper, so we don't add a 1 to the multicast
-        // factor.
-        total_routers_touched += num_hops * ingresses;
-
-#else
-#error undefined MULTICAST_MODEL
-#endif        
-
-        total_wire_hops += num_hops * ingresses;
-      }
-    }
-
-    stats_.network.energy_per_hop[pv] = energy_per_hop;
-    stats_.network.num_hops[pv] = total_ingresses > 0 ? total_wire_hops / total_ingresses : 0;
-    stats_.network.energy[pv] =
-      total_wire_hops * energy_per_hop + // wire energy
-      total_routers_touched * energy_per_router; // router energy
-
-    stats_.network.link_transfer_energy[pv] =
-      stats_.network.link_transfers.at(pv) * (energy_per_hop + 2*energy_per_router);
-  }
-}
-
 //
 // Compute reduction energy.
 //
 void BufferLevel::ComputeReductionEnergy()
 {
   // Temporal reduction: add a value coming in on the network to a value stored locally.
-  // Spatial reduction: add two values in the network.
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
@@ -1028,14 +828,10 @@ void BufferLevel::ComputeReductionEnergy()
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
         pat::AdderEnergy(specs_.WordBits(pv).Get(), specs_.network.WordBits(pv).Get());
-      
-      stats_.network.spatial_reduction_energy[pv] = stats_.network.spatial_reductions[pv] * 
-        pat::AdderEnergy(specs_.network.WordBits(pv).Get(), specs_.network.WordBits(pv).Get());
     }
     else
     {
       stats_.temporal_reduction_energy[pv] = 0;
-      stats_.network.spatial_reduction_energy[pv] = 0;
     }
   }
 }
@@ -1082,8 +878,8 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
     auto pv = problem::Shape::DataSpaceID(pvi);
     // FIXME: move the following code to Network bandwidth calculation.
     // auto total_ingresses =
-    //   std::accumulate(stats_.network.ingresses.at(pv).begin(),
-    //                   stats_.network.ingresses.at(pv).end(), static_cast<std::uint64_t>(0));
+    //   std::accumulate(network_.stats_.ingresses.at(pv).begin(),
+    //                   network_.stats_.ingresses.at(pv).end(), static_cast<std::uint64_t>(0));
     auto total_read_accesses    =   stats_.reads.at(pv);
     auto total_write_accesses   =   stats_.updates.at(pv) + stats_.fills.at(pv);
     unconstrained_read_bandwidth[pv]  = (double(total_read_accesses)  / compute_cycles) * word_size;
@@ -1185,9 +981,9 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
 //
 
 STAT_ACCESSOR(double, StorageEnergy, stats_.energy.at(pv) * stats_.utilized_instances.at(pv))
-STAT_ACCESSOR(double, NetworkEnergy, (stats_.network.link_transfer_energy.at(pv) + stats_.network.energy.at(pv)) * stats_.utilized_instances.at(pv))
+STAT_ACCESSOR(double, NetworkEnergy, (network_.stats_.link_transfer_energy.at(pv) + network_.stats_.energy.at(pv)) * stats_.utilized_instances.at(pv))
 STAT_ACCESSOR(double, TemporalReductionEnergy, stats_.temporal_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
-STAT_ACCESSOR(double, SpatialReductionEnergy, stats_.network.spatial_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
+STAT_ACCESSOR(double, SpatialReductionEnergy, network_.stats_.spatial_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
 STAT_ACCESSOR(double, AddrGenEnergy, stats_.addr_gen_energy.at(pv) * stats_.utilized_clusters.at(pv)) // Note!!! clusters, not instances.
 STAT_ACCESSOR(double, Energy,
               StorageEnergy(pv) +
@@ -1274,26 +1070,9 @@ std::uint64_t BufferLevel::Cycles() const
   return stats_.cycles;
 }
 
-// ----------------------
-//    PAT interfacing
-// ----------------------
-
-double BufferLevel::WireEnergyPerHop(std::uint64_t word_bits, double inner_tile_area)
-{
-  // Assuming square modules
-  double inner_tile_width = std::sqrt(inner_tile_area);  // um
-  inner_tile_width /= 1000;                              // mm
-  return pat::WireEnergy(word_bits, inner_tile_width);
-}
-
-double BufferLevel::NumHops(std::uint32_t multicast_factor, std::uint32_t fanout)
-{
-  // Assuming central/side entry point.
-  double root_f = std::sqrt(multicast_factor);
-  double root_n = std::sqrt(fanout);
-  return (root_n*root_f) + 0.5*(root_n-root_f) - (root_n/root_f) + 0.5;
-  // return (root_n*root_f);
-}
+// ---------------
+//    Printers
+// ---------------
 
 std::ostream& operator<<(std::ostream& out, const BufferLevel::Technology& tech)
 {
@@ -1304,10 +1083,6 @@ std::ostream& operator<<(std::ostream& out, const BufferLevel::Technology& tech)
   }
   return out;
 }
-
-// ---------------
-//    Printers
-// ---------------
 
 std::ostream& operator<<(std::ostream& out, const BufferLevel& buffer_level)
 {
@@ -1364,11 +1139,7 @@ void BufferLevel::Print(std::ostream& out) const
   out << std::endl;
 
   // Network specs are inlined for the moment.
-  out << indent << "NETWORK SPECS" << std::endl;
-  out << indent << "-------------" << std::endl;
-  out << specs.network;
-
-  out << std::endl;
+  network_.Print(out);
 
   // If the buffer hasn't been evaluated on a specific mapping yet, return.
   if (!IsEvaluated())
@@ -1455,67 +1226,6 @@ void BufferLevel::Print(std::ostream& out) const
     auto pv = problem::GetShape()->NumDataSpaces;
     out << indent << "Shared:" << std::endl;
     out << indent + indent << "Area (per-instance)                      : " << stats.area.at(pv) << " um2" << std::endl;
-  }
-  
-  out << std::endl;
-
-  out << indent << "NETWORK STATS" << std::endl;
-  out << indent << "-------------" << std::endl;
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-  {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-    out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
-
-    out << indent + indent << "Fanout                                  : "
-        << stats.network.fanout.at(pv) << std::endl;
-    out << indent + indent << "Fanout (distributed)                    : "
-        << stats.network.distributed_fanout.at(pv) << std::endl;
-    if (stats.network.distributed_multicast.at(pv))
-      out << indent + indent << "Multicast factor (distributed)          : ";
-    else
-      out << indent + indent << "Multicast factor                        : ";
-    out << stats.network.multicast_factor.at(pv) << std::endl;
-      
-    auto total_accesses =
-      std::accumulate(stats.network.ingresses.at(pv).begin(),
-                      stats.network.ingresses.at(pv).end(),
-                      static_cast<std::uint64_t>(0));
-    out << indent + indent << "Ingresses                               : " << total_accesses << std::endl;
-    
-    std::string mcast_type = "@multicast ";
-    if (stats.network.distributed_multicast.at(pv))
-      mcast_type += "(distributed) ";
-    for (std::uint64_t i = 0; i < stats.network.ingresses.at(pv).size(); i++)
-      if (stats.network.ingresses.at(pv)[i] != 0)
-        out << indent + indent + indent << mcast_type << i + 1 << ": "
-            << stats.network.ingresses.at(pv)[i] << std::endl;
-
-    out << indent + indent << "Link transfers                          : "
-        << stats.network.link_transfers.at(pv) << std::endl;
-    out << indent + indent << "Spatial reductions                      : "
-        << stats.network.spatial_reductions.at(pv) << std::endl;
-    
-    out << indent + indent << "Average number of hops                  : "
-        << stats.network.num_hops.at(pv) << std::endl;
-    
-    out << indent + indent << "Energy (per-hop)                        : "
-        << stats.network.energy_per_hop.at(pv)*1000 << " fJ" << std::endl;
-
-    out << indent + indent << "Energy (per-instance)                   : "
-        << stats.network.energy.at(pv) << " pJ" << std::endl;
-    out << indent + indent << "Energy (total)                          : "
-        << stats.network.energy.at(pv) * stats.utilized_instances.at(pv)
-        << " pJ" << std::endl;
-    out << indent + indent << "Link transfer energy (per-instance)     : "
-        << stats.network.link_transfer_energy.at(pv) << " pJ" << std::endl;
-    out << indent + indent << "Link transfer energy (total)            : "
-        << stats.network.link_transfer_energy.at(pv) * stats.utilized_instances.at(pv)
-        << " pJ" << std::endl;    
-    out << indent + indent << "Spatial Reduction Energy (per-instance) : "
-        << stats.network.spatial_reduction_energy.at(pv) << " pJ" << std::endl;
-    out << indent + indent << "Spatial Reduction Energy (total)        : "
-        << stats.network.spatial_reduction_energy.at(pv) * stats.utilized_instances.at(pv)
-        << " pJ" << std::endl;
   }
   
   out << std::endl;

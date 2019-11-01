@@ -134,14 +134,16 @@ def parse_timeloop_stats(filename):
         read_energy = energy_per_access_per_instance * reads_per_instance * instances
         
         # Network energy
-        network = stats.findall('network')[0]
-        num_hops = get_stat(network, 'num_hops', float)
-        energy_per_hop_per_instance = get_stat(network, 'energy_per_hop', float)
-        ingresses = get_stat(network, 'ingresses', int)      
+        network = level.findall('network_')[0]
+        network_stats = network.findall('stats_')[0]
+
+        num_hops = get_stat(network_stats, 'num_hops', float)
+        energy_per_hop_per_instance = get_stat(network_stats, 'energy_per_hop', float)
+        ingresses = get_stat(network_stats, 'ingresses', int)      
         network_energy_in_pJ = num_hops * ingresses * energy_per_hop_per_instance * instances
         
         # Add energy
-        spatial_add_energy_per_instance = get_stat(network, 'spatial_reduction_energy', float) 
+        spatial_add_energy_per_instance = get_stat(network_stats, 'spatial_reduction_energy', float) 
         temporal_add_energy_per_instance = get_stat(stats, 'temporal_reduction_energy', float) 
         temporal_add_energy = np.nansum(temporal_add_energy_per_instance * instances)
         spatial_add_energy = np.nansum(spatial_add_energy_per_instance * instances)

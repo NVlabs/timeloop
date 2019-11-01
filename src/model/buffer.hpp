@@ -130,7 +130,9 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(read_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(write_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(multiple_buffering);
-        ar& BOOST_SERIALIZATION_NVP(network);
+        // Do *not* print network specs. They will be printed when the
+        // Network module itself is serialized.
+        // ar& BOOST_SERIALIZATION_NVP(network);
         ar& BOOST_SERIALIZATION_NVP(min_utilization);
         ar& BOOST_SERIALIZATION_NVP(vector_access_energy);
         ar& BOOST_SERIALIZATION_NVP(storage_area);
@@ -259,7 +261,6 @@ class BufferLevel : public Level
     problem::PerDataSpace<unsigned long> fills;
     problem::PerDataSpace<unsigned long> address_generations;
     problem::PerDataSpace<unsigned long> temporal_reductions;
-    // problem::PerDataSpace<double> bandwidth;
     problem::PerDataSpace<double> read_bandwidth;
     problem::PerDataSpace<double> write_bandwidth;
     problem::PerDataSpace<double> energy_per_access;
@@ -269,9 +270,6 @@ class BufferLevel : public Level
     PerDataSpaceOrShared<double> area;
     std::uint64_t cycles;
     double slowdown;
-
-    // Network stats are inlined for now.
-    Network::Stats network;
 
     // Serialization
     friend class boost::serialization::access;
@@ -300,7 +298,9 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(area);
         ar& BOOST_SERIALIZATION_NVP(cycles);
         ar& BOOST_SERIALIZATION_NVP(slowdown);
-        ar& BOOST_SERIALIZATION_NVP(network);
+        // Do *not* print network stats. They will be printed when the
+        // Network module itself is serialized.
+        // ar& BOOST_SERIALIZATION_NVP(network);
       }
     }
   };
@@ -314,6 +314,8 @@ class BufferLevel : public Level
   std::vector<loop::Descriptor> subnest_;
   Stats stats_;
   Specs specs_;
+
+  Network network_;
   
   // Serialization
   friend class boost::serialization::access;
@@ -326,19 +328,25 @@ class BufferLevel : public Level
       ar& BOOST_SERIALIZATION_NVP(subnest_);
       ar& BOOST_SERIALIZATION_NVP(specs_);
       ar& BOOST_SERIALIZATION_NVP(stats_);
+      ar& BOOST_SERIALIZATION_NVP(network_);
     }
   }
 
+  //
+  // API
+  //
+
  public:
-  BufferLevel() { }
+  BufferLevel();
   BufferLevel(const Specs & specs);
-  ~BufferLevel() { }
+  ~BufferLevel();
 
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
-  // the dynamic Spec() call later.
+  // the constructor when an object is actually created.
   static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
-  static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t nElements, problem::Shape::DataSpaceID pv, Specs& specs);
+  static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t nElements,
+                               problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
   
   bool DistributedMulticastSupported() override;
@@ -356,7 +364,6 @@ class BufferLevel : public Level
                        const bool break_on_failure);
   void ComputeArea();
   void ComputePerformance(const std::uint64_t compute_cycles);
-  void ComputeNetworkEnergy(const double inner_tile_area);
   void ComputeBufferEnergy();
   void ComputeReductionEnergy();
   void ComputeAddrGenEnergy();
@@ -383,12 +390,8 @@ class BufferLevel : public Level
   std::uint64_t MaxFanout() const override
   {
     // FIXME: remove this function, it's used only once.
-    return stats_.network.fanout.Max();
+    return network_.MaxFanout();
   }
-
-  // PAT interface.
-  static double WireEnergyPerHop(std::uint64_t word_bits, const double inner_tile_area);
-  static double NumHops(std::uint32_t multicast_factor, std::uint32_t fanout);
 
   // Printers.
   void Print(std::ostream& out) const;
