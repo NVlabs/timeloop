@@ -40,9 +40,7 @@ namespace analysis
 struct ElementState
 {
   problem::OperationSpace last_point_set;
-  problem::OperationSpace dataspace_partition;
   problem::PerDataSpace<std::size_t> max_size;
-  problem::PerDataSpace<std::size_t> dataspace_partition_size;
 
   // Multicast functionality
   // Stores accesses with various multicast factors for each data type

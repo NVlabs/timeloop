@@ -46,7 +46,6 @@
 extern bool gTerminateEval;
 
 bool gEnableLinkTransfers = (getenv("TIMELOOP_ENABLE_LINK_TRANSFERS") != NULL);
-bool gComputeAccurateReadsWITU = false; // (getenv("TIMELOOP_ACCURATE_READS_WITU") != NULL);
 bool gEnableLinkTransferWarning = false;
 bool gExtrapolateUniformTemporal = true;
 bool gExtrapolateUniformSpatial = (getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION") == NULL);
@@ -316,11 +315,6 @@ void NestAnalysis::CollectWorkingSets()
             cur.live_state[REPR_ELEM_ID].link_transfers[pv];
       }
 
-      // Compute the size of the dataspace partition.
-      const uint64_t REPR_ELEM_ID = 0;  // representative element id.
-      condensed_state.dataspace_partition_size =
-        cur.live_state[REPR_ELEM_ID].dataspace_partition.GetSizes();
-
       // Build the subnest corresponding to this level.
       // We need a vector of nests because a master spatial level's
       // subnest should include the nests of the slave spatial levels.
@@ -343,10 +337,7 @@ void NestAnalysis::CollectWorkingSets()
       {
         tiling::TileInfo tile;
         tile.size                   = condensed_state.max_size[pv];
-        if (gComputeAccurateReadsWITU)
-          tile.partition_size         = condensed_state.dataspace_partition_size[pv];
-        else
-          tile.partition_size         = condensed_state.max_size[pv];
+        tile.partition_size         = 0; // will be set later.
         tile.accesses               = condensed_state.accesses[pv]; // network accesses
         tile.fills                  = 0; // will be set later
         tile.scatter_factors        = condensed_state.scatter_factors[pv];
@@ -423,16 +414,6 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(
     std::transform(sizes.begin(), sizes.end(), cur_state.max_size.begin(),
                    cur_state.max_size.begin(),
                    [](std::size_t x, std::size_t y) { return std::max(x, y); });
-
-    if (gComputeAccurateReadsWITU)
-    {
-      // Track the complete dataspace partition that this element walks through
-      // over the course of execution of the full workload. Note that the Add
-      // operation will probably result in addition of discontiguous point sets.
-      // The behavior we want here is to include the entire subspace between
-      // these point sets. To do that, we use the ExtrudeAdd() operation.
-      cur_state.dataspace_partition.ExtrudeAdd(point_set);
-    }
   }
 
   // Reset indices
@@ -576,7 +557,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool run_last_iteration = gComputeAccurateReadsWITU;
+    bool run_last_iteration = false;
       
     if (gExtrapolateUniformTemporal)
     {
