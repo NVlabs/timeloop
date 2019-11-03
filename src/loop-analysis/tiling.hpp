@@ -69,6 +69,9 @@ struct TileInfo
   std::uint64_t fanout;                  // per-element fanout to next-level.
   std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
+  bool is_master_spatial;
+  //double partition_fraction;
+  std::size_t partition_fraction_denominator;
 
   std::uint64_t GetTotalAccesses() const
   {

@@ -169,7 +169,7 @@ void MaskTiles(std::vector<TileInfo>& tile_nest, std::bitset<MaxTilingLevels> ma
         // Note: partition size for outer does not change.
       }
     }
-    
+
     // Obliterate the buffer stats (*not* the network stats) for the cur tiling level.
     tile_nest[cur].size = 0;
     tile_nest[cur].partition_size = 0;
@@ -306,9 +306,11 @@ void ComputeFills(std::vector<TileInfo>& tile_nest)
       {
         // FIXME: is this correct in the face of spatial sliding windows (e.g. Input halos)?
         // If scatter factors are calculated on fragments, then this will be correct, because
-        // the halos will be counted as "multicast" data. However, we are not sure if scatter
-        // factor calculation via spatial deltas looks at fragments of delivered temporal
-        // deltas, or entire temporal volumes.
+        // the halos will be counted as "multicast" data. However, scatter factor calculation
+        // via spatial deltas does not look at fragments of delivered temporal deltas, the
+        // code compares complete temporal deltas delivered to peer spatial instances.
+        // To fix this, we should be able to use the new overlap-fraction based method used to
+        // calculate partition sizes in some way.
         tile_nest[cur].fills += tile_nest[outer].accesses[i] / tile_nest[outer].scatter_factors[i];
         // std::cerr << "    mcast = " << i+1 << std::endl;
         // std::cerr << "      outer accesses = " << tile_nest[outer].accesses[i] << std::endl;
@@ -322,6 +324,24 @@ void ComputeFills(std::vector<TileInfo>& tile_nest)
     // assert(tile_nest[cur].fills <= tile_nest[cur].GetTotalAccesses());
   }
 
+}
+
+// Compute partition sizes.
+void ComputePartitionSizes(std::vector<TileInfo>& tile_nest)
+{
+  int num_tiling_levels = tile_nest.size();
+
+  // Outermost level must contain the full dataspace partition in
+  // its single instance.
+  std::size_t partition_size = tile_nest[num_tiling_levels-1].size;
+  tile_nest[num_tiling_levels-1].partition_size = partition_size;
+
+  for (int cur = num_tiling_levels-2; cur >= 0; cur--)
+  {
+    partition_size = (partition_size * tile_nest[cur].size) /
+      tile_nest[cur].partition_fraction_denominator;
+    tile_nest[cur].partition_size = partition_size;
+  }  
 }
 
 // Collapse tiles into a given number of levels.
@@ -347,8 +367,9 @@ CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
       // Form a new physical tiling level.
       TileInfo collapsed_tile;
 
-      // Figure out the last loop that belongs to the current tile.
+      // Find the last loop that belongs to the current tile.
       int boundary_loop_id = processed_loop_count;
+
       while (!tiles[pv][boundary_loop_id].is_on_storage_boundary &&
              boundary_loop_id < total_loops - 1)
       {
@@ -380,12 +401,25 @@ CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
       collapsed_tile.replication_factor = tiles[pv][outermost_loop].replication_factor;
       collapsed_tile.fanout = tiles[pv][innermost_loop].fanout;
 
+      if (!solution[pv].empty())
+      {
+        auto& inner_tile = solution[pv].back();
+
+        inner_tile.partition_fraction_denominator =
+          tiles[pv][innermost_loop].is_master_spatial ?
+          tiles[pv][innermost_loop].size :
+          inner_tile.size;
+      }
+
       solution[pv].push_back(collapsed_tile);
 
       processed_loop_count = boundary_loop_id + 1;
       cur_tiling_level++;
     }
     assert(cur_tiling_level == num_tiling_levels);
+
+    // Compute partition sizes.
+    ComputePartitionSizes(solution[pv]);
 
     // Calculate fills.
     ComputeFills(solution[pv]);

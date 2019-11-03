@@ -357,6 +357,7 @@ void NestAnalysis::CollectWorkingSets()
         tile.replication_factor     = num_spatial_elems_[cur.level];
         tile.fanout                 = spatial_fanouts_[cur.level];
         tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
+        tile.is_master_spatial      = master_spatial_level_[cur.level];
         working_sets_[pv].push_back(tile);
       }
 
@@ -414,7 +415,9 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(
   // of this level.
   // Need to be done only for levels which will map to physical storage levels
   // after we run collapseTiles.
-  if (storage_boundary_level_[level])
+  // Also need to do this for master spatial levels in order to calculate
+  // partition size later.
+  if (storage_boundary_level_[level] || master_spatial_level_[level])
   {
     auto sizes = point_set.GetSizes();
     std::transform(sizes.begin(), sizes.end(), cur_state.max_size.begin(),

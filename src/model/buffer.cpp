@@ -1179,8 +1179,7 @@ void BufferLevel::Print(std::ostream& out) const
     {
       out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
-      // Note: Partition size calculation is only correct with accurate ReadsWITU (see nest-analysis code).
-      // out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
+      out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
       out << indent + indent << "Utilized capacity                        : " << stats.utilized_capacity.at(pv) << std::endl;
       out << indent + indent << "Utilized instances (max)                 : " << stats.utilized_instances.at(pv) << std::endl;
       out << indent + indent << "Utilized clusters (max)                  : " << stats.utilized_clusters.at(pv) << std::endl;
