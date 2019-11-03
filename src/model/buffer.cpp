@@ -1139,7 +1139,7 @@ void BufferLevel::Print(std::ostream& out) const
   out << std::endl;
 
   // Network specs are inlined for the moment.
-  network_.Print(out);
+  network_.PrintSpecs(out);
 
   // If the buffer hasn't been evaluated on a specific mapping yet, return.
   if (!IsEvaluated())
@@ -1228,6 +1228,9 @@ void BufferLevel::Print(std::ostream& out) const
   }
   
   out << std::endl;
+
+  // Network stats are inlined for the moment.
+  network_.PrintStats(out);
 }
 
 }  // namespace model

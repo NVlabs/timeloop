@@ -612,9 +612,9 @@ class Network
   }
 
   //
-  // Print.
+  // Printers.
   //
-  void Print(std::ostream& out) const
+  void PrintSpecs(std::ostream& out) const
   {
     std::string indent = "    ";
 
@@ -623,7 +623,12 @@ class Network
     out << specs_;
 
     out << std::endl;
+  }
     
+  void PrintStats(std::ostream& out) const
+  {
+    std::string indent = "    ";
+
     out << indent << "NETWORK STATS" << std::endl;
     out << indent << "-------------" << std::endl;
     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
@@ -684,9 +689,13 @@ class Network
     }
   
     out << std::endl;
-
   }
 
+  void Print(std::ostream& out)
+  {
+    PrintSpecs(out);
+    PrintStats(out);
+  }
 
   //
   // PAT interface.
