@@ -198,8 +198,14 @@ class PerDataSpaceOrShared
 // ----- End Macro -----
 
 // ----- Macro to add Stat Accessors -----
-#define STAT_ACCESSOR(Type, FuncName, Expression)                                     \
-Type BufferLevel::FuncName(problem::Shape::DataSpaceID pv) const                      \
+
+#define STAT_ACCESSOR_HEADER_QUALIFIED(Type, Class, FuncName)                         \
+Type Class::FuncName(problem::Shape::DataSpaceID pv) const
+
+#define STAT_ACCESSOR_HEADER(Type, FuncName)                                          \
+Type FuncName(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const
+
+#define STAT_ACCESSOR_BODY(Type, FuncName, Expression)                                \
 {                                                                                     \
   if (pv != problem::GetShape()->NumDataSpaces)                                       \
   {                                                                                   \
@@ -215,5 +221,13 @@ Type BufferLevel::FuncName(problem::Shape::DataSpaceID pv) const                
     return stat;                                                                      \
   }                                                                                   \
 }
+
+#define STAT_ACCESSOR(Type, Class, FuncName, Expression)                              \
+  STAT_ACCESSOR_HEADER_QUALIFIED(Type, Class, FuncName)                               \
+  STAT_ACCESSOR_BODY(Type, FuncName, Expression)
+
+#define STAT_ACCESSOR_INLINE(Type, FuncName, Expression)                              \
+  STAT_ACCESSOR_HEADER(Type, FuncName)                                                \
+  STAT_ACCESSOR_BODY(Type, FuncName, Expression)
 
 } // namespace model

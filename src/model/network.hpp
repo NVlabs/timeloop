@@ -717,6 +717,19 @@ class Network
     // return (root_n*root_f);
   }
 
+  //
+  // Accessors.
+  //
+
+  STAT_ACCESSOR_INLINE(double, NetworkEnergy,
+                       (stats_.link_transfer_energy.at(pv) + stats_.energy.at(pv)) * stats_.utilized_instances.at(pv))
+  STAT_ACCESSOR_INLINE(double, SpatialReductionEnergy,
+                       stats_.spatial_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
+  
+  STAT_ACCESSOR_INLINE(double, Energy,
+                       NetworkEnergy(pv) +
+                       SpatialReductionEnergy(pv))
+
 }; // class Network
 
 } // namespace model

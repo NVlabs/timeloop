@@ -980,21 +980,17 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
 // Accessors.
 //
 
-STAT_ACCESSOR(double, StorageEnergy, stats_.energy.at(pv) * stats_.utilized_instances.at(pv))
-STAT_ACCESSOR(double, NetworkEnergy, (network_.stats_.link_transfer_energy.at(pv) + network_.stats_.energy.at(pv)) * stats_.utilized_instances.at(pv))
-STAT_ACCESSOR(double, TemporalReductionEnergy, stats_.temporal_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
-STAT_ACCESSOR(double, SpatialReductionEnergy, network_.stats_.spatial_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
-STAT_ACCESSOR(double, AddrGenEnergy, stats_.addr_gen_energy.at(pv) * stats_.utilized_clusters.at(pv)) // Note!!! clusters, not instances.
-STAT_ACCESSOR(double, Energy,
+STAT_ACCESSOR(double, BufferLevel, StorageEnergy, stats_.energy.at(pv) * stats_.utilized_instances.at(pv))
+STAT_ACCESSOR(double, BufferLevel, TemporalReductionEnergy, stats_.temporal_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
+STAT_ACCESSOR(double, BufferLevel, AddrGenEnergy, stats_.addr_gen_energy.at(pv) * stats_.utilized_clusters.at(pv)) // Note!!! clusters, not instances.
+STAT_ACCESSOR(double, BufferLevel, Energy,
               StorageEnergy(pv) +
-              NetworkEnergy(pv) +
               TemporalReductionEnergy(pv) +
-              SpatialReductionEnergy(pv) +
               AddrGenEnergy(pv))
 
-STAT_ACCESSOR(std::uint64_t, Accesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv)))
-STAT_ACCESSOR(std::uint64_t, UtilizedCapacity, stats_.utilized_capacity.at(pv))
-STAT_ACCESSOR(std::uint64_t, UtilizedInstances, stats_.utilized_instances.at(pv))
+STAT_ACCESSOR(std::uint64_t, BufferLevel, Accesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv)))
+STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedCapacity, stats_.utilized_capacity.at(pv))
+STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedInstances, stats_.utilized_instances.at(pv))
 
 std::string BufferLevel::Name() const
 {

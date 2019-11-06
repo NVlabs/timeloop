@@ -167,7 +167,7 @@ class Application
     {
       std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
                 << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-          engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
+          engine.GetTopology().MACCs() << std::endl;
     
       std::ofstream map_txt_file(map_txt_file_name);
       mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().TileSizes());

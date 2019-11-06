@@ -47,6 +47,11 @@ namespace model
 
 class BufferLevel : public Level
 {
+
+  //
+  // Types.
+  //
+
  public:
   
   // Memory technology (FIXME: separate latch arrays).
@@ -310,13 +315,15 @@ class BufferLevel : public Level
   //
   
  private:
-  
+
   std::vector<loop::Descriptor> subnest_;
   Stats stats_;
   Specs specs_;
 
+ public:
   Network network_;
   
+ private:
   // Serialization
   friend class boost::serialization::access;
   template <class Archive>
@@ -331,6 +338,25 @@ class BufferLevel : public Level
       ar& BOOST_SERIALIZATION_NVP(network_);
     }
   }
+
+  //
+  // Private helpers.
+  //
+
+ private:
+  bool ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                       const bool break_on_failure);
+  void ComputeArea();
+  void ComputePerformance(const std::uint64_t compute_cycles);
+  void ComputeBufferEnergy();
+  void ComputeReductionEnergy();
+  void ComputeAddrGenEnergy();
+
+  double StorageEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+  double NetworkEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+  double TemporalReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+  double SpatialReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+  double AddrGenEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
 
   //
   // API
@@ -359,21 +385,7 @@ class BufferLevel : public Level
                 const double inner_tile_area, const std::uint64_t compute_cycles,
                 const bool break_on_failure) override;
 
-  // Private helpers.
-  bool ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                       const bool break_on_failure);
-  void ComputeArea();
-  void ComputePerformance(const std::uint64_t compute_cycles);
-  void ComputeBufferEnergy();
-  void ComputeReductionEnergy();
-  void ComputeAddrGenEnergy();
-
   // Accessors (post-evaluation).
-  double StorageEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
-  double NetworkEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
-  double TemporalReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
-  double SpatialReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
-  double AddrGenEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
   
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
  
