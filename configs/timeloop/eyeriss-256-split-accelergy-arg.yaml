@@ -36,6 +36,20 @@ architecture:
           attributes:
             datawidth: 1
             length: 1
+        - name: DRAM
+          class: DRAM
+          attributes:
+            word_width: 16
+        - name: GlobalBuffer
+          class: SRAM
+          attributes:
+            word_width: 16
+            n_words: 4
+            width: 64
+            depth: 16384
+            meshX: 1
+            read_bandwidth: 16
+            write_bandwidth: 16
         - name: DummyBuffer[0..15]
           class: regfile
           attributes:
@@ -43,27 +57,14 @@ architecture:
             word_width: 16
             entries: 0
             meshX: 16
-        - name: GlobalBuffer
-          class: SRAM
-          attributes:
-            word_width: 16
-            n_words: 4
-            width: word_width * n_words
-            depth: 16384
-            meshX: 1
-            read_bandwidth: 16
-            write_bandwidth: 16
-        - name: DRAM
-          class: DRAM
-          attributes:
-            word_width: 16
+
       subtree:
         - name: PE[0..255]
           local:
-            - name: PsumRegFile
+            - name: InputRegFile
               class: regfile
               attributes:
-                depth: 16
+                depth: 12
                 width: 16
                 word_width: 16
                 meshX: 16
@@ -78,15 +79,16 @@ architecture:
                 meshX: 16
                 read_bandwidth: 2
                 write_bandwidth: 2
-            - name: InputRegFile
+            - name: PsumRegFile
               class: regfile
               attributes:
-                depth: 12
+                depth: 16
                 width: 16
                 word_width: 16
                 meshX: 16
                 read_bandwidth: 2
                 write_bandwidth: 2
+
             - name: MACs
               class: intmac
               attributes:

@@ -173,7 +173,8 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
         }
       }
       // the deeper the tree, the closer the buffer to be with ArithmeticUnits.
-      storages.insert(storages.begin(), localStorages.begin(), localStorages.end());
+      // reverse the order so that top in the local list is at the bottem, matching the tree seq
+      storages.insert(storages.begin(), localStorages.rbegin(), localStorages.rend());
     }
   } // end while
 
