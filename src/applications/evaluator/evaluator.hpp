@@ -157,17 +157,27 @@ class Application
     auto& mapping = *mapping_;
     
     auto success = engine.Evaluate(mapping, workload_);
-    if (!std::accumulate(success.begin(), success.end(), true, std::logical_and<>{}))
+    auto level_names = arch_specs_.topology.LevelNames();
+    
+    for (unsigned level = 0; level < success.size(); level++)
     {
-      std::cout << "Illegal mapping, evaluation failed." << std::endl;
-      return;
+      if (!success[level])
+      {
+        std::cerr << "ERROR: illegal mapping, couldn't map level " << level_names.at(level) << std::endl;
+        exit(1);
+      }
     }
+    // if (!std::accumulate(success.begin(), success.end(), true, std::logical_and<>{}))
+    // {
+    //   std::cout << "Illegal mapping, evaluation failed." << std::endl;
+    //   return;
+    // }
 
     if (engine.IsEvaluated())
     {
       std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
                 << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-          engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
+          engine.GetTopology().MACCs() << std::endl;
     
       std::ofstream map_txt_file(map_txt_file_name);
       mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().TileSizes());

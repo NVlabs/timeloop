@@ -143,50 +143,7 @@ class Engine : public Module
 
   friend std::ostream& operator << (std::ostream& out, Engine& engine)
   {
-    std::ios state(NULL);
-    state.copyfmt(out);
-    // out.imbue(std::locale("en_US.UTF-8"));
-    out << std::fixed << std::setprecision(2);
-
-    out << "Topology" << std::endl;
-    out << "--------" << std::endl;
     out << engine.topology_;
-    out << std::endl;
-
-    out << "Engine Stats" << std::endl;
-    out << "------------" << std::endl;
-    
-    if (engine.is_evaluated_)
-    {
-      out << "Utilization: " << engine.Utilization() << std::endl;
-      out << "Cycles: " << engine.Cycles() << std::endl;
-      out << "Energy: " << engine.Energy() / 1000000 << " uJ" << std::endl;
-    }
-    out << "Area: " << engine.Area() / 1000000 << " mm^2" << std::endl;
-    out << std::endl;
-
-    if (engine.is_evaluated_)
-    {
-      auto body_info = engine.nest_analysis_.GetBodyInfo();
-      auto num_maccs = body_info.accesses * body_info.replication_factor;
-      out << "MACCs = " << num_maccs << std::endl;
-      out << "pJ/MACC" << std::endl;
-      unsigned align = 24;
-      // out << "    " << std::setw(align) << std::left << "MulAdd" << "= "
-      //     << engine.GetTopology().GetArithmeticLevel()->Energy() / num_maccs << std::endl;
-
-      for (unsigned i = 0; i < engine.GetTopology().NumLevels(); i++)
-      {
-        auto level = engine.GetTopology().GetLevel(i);
-        out << "    " << std::setw(align) << std::left << level->Name() << "= "
-            << level->Energy() / num_maccs << std::endl;
-      }
-      out << "    " << std::setw(align) << std::left << "Total" << "= " << engine.Energy() / num_maccs << std::endl;
-    }
-
-    // out.imbue(std::locale::classic());
-    out.copyfmt(state);
-    
     return out;
   }
 };

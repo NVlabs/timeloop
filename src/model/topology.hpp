@@ -100,6 +100,11 @@ class Topology : public Module
     }
   }
 
+ private:
+  std::shared_ptr<Level> GetLevel(unsigned level_id) const;
+  std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
+  std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
+
  public:
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
@@ -112,10 +117,6 @@ class Topology : public Module
   unsigned NumLevels() const;
   unsigned NumStorageLevels() const;
 
-  std::shared_ptr<Level> GetLevel(unsigned level_id) const;
-  std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
-  std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
-  
   std::vector<bool> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
   std::vector<bool> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload, bool break_on_failure);
 
@@ -127,7 +128,7 @@ class Topology : public Module
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const;
   std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const;
   std::uint64_t MACCs() const;
-
+  std::uint64_t LastLevelAccesses() const;
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };

@@ -321,7 +321,24 @@ unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string
   else if (type == "spatial")
   {
     // This will fail if this level isn't a spatial tiling level.
-    tiling_level_id = arch_props_.SpatialToTiling(storage_level_id);
+    try
+    {
+      tiling_level_id = arch_props_.SpatialToTiling(storage_level_id);
+    }
+    catch (const std::out_of_range& oor)
+    {
+      std::cerr << "ERROR: cannot find spatial tiling level associated with "
+                << "storage level " << arch_props_.StorageLevelName(storage_level_id)
+                << ". This is because the number of instances of the next-inner "
+                << "level ";
+      if (storage_level_id != 0)
+      {
+        std::cerr << "(" << arch_props_.StorageLevelName(storage_level_id-1) << ") ";
+      }
+      std::cerr << "is the same as this level, which means there cannot "
+                << "be a spatial fanout." << std::endl;
+      exit(1);
+    }
   }
   else
   {

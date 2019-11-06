@@ -53,8 +53,7 @@ static double Cost(const model::Engine& engine, const std::string metric)
   }
   else if (metric == "last-level-accesses")
   {
-    auto num_storage_levels = engine.GetTopology().NumStorageLevels();
-    return engine.GetTopology().GetStorageLevel(num_storage_levels-1)->Accesses();
+    return engine.GetTopology().LastLevelAccesses();
   }
   else
   {
@@ -259,7 +258,7 @@ class MapperThread
         {
           msg << std::setw(11) << std::fixed << std::setprecision(2) << thread_best_.engine.Utilization()
               << std::setw(11) << std::fixed << std::setprecision(3) << thread_best_.engine.Energy() /
-            thread_best_.engine.GetTopology().GetArithmeticLevel()->MACCs();
+            thread_best_.engine.GetTopology().MACCs();
         }
 
         mutex_->lock();
@@ -459,20 +458,11 @@ class MapperThread
 
       if (log_suboptimal_)
       {
-        // auto num_storage_levels = engine.GetTopology().NumStorageLevels();
-        // auto num_maccs = engine.GetTopology().GetArithmeticLevel()->MACCs();
         mutex_->lock();
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                     << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
                     << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-          engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
-        // log_stream_ << "[" << thread_id_ << "] Utilization = " << engine.Utilization() << " pJ/MACC = "
-        //             << engine.Energy() / num_maccs << " LL-accesses/MACC = "
-        //             << double(engine.GetTopology().GetStorageLevel(num_storage_levels-1)->Accesses()) / num_maccs
-        //             << " CapUtil = ";
-        // for (unsigned i = 0; i < num_storage_levels; i++)
-        //   log_stream_ << engine.GetTopology().GetStorageLevel(i)->CapacityUtilization() << " ";
-        // log_stream_ << std::endl;
+          engine.GetTopology().MACCs() << std::endl;
         mutex_->unlock();
       }
 
@@ -500,19 +490,7 @@ class MapperThread
           log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                       << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
                       << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-            engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
-
-          // if (live_status_)
-          // {
-          //   std::stringstream msg;
-          //   msg << "[" << std::setw(3) << thread_id_ << "]" 
-          //       << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
-          //       << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-          //     engine.GetTopology().GetArithmeticLevel()->MACCs();
-          //   mvaddstr(thread_id_, 0, msg.str().c_str());
-          //   refresh();
-          // }
-
+            engine.GetTopology().MACCs() << std::endl;
           mutex_->unlock();
         }
 

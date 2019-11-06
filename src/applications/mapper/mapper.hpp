@@ -464,7 +464,7 @@ class Application
       std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
                 << best_mapped_engine.Utilization() << " | pJ/MACC = " << std::setw(8)
                 << std::fixed << std::setprecision(3) << best_mapped_engine.Energy() /
-        best_mapped_engine.GetTopology().GetArithmeticLevel()->MACCs() << std::endl;
+        best_mapped_engine.GetTopology().MACCs() << std::endl;
     }
     else
     {

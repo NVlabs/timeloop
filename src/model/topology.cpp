@@ -36,6 +36,18 @@ namespace model
 
 std::ostream& operator<<(std::ostream& out, const Topology& topology)
 {
+  // Save ios format state.
+  std::ios state(NULL);
+  state.copyfmt(out);
+  out << std::fixed << std::setprecision(2);
+
+  //
+  // Detailed specs and stats.
+  //
+
+  out << "Topology" << std::endl;
+  out << "--------" << std::endl;
+
   int level_id = 0;
   for (auto & level : topology.levels_)
   {
@@ -51,6 +63,43 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
     out << "Total topology area: " << topology.Area() << " um^2" << std::endl;
     out << "Max topology cycles: " << topology.Cycles() << std::endl;
   }
+
+  out << std::endl;
+
+  //
+  // Summary stats.
+  //
+  out << "Summary Stats" << std::endl;
+  out << "-------------" << std::endl;
+    
+  if (topology.is_evaluated_)
+  {
+    out << "Utilization: " << topology.Utilization() << std::endl;
+    out << "Cycles: " << topology.Cycles() << std::endl;
+    out << "Energy: " << topology.Energy() / 1000000 << " uJ" << std::endl;
+  }
+  out << "Area: " << topology.Area() / 1000000 << " mm^2" << std::endl;
+  out << std::endl;
+
+  if (topology.is_evaluated_)
+  {
+    auto num_maccs = topology.MACCs();
+    out << "MACCs = " << num_maccs << std::endl;
+    out << "pJ/MACC" << std::endl;
+    unsigned align = 24;
+
+    for (unsigned i = 0; i < topology.NumLevels(); i++)
+    {
+      auto level = topology.GetLevel(i);
+      out << "    " << std::setw(align) << std::left << level->Name() << "= "
+          << level->Energy() / num_maccs << std::endl;
+    }
+    out << "    " << std::setw(align) << std::left << "Total" << "= "
+        << topology.Energy() / num_maccs << std::endl;
+  }
+
+  // Restore ios format state.
+  out.copyfmt(state);
 
   return out;
 }
@@ -613,7 +662,14 @@ double Topology::Energy() const
   {
     assert(level->Energy() >= 0);
     energy += level->Energy();
-  }  
+  }
+
+  // FIXME: the following needs to be separated out.
+  for (unsigned i = 1 /*note*/; i < NumLevels(); i++)
+  {
+    energy += std::static_pointer_cast<BufferLevel>(GetLevel(i))->network_.Energy();    
+  }
+
   return energy;
 }
 
@@ -679,6 +735,11 @@ std::vector<problem::PerDataSpace<std::uint64_t>> Topology::UtilizedInstances() 
 std::uint64_t Topology::MACCs() const
 {
   return GetArithmeticLevel()->MACCs();
+}
+
+std::uint64_t Topology::LastLevelAccesses() const
+{
+  return GetStorageLevel(NumStorageLevels()-1)->Accesses();
 }
 
 bool isBufferClass(std::string className) {
