@@ -463,12 +463,13 @@ bool BufferLevel::DistributedMulticastSupported()
 // can use to fail early.
 // FIXME: integrate with Evaluate() and re-factor.
 // FIXME: what about instances and fanout checks?
-bool BufferLevel::PreEvaluationCheck(
-    const problem::PerDataSpace<std::size_t> working_set_sizes,
-    const tiling::CompoundMask mask,
-    const bool break_on_failure)
+EvalStatus BufferLevel::PreEvaluationCheck(
+  const problem::PerDataSpace<std::size_t> working_set_sizes,
+  const tiling::CompoundMask mask,
+  const bool break_on_failure)
 {
   bool success = true;
+  std::ostringstream fail_reason;
   
   if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
   {
@@ -491,6 +492,9 @@ bool BufferLevel::PreEvaluationCheck(
         if (working_set_sizes.at(pv) > available_capacity)
         {
           success = false;
+          fail_reason << "mapped tile size " << working_set_sizes.at(pv) << " for data-space "
+                      << problem::GetShape()->DataSpaceIDToName.at(pv) << " exceeds buffer capacity "
+                      << available_capacity;
           if (break_on_failure)
             break;
         }
@@ -498,6 +502,9 @@ bool BufferLevel::PreEvaluationCheck(
                                             * specs_.MinUtilization(pv).Get())
         {
           success = false;
+          fail_reason << "mapped tile size " << working_set_sizes.at(pv) << " for data-space "
+                      << problem::GetShape()->DataSpaceIDToName.at(pv) << " is less than constrained "
+                      << "minimum utilization " << specs_.EffectiveSize(pv).Get() * specs_.MinUtilization(pv).Get();
           if (break_on_failure)
             break;
         }
@@ -531,30 +538,37 @@ bool BufferLevel::PreEvaluationCheck(
 
       if (required_capacity > available_capacity)
       {
-        // std::cerr << "CAPACITY FAIL " << specs_.level_name << " req = " << required_capacity << " avail = " << available_capacity << std::endl;
         success = false;
+        fail_reason << "mapped tile size " << required_capacity << " exceeds buffer capacity "
+                    << available_capacity;
       }
       else if (required_capacity < specs_.EffectiveSize().Get()
                                    * specs_.MinUtilization().Get())
       {
         success = false;
+        fail_reason << "mapped tile size " << required_capacity << " is less than constrained "
+                    << "minimum utilization " << specs_.EffectiveSize().Get() * specs_.MinUtilization().Get();
       }
     }
   }
 
-  return success;  
+  EvalStatus eval_status;
+  eval_status.success = success;
+  eval_status.fail_reason = fail_reason.str();
+
+  return eval_status;  
 }
 
 //
 // Heavyweight Evaluate() function.
 // FIXME: Derive FanoutX, FanoutY, MeshX, MeshY from mapping if unspecified.
 //
-bool BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                           const double inner_tile_area, const std::uint64_t compute_cycles,
-                           const bool break_on_failure)
+EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                                 const double inner_tile_area, const std::uint64_t compute_cycles,
+                                 const bool break_on_failure)
 {
-  bool success = ComputeAccesses(tile, mask, break_on_failure);
-  if (!break_on_failure || success)
+  auto eval_status = ComputeAccesses(tile, mask, break_on_failure);
+  if (!break_on_failure || eval_status.success)
   {
     ComputeArea();
     ComputeBufferEnergy();
@@ -563,7 +577,7 @@ bool BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling::Compo
     ComputePerformance(compute_cycles);
   }
 
-  if (!break_on_failure || success)
+  if (!break_on_failure || eval_status.success)
   {
     // Network access-count calculation for Read-Modify-Write datatypes depends on
     // whether the unit receiving a Read-Write datatype has the ability to do
@@ -580,17 +594,24 @@ bool BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling::Compo
       hw_reduction_supported[pv] =
         !(specs_.Tech(pv).IsSpecified() && specs_.Tech(pv).Get() == Technology::DRAM);
     }
-    success &= network_.Evaluate(tile, inner_tile_area, hw_reduction_supported, break_on_failure);
+
+    bool network_success = network_.Evaluate(tile, inner_tile_area, hw_reduction_supported, break_on_failure);
+    if (!network_success)
+    {
+      eval_status.success = false;
+      eval_status.fail_reason = "network";
+    }
   }
 
-  return success;
+  return eval_status;
 }
 
-bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
-                                  const tiling::CompoundMask& mask,
-                                  const bool break_on_failure)
+EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
+                                        const tiling::CompoundMask& mask,
+                                        const bool break_on_failure)
 {
   bool success = true;
+  std::ostringstream fail_reason;
   
   // Subnest FSM should be same for each problem::Shape::DataSpaceID in the list,
   // so just copy it from datatype #0.
@@ -660,11 +681,20 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
         specs_.Size(pv) = std::ceil(stats_.utilized_capacity.at(pv)
                                     * specs_.MultipleBuffering(pv).Get());
       else if (stats_.utilized_capacity.at(pv) > specs_.EffectiveSize(pv).Get())
+      {
         success = false;
+        fail_reason << "mapped tile size " << stats_.utilized_capacity.at(pv) << " for data-space "
+                    << problem::GetShape()->DataSpaceIDToName.at(pv) << " exceeds buffer capacity "
+                    << specs_.EffectiveSize(pv).Get();
+      }
       else if (stats_.utilized_capacity.at(pv) < specs_.EffectiveSize(pv).Get()
                                                  * specs_.MinUtilization(pv).Get())
+      {
         success = false;
-
+        fail_reason << "mapped tile size " << stats_.utilized_capacity.at(pv) << " for data-space "
+                    << problem::GetShape()->DataSpaceIDToName.at(pv) << " is less than constrained "
+                    << "minimum utilization " << specs_.EffectiveSize(pv).Get() * specs_.MinUtilization(pv).Get();
+      }
       
       assert (specs_.BlockSize(pv).IsSpecified());
       
@@ -678,7 +708,12 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
       if (!specs_.Instances(pv).IsSpecified())
         specs_.Instances(pv) = stats_.utilized_instances.at(pv);
       else if (stats_.utilized_instances.at(pv) > specs_.Instances(pv).Get())
+      {
         success = false;
+        fail_reason << "mapped instances " << stats_.utilized_instances.at(pv) << " for data-space "
+                    << problem::GetShape()->DataSpaceIDToName.at(pv) << " exceeds available hardware instances "
+                    << specs_.Instances(pv).Get();
+      }
       
       // Bandwidth constraints cannot be checked/inherited at this point
       // because the calculation is a little more involved. We will do
@@ -709,15 +744,17 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
                                 * specs_.MultipleBuffering().Get());
     else if (total_utilized_capacity > specs_.EffectiveSize().Get())
     {
-      // std::cout << specs_.Name().Get() << std::endl;
-      // std::cout << "Tile size = " << std::endl;
-      // std::cout << stats_.utilized_capacity;
-      // std::cout << "Size = " << specs_.Size().Get() << std::endl;
       success = false;
+      fail_reason << "mapped tile size " << total_utilized_capacity << " exceeds buffer capacity "
+                  << specs_.EffectiveSize().Get();
     }
     else if (total_utilized_capacity < specs_.EffectiveSize().Get()
                                        * specs_.MinUtilization().Get())
+    {
       success = false;
+      fail_reason << "mapped tile size " << total_utilized_capacity << " is less than constrained "
+                  << "minimum utilization " << specs_.EffectiveSize().Get() * specs_.MinUtilization().Get();
+    }
 
     assert (specs_.BlockSize().IsSpecified());
     
@@ -731,7 +768,11 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
     if (!specs_.Instances().IsSpecified())
       specs_.Instances() = stats_.utilized_instances.Max();
     else if (stats_.utilized_instances.Max() > specs_.Instances().Get())
+    {
       success = false;
+      fail_reason << "mapped instances " << stats_.utilized_instances.Max() << " exceeds available hardware instances "
+                  << specs_.Instances().Get();
+    }
 
     // Bandwidth constraints cannot be checked/inherited at this point
     // because the calculation is a little more involved. We will do
@@ -753,8 +794,12 @@ bool BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
   }
 
   is_evaluated_ = success;
+
+  EvalStatus eval_status;
+  eval_status.success = success;
+  eval_status.fail_reason = fail_reason.str();
     
-  return success;
+  return eval_status;
 }
 
 void BufferLevel::ComputeArea()

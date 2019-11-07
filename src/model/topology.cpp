@@ -535,36 +535,36 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
 // can use to fail early.
 // FIXME: integrate with Evaluate() and re-factor.
 // FIXME: what about instances and fanout checks?
-std::vector<bool> Topology::PreEvaluationCheck(const Mapping& mapping,
-                                               analysis::NestAnalysis* analysis,
-                                               bool break_on_failure)
+std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
+                                                     analysis::NestAnalysis* analysis,
+                                                     bool break_on_failure)
 {
   auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   auto working_set_sizes = analysis->GetWorkingSetSizes_LTW();
 
-  std::vector<bool> success(NumLevels(), true);
+  std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     auto level_id = specs_.StorageMap(storage_level_id);
-    bool s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
+    auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
       working_set_sizes.at(storage_level_id), masks.at(storage_level_id),
       break_on_failure);
-    success.at(level_id) = s;
-    if (break_on_failure && !s)
+    eval_status.at(level_id) = s;
+    if (break_on_failure && !s.success)
       break;
   }
 
-  return success;
+  return eval_status;
 }
 
-std::vector<bool> Topology::Evaluate(Mapping& mapping,
-                                     analysis::NestAnalysis* analysis,
-                                     const problem::Workload& workload,
-                                     bool break_on_failure)
+std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
+                                           analysis::NestAnalysis* analysis,
+                                           const problem::Workload& workload,
+                                           bool break_on_failure)
 {
   assert(is_specced_);
 
-  std::vector<bool> success(NumLevels(), true);
+  std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool success_accum = true;
   
   // Compute working-set tile hierarchy for the nest.
@@ -575,8 +575,9 @@ std::vector<bool> Topology::Evaluate(Mapping& mapping,
   }
   catch (std::runtime_error& e)
   {
-    std::fill(success.begin(), success.end(), false);
-    return success;
+    std::fill(eval_status.begin(), eval_status.end(),
+              EvalStatus({ .success = false, .fail_reason = "" }));
+    return eval_status;
   }
 
   // Ugh... FIXME.
@@ -623,12 +624,12 @@ std::vector<bool> Topology::Evaluate(Mapping& mapping,
     // Evaluate Loop Nest on hardware structures: calculate
     // primary statistics.
     auto level_id = specs_.StorageMap(storage_level_id);
-    bool s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
+    auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
                                      inner_tile_area, compute_cycles, break_on_failure);
-    success.at(level_id) = s;
-    success_accum &= s;
+    eval_status.at(level_id) = s;
+    success_accum &= s.success;
 
-    if (break_on_failure && !s)
+    if (break_on_failure && !s.success)
       break;
     
     // The inner tile area is the area of the local sub-level that I will
@@ -644,15 +645,15 @@ std::vector<bool> Topology::Evaluate(Mapping& mapping,
   if (!break_on_failure || success_accum)
   {
     auto level_id = specs_.ArithmeticMap();
-    bool s = GetArithmeticLevel()->HackEvaluate(analysis, workload);
-    success.at(level_id) = s;
-    success_accum &= s;
+    auto s = GetArithmeticLevel()->HackEvaluate(analysis, workload);
+    eval_status.at(level_id) = s;
+    success_accum &= s.success;
   }
 
   if (success_accum)
     is_evaluated_ = true;
 
-  return success;
+  return eval_status;
 }
 
 double Topology::Energy() const

@@ -33,6 +33,13 @@
 namespace model
 {
 
+struct EvalStatus
+{
+  bool success;
+  std::string fail_reason;
+};
+
+
 //--------------------------------------------//
 //                    Level                   //
 //--------------------------------------------//
@@ -43,11 +50,11 @@ class Level : public Module
   virtual ~Level() { }
 
   virtual bool DistributedMulticastSupported() = 0;
-  virtual bool PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
-                                  const tiling::CompoundMask mask, const bool break_on_failure) = 0;
-  virtual bool Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                        const double inner_tile_area, const std::uint64_t compute_cycles,
-                        const bool break_on_failure) = 0;
+  virtual EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
+                                        const tiling::CompoundMask mask, const bool break_on_failure) = 0;
+  virtual EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                              const double inner_tile_area, const std::uint64_t compute_cycles,
+                              const bool break_on_failure) = 0;
   
   virtual double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   

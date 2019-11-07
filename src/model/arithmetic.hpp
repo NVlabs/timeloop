@@ -133,26 +133,26 @@ class ArithmeticUnits : public Level
   // --- Unsupported overrides ---
   bool DistributedMulticastSupported() override { return false; }
 
-  bool PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
-                          const tiling::CompoundMask mask,
-                          const bool break_on_failure) override
+  EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
+                                const tiling::CompoundMask mask,
+                                const bool break_on_failure) override
   {
     (void) working_set_sizes;
     (void) mask;
     (void) break_on_failure;
-    return true;
+    return { true, "" };
   }
 
-  bool Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                const double inner_tile_area, const std::uint64_t compute_cycles,
-                const bool break_on_failure) override
+  EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                      const double inner_tile_area, const std::uint64_t compute_cycles,
+                      const bool break_on_failure) override
   {
     (void) tile;
     (void) mask;
     (void) inner_tile_area;
     (void) compute_cycles;
     (void) break_on_failure;
-    return false;
+    return { false, "ArithmeticLevel must use the HackEvaluate() function" };
   }
   
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
@@ -179,12 +179,13 @@ class ArithmeticUnits : public Level
 
   // --- Temporary hack interfaces, these will be removed ---
   
-  bool HackEvaluate(analysis::NestAnalysis* analysis,
-                    const problem::Workload& workload)
+  EvalStatus HackEvaluate(analysis::NestAnalysis* analysis,
+                          const problem::Workload& workload)
   {
     assert(is_specced_);
 
-    bool success = true;
+    EvalStatus eval_status;
+    eval_status.success = true;
 
     auto body_info = analysis->GetBodyInfo();
     
@@ -213,10 +214,14 @@ class ArithmeticUnits : public Level
     }
     else
     {
-      success = false;
+      eval_status.success = false;
+      std::ostringstream str;
+      str << "mapped Arithmetic instances " << utilized_instances_
+          << " exceeds hardware instances " << specs_.Instances().Get();
+      eval_status.fail_reason = str.str();
     }
     
-    return success;
+    return eval_status;
   }
   
   std::uint64_t MACCs() const

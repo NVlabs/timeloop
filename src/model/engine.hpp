@@ -104,21 +104,23 @@ class Engine : public Module
 
   const Topology& GetTopology() const { return topology_; }
 
-  std::vector<bool> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, bool break_on_failure = true)
+  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, bool break_on_failure = true)
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest);
     return topology_.PreEvaluationCheck(mapping, &nest_analysis_, break_on_failure);
   }
 
-  std::vector<bool> Evaluate(Mapping& mapping, problem::Workload& workload, bool break_on_failure = true)
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, bool break_on_failure = true)
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest);
     
-    auto success = topology_.Evaluate(mapping, &nest_analysis_, workload, break_on_failure);
+    auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, workload, break_on_failure);
 
-    is_evaluated_ = std::accumulate(success.begin(), success.end(), true, std::logical_and<>{});
+    is_evaluated_ = std::accumulate(eval_status.begin(), eval_status.end(), true,
+                                    [](bool cur, const EvalStatus& status)
+                                    { return cur && status.success; });
 
-    return success;
+    return eval_status;
   }
   
   double Energy() const

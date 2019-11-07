@@ -344,8 +344,8 @@ class BufferLevel : public Level
   //
 
  private:
-  bool ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                       const bool break_on_failure);
+  EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                             const bool break_on_failure);
   void ComputeArea();
   void ComputePerformance(const std::uint64_t compute_cycles);
   void ComputeBufferEnergy();
@@ -378,12 +378,12 @@ class BufferLevel : public Level
   bool DistributedMulticastSupported() override;
   
   // Evaluation functions.
-  bool PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
-                          const tiling::CompoundMask mask,
-                          const bool break_on_failure) override;
-  bool Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                const double inner_tile_area, const std::uint64_t compute_cycles,
-                const bool break_on_failure) override;
+  EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
+                                const tiling::CompoundMask mask,
+                                const bool break_on_failure) override;
+  EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                      const double inner_tile_area, const std::uint64_t compute_cycles,
+                      const bool break_on_failure) override;
 
   // Accessors (post-evaluation).
   

@@ -25,6 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "model/engine.hpp"
+
 extern bool gTerminate;
 
 struct EvaluationResult
@@ -374,7 +376,7 @@ class MapperThread
       // complexity and attempt to bail out as quickly as possible at each stage.
       //
       bool success = true;
-      std::vector<bool> success_per_level;
+      std::vector<model::EvalStatus> status_per_level;
 
       // Stage 1: Construct a mapping from the mapping ID. This step can fail
       //          because the space of *legal* mappings isn't dense (unfortunately),
@@ -395,9 +397,10 @@ class MapperThread
       //          on, and run some lightweight pre-checks that the
       //          model can use to quickly reject a nest.
       engine.Spec(arch_specs_);
-      success_per_level = engine.PreEvaluationCheck(mapping, workload_, !diagnostics_on_);
-      success &= std::accumulate(success_per_level.begin(), success_per_level.end(),
-                                 true, std::logical_and<>{});
+      status_per_level = engine.PreEvaluationCheck(mapping, workload_, !diagnostics_on_);
+      success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
+                                 [](bool cur, const model::EvalStatus& status)
+                                 { return cur && status.success; });
 
       if (!success)
       {
@@ -406,7 +409,7 @@ class MapperThread
         {
           for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
           {
-            if (!success_per_level.at(level))
+            if (!status_per_level.at(level).success)
             {
               // Collect 1 sample failed mapping per level.
               if (invalid_eval_counts_.at(level) == 0)
@@ -420,9 +423,10 @@ class MapperThread
       }
 
       // Stage 3: Heavyweight evaluation.
-      success_per_level = engine.Evaluate(mapping, workload_, !diagnostics_on_);
-      success &= std::accumulate(success_per_level.begin(), success_per_level.end(),
-                                 true, std::logical_and<>{});
+      status_per_level = engine.Evaluate(mapping, workload_, !diagnostics_on_);
+      success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
+                                 [](bool cur, const model::EvalStatus& status)
+                                 { return cur && status.success; });
       if (!success)
       {
         invalid_mappings_eval++;
@@ -430,7 +434,7 @@ class MapperThread
         {
           for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
           {
-            if (!success_per_level.at(level))
+            if (!status_per_level.at(level).success)
             {
               // Collect 1 sample failed mapping per level.
               if (invalid_eval_counts_.at(level) == 0)

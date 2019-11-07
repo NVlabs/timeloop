@@ -156,14 +156,15 @@ class Application
 
     auto& mapping = *mapping_;
     
-    auto success = engine.Evaluate(mapping, workload_);
+    auto eval_status = engine.Evaluate(mapping, workload_);
     auto level_names = arch_specs_.topology.LevelNames();
     
-    for (unsigned level = 0; level < success.size(); level++)
+    for (unsigned level = 0; level < eval_status.size(); level++)
     {
-      if (!success[level])
+      if (!eval_status[level].success)
       {
-        std::cerr << "ERROR: illegal mapping, couldn't map level " << level_names.at(level) << std::endl;
+        std::cerr << "ERROR: couldn't map level " << level_names.at(level) << ": ";
+        std::cerr << eval_status[level].fail_reason << std::endl;
         exit(1);
       }
     }
