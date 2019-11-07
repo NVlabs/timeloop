@@ -138,9 +138,31 @@ workload/operation-space.cpp
 compound-config/compound-config.cpp
 """)
 
+simple_mapper_sources = Split("""
+data/cnn/cnn-layers.cpp
+loop-analysis/tiling.cpp
+loop-analysis/nest-analysis.cpp
+pat/pat.cpp
+applications/simple-mapper/main.cpp
+mapping/loop.cpp
+mapping/nest.cpp
+mapping/mapping.cpp
+mapspaces/mapspace-base.cpp
+model/arithmetic.cpp
+model/buffer.cpp
+model/topology.cpp
+util/numeric.cpp
+util/map2d.cpp
+workload/problem-shape.cpp
+workload/workload.cpp
+workload/operation-space.cpp
+compound-config/compound-config.cpp
+""")
+
 env.Program(target = 'timeloop-mapper', source = mapper_sources)
 env.Program(target = 'timeloop-model', source = model_sources)
 env.Program(target = 'timeloop-metrics', source = metrics_sources)
+env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))
 #os.symlink(os.path.abspath('timeloop-model'), os.path.abspath('evaluator'))
