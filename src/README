@@ -1,7 +1,7 @@
 High-level organization of all the source files
 -----------------------------------------------
-cnn/problem-shape.*
-  Data structures to describe the shape of a problem, and routines to parse
+workload/*
+  Data structures to describe the shape of a workload, and routines to parse
   a specific shape (e.g., a CNN layer) into these data structures.
 
 mapspaces/*
