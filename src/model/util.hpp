@@ -54,7 +54,8 @@ class PerDataSpaceOrShared
   {
   }
 
-  void SetPerDataSpace() {
+  void SetPerDataSpace()
+  {
     assert(!is_shared);
     is_per_data_space = true;
     // Construct a separate T value for each element.
@@ -64,10 +65,19 @@ class PerDataSpaceOrShared
     }
   }
 
-  void SetShared(T val=T()) {
+  void SetShared(T val=T())
+  {
     assert(!is_per_data_space);
     is_shared = true;
     shared = val;
+  }
+
+  void SetLike(DataSpaceIDSharing sharing)
+  {
+    if (sharing == DataSpaceIDSharing::Partitioned)
+      SetPerDataSpace();
+    else
+      SetShared();
   }
 
   T & operator [] (problem::Shape::DataSpaceID pv)

@@ -70,16 +70,28 @@ def parse_timeloop_stats(filename):
 
     topology = root.findall('best_mapped_engine')[0].findall('topology_')[0]
     
-    # Get the list of storage elements
-    storage_levels = topology.findall('levels_')[0]
-    num_storage_levels = int(storage_levels.findall('count')[0].text)    
-    level_ptrs = storage_levels.findall('item')  
+    # Get the list of storage/arithmetic levels
+    levels = topology.findall('levels_')[0]
+    num_levels = int(levels.findall('count')[0].text)    
+    level_ptrs = levels.findall('item')
+
+    # Get the list of networks
+    networks = topology.findall('networks_')[0]
+    num_networks = int(networks.findall('count')[0].text)    
+    network_ptrs = networks.findall('item')
+
+    assert(num_levels == num_networks + 1)
     
     # Initialize a dictionary that stores energy breakdown and other statistics
     energy_breakdown_pJ = {}
 
     arithmetic_level_found = False
-    for level_ptr in level_ptrs:
+
+    for level_id in range(len(level_ptrs)):
+
+        level_ptr = level_ptrs[level_id]
+
+#    for level_ptr in level_ptrs:
 
         level = level_ptr.findall('px')[0]
 
@@ -108,6 +120,9 @@ def parse_timeloop_stats(filename):
             continue
             
         # Continue storage level stat extraction...
+        assert(level_id >= 1)
+        network_ptr = network_ptrs[level_id-1]
+        network = network_ptr.findall('px')[0]
             
         # Level specifications
         specs = level.findall('specs_')[0]
@@ -134,7 +149,7 @@ def parse_timeloop_stats(filename):
         read_energy = energy_per_access_per_instance * reads_per_instance * instances
         
         # Network energy
-        network = level.findall('network_')[0]
+        # network = level.findall('network_')[0]
         network_stats = network.findall('stats_')[0]
 
         num_hops = get_stat(network_stats, 'num_hops', float)

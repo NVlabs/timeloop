@@ -50,12 +50,80 @@ class ArchProperties
   std::map<unsigned, unsigned> spatial_to_tiling_map_;
   std::map<unsigned, unsigned> tiling_to_storage_map_;
 
+  // Storage level to fanout map.
+  std::map<unsigned, std::uint64_t> fanoutX_map_; 
+  std::map<unsigned, std::uint64_t> fanoutY_map_; 
+
  public:
-  ArchProperties() { }
-  
-  void Construct(model::Engine::Specs arch_specs)
+  ArchProperties()
+  { }
+
+  ArchProperties(const model::Engine::Specs& arch_specs)
+  {
+    Construct(arch_specs);
+  }
+
+  void DeriveFanouts()
+  {
+    // Assumption here is that level i always connects to level
+    // i-1 via a 1:1 or fanout network. The network module will
+    // eventually be factored out, at which point we can make the
+    // interconnection more generic and specifiable.
+
+    // NOTE! The following code only works for Shared topologies.
+    // We will be getting rid of Partitioned topologies.
+
+    for (unsigned i = 0; i < specs_.topology.NumStorageLevels(); i++)
+    {
+      std::uint64_t inner_meshX, inner_meshY;
+      std::uint64_t outer_meshX, outer_meshY;
+
+      if (i == 0)
+      {
+        inner_meshX = specs_.topology.GetArithmeticLevel()->MeshX().Get();
+        inner_meshY = specs_.topology.GetArithmeticLevel()->MeshY().Get();
+      }
+      else
+      {
+        inner_meshX = specs_.topology.GetStorageLevel(i-1)->MeshX().Get();
+        inner_meshY = specs_.topology.GetStorageLevel(i-1)->MeshY().Get();        
+      }
+
+      outer_meshX = specs_.topology.GetStorageLevel(i)->MeshX().Get();
+      outer_meshY = specs_.topology.GetStorageLevel(i)->MeshY().Get();        
+
+      if ((inner_meshX % outer_meshX) != 0)
+      {
+        if (i == 0)
+          std::cerr << "inner MACC meshX = " << inner_meshX << std::endl;
+        else
+          std::cerr << "inner " << StorageLevelName(i-1) << " meshX = " << inner_meshX << std::endl;
+        std::cerr << "outer " << StorageLevelName(i) << " meshX = " << outer_meshX << std::endl;
+      }
+
+      if ((inner_meshY % outer_meshY) != 0)
+      {
+        if (i == 0)
+          std::cerr << "inner MACC meshY = " << inner_meshY << std::endl;
+        else
+          std::cerr << "inner " << StorageLevelName(i-1) << " meshY = " << inner_meshY << std::endl;
+        std::cerr << "outer " << StorageLevelName(i) << " meshY = " << outer_meshY << std::endl;
+      }
+
+      assert(inner_meshX % outer_meshX == 0);
+      assert(inner_meshY % outer_meshY == 0);
+
+      fanoutX_map_[i] = inner_meshX / outer_meshX;
+      fanoutY_map_[i] = inner_meshY / outer_meshY;
+    }
+  }
+
+  void Construct(const model::Engine::Specs& arch_specs)
   {
     specs_ = arch_specs;
+
+    // Derive fanouts.
+    DeriveFanouts();
     
     auto num_storage_levels = specs_.topology.NumStorageLevels();
     
@@ -71,18 +139,8 @@ class ArchProperties
       // For partitioned levels, we have to look at all partitions. If
       // any of the partitions have a spatial fanout, then we treat
       // this as a spatial level.
-      bool is_spatial = false;
-      bool is_spatial_2D = false;
-
-      auto& specs = *specs_.topology.GetStorageLevel(i);
-      auto lambda = [&] (problem::Shape::DataSpaceID pv)
-        {
-          if (specs.network.Fanout(pv).Get() > 1)
-            is_spatial = true;
-          if (specs.network.FanoutX(pv).Get() > 1 && specs.network.FanoutY(pv).Get() > 1)
-            is_spatial_2D = true;
-        };
-      model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
+      bool is_spatial = (Fanout(i) > 1);
+      bool is_spatial_2D = (FanoutX(i) > 1 && FanoutY(i) > 1);
 
       if (is_spatial)
       {
@@ -110,6 +168,21 @@ class ArchProperties
   //
   // Accessors.
   //
+  
+  std::uint64_t FanoutX(unsigned storage_level_id)
+  {
+    return fanoutX_map_.at(storage_level_id);
+  }
+  
+  std::uint64_t FanoutY(unsigned storage_level_id)
+  {
+    return fanoutY_map_.at(storage_level_id);
+  }
+  
+  std::uint64_t Fanout(unsigned storage_level_id)
+  {
+    return fanoutX_map_.at(storage_level_id) * fanoutY_map_.at(storage_level_id);
+  }
   
   const unsigned& TemporalToTiling(const unsigned l) const
   {
@@ -144,6 +217,11 @@ class ArchProperties
   bool IsSpatial(int level) const
   {
     return spatial_mask_.at(level);
+  }
+
+  bool IsSpatial2D(int level) const
+  {
+    return twoD_spatial_mask_.at(level);
   }
 
   //

@@ -32,8 +32,8 @@ VariantDir('build', 'src', duplicate=0)
 
 AddOption('--static', dest='link_static', default=False, action='store_true', help='Use static linking (default is dynamic)')
 AddOption('--accelergy', dest='use_accelergy', default=False, action='store_true', help='Build Timeloop with Accelergy (default is to use pat/src)')
+AddOption('--d', dest='debug', default=False, action='store_true', help='Debug build (default is off)')
 
-env = Environment(ENV = os.environ)    
-env.Append(CCFLAGS = ['-g', '-O3'])
+env = Environment(ENV = os.environ)
 env.Append(BUILD_BASE_DIR = Dir('.').abspath)
 env.SConscript('build/SConscript', exports='env')

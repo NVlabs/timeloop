@@ -110,9 +110,6 @@ class BufferLevel : public Level
     PerDataSpaceOrShared<Attribute<std::uint64_t>> num_ports;
     PerDataSpaceOrShared<Attribute<std::uint64_t>> num_banks;
 
-    // Network specs are inlined for the moment.
-    Network::Specs network;
-
     // Serialization
     friend class boost::serialization::access;
 
@@ -135,9 +132,6 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(read_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(write_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(multiple_buffering);
-        // Do *not* print network specs. They will be printed when the
-        // Network module itself is serialized.
-        // ar& BOOST_SERIALIZATION_NVP(network);
         ar& BOOST_SERIALIZATION_NVP(min_utilization);
         ar& BOOST_SERIALIZATION_NVP(vector_access_energy);
         ar& BOOST_SERIALIZATION_NVP(storage_area);
@@ -147,15 +141,13 @@ class BufferLevel : public Level
     }
     
     Specs() :
-        sharing_type(DataSpaceIDSharing::Shared),
-        network(DataSpaceIDSharing::Shared)
+        sharing_type(DataSpaceIDSharing::Shared)
     {
       Init();
     }
     
     Specs(DataSpaceIDSharing sharing) :
-        sharing_type(sharing),
-        network(sharing)
+        sharing_type(sharing)
     {
       Init();
     }
@@ -303,9 +295,6 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(area);
         ar& BOOST_SERIALIZATION_NVP(cycles);
         ar& BOOST_SERIALIZATION_NVP(slowdown);
-        // Do *not* print network stats. They will be printed when the
-        // Network module itself is serialized.
-        // ar& BOOST_SERIALIZATION_NVP(network);
       }
     }
   };
@@ -320,9 +309,9 @@ class BufferLevel : public Level
   Stats stats_;
   Specs specs_;
 
- public:
-  Network network_;
-  
+  // Network endpoints.
+  std::shared_ptr<Network> network_;
+
  private:
   // Serialization
   friend class boost::serialization::access;
@@ -335,7 +324,6 @@ class BufferLevel : public Level
       ar& BOOST_SERIALIZATION_NVP(subnest_);
       ar& BOOST_SERIALIZATION_NVP(specs_);
       ar& BOOST_SERIALIZATION_NVP(stats_);
-      ar& BOOST_SERIALIZATION_NVP(network_);
     }
   }
 
@@ -375,14 +363,18 @@ class BufferLevel : public Level
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
   
-  bool DistributedMulticastSupported() override;
+  bool HardwareReductionSupported(problem::Shape::DataSpaceID pv) override;
+
+  // Connect to networks.
+  void Connect(std::shared_ptr<Network> network);
+  std::shared_ptr<Network> GetNetwork() { return network_; }
   
   // Evaluation functions.
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
                                 const bool break_on_failure) override;
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                      const double inner_tile_area, const std::uint64_t compute_cycles,
+                      const std::uint64_t compute_cycles,
                       const bool break_on_failure) override;
 
   // Accessors (post-evaluation).
@@ -399,12 +391,6 @@ class BufferLevel : public Level
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   
-  std::uint64_t MaxFanout() const override
-  {
-    // FIXME: remove this function, it's used only once.
-    return network_.MaxFanout();
-  }
-
   // Printers.
   void Print(std::ostream& out) const;
   friend std::ostream& operator<<(std::ostream& out, const BufferLevel& buffer_level);  

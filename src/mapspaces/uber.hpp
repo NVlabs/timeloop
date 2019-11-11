@@ -37,6 +37,7 @@
 #include "mapspaces/mapspace-base.hpp"
 #include "mapspaces/subspaces.hpp"
 #include "compound-config/compound-config.hpp"
+#include "mapping/arch-properties.hpp"
 
 namespace mapspace
 {
@@ -66,21 +67,11 @@ class Uber : public MapSpace
   std::map<unsigned, std::uint32_t> user_spatial_splits_;
   problem::PerDataSpace<std::string> user_bypass_strings_;
 
-  // Architecture specs
-  uint64_t num_temporal_tiling_levels_;
-  uint64_t num_spatial_tiling_levels_;
-  uint64_t num_total_tiling_levels_;  // temporal + spatial
-  
-  std::vector<bool> spatial_mask_;       // across all levels
-  std::vector<bool> twoD_spatial_mask_;  // across all levels
+  // Abstract representation of the architecture.
+  ArchProperties arch_props_;
 
-  // Maps to index between the different tiling spaces.
-  std::map<unsigned, unsigned> temporal_to_tiling_map_;
-  std::map<unsigned, unsigned> spatial_to_tiling_map_;
-  std::map<unsigned, unsigned> tiling_to_storage_map_;
-
-  // Minimum utilization (constraint).
-  double min_utilization_;
+  // Minimum parallelism (constraint).
+  double min_parallelism_;
   
  public:
 
@@ -97,11 +88,9 @@ class Uber : public MapSpace
       MapSpace(arch_specs, workload),
       split_id_(0),
       num_parent_splits_(0),
-      min_utilization_(0.0)
+      arch_props_(arch_specs),
+      min_parallelism_(0.0)
   {
-    // Some pre-processing.
-    InitSpatialMasks();
-
     if (!skip_init)
     {
       Init(config);
@@ -154,69 +143,12 @@ class Uber : public MapSpace
   }
   
   //
-  // InitSpatialMasks()
-  //   Scan the arch specs to figure out how many temporal and spatial tiling
-  //   levels we need to completely map onto the architecture.
-  //
-  void InitSpatialMasks()
-  {
-    auto num_storage_levels = arch_specs_.topology.NumStorageLevels();
-    
-    // one temporal partition for each storage level
-    num_temporal_tiling_levels_ = num_storage_levels;
-
-    uint64_t cur_tiling_level = 0;
-    for (uint64_t i = 0; i < num_storage_levels; i++)
-    {
-      // Peek at the fanout in the arch specs to figure out if this is a
-      // purely temporal level, a 1D spatial level or a 2D spatial level.
-
-      // For partitioned levels, we have to look at all partitions. If
-      // any of the partitions have a spatial fanout, then we treat
-      // this as a spatial level.
-      bool is_spatial = false;
-      bool is_spatial_2D = false;
-
-      auto& specs = *arch_specs_.topology.GetStorageLevel(i);
-      auto lambda = [&] (problem::Shape::DataSpaceID pv)
-        {
-          if (specs.network.Fanout(pv).Get() > 1)
-            is_spatial = true;
-          if (specs.network.FanoutX(pv).Get() > 1 && specs.network.FanoutY(pv).Get() > 1)
-            is_spatial_2D = true;
-        };
-      model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
-
-      if (is_spatial)
-      {
-        // This is a spatial level.
-        spatial_mask_.push_back(true);
-        twoD_spatial_mask_.push_back(is_spatial_2D);
-        spatial_to_tiling_map_[i] = cur_tiling_level;
-        tiling_to_storage_map_[cur_tiling_level] = i;
-        cur_tiling_level++;
-      }
-      
-      // There is always a temporal level
-      spatial_mask_.push_back(false);
-      twoD_spatial_mask_.push_back(false);
-
-      temporal_to_tiling_map_[i] = cur_tiling_level;
-      tiling_to_storage_map_[cur_tiling_level] = i;
-      cur_tiling_level++;      
-    }
-
-    num_total_tiling_levels_ = spatial_mask_.size();
-    assert(twoD_spatial_mask_.size() == num_total_tiling_levels_);
-  }  
-
-  //
   // InitIndexFactorizationSpace()
   //
   void InitIndexFactorizationSpace(std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
                                    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors)
   {
-    assert(user_factors.size() <= num_total_tiling_levels_);
+    assert(user_factors.size() <= arch_props_.TilingLevels());
 
     // We'll initialize the index_factorization_space_ object here. To do that, we first
     // need to determine the number of factors that *each* problem dimension needs to be
@@ -227,7 +159,7 @@ class Uber : public MapSpace
     for (unsigned i = 0; i < unsigned(problem::GetShape()->NumDimensions); i++)
     {
       // Factorize each problem dimension into num_tiling_levels partitions.
-      cofactors_order[problem::Shape::DimensionID(i)] = num_total_tiling_levels_;
+      cofactors_order[problem::Shape::DimensionID(i)] = arch_props_.TilingLevels();
     }
 
     // Next, for each problem dimension, we need to tell the index_factorization_space_
@@ -239,7 +171,7 @@ class Uber : public MapSpace
     std::vector<bool> exhausted_um_loops(int(problem::GetShape()->NumDimensions), false);
 
     // Find user-specified fixed factors.
-    for (unsigned level = 0; level < num_total_tiling_levels_; level++)
+    for (unsigned level = 0; level < arch_props_.TilingLevels(); level++)
     {
       auto it = user_factors.find(level);
       if (it != user_factors.end())
@@ -263,7 +195,7 @@ class Uber : public MapSpace
     }
 
     // Find user-specified max factors.
-    for (unsigned level = 0; level < num_total_tiling_levels_; level++)
+    for (unsigned level = 0; level < arch_props_.TilingLevels(); level++)
     {
       auto it = user_max_factors.find(level);
       if (it != user_max_factors.end())
@@ -291,9 +223,9 @@ class Uber : public MapSpace
   void InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
                                 std::map<unsigned, std::vector<problem::Shape::DimensionID>> pruned_dimensions = {})
   {
-    permutation_space_.Init(num_total_tiling_levels_);
+    permutation_space_.Init(arch_props_.TilingLevels());
     
-    for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
+    for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
     {
       // Extract the user-provided pattern for this level.
       std::vector<problem::Shape::DimensionID> user_prefix;
@@ -304,13 +236,13 @@ class Uber : public MapSpace
       }
 
       bool use_canonical_permutation = false;
-      if (IsSpatialTilingLevel(level))
+      if (arch_props_.IsSpatial(level))
       {
-        use_canonical_permutation = user_prefix.empty() && !twoD_spatial_mask_[level];
+        use_canonical_permutation = user_prefix.empty() && !arch_props_.IsSpatial2D(level);
       }
       else
       {
-        use_canonical_permutation = (level == 0); // || level == num_total_tiling_levels_-1); // FIXME: last level?
+        use_canonical_permutation = (level == 0); // || level == arch_props_.TilingLevels()-1); // FIXME: last level?
       }
       
       if (use_canonical_permutation)
@@ -344,11 +276,11 @@ class Uber : public MapSpace
     // Given a spatial permutation, this indicates where the changeover from X
     // to Y dimension occurs. Obviously, this is limited by hardware fanout
     // capabilities at this spatial level.
-    spatial_split_space_.Init(num_total_tiling_levels_);
+    spatial_split_space_.Init(arch_props_.TilingLevels());
     
-    for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
+    for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
     {
-      if (IsSpatialTilingLevel(level))
+      if (arch_props_.IsSpatial(level))
       {
         // Extract the user-provided split point for this level.
         auto it = user_spatial_splits.find(level);
@@ -368,17 +300,6 @@ class Uber : public MapSpace
     }
 
     size_[int(mapspace::Dimension::Spatial)] = spatial_split_space_.Size();
-
-    // Some sanity checking.
-    for (unsigned i = 0; i < arch_specs_.topology.NumStorageLevels(); i++)
-    {
-      auto& specs = *arch_specs_.topology.GetStorageLevel(i);
-      auto lambda = [&] (problem::Shape::DataSpaceID pv)
-        {
-          assert(specs.network.FanoutX(pv).IsSpecified() && specs.network.FanoutY(pv).IsSpecified());
-        };
-      model::BufferLevel::ForEachDataSpaceID(lambda, specs.sharing_type);
-    }
   }
 
   void InitDatatypeBypassNestSpace(problem::PerDataSpace<std::string> user_bypass_strings =
@@ -532,30 +453,6 @@ class Uber : public MapSpace
     return (splits_.size() > 0);
   }
 
-  // Uber(Uber* parent, std::uint64_t split_id, uint128_t split_residue) :
-  //     permutation_space_(parent->permutation_space_),
-  //     index_factorization_space_(parent->index_factorization_space_),
-  //     spatial_split_space_(parent->spatial_split_space_),
-  //     datatype_bypass_nest_space_(parent->datatype_bypass_nest_space_),
-  //     split_residue_(split_residue),
-  //     splits_(),
-  //     user_factors_(parent->user_factors_),
-  //     user_permutations_(parent->user_permutations_),
-  //     user_spatial_splits_(parent->user_spatial_splits_),
-  //     user_bypass_strings_(parent->user_bypass_strings_),
-  //     num_temporal_tiling_levels_(parent->num_temporal_tiling_levels_),
-  //     num_spatial_tiling_levels_(parent->num_spatial_tiling_levels_),
-  //     num_total_tiling_levels_(parent->num_total_tiling_levels_),
-  //     spatial_mask_(parent->spatial_mask_),
-  //     twoD_spatial_mask_(parent->twoD_spatial_mask_),
-  //     temporal_to_tiling_map_(parent->temporal_to_tiling_map_),
-  //     spatial_to_tiling_map_(parent->spatial_to_tiling_map_),
-  //     tiling_to_storage_map_(parent->tiling_to_storage_map_),
-  //     min_utilization_(parent->min_utilization_)
-  // {
-    
-  // }
-
   ~Uber()
   {
     for (auto split : splits_)
@@ -587,7 +484,7 @@ class Uber : public MapSpace
     std::map<unsigned, unsigned> unit_factors;
 
     // Extract the index factors resulting from this ID for all loops at all levels.
-    for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
+    for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
     {
       // We won't prune spatial dimensions with user-specificed
       // spatial splits, because pruning re-orders the dimensions, which
@@ -634,7 +531,7 @@ class Uber : public MapSpace
     assert(!IsSplit());
 
     // A set of subnests, one for each tiling level.
-    loop::NestConfig subnests(num_total_tiling_levels_);
+    loop::NestConfig subnests(arch_props_.TilingLevels());
 
     // We will construct the mapping in several stages. At each stage,
     // we will provide a private ID that indexes into the sub-space
@@ -688,7 +585,7 @@ class Uber : public MapSpace
 
     // Concatenate the subnests to form the final mapping nest.    
     std::uint64_t storage_level = 0;
-    for (uint64_t i = 0; i < num_total_tiling_levels_; i++)
+    for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
     {
       uint64_t num_subnests_added = 0;
       for (int dim = 0; dim < int(problem::GetShape()->NumDimensions); dim++)
@@ -701,7 +598,7 @@ class Uber : public MapSpace
           num_subnests_added++;
         }
       }
-      if (!IsSpatialTilingLevel(i))
+      if (!arch_props_.IsSpatial(i))
       {
         if (num_subnests_added == 0)
         {
@@ -730,9 +627,9 @@ class Uber : public MapSpace
     // Construct num_storage_levels loop-nest partitions and assign dimensions.
     // This is the only stage at which the invariant subnests[][dim].dimension == dim
     // will hold. The subnests will later get permuted, breaking the invariant.
-    for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
+    for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
     {
-      auto spacetime_dim = IsSpatialTilingLevel(level)
+      auto spacetime_dim = arch_props_.IsSpatial(level)
         ? spacetime::Dimension::SpaceX // Placeholder.
         : spacetime::Dimension::Time;
         
@@ -757,13 +654,13 @@ class Uber : public MapSpace
   //
   void PermuteSubnests(uint128_t mapping_permutation_id, loop::NestConfig& subnests)
   {
-    loop::NestConfig reordered(num_total_tiling_levels_);
+    loop::NestConfig reordered(arch_props_.TilingLevels());
     
     // Obtain a pattern of loop variables for all levels.
     auto dimensions = permutation_space_.GetPatterns(mapping_permutation_id);
     assert(dimensions.size() == subnests.size());
 
-    for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
+    for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
     {
       // Re-order the subnest based on the pattern. 
       assert(dimensions[level].size() == subnests[level].size());
@@ -784,7 +681,7 @@ class Uber : public MapSpace
   //
   void AssignIndexFactors(uint128_t mapping_index_factorization_id, loop::NestConfig& subnests)
   {
-    for (uint64_t level = 0; level < num_total_tiling_levels_; level++)
+    for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
     {
       for (auto& loop : subnests[level])
       {
@@ -812,60 +709,44 @@ class Uber : public MapSpace
     
     double cumulative_fanout_utilization = 1.0;
 
-    for (uint64_t level = 0; level < num_total_tiling_levels_ && success; level++)
+    for (uint64_t level = 0; level < arch_props_.TilingLevels() && success; level++)
     {
-      if (!IsSpatialTilingLevel(level))
+      if (!arch_props_.IsSpatial(level))
       {
         continue;
       }
       
-      auto storage_level = tiling_to_storage_map_[level];
-      auto level_specs = arch_specs_.topology.GetStorageLevel(storage_level);
-
-      // We need to pass in the datatype bypass mask for the level receiving the
-      // fanout from this level.
-      // FIXME: we do not support fanout from storage level 0.
-      //assert (storage_level >= 1);
-      //auto& datatype_bypass_mask = datatype_bypass_masks.at(storage_level-1);
+      // Note that spatial levels are never bypassed. Therefore, we do not have
+      // to deal with the bypass mask.
+      // auto& datatype_bypass_mask = datatype_bypass_masks.at(storage_level-1);
 
       success &= AssignSpatialTilingDirections_Level_Expand(
         spatial_splits.at(level),
         subnests[level],
-        *level_specs,
-        //datatype_bypass_mask,
+        level,
         cumulative_fanout_utilization);
-
-      // if (level_specs.SharingType() == model::Level::DataSpaceIDSharing::Partitioned)
-      // {
-      //   success &= AssignSpatialTilingDirections_PartitionedLevel(
-      //     mapping_spatial_id, subnests[level], level_specs);
-      // }
-      // else
-      // {
-      //   success &= AssignSpatialTilingDirections_SharedLevel(
-      //     mapping_spatial_id, subnests[level], level_specs);
-      // }
       
     } // for (level)
     
-    success &= (cumulative_fanout_utilization >= min_utilization_);
+    success &= (cumulative_fanout_utilization >= min_parallelism_);
       
     return success;
   }
 
   bool AssignSpatialTilingDirections_Level_Expand(std::uint32_t spatial_split,
                                                   std::vector<loop::Descriptor>& level_nest,
-                                                  model::BufferLevel::Specs& level_specs,
-                                                //  tiling::CompoundMask& datatype_bypass_mask,
+                                                  unsigned tiling_level_id,
                                                   double& fanout_utilization)
   {
     // This version of the function assumes that spatial tiling will expand
     // the instances for *each* datatype exactly by the tiling parameters. For
     // example, if K=16 is a spatial factor, then 16 instances of the next
     // inner level will be created for Weights, Inputs and Outputs.
-    //(void) datatype_bypass_mask;
     
     bool success = true;
+
+    unsigned storage_level_id = arch_props_.TilingToStorage(tiling_level_id);
+    auto level_specs = arch_specs_.topology.GetStorageLevel(storage_level_id);
 
     std::size_t x_expansion = 1;
     std::size_t y_expansion = 1;
@@ -895,34 +776,40 @@ class Uber : public MapSpace
 
     std::size_t fanout_max;
     
-    if (level_specs.SharingType() == model::DataSpaceIDSharing::Shared)
+    if (level_specs->SharingType() == model::DataSpaceIDSharing::Shared)
     {
-      if (x_expansion > level_specs.network.FanoutX().Get())
+      if (x_expansion > arch_props_.FanoutX(storage_level_id))
         success = false;
       
-      if (y_expansion > level_specs.network.FanoutY().Get())
+      if (y_expansion > arch_props_.FanoutY(storage_level_id))
         success = false;
 
-      fanout_max = level_specs.network.FanoutX().Get() * level_specs.network.FanoutY().Get();
+      fanout_max = arch_props_.Fanout(storage_level_id);
     }
     else
     {
       std::size_t x_fanout_max = 0;
       std::size_t y_fanout_max = 0;
 
+      // The following loop is silly since we now only allow one fanout per level
+      // (as opposed to a per-dataspace fanout for partitioned levels). However,
+      // we will keep the code because we may need to move to a multiple-buffers
+      // per level later. The loop will not be over data spaces but buffer
+      // instances per level.
+
       for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
       {
-        auto pv = problem::Shape::DataSpaceID(pvi);
+        // auto pv = problem::Shape::DataSpaceID(pvi);
 
-        if (x_expansion > level_specs.network.FanoutX(pv).Get())
+        if (x_expansion > arch_props_.FanoutX(storage_level_id))
           success = false;
 
-        if (y_expansion > level_specs.network.FanoutY(pv).Get())
+        if (y_expansion > arch_props_.FanoutY(storage_level_id))
           success = false;
 
         // Track max available (not utilized) fanout across all datatypes.
-        x_fanout_max = std::max(x_fanout_max, level_specs.network.FanoutX(pv).Get());
-        y_fanout_max = std::max(y_fanout_max, level_specs.network.FanoutY(pv).Get());
+        x_fanout_max = std::max(x_fanout_max, arch_props_.FanoutX(storage_level_id));
+        y_fanout_max = std::max(y_fanout_max, arch_props_.FanoutY(storage_level_id));
       }
 
       fanout_max = x_fanout_max * y_fanout_max;
@@ -935,11 +822,11 @@ class Uber : public MapSpace
 
     // if (!success)
     // {
-    //   std::cerr << "Level: " << level_specs.level_name << std::endl;
+    //   std::cerr << "Level: " << arch_props_.StorageLevelName(storage_level_id) << std::endl;
     //   std::cerr << "  X: ";
-    //   std::cerr << " expansion = " << x_expansion << " fanout = " << level_specs.network.FanoutX().Get() << std::endl;
+    //   std::cerr << " expansion = " << x_expansion << " fanout = " << arch_props_.FanoutX(storage_level_id) << std::endl;
     //   std::cerr << "  Y: ";
-    //   std::cerr << " expansion = " << y_expansion << " fanout = " << level_specs.network.FanoutY().Get() << std::endl;
+    //   std::cerr << " expansion = " << y_expansion << " fanout = " << arch_props_.FanoutY(storage_level_id) << std::endl;
     //   std::cerr << "  util = " << fanout_utilization << std::endl;
     //   std::cerr << std::endl;
     // }
@@ -947,350 +834,6 @@ class Uber : public MapSpace
     return success;
   }
   
-  bool AssignSpatialTilingDirections_Level_MaxWS(std::uint32_t spatial_split,
-                                                 std::vector<loop::Descriptor>& level_nest,
-                                                 model::BufferLevel::Specs& level_specs,
-                                                 tiling::CompoundMask& datatype_bypass_mask,
-                                                 double& fanout_utilization)
-  {
-
-    bool success = true;
-
-    problem::OperationPoint origin;
-    problem::OperationPoint x_dimensions;
-    problem::OperationPoint y_dimensions;
-
-    x_dimensions.IncrementAllDimensions(); // initialize to { 1, 1, 1, ...}
-    y_dimensions.IncrementAllDimensions(); // initialize to { 1, 1, 1, ...}
-
-    std::size_t dimension_expansion = 1;
-    
-    // Based on the spatial mapping ID, split the level nest into two sections:
-    // first X and then Y.
-    for (unsigned i = 0; i < level_nest.size(); i++)
-    {
-      auto& loop = level_nest.at(i);
-      
-      assert(loop::IsSpatial(loop.spacetime_dimension));
-      assert(loop.stride == 1);
-
-      if (i < spatial_split)
-      {
-        // X
-        x_dimensions[loop.dimension] = loop.end;
-        loop.spacetime_dimension = spacetime::Dimension::SpaceX;
-      }
-      else
-      {
-        // Y
-        y_dimensions[loop.dimension] = loop.end;
-        loop.spacetime_dimension = spacetime::Dimension::SpaceY;
-      }
-
-      dimension_expansion *= loop.end;
-    }
-
-    // Look at the size of each datatype within the point sets. This tells us
-    // the required fanout. Match this against the available fanout in the arch
-    // spec.
-    
-    // ****** FIXME ****** this logic appears to be incorrect. It will compute
-    // the number of distinct partitions that each datatype fans out to. However,
-    // that is not what the hardware organization intended - it may have wanted
-    // to keep copies of each datatype. In other words, any potential multicast
-    // happens from *this* level down, not from the next level down. Fortunately,
-    // the tile analysis stage seems to be doing the right thing later on.
-
-    // origin gives us the low corner (inclusive) of the operation space.
-    // x/y_dimensions gives the high corner (exclusive) of the operation space.
-    // We need the inclusive high corner to build the operation space. See
-    // OperationSpace constructor for details.
-    problem::OperationPoint x_high = x_dimensions;
-    x_high.IncrementAllDimensions(-1);
-    problem::OperationPoint y_high = y_dimensions;
-    y_high.IncrementAllDimensions(-1);
-
-    problem::OperationSpace x_space(&workload_, origin, x_high);
-    problem::OperationSpace y_space(&workload_, origin, y_high);
-    
-    auto x_sizes = x_space.GetSizes();
-    auto y_sizes = y_space.GetSizes();
-
-    std::size_t fanout_max;
-    
-    if (level_specs.SharingType() == model::DataSpaceIDSharing::Shared)
-    {
-      // Shared level: required fanout is the max across all datatypes **kept at this level**.
-      std::size_t x_max = 0;
-      std::size_t y_max = 0;
-
-      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-      {
-        if (datatype_bypass_mask.at(pvi))
-        {
-          x_max = std::max(x_max, x_sizes.at(problem::Shape::DataSpaceID(pvi)));
-          y_max = std::max(y_max, y_sizes.at(problem::Shape::DataSpaceID(pvi)));
-        }
-      }
-
-      if (x_max > level_specs.network.FanoutX().Get())
-        success = false;
-      
-      if (y_max > level_specs.network.FanoutY().Get())
-        success = false;
-
-      fanout_max = level_specs.network.FanoutX().Get() * level_specs.network.FanoutY().Get();
-    }
-    else
-    {
-      // Partitioned: check each datatype.
-      std::size_t x_fanout_max = 0;
-      std::size_t y_fanout_max = 0;
-
-      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-      {
-        auto pv = problem::Shape::DataSpaceID(pvi);
-        if (x_sizes.at(pv) > level_specs.network.FanoutX(pv).Get())
-          success = false;
-        if (y_sizes.at(pv) > level_specs.network.FanoutY(pv).Get())
-          success = false;
-
-        // Track max available (not utilized) fanout across all datatypes.
-        x_fanout_max = std::max(x_fanout_max, level_specs.network.FanoutX(pv).Get());
-        y_fanout_max = std::max(y_fanout_max, level_specs.network.FanoutY(pv).Get());
-      }
-
-      fanout_max = x_fanout_max * y_fanout_max;
-    }
-
-    // Compute fanout utilization at this level.
-    // Ignore bypass and partitioning. The only purpose of this is to accumulate
-    // the level-wise utilizations to compute arithmetic utilization.
-    fanout_utilization *= double(dimension_expansion) / fanout_max;
-
-    // if (success)
-    // {
-    //   std::cerr << "X: ";
-    //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    //     std::cerr << problem::Shape::DataSpaceID(pvi) << " = " << x_sizes.at(problem::Shape::DataSpaceID(pvi)) << " ";
-    //   std::cerr << " max = " << x_max << " fanout = " << level_specs.network.FanoutX().Get() << std::endl;
-    //   std::cerr << "Y: ";
-    //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    //     std::cerr << problem::Shape::DataSpaceID(pvi) << " = " << y_sizes.at(problem::Shape::DataSpaceID(pvi)) << " ";
-    //   std::cerr << " max = " << y_max << " fanout = " << level_specs.network.FanoutY().Get() << std::endl;
-    //   std::cerr << "util = " << fanout_utilization << std::endl;
-    //   std::cerr << std::endl;
-    // }
-    
-    return success;
-  }
-  
-  // *** DEPRECATED ***
-  // AssignSpatialTilingDirections_SharedLevel()
-  //   Each loop walks through a problem dimension. How does this affect
-  //   the spatial fanout? Is it in the problem space or in each individual
-  //   datatype's range for that problem dimension? For example, consider CNN's
-  //   C dimension. If we have a partitioned level, this should not scale the
-  //   child level's #instances (and therefore this level's fanout) for outputs.
-  //   But what about CNN's P (output width) dimension? Will the fanout for inputs
-  //   scale by P or (P + halo)?
-  //
-  //   For now, assume that we scale by problem dimension ***even if that dimension
-  //   does not project into an operand datatype***. This will probably
-  //   reject some valid spatial mappings.
-  //
-  bool AssignSpatialTilingDirections_SharedLevel(uint128_t& mapping_spatial_id,
-                                                 std::vector<loop::Descriptor>& level_nest,
-                                                 model::BufferLevel::Specs& level_specs)
-  {
-    // Until we re-enable flexible X/Y mesh, the spatial mapping ID doesn't serve
-    // any purpose.
-    (void)mapping_spatial_id;
-    
-    assert(level_specs.SharingType() == model::DataSpaceIDSharing::Shared);
-
-    bool success = true;
-    
-    // Assign the correct spatio-temporal type to each loop. Start with X,
-    // then move to Y. Assume no loss in generality from doing this.
-    problem::PerDataSpace<std::uint64_t> x_fanout(1);
-    problem::PerDataSpace<std::uint64_t> y_fanout(1);
-
-    bool x_exhausted = false;
-
-    for (auto loop = level_nest.begin(); loop != level_nest.end() && success; loop++)
-    {
-      assert(loop::IsSpatial(loop->spacetime_dimension));
-
-      if (!x_exhausted)
-      {
-        // Iterate through each data type and determine how much this loop
-        // would cause that datatype's fanout to inflate.
-        problem::PerDataSpace<std::uint64_t> upd_fanout;
-        for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-        {
-          auto pv = problem::Shape::DataSpaceID(pvi);
-          if (true) // problem::IsSensitive(pv, loop->dimension))
-          {
-            upd_fanout[pv] = x_fanout[pv] * loop->end;
-          }
-        }
-
-        // See if we can accommodate this loop within the X dimension.           
-        // Compare this fanout vs. the available fanout in the arch spec.
-        if (upd_fanout.Max() <= level_specs.network.FanoutX().Get())
-        {
-          // Yes, we can accept this loop.
-          loop->spacetime_dimension = spacetime::Dimension::SpaceX;
-          x_fanout = upd_fanout;
-        }
-        else
-        {
-          // Nope, we're done with X, switch to Y. Also rewind the iterator
-          // so that we re-try this loop in the Y dimension.
-          x_exhausted = true;
-          --loop;
-        }
-      }
-      else
-      {
-        // X is exhausted, we *have* to spill into Y.
-
-        // Iterate through each data type and determine how much this loop
-        // would cause that datatype's fanout to inflate.
-        problem::PerDataSpace<std::uint64_t> upd_fanout;
-        for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-        {
-          auto pv = problem::Shape::DataSpaceID(pvi);
-          if (true) // problem::IsSensitive(pv, loop->dimension))
-          {
-            upd_fanout[pv] = y_fanout[pv] * loop->end;
-          }
-        }
-
-        // Compare this fanout vs. the available fanout in the arch spec.
-        if (upd_fanout.Max() <= level_specs.network.FanoutY().Get())
-        {
-          // Yes, we can accept this loop.
-          loop->spacetime_dimension = spacetime::Dimension::SpaceY;
-          y_fanout = upd_fanout;
-        }
-        else
-        {
-          // We're out of dimensions. This mapping has failed.
-          // std::cout << "FAIL x_fanout = " << x_fanout.Max()
-          //           << " spec_x_fanout = " << level_specs.network.FanoutX().Get()
-          //           << " need y_fanout = " << y_fanout.Max()
-          //           << " spec_y_fanout = " << level_specs.network.FanoutY().Get()
-          //           << std::endl;
-          success = false;
-        }
-      } // x_exhausted.
-    } // for (loop in level_nest)
-
-    return success;
-  }
-  
-  // *** DEPRECATED ***
-  // AssignSpatialTilingDirections_PartitionedLevel()
-  // FIXME: This function is incomplete. Logic needs to be thought through. Here's the
-  //        challenge: Each loop walks through a problem dimension. How does this affect
-  //        the spatial fanout? Is it in the problem space or in each individual
-  //        datatype's range for that problem dimension? For example, consider CNN's
-  //        C dimension. If we have a partitioned level, this should not scale the
-  //        child level's #instances (and therefore this level's fanout) for outputs.
-  //        But what about CNN's P (output width) dimension? Will the fanout for inputs
-  //        scale by P or (P + halo)?
-  //
-  bool AssignSpatialTilingDirections_PartitionedLevel(uint128_t& mapping_spatial_id,
-                                                      std::vector<loop::Descriptor>& level_nest,
-                                                      model::BufferLevel::Specs& level_specs)
-  {
-    assert(level_specs.SharingType() == model::DataSpaceIDSharing::Partitioned);
-
-    (void)level_nest;
-    assert(false);
-    
-    // Until we re-enable flexible X/Y mesh, the spatial mapping ID doesn't serve
-    // any purpose.
-    (void)mapping_spatial_id;
-
-    bool success = true;
-
-    // // Assign the correct spatio-temporal type to each loop. Start with X,
-    // // then move to Y. Assume no loss in generality from doing this.
-    // problem::PerDataSpace<std::uint64_t> x_fanout(1);
-    // problem::PerDataSpace<std::uint64_t> y_fanout(1);
-
-    // bool x_exhausted = false;
-
-    // for (auto loop = level_nest.begin(); loop != level_nest.end && success; loop++)
-    // {
-    //   assert(loop::IsSpatial(loop->spacetime_dimension));
-
-    //   if (!x_exhausted)
-    //   {
-    //     // Iterate through each data type and determine how much this loop
-    //     // would cause that datatype's fanout to inflate.
-    //     problem::PerDataSpace<std::uint64_t> upd_fanout;
-    //     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    //     {
-    //       auto pv = problem::Shape::DataSpaceID(pvi);
-    //       if (problem::IsSensitive(pv, loop->dimension))
-    //       {
-    //         upd_fanout[pv] = x_fanout[pv] * loop->end;
-    //       }
-    //     }
-
-    //     // See if we can accommodate this loop within the X dimension.           
-    //     // Compare this fanout vs. the available fanout in the arch spec.
-    //     if (upd_fanout.Max() <= level_specs.network.FanoutX())
-    //     {
-    //       // Yes, we can accept this loop.
-    //       loop->spacetime_dimension = spacetime::Dimension::SpaceX;
-    //       x_fanout = upd_fanout;
-    //     }
-    //     else
-    //     {
-    //       // Nope, we're done with X, switch to Y. Also rewind the iterator
-    //       // so that we re-try this loop in the Y dimension.
-    //       x_exhausted = true;
-    //       --loop;
-    //     }
-    //   }
-    //   else
-    //   {
-    //     // X is exhausted, we *have* to spill into Y.
-
-    //     // Iterate through each data type and determine how much this loop
-    //     // would cause that datatype's fanout to inflate.
-    //     problem::PerDataSpace<std::uint64_t> upd_fanout;
-    //     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    //     {
-    //       auto pv = problem::Shape::DataSpaceID(pvi);
-    //       if (problem::IsSensitive(pv, loop->dimension))
-    //       {
-    //         upd_fanout[pv] = y_fanout[pv] * loop->end;
-    //       }
-    //     }
-
-    //     // Compare this fanout vs. the available fanout in the arch spec.
-    //     if (upd_fanout.Max() <= level_specs.network.FanoutY())
-    //     {
-    //       // Yes, we can accept this loop.
-    //       loop->spacetime_dimension = spacetime::Dimension::SpaceY;
-    //       y_fanout = upd_fanout;
-    //     }
-    //     else
-    //     {
-    //       // We're out of dimensions. This mapping has failed.
-    //       success = false;
-    //     }
-    //   } // x_exhausted.
-    // } // for (loop in level_nest)
-
-    return success;
-  }
   
   //
   // Mapping Construction
@@ -1306,23 +849,6 @@ class Uber : public MapSpace
   //                Helper/Misc.              // 
   //------------------------------------------//
   
-  //
-  // IsTwoDimensionalSpatialLevel()
-  //
-  bool IsTwoDimensionalSpatialLevel(int level)
-  {
-    assert(IsSpatialTilingLevel(level));
-    return twoD_spatial_mask_[level];
-  }
-
-  //
-  // IsSpatialTilingLevel()
-  //
-  bool IsSpatialTilingLevel(int level)
-  {
-    return spatial_mask_[level];
-  }
-
   //
   // Parse user config.
   //
@@ -1427,12 +953,12 @@ class Uber : public MapSpace
       else if (type == "datatype" || type == "bypass")
       {
         ParseUserDatatypeBypassSettings(constraint,
-                                        tiling_to_storage_map_[level_id],
+                                        arch_props_.TilingToStorage(level_id),
                                         user_bypass_strings);
       }
       else if (type == "utilization" || type == "parallelism")
       {
-        assert(constraint.lookupValue("min", min_utilization_));
+        assert(constraint.lookupValue("min", min_parallelism_));
       }
       else
       {
@@ -1485,39 +1011,45 @@ class Uber : public MapSpace
     if (type == "temporal" || type == "datatype" || type == "bypass")
     {
       // This should always succeed.
-      tiling_level_id = temporal_to_tiling_map_.at(storage_level_id);
+      tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);
     }
     else if (type == "spatial")
     {
       // This will fail if this level isn't a spatial tiling level.
-      auto it = spatial_to_tiling_map_.find(storage_level_id);
-      if (it != spatial_to_tiling_map_.end())
+      try
       {
-        tiling_level_id = it->second;
+        tiling_level_id = arch_props_.SpatialToTiling(storage_level_id);
       }
-      else
+      catch (const std::out_of_range& oor)
       {
-        std::cerr << "ERROR: " << storage_level_name
-                  << " is not a spatial tiling level (no fanout)."
-                  << std::endl;
+        std::cerr << "ERROR: cannot find spatial tiling level associated with "
+                  << "storage level " << arch_props_.StorageLevelName(storage_level_id)
+                  << ". This is because the number of instances of the next-inner "
+                  << "level ";
+        if (storage_level_id != 0)
+        {
+          std::cerr << "(" << arch_props_.StorageLevelName(storage_level_id-1) << ") ";
+        }
+        std::cerr << "is the same as this level, which means there cannot "
+                  << "be a spatial fanout." << std::endl;
         exit(1);
       }
     }
     else if (type == "utilization" || type == "parallelism")
     {
-      // For now, we only allow utilization to be specified for level 0.
+      // For now, we only allow parallelism to be specified for level 0.
       // Note that this is the level 0 storage, not arithmetic. Fanout from
-      // level 0 to arithmetic is undefined. The utilization specified here
+      // level 0 to arithmetic is undefined. The parallelism specified here
       // is the cumulative fanout utilization all the way from the top of
       // the storage tree down to level 0.
       if (storage_level_id != 0)
       {
-        std::cerr << "ERROR: utilization cannot be constrained at level "
+        std::cerr << "ERROR: parallelism cannot be constrained at level "
                   << storage_level_name << ". It must be constrained at the "
                   << "innermost storage level." << std::endl;
         exit(1);
       }
-      tiling_level_id = temporal_to_tiling_map_.at(storage_level_id);
+      tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);
     }
     else
     {
