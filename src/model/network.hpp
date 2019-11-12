@@ -58,6 +58,7 @@ class Network
 
     DataSpaceIDSharing sharing_type;
 
+    std::string name = "UNSET";
     PerDataSpaceOrShared<Attribute<NetworkType>> type;
     PerDataSpaceOrShared<Attribute<std::uint64_t>> word_bits;
     PerDataSpaceOrShared<Attribute<double>> routerEnergy;
@@ -233,8 +234,7 @@ class Network
 
  public:
 
-  Network()
-  { }
+  Network() = delete;
 
   Network(const Specs& specs) :
       specs_(specs)
@@ -304,6 +304,11 @@ class Network
   void Connect(std::shared_ptr<Level> outer)
   {
     outer_ = outer;
+  }
+
+  void SetName(std::string name)
+  {
+    specs_.name = name;
   }
 
   bool DistributedMulticastSupported()
@@ -602,6 +607,10 @@ class Network
   //
   void PrintSpecs(std::ostream& out) const
   {
+    // Print network name.
+    out << specs_.name << std::endl;  
+    out << std::endl;
+
     std::string indent = "    ";
 
     out << indent << "NETWORK SPECS" << std::endl;

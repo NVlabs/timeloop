@@ -54,7 +54,6 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
     out << "Level " << level_id << std::endl;
     out << "-------" << std::endl;
     out << *level;
-    //level->Print(out);
     level_id++;
   }
 
@@ -67,7 +66,6 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
     out << "Network " << network_id << std::endl;
     out << "---------" << std::endl;
     out << *network;
-    //network->Print(out);
     network_id++;
   }  
 
@@ -174,11 +172,16 @@ void Topology::Spec(const Topology::Specs& specs)
   for (unsigned i = 0; i < specs.NumNetworks(); i++)
   {
     // Note! We are linking levels[i+1] as the outer level for networks[i].
-    auto level = levels_.at(i+1);
-    auto buffer_level = std::static_pointer_cast<BufferLevel>(level);
+    auto inner = levels_.at(i);
+    auto outer = levels_.at(i+1);
+
+    auto outer_buffer = std::static_pointer_cast<BufferLevel>(outer);
     auto network = networks_.at(i);
-    buffer_level->Connect(network);
-    network->Connect(level);
+    outer_buffer->Connect(network);
+    network->Connect(outer);
+
+    std::string network_name = outer->Name() + " <==> " + inner->Name();
+    network->SetName(network_name);
   }
 
   is_specced_ = true;
