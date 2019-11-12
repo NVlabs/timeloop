@@ -209,7 +209,7 @@ class Network
  private:
   
   Specs specs_;
-  std::shared_ptr<Level> outer_;
+  std::shared_ptr<Level> outer_ = nullptr;
 
  public:
   Stats stats_; // temporarily public.
@@ -233,13 +233,11 @@ class Network
 
  public:
 
-  Network(std::shared_ptr<Level> outer) :
-      outer_(outer)
+  Network()
   { }
 
-  Network(const Specs& specs, std::shared_ptr<Level> outer) :
-      specs_(specs),
-      outer_(outer)
+  Network(const Specs& specs) :
+      specs_(specs)
   { }
 
   ~Network()
@@ -301,6 +299,11 @@ class Network
   const Specs& GetSpecs() const
   {
     return specs_;
+  }
+
+  void Connect(std::shared_ptr<Level> outer)
+  {
+    outer_ = outer;
   }
 
   bool DistributedMulticastSupported()

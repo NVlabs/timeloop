@@ -164,9 +164,8 @@ void Topology::Spec(const Topology::Specs& specs)
   // Construct and spec networks.
   for (unsigned i = 0; i < specs.NumNetworks(); i++)
   {
-    // Note! We are linking levels[i] as the outer level for networks[i].
     auto network_specs = specs.GetNetwork(i);
-    std::shared_ptr<Network> network = std::make_shared<Network>(*network_specs, levels_.at(i));
+    std::shared_ptr<Network> network = std::make_shared<Network>(*network_specs);
     networks_.push_back(network);
   }
 
@@ -174,8 +173,12 @@ void Topology::Spec(const Topology::Specs& specs)
   assert(specs.NumLevels() == specs.NumNetworks() + 1);
   for (unsigned i = 0; i < specs.NumNetworks(); i++)
   {
-    auto buffer_level = std::static_pointer_cast<BufferLevel>(levels_.at(i+1));
-    buffer_level->Connect(networks_.at(i));
+    // Note! We are linking levels[i+1] as the outer level for networks[i].
+    auto level = levels_.at(i+1);
+    auto buffer_level = std::static_pointer_cast<BufferLevel>(level);
+    auto network = networks_.at(i);
+    buffer_level->Connect(network);
+    network->Connect(level);
   }
 
   is_specced_ = true;
