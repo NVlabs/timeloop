@@ -67,4 +67,5 @@ arch:
   arithmetic:
     word-bits: 16
     instances: 256
+    meshX: 16
     name: MACs
