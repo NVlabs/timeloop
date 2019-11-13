@@ -45,17 +45,29 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
   // Detailed specs and stats.
   //
 
-  out << "Topology" << std::endl;
-  out << "--------" << std::endl;
+  out << "Buffer and Arithmetic Levels" << std::endl;
+  out << "----------------------------" << std::endl;
 
   int level_id = 0;
   for (auto & level : topology.levels_)
   {
     out << "Level " << level_id << std::endl;
     out << "-------" << std::endl;
-    level->Print(out);
+    out << *level;
     level_id++;
   }
+
+  out << "Networks" << std::endl;
+  out << "--------" << std::endl;
+
+  int network_id = 0;
+  for (auto & network : topology.networks_)
+  {
+    out << "Network " << network_id << std::endl;
+    out << "---------" << std::endl;
+    out << *network;
+    network_id++;
+  }  
 
   if (topology.is_evaluated_)
   {
@@ -107,12 +119,20 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
 void Topology::Spec(const Topology::Specs& specs)
 {
   specs_ = specs;
+
   for (auto& level : levels_)
   {
     level.reset();
   }
   levels_.clear();
 
+  for (auto& network : networks_)
+  {
+    network.reset();
+  }
+  networks_.clear();
+
+  // Construct and spec Buffer and Arithmeic levels.
   for (unsigned i = 0; i < specs.NumLevels(); i++)
   {
     auto level_specs = specs.GetLevel(i);
@@ -137,6 +157,31 @@ void Topology::Spec(const Topology::Specs& specs)
       std::cerr << "ERROR: illegal level specs type: " << level_specs->Type() << std::endl;
       exit(1);
     }
+  }
+
+  // Construct and spec networks.
+  for (unsigned i = 0; i < specs.NumNetworks(); i++)
+  {
+    auto network_specs = specs.GetNetwork(i);
+    std::shared_ptr<Network> network = std::make_shared<Network>(*network_specs);
+    networks_.push_back(network);
+  }
+
+  // Connect levels to network.
+  assert(specs.NumLevels() == specs.NumNetworks() + 1);
+  for (unsigned i = 0; i < specs.NumNetworks(); i++)
+  {
+    // Note! We are linking levels[i+1] as the outer level for networks[i].
+    auto inner = levels_.at(i);
+    auto outer = levels_.at(i+1);
+
+    auto outer_buffer = std::static_pointer_cast<BufferLevel>(outer);
+    auto network = networks_.at(i);
+    outer_buffer->Connect(network);
+    network->Connect(outer);
+
+    std::string network_name = outer->Name() + " <==> " + inner->Name();
+    network->SetName(network_name);
   }
 
   is_specced_ = true;
@@ -166,9 +211,11 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
   {
     auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i], 0));
     specs.AddLevel(i, std::static_pointer_cast<LevelSpecs>(level_specs_p));
-  }
 
-  Validate(specs);
+    // Networks specs are parsed and extracted from the storage config.
+    auto network_specs_p = std::make_shared<Network::Specs>(Network::ParseSpecs(storage[i]));
+    specs.AddNetwork(network_specs_p);
+  }
 
   return specs;
 }
@@ -180,66 +227,86 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
 {
   Specs specs;
   auto curNode = designRoot;
-  std::vector< std::shared_ptr<LevelSpecs> > storages; // serialize all storages
+
+  std::vector<std::shared_ptr<LevelSpecs>> storages; // serialize all storages
+  std::vector<std::shared_ptr<Network::Specs>> networks;
+
   uint32_t multiplication = 1;
+
   // Walk the tree to find each buffer and arithmetic units
   // and add them to the specs.
-  while (curNode.exists("subtree")) {
+  while (curNode.exists("subtree"))
+  {
     auto subTrees = curNode.lookup("subtree");
     // Timeloop currently supports one subtree per level.
     assert(subTrees.isList() && subTrees.getLength() == 1);
     curNode = subTrees[0];
+
     std::string curNodeName;
     curNode.lookupValue("name", curNodeName);
+
     uint32_t subTreeSize = config::parseElementSize(curNodeName);
     multiplication *= subTreeSize;
 
-    if (curNode.exists("local")) {
+    if (curNode.exists("local"))
+    {
       auto curLocal = curNode.lookup("local");
       assert(curLocal.isList());
-      std::vector< std::shared_ptr<LevelSpecs> > localStorages;
 
-      for (int c = 0; c < curLocal.getLength() ; c++) {
+      std::vector<std::shared_ptr<LevelSpecs>> localStorages;
+      std::vector<std::shared_ptr<Network::Specs>> localNetworks;
+
+      for (int c = 0; c < curLocal.getLength() ; c++)
+      {
         std::string cName, cClass;
         curLocal[c].lookupValue("name", cName);
         curLocal[c].lookupValue("class", cClass);
         uint32_t localElementSize = config::parseElementSize(cName);
         uint32_t nElements = multiplication * localElementSize;
 
-        if (isBufferClass(cClass)) {
-          // create a buffer
-          // std::cout << "Creating buffer: " << cClass << " Elements: " << nElements << std::endl;
+        if (isBufferClass(cClass))
+        {
+          // Create a buffer.
           auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
           localStorages.push_back(level_specs_p);
-        } else if (isComputeClass(cClass)) {
-          // create arithmetic
-          // std::cout << "Creating arith: " << cClass << " Elements: " << nElements << std::endl;
-          // std::cout << "AddLevel (arithmetic) : 0 " << cName << std::endl;
+
+          // Create a network.
+          auto network_specs_p = std::make_shared<Network::Specs>(Network::ParseSpecs(curLocal[c]));
+          localNetworks.push_back(network_specs_p);
+        }
+        else if (isComputeClass(cClass))
+        {
+          // Create arithmetic.
           auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
-        } else {
+        }
+        else
+        {
           // std::cout << "  Neglect component: " << cName << " due to unknown class: " << cClass << std::endl;
         }
       }
-      // the deeper the tree, the closer the buffer to be with ArithmeticUnits.
-      // reverse the order so that top in the local list is at the bottem, matching the tree seq
+      // The deeper the tree, the closer the buffer to be with ArithmeticUnits.
+      // Reverse the order so that top in the local list is at the bottem, matching the tree seq
       storages.insert(storages.begin(), localStorages.rbegin(), localStorages.rend());
+      networks.insert(networks.begin(), localNetworks.rbegin(), localNetworks.rend());
     }
   } // end while
 
   // Add storages to specs. We can do this only after walking the whole tree.
-  for (uint32_t i = 0; i < storages.size(); i++) {
+  for (uint32_t i = 0; i < storages.size(); i++)
+  {
     auto storage = storages[i];
-    // std::cout << "AddLevel (storage) : " << i << " " << storage->level_name << std::endl;
     specs.AddLevel(i, storage);
-  }
 
-  Validate(specs);
+    auto network = networks[i];
+    specs.AddNetwork(network);
+  }
 
   return specs;
 };
 
-void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
+void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
+{
   // std::cout << "Replacing energy numbers..." << std::endl;
   std::vector<std::string> keys;
   assert(ert.exists("tables"));
@@ -259,8 +326,10 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert) {
       if (actionERT.lookupValue("energy", transferEnergy)) {
         for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
           auto bufferSpec = GetStorageLevel(i);
+          auto networkSpec = GetNetwork(i); // FIXME.
           auto pv = problem::GetShape()->NumDataSpaces;
-          bufferSpec->network.WireEnergy(pv) = transferEnergy;
+          //bufferSpec->network.WireEnergy(pv) = transferEnergy;
+          networkSpec->WireEnergy(pv) = transferEnergy;
         }
       }
     } else {
@@ -334,116 +403,6 @@ std::vector<std::string> Topology::Specs::StorageLevelNames() const
   return storage_level_names;
 }
 
-// Make sure the topology is consistent,
-// and update unspecified parameters if they can
-// be inferred from other specified parameters.
-void Topology::Validate(Topology::Specs& specs)
-{
-  // Intra-level topology validation is carried out by the levels
-  // themselves. We take care of inter-layer issues here. This
-  // breaks abstraction since we will be poking at levels' private
-  // specs. FIXME.
-
-  // Assumption here is that level i always connects to level
-  // i-1 via a 1:1 or fanout network. The network module will
-  // eventually be factored out, at which point we can make the
-  // interconnection more generic and specifiable.
-
-  BufferLevel::Specs& outer = *specs.GetStorageLevel(0);
-  ArithmeticUnits::Specs& inner = *specs.GetArithmeticLevel();
-  unsigned outer_start_pvi = outer.DataSpaceIDIteratorStart();
-  unsigned outer_end_pvi = outer.DataSpaceIDIteratorEnd();
-  auto outer_start_pv = problem::Shape::DataSpaceID(outer_start_pvi);
-
-  if (outer.Instances(outer_start_pv).Get() == inner.Instances().Get())
-  {
-    for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-    {
-      outer.network.FanoutX(problem::Shape::DataSpaceID(pvi)) = 1;
-      outer.network.FanoutY(problem::Shape::DataSpaceID(pvi)) = 1;
-      outer.network.Fanout(problem::Shape::DataSpaceID(pvi)) = 1;
-    }
-  }
-  else
-  {
-    // fanout
-    assert(inner.Instances().Get() % outer.Instances(outer_start_pv).Get() == 0);
-    unsigned fanout_in = inner.Instances().Get() / outer.Instances(outer_start_pv).Get();
-    for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-      outer.network.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout_in;
-    // fanout x
-    assert(inner.MeshX().IsSpecified());
-    assert(inner.MeshX().Get() % outer.MeshX(outer_start_pv).Get() == 0);
-    unsigned fanoutX_in = inner.MeshX().Get() / outer.MeshX(outer_start_pv).Get();
-    for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-      outer.network.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX_in;
-    // fanout y
-    assert(inner.MeshY().IsSpecified());
-    assert(inner.MeshY().Get() % outer.MeshY(outer_start_pv).Get() == 0);
-    unsigned fanoutY_in = inner.MeshY().Get() / outer.MeshY(outer_start_pv).Get();
-    for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-      outer.network.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY_in;
-  }
-
-  for (unsigned i = 0; i < specs.NumStorageLevels()-1; i++)
-  {
-    BufferLevel::Specs& inner = *specs.GetStorageLevel(i);
-    BufferLevel::Specs& outer = *specs.GetStorageLevel(i+1);
-
-    // FIXME: for partitioned levels, we're only going to look at the
-    // pvi==0 partition. Our buffer.cpp's ParseSpecs function guarantees
-    // that all partitions will have identical specs anyway.
-    // HOWEVER, if we're deriving any specs, we need to set them for all
-    // pvs for partitioned buffers.
-
-    // All of this
-    // will go away once we properly separate out partitions from
-    // datatypes.
-    unsigned inner_start_pvi = inner.DataSpaceIDIteratorStart();
-    auto inner_start_pv = problem::Shape::DataSpaceID(inner_start_pvi);
-    
-    unsigned outer_start_pvi = outer.DataSpaceIDIteratorStart();
-    unsigned outer_end_pvi = outer.DataSpaceIDIteratorEnd();
-    auto outer_start_pv = problem::Shape::DataSpaceID(outer_start_pvi);
-    
-    // Fanout.
-    assert(inner.Instances(inner_start_pv).Get() % outer.Instances(outer_start_pv).Get() == 0);
-    unsigned fanout = inner.Instances(inner_start_pv).Get() / outer.Instances(outer_start_pv).Get();
-    if (outer.network.Fanout(outer_start_pv).IsSpecified())
-      assert(outer.network.Fanout(outer_start_pv).Get() == fanout);
-    else
-    {
-      for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-        outer.network.Fanout(problem::Shape::DataSpaceID(pvi)) = fanout;
-    }
-
-    // FanoutX.
-    assert(inner.MeshX(inner_start_pv).Get() % outer.MeshX(outer_start_pv).Get() == 0);
-    unsigned fanoutX = inner.MeshX(inner_start_pv).Get() / outer.MeshX(outer_start_pv).Get();
-    if (outer.network.FanoutX(outer_start_pv).IsSpecified())
-      assert(outer.network.FanoutX(outer_start_pv).Get() == fanoutX);
-    else
-    {
-      for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-        outer.network.FanoutX(problem::Shape::DataSpaceID(pvi)) = fanoutX;
-    }
-
-    // FanoutY.
-    assert(inner.MeshY(inner_start_pv).Get() % outer.MeshY(outer_start_pv).Get() == 0);
-    unsigned fanoutY = inner.MeshY(inner_start_pv).Get() / outer.MeshY(outer_start_pv).Get();
-    if (outer.network.FanoutY(outer_start_pv).IsSpecified())
-      assert(outer.network.FanoutY(outer_start_pv).Get() == fanoutY);
-    else
-    {
-      for (unsigned pvi = outer_start_pvi; pvi < outer_end_pvi; pvi++)
-        outer.network.FanoutY(problem::Shape::DataSpaceID(pvi)) = fanoutY;
-    }
-
-    assert(outer.network.Fanout(outer_start_pv).Get() ==
-           outer.network.FanoutX(outer_start_pv).Get() * outer.network.FanoutY(outer_start_pv).Get());
-  }  
-}
-
 //
 // Level accessors.
 //
@@ -467,6 +426,11 @@ void Topology::Specs::AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> le
   levels.push_back(level_specs);
 }
 
+void Topology::Specs::AddNetwork(std::shared_ptr<Network::Specs> specs)
+{
+  networks.push_back(specs);
+}
+
 unsigned Topology::Specs::NumLevels() const
 {
   return levels.size();
@@ -475,6 +439,11 @@ unsigned Topology::Specs::NumLevels() const
 unsigned Topology::Specs::NumStorageLevels() const
 {
   return storage_map.size();
+}
+
+unsigned Topology::Specs::NumNetworks() const
+{
+  return networks.size();
 }
 
 std::shared_ptr<LevelSpecs> Topology::Specs::GetLevel(unsigned level_id) const
@@ -494,7 +463,14 @@ std::shared_ptr<ArithmeticUnits::Specs> Topology::Specs::GetArithmeticLevel() co
   return std::static_pointer_cast<ArithmeticUnits::Specs>(levels.at(level_id));
 }
 
+std::shared_ptr<Network::Specs> Topology::Specs::GetNetwork(unsigned network_id) const
+{
+  return networks.at(network_id);
+}
+
+//
 // Topology class.
+//
 unsigned Topology::NumLevels() const
 {
   assert(is_specced_);
@@ -505,6 +481,12 @@ unsigned Topology::NumStorageLevels() const
 {
   assert(is_specced_);
   return specs_.NumStorageLevels();
+}
+
+unsigned Topology::NumNetworks() const
+{
+  assert(is_specced_);
+  return specs_.NumNetworks();
 }
 
 std::shared_ptr<Level> Topology::GetLevel(unsigned level_id) const
@@ -524,6 +506,10 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
   return std::static_pointer_cast<ArithmeticUnits>(levels_.at(level_id));
 }
 
+std::shared_ptr<Network> Topology::GetNetwork(unsigned id) const
+{
+  return networks_.at(id);
+}
 
 // PreEvaluationCheck(): allows for a very fast capacity-check
 // based on given working-set sizes that can be trivially derived
@@ -564,6 +550,18 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 {
   assert(is_specced_);
 
+  // ==================================================================
+  // TODO: connect buffers to networks based on bypass mask in mapping.
+  // ==================================================================
+  // for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+  // {
+  //   auto storage_level = GetStorageLevel(storage_level_id);
+  //   auto network = GetNetwork(storage_level_id);
+
+  //   storage_level->ConnectNetwork(network);
+  //   network->ConnectBuffer(storage_level);
+  // }  
+
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool success_accum = true;
   
@@ -590,7 +588,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     distribution_supported[pv].reset();
     for (unsigned storage_level = 0; storage_level < NumStorageLevels(); storage_level++)
     {
-      if (GetStorageLevel(storage_level)->DistributedMulticastSupported())
+      if (GetStorageLevel(storage_level)->GetNetwork()->DistributedMulticastSupported())
       {
         distribution_supported[pv].set(storage_level);
       }
@@ -625,7 +623,16 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     // primary statistics.
     auto level_id = specs_.StorageMap(storage_level_id);
     auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
-                                     inner_tile_area, compute_cycles, break_on_failure);
+                                     compute_cycles, break_on_failure);
+    eval_status.at(level_id) = s;
+    success_accum &= s.success;
+
+    if (break_on_failure && !s.success)
+      break;
+
+    // Evaluate network.
+    auto network = GetNetwork(storage_level_id); // FIXME.
+    s = network->Evaluate(tiles[storage_level_id], inner_tile_area, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
 
@@ -637,9 +644,9 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     // because I may only have reach into a part of the level, which will
     // reduce my wire energy costs. To determine this, we use the fanout
     // from this level inwards.
-    // FIXME: We need a better model.
+    // FIXME: We need a better floorplanner.
     double cur_level_area = storage_level->AreaPerInstance();
-    inner_tile_area = cur_level_area + (inner_tile_area * storage_level->MaxFanout());
+    inner_tile_area = cur_level_area + (inner_tile_area * network->MaxFanout());
   }
 
   if (!break_on_failure || success_accum)
@@ -665,10 +672,15 @@ double Topology::Energy() const
     energy += level->Energy();
   }
 
-  // FIXME: the following needs to be separated out.
-  for (unsigned i = 1 /*note*/; i < NumLevels(); i++)
+  // for (unsigned i = 1 /*note*/; i < NumLevels(); i++)
+  // {
+  //   energy += std::static_pointer_cast<BufferLevel>(GetLevel(i))->network_.Energy();    
+  // }
+  for (unsigned i = 0; i < NumNetworks(); i++)
   {
-    energy += std::static_pointer_cast<BufferLevel>(GetLevel(i))->network_.Energy();    
+    auto e = GetNetwork(i)->Energy();
+    assert(e >= 0);
+    energy += e;
   }
 
   return energy;

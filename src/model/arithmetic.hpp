@@ -121,6 +121,7 @@ class ArithmeticUnits : public Level
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
+  static void ValidateTopology(ArithmeticUnits::Specs& specs);
   
   std::string Name() const override;
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
@@ -131,7 +132,7 @@ class ArithmeticUnits : public Level
   void Print(std::ostream& out) const override;
     
   // --- Unsupported overrides ---
-  bool DistributedMulticastSupported() override { return false; }
+  bool HardwareReductionSupported(problem::Shape::DataSpaceID pv) override { (void) pv; return false; }
 
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
@@ -144,12 +145,11 @@ class ArithmeticUnits : public Level
   }
 
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                      const double inner_tile_area, const std::uint64_t compute_cycles,
+                      const std::uint64_t compute_cycles,
                       const bool break_on_failure) override
   {
     (void) tile;
     (void) mask;
-    (void) inner_tile_area;
     (void) compute_cycles;
     (void) break_on_failure;
     return { false, "ArithmeticLevel must use the HackEvaluate() function" };
@@ -175,8 +175,6 @@ class ArithmeticUnits : public Level
     return 0;
   }
 
-  std::uint64_t MaxFanout() const override { return 0; }
-
   // --- Temporary hack interfaces, these will be removed ---
   
   EvalStatus HackEvaluate(analysis::NestAnalysis* analysis,
@@ -193,9 +191,6 @@ class ArithmeticUnits : public Level
     auto compute_cycles = body_info.accesses;
 
     // maccs_ = analysis->GetMACs();
-    // utilized_instances_ = maccs_ / analysis->GetComputeCycles(); // Yuck!!! FIXME.
-    // assert(body_info.accesses == analysis->GetComputeCycles());
-    // assert(body_info.replication_factor == utilized_instances_);
 
     if (utilized_instances_ <= specs_.Instances().Get())
     {

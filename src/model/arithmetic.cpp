@@ -100,28 +100,6 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
     specs.MeshY() = mesh_y;
   }
 
-  // quick validation
-  if (specs.MeshX().IsSpecified())
-  {
-    if (specs.MeshY().IsSpecified())    // X and Y are both specificed
-    {
-      assert(specs.MeshX().Get() * specs.MeshY().Get() == specs.Instances().Get());
-    }
-    else                                // only X specified
-    {
-      assert(specs.Instances().Get() % specs.MeshX().Get() == 0);
-      specs.MeshY() = specs.Instances().Get() / specs.MeshX().Get();
-    }
-  }
-  else
-  {
-    if (specs.MeshY().IsSpecified())    // only Y specified
-    {
-      assert(specs.Instances().Get() % specs.MeshY().Get() == 0);
-      specs.MeshX() = specs.Instances().Get() / specs.MeshY().Get();
-    }
-  }
-
   // Energy (override).
   int energy_int;
   double energy;
@@ -156,7 +134,75 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
       pat::MultiplierArea(specs.WordBits().Get(), specs.WordBits().Get());
   }
 
+  // Validation.
+  ValidateTopology(specs);
+
   return specs;
+}
+
+void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
+{
+  bool error = false;
+  if (specs.Instances().IsSpecified())
+  {
+    if (specs.MeshX().IsSpecified())
+    {
+      if (specs.MeshY().IsSpecified())
+      {
+        // All 3 are specified.
+        assert(specs.MeshX().Get() * specs.MeshY().Get() == specs.Instances().Get());
+      }
+      else
+      {
+        // Instances and MeshX are specified.
+        assert(specs.Instances().Get() % specs.MeshX().Get() == 0);
+        specs.MeshY() = specs.Instances().Get() / specs.MeshX().Get();
+      }
+    }
+    else if (specs.MeshY().IsSpecified())
+    {
+      // Instances and MeshY are specified.
+      assert(specs.Instances().Get() % specs.MeshY().Get() == 0);
+      specs.MeshX() = specs.Instances().Get() / specs.MeshY().Get();
+    }
+    else
+    {
+      // Only Instances is specified.
+      specs.MeshX() = specs.Instances().Get();
+      specs.MeshY() = 1;      
+    }
+  }
+  else if (specs.MeshX().IsSpecified())
+  {
+    if (specs.MeshY().IsSpecified())
+    {
+      // MeshX and MeshY are specified.
+      specs.Instances() = specs.MeshX().Get() * specs.MeshY().Get();
+    }
+    else
+    {
+      // Only MeshX is specified. We can make assumptions but it's too dangerous.
+      error = true;
+    }
+  }
+  else if (specs.MeshY().IsSpecified())
+  {
+    // Only MeshY is specified. We can make assumptions but it's too dangerous.
+    error = true;
+  }
+  else
+  {
+    // Nothing is specified.
+    error = true;
+  }
+
+  if (error)
+  {
+    std::cerr << "ERROR: " << specs.level_name
+              << ": instances and/or meshX * meshY must be specified."
+              << std::endl;
+    exit(1);        
+  }
 }
   
 // Accessors.

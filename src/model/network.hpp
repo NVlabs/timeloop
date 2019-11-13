@@ -42,8 +42,13 @@ class Network
 
  public:
 
+  //
+  // Specs.
+  //
   struct Specs
   {
+    static const std::uint64_t kDefaultWordBits = 16;
+
     enum class NetworkType
     {
       OneToOne,
@@ -53,11 +58,9 @@ class Network
 
     DataSpaceIDSharing sharing_type;
 
+    std::string name = "UNSET";
     PerDataSpaceOrShared<Attribute<NetworkType>> type;
     PerDataSpaceOrShared<Attribute<std::uint64_t>> word_bits;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> fanout;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> fanoutX;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> fanoutY;
     PerDataSpaceOrShared<Attribute<double>> routerEnergy;
     PerDataSpaceOrShared<Attribute<double>> wireEnergy;
 
@@ -71,9 +74,6 @@ class Network
       {
         ar& BOOST_SERIALIZATION_NVP(type);
         ar& BOOST_SERIALIZATION_NVP(word_bits);
-        ar& BOOST_SERIALIZATION_NVP(fanout);
-        ar& BOOST_SERIALIZATION_NVP(fanoutX);
-        ar& BOOST_SERIALIZATION_NVP(fanoutY);
         ar& BOOST_SERIALIZATION_NVP(routerEnergy);
         ar& BOOST_SERIALIZATION_NVP(wireEnergy);
       }
@@ -98,9 +98,6 @@ class Network
       {
         type.SetPerDataSpace();
         word_bits.SetPerDataSpace();
-        fanout.SetPerDataSpace();
-        fanoutX.SetPerDataSpace();
-        fanoutY.SetPerDataSpace();
         routerEnergy.SetPerDataSpace();
         wireEnergy.SetPerDataSpace();
       }
@@ -108,9 +105,6 @@ class Network
       {
         type.SetShared();
         word_bits.SetShared();
-        fanout.SetShared();
-        fanoutX.SetShared();
-        fanoutY.SetShared();
         routerEnergy.SetShared();
         wireEnergy.SetShared();        
       }
@@ -141,9 +135,6 @@ class Network
 
     ADD_ACCESSORS(Type, type, NetworkType)
     ADD_ACCESSORS(WordBits, word_bits, std::uint64_t)
-    ADD_ACCESSORS(Fanout, fanout, std::uint64_t)
-    ADD_ACCESSORS(FanoutX, fanoutX, std::uint64_t)
-    ADD_ACCESSORS(FanoutY, fanoutY, std::uint64_t)
     ADD_ACCESSORS(RouterEnergy, routerEnergy, double)
     ADD_ACCESSORS(WireEnergy, wireEnergy, double)
 
@@ -162,9 +153,6 @@ class Network
           out << indent << "Shared:" << std::endl;
         else
           out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;      
-
-        out << indent << indent << "Fanout               : " << specs.Fanout(pv) << " ("
-            << specs.FanoutX(pv) << "*" << specs.FanoutY(pv) << ")" << std::endl;
       }
 
       return out;
@@ -222,7 +210,7 @@ class Network
  private:
   
   Specs specs_;
-  Level* outer_;
+  std::shared_ptr<Level> outer_ = nullptr;
 
  public:
   Stats stats_; // temporarily public.
@@ -246,33 +234,29 @@ class Network
 
  public:
 
-  Network(Level* outer) :
-      outer_(outer)
-  { }
+  Network() = delete;
 
-  Network(const Specs& specs, Level* outer) :
-      specs_(specs),
-      outer_(outer)
+  Network(const Specs& specs) :
+      specs_(specs)
   { }
 
   ~Network()
   { }
 
-  static void ParseSpecs(config::CompoundConfigNode network,
-                         problem::Shape::DataSpaceID pv,
-                         std::uint64_t outer_word_bits,
-                         Specs& specs)
+  static Specs ParseSpecs(config::CompoundConfigNode network)
   {
+    Specs specs(DataSpaceIDSharing::Shared);
+
     // Network Type.
     std::string network_type;
     if (network.lookupValue("network-type", network_type))
     {
       if (network_type.compare("1:1") == 0)
-        specs.Type(pv) = Network::Specs::NetworkType::OneToOne;
+        specs.Type() = Network::Specs::NetworkType::OneToOne;
       else if (network_type.compare("1:N") == 0)
-        specs.Type(pv) = Network::Specs::NetworkType::OneToMany;
+        specs.Type() = Network::Specs::NetworkType::OneToMany;
       else if (network_type.compare("M:N") == 0)
-        specs.Type(pv) = Network::Specs::NetworkType::ManyToMany;
+        specs.Type() = Network::Specs::NetworkType::ManyToMany;
       else
       {
         std::cerr << "ERROR: Unrecognized network type: " << network_type << std::endl;
@@ -281,33 +265,50 @@ class Network
     }
     
     // Word Bits.
-    std::uint32_t network_word_bits;
-    if (network.lookupValue("network-word-bits", network_word_bits))
+    std::uint32_t word_bits;
+    if (network.lookupValue("network-word-bits", word_bits))
     {
-      specs.WordBits(pv) = network_word_bits;
+      specs.WordBits() = word_bits;
+    }
+    else if (network.lookupValue("word-bits", word_bits) ||
+             network.lookupValue("word_width", word_bits) ||
+             network.lookupValue("datawidth", word_bits) )
+    {
+      // FIXME. Derive this from the buffer I'm connected to in the topology
+      // instead of cheating and reading it directly from its specs config.
+      specs.WordBits() = word_bits;
     }
     else
     {
-      specs.WordBits(pv) = outer_word_bits;
-    }
-
-    // Fanout.
-    std::uint32_t fanout;
-    if (network.lookupValue("fanout", fanout))
-    {
-      std::cerr << "ERROR: Fanout cannot be specified, it must be derived." << std::endl;
-      exit(1);
+      specs.WordBits() = Specs::kDefaultWordBits;
     }
 
     // Router energy.
     double router_energy = 0;
     network.lookupValue("router-energy", router_energy);
-    specs.RouterEnergy(pv) = router_energy;
+    specs.RouterEnergy() = router_energy;
 
     // Wire energy.
     double wire_energy = 0.0;
     network.lookupValue("wire-energy", wire_energy);
-    specs.WireEnergy(pv) = wire_energy;
+    specs.WireEnergy() = wire_energy;
+
+    return specs;
+  }
+
+  const Specs& GetSpecs() const
+  {
+    return specs_;
+  }
+
+  void Connect(std::shared_ptr<Level> outer)
+  {
+    outer_ = outer;
+  }
+
+  void SetName(std::string name)
+  {
+    specs_.name = name;
   }
 
   bool DistributedMulticastSupported()
@@ -324,26 +325,24 @@ class Network
     return retval;
   }
 
-  bool Evaluate(const tiling::CompoundTile& tile,
-                const double inner_tile_area,
-                problem::PerDataSpace<bool> hw_reduction_supported,
-                const bool break_on_failure)
+  EvalStatus Evaluate(const tiling::CompoundTile& tile,
+                      const double inner_tile_area,
+                      const bool break_on_failure)
   {
-    bool success = ComputeAccesses(tile, hw_reduction_supported, break_on_failure);
-    if (!break_on_failure || success)
+    auto eval_status = ComputeAccesses(tile, break_on_failure);
+    if (!break_on_failure || eval_status.success)
     {
       ComputeNetworkEnergy(inner_tile_area);
       ComputeSpatialReductionEnergy();
+      ComputePerformance();
     }
-    return success;
-    
+    return eval_status;
   }
 
-  bool ComputeAccesses(const tiling::CompoundTile& tile,
-                       problem::PerDataSpace<bool> hw_reduction_supported,
-                       const bool break_on_failure)
+  EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const bool break_on_failure)
   {
     bool success = true;
+    std::ostringstream fail_reason;
 
     //
     // 1. Collect stats (stats are always collected per-DataSpaceID).
@@ -360,11 +359,11 @@ class Network
         // whether the unit receiving a Read-Write datatype has the ability to do
         // a Read-Modify-Write (e.g. accumulate) locally. If the unit isn't capable
         // of doing this, we need to account for additional network traffic.
-        // FIXME: take this information from an explicit arch spec.
+
         // FIXME: need to account for the case when this level is bypassed. In this
         //        case we'll have to query a different level. Also size will be 0,
         //        we may have to maintain a network_size.
-        if (hw_reduction_supported.at(pv))
+        if (outer_->HardwareReductionSupported(pv))
         {
           stats_.ingresses[pv] = tile[pvi].accesses;
         }
@@ -446,47 +445,25 @@ class Network
     {
       for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
       {
-        auto pv = problem::Shape::DataSpaceID(pvi);
-      
-        if (!specs_.Fanout(pv).IsSpecified())
-          specs_.Fanout(pv) = stats_.fanout.at(pv);
-        else if (stats_.fanout.at(pv) > specs_.Fanout(pv).Get())
-          success = false;
-
         // Bandwidth constraints cannot be checked/inherited at this point
         // because the calculation is a little more involved. We will do
         // this later in the ComputePerformance() function.
-      
-        if (break_on_failure && !success)
-          break;    
       }
     }
     else  // sharing_type == DataSpaceIDSharing::Shared
     {
-      // Note: the following calculation uses the Max of fanouts
-      // because it assumes that the fanout network is shared if the buffer
-      // itself is shared. We should perhaps relax this.
-      if (!specs_.Fanout().IsSpecified())
-        specs_.Fanout() = stats_.fanout.Max();
-      else if (stats_.fanout.Max() > specs_.Fanout().Get())
-      {
-        // This CANNOT happen, mapspace should have taken care of this.
-        // assert(false);
-        std::cerr << "WARNING: fanout FAIL level = " << "<UNKNOWN>" // specs_.level_name
-                  << " req = "
-                  << stats_.fanout.Max() << " avail = "
-                  << specs_.Fanout().Get() << std::endl;
-        std::cerr << "I'm invalidating this mapping, but the mapping constructor "
-                  << "in the mapspace should have taken care of this." << std::endl;
-        success = false;
-      }
-
       // Bandwidth constraints cannot be checked/inherited at this point
       // because the calculation is a little more involved. We will do
       // this later in the ComputePerformance() function.    
     }
 
-    return success;
+    (void) break_on_failure;
+
+    EvalStatus eval_status;
+    eval_status.success = success;
+    eval_status.fail_reason = fail_reason.str();
+    
+    return eval_status;
 
   } // ComputeAccesses()
 
@@ -605,6 +582,20 @@ class Network
     }    
   }
 
+  void ComputePerformance()
+  {
+    // FIXME.
+    // problem::PerDataSpace<double> unconstrained_read_bandwidth;
+    // problem::PerDataSpace<double> unconstrained_write_bandwidth;
+    // for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    // {
+    //   auto pv = problem::Shape::DataSpaceID(pvi);
+    //   auto total_ingresses =
+    //     std::accumulate(network_.stats_.ingresses.at(pv).begin(),
+    //                     network_.stats_.ingresses.at(pv).end(), static_cast<std::uint64_t>(0));
+    // }
+  }
+
   std::uint64_t MaxFanout() const
   {
     // FIXME: remove this function, it's used only once.
@@ -616,6 +607,10 @@ class Network
   //
   void PrintSpecs(std::ostream& out) const
   {
+    // Print network name.
+    out << specs_.name << std::endl;  
+    out << std::endl;
+
     std::string indent = "    ";
 
     out << indent << "NETWORK SPECS" << std::endl;
@@ -691,10 +686,16 @@ class Network
     out << std::endl;
   }
 
-  void Print(std::ostream& out)
+  void Print(std::ostream& out) const
   {
     PrintSpecs(out);
     PrintStats(out);
+  }
+
+  friend std::ostream& operator << (std::ostream& out, const Network& network)
+  {
+    network.Print(out);
+    return out;
   }
 
   //

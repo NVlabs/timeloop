@@ -62,18 +62,22 @@ class Topology : public Module
   {
    private:
     std::vector<std::shared_ptr<LevelSpecs>> levels;
+    std::vector<std::shared_ptr<Network::Specs>> networks;
     std::map<unsigned, unsigned> storage_map;
     unsigned arithmetic_map;
 
    public:
     unsigned NumLevels() const;
     unsigned NumStorageLevels() const;
+    unsigned NumNetworks() const;
+
     std::vector<std::string> LevelNames() const;
     std::vector<std::string> StorageLevelNames() const;
 
     void ParseAccelergyERT(config::CompoundConfigNode ert);
 
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
+    void AddNetwork(std::shared_ptr<Network::Specs> specs);
 
     unsigned StorageMap(unsigned i) const { return storage_map.at(i); }
     unsigned ArithmeticMap() const { return arithmetic_map; }
@@ -81,12 +85,13 @@ class Topology : public Module
     std::shared_ptr<LevelSpecs> GetLevel(unsigned level_id) const;
     std::shared_ptr<BufferLevel::Specs> GetStorageLevel(unsigned storage_level_id) const;
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
-
+    std::shared_ptr<Network::Specs> GetNetwork(unsigned network_id) const;
   };
   
  private:
   std::vector<std::shared_ptr<Level>> levels_;
-  
+  std::vector<std::shared_ptr<Network>> networks_;
+
   Specs specs_;
   
   // Serialization
@@ -97,6 +102,7 @@ class Topology : public Module
     if (version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(levels_);
+      ar& BOOST_SERIALIZATION_NVP(networks_);
     }
   }
 
@@ -104,6 +110,7 @@ class Topology : public Module
   std::shared_ptr<Level> GetLevel(unsigned level_id) const;
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
+  std::shared_ptr<Network> GetNetwork(unsigned id) const;
 
  public:
   // The hierarchical ParseSpecs functions are static and do not
@@ -111,11 +118,11 @@ class Topology : public Module
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs);
   static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot);
-  static void Validate(Specs& specs);
   
   void Spec(const Specs& specs);
   unsigned NumLevels() const;
   unsigned NumStorageLevels() const;
+  unsigned NumNetworks() const;
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
   std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload, bool break_on_failure);

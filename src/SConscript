@@ -31,6 +31,10 @@ Import('env')
 
 env.Append(CPPDEFINES = [('BUILD_BASE_DIR', '\\"' + env["BUILD_BASE_DIR"] + '\\"')])
 env.Append(CPPPATH = ['src/include'])
+if GetOption('debug'):
+    env.Append(CCFLAGS = ['-g', '-O0'])
+else:
+    env.Append(CCFLAGS = ['-g', '-O3'])
 env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++14', '-pthread'])
 
 env.Append(LINKFLAGS = ['-std=c++11', '-static-libgcc', '-static-libstdc++', '-pthread'])

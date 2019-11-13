@@ -36,6 +36,7 @@ mapper:
 arch:
   arithmetic:
     instances: 1024
+    meshX: 16
     word-bits: 8
   storage:
   - name: Registers

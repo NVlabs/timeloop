@@ -47,13 +47,11 @@ namespace model
 //             Buffer Level             //
 // ==================================== //
 
-BufferLevel::BufferLevel() :
-    network_((Level*)(this))
+BufferLevel::BufferLevel()
 { }
 
 BufferLevel::BufferLevel(const Specs& specs) :
-    specs_(specs),
-    network_(specs.network, (Level*)(this))
+    specs_(specs)
 {
   is_evaluated_ = false;
 }
@@ -348,7 +346,6 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
       ParseBufferSpecs(buffers[i], nElements, pv, specs);
-      Network::ParseSpecs(buffers[i], pv, specs.WordBits(pv).Get(), specs.network);
       pvi++;
     }
   }
@@ -356,7 +353,6 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   {
     auto pv = problem::GetShape()->NumDataSpaces;
     ParseBufferSpecs(level, nElements, pv, specs);
-    Network::ParseSpecs(level, pv, specs.WordBits(pv).Get(), specs.network);
     specs.level_name = specs.Name().Get();
   }
 
@@ -438,21 +434,6 @@ void BufferLevel::ValidateTopology(BufferLevel::Specs& specs)
   }
 }
 
-bool BufferLevel::DistributedMulticastSupported()
-{
-  return network_.DistributedMulticastSupported();
-  // bool retval = true;
-
-  // for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
-  // {
-  //   auto pv = problem::Shape::DataSpaceID(pvi);
-  //   retval &= (specs_.network.Type(pv).IsSpecified() &&
-  //              specs_.network.Type(pv).Get() == Network::Specs::NetworkType::ManyToMany);
-  // }
-
-  // return retval;
-}
-
 // PreEvaluationCheck(): allows for a very fast capacity-check
 // based on given working-set sizes that can be trivially derived
 // by the caller. The more powerful Evaluate() function also
@@ -484,7 +465,7 @@ EvalStatus BufferLevel::PreEvaluationCheck(
         // Use a very loose filter and fail this check only if there's
         // no chance that this mapping can fit.
         auto available_capacity = specs_.EffectiveSize(pv).Get();
-        if (DistributedMulticastSupported())
+        if (network_->DistributedMulticastSupported())
         {
           available_capacity *= specs_.Instances(pv).Get();
         }
@@ -521,7 +502,7 @@ EvalStatus BufferLevel::PreEvaluationCheck(
       // Use a very loose filter and fail this check only if there's
       // no chance that this mapping can fit.
       auto available_capacity = specs_.EffectiveSize().Get();
-      if (DistributedMulticastSupported())
+      if (network_->DistributedMulticastSupported())
       {
         available_capacity *= specs_.Instances().Get();
       }
@@ -564,7 +545,7 @@ EvalStatus BufferLevel::PreEvaluationCheck(
 // FIXME: Derive FanoutX, FanoutY, MeshX, MeshY from mapping if unspecified.
 //
 EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                                 const double inner_tile_area, const std::uint64_t compute_cycles,
+                                 const std::uint64_t compute_cycles,
                                  const bool break_on_failure)
 {
   auto eval_status = ComputeAccesses(tile, mask, break_on_failure);
@@ -576,34 +557,19 @@ EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling:
     ComputeAddrGenEnergy();
     ComputePerformance(compute_cycles);
   }
-
-  if (!break_on_failure || eval_status.success)
-  {
-    // Network access-count calculation for Read-Modify-Write datatypes depends on
-    // whether the unit receiving a Read-Write datatype has the ability to do
-    // a Read-Modify-Write (e.g. accumulate) locally. If the unit isn't capable
-    // of doing this, we need to account for additional network traffic.
-    // FIXME: take this information from an explicit arch spec.
-    // FIXME: need to account for the case when this level is bypassed. In this
-    //        case we'll have to query a different level. Also size will be 0,
-    //        we may have to maintain a network_size.
-    problem::PerDataSpace<bool> hw_reduction_supported;
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      hw_reduction_supported[pv] =
-        !(specs_.Tech(pv).IsSpecified() && specs_.Tech(pv).Get() == Technology::DRAM);
-    }
-
-    bool network_success = network_.Evaluate(tile, inner_tile_area, hw_reduction_supported, break_on_failure);
-    if (!network_success)
-    {
-      eval_status.success = false;
-      eval_status.fail_reason = "network";
-    }
-  }
-
   return eval_status;
+}
+
+bool BufferLevel::HardwareReductionSupported(problem::Shape::DataSpaceID pv)
+{
+  // FIXME: take this information from an explicit arch spec.
+  return !(specs_.Tech(pv).IsSpecified() &&
+           specs_.Tech(pv).Get() == Technology::DRAM);
+}
+
+void BufferLevel::Connect(std::shared_ptr<Network> network)
+{
+  network_ = network;
 }
 
 EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
@@ -872,7 +838,7 @@ void BufferLevel::ComputeReductionEnergy()
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
-        pat::AdderEnergy(specs_.WordBits(pv).Get(), specs_.network.WordBits(pv).Get());
+        pat::AdderEnergy(specs_.WordBits(pv).Get(), network_->GetSpecs().WordBits(pv).Get());
     }
     else
     {
@@ -921,10 +887,6 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    // FIXME: move the following code to Network bandwidth calculation.
-    // auto total_ingresses =
-    //   std::accumulate(network_.stats_.ingresses.at(pv).begin(),
-    //                   network_.stats_.ingresses.at(pv).end(), static_cast<std::uint64_t>(0));
     auto total_read_accesses    =   stats_.reads.at(pv);
     auto total_write_accesses   =   stats_.updates.at(pv) + stats_.fills.at(pv);
     unconstrained_read_bandwidth[pv]  = (double(total_read_accesses)  / compute_cycles) * word_size;
@@ -1179,9 +1141,6 @@ void BufferLevel::Print(std::ostream& out) const
 
   out << std::endl;
 
-  // Network specs are inlined for the moment.
-  network_.PrintSpecs(out);
-
   // If the buffer hasn't been evaluated on a specific mapping yet, return.
   if (!IsEvaluated())
   {
@@ -1269,9 +1228,6 @@ void BufferLevel::Print(std::ostream& out) const
   }
   
   out << std::endl;
-
-  // Network stats are inlined for the moment.
-  network_.PrintStats(out);
 }
 
 }  // namespace model
