@@ -98,15 +98,35 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
     auto num_maccs = topology.MACCs();
     out << "MACCs = " << num_maccs << std::endl;
     out << "pJ/MACC" << std::endl;
-    unsigned align = 24;
+
+    std::size_t max_name_length = 0;
+    for (unsigned i = 0; i < topology.NumLevels(); i++)
+    {
+      max_name_length = std::max(max_name_length, topology.GetLevel(i)->Name().length());
+    }
+    for (unsigned i = 0; i < topology.NumNetworks(); i++)
+    {
+      max_name_length = std::max(max_name_length, topology.GetNetwork(i)->Name().length());
+    }
+
+    std::string indent = "    ";
+    int align = max_name_length + 1;
 
     for (unsigned i = 0; i < topology.NumLevels(); i++)
     {
       auto level = topology.GetLevel(i);
-      out << "    " << std::setw(align) << std::left << level->Name() << "= "
+      out << indent << std::setw(align) << std::left << level->Name() << "= "
           << level->Energy() / num_maccs << std::endl;
     }
-    out << "    " << std::setw(align) << std::left << "Total" << "= "
+
+    for (unsigned i = 0; i < topology.NumNetworks(); i++)
+    {
+      auto network = topology.GetNetwork(i);
+      out << indent << std::setw(align) << std::left << network->Name() << "= "
+          << network->Energy() / num_maccs << std::endl;
+    }
+
+    out << indent << std::setw(align) << std::left << "Total" << "= "
         << topology.Energy() / num_maccs << std::endl;
   }
 

@@ -311,6 +311,11 @@ class Network
     specs_.name = name;
   }
 
+  std::string Name()
+  {
+    return specs_.name;
+  }
+
   bool DistributedMulticastSupported()
   {
     bool retval = true;
