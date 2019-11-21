@@ -49,7 +49,7 @@ class Level : public Module
  public:
   virtual ~Level() { }
 
-  virtual bool HardwareReductionSupported(problem::Shape::DataSpaceID pv) = 0;
+  virtual bool HardwareReductionSupported() = 0;
 
   virtual EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                         const tiling::CompoundMask mask, const bool break_on_failure) = 0;

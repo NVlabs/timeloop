@@ -129,8 +129,8 @@ def parse_timeloop_stats(filename):
         generic_level_specs = specs.findall('LevelSpecs')[0]
         level_name = generic_level_specs.findall('level_name')[0].text
         
-        total_instances = int(specs.findall('instances')[0].findall('shared')[0].findall('t_')[0].text)
-        total_capacity = int(specs.findall('size')[0].findall('shared')[0].findall('t_')[0].text)
+        total_instances = int(specs.findall('instances')[0].findall('t_')[0].text)
+        total_capacity = int(specs.findall('size')[0].findall('t_')[0].text)
 
         stats = level.findall('stats_')[0]
         

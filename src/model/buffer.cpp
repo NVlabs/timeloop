@@ -59,13 +59,21 @@ BufferLevel::BufferLevel(const Specs& specs) :
 BufferLevel::~BufferLevel()
 { }
 
-void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t nElements, problem::Shape::DataSpaceID pv, Specs& specs)
+// The hierarchical ParseSpecs functions are static and do not
+// affect the internal specs_ data structure, which is set by
+// the dynamic Spec() call later.
+// FIXME: re-factor level-specific code to Buffer class.
+BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uint32_t n_elements)
 {
+  auto& buffer = level;
+
+  Specs specs;
+
   // Name. This has to go first. Since the rest can be attributes
   std::string name;
   if (buffer.lookupValue("name", name))
   {
-    specs.Name(pv) = config::parseName(name);
+    specs.name = config::parseName(name);
   }
 
   std::string className = "";
@@ -81,36 +89,36 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
       buffer.lookupValue("word_width", word_bits) ||
       buffer.lookupValue("datawidth", word_bits) )
   {
-    specs.WordBits(pv) = word_bits;
+    specs.word_bits = word_bits;
   }
   else
   {
-    specs.WordBits(pv) = Specs::kDefaultWordBits;
+    specs.word_bits = Specs::kDefaultWordBits;
   }
 
   // Block size.
   std::uint32_t block_size;
-  specs.BlockSize(pv) = 1;
+  specs.block_size = 1;
   if (buffer.lookupValue("block-size", block_size) ||
       buffer.lookupValue("n_words", block_size) )
   {
-    specs.BlockSize(pv) = block_size;
+    specs.block_size = block_size;
   }
 
   // Cluster size.
   std::uint32_t cluster_size;
-  specs.ClusterSize(pv) = 1;
+  specs.cluster_size = 1;
   std::uint32_t width;
   if (buffer.lookupValue("cluster-size", cluster_size))
   {
-    specs.ClusterSize(pv) = cluster_size;
+    specs.cluster_size = cluster_size;
   }
   else if (buffer.lookupValue("width", width))
   {
-    word_bits = specs.WordBits(pv).Get();
-    block_size = specs.BlockSize(pv).Get();
+    word_bits = specs.word_bits.Get();
+    block_size = specs.block_size.Get();
     assert(width % (word_bits * block_size)  == 0);
-    specs.ClusterSize(pv) = width / (word_bits * block_size);
+    specs.cluster_size = width / (word_bits * block_size);
   }
 
   // Size.
@@ -119,18 +127,18 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   if (buffer.lookupValue("entries", size) )
   {
     assert(buffer.exists("sizeKB") == false);
-    specs.Size(pv) = size;
+    specs.size = size;
   }
   else if (buffer.lookupValue("depth", size) ||
            buffer.lookupValue("memory_depth", size))
   {
     assert(buffer.exists("sizeKB") == false);
     assert(buffer.exists("entries") == false);
-    specs.Size(pv) = size * specs.BlockSize(pv).Get();
+    specs.size = size * specs.block_size.Get();
   }
   else if (buffer.lookupValue("sizeKB", size))
   {
-    specs.Size(pv) = size * 1024 * 8 / specs.WordBits(pv).Get();
+    specs.size = size * 1024 * 8 / specs.word_bits.Get();
   }
 
 
@@ -139,22 +147,22 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   // and Accelergy v0.2 format. So we use the class name to find out what to
   // assume.
   std::string technology;
-  specs.Tech(pv) = Technology::SRAM;
-  if (className == "DRAM") specs.Tech(pv) = Technology::DRAM;
+  specs.technology = Technology::SRAM;
+  if (className == "DRAM") specs.technology = Technology::DRAM;
 
   if (buffer.lookupValue("technology", technology) && technology == "DRAM")
   {
-    specs.Tech(pv) = Technology::DRAM;
+    specs.technology = Technology::DRAM;
   }
 
   // SRAM Type.
   std::uint32_t num_ports = 2;
-  specs.NumPorts(pv) = num_ports;
+  specs.num_ports = num_ports;
   if (buffer.lookupValue("num-ports", num_ports))
   {
     if (num_ports == 1)
     {
-      specs.NumPorts(pv) = num_ports;
+      specs.num_ports = num_ports;
     }
     else
     {
@@ -164,10 +172,10 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
 
   // Number of Banks.
   std::uint32_t num_banks = 2;
-  specs.NumBanks(pv) = num_banks;
+  specs.num_banks = num_banks;
   if (buffer.lookupValue("num-banks", num_banks))
   {
-    specs.NumBanks(pv) = num_banks;
+    specs.num_banks = num_banks;
   }
 
   // Bandwidth.
@@ -175,88 +183,88 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   if (buffer.lookupValue("bandwidth", bandwidth))
   {
     std::cerr << "WARNING: bandwidth is deprecated. Assuming read_bandwidth = write_bandwidth = bandwidth/2" << std::endl;
-    specs.ReadBandwidth(pv)  = bandwidth / 2;
-    specs.WriteBandwidth(pv) = bandwidth / 2;
+    specs.read_bandwidth  = bandwidth / 2;
+    specs.write_bandwidth = bandwidth / 2;
   }
 
   double read_bandwidth;
   if (buffer.lookupValue("read_bandwidth", read_bandwidth))
   {
-    specs.ReadBandwidth(pv) = read_bandwidth;
+    specs.read_bandwidth = read_bandwidth;
   }
 
   double write_bandwidth;
   if (buffer.lookupValue("write_bandwidth", write_bandwidth))
   {
-    specs.WriteBandwidth(pv) = write_bandwidth;
+    specs.write_bandwidth = write_bandwidth;
   }
 
   // Multiple-buffering factor (e.g., 2.0 means double buffering)
   double multiple_buffering;
   if (buffer.lookupValue("multiple-buffering", multiple_buffering))
   {
-    specs.MultipleBuffering(pv) = multiple_buffering;
+    specs.multiple_buffering = multiple_buffering;
   }
   else
   {
-    specs.MultipleBuffering(pv) = 1.0;
+    specs.multiple_buffering = 1.0;
   }
   
-  if (specs.Size(pv).IsSpecified())
+  if (specs.size.IsSpecified())
   {
-    specs.EffectiveSize(pv) = static_cast<uint64_t>(std::floor(
-            specs.Size(pv).Get() / specs.MultipleBuffering(pv).Get()));
+    specs.effective_size = static_cast<uint64_t>(std::floor(
+            specs.size.Get() / specs.multiple_buffering.Get()));
   }
 
   // Minimum utilization factor (e.g., 1.0 requires full utilization of effective capacity)
   double min_utilizaiton;
   if (buffer.lookupValue("min-utilization", min_utilizaiton))
   {
-    specs.MinUtilization(pv) = min_utilizaiton;
+    specs.min_utilization = min_utilizaiton;
   }
   else
   {
-    specs.MinUtilization(pv) = 0.0;
+    specs.min_utilization = 0.0;
   }
-  if (specs.MinUtilization(pv).Get() != 0.0)
+  if (specs.min_utilization.Get() != 0.0)
   {
-    assert(specs.EffectiveSize(pv).IsSpecified());
+    assert(specs.effective_size.IsSpecified());
   }
 
   // Instances.
   std::uint32_t instances;
   if (buffer.lookupValue("instances", instances))
   {
-    specs.Instances(pv) = instances;
+    specs.instances = instances;
   } else {
-    specs.Instances(pv) = nElements;
+    specs.instances = n_elements;
   }
 
   // MeshX.
   std::uint32_t meshX;
   if (buffer.lookupValue("meshX", meshX))
   {
-    specs.MeshX(pv) = meshX;
+    specs.meshX = meshX;
   }
 
   // MeshY.
   std::uint32_t meshY;
   if (buffer.lookupValue("meshY", meshY))
   {
-    specs.MeshY(pv) = meshY;
+    specs.meshY = meshY;
   }
 
   // Vector Access Energy
   double tmp_access_energy = 0;
   double tmp_storage_area = 0;
 
-  if (specs.Tech(pv).Get() == Technology::DRAM)
+  if (specs.technology.Get() == Technology::DRAM)
   {
-    assert(specs.ClusterSize(pv).Get() == 1);
-    tmp_access_energy = pat::DRAMEnergy(specs.WordBits(pv).Get() * specs.BlockSize(pv).Get());
+    assert(specs.cluster_size.Get() == 1);
+    tmp_access_energy = pat::DRAMEnergy(specs.word_bits.Get() * specs.block_size.Get());
     tmp_storage_area = 0;
   }
-  else if (specs.Size(pv).Get() == 0)
+  else if (specs.size.Get() == 0)
   {
     //SRAM
     tmp_access_energy = 0;
@@ -264,23 +272,23 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   }
   else
   {
-    std::uint64_t tmp_entries = specs.Size(pv).Get();
-    std::uint64_t tmp_word_bits = specs.WordBits(pv).Get();
-    std::uint64_t tmp_block_size = specs.BlockSize(pv).Get();
-    std::uint64_t tmp_cluster_size = specs.ClusterSize(pv).Get();
+    std::uint64_t tmp_entries = specs.size.Get();
+    std::uint64_t tmp_word_bits = specs.word_bits.Get();
+    std::uint64_t tmp_block_size = specs.block_size.Get();
+    std::uint64_t tmp_cluster_size = specs.cluster_size.Get();
     std::uint64_t width = tmp_word_bits * tmp_block_size * tmp_cluster_size;
     std::uint64_t height =
       (tmp_entries % tmp_block_size == 0) ?
       (tmp_entries / tmp_block_size)      :
       (tmp_entries / tmp_block_size) + 1;  
-    tmp_access_energy = pat::SRAMEnergy(height, width, specs.NumBanks(pv).Get(), specs.NumPorts(pv).Get()) / tmp_cluster_size;
-    tmp_storage_area = pat::SRAMArea(height, width, specs.NumBanks(pv).Get(), specs.NumPorts(pv).Get()) / tmp_cluster_size;
+    tmp_access_energy = pat::SRAMEnergy(height, width, specs.num_banks.Get(), specs.num_ports.Get()) / tmp_cluster_size;
+    tmp_storage_area = pat::SRAMArea(height, width, specs.num_banks.Get(), specs.num_ports.Get()) / tmp_cluster_size;
     // std::cout << "Entries = " << tmp_entries
     //           << ", word_size = " << tmp_word_bits
     //           << ", block_size = " << tmp_block_size
     //           << ", cluster_size = " << tmp_cluster_size
-    //           << ", num_banks = " << specs.NumBanks(pv).Get()
-    //           << ", num_ports = " << specs.NumPorts(pv).Get()
+    //           << ", num_banks = " << specs.num_banks.Get()
+    //           << ", num_ports = " << specs.num_ports.Get()
     //           << ", energy = " << tmp_access_energy
     //           << ", area = " << tmp_storage_area << std::endl;
   }
@@ -292,69 +300,18 @@ void BufferLevel::ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n
   double tmp_cluster_area = 0;
   buffer.lookupValue("cluster-area", tmp_cluster_area);
   if (tmp_cluster_area > 0)
-    tmp_storage_area = tmp_cluster_area / specs.ClusterSize(pv).Get();
+    tmp_storage_area = tmp_cluster_area / specs.cluster_size.Get();
 
   // Set final area and energy.
-  specs.VectorAccessEnergy(pv) = tmp_access_energy;
-  specs.StorageArea(pv) = tmp_storage_area; //FIXME: check with Angshu
+  specs.vector_access_energy = tmp_access_energy;
+  specs.storage_area = tmp_storage_area; //FIXME: check with Angshu
 
-  // std::cout << "BUFFER " << specs.Name(pv) << " vector access energy = "
-  //           << specs.VectorAccessEnergy(pv) << " pJ, cluster area = "
-  //           << specs.StorageArea(pv).Get() * specs.ClusterSize(pv).Get()
+  // std::cout << "BUFFER " << specs.name << " vector access energy = "
+  //           << specs.vector_access_energy << " pJ, cluster area = "
+  //           << specs.storage_area.Get() * specs.cluster_size.Get()
   //           << " um^2" << std::endl;
-}
 
-// The hierarchical ParseSpecs functions are static and do not
-// affect the internal specs_ data structure, which is set by
-// the dynamic Spec() call later.
-// FIXME: re-factor level-specific code to Buffer class.
-BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uint32_t nElements)
-{
-  // Legacy code treats partitioned and shared in completely different code paths.
-  // Much of that code still exists across this buffer implementation. However,
-  // that style of partitioning in hindsight is not general enough - it makes the
-  // number of *architectural* partitions be the number of workload datatypes -
-  // which is unnatural. Longer term, we want to decouple the concept of architectural
-  // buffers that form a logical level from the workload/problem datatypes that are
-  // mapped onto it.
-
-  bool partitioned = false;
-  if (level.exists("buffers"))
-  {
-    partitioned = true;
-  }
-  
-  DataSpaceIDSharing sharing = partitioned ? DataSpaceIDSharing::Partitioned : DataSpaceIDSharing::Shared;
- 
-  // We now know if the buffer is partitioned or shared.
-  // Start constructing the specs.
-  Specs specs(sharing);
-  
-  // BufferLevel-name vs. name (pre-parse).
-  if (partitioned)
-  {
-    assert(level.lookupValue("name", specs.level_name));
-
-    auto buffers = level.lookup("buffers");
-    assert(buffers.isList());
-    assert(buffers.getLength() == int(problem::GetShape()->NumDataSpaces));
-
-    // Ugly, FIXME: buffer specs are serially assigned to pvis.
-    unsigned pvi = 0;
-    int len = buffers.getLength();
-    for (int i = 0; i < len; i ++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      ParseBufferSpecs(buffers[i], nElements, pv, specs);
-      pvi++;
-    }
-  }
-  else
-  {
-    auto pv = problem::GetShape()->NumDataSpaces;
-    ParseBufferSpecs(level, nElements, pv, specs);
-    specs.level_name = specs.Name().Get();
-  }
+  specs.level_name = specs.name.Get();
 
   ValidateTopology(specs);
     
@@ -366,71 +323,66 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
 // be inferred from other specified parameters.
 void BufferLevel::ValidateTopology(BufferLevel::Specs& specs)
 {
-  for (unsigned pvi = 0; pvi < specs.NumPartitions(); pvi++)
+  bool error = false;
+  if (specs.instances.IsSpecified())
   {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-    
-    bool error = false;
-    if (specs.Instances(pv).IsSpecified())
+    if (specs.meshX.IsSpecified())
     {
-      if (specs.MeshX(pv).IsSpecified())
+      if (specs.meshY.IsSpecified())
       {
-        if (specs.MeshY(pv).IsSpecified())
-        {
-          // All 3 are specified.
-          assert(specs.MeshX(pv).Get() * specs.MeshY(pv).Get() == specs.Instances(pv).Get());
-        }
-        else
-        {
-          // Instances and MeshX are specified.
-          assert(specs.Instances(pv).Get() % specs.MeshX(pv).Get() == 0);
-          specs.MeshY(pv) = specs.Instances(pv).Get() / specs.MeshX(pv).Get();
-        }
-      }
-      else if (specs.MeshY(pv).IsSpecified())
-      {
-        // Instances and MeshY are specified.
-        assert(specs.Instances(pv).Get() % specs.MeshY(pv).Get() == 0);
-        specs.MeshX(pv) = specs.Instances(pv).Get() / specs.MeshY(pv).Get();
+        // All 3 are specified.
+        assert(specs.meshX.Get() * specs.meshY.Get() == specs.instances.Get());
       }
       else
       {
-        // Only Instances is specified.
-        specs.MeshX(pv) = specs.Instances(pv).Get();
-        specs.MeshY(pv) = 1;
+        // Instances and MeshX are specified.
+        assert(specs.instances.Get() % specs.meshX.Get() == 0);
+        specs.meshY = specs.instances.Get() / specs.meshX.Get();
       }
     }
-    else if (specs.MeshX(pv).IsSpecified())
+    else if (specs.meshY.IsSpecified())
     {
-      if (specs.MeshY(pv).IsSpecified())
-      {
-        // MeshX and MeshY are specified.
-        specs.Instances(pv) = specs.MeshX(pv).Get() * specs.MeshY(pv).Get();
-      }
-      else
-      {
-        // Only MeshX is specified. We can make assumptions but it's too dangerous.
-        error = true;
-      }
-    }
-    else if (specs.MeshY(pv).IsSpecified())
-    {
-      // Only MeshY is specified. We can make assumptions but it's too dangerous.
-      error = true;
+      // Instances and MeshY are specified.
+      assert(specs.instances.Get() % specs.meshY.Get() == 0);
+      specs.meshX = specs.instances.Get() / specs.meshY.Get();
     }
     else
     {
-      // Nothing is specified.
+      // Only Instances is specified.
+      specs.meshX = specs.instances.Get();
+      specs.meshY = 1;
+    }
+  }
+  else if (specs.meshX.IsSpecified())
+  {
+    if (specs.meshY.IsSpecified())
+    {
+      // MeshX and MeshY are specified.
+      specs.instances = specs.meshX.Get() * specs.meshY.Get();
+    }
+    else
+    {
+      // Only MeshX is specified. We can make assumptions but it's too dangerous.
       error = true;
     }
+  }
+  else if (specs.meshY.IsSpecified())
+  {
+    // Only MeshY is specified. We can make assumptions but it's too dangerous.
+    error = true;
+  }
+  else
+  {
+    // Nothing is specified.
+    error = true;
+  }
 
-    if (error)
-    {
-      std::cerr << "ERROR: " << specs.Name(pv).Get()
-                << ": instances and/or meshX * meshY must be specified."
-                << std::endl;
-      exit(1);        
-    }
+  if (error)
+  {
+    std::cerr << "ERROR: " << specs.name.Get()
+              << ": instances and/or meshX * meshY must be specified."
+              << std::endl;
+    exit(1);        
   }
 }
 
@@ -449,87 +401,46 @@ EvalStatus BufferLevel::PreEvaluationCheck(
   const tiling::CompoundMask mask,
   const bool break_on_failure)
 {
+  (void) break_on_failure;
+
   bool success = true;
   std::ostringstream fail_reason;
   
-  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
+  if (specs_.size.IsSpecified())
   {
+    // Ugh. If we can do a distributed multicast from this level,
+    // then the required size may be smaller. However, that depends
+    // on the multicast factor etc. that we don't know at this point.
+    // Use a very loose filter and fail this check only if there's
+    // no chance that this mapping can fit.
+    auto available_capacity = specs_.effective_size.Get();
+    if (network_->DistributedMulticastSupported())
+    {
+      available_capacity *= specs_.instances.Get();
+    }
+
+    // Find the total capacity required by all un-masked data types.
+    std::size_t required_capacity = 0;
     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     {
-      auto pv = problem::Shape::DataSpaceID(pvi);      
-      if (specs_.Size(pv).IsSpecified() && mask[pvi])
+      if (mask[pvi])
       {
-        // Ugh. If we can do a distributed multicast from this level,
-        // then the required size may be smaller. However, that depends
-        // on the multicast factor etc. that we don't know at this point.
-        // Use a very loose filter and fail this check only if there's
-        // no chance that this mapping can fit.
-        auto available_capacity = specs_.EffectiveSize(pv).Get();
-        if (network_->DistributedMulticastSupported())
-        {
-          available_capacity *= specs_.Instances(pv).Get();
-        }
-
-        if (working_set_sizes.at(pv) > available_capacity)
-        {
-          success = false;
-          fail_reason << "mapped tile size " << working_set_sizes.at(pv) << " for data-space "
-                      << problem::GetShape()->DataSpaceIDToName.at(pv) << " exceeds buffer capacity "
-                      << available_capacity;
-          if (break_on_failure)
-            break;
-        }
-        else if (working_set_sizes.at(pv) < specs_.EffectiveSize(pv).Get()
-                                            * specs_.MinUtilization(pv).Get())
-        {
-          success = false;
-          fail_reason << "mapped tile size " << working_set_sizes.at(pv) << " for data-space "
-                      << problem::GetShape()->DataSpaceIDToName.at(pv) << " is less than constrained "
-                      << "minimum utilization " << specs_.EffectiveSize(pv).Get() * specs_.MinUtilization(pv).Get();
-          if (break_on_failure)
-            break;
-        }
+        required_capacity += working_set_sizes.at(problem::Shape::DataSpaceID(pvi));
       }
     }
-  }
-  else  // sharing_type == DataSpaceIDSharing::Shared
-  {
-    if (specs_.Size().IsSpecified())
+
+    if (required_capacity > available_capacity)
     {
-      // Ugh. If we can do a distributed multicast from this level,
-      // then the required size may be smaller. However, that depends
-      // on the multicast factor etc. that we don't know at this point.
-      // Use a very loose filter and fail this check only if there's
-      // no chance that this mapping can fit.
-      auto available_capacity = specs_.EffectiveSize().Get();
-      if (network_->DistributedMulticastSupported())
-      {
-        available_capacity *= specs_.Instances().Get();
-      }
-
-      // Find the total capacity required by all un-masked data types.
-      std::size_t required_capacity = 0;
-      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-      {
-        if (mask[pvi])
-        {
-          required_capacity += working_set_sizes.at(problem::Shape::DataSpaceID(pvi));
-        }
-      }
-
-      if (required_capacity > available_capacity)
-      {
-        success = false;
-        fail_reason << "mapped tile size " << required_capacity << " exceeds buffer capacity "
-                    << available_capacity;
-      }
-      else if (required_capacity < specs_.EffectiveSize().Get()
-                                   * specs_.MinUtilization().Get())
-      {
-        success = false;
-        fail_reason << "mapped tile size " << required_capacity << " is less than constrained "
-                    << "minimum utilization " << specs_.EffectiveSize().Get() * specs_.MinUtilization().Get();
-      }
+      success = false;
+      fail_reason << "mapped tile size " << required_capacity << " exceeds buffer capacity "
+                  << available_capacity;
+    }
+    else if (required_capacity < specs_.effective_size.Get()
+             * specs_.min_utilization.Get())
+    {
+      success = false;
+      fail_reason << "mapped tile size " << required_capacity << " is less than constrained "
+                  << "minimum utilization " << specs_.effective_size.Get() * specs_.min_utilization.Get();
     }
   }
 
@@ -560,11 +471,11 @@ EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling:
   return eval_status;
 }
 
-bool BufferLevel::HardwareReductionSupported(problem::Shape::DataSpaceID pv)
+bool BufferLevel::HardwareReductionSupported()
 {
   // FIXME: take this information from an explicit arch spec.
-  return !(specs_.Tech(pv).IsSpecified() &&
-           specs_.Tech(pv).Get() == Technology::DRAM);
+  return !(specs_.technology.IsSpecified() &&
+           specs_.technology.Get() == Technology::DRAM);
 }
 
 void BufferLevel::Connect(std::shared_ptr<Network> network)
@@ -576,6 +487,8 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
                                         const tiling::CompoundMask& mask,
                                         const bool break_on_failure)
 {
+  (void) break_on_failure;
+
   bool success = true;
   std::ostringstream fail_reason;
   
@@ -626,124 +539,58 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
   //
   // 2. Derive/validate architecture specs based on stats.
   //
-  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
-  {
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
+  if (!specs_.technology.IsSpecified())
+    specs_.technology = Technology::SRAM;
       
-      if (!specs_.Tech(pv).IsSpecified())
-        specs_.Tech(pv) = Technology::SRAM;
-      
-      if (!specs_.NumPorts(pv).IsSpecified()) {
-        specs_.NumPorts(pv) = 2;
-      }
-        
-      if (!specs_.NumBanks(pv).IsSpecified()) {
-        specs_.NumBanks(pv) = 2; //FIXME: default 2 banks
-      }
-      
-      if (!specs_.Size(pv).IsSpecified())
-        specs_.Size(pv) = std::ceil(stats_.utilized_capacity.at(pv)
-                                    * specs_.MultipleBuffering(pv).Get());
-      else if (stats_.utilized_capacity.at(pv) > specs_.EffectiveSize(pv).Get())
-      {
-        success = false;
-        fail_reason << "mapped tile size " << stats_.utilized_capacity.at(pv) << " for data-space "
-                    << problem::GetShape()->DataSpaceIDToName.at(pv) << " exceeds buffer capacity "
-                    << specs_.EffectiveSize(pv).Get();
-      }
-      else if (stats_.utilized_capacity.at(pv) < specs_.EffectiveSize(pv).Get()
-                                                 * specs_.MinUtilization(pv).Get())
-      {
-        success = false;
-        fail_reason << "mapped tile size " << stats_.utilized_capacity.at(pv) << " for data-space "
-                    << problem::GetShape()->DataSpaceIDToName.at(pv) << " is less than constrained "
-                    << "minimum utilization " << specs_.EffectiveSize(pv).Get() * specs_.MinUtilization(pv).Get();
-      }
-      
-      assert (specs_.BlockSize(pv).IsSpecified());
-      
-      assert (specs_.ClusterSize(pv).IsSpecified());
-
-      specs_.AddrGenBits(pv) = static_cast<unsigned long>(
-        std::ceil(std::log2(
-                    static_cast<double>(specs_.Size(pv).Get()) / specs_.BlockSize(pv).Get()
-                    )));
-      
-      if (!specs_.Instances(pv).IsSpecified())
-        specs_.Instances(pv) = stats_.utilized_instances.at(pv);
-      else if (stats_.utilized_instances.at(pv) > specs_.Instances(pv).Get())
-      {
-        success = false;
-        fail_reason << "mapped instances " << stats_.utilized_instances.at(pv) << " for data-space "
-                    << problem::GetShape()->DataSpaceIDToName.at(pv) << " exceeds available hardware instances "
-                    << specs_.Instances(pv).Get();
-      }
-      
-      // Bandwidth constraints cannot be checked/inherited at this point
-      // because the calculation is a little more involved. We will do
-      // this later in the ComputePerformance() function.
-      
-      if (break_on_failure && !success)
-        break;
-    }
+  if (!specs_.num_ports.IsSpecified()) {
+    specs_.num_ports = 2;
   }
-  else  // sharing_type == DataSpaceIDSharing::Shared
+      
+  if (!specs_.num_banks.IsSpecified()) {
+    specs_.num_banks = 2; //FIXME: default 2 banks
+  }
+      
+  auto total_utilized_capacity = std::accumulate(stats_.utilized_capacity.begin(),
+                                                 stats_.utilized_capacity.end(),
+                                                 0ULL);
+  if (!specs_.size.IsSpecified())
+    specs_.size = std::ceil(total_utilized_capacity
+                            * specs_.multiple_buffering.Get());
+  else if (total_utilized_capacity > specs_.effective_size.Get())
   {
-    if (!specs_.Tech().IsSpecified())
-      specs_.Tech() = Technology::SRAM;
-      
-    if (!specs_.NumPorts().IsSpecified()) {
-      specs_.NumPorts() = 2;
-    }
-      
-    if (!specs_.NumBanks().IsSpecified()) {
-      specs_.NumBanks() = 2; //FIXME: default 2 banks
-    }
-      
-    auto total_utilized_capacity = std::accumulate(stats_.utilized_capacity.begin(),
-                                                   stats_.utilized_capacity.end(),
-                                                   0ULL);
-    if (!specs_.Size().IsSpecified())
-      specs_.Size() = std::ceil(total_utilized_capacity
-                                * specs_.MultipleBuffering().Get());
-    else if (total_utilized_capacity > specs_.EffectiveSize().Get())
-    {
-      success = false;
-      fail_reason << "mapped tile size " << total_utilized_capacity << " exceeds buffer capacity "
-                  << specs_.EffectiveSize().Get();
-    }
-    else if (total_utilized_capacity < specs_.EffectiveSize().Get()
-                                       * specs_.MinUtilization().Get())
-    {
-      success = false;
-      fail_reason << "mapped tile size " << total_utilized_capacity << " is less than constrained "
-                  << "minimum utilization " << specs_.EffectiveSize().Get() * specs_.MinUtilization().Get();
-    }
+    success = false;
+    fail_reason << "mapped tile size " << total_utilized_capacity << " exceeds buffer capacity "
+                << specs_.effective_size.Get();
+  }
+  else if (total_utilized_capacity < specs_.effective_size.Get()
+           * specs_.min_utilization.Get())
+  {
+    success = false;
+    fail_reason << "mapped tile size " << total_utilized_capacity << " is less than constrained "
+                << "minimum utilization " << specs_.effective_size.Get() * specs_.min_utilization.Get();
+  }
 
-    assert (specs_.BlockSize().IsSpecified());
+  assert (specs_.block_size.IsSpecified());
     
-    assert (specs_.ClusterSize().IsSpecified());
+  assert (specs_.cluster_size.IsSpecified());
       
-    specs_.AddrGenBits() = static_cast<unsigned long>(
-      std::ceil(std::log2(
-                  static_cast<double>(specs_.Size().Get()) / specs_.BlockSize().Get()
-                  )));
+  specs_.addr_gen_bits = static_cast<unsigned long>(
+    std::ceil(std::log2(
+                static_cast<double>(specs_.size.Get()) / specs_.block_size.Get()
+                )));
       
-    if (!specs_.Instances().IsSpecified())
-      specs_.Instances() = stats_.utilized_instances.Max();
-    else if (stats_.utilized_instances.Max() > specs_.Instances().Get())
-    {
-      success = false;
-      fail_reason << "mapped instances " << stats_.utilized_instances.Max() << " exceeds available hardware instances "
-                  << specs_.Instances().Get();
-    }
-
-    // Bandwidth constraints cannot be checked/inherited at this point
-    // because the calculation is a little more involved. We will do
-    // this later in the ComputePerformance() function.      
+  if (!specs_.instances.IsSpecified())
+    specs_.instances = stats_.utilized_instances.Max();
+  else if (stats_.utilized_instances.Max() > specs_.instances.Get())
+  {
+    success = false;
+    fail_reason << "mapped instances " << stats_.utilized_instances.Max() << " exceeds available hardware instances "
+                << specs_.instances.Get();
   }
+
+  // Bandwidth constraints cannot be checked/inherited at this point
+  // because the calculation is a little more involved. We will do
+  // this later in the ComputePerformance() function.      
 
   // Compute utilized clusters.
   // FIXME: should derive this from precise spatial mapping.
@@ -752,9 +599,9 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
     auto pv = problem::Shape::DataSpaceID(pvi);
     // The following equation assumes fully condensed mapping. Do a ceil-div.
     // stats_.utilized_clusters[pv] = 1 + (stats_.utilized_instances[pv] - 1) /
-    //    specs_.ClusterSize(pv).Get();
+    //    specs_.cluster_size.Get();
     // Assume utilized instances are sprinkled uniformly across all clusters.
-    auto num_clusters = specs_.Instances(pv).Get() / specs_.ClusterSize(pv).Get();
+    auto num_clusters = specs_.instances.Get() / specs_.cluster_size.Get();
     stats_.utilized_clusters[pv] = std::min(stats_.utilized_instances[pv],
                                             num_clusters);
   }
@@ -772,23 +619,12 @@ void BufferLevel::ComputeArea()
 {
   // YUCK. FIXME. The area is now already stored in a specs_ attribute.
   // The stats_ here are just a copy of the specs_. Do we really need both?
-  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
-  {
-    stats_.area.SetPerDataSpace();
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      stats_.area[pv] =  specs_.StorageArea(pv).Get();
-    }
-  }
-  else  // sharing_type == DataSpaceIDSharing::Shared
-  {
-    // Store the total area in the Num/All slot. We used to split it up between the
-    // various data-types depending on their contribution towards utilization, but
-    // this gives incorrect area if the structure is underutilized, especially when
-    // the level is completely bypassed.
-    stats_.area.SetShared(specs_.StorageArea().Get());
-  }
+
+  // Store the total area in the Num/All slot. We used to split it up between the
+  // various data-types depending on their contribution towards utilization, but
+  // this gives incorrect area if the structure is underutilized, especially when
+  // the level is completely bypassed.
+  stats_.area = specs_.storage_area.Get();
 }
 
 // Compute buffer energy.
@@ -800,14 +636,14 @@ void BufferLevel::ComputeBufferEnergy()
     auto pv = problem::Shape::DataSpaceID(pvi);
     auto instance_accesses = stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv);
 
-    auto block_size = specs_.BlockSize(pv).Get();
+    auto block_size = specs_.block_size.Get();
     double vector_accesses =
       (instance_accesses % block_size == 0) ?
       (instance_accesses / block_size)      :
       (instance_accesses / block_size) + 1;
     
     double cluster_access_energy = vector_accesses *
-      specs_.VectorAccessEnergy(pv).Get();
+      specs_.vector_access_energy.Get();
 
     // Spread out the cost between the utilized instances in each cluster.
     // This is because all the later stat-processing is per-instance.
@@ -838,7 +674,7 @@ void BufferLevel::ComputeReductionEnergy()
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
-        pat::AdderEnergy(specs_.WordBits(pv).Get(), network_->GetSpecs().WordBits(pv).Get());
+        pat::AdderEnergy(specs_.word_bits.Get(), network_->GetSpecs().word_bits.Get());
     }
     else
     {
@@ -862,7 +698,7 @@ void BufferLevel::ComputeAddrGenEnergy()
     // a 1-bit increment.
     auto pv = problem::Shape::DataSpaceID(pvi);
     stats_.addr_gen_energy[pv] = stats_.address_generations[pv] *
-      pat::AdderEnergy(specs_.AddrGenBits(pv).Get(), specs_.AddrGenBits(pv).Get());
+      pat::AdderEnergy(specs_.addr_gen_bits.Get(), specs_.addr_gen_bits.Get());
   }
 }
 
@@ -873,11 +709,7 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
 {
   // Ugh... have to fix per-datatype word size.
   double word_size = 0;
-  for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
-  {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-    word_size = std::max(word_size, double(specs_.WordBits(pv).Get()) / 8);
-  }
+  word_size = std::max(word_size, double(specs_.word_bits.Get()) / 8);
   
   //
   // Step 1: Compute unconstrained bandwidth demand.
@@ -897,53 +729,28 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   // Step 2: Compare vs. specified bandwidth and calculate slowdown.
   //
   stats_.slowdown = 1.0;
-  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
-  {
-    // Find worst slowdown (if bandwidth was specified).
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      if (specs_.ReadBandwidth(pv).IsSpecified() &&
-          specs_.ReadBandwidth(pv).Get() < unconstrained_read_bandwidth.at(pv))
-      {
-        stats_.slowdown =
-          std::min(stats_.slowdown,
-                   specs_.ReadBandwidth(pv).Get() / unconstrained_read_bandwidth.at(pv));
-      }
-      if (specs_.WriteBandwidth(pv).IsSpecified() &&
-          specs_.WriteBandwidth(pv).Get() < unconstrained_write_bandwidth.at(pv))
-      {
-        stats_.slowdown =
-          std::min(stats_.slowdown,
-                   specs_.WriteBandwidth(pv).Get() / unconstrained_write_bandwidth.at(pv));
-      }
-    }
 
+  // Find slowdown.
+  auto total_unconstrained_read_bandwidth  = std::accumulate(unconstrained_read_bandwidth.begin(),  unconstrained_read_bandwidth.end(),  0.0);
+  auto total_unconstrained_write_bandwidth = std::accumulate(unconstrained_write_bandwidth.begin(), unconstrained_write_bandwidth.end(), 0.0);
+
+  if (specs_.read_bandwidth.IsSpecified() &&
+      specs_.read_bandwidth.Get() < total_unconstrained_read_bandwidth)
+  {
+    stats_.slowdown =
+      std::min(stats_.slowdown,
+               specs_.read_bandwidth.Get() / total_unconstrained_read_bandwidth);
   }
-  else // specs_.sharing_type == DataSpaceIDSharing::Shared
+  if (specs_.write_bandwidth.IsSpecified() &&
+      specs_.write_bandwidth.Get() < total_unconstrained_write_bandwidth)
   {
-    // Find slowdown.
-    auto total_unconstrained_read_bandwidth  = std::accumulate(unconstrained_read_bandwidth.begin(),  unconstrained_read_bandwidth.end(),  0.0);
-    auto total_unconstrained_write_bandwidth = std::accumulate(unconstrained_write_bandwidth.begin(), unconstrained_write_bandwidth.end(), 0.0);
-
-    if (specs_.ReadBandwidth().IsSpecified() &&
-        specs_.ReadBandwidth().Get() < total_unconstrained_read_bandwidth)
-    {
-        stats_.slowdown =
-          std::min(stats_.slowdown,
-                   specs_.ReadBandwidth().Get() / total_unconstrained_read_bandwidth);
-    }
-    if (specs_.WriteBandwidth().IsSpecified() &&
-        specs_.WriteBandwidth().Get() < total_unconstrained_write_bandwidth)
-    {
-        stats_.slowdown =
-          std::min(stats_.slowdown,
-                   specs_.WriteBandwidth().Get() / total_unconstrained_write_bandwidth);
-    }
+    stats_.slowdown =
+      std::min(stats_.slowdown,
+               specs_.write_bandwidth.Get() / total_unconstrained_write_bandwidth);
   }
 
   //
-  // Step 3: For both shared and partitioned buffers,
+  // Step 3:
   // Calculate real bandwidths based on worst slowdown. For shared buffers this
   // ends up effectively slowing down each datatype's bandwidth by the slowdown
   // amount, which is slightly weird but appears to be harmless.
@@ -963,24 +770,10 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   //
   // Step 5: Update arch specs.
   //
-  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
-  {
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      if (!specs_.ReadBandwidth(pv).IsSpecified())
-        specs_.ReadBandwidth(pv) = stats_.read_bandwidth.at(pv);        
-      if (!specs_.WriteBandwidth(pv).IsSpecified())
-        specs_.WriteBandwidth(pv) = stats_.write_bandwidth.at(pv);        
-    }
-  }
-  else
-  {
-    if (!specs_.ReadBandwidth().IsSpecified())
-      specs_.ReadBandwidth() = std::accumulate(stats_.read_bandwidth.begin(), stats_.read_bandwidth.end(), 0.0);
-    if (!specs_.WriteBandwidth().IsSpecified())
-      specs_.WriteBandwidth() = std::accumulate(stats_.write_bandwidth.begin(), stats_.write_bandwidth.end(), 0.0);
-  }
+  if (!specs_.read_bandwidth.IsSpecified())
+    specs_.read_bandwidth = std::accumulate(stats_.read_bandwidth.begin(), stats_.read_bandwidth.end(), 0.0);
+  if (!specs_.write_bandwidth.IsSpecified())
+    specs_.write_bandwidth = std::accumulate(stats_.write_bandwidth.begin(), stats_.write_bandwidth.end(), 0.0);
 }
 
 //
@@ -1001,45 +794,20 @@ STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedInstances, stats_.utilized_ins
 
 std::string BufferLevel::Name() const
 {
-  return (specs_.sharing_type == DataSpaceIDSharing::Shared ?
-          specs_.Name().Get() :
-          specs_.Name(problem::Shape::DataSpaceID(0)).Get());  
+  return specs_.name.Get();
 }
 
 double BufferLevel::Area() const
 {
   double area = 0;
-  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
-  {
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      area += specs_.StorageArea(pv).Get() * specs_.Instances(pv).Get();
-    }
-  }
-  else
-  {
-    area += specs_.StorageArea().Get() * specs_.Instances().Get();
-  }
+  area += specs_.storage_area.Get() * specs_.instances.Get();
   return area;
 }
 
 double BufferLevel::AreaPerInstance() const
 {
   double area = 0;
-  if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
-  {
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      area += stats_.area.at(pv);
-    }
-  }
-  else
-  {
-    auto pv = problem::GetShape()->NumDataSpaces;
-    area += stats_.area.at(pv);
-  }  
+  area += stats_.area;
   return area;
 }
 
@@ -1048,8 +816,7 @@ double BufferLevel::Size() const
   // FIXME: this is per-instance. This is inconsistent with the naming
   // convention of some of the other methods, which are summed across instances.
   double size = 0;
-  for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
-    size += specs_.Size(problem::Shape::DataSpaceID(pvi)).Get();
+  size += specs_.size.Get();
   return size;
 }
 
@@ -1063,7 +830,7 @@ double BufferLevel::CapacityUtilization() const
       stats_.utilized_instances.at(pv);
   }
 
-  double total_capacity = Size() * specs_.Instances().Get();
+  double total_capacity = Size() * specs_.instances.Get();
 
   return utilized_capacity / total_capacity;
 }
@@ -1107,37 +874,21 @@ void BufferLevel::Print(std::ostream& out) const
   // Print specs.
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
-  unsigned start_pv = specs.DataSpaceIDIteratorStart();
-  unsigned end_pv = specs.DataSpaceIDIteratorEnd();
 
-  for (unsigned pvi = start_pv; pvi < end_pv; pvi++)
-  {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-
-    // if (specs.sharing_type == DataSpaceIDSharing::Partitioned && specs.Name(pv).IsSpecified())
-    // {
-    //   out << indent << "= " << specs.Name(pv).Get() << " =" << std::endl;
-    // }
-
-    if (pv == problem::GetShape()->NumDataSpaces)
-      out << indent << "Shared:" << std::endl;
-    else
-      out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;      
-    out << indent << indent << "Technology           : " << specs.Tech(pv) << std::endl;
-    out << indent << indent << "Size                 : " << specs.Size(pv) << std::endl;
-    out << indent << indent << "Word bits            : " << specs.WordBits(pv) << std::endl;    
-    out << indent << indent << "Block size           : " << specs.BlockSize(pv) << std::endl;
-    out << indent << indent << "Cluster size         : " << specs.ClusterSize(pv) << std::endl;
-    out << indent << indent << "Instances            : " << specs.Instances(pv) << " ("
-        << specs.MeshX(pv) << "*" << specs.MeshY(pv) << ")" << std::endl;
-    out << indent << indent << "Read bandwidth       : " << specs.ReadBandwidth(pv) << std::endl;    
-    out << indent << indent << "Write bandwidth      : " << specs.WriteBandwidth(pv) << std::endl;    
-    out << indent << indent << "Multiple buffering   : " << specs.MultipleBuffering(pv) << std::endl;
-    out << indent << indent << "Effective size       : " << specs.EffectiveSize(pv) << std::endl;
-    out << indent << indent << "Min utilization      : " << specs.MinUtilization(pv) << std::endl;
-    out << indent << indent << "Vector access energy : " << specs.VectorAccessEnergy(pv) << " pJ" << std::endl;
-    out << indent << indent << "Area                 : " << specs.StorageArea(pv) << " um^2" << std::endl;
-  }
+  out << indent << indent << "Technology           : " << specs.technology << std::endl;
+  out << indent << indent << "Size                 : " << specs.size << std::endl;
+  out << indent << indent << "Word bits            : " << specs.word_bits << std::endl;    
+  out << indent << indent << "Block size           : " << specs.block_size << std::endl;
+  out << indent << indent << "Cluster size         : " << specs.cluster_size << std::endl;
+  out << indent << indent << "Instances            : " << specs.instances << " ("
+      << specs.meshX << "*" << specs.meshY << ")" << std::endl;
+  out << indent << indent << "Read bandwidth       : " << specs.read_bandwidth << std::endl;    
+  out << indent << indent << "Write bandwidth      : " << specs.write_bandwidth << std::endl;    
+  out << indent << indent << "Multiple buffering   : " << specs.multiple_buffering << std::endl;
+  out << indent << indent << "Effective size       : " << specs.effective_size << std::endl;
+  out << indent << indent << "Min utilization      : " << specs.min_utilization << std::endl;
+  out << indent << indent << "Vector access energy : " << specs.vector_access_energy << " pJ" << std::endl;
+  out << indent << indent << "Area                 : " << specs.storage_area << " um^2" << std::endl;
 
   out << std::endl;
 
@@ -1208,24 +959,10 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent << "Write Bandwidth (per-instance)           : " << stats.write_bandwidth.at(pv) << " bytes/cycle" << std::endl;
       out << indent + indent << "Write Bandwidth (total)                  : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " bytes/cycle" << std::endl;
     }
-
-    if (specs.sharing_type == DataSpaceIDSharing::Partitioned)
-    {
-      if (stats.utilized_capacity.at(pv) == 0 && specs.Size(pv).IsSpecified() && specs.Size(pv).Get() > 0)
-        out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
-      
-      if (stats.utilized_capacity.at(pv) > 0 || (specs.Size(pv).IsSpecified() && specs.Size(pv).Get() > 0))
-        out << indent + indent << "Area (per-instance)                      : " << stats.area.at(pv) << " um2" << std::endl;
-    }      
   }
 
-  // Print area for shared buffers.
-  if (specs.sharing_type == DataSpaceIDSharing::Shared)
-  {
-    auto pv = problem::GetShape()->NumDataSpaces;
-    out << indent << "Shared:" << std::endl;
-    out << indent + indent << "Area (per-instance)                      : " << stats.area.at(pv) << " um2" << std::endl;
-  }
+  // Print area.
+  out << indent + indent << "Area (per-instance)                      : " << stats.area << " um2" << std::endl;
   
   out << std::endl;
 }

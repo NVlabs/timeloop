@@ -42,7 +42,7 @@ ArithmeticUnits::ArithmeticUnits(const Specs& specs) :
 {
   is_specced_ = true;
   is_evaluated_ = false;
-  area_ = specs_.Area().Get();
+  area_ = specs_.area.Get();
 }
 
 ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements)
@@ -52,8 +52,8 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   // Name.
   std::string name = "__ARITH__";
   setting.lookupValue("name", name);
-  specs.Name() = config::parseName(name);
-  specs.level_name = specs.Name().Get();
+  specs.name = config::parseName(name);
+  specs.level_name = specs.name.Get();
   if (setting.exists("attributes"))
   { // parse v0.2, tree like description
     setting = setting.lookup("attributes");
@@ -69,35 +69,35 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
       assert(false);
     }
     instances = nElements;
-    //std::cout << "ArithUnit: " << specs.Name() << " size: " << instances << std::endl;
+    //std::cout << "ArithUnit: " << specs.name << " size: " << instances << std::endl;
   }
 
-  specs.Instances() = instances;
+  specs.instances = instances;
 
   // Word size (in bits).
   std::uint32_t word_bits;
   if (setting.lookupValue("word-bits", word_bits) ||
       setting.lookupValue("datawidth", word_bits) )
   {
-    specs.WordBits() = word_bits;
+    specs.word_bits = word_bits;
   }
   else
   {
-    specs.WordBits() = Specs::kDefaultWordBits;
+    specs.word_bits = Specs::kDefaultWordBits;
   }
 
   // MeshX.
   std::uint32_t mesh_x;
   if (setting.lookupValue("meshX", mesh_x))
   {
-    specs.MeshX() = mesh_x;
+    specs.meshX = mesh_x;
   }
 
   // MeshY.
   std::uint32_t mesh_y;
   if (setting.lookupValue("meshY", mesh_y))
   {
-    specs.MeshY() = mesh_y;
+    specs.meshY = mesh_y;
   }
 
   // Energy (override).
@@ -105,16 +105,16 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   double energy;
   if (setting.lookupValue("energy", energy_int))
   {
-    specs.EnergyPerOp() = static_cast<double>(energy_int);
+    specs.energy_per_op = static_cast<double>(energy_int);
   }
   else if (setting.lookupValue("energy", energy))
   {
-    specs.EnergyPerOp() = energy;
+    specs.energy_per_op = energy;
   }
   else
   {
-    specs.EnergyPerOp() =
-      pat::MultiplierEnergy(specs.WordBits().Get(), specs.WordBits().Get());
+    specs.energy_per_op =
+      pat::MultiplierEnergy(specs.word_bits.Get(), specs.word_bits.Get());
   }
     
   // Area (override).
@@ -122,16 +122,16 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   double area;
   if (setting.lookupValue("area", area_int))
   {
-    specs.Area() = static_cast<double>(area_int);
+    specs.area = static_cast<double>(area_int);
   }
   else if (setting.lookupValue("area", area))
   {
-    specs.Area() = area;
+    specs.area = area;
   }
   else
   {
-    specs.Area() =
-      pat::MultiplierArea(specs.WordBits().Get(), specs.WordBits().Get());
+    specs.area =
+      pat::MultiplierArea(specs.word_bits.Get(), specs.word_bits.Get());
   }
 
   // Validation.
@@ -143,41 +143,41 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
 void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
 {
   bool error = false;
-  if (specs.Instances().IsSpecified())
+  if (specs.instances.IsSpecified())
   {
-    if (specs.MeshX().IsSpecified())
+    if (specs.meshX.IsSpecified())
     {
-      if (specs.MeshY().IsSpecified())
+      if (specs.meshY.IsSpecified())
       {
         // All 3 are specified.
-        assert(specs.MeshX().Get() * specs.MeshY().Get() == specs.Instances().Get());
+        assert(specs.meshX.Get() * specs.meshY.Get() == specs.instances.Get());
       }
       else
       {
         // Instances and MeshX are specified.
-        assert(specs.Instances().Get() % specs.MeshX().Get() == 0);
-        specs.MeshY() = specs.Instances().Get() / specs.MeshX().Get();
+        assert(specs.instances.Get() % specs.meshX.Get() == 0);
+        specs.meshY = specs.instances.Get() / specs.meshX.Get();
       }
     }
-    else if (specs.MeshY().IsSpecified())
+    else if (specs.meshY.IsSpecified())
     {
       // Instances and MeshY are specified.
-      assert(specs.Instances().Get() % specs.MeshY().Get() == 0);
-      specs.MeshX() = specs.Instances().Get() / specs.MeshY().Get();
+      assert(specs.instances.Get() % specs.meshY.Get() == 0);
+      specs.meshX = specs.instances.Get() / specs.meshY.Get();
     }
     else
     {
       // Only Instances is specified.
-      specs.MeshX() = specs.Instances().Get();
-      specs.MeshY() = 1;      
+      specs.meshX = specs.instances.Get();
+      specs.meshY = 1;      
     }
   }
-  else if (specs.MeshX().IsSpecified())
+  else if (specs.meshX.IsSpecified())
   {
-    if (specs.MeshY().IsSpecified())
+    if (specs.meshY.IsSpecified())
     {
       // MeshX and MeshY are specified.
-      specs.Instances() = specs.MeshX().Get() * specs.MeshY().Get();
+      specs.instances = specs.meshX.Get() * specs.meshY.Get();
     }
     else
     {
@@ -185,7 +185,7 @@ void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
       error = true;
     }
   }
-  else if (specs.MeshY().IsSpecified())
+  else if (specs.meshY.IsSpecified())
   {
     // Only MeshY is specified. We can make assumptions but it's too dangerous.
     error = true;
@@ -210,7 +210,7 @@ void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
 std::string ArithmeticUnits::Name() const
 {
   assert(is_specced_);
-  return specs_.Name().Get();
+  return specs_.name.Get();
 }
 
 double ArithmeticUnits::Energy(problem::Shape::DataSpaceID pv) const
@@ -223,7 +223,7 @@ double ArithmeticUnits::Energy(problem::Shape::DataSpaceID pv) const
 double ArithmeticUnits::Area() const
 {
   assert(is_specced_);
-  return AreaPerInstance() * specs_.Instances().Get();
+  return AreaPerInstance() * specs_.instances.Get();
 }
 
 double ArithmeticUnits::AreaPerInstance() const
@@ -243,24 +243,24 @@ void ArithmeticUnits::Print(std::ostream& out) const
   std::string indent = "    ";
 
   // Print level name.
-  out << "=== " << specs_.Name() << " ===" << std::endl;  
+  out << "=== " << specs_.name << " ===" << std::endl;  
   out << std::endl;
 
   // Print specs.
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
 
-  out << indent << "Word bits            : " << specs_.WordBits() << std::endl;    
-  out << indent << "Instances            : " << specs_.Instances() << " ("
-      << specs_.MeshX() << "*" << specs_.MeshY() << ")" << std::endl;
-  out << indent << "Energy-per-op        : " << specs_.EnergyPerOp() << " pJ" << std::endl;
+  out << indent << "Word bits            : " << specs_.word_bits << std::endl;    
+  out << indent << "Instances            : " << specs_.instances << " ("
+      << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
+  out << indent << "Energy-per-op        : " << specs_.energy_per_op << " pJ" << std::endl;
   out << std::endl;
 
   // Print stats.
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
 
-  out << indent << "Utilized instances   : " << utilized_instances_ << std::endl;
+  out << indent << "Utilized instances   : " << UtilizedInstances() << std::endl;
   out << indent << "Cycles               : " << Cycles() << std::endl;
   out << indent << "Energy (total)       : " << Energy() << " pJ" << std::endl;
   out << indent << "Area (total)         : " << Area() << " um^2" << std::endl;

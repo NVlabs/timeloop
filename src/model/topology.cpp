@@ -347,9 +347,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
         for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
           auto bufferSpec = GetStorageLevel(i);
           auto networkSpec = GetNetwork(i); // FIXME.
-          auto pv = problem::GetShape()->NumDataSpaces;
-          //bufferSpec->network.WireEnergy(pv) = transferEnergy;
-          networkSpec->WireEnergy(pv) = transferEnergy;
+          networkSpec->wire_energy = transferEnergy;
         }
       }
     } else {
@@ -388,12 +386,11 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       if (isArithmeticUnit) {
         // std::cout << "  Replace " << componentName << " energy with energy " << opEnergy << std::endl;
         auto arithmeticSpec = GetArithmeticLevel();
-        arithmeticSpec->EnergyPerOp() = opEnergy;
+        arithmeticSpec->energy_per_op = opEnergy;
       } else if (isBuffer) {
         auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
         // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
-        auto pv = problem::GetShape()->NumDataSpaces;
-        bufferSpec->VectorAccessEnergy(pv) = opEnergy / bufferSpec->ClusterSize(pv).Get();
+        bufferSpec->vector_access_energy = opEnergy / bufferSpec->cluster_size.Get();
       } else {
         // std::cout << "  Unused component ERT: "  << key << std::endl;
       }

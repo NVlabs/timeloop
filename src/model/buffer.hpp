@@ -58,27 +58,6 @@ class BufferLevel : public Level
   enum class Technology { SRAM, DRAM };
   friend std::ostream& operator<<(std::ostream& out, const Technology& tech);
 
-  // Helper iterator.
-  template<typename Functor>
-  static void ForEachDataSpaceID(Functor functor, DataSpaceIDSharing sharing)
-  {
-    unsigned start_pvi, end_pvi;
-    if (sharing == DataSpaceIDSharing::Shared)
-    {
-      start_pvi = end_pvi = unsigned(problem::GetShape()->NumDataSpaces);
-    }
-    else
-    {
-      start_pvi = 0;
-      end_pvi = unsigned(problem::GetShape()->NumDataSpaces)-1;
-    }
-
-    for (unsigned pvi = start_pvi; pvi <= end_pvi; pvi++)
-    {
-      functor(problem::Shape::DataSpaceID(pvi));
-    }
-  }
-
   //
   // Specs.
   //
@@ -87,28 +66,25 @@ class BufferLevel : public Level
     static const std::uint64_t kDefaultWordBits = 16;
     const std::string Type() const override { return "BufferLevel"; }
     
-    DataSpaceIDSharing sharing_type;
-
-    PerDataSpaceOrShared<Attribute<std::string>> name;
-    PerDataSpaceOrShared<Attribute<Technology>> technology;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> size;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> word_bits;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> addr_gen_bits;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> block_size;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> cluster_size;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> instances;    
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> meshX;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> meshY;
-    PerDataSpaceOrShared<Attribute<double>> read_bandwidth;
-    PerDataSpaceOrShared<Attribute<double>> write_bandwidth;
-    PerDataSpaceOrShared<Attribute<double>> multiple_buffering;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> effective_size;
-    PerDataSpaceOrShared<Attribute<double>> min_utilization;
-    // Sophia
-    PerDataSpaceOrShared<Attribute<double>> vector_access_energy;
-    PerDataSpaceOrShared<Attribute<double>> storage_area;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> num_ports;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> num_banks;
+    Attribute<std::string> name;
+    Attribute<Technology> technology;
+    Attribute<std::uint64_t> size;
+    Attribute<std::uint64_t> word_bits;
+    Attribute<std::uint64_t> addr_gen_bits;
+    Attribute<std::uint64_t> block_size;
+    Attribute<std::uint64_t> cluster_size;
+    Attribute<std::uint64_t> instances;    
+    Attribute<std::uint64_t> meshX;
+    Attribute<std::uint64_t> meshY;
+    Attribute<double> read_bandwidth;
+    Attribute<double> write_bandwidth;
+    Attribute<double> multiple_buffering;
+    Attribute<std::uint64_t> effective_size;
+    Attribute<double> min_utilization;
+    Attribute<double> vector_access_energy;
+    Attribute<double> storage_area;
+    Attribute<std::uint64_t> num_ports;
+    Attribute<std::uint64_t> num_banks;
 
     // Serialization
     friend class boost::serialization::access;
@@ -138,112 +114,7 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(num_ports);
         ar& BOOST_SERIALIZATION_NVP(num_banks);
       }
-    }
-    
-    Specs() :
-        sharing_type(DataSpaceIDSharing::Shared)
-    {
-      Init();
-    }
-    
-    Specs(DataSpaceIDSharing sharing) :
-        sharing_type(sharing)
-    {
-      Init();
-    }
-    
-    void Init()
-    {
-      // Initialize all parameters to "unspecified" default.
-      if (sharing_type == DataSpaceIDSharing::Partitioned)
-      {
-        name.SetPerDataSpace();
-        technology.SetPerDataSpace();
-        size.SetPerDataSpace();
-        word_bits.SetPerDataSpace();
-        addr_gen_bits.SetPerDataSpace();
-        block_size.SetPerDataSpace();
-        cluster_size.SetPerDataSpace();
-        instances.SetPerDataSpace();
-        meshX.SetPerDataSpace();
-        meshY.SetPerDataSpace();
-        read_bandwidth.SetPerDataSpace();
-        write_bandwidth.SetPerDataSpace();
-        multiple_buffering.SetPerDataSpace();
-        effective_size.SetPerDataSpace();
-        min_utilization.SetPerDataSpace();
-        vector_access_energy.SetPerDataSpace();
-        storage_area.SetPerDataSpace();
-        num_ports.SetPerDataSpace();
-        num_banks.SetPerDataSpace();
-      }
-      else // sharing_type == DataSpaceIDSharing::Shared
-      {
-        name.SetShared();
-        technology.SetShared();
-        size.SetShared();
-        word_bits.SetShared();
-        addr_gen_bits.SetShared();
-        block_size.SetShared();
-        cluster_size.SetShared();
-        instances.SetShared();
-        meshX.SetShared();
-        meshY.SetShared();
-        read_bandwidth.SetShared();
-        write_bandwidth.SetShared();
-        multiple_buffering.SetShared();
-        effective_size.SetShared();
-        min_utilization.SetShared();
-        vector_access_energy.SetShared();
-        storage_area.SetShared();
-        num_ports.SetShared();
-        num_banks.SetShared();
-      }    
-    }
-
-    DataSpaceIDSharing SharingType() const { return sharing_type; }
-
-    unsigned DataSpaceIDIteratorStart() const
-    {
-      return sharing_type == DataSpaceIDSharing::Shared
-                             ? unsigned(problem::GetShape()->NumDataSpaces)
-                             : 0;
-    }
-
-    unsigned DataSpaceIDIteratorEnd() const
-    {
-      return sharing_type == DataSpaceIDSharing::Shared
-                             ? unsigned(problem::GetShape()->NumDataSpaces) + 1
-                             : unsigned(problem::GetShape()->NumDataSpaces);
-    }
-
-    size_t NumPartitions() const
-    {
-      return sharing_type == DataSpaceIDSharing::Shared
-                             ? 1
-                             : size_t(problem::GetShape()->NumDataSpaces);
-    }
-
-    ADD_ACCESSORS(Name, name, std::string)
-    ADD_ACCESSORS(Tech, technology, Technology)
-    ADD_ACCESSORS(Size, size, std::uint64_t)
-    ADD_ACCESSORS(WordBits, word_bits, std::uint64_t)
-    ADD_ACCESSORS(AddrGenBits, addr_gen_bits, std::uint64_t)
-    ADD_ACCESSORS(BlockSize, block_size, std::uint64_t)
-    ADD_ACCESSORS(ClusterSize, cluster_size, std::uint64_t)
-    ADD_ACCESSORS(Instances, instances, std::uint64_t)
-    ADD_ACCESSORS(MeshX, meshX, std::uint64_t)
-    ADD_ACCESSORS(MeshY, meshY, std::uint64_t)
-    ADD_ACCESSORS(ReadBandwidth, read_bandwidth, double)    
-    ADD_ACCESSORS(WriteBandwidth, write_bandwidth, double)    
-    ADD_ACCESSORS(MultipleBuffering, multiple_buffering, double)
-    ADD_ACCESSORS(EffectiveSize, effective_size, std::uint64_t)
-    ADD_ACCESSORS(MinUtilization, min_utilization, double)
-    ADD_ACCESSORS(VectorAccessEnergy, vector_access_energy, double)
-    ADD_ACCESSORS(StorageArea, storage_area, double)
-    ADD_ACCESSORS(NumPorts, num_ports, std::uint64_t)
-    ADD_ACCESSORS(NumBanks, num_banks, std::uint64_t)
-
+    }    
   };
   
   struct Stats
@@ -264,7 +135,8 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> temporal_reduction_energy;
     problem::PerDataSpace<double> addr_gen_energy;
-    PerDataSpaceOrShared<double> area;
+
+    double area;
     std::uint64_t cycles;
     double slowdown;
 
@@ -358,12 +230,12 @@ class BufferLevel : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the constructor when an object is actually created.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
-  static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t nElements,
+  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t n_elements);
+  static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n_elements,
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
   
-  bool HardwareReductionSupported(problem::Shape::DataSpaceID pv) override;
+  bool HardwareReductionSupported() override;
 
   // Connect to networks.
   void Connect(std::shared_ptr<Network> network);

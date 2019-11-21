@@ -47,26 +47,11 @@ class ArithmeticUnits : public Level
 
     Attribute<std::string> name;
     Attribute<std::size_t> instances;
-    Attribute<std::size_t> mesh_x;
-    Attribute<std::size_t> mesh_y;
+    Attribute<std::size_t> meshX;
+    Attribute<std::size_t> meshY;
     Attribute<std::uint64_t> word_bits;
     Attribute<double> energy_per_op;
     Attribute<double> area;
-
-    Attribute<std::string>& Name() { return name; }
-    const Attribute<std::string>& Name() const { return name; }
-    Attribute<std::size_t>& Instances() { return instances; }
-    const Attribute<std::size_t>& Instances() const { return instances; }
-    Attribute<std::size_t>& MeshX() { return mesh_x; }
-    const Attribute<std::size_t>& MeshX() const { return mesh_x; }
-    Attribute<std::size_t>& MeshY() { return mesh_y; }
-    const Attribute<std::size_t>& MeshY() const { return mesh_y; }
-    Attribute<std::uint64_t>& WordBits() { return word_bits; }
-    const Attribute<std::uint64_t>& WordBits() const { return word_bits; }
-    Attribute<double>& EnergyPerOp() { return energy_per_op; }
-    const Attribute<double>& EnergyPerOp() const { return energy_per_op; }
-    Attribute<double>& Area() { return area; }
-    const Attribute<double>& Area() const { return area; }
 
     // Serialization
     friend class boost::serialization::access;
@@ -78,8 +63,8 @@ class ArithmeticUnits : public Level
       if (version == 0)
       {
         ar& BOOST_SERIALIZATION_NVP(instances);
-        ar& BOOST_SERIALIZATION_NVP(mesh_x);
-        ar& BOOST_SERIALIZATION_NVP(mesh_y);
+        ar& BOOST_SERIALIZATION_NVP(meshX);
+        ar& BOOST_SERIALIZATION_NVP(meshY);
         ar& BOOST_SERIALIZATION_NVP(word_bits);
       }
     }
@@ -132,7 +117,7 @@ class ArithmeticUnits : public Level
   void Print(std::ostream& out) const override;
     
   // --- Unsupported overrides ---
-  bool HardwareReductionSupported(problem::Shape::DataSpaceID pv) override { (void) pv; return false; }
+  bool HardwareReductionSupported() override { return false; }
 
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
@@ -192,11 +177,11 @@ class ArithmeticUnits : public Level
 
     // maccs_ = analysis->GetMACs();
 
-    if (utilized_instances_ <= specs_.Instances().Get())
+    if (utilized_instances_ <= specs_.instances.Get())
     {
       cycles_ = compute_cycles;
       maccs_ = utilized_instances_ * compute_cycles;
-      energy_ = maccs_ * specs_.EnergyPerOp().Get();
+      energy_ = maccs_ * specs_.energy_per_op.Get();
 
       // Scale energy for sparsity.
       for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
@@ -212,7 +197,7 @@ class ArithmeticUnits : public Level
       eval_status.success = false;
       std::ostringstream str;
       str << "mapped Arithmetic instances " << utilized_instances_
-          << " exceeds hardware instances " << specs_.Instances().Get();
+          << " exceeds hardware instances " << specs_.instances.Get();
       eval_status.fail_reason = str.str();
     }
     
@@ -229,7 +214,7 @@ class ArithmeticUnits : public Level
   {
     // FIXME: why would this be different from Cycles()?
     assert(is_evaluated_);
-    return double(maccs_) / specs_.Instances().Get();
+    return double(maccs_) / specs_.instances.Get();
   }
 };
 

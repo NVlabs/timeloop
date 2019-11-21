@@ -56,13 +56,12 @@ class Network
       ManyToMany
     };
 
-    DataSpaceIDSharing sharing_type;
-
     std::string name = "UNSET";
-    PerDataSpaceOrShared<Attribute<NetworkType>> type;
-    PerDataSpaceOrShared<Attribute<std::uint64_t>> word_bits;
-    PerDataSpaceOrShared<Attribute<double>> routerEnergy;
-    PerDataSpaceOrShared<Attribute<double>> wireEnergy;
+
+    Attribute<NetworkType> type;
+    Attribute<std::uint64_t> word_bits;
+    Attribute<double> router_energy;
+    Attribute<double> wire_energy;
 
     // Serialization
     friend class boost::serialization::access;
@@ -74,87 +73,14 @@ class Network
       {
         ar& BOOST_SERIALIZATION_NVP(type);
         ar& BOOST_SERIALIZATION_NVP(word_bits);
-        ar& BOOST_SERIALIZATION_NVP(routerEnergy);
-        ar& BOOST_SERIALIZATION_NVP(wireEnergy);
+        ar& BOOST_SERIALIZATION_NVP(router_energy);
+        ar& BOOST_SERIALIZATION_NVP(wire_energy);
       }
     }
-
-    Specs() :
-        sharing_type(DataSpaceIDSharing::Shared)
-    {
-      Init();
-    }
-
-    Specs(DataSpaceIDSharing sharing) :
-        sharing_type(sharing)
-    {
-      Init();
-    }
-
-    void Init()
-    {
-      // Initialize all parameters to "unspecified" default.
-      if (sharing_type == DataSpaceIDSharing::Partitioned)
-      {
-        type.SetPerDataSpace();
-        word_bits.SetPerDataSpace();
-        routerEnergy.SetPerDataSpace();
-        wireEnergy.SetPerDataSpace();
-      }
-      else // sharing_type == DataSpaceIDSharing::Shared
-      {
-        type.SetShared();
-        word_bits.SetShared();
-        routerEnergy.SetShared();
-        wireEnergy.SetShared();        
-      }
-    }
-
-    DataSpaceIDSharing SharingType() const { return sharing_type; }
-
-    unsigned DataSpaceIDIteratorStart() const
-    {
-      return sharing_type == DataSpaceIDSharing::Shared
-                             ? unsigned(problem::GetShape()->NumDataSpaces)
-                             : 0;
-    }
-
-    unsigned DataSpaceIDIteratorEnd() const
-    {
-      return sharing_type == DataSpaceIDSharing::Shared
-                             ? unsigned(problem::GetShape()->NumDataSpaces) + 1
-                             : unsigned(problem::GetShape()->NumDataSpaces);
-    }
-
-    size_t NumPartitions() const
-    {
-      return sharing_type == DataSpaceIDSharing::Shared
-                             ? 1
-                             : size_t(problem::GetShape()->NumDataSpaces);
-    }
-
-    ADD_ACCESSORS(Type, type, NetworkType)
-    ADD_ACCESSORS(WordBits, word_bits, std::uint64_t)
-    ADD_ACCESSORS(RouterEnergy, routerEnergy, double)
-    ADD_ACCESSORS(WireEnergy, wireEnergy, double)
 
     friend std::ostream& operator << (std::ostream& out, const Specs& specs)
     {
-      std::string indent = "    ";
-
-      unsigned start_pv = specs.DataSpaceIDIteratorStart();
-      unsigned end_pv = specs.DataSpaceIDIteratorEnd();
-
-      for (unsigned pvi = start_pv; pvi < end_pv; pvi++)
-      {
-        auto pv = problem::Shape::DataSpaceID(pvi);
-        
-        if (pv == problem::GetShape()->NumDataSpaces)
-          out << indent << "Shared:" << std::endl;
-        else
-          out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;      
-      }
-
+      (void) specs;
       return out;
     }
 
@@ -245,18 +171,18 @@ class Network
 
   static Specs ParseSpecs(config::CompoundConfigNode network)
   {
-    Specs specs(DataSpaceIDSharing::Shared);
+    Specs specs;
 
     // Network Type.
     std::string network_type;
     if (network.lookupValue("network-type", network_type))
     {
       if (network_type.compare("1:1") == 0)
-        specs.Type() = Network::Specs::NetworkType::OneToOne;
+        specs.type = Network::Specs::NetworkType::OneToOne;
       else if (network_type.compare("1:N") == 0)
-        specs.Type() = Network::Specs::NetworkType::OneToMany;
+        specs.type = Network::Specs::NetworkType::OneToMany;
       else if (network_type.compare("M:N") == 0)
-        specs.Type() = Network::Specs::NetworkType::ManyToMany;
+        specs.type = Network::Specs::NetworkType::ManyToMany;
       else
       {
         std::cerr << "ERROR: Unrecognized network type: " << network_type << std::endl;
@@ -268,7 +194,7 @@ class Network
     std::uint32_t word_bits;
     if (network.lookupValue("network-word-bits", word_bits))
     {
-      specs.WordBits() = word_bits;
+      specs.word_bits = word_bits;
     }
     else if (network.lookupValue("word-bits", word_bits) ||
              network.lookupValue("word_width", word_bits) ||
@@ -276,22 +202,22 @@ class Network
     {
       // FIXME. Derive this from the buffer I'm connected to in the topology
       // instead of cheating and reading it directly from its specs config.
-      specs.WordBits() = word_bits;
+      specs.word_bits = word_bits;
     }
     else
     {
-      specs.WordBits() = Specs::kDefaultWordBits;
+      specs.word_bits = Specs::kDefaultWordBits;
     }
 
     // Router energy.
     double router_energy = 0;
     network.lookupValue("router-energy", router_energy);
-    specs.RouterEnergy() = router_energy;
+    specs.router_energy = router_energy;
 
     // Wire energy.
     double wire_energy = 0.0;
     network.lookupValue("wire-energy", wire_energy);
-    specs.WireEnergy() = wire_energy;
+    specs.wire_energy = wire_energy;
 
     return specs;
   }
@@ -320,12 +246,8 @@ class Network
   {
     bool retval = true;
 
-    for (unsigned pvi = 0; pvi < specs_.NumPartitions(); pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      retval &= (specs_.Type(pv).IsSpecified() &&
-                 specs_.Type(pv).Get() == Network::Specs::NetworkType::ManyToMany);
-    }
+    retval &= specs_.type.IsSpecified() &&
+      specs_.type.Get() == Network::Specs::NetworkType::ManyToMany;
 
     return retval;
   }
@@ -368,7 +290,7 @@ class Network
         // FIXME: need to account for the case when this level is bypassed. In this
         //        case we'll have to query a different level. Also size will be 0,
         //        we may have to maintain a network_size.
-        if (outer_->HardwareReductionSupported(pv))
+        if (outer_->HardwareReductionSupported())
         {
           stats_.ingresses[pv] = tile[pvi].accesses;
         }
@@ -446,21 +368,10 @@ class Network
     //
     // 2. Derive/validate architecture specs based on stats.
     //
-    if (specs_.sharing_type == DataSpaceIDSharing::Partitioned)
-    {
-      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-      {
-        // Bandwidth constraints cannot be checked/inherited at this point
-        // because the calculation is a little more involved. We will do
-        // this later in the ComputePerformance() function.
-      }
-    }
-    else  // sharing_type == DataSpaceIDSharing::Shared
-    {
-      // Bandwidth constraints cannot be checked/inherited at this point
-      // because the calculation is a little more involved. We will do
-      // this later in the ComputePerformance() function.    
-    }
+
+    // Bandwidth constraints cannot be checked/inherited at this point
+    // because the calculation is a little more involved. We will do
+    // this later in the ComputePerformance() function.    
 
     (void) break_on_failure;
 
@@ -489,12 +400,12 @@ class Network
       auto pv = problem::Shape::DataSpaceID(pvi);
 
       double energy_per_hop =
-        WireEnergyPerHop(specs_.WordBits(pv).Get(), inner_tile_area);
-      double energy_wire = specs_.WireEnergy(pv).Get();
+        WireEnergyPerHop(specs_.word_bits.Get(), inner_tile_area);
+      double energy_wire = specs_.wire_energy.Get();
       if (energy_wire != 0.0) { // user provided energy per wire length per bit
-        energy_per_hop = specs_.WordBits(pv).Get() * inner_tile_area * energy_wire;
+        energy_per_hop = specs_.word_bits.Get() * inner_tile_area * energy_wire;
       }
-      double energy_per_router = specs_.RouterEnergy(pv).Get();
+      double energy_per_router = specs_.router_energy.Get();
     
       auto fanout = stats_.distributed_multicast.at(pv) ?
         stats_.distributed_fanout.at(pv) :
@@ -571,14 +482,14 @@ class Network
   //
   void ComputeSpatialReductionEnergy()
   {
-    // Spatial reduction: add two values in the 
+    // Spatial reduction: add two values in the network.
     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
       if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
       {
         stats_.spatial_reduction_energy[pv] = stats_.spatial_reductions[pv] * 
-          pat::AdderEnergy(specs_.WordBits(pv).Get(), specs_.WordBits(pv).Get());
+          pat::AdderEnergy(specs_.word_bits.Get(), specs_.word_bits.Get());
       }
       else
       {

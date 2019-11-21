@@ -70,9 +70,6 @@ class ArchProperties
     // eventually be factored out, at which point we can make the
     // interconnection more generic and specifiable.
 
-    // NOTE! The following code only works for Shared topologies.
-    // We will be getting rid of Partitioned topologies.
-
     for (unsigned i = 0; i < specs_.topology.NumStorageLevels(); i++)
     {
       std::uint64_t inner_meshX, inner_meshY;
@@ -80,17 +77,17 @@ class ArchProperties
 
       if (i == 0)
       {
-        inner_meshX = specs_.topology.GetArithmeticLevel()->MeshX().Get();
-        inner_meshY = specs_.topology.GetArithmeticLevel()->MeshY().Get();
+        inner_meshX = specs_.topology.GetArithmeticLevel()->meshX.Get();
+        inner_meshY = specs_.topology.GetArithmeticLevel()->meshY.Get();
       }
       else
       {
-        inner_meshX = specs_.topology.GetStorageLevel(i-1)->MeshX().Get();
-        inner_meshY = specs_.topology.GetStorageLevel(i-1)->MeshY().Get();        
+        inner_meshX = specs_.topology.GetStorageLevel(i-1)->meshX.Get();
+        inner_meshY = specs_.topology.GetStorageLevel(i-1)->meshY.Get();        
       }
 
-      outer_meshX = specs_.topology.GetStorageLevel(i)->MeshX().Get();
-      outer_meshY = specs_.topology.GetStorageLevel(i)->MeshY().Get();        
+      outer_meshX = specs_.topology.GetStorageLevel(i)->meshX.Get();
+      outer_meshY = specs_.topology.GetStorageLevel(i)->meshY.Get();        
 
       if ((inner_meshX % outer_meshX) != 0)
       {

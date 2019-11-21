@@ -776,44 +776,44 @@ class Uber : public MapSpace
 
     std::size_t fanout_max;
     
-    if (level_specs->SharingType() == model::DataSpaceIDSharing::Shared)
-    {
-      if (x_expansion > arch_props_.FanoutX(storage_level_id))
-        success = false;
+    // if (level_specs->SharingType() == model::DataSpaceIDSharing::Shared)
+    // {
+    if (x_expansion > arch_props_.FanoutX(storage_level_id))
+      success = false;
       
-      if (y_expansion > arch_props_.FanoutY(storage_level_id))
-        success = false;
+    if (y_expansion > arch_props_.FanoutY(storage_level_id))
+      success = false;
 
-      fanout_max = arch_props_.Fanout(storage_level_id);
-    }
-    else
-    {
-      std::size_t x_fanout_max = 0;
-      std::size_t y_fanout_max = 0;
+    fanout_max = arch_props_.Fanout(storage_level_id);
+    // }
+    // else
+    // {
+    //   std::size_t x_fanout_max = 0;
+    //   std::size_t y_fanout_max = 0;
 
-      // The following loop is silly since we now only allow one fanout per level
-      // (as opposed to a per-dataspace fanout for partitioned levels). However,
-      // we will keep the code because we may need to move to a multiple-buffers
-      // per level later. The loop will not be over data spaces but buffer
-      // instances per level.
+    //   // The following loop is silly since we now only allow one fanout per level
+    //   // (as opposed to a per-dataspace fanout for partitioned levels). However,
+    //   // we will keep the code because we may need to move to a multiple-buffers
+    //   // per level later. The loop will not be over data spaces but buffer
+    //   // instances per level.
 
-      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-      {
-        // auto pv = problem::Shape::DataSpaceID(pvi);
+    //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    //   {
+    //     // auto pv = problem::Shape::DataSpaceID(pvi);
 
-        if (x_expansion > arch_props_.FanoutX(storage_level_id))
-          success = false;
+    //     if (x_expansion > arch_props_.FanoutX(storage_level_id))
+    //       success = false;
 
-        if (y_expansion > arch_props_.FanoutY(storage_level_id))
-          success = false;
+    //     if (y_expansion > arch_props_.FanoutY(storage_level_id))
+    //       success = false;
 
-        // Track max available (not utilized) fanout across all datatypes.
-        x_fanout_max = std::max(x_fanout_max, arch_props_.FanoutX(storage_level_id));
-        y_fanout_max = std::max(y_fanout_max, arch_props_.FanoutY(storage_level_id));
-      }
+    //     // Track max available (not utilized) fanout across all datatypes.
+    //     x_fanout_max = std::max(x_fanout_max, arch_props_.FanoutX(storage_level_id));
+    //     y_fanout_max = std::max(y_fanout_max, arch_props_.FanoutY(storage_level_id));
+    //   }
 
-      fanout_max = x_fanout_max * y_fanout_max;
-    }
+    //   fanout_max = x_fanout_max * y_fanout_max;
+    // }
 
     // Compute fanout utilization at this level.
     // Ignore bypass and partitioning. The only purpose of this is to accumulate
