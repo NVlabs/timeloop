@@ -39,6 +39,32 @@ struct EvalStatus
   std::string fail_reason;
 };
 
+//--------------------------------------------//
+//                Level Specs                 //
+//--------------------------------------------//
+
+struct LevelSpecs
+{
+  virtual ~LevelSpecs() { }
+  
+  virtual const std::string Type() const = 0;
+
+  std::string level_name;
+
+  // Serialization
+  friend class boost::serialization::access;
+
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar& BOOST_SERIALIZATION_NVP(level_name);
+    }
+  }
+};
+
+BOOST_SERIALIZATION_ASSUME_ABSTRACT(LevelSpecs)
 
 //--------------------------------------------//
 //                    Level                   //
@@ -88,28 +114,5 @@ class Level : public Module
 };
 
 BOOST_SERIALIZATION_ASSUME_ABSTRACT(Level)
-
-struct LevelSpecs
-{
-  virtual ~LevelSpecs() { }
-  
-  virtual const std::string Type() const = 0;
-
-  std::string level_name;
-
-  // Serialization
-  friend class boost::serialization::access;
-
-  template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0)
-  {
-    if (version == 0)
-    {
-      ar& BOOST_SERIALIZATION_NVP(level_name);
-    }
-  }
-};
-
-BOOST_SERIALIZATION_ASSUME_ABSTRACT(LevelSpecs)
 
 } // namespace model

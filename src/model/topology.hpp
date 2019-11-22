@@ -38,6 +38,7 @@
 #include "model/arithmetic.hpp"
 #include "model/buffer.hpp"
 #include "compound-config/compound-config.hpp"
+#include "network.hpp"
 
 namespace model
 {
@@ -62,7 +63,7 @@ class Topology : public Module
   {
    private:
     std::vector<std::shared_ptr<LevelSpecs>> levels;
-    std::vector<std::shared_ptr<Network::Specs>> networks;
+    std::vector<std::shared_ptr<NetworkSpecs>> networks;
     std::map<unsigned, unsigned> storage_map;
     unsigned arithmetic_map;
 
@@ -77,7 +78,7 @@ class Topology : public Module
     void ParseAccelergyERT(config::CompoundConfigNode ert);
 
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
-    void AddNetwork(std::shared_ptr<Network::Specs> specs);
+    void AddNetwork(std::shared_ptr<NetworkSpecs> specs);
 
     unsigned StorageMap(unsigned i) const { return storage_map.at(i); }
     unsigned ArithmeticMap() const { return arithmetic_map; }
@@ -85,7 +86,7 @@ class Topology : public Module
     std::shared_ptr<LevelSpecs> GetLevel(unsigned level_id) const;
     std::shared_ptr<BufferLevel::Specs> GetStorageLevel(unsigned storage_level_id) const;
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
-    std::shared_ptr<Network::Specs> GetNetwork(unsigned network_id) const;
+    std::shared_ptr<NetworkSpecs> GetNetwork(unsigned network_id) const;
   };
   
  private:

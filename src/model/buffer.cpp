@@ -53,6 +53,7 @@ BufferLevel::BufferLevel()
 BufferLevel::BufferLevel(const Specs& specs) :
     specs_(specs)
 {
+  is_specced_ = true;
   is_evaluated_ = false;
 }
 
@@ -62,7 +63,6 @@ BufferLevel::~BufferLevel()
 // The hierarchical ParseSpecs functions are static and do not
 // affect the internal specs_ data structure, which is set by
 // the dynamic Spec() call later.
-// FIXME: re-factor level-specific code to Buffer class.
 BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uint32_t n_elements)
 {
   auto& buffer = level;
@@ -674,7 +674,7 @@ void BufferLevel::ComputeReductionEnergy()
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
-        pat::AdderEnergy(specs_.word_bits.Get(), network_->GetSpecs().word_bits.Get());
+        pat::AdderEnergy(specs_.word_bits.Get(), network_->WordBits());
     }
     else
     {
