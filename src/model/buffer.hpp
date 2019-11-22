@@ -92,7 +92,7 @@ class BufferLevel : public Level
     template <class Archive>
     void serialize(Archive& ar, const unsigned int version = 0)
     {
-      ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(LevelSpecs);
+      ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(LevelSpecs);
       if (version == 0)
       {
         ar& BOOST_SERIALIZATION_NVP(name);
@@ -190,7 +190,7 @@ class BufferLevel : public Level
   template <class Archive>
   void serialize(Archive& ar, const unsigned int version = 0)
   {
-    ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(Level);
+    ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(Level);
     if (version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(subnest_);
@@ -213,9 +213,7 @@ class BufferLevel : public Level
   void ComputeAddrGenEnergy();
 
   double StorageEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
-  double NetworkEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
   double TemporalReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
-  double SpatialReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
   double AddrGenEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
 
   //
@@ -265,7 +263,7 @@ class BufferLevel : public Level
   
   // Printers.
   void Print(std::ostream& out) const;
-  friend std::ostream& operator<<(std::ostream& out, const BufferLevel& buffer_level);  
+  friend std::ostream& operator << (std::ostream& out, const BufferLevel& buffer_level);
 };
 
 }  // namespace model

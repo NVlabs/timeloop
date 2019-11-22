@@ -53,6 +53,7 @@ BufferLevel::BufferLevel()
 BufferLevel::BufferLevel(const Specs& specs) :
     specs_(specs)
 {
+  is_specced_ = true;
   is_evaluated_ = false;
 }
 
@@ -674,7 +675,7 @@ void BufferLevel::ComputeReductionEnergy()
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
-        pat::AdderEnergy(specs_.word_bits.Get(), network_->GetSpecs().word_bits.Get());
+        pat::AdderEnergy(specs_.word_bits.Get(), network_->WordBits());
     }
     else
     {
