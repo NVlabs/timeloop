@@ -63,7 +63,6 @@ BufferLevel::~BufferLevel()
 // The hierarchical ParseSpecs functions are static and do not
 // affect the internal specs_ data structure, which is set by
 // the dynamic Spec() call later.
-// FIXME: re-factor level-specific code to Buffer class.
 BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uint32_t n_elements)
 {
   auto& buffer = level;

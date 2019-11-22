@@ -267,5 +267,3 @@ class BufferLevel : public Level
 };
 
 }  // namespace model
-
-//BOOST_CLASS_EXPORT(model::BufferLevel::Specs)
