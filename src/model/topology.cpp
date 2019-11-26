@@ -198,11 +198,34 @@ void Topology::Spec(const Topology::Specs& specs)
     // Note! We are linking levels[i+1] as the outer level for networks[i].
     auto inner = levels_.at(i);
     auto outer = levels_.at(i+1);
+    auto network = networks_.at(i);
+
+    if (i > 0)
+    {
+      auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
+      inner_buffer->ConnectFill(network);
+      inner_buffer->ConnectDrain(network);
+    }
+    else
+    {
+      // auto arithmetic = std::static_pointer_cast<ArithmeticLevel>(inner);
+      // arithmetic->ConnectOperand(network);
+      // arithmetic->ConnectResult(network);
+    }
 
     auto outer_buffer = std::static_pointer_cast<BufferLevel>(outer);
-    auto network = networks_.at(i);
-    outer_buffer->Connect(network);
-    network->Connect(outer);
+
+    //
+    // FIXME: network source and sink need to be *bound* per-dataspace at eval (mapping) time.
+    //
+
+    outer_buffer->ConnectRead(network);
+    network->ConnectSink(inner);
+    network->ConnectSource(outer);
+
+    outer_buffer->ConnectUpdate(network);
+    // network->ConnectSource(inner);
+    // network->ConnectSink(outer);
 
     std::string network_name = outer->Name() + " <==> " + inner->Name();
     network->SetName(network_name);
@@ -609,7 +632,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     distribution_supported[pv].reset();
     for (unsigned storage_level = 0; storage_level < NumStorageLevels(); storage_level++)
     {
-      if (GetStorageLevel(storage_level)->GetNetwork()->DistributedMulticastSupported())
+      if (GetStorageLevel(storage_level)->GetReadNetwork()->DistributedMulticastSupported())
       {
         distribution_supported[pv].set(storage_level);
       }

@@ -414,7 +414,7 @@ EvalStatus BufferLevel::PreEvaluationCheck(
     // Use a very loose filter and fail this check only if there's
     // no chance that this mapping can fit.
     auto available_capacity = specs_.effective_size.Get();
-    if (network_->DistributedMulticastSupported())
+    if (network_read_->DistributedMulticastSupported())
     {
       available_capacity *= specs_.instances.Get();
     }
@@ -478,9 +478,24 @@ bool BufferLevel::HardwareReductionSupported()
            specs_.technology.Get() == Technology::DRAM);
 }
 
-void BufferLevel::Connect(std::shared_ptr<Network> network)
+void BufferLevel::ConnectRead(std::shared_ptr<Network> network)
 {
-  network_ = network;
+  network_read_ = network;
+}
+
+void BufferLevel::ConnectFill(std::shared_ptr<Network> network)
+{
+  network_fill_ = network;
+}
+
+void BufferLevel::ConnectUpdate(std::shared_ptr<Network> network)
+{
+  network_update_ = network;
+}
+
+void BufferLevel::ConnectDrain(std::shared_ptr<Network> network)
+{
+  network_drain_ = network;
 }
 
 EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
@@ -674,7 +689,7 @@ void BufferLevel::ComputeReductionEnergy()
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
-        pat::AdderEnergy(specs_.word_bits.Get(), network_->WordBits());
+        pat::AdderEnergy(specs_.word_bits.Get(), network_update_->WordBits());
     }
     else
     {

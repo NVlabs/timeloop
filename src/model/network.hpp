@@ -72,7 +72,8 @@ class Network : public Module
  public:
   virtual ~Network() { }
 
-  virtual void Connect(std::shared_ptr<Level> outer) = 0;
+  virtual void ConnectSource(std::shared_ptr<Level> source) = 0;
+  virtual void ConnectSink(std::shared_ptr<Level> sink) = 0;
   virtual void SetName(std::string name) = 0;
 
   // STAT_ACCESSOR_HEADER(virtual double, Energy) = 0;

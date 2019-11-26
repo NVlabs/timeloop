@@ -182,7 +182,10 @@ class BufferLevel : public Level
   Specs specs_;
 
   // Network endpoints.
-  std::shared_ptr<Network> network_;
+  std::shared_ptr<Network> network_read_;
+  std::shared_ptr<Network> network_fill_;
+  std::shared_ptr<Network> network_update_;
+  std::shared_ptr<Network> network_drain_;
 
  private:
   // Serialization
@@ -236,8 +239,11 @@ class BufferLevel : public Level
   bool HardwareReductionSupported() override;
 
   // Connect to networks.
-  void Connect(std::shared_ptr<Network> network);
-  std::shared_ptr<Network> GetNetwork() { return network_; }
+  void ConnectRead(std::shared_ptr<Network> network);
+  void ConnectFill(std::shared_ptr<Network> network);
+  void ConnectUpdate(std::shared_ptr<Network> network);
+  void ConnectDrain(std::shared_ptr<Network> network);
+  std::shared_ptr<Network> GetReadNetwork() { return network_read_; }
   
   // Evaluation functions.
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,

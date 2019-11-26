@@ -106,9 +106,14 @@ MeshNetwork::Specs MeshNetwork::ParseSpecs(config::CompoundConfigNode network)
   return specs;
 }
 
-void MeshNetwork::Connect(std::shared_ptr<Level> outer)
+void MeshNetwork::ConnectSource(std::shared_ptr<Level> source)
 {
-  outer_ = outer;
+  source_ = source;
+}
+
+void MeshNetwork::ConnectSink(std::shared_ptr<Level> sink)
+{
+  sink_ = sink;
 }
 
 void MeshNetwork::SetName(std::string name)
@@ -168,7 +173,14 @@ EvalStatus MeshNetwork::ComputeAccesses(const tiling::CompoundTile& tile, const 
       // FIXME: need to account for the case when this level is bypassed. In this
       //        case we'll have to query a different level. Also size will be 0,
       //        we may have to maintain a network_size.
-      if (outer_->HardwareReductionSupported())
+
+      // FIXME: perhaps this should be done during a tile post-processing phase instead
+      //        of here.
+
+      // FIXME: we are looking at the source's reduction ability because data flow
+      //        direction is inverted for RMW data spaces. This will be fixed if
+      //        we split networks to be uni-directional.
+      if (source_->HardwareReductionSupported())
       {
         stats_.ingresses[pv] = tile[pvi].accesses;
       }

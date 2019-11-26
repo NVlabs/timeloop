@@ -124,7 +124,8 @@ class MeshNetwork : public Network
  private:
   
   Specs specs_;
-  std::shared_ptr<Level> outer_ = nullptr;
+  std::shared_ptr<Level> source_ = nullptr;
+  std::shared_ptr<Level> sink_ = nullptr;
 
  public:
   Stats stats_; // temporarily public.
@@ -154,7 +155,8 @@ class MeshNetwork : public Network
 
   static Specs ParseSpecs(config::CompoundConfigNode network);
 
-  void Connect(std::shared_ptr<Level> outer);
+  void ConnectSource(std::shared_ptr<Level> source);
+  void ConnectSink(std::shared_ptr<Level> sink);
   void SetName(std::string name);
   std::string Name() const;
   bool DistributedMulticastSupported() const;
