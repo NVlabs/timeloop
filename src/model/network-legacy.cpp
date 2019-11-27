@@ -34,26 +34,26 @@
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
 
-#include "model/network-mesh.hpp"
-BOOST_CLASS_EXPORT(model::MeshNetwork)
+#include "model/network-legacy.hpp"
+BOOST_CLASS_EXPORT(model::LegacyNetwork)
 
 namespace model
 {
 
-MeshNetwork::MeshNetwork() // Need this to make Boost happy.
+LegacyNetwork::LegacyNetwork() // Need this to make Boost happy.
 { }
 
-MeshNetwork::MeshNetwork(const Specs& specs) :
+LegacyNetwork::LegacyNetwork(const Specs& specs) :
     specs_(specs)
 {
   is_specced_ = true;
   is_evaluated_ = false;
 }
 
-MeshNetwork::~MeshNetwork()
+LegacyNetwork::~LegacyNetwork()
 { }
 
-MeshNetwork::Specs MeshNetwork::ParseSpecs(config::CompoundConfigNode network)
+LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode network)
 {
   Specs specs;
 
@@ -62,11 +62,11 @@ MeshNetwork::Specs MeshNetwork::ParseSpecs(config::CompoundConfigNode network)
   if (network.lookupValue("network-type", network_type))
   {
     if (network_type.compare("1:1") == 0)
-      specs.type = "Mesh";
+      specs.type = "Legacy_1_1";
     else if (network_type.compare("1:N") == 0)
-      specs.type = "Mesh";
+      specs.type = "Legacy_1_N";
     else if (network_type.compare("M:N") == 0)
-      specs.type = "ManyToMany";
+      specs.type = "Legacy_M_N";
     else
     {
       std::cerr << "ERROR: Unrecognized network type: " << network_type << std::endl;
@@ -106,36 +106,36 @@ MeshNetwork::Specs MeshNetwork::ParseSpecs(config::CompoundConfigNode network)
   return specs;
 }
 
-void MeshNetwork::ConnectSource(std::shared_ptr<Level> source)
+void LegacyNetwork::ConnectSource(std::shared_ptr<Level> source)
 {
   source_ = source;
 }
 
-void MeshNetwork::ConnectSink(std::shared_ptr<Level> sink)
+void LegacyNetwork::ConnectSink(std::shared_ptr<Level> sink)
 {
   sink_ = sink;
 }
 
-void MeshNetwork::SetName(std::string name)
+void LegacyNetwork::SetName(std::string name)
 {
   specs_.name = name;
 }
 
-std::string MeshNetwork::Name() const
+std::string LegacyNetwork::Name() const
 {
   return specs_.name;
 }
 
-bool MeshNetwork::DistributedMulticastSupported() const
+bool LegacyNetwork::DistributedMulticastSupported() const
 {
   bool retval = true;
 
-  retval &= specs_.type == "ManyToMany";
+  retval &= specs_.type == "Legacy_M_N";
 
   return retval;
 }
 
-EvalStatus MeshNetwork::Evaluate(const tiling::CompoundTile& tile,
+EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
                                  const double inner_tile_area,
                                  const bool break_on_failure)
 {
@@ -149,7 +149,7 @@ EvalStatus MeshNetwork::Evaluate(const tiling::CompoundTile& tile,
   return eval_status;
 }
 
-EvalStatus MeshNetwork::ComputeAccesses(const tiling::CompoundTile& tile, const bool break_on_failure)
+EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, const bool break_on_failure)
 {
   bool success = true;
   std::ostringstream fail_reason;
@@ -276,7 +276,7 @@ EvalStatus MeshNetwork::ComputeAccesses(const tiling::CompoundTile& tile, const 
 //
 // Compute network energy.
 //
-void MeshNetwork::ComputeNetworkEnergy(const double inner_tile_area)
+void LegacyNetwork::ComputeNetworkEnergy(const double inner_tile_area)
 {
 #define PROBABILISTIC_MULTICAST 0
 #define PRECISE_MULTICAST 1
@@ -370,7 +370,7 @@ void MeshNetwork::ComputeNetworkEnergy(const double inner_tile_area)
 //
 // Compute spatial reduction energy.
 //
-void MeshNetwork::ComputeSpatialReductionEnergy()
+void LegacyNetwork::ComputeSpatialReductionEnergy()
 {
   // Spatial reduction: add two values in the network.
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
@@ -388,7 +388,7 @@ void MeshNetwork::ComputeSpatialReductionEnergy()
   }    
 }
 
-void MeshNetwork::ComputePerformance()
+void LegacyNetwork::ComputePerformance()
 {
   // FIXME.
   // problem::PerDataSpace<double> unconstrained_read_bandwidth;
@@ -402,7 +402,7 @@ void MeshNetwork::ComputePerformance()
   // }
 }
 
-std::uint64_t MeshNetwork::MaxFanout() const
+std::uint64_t LegacyNetwork::MaxFanout() const
 {
   // FIXME: remove this function, it's used only once.
   return stats_.fanout.Max();
@@ -410,7 +410,7 @@ std::uint64_t MeshNetwork::MaxFanout() const
 
 // We need the following method so that the connected buffer can
 // query it to find the cost of temporal reductions. Ugh.
-std::uint64_t MeshNetwork::WordBits() const
+std::uint64_t LegacyNetwork::WordBits() const
 {
   assert(is_specced_);
   return specs_.word_bits.Get();
@@ -419,7 +419,7 @@ std::uint64_t MeshNetwork::WordBits() const
 //
 // Printers.
 //
-void MeshNetwork::Print(std::ostream& out) const
+void LegacyNetwork::Print(std::ostream& out) const
 {
   // Print network name.
   out << specs_.name << std::endl;  
@@ -502,7 +502,7 @@ void MeshNetwork::Print(std::ostream& out) const
 //
 // PAT interface.
 //
-double MeshNetwork::WireEnergyPerHop(std::uint64_t word_bits, const double inner_tile_area)
+double LegacyNetwork::WireEnergyPerHop(std::uint64_t word_bits, const double inner_tile_area)
 {
   // Assuming square modules
   double inner_tile_width = std::sqrt(inner_tile_area);  // um
@@ -510,7 +510,7 @@ double MeshNetwork::WireEnergyPerHop(std::uint64_t word_bits, const double inner
   return pat::WireEnergy(word_bits, inner_tile_width);
 }
 
-double MeshNetwork::NumHops(std::uint32_t multicast_factor, std::uint32_t fanout)
+double LegacyNetwork::NumHops(std::uint32_t multicast_factor, std::uint32_t fanout)
 {
   // Assuming central/side entry point.
   double root_f = std::sqrt(multicast_factor);
@@ -523,12 +523,12 @@ double MeshNetwork::NumHops(std::uint32_t multicast_factor, std::uint32_t fanout
 // Accessors.
 //
 
-STAT_ACCESSOR(double, MeshNetwork, NetworkEnergy,
+STAT_ACCESSOR(double, LegacyNetwork, NetworkEnergy,
               (stats_.link_transfer_energy.at(pv) + stats_.energy.at(pv)) * stats_.utilized_instances.at(pv))
-STAT_ACCESSOR(double, MeshNetwork, SpatialReductionEnergy,
+STAT_ACCESSOR(double, LegacyNetwork, SpatialReductionEnergy,
               stats_.spatial_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
   
-STAT_ACCESSOR(double, MeshNetwork, Energy,
+STAT_ACCESSOR(double, LegacyNetwork, Energy,
               NetworkEnergy(pv) +
               SpatialReductionEnergy(pv))
 

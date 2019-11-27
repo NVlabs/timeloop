@@ -82,20 +82,16 @@ if not os.path.isdir('../src/pat'):
     print "ERROR: 'src/pat' not found. Please create a symbolic link to the source code for the power-area-timing model and place it in src/pat. E.g., ln -s pat-public/src/pat src/pat."
     Exit(1)
     
-mapper_sources = Split("""
-data/cnn/cnn-layers.cpp
+common_sources = Split("""
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
 pat/pat.cpp
-applications/mapper/main.cpp
 mapping/loop.cpp
 mapping/nest.cpp
-mapping/mapping.cpp
-mapspaces/mapspace-base.cpp
 model/arithmetic.cpp
 model/buffer.cpp
 model/topology.cpp
-model/network-mesh.cpp
+model/network-legacy.cpp
 util/numeric.cpp
 util/map2d.cpp
 workload/problem-shape.cpp
@@ -104,67 +100,31 @@ workload/operation-space.cpp
 compound-config/compound-config.cpp
 """)
 
-model_sources = Split("""
+metrics_sources = common_sources + Split("""
+applications/metrics/main.cpp
+""")
+
+model_sources = common_sources + Split("""
 data/cnn/cnn-layers.cpp
-loop-analysis/tiling.cpp
-loop-analysis/nest-analysis.cpp
-pat/pat.cpp
-applications/evaluator/main.cpp
-mapping/loop.cpp
-mapping/nest.cpp
 mapping/mapping.cpp
 mapping/parser.cpp
-model/arithmetic.cpp
-model/buffer.cpp
-model/topology.cpp
-model/network-mesh.cpp
-util/numeric.cpp
-util/map2d.cpp
-workload/problem-shape.cpp
-workload/workload.cpp
-workload/operation-space.cpp
-compound-config/compound-config.cpp
+applications/evaluator/main.cpp
 """)
 
-metrics_sources = Split("""
-loop-analysis/tiling.cpp
-loop-analysis/nest-analysis.cpp
-pat/pat.cpp
-applications/metrics/main.cpp
-mapping/loop.cpp
-mapping/nest.cpp
-model/arithmetic.cpp
-model/buffer.cpp
-model/topology.cpp
-model/network-mesh.cpp
-util/numeric.cpp
-util/map2d.cpp
-workload/problem-shape.cpp
-workload/workload.cpp
-workload/operation-space.cpp
-compound-config/compound-config.cpp
-""")
-
-simple_mapper_sources = Split("""
+mapper_sources = common_sources + Split("""
 data/cnn/cnn-layers.cpp
-loop-analysis/tiling.cpp
-loop-analysis/nest-analysis.cpp
-pat/pat.cpp
-applications/simple-mapper/main.cpp
-mapping/loop.cpp
-mapping/nest.cpp
 mapping/mapping.cpp
+mapping/parser.cpp
 mapspaces/mapspace-base.cpp
-model/arithmetic.cpp
-model/buffer.cpp
-model/topology.cpp
-model/network-mesh.cpp
-util/numeric.cpp
-util/map2d.cpp
-workload/problem-shape.cpp
-workload/workload.cpp
-workload/operation-space.cpp
-compound-config/compound-config.cpp
+applications/mapper/main.cpp
+""")
+
+simple_mapper_sources = common_sources + Split("""
+data/cnn/cnn-layers.cpp
+mapping/mapping.cpp
+mapping/parser.cpp
+mapspaces/mapspace-base.cpp
+applications/simple-mapper/main.cpp
 """)
 
 env.Program(target = 'timeloop-mapper', source = mapper_sources)

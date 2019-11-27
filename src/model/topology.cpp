@@ -30,7 +30,7 @@
 #include <stdexcept>
 
 #include "model/topology.hpp"
-#include "model/network-mesh.hpp"
+#include "model/network-legacy.hpp"
 
 namespace model
 {
@@ -185,8 +185,8 @@ void Topology::Spec(const Topology::Specs& specs)
   {
     auto network_specs = specs.GetNetwork(i);
 
-    MeshNetwork::Specs& mesh_specs = *std::static_pointer_cast<MeshNetwork::Specs>(network_specs);
-    std::shared_ptr<MeshNetwork> mesh_network = std::make_shared<MeshNetwork>(mesh_specs);
+    LegacyNetwork::Specs& mesh_specs = *std::static_pointer_cast<LegacyNetwork::Specs>(network_specs);
+    std::shared_ptr<LegacyNetwork> mesh_network = std::make_shared<LegacyNetwork>(mesh_specs);
     std::shared_ptr<Network> network = std::static_pointer_cast<Network>(mesh_network);
     networks_.push_back(network);
   }
@@ -260,7 +260,7 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
     specs.AddLevel(i, std::static_pointer_cast<LevelSpecs>(level_specs_p));
 
     // Networks specs are parsed and extracted from the storage config.
-    auto network_specs_p = std::make_shared<MeshNetwork::Specs>(MeshNetwork::ParseSpecs(storage[i]));
+    auto network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(storage[i]));
     specs.AddNetwork(std::static_pointer_cast<NetworkSpecs>(network_specs_p));
   }
 
@@ -318,7 +318,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
           localStorages.push_back(level_specs_p);
 
           // Create a network.
-          auto network_specs_p = std::make_shared<MeshNetwork::Specs>(MeshNetwork::ParseSpecs(curLocal[c]));
+          auto network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(curLocal[c]));
           localNetworks.push_back(network_specs_p);
         }
         else if (isComputeClass(cClass))
@@ -374,7 +374,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
         for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
           auto bufferSpec = GetStorageLevel(i);
           auto networkSpec = GetNetwork(i); // FIXME.
-          std::static_pointer_cast<MeshNetwork::Specs>(networkSpec)->wire_energy = transferEnergy; // FIXME.
+          std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy; // FIXME.
         }
       }
     } else {

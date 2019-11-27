@@ -39,7 +39,7 @@
 namespace model
 {
 
-class MeshNetwork : public Network
+class LegacyNetwork : public Network
 {
 
  public:
@@ -149,9 +149,9 @@ class MeshNetwork : public Network
 
  public:
 
-  MeshNetwork(); // Need this to make Boost happy.
-  MeshNetwork(const Specs& specs);
-  ~MeshNetwork();
+  LegacyNetwork(); // Need this to make Boost happy.
+  LegacyNetwork(const Specs& specs);
+  ~LegacyNetwork();
 
   static Specs ParseSpecs(config::CompoundConfigNode network);
 
