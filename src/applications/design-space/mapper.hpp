@@ -441,7 +441,6 @@ class Mapper
         {
           engine.Evaluate(mapping, workload_, false);
         }
-        mapping.Check();
         mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
                             engine.GetTopology().TileSizes());
       }
@@ -466,7 +465,6 @@ class Mapper
       }
     }
 
-    best_result_.best_mapping_.Check();
 
 
     std::cout << std::endl;
