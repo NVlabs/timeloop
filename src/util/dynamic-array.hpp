@@ -43,7 +43,7 @@ template<class T>
 class DynamicArray
 {
  private:
-  const size_t size_;
+  size_t size_;
   T* data_;
 
  public:
@@ -76,6 +76,7 @@ class DynamicArray
   friend void swap(DynamicArray& first, DynamicArray& second)
   {
     using std::swap;
+    swap(first.size_, second.size_);
     swap(first.data_, second.data_);
   }
 
