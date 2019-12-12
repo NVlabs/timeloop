@@ -110,12 +110,12 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   return specs;
 }
 
-void LegacyNetwork::ConnectSource(std::shared_ptr<Level> source)
+void LegacyNetwork::ConnectSource(std::weak_ptr<Level> source)
 {
   source_ = source;
 }
 
-void LegacyNetwork::ConnectSink(std::shared_ptr<Level> sink)
+void LegacyNetwork::ConnectSink(std::weak_ptr<Level> sink)
 {
   sink_ = sink;
 }
@@ -180,26 +180,37 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
 
       // FIXME: perhaps this should be done during a tile post-processing phase instead
       //        of here.
-      if (sink_->HardwareReductionSupported())
-      {
-        stats_.ingresses[pv] = tile[pvi].accesses;
+      if (auto sink = sink_.lock())
+      {      
+        if (sink->HardwareReductionSupported())
+        {
+          stats_.ingresses[pv] = tile[pvi].accesses;
+        }
+        else
+        {
+          stats_.ingresses[pv].resize(tile[pvi].accesses.size());
+          for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
+          {
+            if (tile[pvi].accesses[i] > 0)
+            {
+              assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
+              stats_.ingresses[pv][i] = 2*tile[pvi].accesses[i] - tile[pvi].partition_size;
+            }
+            else
+            {
+              stats_.ingresses[pv][i] = 0;
+            }
+          }
+        } // hardware reduction not supported
+
+        sink.reset();
       }
       else
       {
-        stats_.ingresses[pv].resize(tile[pvi].accesses.size());
-        for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
-        {
-          if (tile[pvi].accesses[i] > 0)
-          {
-            assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
-            stats_.ingresses[pv][i] = 2*tile[pvi].accesses[i] - tile[pvi].partition_size;
-          }
-          else
-          {
-            stats_.ingresses[pv][i] = 0;
-          }
-        }
-      } // hardware reduction not supported
+        // Lock failed.
+        std::cerr << "ERROR: attempt to access expired storage level." << std::endl;
+        exit(1);
+      }
     }
     else // Read-only data space.
     {

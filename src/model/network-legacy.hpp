@@ -125,8 +125,8 @@ class LegacyNetwork : public Network
  private:
   
   Specs specs_;
-  std::shared_ptr<Level> source_ = nullptr;
-  std::shared_ptr<Level> sink_ = nullptr;
+  std::weak_ptr<Level> source_;
+  std::weak_ptr<Level> sink_;
 
  public:
   Stats stats_; // temporarily public.
@@ -156,8 +156,8 @@ class LegacyNetwork : public Network
 
   static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements);
 
-  void ConnectSource(std::shared_ptr<Level> source);
-  void ConnectSink(std::shared_ptr<Level> sink);
+  void ConnectSource(std::weak_ptr<Level> source);
+  void ConnectSink(std::weak_ptr<Level> sink);
   void SetName(std::string name);
   std::string Name() const;
   bool DistributedMulticastSupported() const;
