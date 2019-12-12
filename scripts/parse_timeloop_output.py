@@ -118,17 +118,14 @@ def parse_timeloop_stats(filename):
             arithmetic_utilization = utilized_instances/total_instances
             energy_breakdown_pJ['MAC'] = {'energy': float(level.findall('energy_')[0].text), 'utilization': arithmetic_utilization}       
             continue
-            
-        # Continue storage level stat extraction...
-        assert(level_id >= 1)
-        network_ptr = network_ptrs[level_id-1]
-        network = network_ptr.findall('px')[0]
-            
+          
+        # If we are here, we are not an arithmetic level.
+
         # Level specifications
         specs = level.findall('specs_')[0]
         generic_level_specs = specs.findall('LevelSpecs')[0]
         level_name = generic_level_specs.findall('level_name')[0].text
-        
+  
         total_instances = int(specs.findall('instances')[0].findall('t_')[0].text)
         total_capacity = int(specs.findall('size')[0].findall('t_')[0].text)
 
@@ -148,6 +145,20 @@ def parse_timeloop_stats(filename):
         storage_access_energy_in_pJ = energy_per_access_per_instance * accesses_per_instance * instances
         read_energy = energy_per_access_per_instance * reads_per_instance * instances
         
+        # Find read-network connected to this storage level by looking at the first word
+        # in the network's name.
+        # FIXME: all this ugliness is because of legacy topology structure. We should
+        # simply report networks independently.
+        assert(level_id >= 1)
+        for n in network_ptrs:
+            network_name = n.findall('first')[0].text
+            network_source = network_name.split(None, 1)[0]
+            if network_source == level_name:
+                network = n.findall('second')[0].findall('px')[0]
+                break
+        #network_ptr = network_ptrs[level_id-1]
+        #network = network_ptr.findall('second')[0].findall('px')[0]
+                    
         # Network energy
         # network = level.findall('network_')[0]
         network_stats = network.findall('stats_')[0]

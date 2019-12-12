@@ -100,6 +100,19 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
     specs.meshY = mesh_y;
   }
 
+  // Network names;
+  std::string operand_network_name;
+  if (setting.lookupValue("network_operand", operand_network_name))
+  {
+    specs.operand_network_name = operand_network_name;
+  }
+
+  std::string result_network_name;
+  if (setting.lookupValue("network_result", result_network_name))
+  {
+    specs.result_network_name = result_network_name;
+  }
+
   // Energy (override).
   int energy_int;
   double energy;
@@ -203,6 +216,18 @@ void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
               << std::endl;
     exit(1);        
   }
+}
+
+// Connect networks.
+
+void ArithmeticUnits::ConnectOperand(std::shared_ptr<Network> network)
+{
+  network_operand_ = network;
+}
+
+void ArithmeticUnits::ConnectResult(std::shared_ptr<Network> network)
+{
+  network_result_ = network;
 }
   
 // Accessors.

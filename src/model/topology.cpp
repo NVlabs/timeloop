@@ -31,6 +31,7 @@
 
 #include "model/topology.hpp"
 #include "model/network-legacy.hpp"
+#include "model/network-factory.hpp"
 
 namespace model
 {
@@ -61,14 +62,26 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
   out << "Networks" << std::endl;
   out << "--------" << std::endl;
 
+#define PRINT_NETWORKS_IN_LEGACY_ORDER
+#ifdef PRINT_NETWORKS_IN_LEGACY_ORDER
+  for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
+  {
+    auto network_id = storage_level_id;
+    auto network = topology.GetStorageLevel(storage_level_id)->GetReadNetwork();
+    out << "Network " << network_id << std::endl;
+    out << "---------" << std::endl;
+    out << *network;
+  }
+#else
   int network_id = 0;
   for (auto & network : topology.networks_)
   {
     out << "Network " << network_id << std::endl;
     out << "---------" << std::endl;
-    out << *network;
+    out << *(network.second);
     network_id++;
   }  
+#endif
 
   if (topology.is_evaluated_)
   {
@@ -105,9 +118,10 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
     {
       max_name_length = std::max(max_name_length, topology.GetLevel(i)->Name().length());
     }
-    for (unsigned i = 0; i < topology.NumNetworks(); i++)
+
+    for (auto& network: topology.networks_)
     {
-      max_name_length = std::max(max_name_length, topology.GetNetwork(i)->Name().length());
+      max_name_length = std::max(max_name_length, network.second->Name().length());
     }
 
     std::string indent = "    ";
@@ -120,12 +134,20 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
           << level->Energy() / num_maccs << std::endl;
     }
 
-    for (unsigned i = 0; i < topology.NumNetworks(); i++)
+#ifdef PRINT_NETWORKS_IN_LEGACY_ORDER
+    for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
     {
-      auto network = topology.GetNetwork(i);
+      auto network = topology.GetStorageLevel(storage_level_id)->GetReadNetwork();
       out << indent << std::setw(align) << std::left << network->Name() << "= "
           << network->Energy() / num_maccs << std::endl;
     }
+#else
+    for (auto& network: topology.networks_)
+    {
+      out << indent << std::setw(align) << std::left << network.second->Name() << "= "
+          << network.second->Energy() / num_maccs << std::endl;
+    }
+#endif
 
     out << indent << std::setw(align) << std::left << "Total" << "= "
         << topology.Energy() / num_maccs << std::endl;
@@ -149,7 +171,7 @@ void Topology::Spec(const Topology::Specs& specs)
 
   for (auto& network : networks_)
   {
-    network.reset();
+    network.second.reset();
   }
   networks_.clear();
 
@@ -180,56 +202,176 @@ void Topology::Spec(const Topology::Specs& specs)
     }
   }
 
-  // Construct and spec networks.
+  //
+  // Construct and spec user-defined networks. Auto-inferred networks will be
+  // generated on-demand as we walk through the connection code.
+  // 
   for (unsigned i = 0; i < specs.NumNetworks(); i++)
   {
-    auto network_specs = specs.GetNetwork(i);
-
-    LegacyNetwork::Specs& mesh_specs = *std::static_pointer_cast<LegacyNetwork::Specs>(network_specs);
-    std::shared_ptr<LegacyNetwork> mesh_network = std::make_shared<LegacyNetwork>(mesh_specs);
-    std::shared_ptr<Network> network = std::static_pointer_cast<Network>(mesh_network);
-    networks_.push_back(network);
+    auto network = NetworkFactory::Construct(specs.GetNetwork(i));
+    networks_[network->Name()] = network;
   }
 
-  // Connect levels to network.
-  assert(specs.NumLevels() == specs.NumNetworks() + 1);
-  for (unsigned i = 0; i < specs.NumNetworks(); i++)
+  //
+  // Connect levels to networks.
+  // FIXME: network source and sink need to be *bound* per-dataspace at eval (mapping) time.
+  //
+  for (unsigned i = 0; i < specs.NumLevels()-1; i++)
   {
     // Note! We are linking levels[i+1] as the outer level for networks[i].
     auto inner = levels_.at(i);
     auto outer = levels_.at(i+1);
-    auto network = networks_.at(i);
 
-    if (i > 0)
-    {
-      auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
-      inner_buffer->ConnectFill(network);
-      inner_buffer->ConnectDrain(network);
-    }
-    else
-    {
-      // auto arithmetic = std::static_pointer_cast<ArithmeticLevel>(inner);
-      // arithmetic->ConnectOperand(network);
-      // arithmetic->ConnectResult(network);
-    }
+    bool inner_is_arithmetic = (i == 0);
 
     auto outer_buffer = std::static_pointer_cast<BufferLevel>(outer);
 
+    std::shared_ptr<Network> read_fill_network = nullptr;
+    std::shared_ptr<Network> drain_update_network = nullptr;
+
     //
-    // FIXME: network source and sink need to be *bound* per-dataspace at eval (mapping) time.
+    // Find read-fill network.
+    //
+    if (outer_buffer->GetSpecs().read_network_name.IsSpecified())
+    {
+      std::string outer_read_name = outer_buffer->GetSpecs().read_network_name.Get();
+      auto it = networks_.find(outer_read_name);
+      if (it == networks_.end())
+      {
+        std::cerr << "ERROR: network " << outer_read_name << " not found." << std::endl;
+        exit(1);
+      }
+      read_fill_network = it->second;
+
+      if (!inner_is_arithmetic)
+      {
+        auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
+        assert(inner_buffer->GetSpecs().fill_network_name.IsSpecified());
+        std::string inner_fill_name = inner_buffer->GetSpecs().fill_network_name.Get();
+        assert(outer_read_name == inner_fill_name);
+      }
+      else
+      {
+        auto inner_arithmetic = std::static_pointer_cast<ArithmeticUnits>(inner);
+        assert(inner_arithmetic->GetSpecs().operand_network_name.IsSpecified());
+        std::string inner_operand_name = inner_arithmetic->GetSpecs().operand_network_name.Get();
+        assert(outer_read_name == inner_operand_name);
+      }
+    }
+    else // outer read network name is not specified.
+    {
+      // Create a new Legacy-type read-fill network from the pre-parsed inferred network specs.
+
+      // Inferred network i connects outer-level (i+1) to inner-level (i).
+      // Inferred network i connects outer-storage-level (i) to inner-storage-level (i-1).
+      auto inferred_network_id = i;
+      auto inferred_network_specs = *specs.GetInferredNetwork(inferred_network_id);
+      std::shared_ptr<LegacyNetwork> legacy_network = std::make_shared<LegacyNetwork>(inferred_network_specs);
+      std::shared_ptr<Network> network = std::static_pointer_cast<Network>(legacy_network);
+
+      std::string network_name = outer->Name() + " <==> " + inner->Name();
+      network->SetName(network_name);
+
+      networks_[network_name] = network;
+      read_fill_network = network;
+
+      if (!inner_is_arithmetic)
+      {
+        auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
+        assert(!inner_buffer->GetSpecs().fill_network_name.IsSpecified());          
+      }
+      else
+      {
+        auto inner_arithmetic = std::static_pointer_cast<ArithmeticUnits>(inner);
+        assert(!inner_arithmetic->GetSpecs().operand_network_name.IsSpecified());          
+      }
+    }
+
+    //
+    // Find drain-update network.
+    //
+    if (outer_buffer->GetSpecs().update_network_name.IsSpecified())
+    {
+      std::string outer_update_name = outer_buffer->GetSpecs().update_network_name.Get();
+      auto it = networks_.find(outer_update_name);
+      if (it == networks_.end())
+      {
+        std::cerr << "ERROR: network " << outer_update_name << " not found." << std::endl;
+        exit(1);
+      }
+      drain_update_network = it->second;
+
+      if (!inner_is_arithmetic)
+      {
+        auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
+        assert(inner_buffer->GetSpecs().drain_network_name.IsSpecified());
+        std::string inner_drain_name = inner_buffer->GetSpecs().drain_network_name.Get();
+        assert(outer_update_name == inner_drain_name);
+      }
+      else
+      {
+        auto inner_arithmetic = std::static_pointer_cast<ArithmeticUnits>(inner);
+        assert(inner_arithmetic->GetSpecs().result_network_name.IsSpecified());
+        std::string inner_result_name = inner_arithmetic->GetSpecs().result_network_name.Get();
+        assert(outer_update_name == inner_result_name);
+      }
+    }
+    else // outer update network name is not specified.
+    {
+      // Reuse the existing read-fill network.
+      assert(read_fill_network != nullptr);
+      drain_update_network = read_fill_network;
+
+      if (!inner_is_arithmetic)
+      {
+        auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
+        assert(!inner_buffer->GetSpecs().drain_network_name.IsSpecified());
+      }
+      else
+      {
+        auto inner_arithmetic = std::static_pointer_cast<ArithmeticUnits>(inner);
+        assert(!inner_arithmetic->GetSpecs().result_network_name.IsSpecified());
+      }
+    }
+
+    //
+    // We've found the network objects, now make the connections.
     //
 
-    outer_buffer->ConnectRead(network);
-    network->ConnectSink(inner);
-    network->ConnectSource(outer);
+    outer_buffer->ConnectRead(read_fill_network);
+    outer_buffer->ConnectUpdate(drain_update_network);
 
-    outer_buffer->ConnectUpdate(network);
-    // network->ConnectSource(inner);
-    // network->ConnectSink(outer);
+    if (!inner_is_arithmetic)
+    {
+      auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
+      inner_buffer->ConnectFill(read_fill_network);
+      inner_buffer->ConnectDrain(drain_update_network);
+    }
+    else
+    {
+      auto inner_arithmetic = std::static_pointer_cast<ArithmeticUnits>(inner);
+      inner_arithmetic->ConnectOperand(read_fill_network);
+      inner_arithmetic->ConnectResult(drain_update_network);
+    }
 
-    std::string network_name = outer->Name() + " <==> " + inner->Name();
-    network->SetName(network_name);
-  }
+    // If the same bi-directional network is used for read-fill and drain-update,
+    // set the source/sink links for the drain-update direction. This is because
+    // the network queries the sink's read-modify-write ability to determine whether
+    // read-modify-write traffic incurs double the number of transfers.
+    // FIXME:
+    // (1) Come up with a better name than "source" and "sink" for bidirectional
+    //     networks.
+    // (2) Perhaps the read-modify-write traffic scaling should be performed outside
+    //     of the network model (and be part of the higher-level tile analysis).
+    drain_update_network->ConnectSource(inner);
+    drain_update_network->ConnectSink(outer);
+
+    if (drain_update_network != read_fill_network)
+    {
+      read_fill_network->ConnectSource(outer);
+      read_fill_network->ConnectSink(inner);
+    }
+  } // for all levels.
 
   is_specced_ = true;
 }
@@ -259,9 +401,11 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
     auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i], 0));
     specs.AddLevel(i, std::static_pointer_cast<LevelSpecs>(level_specs_p));
 
-    // Networks specs are parsed and extracted from the storage config.
-    auto network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(storage[i]));
-    specs.AddNetwork(std::static_pointer_cast<NetworkSpecs>(network_specs_p));
+    // For each storage level, parse and extract an inferred network spec from the storage config.
+    // A network object corresponding to this spec will only be instantiated if a user-specified
+    // network is missing between any two topology levels.
+    auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(storage[i], 0));
+    specs.AddInferredNetwork(inferred_network_specs_p);
   }
 
   return specs;
@@ -276,6 +420,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
   auto curNode = designRoot;
 
   std::vector<std::shared_ptr<LevelSpecs>> storages; // serialize all storages
+  std::vector<std::shared_ptr<LegacyNetwork::Specs>> inferred_networks;
   std::vector<std::shared_ptr<NetworkSpecs>> networks;
 
   uint32_t multiplication = 1;
@@ -301,6 +446,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
       assert(curLocal.isList());
 
       std::vector<std::shared_ptr<LevelSpecs>> localStorages;
+      std::vector<std::shared_ptr<LegacyNetwork::Specs>> localInferredNetworks;
       std::vector<std::shared_ptr<NetworkSpecs>> localNetworks;
 
       for (int c = 0; c < curLocal.getLength() ; c++)
@@ -313,19 +459,26 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
 
         if (isBufferClass(cClass))
         {
-          // Create a buffer.
+          // Create a buffer spec.
           auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
           localStorages.push_back(level_specs_p);
 
-          // Create a network.
-          auto network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(curLocal[c]));
-          localNetworks.push_back(network_specs_p);
+          // Create an inferred network spec.
+          // A network object corresponding to this spec will only be instantiated if a user-specified
+          // network is missing between any two topology levels.
+          auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(curLocal[c], nElements));
+          localInferredNetworks.push_back(inferred_network_specs_p);
         }
         else if (isComputeClass(cClass))
         {
           // Create arithmetic.
           auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
+        }
+        else if (isNetworkClass(cClass))
+        {
+          auto network_specs_p = NetworkFactory::ParseSpecs(curLocal[c], nElements);
+          localNetworks.push_back(network_specs_p);
         }
         else
         {
@@ -335,6 +488,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
       // The deeper the tree, the closer the buffer to be with ArithmeticUnits.
       // Reverse the order so that top in the local list is at the bottem, matching the tree seq
       storages.insert(storages.begin(), localStorages.rbegin(), localStorages.rend());
+      inferred_networks.insert(inferred_networks.begin(), localInferredNetworks.rbegin(), localInferredNetworks.rend());
       networks.insert(networks.begin(), localNetworks.rbegin(), localNetworks.rend());
     }
   } // end while
@@ -345,6 +499,13 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
     auto storage = storages[i];
     specs.AddLevel(i, storage);
 
+    auto inferred_network = inferred_networks[i];
+    specs.AddInferredNetwork(inferred_network);
+  }
+
+  // Add user-specified networks.
+  for (unsigned i = 0; i < networks.size(); i++)
+  {
     auto network = networks[i];
     specs.AddNetwork(network);
   }
@@ -470,6 +631,11 @@ void Topology::Specs::AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> le
   levels.push_back(level_specs);
 }
 
+void Topology::Specs::AddInferredNetwork(std::shared_ptr<LegacyNetwork::Specs> specs)
+{
+  inferred_networks.push_back(specs);
+}
+
 void Topology::Specs::AddNetwork(std::shared_ptr<NetworkSpecs> specs)
 {
   networks.push_back(specs);
@@ -505,6 +671,11 @@ std::shared_ptr<ArithmeticUnits::Specs> Topology::Specs::GetArithmeticLevel() co
 {
   auto level_id = arithmetic_map;
   return std::static_pointer_cast<ArithmeticUnits::Specs>(levels.at(level_id));
+}
+
+std::shared_ptr<LegacyNetwork::Specs> Topology::Specs::GetInferredNetwork(unsigned network_id) const
+{
+  return inferred_networks.at(network_id);
 }
 
 std::shared_ptr<NetworkSpecs> Topology::Specs::GetNetwork(unsigned network_id) const
@@ -550,10 +721,10 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
   return std::static_pointer_cast<ArithmeticUnits>(levels_.at(level_id));
 }
 
-std::shared_ptr<Network> Topology::GetNetwork(unsigned id) const
-{
-  return networks_.at(id);
-}
+// std::shared_ptr<Network> Topology::GetNetwork(unsigned id) const
+// {
+//   return networks_.at(id);
+// }
 
 // PreEvaluationCheck(): allows for a very fast capacity-check
 // based on given working-set sizes that can be trivially derived
@@ -652,7 +823,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   // Transpose the datatype bypass nest into level->datatype structure.
   auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   assert(keep_masks.size() >= NumStorageLevels());
-  
+
   // Area of all the compute + buffer elements in inner levels
   // (needed for wire energy calculation).
   // FIXME: Breaks abstraction by making assumptions about arithmetic
@@ -675,7 +846,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
       break;
 
     // Evaluate network.
-    auto network = GetNetwork(storage_level_id); // FIXME.
+    // FIXME: move this out of this loop.    
+    auto network = storage_level->GetReadNetwork(); // GetNetwork(storage_level_id);
     s = network->Evaluate(tiles[storage_level_id], inner_tile_area, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
@@ -720,9 +892,9 @@ double Topology::Energy() const
   // {
   //   energy += std::static_pointer_cast<BufferLevel>(GetLevel(i))->network_.Energy();    
   // }
-  for (unsigned i = 0; i < NumNetworks(); i++)
+  for (auto& network: networks_)
   {
-    auto e = GetNetwork(i)->Energy();
+    auto e = network.second->Energy();
     assert(e >= 0);
     energy += e;
   }
@@ -799,15 +971,28 @@ std::uint64_t Topology::LastLevelAccesses() const
   return GetStorageLevel(NumStorageLevels()-1)->Accesses();
 }
 
-bool isBufferClass(std::string className) {
-  for (auto s : bufferClasses) {
+bool isBufferClass(std::string className)
+{
+  for (auto s : bufferClasses)
+  {
     if (className.find(s) != std::string::npos) return true;
   }
   return false;
 }
 
-bool isComputeClass(std::string className) {
-  for (auto s : computeClasses) {
+bool isComputeClass(std::string className)
+{
+  for (auto s : computeClasses)
+  {
+    if (className.find(s) != std::string::npos) return true;
+  }
+  return false;
+}
+
+bool isNetworkClass(std::string className)
+{
+  for (auto s : networkClasses)
+  {
     if (className.find(s) != std::string::npos) return true;
   }
   return false;

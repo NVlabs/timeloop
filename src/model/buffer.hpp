@@ -86,6 +86,11 @@ class BufferLevel : public Level
     Attribute<std::uint64_t> num_ports;
     Attribute<std::uint64_t> num_banks;
 
+    Attribute<std::string> read_network_name;
+    Attribute<std::string> fill_network_name;
+    Attribute<std::string> drain_network_name;
+    Attribute<std::string> update_network_name;    
+
     // Serialization
     friend class boost::serialization::access;
 
@@ -235,6 +240,8 @@ class BufferLevel : public Level
   static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n_elements,
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
+
+  Specs& GetSpecs() { return specs_; }
   
   bool HardwareReductionSupported() override;
 

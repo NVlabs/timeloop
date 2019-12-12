@@ -39,22 +39,28 @@
 #include "model/buffer.hpp"
 #include "compound-config/compound-config.hpp"
 #include "network.hpp"
+#include "network-legacy.hpp"
 
 namespace model
 {
 
-static std::string bufferClasses[4] = { "DRAM", \
-                                        "SRAM", \
-                                        "regfile", \
+static std::string bufferClasses[4] = { "DRAM",
+                                        "SRAM",
+                                        "regfile",
                                         "smartbuffer"};
 
-static std::string computeClasses[3] = { "mac", \
-                                        "intmac", \
-                                        "fpmac"};
+static std::string computeClasses[3] = { "mac",
+                                         "intmac",
+                                         "fpmac" };
+
+// FIXME: derive these from a statically-instantiated list of class names that
+// are auto-populated by each Network class at program init time.
+static std::string networkClasses[] = { "XY_NoC",
+                                        "Legacy" };
 
 bool isBufferClass(std::string className);
 bool isComputeClass(std::string className);
-
+bool isNetworkClass(std::string className);
 
 class Topology : public Module
 {
@@ -63,6 +69,7 @@ class Topology : public Module
   {
    private:
     std::vector<std::shared_ptr<LevelSpecs>> levels;
+    std::vector<std::shared_ptr<LegacyNetwork::Specs>> inferred_networks;
     std::vector<std::shared_ptr<NetworkSpecs>> networks;
     std::map<unsigned, unsigned> storage_map;
     unsigned arithmetic_map;
@@ -78,6 +85,7 @@ class Topology : public Module
     void ParseAccelergyERT(config::CompoundConfigNode ert);
 
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
+    void AddInferredNetwork(std::shared_ptr<LegacyNetwork::Specs> specs);
     void AddNetwork(std::shared_ptr<NetworkSpecs> specs);
 
     unsigned StorageMap(unsigned i) const { return storage_map.at(i); }
@@ -86,12 +94,13 @@ class Topology : public Module
     std::shared_ptr<LevelSpecs> GetLevel(unsigned level_id) const;
     std::shared_ptr<BufferLevel::Specs> GetStorageLevel(unsigned storage_level_id) const;
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
+    std::shared_ptr<LegacyNetwork::Specs> GetInferredNetwork(unsigned network_id) const;
     std::shared_ptr<NetworkSpecs> GetNetwork(unsigned network_id) const;
   };
   
  private:
   std::vector<std::shared_ptr<Level>> levels_;
-  std::vector<std::shared_ptr<Network>> networks_;
+  std::map<std::string, std::shared_ptr<Network>> networks_;
 
   Specs specs_;
   
@@ -111,7 +120,7 @@ class Topology : public Module
   std::shared_ptr<Level> GetLevel(unsigned level_id) const;
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
-  std::shared_ptr<Network> GetNetwork(unsigned id) const;
+  //std::shared_ptr<Network> GetNetwork(unsigned id) const;
 
  public:
   // The hierarchical ParseSpecs functions are static and do not

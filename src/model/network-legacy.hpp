@@ -52,6 +52,7 @@ class LegacyNetwork : public Network
     static const std::uint64_t kDefaultWordBits = 16;
 
     std::string type;
+    std::string legacy_subtype;
     Attribute<std::uint64_t> word_bits;
     Attribute<double> router_energy;
     Attribute<double> wire_energy;
@@ -153,7 +154,7 @@ class LegacyNetwork : public Network
   LegacyNetwork(const Specs& specs);
   ~LegacyNetwork();
 
-  static Specs ParseSpecs(config::CompoundConfigNode network);
+  static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements);
 
   void ConnectSource(std::shared_ptr<Level> source);
   void ConnectSink(std::shared_ptr<Level> sink);

@@ -53,23 +53,27 @@ LegacyNetwork::LegacyNetwork(const Specs& specs) :
 LegacyNetwork::~LegacyNetwork()
 { }
 
-LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode network)
+LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements)
 {
+  (void) n_elements; // FIXME.
+
   Specs specs;
 
   // Network Type.
-  std::string network_type;
-  if (network.lookupValue("network-type", network_type))
+  specs.type = "Legacy";
+
+  std::string legacy_subtype;
+  if (network.lookupValue("network-type", legacy_subtype))
   {
-    if (network_type.compare("1:1") == 0)
-      specs.type = "Legacy_1_1";
-    else if (network_type.compare("1:N") == 0)
-      specs.type = "Legacy_1_N";
-    else if (network_type.compare("M:N") == 0)
-      specs.type = "Legacy_M_N";
+    if (legacy_subtype.compare("1:1") == 0)
+      specs.legacy_subtype = "1_1";
+    else if (legacy_subtype.compare("1:N") == 0)
+      specs.legacy_subtype = "1_N";
+    else if (legacy_subtype.compare("M:N") == 0)
+      specs.legacy_subtype = "M_N";
     else
     {
-      std::cerr << "ERROR: Unrecognized network type: " << network_type << std::endl;
+      std::cerr << "ERROR: Unrecognized legacy network subtype: " << legacy_subtype << std::endl;
       exit(1);
     }
   }
@@ -130,7 +134,7 @@ bool LegacyNetwork::DistributedMulticastSupported() const
 {
   bool retval = true;
 
-  retval &= specs_.type == "Legacy_M_N";
+  retval &= specs_.legacy_subtype == "M_N";
 
   return retval;
 }
@@ -176,11 +180,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
 
       // FIXME: perhaps this should be done during a tile post-processing phase instead
       //        of here.
-
-      // FIXME: we are looking at the source's reduction ability because data flow
-      //        direction is inverted for RMW data spaces. This will be fixed if
-      //        we split networks to be uni-directional.
-      if (source_->HardwareReductionSupported())
+      if (sink_->HardwareReductionSupported())
       {
         stats_.ingresses[pv] = tile[pvi].accesses;
       }
@@ -430,10 +430,11 @@ void LegacyNetwork::Print(std::ostream& out) const
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
 
-  out << indent << indent << "Type          : " << specs_.type << std::endl;
-  out << indent << indent << "Word bits     : " << specs_.word_bits << std::endl;
-  out << indent << indent << "Router energy : " << specs_.router_energy << " pJ" << std::endl;
-  out << indent << indent << "Wire energy   : " << specs_.wire_energy << " pJ/b/mm" << std::endl;
+  out << indent << indent << "Type            : " << specs_.type << std::endl;
+  out << indent << indent << "Legacy sub-type : " << specs_.legacy_subtype << std::endl;
+  out << indent << indent << "Word bits       : " << specs_.word_bits << std::endl;
+  out << indent << indent << "Router energy   : " << specs_.router_energy << " pJ" << std::endl;
+  out << indent << indent << "Wire energy     : " << specs_.wire_energy << " pJ/b/mm" << std::endl;
 
   out << std::endl;
 

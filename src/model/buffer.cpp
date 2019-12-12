@@ -254,6 +254,31 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
     specs.meshY = meshY;
   }
 
+  // Network names;
+  std::string read_network_name;
+  if (buffer.lookupValue("network_read", read_network_name))
+  {
+    specs.read_network_name = read_network_name;
+  }
+
+  std::string fill_network_name;
+  if (buffer.lookupValue("network_fill", fill_network_name))
+  {
+    specs.fill_network_name = fill_network_name;
+  }
+
+  std::string drain_network_name;
+  if (buffer.lookupValue("network_drain", drain_network_name))
+  {
+    specs.drain_network_name = drain_network_name;
+  }
+
+  std::string update_network_name;
+  if (buffer.lookupValue("network_update", update_network_name))
+  {
+    specs.update_network_name = update_network_name;
+  }
+
   // Vector Access Energy
   double tmp_access_energy = 0;
   double tmp_storage_area = 0;

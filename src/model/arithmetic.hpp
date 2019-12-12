@@ -31,6 +31,7 @@
 
 #include "loop-analysis/nest-analysis.hpp"
 #include "model/level.hpp"
+#include "model/network.hpp"
 #include "mapping/mapping.hpp"
 #include "compound-config/compound-config.hpp"
 
@@ -53,6 +54,9 @@ class ArithmeticUnits : public Level
     Attribute<double> energy_per_op;
     Attribute<double> area;
 
+    Attribute<std::string> operand_network_name;
+    Attribute<std::string> result_network_name;
+
     // Serialization
     friend class boost::serialization::access;
 
@@ -73,6 +77,11 @@ class ArithmeticUnits : public Level
  private:
   Specs specs_;
 
+  // Network endpoints.
+  std::shared_ptr<Network> network_operand_;
+  std::shared_ptr<Network> network_result_;
+
+  // Stats.
   double energy_ = 0;
   double area_ = 0;
   std::uint64_t cycles_ = 0;
@@ -107,6 +116,12 @@ class ArithmeticUnits : public Level
   static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
   static void ValidateTopology(ArithmeticUnits::Specs& specs);
   
+  Specs& GetSpecs() { return specs_; }
+
+  // Connect to networks.
+  void ConnectOperand(std::shared_ptr<Network> network);
+  void ConnectResult(std::shared_ptr<Network> network);
+
   std::string Name() const override;
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   double Area() const override;
