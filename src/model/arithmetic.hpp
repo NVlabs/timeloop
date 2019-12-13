@@ -127,6 +127,7 @@ class ArithmeticUnits : public Level
   double Area() const override;
   double AreaPerInstance() const override;
   std::uint64_t Cycles() const override;
+  std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
 
   void Print(std::ostream& out) const override;
     
@@ -163,12 +164,6 @@ class ArithmeticUnits : public Level
   double CapacityUtilization() const override { return 0; }
 
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
-  {
-    (void) pv;
-    return 0;
-  }
-
-  std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
   {
     (void) pv;
     return 0;

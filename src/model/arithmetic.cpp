@@ -263,6 +263,13 @@ std::uint64_t ArithmeticUnits::Cycles() const
   return cycles_;
 }
 
+std::uint64_t ArithmeticUnits::UtilizedInstances(problem::Shape::DataSpaceID pv) const
+{
+  (void) pv;
+  assert(is_evaluated_);
+  return utilized_instances_;
+}
+
 void ArithmeticUnits::Print(std::ostream& out) const
 {
   std::string indent = "    ";
