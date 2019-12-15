@@ -25,7 +25,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <string>
 #include <cstring>
+#include <fstream>
 
 #include "problem-shape.hpp"
 #include "workload.hpp"
@@ -51,38 +53,74 @@ const Shape* GetShape()
 
 std::string ShapeFileName(const std::string shape_name)
 {
-  std::string shape_file_name;
-  std::string shape_dir;
- 
+  std::string shape_file_path;
+
+  // Prepare list of dir paths where problem shapes may be located.
+  std::list<std::string> shape_dir_list;
+
   const char* shape_dir_env = std::getenv("TIMELOOP_PROBLEM_SHAPE_DIR");
   if (shape_dir_env)
   {
-    shape_dir = std::string(shape_dir_env) + "/";
+    shape_dir_list.push_back(std::string(shape_dir_env));
   }
-  else
-  {  
-    const char* timeloopdir = std::getenv("TIMELOOP_DIR");
-    if (!timeloopdir)
+
+  const char* shape_dirs_env = std::getenv("TIMELOOP_PROBLEM_SHAPE_DIRS");
+  if (shape_dirs_env)
+  {
+    std::string shape_dirs_env_cpp = std::string(shape_dirs_env);
+    std::stringstream ss(shape_dirs_env_cpp);
+    std::string token;
+    while (std::getline(ss, token, ':'))
     {
-      timeloopdir = BUILD_BASE_DIR;
+      shape_dir_list.push_back(token);
     }
-    shape_dir = std::string(timeloopdir) + "/problem-shapes/";
   }
- 
-  // support filename directly
+
+  const char* timeloopdir = std::getenv("TIMELOOP_DIR");
+  if (!timeloopdir)
+  {
+    timeloopdir = BUILD_BASE_DIR;
+  }
+  shape_dir_list.push_back(std::string(timeloopdir) + "/problem-shapes");
+
+  // Append ".cfg" extension if not provided.
+  std::string shape_file_name;
   if (std::strstr(shape_name.c_str(), ".yml") || std::strstr(shape_name.c_str(), ".yaml") || std::strstr(shape_name.c_str(), ".cfg"))
   {
-    shape_file_name = shape_dir + shape_name;
+    shape_file_name = shape_name;
   }
   else
   {
-    shape_file_name = shape_dir + shape_name + ".cfg";
+    shape_file_name = shape_name + ".cfg";
+  }
+
+  bool found = false;
+  for (auto& shape_dir: shape_dir_list)
+  {
+    shape_file_path = shape_dir + "/" + shape_file_name;
+
+    // Check if file exists.
+    std::ifstream f(shape_file_path);
+    if (f.good())
+    {
+      found = true;
+      break;
+    }
+  }
+
+  if (!found)
+  {
+    std::cerr << "ERROR: problem shape file " << shape_file_name << " not found in problem dir search path:" << std::endl;
+    for (auto& shape_dir: shape_dir_list)
+    {
+      std::cerr << "    " << shape_dir << std::endl;
+    }
+    exit(1);
   }
   
-  std::cerr << "MESSAGE: reading problem shapes from: " << shape_dir << std::endl;
-  std::cout << "MESSAGE: attempting to read problem shape from file: " << shape_file_name << std::endl;
+  std::cerr << "MESSAGE: attempting to read problem shape from file: " << shape_file_path << std::endl;
 
-  return shape_file_name;
+  return shape_file_path;
 }
 
 void ParseWorkload(config::CompoundConfigNode config, Workload& workload)
