@@ -258,7 +258,7 @@ class MapperThread
 
         if (valid_mappings > 0)
         {
-          msg << std::setw(11) << std::fixed << std::setprecision(2) << thread_best_.engine.Utilization()
+          msg << std::setw(10) << std::fixed << std::setprecision(2) << (thread_best_.engine.Utilization() * 100) << "%"
               << std::setw(11) << std::fixed << std::setprecision(3) << thread_best_.engine.Energy() /
             thread_best_.engine.GetTopology().MACCs();
         }

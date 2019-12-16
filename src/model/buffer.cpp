@@ -747,10 +747,6 @@ void BufferLevel::ComputeAddrGenEnergy()
 //
 void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
 {
-  // Ugh... have to fix per-datatype word size.
-  double word_size = 0;
-  word_size = std::max(word_size, double(specs_.word_bits.Get()) / 8);
-  
   //
   // Step 1: Compute unconstrained bandwidth demand.
   //
@@ -761,8 +757,8 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
     auto pv = problem::Shape::DataSpaceID(pvi);
     auto total_read_accesses    =   stats_.reads.at(pv);
     auto total_write_accesses   =   stats_.updates.at(pv) + stats_.fills.at(pv);
-    unconstrained_read_bandwidth[pv]  = (double(total_read_accesses)  / compute_cycles) * word_size;
-    unconstrained_write_bandwidth[pv] = (double(total_write_accesses) / compute_cycles) * word_size;
+    unconstrained_read_bandwidth[pv]  = (double(total_read_accesses)  / compute_cycles);
+    unconstrained_write_bandwidth[pv] = (double(total_write_accesses) / compute_cycles);
   }
 
   //
@@ -994,10 +990,10 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent << "Address Generation Energy (total)        : "
           << stats.addr_gen_energy.at(pv) * stats.utilized_clusters.at(pv)
           << " pJ" << std::endl;
-      out << indent + indent << "Read Bandwidth (per-instance)            : " << stats.read_bandwidth.at(pv) << " bytes/cycle" << std::endl;
-      out << indent + indent << "Read Bandwidth (total)                   : " << stats.read_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " bytes/cycle" << std::endl;
-      out << indent + indent << "Write Bandwidth (per-instance)           : " << stats.write_bandwidth.at(pv) << " bytes/cycle" << std::endl;
-      out << indent + indent << "Write Bandwidth (total)                  : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " bytes/cycle" << std::endl;
+      out << indent + indent << "Read Bandwidth (per-instance)            : " << stats.read_bandwidth.at(pv) << " words/cycle" << std::endl;
+      out << indent + indent << "Read Bandwidth (total)                   : " << stats.read_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
+      out << indent + indent << "Write Bandwidth (per-instance)           : " << stats.write_bandwidth.at(pv) << " words/cycle" << std::endl;
+      out << indent + indent << "Write Bandwidth (total)                  : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
     }
   }
 
