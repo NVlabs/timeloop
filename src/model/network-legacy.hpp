@@ -171,7 +171,6 @@ class LegacyNetwork : public Network
   void ComputeSpatialReductionEnergy();
   void ComputePerformance();
 
-  std::uint64_t MaxFanout() const;
   std::uint64_t WordBits() const;
 
   void Print(std::ostream& out) const;

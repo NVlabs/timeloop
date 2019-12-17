@@ -417,12 +417,6 @@ void LegacyNetwork::ComputePerformance()
   // }
 }
 
-std::uint64_t LegacyNetwork::MaxFanout() const
-{
-  // FIXME: remove this function, it's used only once.
-  return stats_.fanout.Max();
-}
-
 // We need the following method so that the connected buffer can
 // query it to find the cost of temporal reductions. Ugh.
 std::uint64_t LegacyNetwork::WordBits() const
