@@ -101,6 +101,7 @@ class Topology : public Module
  private:
   std::vector<std::shared_ptr<Level>> levels_;
   std::map<std::string, std::shared_ptr<Network>> networks_;
+  std::map<unsigned, std::uint64_t> fanout_map_;
 
   Specs specs_;
   
@@ -120,7 +121,7 @@ class Topology : public Module
   std::shared_ptr<Level> GetLevel(unsigned level_id) const;
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
-  //std::shared_ptr<Network> GetNetwork(unsigned id) const;
+  void DeriveFanouts();
 
  public:
   // The hierarchical ParseSpecs functions are static and do not
@@ -139,7 +140,6 @@ class Topology : public Module
 
   double Energy() const;
   double Area() const;
-  // double Size() const;
   std::uint64_t Cycles() const;
   double Utilization() const;
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const;

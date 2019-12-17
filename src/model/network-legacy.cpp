@@ -347,7 +347,8 @@ void LegacyNetwork::ComputeNetworkEnergy(const double inner_tile_area)
         unsigned num_hops = 0;
         
         // Weights are multicast, and energy is already captured in array access.
-        if (pv != problem::Shape::DataSpaceID::Weight)
+        // Assume weights are pv == 0.
+        if (pv != 0)
         {
           // Input and Output activations are forwarded between neighboring PEs,
           // so the number of link transfers is equal to the multicast factor-1.

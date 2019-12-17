@@ -36,6 +36,184 @@
 namespace model
 {
 
+//--------------------------------------------//
+//              Topology::Specs               //
+//--------------------------------------------//
+
+void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
+{
+  // std::cout << "Replacing energy numbers..." << std::endl;
+  std::vector<std::string> keys;
+  assert(ert.exists("tables"));
+  auto table = ert.lookup("tables");
+  table.getMapKeys(keys);
+
+  for (auto key : keys) {
+    auto componentERT = table.lookup(key);
+    auto pos = key.rfind(".");
+    auto componentName = key.substr(pos + 1, key.size() - pos - 1);
+    // std::cout << componentName << std::endl;
+
+    // update levels by name and the type of it
+    if (componentName == "wire" || componentName == "Wire") { // special case, update interal wire model
+      float transferEnergy;
+      auto actionERT = componentERT.lookup("transfer_random");
+      if (actionERT.lookupValue("energy", transferEnergy)) {
+        for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
+          auto bufferSpec = GetStorageLevel(i);
+          auto networkSpec = GetNetwork(i); // FIXME.
+          std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy; // FIXME.
+        }
+      }
+    } else {
+      // Find the level that matches this name and see what type it is
+      bool isArithmeticUnit = false;
+      bool isBuffer = false;
+      std::shared_ptr<LevelSpecs> specToUpdate;
+      for (auto level : levels) {
+        //std::cout << "  level: " << level->level_name << std::endl;
+        if (level->level_name == componentName) {
+          specToUpdate = level;
+          if (level->Type() == "BufferLevel") isBuffer = true;
+          if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
+        }
+      }
+      // Find the most expensive action as the unit cost
+      std::vector<std::string> actions;
+      componentERT.getMapKeys(actions);
+      double opEnergy = 0.0;
+      double argEnergy = 0.0;
+      for (auto action : actions) {
+        auto actionERT = componentERT.lookup(action);
+        if (actionERT.isList()) { // action support argument
+          for (int i = 0; i < actionERT.getLength(); i ++) {
+            if (actionERT[i].lookupValue("energy", argEnergy)) {
+              opEnergy = std::max(argEnergy, opEnergy);
+            }
+          }
+        } else { // no argument action
+          if (actionERT.lookupValue("energy", argEnergy)) {
+            opEnergy = std::max(argEnergy, opEnergy);
+          }
+        }
+      }
+      // Replace the energy per action
+      if (isArithmeticUnit) {
+        // std::cout << "  Replace " << componentName << " energy with energy " << opEnergy << std::endl;
+        auto arithmeticSpec = GetArithmeticLevel();
+        arithmeticSpec->energy_per_op = opEnergy;
+      } else if (isBuffer) {
+        auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
+        // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
+        bufferSpec->vector_access_energy = opEnergy / bufferSpec->cluster_size.Get();
+      } else {
+        // std::cout << "  Unused component ERT: "  << key << std::endl;
+      }
+    }
+  }
+
+  return;
+}
+
+std::vector<std::string> Topology::Specs::LevelNames() const
+{
+  std::vector<std::string> level_names;
+  for (unsigned level_id = 0; level_id < NumLevels(); level_id++)
+  {
+    level_names.push_back(GetLevel(level_id)->level_name);
+  }
+  return level_names;
+}
+
+std::vector<std::string> Topology::Specs::StorageLevelNames() const
+{
+  std::vector<std::string> storage_level_names;
+  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+  {
+    storage_level_names.push_back(GetStorageLevel(storage_level_id)->level_name);
+  }
+  return storage_level_names;
+}
+
+//
+// Level accessors.
+//
+
+void Topology::Specs::AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs)
+{
+  if (level_specs->Type() == "BufferLevel")
+  {
+    storage_map[typed_id] = levels.size();
+  }
+  else if (level_specs->Type() == "ArithmeticUnits")
+  {
+    assert(typed_id == 0);
+    arithmetic_map = levels.size();
+  }
+  else
+  {
+    std::cerr << "ERROR: illegal level specs type: " << level_specs->Type() << std::endl;
+    exit(1);
+  }
+  levels.push_back(level_specs);
+}
+
+void Topology::Specs::AddInferredNetwork(std::shared_ptr<LegacyNetwork::Specs> specs)
+{
+  inferred_networks.push_back(specs);
+}
+
+void Topology::Specs::AddNetwork(std::shared_ptr<NetworkSpecs> specs)
+{
+  networks.push_back(specs);
+}
+
+unsigned Topology::Specs::NumLevels() const
+{
+  return levels.size();
+}
+
+unsigned Topology::Specs::NumStorageLevels() const
+{
+  return storage_map.size();
+}
+
+unsigned Topology::Specs::NumNetworks() const
+{
+  return networks.size();
+}
+
+std::shared_ptr<LevelSpecs> Topology::Specs::GetLevel(unsigned level_id) const
+{
+  return levels.at(level_id);
+}
+
+std::shared_ptr<BufferLevel::Specs> Topology::Specs::GetStorageLevel(unsigned storage_level_id) const
+{
+  auto level_id = storage_map.at(storage_level_id);
+  return std::static_pointer_cast<BufferLevel::Specs>(levels.at(level_id));
+}
+
+std::shared_ptr<ArithmeticUnits::Specs> Topology::Specs::GetArithmeticLevel() const
+{
+  auto level_id = arithmetic_map;
+  return std::static_pointer_cast<ArithmeticUnits::Specs>(levels.at(level_id));
+}
+
+std::shared_ptr<LegacyNetwork::Specs> Topology::Specs::GetInferredNetwork(unsigned network_id) const
+{
+  return inferred_networks.at(network_id);
+}
+
+std::shared_ptr<NetworkSpecs> Topology::Specs::GetNetwork(unsigned network_id) const
+{
+  return networks.at(network_id);
+}
+
+//--------------------------------------------//
+//                  Topology                  //
+//--------------------------------------------//
+
 std::ostream& operator<<(std::ostream& out, const Topology& topology)
 {
   // Save ios format state.
@@ -373,6 +551,8 @@ void Topology::Spec(const Topology::Specs& specs)
     }
   } // for all levels.
 
+  DeriveFanouts();
+
   is_specced_ = true;
 }
 
@@ -513,179 +693,6 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
   return specs;
 };
 
-void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
-{
-  // std::cout << "Replacing energy numbers..." << std::endl;
-  std::vector<std::string> keys;
-  assert(ert.exists("tables"));
-  auto table = ert.lookup("tables");
-  table.getMapKeys(keys);
-
-  for (auto key : keys) {
-    auto componentERT = table.lookup(key);
-    auto pos = key.rfind(".");
-    auto componentName = key.substr(pos + 1, key.size() - pos - 1);
-    // std::cout << componentName << std::endl;
-
-    // update levels by name and the type of it
-    if (componentName == "wire" || componentName == "Wire") { // special case, update interal wire model
-      float transferEnergy;
-      auto actionERT = componentERT.lookup("transfer_random");
-      if (actionERT.lookupValue("energy", transferEnergy)) {
-        for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
-          auto bufferSpec = GetStorageLevel(i);
-          auto networkSpec = GetNetwork(i); // FIXME.
-          std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy; // FIXME.
-        }
-      }
-    } else {
-      // Find the level that matches this name and see what type it is
-      bool isArithmeticUnit = false;
-      bool isBuffer = false;
-      std::shared_ptr<LevelSpecs> specToUpdate;
-      for (auto level : levels) {
-        //std::cout << "  level: " << level->level_name << std::endl;
-        if (level->level_name == componentName) {
-          specToUpdate = level;
-          if (level->Type() == "BufferLevel") isBuffer = true;
-          if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
-        }
-      }
-      // Find the most expensive action as the unit cost
-      std::vector<std::string> actions;
-      componentERT.getMapKeys(actions);
-      double opEnergy = 0.0;
-      double argEnergy = 0.0;
-      for (auto action : actions) {
-        auto actionERT = componentERT.lookup(action);
-        if (actionERT.isList()) { // action support argument
-          for (int i = 0; i < actionERT.getLength(); i ++) {
-            if (actionERT[i].lookupValue("energy", argEnergy)) {
-              opEnergy = std::max(argEnergy, opEnergy);
-            }
-          }
-        } else { // no argument action
-          if (actionERT.lookupValue("energy", argEnergy)) {
-            opEnergy = std::max(argEnergy, opEnergy);
-          }
-        }
-      }
-      // Replace the energy per action
-      if (isArithmeticUnit) {
-        // std::cout << "  Replace " << componentName << " energy with energy " << opEnergy << std::endl;
-        auto arithmeticSpec = GetArithmeticLevel();
-        arithmeticSpec->energy_per_op = opEnergy;
-      } else if (isBuffer) {
-        auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
-        // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
-        bufferSpec->vector_access_energy = opEnergy / bufferSpec->cluster_size.Get();
-      } else {
-        // std::cout << "  Unused component ERT: "  << key << std::endl;
-      }
-    }
-  }
-
-  return;
-}
-
-std::vector<std::string> Topology::Specs::LevelNames() const
-{
-  std::vector<std::string> level_names;
-  for (unsigned level_id = 0; level_id < NumLevels(); level_id++)
-  {
-    level_names.push_back(GetLevel(level_id)->level_name);
-  }
-  return level_names;
-}
-
-std::vector<std::string> Topology::Specs::StorageLevelNames() const
-{
-  std::vector<std::string> storage_level_names;
-  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
-  {
-    storage_level_names.push_back(GetStorageLevel(storage_level_id)->level_name);
-  }
-  return storage_level_names;
-}
-
-//
-// Level accessors.
-//
-
-void Topology::Specs::AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs)
-{
-  if (level_specs->Type() == "BufferLevel")
-  {
-    storage_map[typed_id] = levels.size();
-  }
-  else if (level_specs->Type() == "ArithmeticUnits")
-  {
-    assert(typed_id == 0);
-    arithmetic_map = levels.size();
-  }
-  else
-  {
-    std::cerr << "ERROR: illegal level specs type: " << level_specs->Type() << std::endl;
-    exit(1);
-  }
-  levels.push_back(level_specs);
-}
-
-void Topology::Specs::AddInferredNetwork(std::shared_ptr<LegacyNetwork::Specs> specs)
-{
-  inferred_networks.push_back(specs);
-}
-
-void Topology::Specs::AddNetwork(std::shared_ptr<NetworkSpecs> specs)
-{
-  networks.push_back(specs);
-}
-
-unsigned Topology::Specs::NumLevels() const
-{
-  return levels.size();
-}
-
-unsigned Topology::Specs::NumStorageLevels() const
-{
-  return storage_map.size();
-}
-
-unsigned Topology::Specs::NumNetworks() const
-{
-  return networks.size();
-}
-
-std::shared_ptr<LevelSpecs> Topology::Specs::GetLevel(unsigned level_id) const
-{
-  return levels.at(level_id);
-}
-
-std::shared_ptr<BufferLevel::Specs> Topology::Specs::GetStorageLevel(unsigned storage_level_id) const
-{
-  auto level_id = storage_map.at(storage_level_id);
-  return std::static_pointer_cast<BufferLevel::Specs>(levels.at(level_id));
-}
-
-std::shared_ptr<ArithmeticUnits::Specs> Topology::Specs::GetArithmeticLevel() const
-{
-  auto level_id = arithmetic_map;
-  return std::static_pointer_cast<ArithmeticUnits::Specs>(levels.at(level_id));
-}
-
-std::shared_ptr<LegacyNetwork::Specs> Topology::Specs::GetInferredNetwork(unsigned network_id) const
-{
-  return inferred_networks.at(network_id);
-}
-
-std::shared_ptr<NetworkSpecs> Topology::Specs::GetNetwork(unsigned network_id) const
-{
-  return networks.at(network_id);
-}
-
-//
-// Topology class.
-//
 unsigned Topology::NumLevels() const
 {
   assert(is_specced_);
@@ -721,10 +728,28 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
   return std::static_pointer_cast<ArithmeticUnits>(levels_.at(level_id));
 }
 
-// std::shared_ptr<Network> Topology::GetNetwork(unsigned id) const
-// {
-//   return networks_.at(id);
-// }
+// FIXME: some of this logic is duplicated in arch-properties.
+void Topology::DeriveFanouts()
+{
+  for (unsigned i = 0; i < specs_.NumStorageLevels(); i++)
+  {
+    std::uint64_t inner_instances;
+    if (i == 0)
+    {
+      inner_instances = GetArithmeticLevel()->GetSpecs().instances.Get();
+    }
+    else
+    {
+      inner_instances = GetStorageLevel(i-1)->GetSpecs().instances.Get();
+    }
+
+    std::uint64_t outer_instances = GetStorageLevel(i)->GetSpecs().instances.Get();
+
+    assert(inner_instances % outer_instances == 0);
+
+    fanout_map_[i] = inner_instances / outer_instances;
+  }
+}
 
 // PreEvaluationCheck(): allows for a very fast capacity-check
 // based on given working-set sizes that can be trivially derived
@@ -824,10 +849,12 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   assert(keep_masks.size() >= NumStorageLevels());
 
+  // FIXME: move the following code to the floorplanner.
   // Area of all the compute + buffer elements in inner levels
   // (needed for wire energy calculation).
   // FIXME: Breaks abstraction by making assumptions about arithmetic
   // (multiplier) organization and querying multiplier area.
+  // ITA[i+2] = A[i+1] + ITA[i+1]*N[i]
   double inner_tile_area = GetArithmeticLevel()->AreaPerInstance();
 
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
@@ -856,13 +883,10 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
       break;
     
     // The inner tile area is the area of the local sub-level that I will
-    // send data to. Note that it isn't the area of the entire sub-level
-    // because I may only have reach into a part of the level, which will
-    // reduce my wire energy costs. To determine this, we use the fanout
-    // from this level inwards.
+    // send data to.
     // FIXME: We need a better floorplanner.
     double cur_level_area = storage_level->AreaPerInstance();
-    inner_tile_area = cur_level_area + (inner_tile_area * network->MaxFanout());
+    inner_tile_area = cur_level_area + (inner_tile_area * fanout_map_.at(storage_level_id));
   }
 
   if (!break_on_failure || success_accum)
