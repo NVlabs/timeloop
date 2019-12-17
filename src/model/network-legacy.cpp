@@ -61,6 +61,9 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
 
   // Network Type.
   specs.type = "Legacy";
+  std::string name;
+  network.lookupValue("name", name);
+  specs.name = name;
 
   std::string legacy_subtype;
   if (network.lookupValue("network-type", legacy_subtype))
