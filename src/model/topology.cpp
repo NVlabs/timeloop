@@ -894,6 +894,8 @@ double Topology::Energy() const
   // }
   for (auto& network: networks_)
   {
+    //poan: users might add a network to the arch but never connect/use it
+    if (!network.second->IsEvaluated()) continue;
     auto e = network.second->Energy();
     assert(e >= 0);
     energy += e;
