@@ -50,7 +50,7 @@ class NetworkFactory
     std::string network_class;
     if (network.lookupValue("class", network_class))
     {
-      if (network_class.compare("XY_NoC") || network_class.compare("Legacy"))
+      if (network_class.compare("XY_NoC") == 0 || network_class.compare("Legacy") == 0)
       {
         auto legacy_specs = LegacyNetwork::ParseSpecs(network, n_elements);
         specs = std::make_shared<LegacyNetwork::Specs>(legacy_specs);
