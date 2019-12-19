@@ -81,8 +81,6 @@ class BufferLevel : public Level
     Attribute<double> multiple_buffering;
     Attribute<std::uint64_t> effective_size;
     Attribute<double> min_utilization;
-    Attribute<double> vector_access_energy;
-    Attribute<double> storage_area;
     Attribute<std::uint64_t> num_ports;
     Attribute<std::uint64_t> num_banks;
 
@@ -90,6 +88,11 @@ class BufferLevel : public Level
     Attribute<std::string> fill_network_name;
     Attribute<std::string> drain_network_name;
     Attribute<std::string> update_network_name;    
+
+    // Physical Attributes (derived from technology model).
+    // FIXME: move into separate struct?
+    Attribute<double> vector_access_energy; // pJ
+    Attribute<double> storage_area; // um^2
 
     // Serialization
     friend class boost::serialization::access;
@@ -114,14 +117,20 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(write_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(multiple_buffering);
         ar& BOOST_SERIALIZATION_NVP(min_utilization);
-        ar& BOOST_SERIALIZATION_NVP(vector_access_energy);
-        ar& BOOST_SERIALIZATION_NVP(storage_area);
         ar& BOOST_SERIALIZATION_NVP(num_ports);
         ar& BOOST_SERIALIZATION_NVP(num_banks);
+
+        ar& BOOST_SERIALIZATION_NVP(read_network_name);
+        ar& BOOST_SERIALIZATION_NVP(fill_network_name);
+        ar& BOOST_SERIALIZATION_NVP(drain_network_name);
+        ar& BOOST_SERIALIZATION_NVP(update_network_name);
       }
     }    
   };
   
+  //
+  // Specs.
+  //
   struct Stats
   {
     problem::PerDataSpace<bool> keep;
@@ -141,7 +150,6 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> temporal_reduction_energy;
     problem::PerDataSpace<double> addr_gen_energy;
 
-    double area;
     std::uint64_t cycles;
     double slowdown;
 
@@ -169,7 +177,6 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(energy);
         ar& BOOST_SERIALIZATION_NVP(temporal_reduction_energy);
         ar& BOOST_SERIALIZATION_NVP(addr_gen_energy);
-        ar& BOOST_SERIALIZATION_NVP(area);
         ar& BOOST_SERIALIZATION_NVP(cycles);
         ar& BOOST_SERIALIZATION_NVP(slowdown);
       }
@@ -214,7 +221,6 @@ class BufferLevel : public Level
  private:
   EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                              const bool break_on_failure);
-  void ComputeArea();
   void ComputePerformance(const std::uint64_t compute_cycles);
   void ComputeBufferEnergy();
   void ComputeReductionEnergy();

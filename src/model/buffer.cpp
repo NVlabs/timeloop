@@ -327,7 +327,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   if (tmp_cluster_area > 0)
     tmp_storage_area = tmp_cluster_area / specs.cluster_size.Get();
 
-  // Set final area and energy.
+  // Set final physical dimensions and energy.
   specs.vector_access_energy = tmp_access_energy;
   specs.storage_area = tmp_storage_area; //FIXME: check with Angshu
 
@@ -487,7 +487,6 @@ EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling:
   auto eval_status = ComputeAccesses(tile, mask, break_on_failure);
   if (!break_on_failure || eval_status.success)
   {
-    ComputeArea();
     ComputeBufferEnergy();
     ComputeReductionEnergy();
     ComputeAddrGenEnergy();
@@ -653,18 +652,6 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
   eval_status.fail_reason = fail_reason.str();
     
   return eval_status;
-}
-
-void BufferLevel::ComputeArea()
-{
-  // YUCK. FIXME. The area is now already stored in a specs_ attribute.
-  // The stats_ here are just a copy of the specs_. Do we really need both?
-
-  // Store the total area in the Num/All slot. We used to split it up between the
-  // various data-types depending on their contribution towards utilization, but
-  // this gives incorrect area if the structure is underutilized, especially when
-  // the level is completely bypassed.
-  stats_.area = specs_.storage_area.Get();
 }
 
 // Compute buffer energy.
@@ -843,7 +830,7 @@ double BufferLevel::Area() const
 double BufferLevel::AreaPerInstance() const
 {
   double area = 0;
-  area += stats_.area;
+  area += specs_.storage_area.Get();
   return area;
 }
 
@@ -997,9 +984,6 @@ void BufferLevel::Print(std::ostream& out) const
     }
   }
 
-  // Print area.
-  out << indent + indent << "Area (per-instance)                      : " << stats.area << " um2" << std::endl;
-  
   out << std::endl;
 }
 
