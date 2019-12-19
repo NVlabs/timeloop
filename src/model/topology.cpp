@@ -551,9 +551,11 @@ void Topology::Spec(const Topology::Specs& specs)
     }
   } // for all levels.
 
-  DeriveFanouts();
+  // DeriveFanouts();
 
   is_specced_ = true;
+
+  FloorPlan();
 }
 
 // The hierarchical ParseSpecs functions are static and do not
@@ -728,29 +730,6 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
   return std::static_pointer_cast<ArithmeticUnits>(levels_.at(level_id));
 }
 
-// FIXME: some of this logic is duplicated in arch-properties.
-void Topology::DeriveFanouts()
-{
-  for (unsigned i = 0; i < specs_.NumStorageLevels(); i++)
-  {
-    std::uint64_t inner_instances;
-    if (i == 0)
-    {
-      inner_instances = GetArithmeticLevel()->GetSpecs().instances.Get();
-    }
-    else
-    {
-      inner_instances = GetStorageLevel(i-1)->GetSpecs().instances.Get();
-    }
-
-    std::uint64_t outer_instances = GetStorageLevel(i)->GetSpecs().instances.Get();
-
-    assert(inner_instances % outer_instances == 0);
-
-    fanout_map_[i] = inner_instances / outer_instances;
-  }
-}
-
 // PreEvaluationCheck(): allows for a very fast capacity-check
 // based on given working-set sizes that can be trivially derived
 // by the caller. The more powerful Evaluate() function also
@@ -849,14 +828,6 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   assert(keep_masks.size() >= NumStorageLevels());
 
-  // FIXME: move the following code to the floorplanner.
-  // Area of all the compute + buffer elements in inner levels
-  // (needed for wire energy calculation).
-  // FIXME: Breaks abstraction by making assumptions about arithmetic
-  // (multiplier) organization and querying multiplier area.
-  // ITA[i+2] = A[i+1] + ITA[i+1]*N[i]
-  double inner_tile_area = GetArithmeticLevel()->AreaPerInstance();
-
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     auto storage_level = GetStorageLevel(storage_level_id);
@@ -875,18 +846,12 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     // Evaluate network.
     // FIXME: move this out of this loop.    
     auto network = storage_level->GetReadNetwork(); // GetNetwork(storage_level_id);
-    s = network->Evaluate(tiles[storage_level_id], inner_tile_area, break_on_failure);
+    s = network->Evaluate(tiles[storage_level_id], tile_area_.at(level_id-1), break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
 
     if (break_on_failure && !s.success)
-      break;
-    
-    // The inner tile area is the area of the local sub-level that I will
-    // send data to.
-    // FIXME: We need a better floorplanner.
-    double cur_level_area = storage_level->AreaPerInstance();
-    inner_tile_area = cur_level_area + (inner_tile_area * fanout_map_.at(storage_level_id));
+      break;    
   }
 
   if (!break_on_failure || success_accum)
@@ -995,6 +960,35 @@ std::uint64_t Topology::MACCs() const
 std::uint64_t Topology::LastLevelAccesses() const
 {
   return GetStorageLevel(NumStorageLevels()-1)->Accesses();
+}
+
+void Topology::FloorPlan()
+{
+  // Area of all the compute + buffer elements in inner levels
+  // (needed for wire energy calculation).
+  double cur_tile_area = 0;
+  std::uint64_t inner_instances = 0;
+
+  for (unsigned i = 0; i < NumLevels(); i++)
+  {
+    unsigned fanout;
+    std::uint64_t cur_instances;
+    if (i == 0)
+    {
+      cur_instances = GetArithmeticLevel()->GetSpecs().instances.Get();
+      fanout = 0;
+    }
+    else
+    {
+      cur_instances = GetStorageLevel(i-1)->GetSpecs().instances.Get();
+      assert(inner_instances % cur_instances == 0);
+      fanout  = inner_instances / cur_instances;
+    }
+    inner_instances = cur_instances;
+
+    cur_tile_area = GetLevel(i)->AreaPerInstance() + (cur_tile_area * fanout);
+    tile_area_[i] = cur_tile_area;
+  }
 }
 
 bool isBufferClass(std::string className)
