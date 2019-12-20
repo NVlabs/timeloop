@@ -149,8 +149,12 @@ bool LegacyNetwork::DistributedMulticastSupported() const
 
 EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
                                  const double inner_tile_area,
-                                 const bool break_on_failure)
+                                 const bool break_on_failure,
+                                 const bool reduction)
 {
+  // FIXME: Use reduction flag to decide whether to include reduction cost
+  (void) reduction;
+
   auto eval_status = ComputeAccesses(tile, break_on_failure);
   if (!break_on_failure || eval_status.success)
   {

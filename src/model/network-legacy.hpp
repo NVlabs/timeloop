@@ -164,7 +164,8 @@ class LegacyNetwork : public Network
 
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
                       const double inner_tile_area,
-                      const bool break_on_failure);
+                      const bool break_on_failure,
+                      const bool reduction = false);
 
   EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const bool break_on_failure);
   void ComputeNetworkEnergy(const double inner_tile_area);

@@ -353,24 +353,37 @@ void Topology::Spec(const Topology::Specs& specs)
   }
   networks_.clear();
 
+  for (auto& level : level_map_)
+  {
+    level.second.reset();
+  }
+  level_map_.clear();
+
+  for (auto& connection : connection_map_)
+  {
+    connection.second.read_fill_network.reset();
+    connection.second.drain_update_network.reset();
+  }
+  connection_map_.clear();
+
   // Construct and spec Buffer and Arithmeic levels.
   for (unsigned i = 0; i < specs.NumLevels(); i++)
   {
     auto level_specs = specs.GetLevel(i);
-      
+    std::shared_ptr<Level> level = nullptr;
     // What type of level is this?
     if (level_specs->Type() == "BufferLevel")
     {
       BufferLevel::Specs& specs = *std::static_pointer_cast<BufferLevel::Specs>(level_specs);
       std::shared_ptr<BufferLevel> buffer_level = std::make_shared<BufferLevel>(specs);
-      std::shared_ptr<Level> level = std::static_pointer_cast<Level>(buffer_level);
+      level = std::static_pointer_cast<Level>(buffer_level);
       levels_.push_back(level);
     }
     else if (level_specs->Type() == "ArithmeticUnits")
     {
       ArithmeticUnits::Specs& specs = *std::static_pointer_cast<ArithmeticUnits::Specs>(level_specs);
       std::shared_ptr<ArithmeticUnits> arithmetic_level = std::make_shared<ArithmeticUnits>(specs);
-      std::shared_ptr<Level> level = std::static_pointer_cast<Level>(arithmetic_level);
+      level = std::static_pointer_cast<Level>(arithmetic_level);
       levels_.push_back(level);
     }
     else
@@ -378,6 +391,8 @@ void Topology::Spec(const Topology::Specs& specs)
       std::cerr << "ERROR: illegal level specs type: " << level_specs->Type() << std::endl;
       exit(1);
     }
+    assert(level != nullptr);
+    level_map_[i] = level;
   }
 
   //
@@ -549,6 +564,9 @@ void Topology::Spec(const Topology::Specs& specs)
       read_fill_network->ConnectSource(outer);
       read_fill_network->ConnectSink(inner);
     }
+
+    connection_map_[i] = Connection{read_fill_network, drain_update_network};
+
   } // for all levels.
 
   // DeriveFanouts();
@@ -845,9 +863,24 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
     // Evaluate network.
     // FIXME: move this out of this loop.    
-    auto network = storage_level->GetReadNetwork(); // GetNetwork(storage_level_id);
-    s = network->Evaluate(tiles[storage_level_id], tile_area_.at(level_id-1), break_on_failure);
-    eval_status.at(level_id) = s;
+    //auto network = storage_level->GetReadNetwork(); // GetNetwork(storage_level_id);
+    //s = network->Evaluate(tiles[storage_level_id], tile_area_.at(level_id-1), break_on_failure);
+    //eval_status.at(level_id) = s;
+    //success_accum &= s.success;
+
+    //if (break_on_failure && !s.success)
+    //  break;    
+  }
+
+  unsigned int numConnections = NumStorageLevels();
+  for (uint32_t connection_id = 0; connection_id < numConnections; connection_id++)
+  {
+    auto connection = connection_map_[connection_id];
+    auto rf_net = connection.read_fill_network;
+    //auto du_net = connection.drain_update_network;
+    auto tile_area_id = connection_id; // connection_id matches the inner tile level id
+    auto s = rf_net->Evaluate(tiles[connection_id], tile_area_.at(tile_area_id), break_on_failure);
+    eval_status.at(connection_id) = s;
     success_accum &= s.success;
 
     if (break_on_failure && !s.success)

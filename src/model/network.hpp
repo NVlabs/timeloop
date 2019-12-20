@@ -83,7 +83,9 @@ class Network : public Module
   virtual bool DistributedMulticastSupported() const = 0;
   virtual EvalStatus Evaluate(const tiling::CompoundTile& tile,
                               const double inner_tile_area,
-                              const bool break_on_failure) = 0;
+                              const bool break_on_failure,
+                              const bool reduction = false) = 0;
+
   virtual void Print(std::ostream& out) const = 0;
 
   // Ugly abstraction-breaking probes that should be removed.

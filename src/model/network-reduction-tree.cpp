@@ -129,11 +129,13 @@ bool ReductionTreeNetwork::DistributedMulticastSupported() const
 
 EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
                               const double inner_tile_area,
-                              const bool break_on_failure)
+                              const bool break_on_failure,
+                              const bool reduction)
 {
   (void) tile;
   (void) inner_tile_area;
   (void) break_on_failure;
+  assert(reduction);
   auto eval_status = EvalStatus{true, std::string("")};
   std::cout << "ReductionNetwork::Evaluate()" << std::endl;
   return eval_status;

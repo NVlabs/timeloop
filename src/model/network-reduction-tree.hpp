@@ -152,7 +152,8 @@ class ReductionTreeNetwork : public Network
   bool DistributedMulticastSupported() const;
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
                               const double inner_tile_area,
-                              const bool break_on_failure);
+                              const bool break_on_failure,
+                              const bool reduction = false);
   void Print(std::ostream& out) const;
 
   // Ugly abstraction-breaking probes that should be removed.
