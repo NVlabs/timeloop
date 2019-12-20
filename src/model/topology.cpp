@@ -846,7 +846,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     // Evaluate network.
     // FIXME: move this out of this loop.    
     auto network = storage_level->GetReadNetwork(); // GetNetwork(storage_level_id);
-    s = network->Evaluate(tiles[storage_level_id], tile_area_.at(level_id-1), break_on_failure);
+    s = network->Evaluate(tiles[storage_level_id], break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
 
@@ -969,6 +969,7 @@ void Topology::FloorPlan()
   double cur_tile_area = 0;
   std::uint64_t inner_instances = 0;
 
+  // Compute the area of each hierarchical tile.
   for (unsigned i = 0; i < NumLevels(); i++)
   {
     unsigned fanout;
@@ -989,6 +990,16 @@ void Topology::FloorPlan()
     cur_tile_area = GetLevel(i)->AreaPerInstance() + (cur_tile_area * fanout);
     tile_area_[i] = cur_tile_area;
   }
+
+  // Tell each network the width of each hop's tile.
+  for (unsigned i = 1; i < NumLevels(); i++)
+  {
+    auto level = GetLevel(i);
+    auto storage_level = std::static_pointer_cast<BufferLevel>(level);
+    auto network = storage_level->GetReadNetwork();
+    double inner_tile_width = sqrt(tile_area_.at(i-1));
+    network->SetTileWidth(inner_tile_width);
+  }  
 }
 
 bool isBufferClass(std::string className)

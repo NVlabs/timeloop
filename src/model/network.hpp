@@ -81,8 +81,11 @@ class Network : public Module
 
   virtual std::string Name() const = 0;
   virtual bool DistributedMulticastSupported() const = 0;
+
+  // Floorplanner interface.
+  virtual void SetTileWidth(double width_um) = 0;
+
   virtual EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                              const double inner_tile_area,
                               const bool break_on_failure) = 0;
   virtual void Print(std::ostream& out) const = 0;
 
