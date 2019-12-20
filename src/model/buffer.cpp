@@ -577,18 +577,7 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
 
   //
   // 2. Derive/validate architecture specs based on stats.
-  //
-  if (!specs_.technology.IsSpecified())
-    specs_.technology = Technology::SRAM;
-      
-  if (!specs_.num_ports.IsSpecified()) {
-    specs_.num_ports = 2;
-  }
-      
-  if (!specs_.num_banks.IsSpecified()) {
-    specs_.num_banks = 2; //FIXME: default 2 banks
-  }
-      
+  //      
   auto total_utilized_capacity = std::accumulate(stats_.utilized_capacity.begin(),
                                                  stats_.utilized_capacity.end(),
                                                  0ULL);
