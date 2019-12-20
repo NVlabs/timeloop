@@ -115,6 +115,11 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   network.lookupValue("wire-energy", wire_energy);
   specs.wire_energy = wire_energy;
 
+  // Tile width.
+  double tile_width = 0.0;
+  network.lookupValue("tile-width", tile_width);
+  specs.tile_width = tile_width;
+
   return specs;
 }
 
@@ -150,7 +155,11 @@ bool LegacyNetwork::DistributedMulticastSupported() const
 // Floorplanner interface.
 void LegacyNetwork::SetTileWidth(double width_um)
 {
-  specs_.tile_width = width_um;
+  // Only set this if user didn't specify a pre-floorplanned tile width.
+  if (specs_.tile_width.Get() == 0.0)
+  {
+    specs_.tile_width = width_um;
+  }
 }
 
 // Evaluate.
