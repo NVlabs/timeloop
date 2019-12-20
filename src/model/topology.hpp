@@ -56,7 +56,8 @@ static std::string computeClasses[3] = { "mac",
 // FIXME: derive these from a statically-instantiated list of class names that
 // are auto-populated by each Network class at program init time.
 static std::string networkClasses[] = { "XY_NoC",
-                                        "Legacy" };
+                                        "Legacy",
+                                        "ReductionTree"};
 
 bool isBufferClass(std::string className);
 bool isComputeClass(std::string className);
