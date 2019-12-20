@@ -582,8 +582,11 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
                                                  stats_.utilized_capacity.end(),
                                                  0ULL);
   if (!specs_.size.IsSpecified())
-    specs_.size = std::ceil(total_utilized_capacity
-                            * specs_.multiple_buffering.Get());
+  {
+#ifdef UPDATE_UNSPECIFIED_SPECS
+    specs_.size = std::ceil(total_utilized_capacity * specs_.multiple_buffering.Get());
+#endif
+  }
   else if (total_utilized_capacity > specs_.effective_size.Get())
   {
     success = false;
@@ -601,14 +604,37 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
   assert (specs_.block_size.IsSpecified());
     
   assert (specs_.cluster_size.IsSpecified());
-      
-  specs_.addr_gen_bits = static_cast<unsigned long>(
-    std::ceil(std::log2(
-                static_cast<double>(specs_.size.Get()) / specs_.block_size.Get()
-                )));
-      
+   
+  // Compute address-generation bits.
+  if (specs_.size.IsSpecified())
+  {
+    double address_range = std::ceil(static_cast<double>(specs_.size.Get() / specs_.block_size.Get()));
+    specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
+  }
+  else if (specs_.technology.Get() == Technology::SRAM)
+  {
+    // Use utilized capacity as proxy for size.
+    double address_range = std::ceil(static_cast<double>(total_utilized_capacity / specs_.block_size.Get()));
+    specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
+  }
+  else // DRAM.
+  {
+#ifdef FIXED_DRAM_SIZE_IF_UNSPECIFIED
+    // DRAM of un-specified size, use 48-bit physical address.
+    specs_.addr_gen_bits = 48;
+#else
+    // Use utilized capacity as proxy for size.
+    double address_range = std::ceil(static_cast<double>(total_utilized_capacity / specs_.block_size.Get()));
+    specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
+#endif
+  }
+
   if (!specs_.instances.IsSpecified())
+  {
+#ifdef UPDATE_UNSPECIFIED_SPECS
     specs_.instances = stats_.utilized_instances.Max();
+#endif
+  }
   else if (stats_.utilized_instances.Max() > specs_.instances.Get())
   {
     success = false;
@@ -782,10 +808,12 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   //
   // Step 5: Update arch specs.
   //
+#ifdef UPDATE_UNSPECIFIED_SPECS
   if (!specs_.read_bandwidth.IsSpecified())
     specs_.read_bandwidth = std::accumulate(stats_.read_bandwidth.begin(), stats_.read_bandwidth.end(), 0.0);
   if (!specs_.write_bandwidth.IsSpecified())
     specs_.write_bandwidth = std::accumulate(stats_.write_bandwidth.begin(), stats_.write_bandwidth.end(), 0.0);
+#endif
 }
 
 //

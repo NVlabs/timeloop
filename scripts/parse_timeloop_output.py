@@ -121,16 +121,13 @@ def parse_timeloop_stats(filename):
           
         # If we are here, we are not an arithmetic level.
 
-        # Level specifications
+        # Level specifications and stats.
         specs = level.findall('specs_')[0]
+        stats = level.findall('stats_')[0]
+
         generic_level_specs = specs.findall('LevelSpecs')[0]
         level_name = generic_level_specs.findall('level_name')[0].text
-  
-        total_instances = int(specs.findall('instances')[0].findall('t_')[0].text)
-        total_capacity = int(specs.findall('size')[0].findall('t_')[0].text)
 
-        stats = level.findall('stats_')[0]
-        
         # Storage access energy
         reads_per_instance = get_stat(stats, 'reads', int)   
         updates_per_instance = get_stat(stats, 'updates', int)   
@@ -141,6 +138,18 @@ def parse_timeloop_stats(filename):
         instances = get_stat(stats, 'utilized_instances', int) 
         clusters = get_stat(stats, 'utilized_clusters', int)   
 
+        total_instances_obj = specs.findall('instances')[0].findall('t_')
+        if len(total_instances_obj) == 0:            
+            total_instances = sum(instances)
+        else:
+            total_instances = int(total_instances_obj[0].text)
+
+        total_capacity_obj = specs.findall('size')[0].findall('t_')
+        if len(total_capacity_obj) == 0:
+            total_capacity = sum(utilized_capacity)
+        else:
+            total_capacity = int(total_capacity_obj[0].text)
+        
         energy_per_access_per_instance = get_stat(stats, 'energy_per_access', float) 
         storage_access_energy_in_pJ = energy_per_access_per_instance * accesses_per_instance * instances
         read_energy = energy_per_access_per_instance * reads_per_instance * instances
