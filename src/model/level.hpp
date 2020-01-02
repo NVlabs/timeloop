@@ -47,6 +47,8 @@ struct LevelSpecs
 {
   virtual ~LevelSpecs() { }
   
+  virtual std::shared_ptr<LevelSpecs> Clone() const = 0;
+
   virtual const std::string Type() const = 0;
 
   std::string level_name;

@@ -72,6 +72,12 @@ class ArithmeticUnits : public Level
         ar& BOOST_SERIALIZATION_NVP(word_bits);
       }
     }
+
+   public:
+    std::shared_ptr<LevelSpecs> Clone() const override
+    {
+      return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
+    }
   };
   
  private:

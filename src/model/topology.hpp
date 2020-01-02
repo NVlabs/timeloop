@@ -76,6 +76,43 @@ class Topology : public Module
     unsigned arithmetic_map;
 
    public:
+    // Constructors and assignment operators.
+    Specs() = default;
+    ~Specs() = default;
+
+    // We need an explicit deep-copy constructor because of shared_ptrs.
+    Specs(const Specs& other)
+    {
+      for (auto& level_p: other.levels)
+        levels.push_back(level_p->Clone());
+
+      for (auto& inferred_network_p: other.inferred_networks)
+        inferred_networks.push_back(std::make_shared<LegacyNetwork::Specs>(*inferred_network_p));
+
+      for (auto& network_p: other.networks)
+        networks.push_back(network_p->Clone());
+
+      storage_map = other.storage_map;
+      arithmetic_map = other.arithmetic_map;
+    }
+
+    // Copy-and-swap idiom.
+    friend void swap(Specs& first, Specs& second)
+    {
+      using std::swap;
+      swap(first.levels, second.levels);
+      swap(first.inferred_networks, second.inferred_networks);
+      swap(first.networks, second.networks);
+      swap(first.storage_map, second.storage_map);
+      swap(first.arithmetic_map, second.arithmetic_map);
+    }
+
+    Specs& operator = (Specs other)
+    {
+      swap(*this, other);
+      return *this;
+    }
+
     unsigned NumLevels() const;
     unsigned NumStorageLevels() const;
     unsigned NumNetworks() const;
@@ -137,14 +174,10 @@ class Topology : public Module
     is_evaluated_ = other.is_evaluated_;
 
     for (auto& level_p: other.levels_)
-    {
       levels_.push_back(level_p->Clone());
-    }
 
     for (auto& network_kv: other.networks_)
-    {
       networks_[network_kv.first] = network_kv.second->Clone();
-    }
 
     tile_area_ = other.tile_area_;
     specs_ = other.specs_;

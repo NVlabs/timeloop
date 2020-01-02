@@ -79,6 +79,13 @@ class LegacyNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(tile_width);
       }
     }
+
+   public:
+    std::shared_ptr<NetworkSpecs> Clone() const override
+    {
+      return std::static_pointer_cast<NetworkSpecs>(std::make_shared<Specs>(*this));
+    }
+
   }; // struct Specs
 
   struct Stats

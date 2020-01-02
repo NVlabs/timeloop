@@ -125,11 +125,18 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(drain_network_name);
         ar& BOOST_SERIALIZATION_NVP(update_network_name);
       }
-    }    
+    }
+
+   public:
+    std::shared_ptr<LevelSpecs> Clone() const override
+    {
+      return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
+    }
+
   };
   
   //
-  // Specs.
+  // Stats.
   //
   struct Stats
   {
