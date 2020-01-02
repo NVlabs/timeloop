@@ -29,6 +29,7 @@
 
 #include <iostream>
 #include <memory>
+#include <algorithm>
 
 #include "loop-analysis/tiling.hpp"
 #include "loop-analysis/nest-analysis.hpp"
@@ -124,6 +125,49 @@ class Topology : public Module
   void FloorPlan();
 
  public:
+
+  // Constructors and assignment operators.
+  Topology() = default;
+  ~Topology() = default;
+
+  // We need an explicit deep-copy constructor because of shared_ptrs.
+  Topology(const Topology& other)
+  {
+    is_specced_ = other.is_specced_;
+    is_evaluated_ = other.is_evaluated_;
+
+    for (auto& level_p: other.levels_)
+    {
+      levels_.push_back(level_p->Clone());
+    }
+
+    for (auto& network_kv: other.networks_)
+    {
+      networks_[network_kv.first] = network_kv.second->Clone();
+    }
+
+    tile_area_ = other.tile_area_;
+    specs_ = other.specs_;
+  }
+
+  // Copy-and-swap idiom.
+  friend void swap(Topology& first, Topology& second)
+  {
+    using std::swap;
+    swap(first.is_specced_, second.is_specced_);
+    swap(first.is_evaluated_, second.is_evaluated_);
+    swap(first.levels_, second.levels_);
+    swap(first.networks_, second.networks_);
+    swap(first.tile_area_, second.tile_area_);
+    swap(first.specs_, second.specs_);
+  }
+
+  Topology& operator = (Topology other)
+  {
+    swap(*this, other);
+    return *this;
+  }
+
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.

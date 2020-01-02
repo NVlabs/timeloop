@@ -160,6 +160,11 @@ class LegacyNetwork : public Network
   LegacyNetwork(const Specs& specs);
   ~LegacyNetwork();
 
+  std::shared_ptr<Network> Clone() const override
+  {
+    return std::static_pointer_cast<Network>(std::make_shared<LegacyNetwork>(*this));
+  }
+
   static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements);
 
   void ConnectSource(std::weak_ptr<Level> source);

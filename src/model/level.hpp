@@ -75,6 +75,8 @@ class Level : public Module
  public:
   virtual ~Level() { }
 
+  virtual std::shared_ptr<Level> Clone() const = 0;
+
   virtual bool HardwareReductionSupported() = 0;
 
   virtual EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,

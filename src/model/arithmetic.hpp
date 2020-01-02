@@ -110,6 +110,11 @@ class ArithmeticUnits : public Level
   ArithmeticUnits(const Specs & specs);
   ~ArithmeticUnits() { }
   
+  std::shared_ptr<Level> Clone() const override
+  {
+    return std::static_pointer_cast<Level>(std::make_shared<ArithmeticUnits>(*this));
+  }
+
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.

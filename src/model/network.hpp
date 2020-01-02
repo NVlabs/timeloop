@@ -72,6 +72,8 @@ class Network : public Module
  public:
   virtual ~Network() { }
 
+  virtual std::shared_ptr<Network> Clone() const = 0;
+
   virtual void ConnectSource(std::weak_ptr<Level> source) = 0;
   virtual void ConnectSink(std::weak_ptr<Level> sink) = 0;
   virtual void SetName(std::string name) = 0;
