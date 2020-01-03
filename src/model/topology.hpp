@@ -66,6 +66,10 @@ bool isNetworkClass(std::string className);
 class Topology : public Module
 {
  public:
+
+  //
+  // Specs.
+  //
   class Specs
   {
    private:
@@ -135,13 +139,29 @@ class Topology : public Module
     std::shared_ptr<LegacyNetwork::Specs> GetInferredNetwork(unsigned network_id) const;
     std::shared_ptr<NetworkSpecs> GetNetwork(unsigned network_id) const;
   };
-  
+
+  //
+  // Stats.
+  //
+  struct Stats
+  {
+    double energy;
+    double area;
+    std::uint64_t cycles;
+    double utilization;
+    std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
+    std::vector<problem::PerDataSpace<std::uint64_t>> utilized_instances;
+    std::uint64_t maccs;
+    std::uint64_t last_level_accesses;
+  };
+    
  private:
   std::vector<std::shared_ptr<Level>> levels_;
   std::map<std::string, std::shared_ptr<Network>> networks_;
   std::map<unsigned, double> tile_area_;
 
   Specs specs_;
+  Stats stats_;
   
   // Serialization
   friend class boost::serialization::access;
@@ -160,6 +180,7 @@ class Topology : public Module
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
   void FloorPlan();
+  void ComputeStats();
 
  public:
 
@@ -181,6 +202,7 @@ class Topology : public Module
 
     tile_area_ = other.tile_area_;
     specs_ = other.specs_;
+    stats_ = other.stats_;
   }
 
   // Copy-and-swap idiom.
@@ -193,6 +215,7 @@ class Topology : public Module
     swap(first.networks_, second.networks_);
     swap(first.tile_area_, second.tile_area_);
     swap(first.specs_, second.specs_);
+    swap(first.stats_, second.stats_);
   }
 
   Topology& operator = (Topology other)
@@ -215,14 +238,18 @@ class Topology : public Module
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
   std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload, bool break_on_failure);
 
-  double Energy() const;
-  double Area() const;
-  std::uint64_t Cycles() const;
-  double Utilization() const;
-  std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const;
-  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const;
-  std::uint64_t MACCs() const;
-  std::uint64_t LastLevelAccesses() const;
+  const Stats& GetStats() const { return stats_; }
+
+  // FIXME: these stat-specific accessors are deprecated and only exist for
+  // backwards-compatibility with some applications.
+  double Energy() const { return stats_.energy; }
+  double Area() const { return stats_.area; }
+  std::uint64_t Cycles() const { return stats_.cycles; }
+  double Utilization() const { return stats_.utilization; }
+  std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const { return stats_.tile_sizes; }
+  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const { return stats_.utilized_instances; }
+  std::uint64_t MACCs() const { return stats_.maccs; }
+  std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };
