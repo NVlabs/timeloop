@@ -556,6 +556,17 @@ void Topology::Spec(const Topology::Specs& specs)
   is_specced_ = true;
 
   FloorPlan();
+
+  // Compute area at spec-time (instead of at eval-time).
+  // FIXME: area is being stored as a stat here, while it is stored as a spec
+  // in individual modules. We need to be consistent.
+  double area = 0;
+  for (auto level : levels_)
+  {
+    assert(level->Area() >= 0);
+    area += level->Area();
+  }
+  stats_.area = area;
 }
 
 // The hierarchical ParseSpecs functions are static and do not
@@ -891,15 +902,6 @@ void Topology::ComputeStats()
   }
 
   stats_.energy = energy;
-
-  // Area.
-  double area = 0;
-  for (auto level : levels_)
-  {
-    assert(level->Area() >= 0);
-    area += level->Area();
-  }
-  stats_.area = area;
 
   // Cycles.
   std::uint64_t cycles = 0;
