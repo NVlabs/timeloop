@@ -68,7 +68,7 @@ def parse_timeloop_stats(filename):
 
     macs = problem['FH']*problem['FW']*problem['IC']*problem['OH']*problem['OW']*problem['IN']*problem['OC']
 
-    topology = root.findall('best_mapped_engine')[0].findall('topology_')[0]
+    topology = root.findall('engine')[0].findall('topology_')[0]
     
     # Get the list of storage/arithmetic levels
     levels = topology.findall('levels_')[0]

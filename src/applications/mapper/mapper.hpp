@@ -353,19 +353,19 @@ class Application
     {
       // Aggregate diagnostic data from all threads.
       std::vector<uint128_t> eval_fail_counts(arch_specs_.topology.NumLevels(), 0);
-      std::vector<EvaluationResult> eval_fail_sample_results(arch_specs_.topology.NumLevels());
+      std::vector<Mapping> eval_fail_sample_mappings(arch_specs_.topology.NumLevels());
       unsigned worst_eval_fail_level_id = 0;
       uint128_t worst_eval_fail_count = 0;
 
       for (unsigned t = 0; t < num_threads_; t++)
       {
         auto& thread_counts = threads_.at(t)->InvalidEvalCounts();
-        auto& thread_sample_results = threads_.at(t)->InvalidEvalSampleResults();
+        auto& thread_sample_mappings = threads_.at(t)->InvalidEvalSampleMappings();
         for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
         {
           // Pick up a sample mapping from the first thread with non-zero fails at this level.
           if (eval_fail_counts.at(level_id) == 0 && thread_counts.at(level_id) != 0)
-            eval_fail_sample_results.at(level_id) = thread_sample_results.at(level_id);
+            eval_fail_sample_mappings.at(level_id) = thread_sample_mappings.at(level_id);
 
           eval_fail_counts.at(level_id) += thread_counts.at(level_id);
         }
@@ -402,14 +402,12 @@ class Application
                   << ": " << worst_eval_fail_count << std::endl;
         std::cout << "Sample failed mapping: " << std::endl;
 
-        auto& engine = eval_fail_sample_results.at(worst_eval_fail_level_id).engine;
-        auto& mapping = eval_fail_sample_results.at(worst_eval_fail_level_id).mapping;
-        if (!engine.IsEvaluated())
-        {
-          engine.Evaluate(mapping, workload_, false);
-        }
+        auto& mapping = eval_fail_sample_mappings.at(worst_eval_fail_level_id);
+        model::Engine engine;
+        engine.Spec(arch_specs_);
+        engine.Evaluate(mapping, workload_, false);
         mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
-                            engine.GetTopology().TileSizes());
+                            engine.GetTopology().GetStats().tile_sizes);
       }
 
       std::cout << "-----------------------------------------------" << std::endl;
@@ -418,18 +416,11 @@ class Application
     }
 
     // Select the best mapping from each thread.
-    Mapping best_mapping;
-    model::Engine best_mapped_engine;
+    EvaluationResult global_best;
     for (unsigned t = 0; t < num_threads_; t++)
     {
-      auto& mapping = threads_.at(t)->BestMapping();
-      auto& engine = threads_.at(t)->BestMappedEngine();
-      if (!best_mapped_engine.IsSpecced() ||
-          (engine.IsSpecced() && IsBetter(engine, best_mapped_engine, optimization_metrics_)))
-      {
-          best_mapping = mapping;
-          best_mapped_engine = engine;
-      }
+      auto& thread_best = threads_.at(t)->BestResult();
+      global_best.UpdateIfBetter(thread_best, optimization_metrics_);
     }
 
     std::cout << std::endl;
@@ -440,31 +431,45 @@ class Application
       threads_.at(t) = nullptr;
     }
 
-    if (best_mapped_engine.IsEvaluated())
+    if (global_best.valid)
     {
       std::ofstream map_txt_file(map_txt_file_name);
-      best_mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
-                               best_mapped_engine.GetTopology().TileSizes());
+      global_best.mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
+                                      global_best.stats.tile_sizes);
       map_txt_file.close();
 
+      // Re-evaluate the mapping so that we get a live engine with complete specs and stats
+      // that can be printed out hierarchically.
+      model::Engine engine;
+      engine.Spec(arch_specs_);
+      engine.Evaluate(global_best.mapping, workload_);
+
       std::ofstream stats_file(stats_file_name);
-      stats_file << best_mapped_engine << std::endl;
+      stats_file << engine << std::endl; // <------------ HERE.
       stats_file.close();
 
       if (emit_whoop_nest_)
       {
         std::ofstream map_cpp_file(map_cpp_file_name);
-        best_mapping.PrintWhoopNest(map_cpp_file, arch_specs_.topology.StorageLevelNames(),
-                                    best_mapped_engine.GetTopology().TileSizes(),
-                                    best_mapped_engine.GetTopology().UtilizedInstances());
+        global_best.mapping.PrintWhoopNest(map_cpp_file, arch_specs_.topology.StorageLevelNames(),
+                                           global_best.stats.tile_sizes,
+                                           global_best.stats.utilized_instances);
         map_cpp_file.close();
       }
 
       std::cout << "Summary stats for best mapping found by mapper:" << std::endl; 
       std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
-                << best_mapped_engine.Utilization() << " | pJ/MACC = " << std::setw(8)
-                << std::fixed << std::setprecision(3) << best_mapped_engine.Energy() /
-        best_mapped_engine.GetTopology().MACCs() << std::endl;
+                << global_best.stats.utilization << " | pJ/MACC = " << std::setw(8)
+                << std::fixed << std::setprecision(3) << global_best.stats.energy /
+        global_best.stats.maccs << std::endl;
+
+      // Print the engine stats and mapping to an XML file
+      std::ofstream ofs(xml_file_name);
+      boost::archive::xml_oarchive ar(ofs);
+      ar << boost::serialization::make_nvp("engine", engine);
+      ar << boost::serialization::make_nvp("mapping", global_best.mapping);
+      const Application* a = this;
+      ar << BOOST_SERIALIZATION_NVP(a);
     }
     else
     {
@@ -484,14 +489,6 @@ class Application
                   << "    more information about failed mappings." << std::endl;
       }
     }
-
-    // Print the engine stats and mapping to an XML file
-    std::ofstream ofs(xml_file_name);
-    boost::archive::xml_oarchive ar(ofs);
-    ar << BOOST_SERIALIZATION_NVP(best_mapped_engine);
-    ar << BOOST_SERIALIZATION_NVP(best_mapping);
-    const Application* a = this;
-    ar << BOOST_SERIALIZATION_NVP(a);
 
     if (!cfg_string_)  return; // empty because input was yml
 
@@ -525,11 +522,14 @@ class Application
     // Delete the mapspace constraint.
     root.remove("mapspace");
 
-    // Create a new mapspace constraint.
-    libconfig::Setting& mapspace = root.add("mapspace", libconfig::Setting::TypeGroup);
+    if (global_best.valid)
+    {
+      // Create a new mapspace constraint.
+      libconfig::Setting& mapspace = root.add("mapspace", libconfig::Setting::TypeGroup);
     
-    // Format the best mapping as libconfig constraints.
-    best_mapping.FormatAsConstraints(mapspace);
+      // Format the best mapping as libconfig constraints.
+      global_best.mapping.FormatAsConstraints(mapspace);
+    }
 
     config.writeFile(map_cfg_file_name.c_str());
   }
