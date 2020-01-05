@@ -50,13 +50,18 @@
 class Application
 {
  protected:
+  // Critical state.
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
-
+  
   // The mapping has to be a dynamic object because we cannot
   // instantiate it before the problem shape has been parsed. UGH.
   Mapping* mapping_;
   
+  // Application flags.
+  bool verbose_ = false;
+  bool auto_bypass_on_failure_ = false;
+
  private:
 
   // Serialization
@@ -77,13 +82,15 @@ class Application
     auto rootNode = config->getRoot();
 
     // Model application configuration.
-    bool verbose = false;
+    auto_bypass_on_failure_ = false;
+
     if (rootNode.exists("model"))
     {
       auto model = rootNode.lookup("model");
-      model.lookupValue("verbose", verbose);
+      model.lookupValue("verbose", verbose_);
+      model.lookupValue("auto_bypass_on_failure", auto_bypass_on_failure_);
     }
-    if (verbose)
+    if (verbose_)
     {
       for (auto& line: banner)
         std::cout << line << std::endl;
@@ -93,7 +100,7 @@ class Application
     // Problem configuration.
     auto problem = rootNode.lookup("problem");
     problem::ParseWorkload(problem, workload_);
-    if (verbose)
+    if (verbose_)
       std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
@@ -111,7 +118,7 @@ class Application
     if (rootNode.exists("ERT"))
     {
       auto ert = rootNode.lookup("ERT");
-      if (verbose)
+      if (verbose_)
         std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
     }
@@ -124,20 +131,20 @@ class Application
         accelergy::invokeAccelergy(config->inFiles);
         auto ertConfig = new config::CompoundConfig("ERT.yaml");
         auto ert = ertConfig->getRoot().lookup("ERT");
-        if (verbose)
+        if (verbose_)
           std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;
         arch_specs_.topology.ParseAccelergyERT(ert);
       }
 #endif
     }
 
-    if (verbose)
+    if (verbose_)
       std::cout << "Architecture configuration complete." << std::endl;
 
     // Mapping configuration: expressed as a mapspace or mapping.
     auto mapping = rootNode.lookup("mapping");
     mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
-    if (verbose)
+    if (verbose_)
       std::cout << "Mapping construction complete." << std::endl;
   }
 
@@ -163,17 +170,42 @@ class Application
     model::Engine engine;
     engine.Spec(arch_specs_);
 
+    auto level_names = arch_specs_.topology.LevelNames();
+
     auto& mapping = *mapping_;
     
-    auto eval_status = engine.Evaluate(mapping, workload_);
-    auto level_names = arch_specs_.topology.LevelNames();
+    // Optional feature: if the given mapping does not fit in the available
+    // hardware resources, automatically bypass storage level(s) to make it
+    // fit. This avoids mapping failures and instead substitutes the given
+    // mapping with one that fits but is higher cost and likely sub-optimal.
+    // *However*, this only covers capacity failures due to temporal factors,
+    // not instance failures due to spatial factors. It also possibly
+    // over-corrects since it bypasses *all* data-spaces at a failing level,
+    // while it's possible that bypassing a subset of data-spaces may have
+    // caused the mapping to fit.
+    if (auto_bypass_on_failure_)
+    {
+      auto pre_eval_status = engine.PreEvaluationCheck(mapping, workload_, false);
+      for (unsigned level = 0; level < pre_eval_status.size(); level++)
+        if (!pre_eval_status[level].success)
+        {
+          if (verbose_)
+            std::cerr << "WARNING: couldn't map level " << level_names.at(level) << ": "
+                      << pre_eval_status[level].fail_reason << ", auto-bypassing."
+                      << std::endl;
+          for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+            // Ugh... mask is offset-by-1 because level 0 is the arithmetic level.
+            mapping.datatype_bypass_nest.at(pvi).reset(level-1);
+        }
+    }
     
+    auto eval_status = engine.Evaluate(mapping, workload_);    
     for (unsigned level = 0; level < eval_status.size(); level++)
     {
       if (!eval_status[level].success)
       {
-        std::cerr << "ERROR: couldn't map level " << level_names.at(level) << ": ";
-        std::cerr << eval_status[level].fail_reason << std::endl;
+        std::cerr << "ERROR: couldn't map level " << level_names.at(level) << ": "
+                  << eval_status[level].fail_reason << std::endl;
         exit(1);
       }
     }
