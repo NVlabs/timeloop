@@ -108,7 +108,7 @@ model_sources = common_sources + Split("""
 data/cnn/cnn-layers.cpp
 mapping/mapping.cpp
 mapping/parser.cpp
-applications/evaluator/main.cpp
+applications/model/main.cpp
 """)
 
 mapper_sources = common_sources + Split("""
@@ -142,4 +142,4 @@ env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
 env.Program(target = 'timeloop-design-space', source = design_space_sources)
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))
-#os.symlink(os.path.abspath('timeloop-model'), os.path.abspath('evaluator'))
+#os.symlink(os.path.abspath('timeloop-model'), os.path.abspath('model'))

@@ -29,7 +29,7 @@
 #include <csignal>
 #include <cstring>
 
-#include "evaluator.hpp"
+#include "model.hpp"
 #include "compound-config/compound-config.hpp"
 
 bool gTerminate = false;

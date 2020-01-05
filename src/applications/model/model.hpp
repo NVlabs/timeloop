@@ -76,13 +76,15 @@ class Application
   {    
     auto rootNode = config->getRoot();
 
-    // Evaluator application configuration.
+    // Model application configuration.
     bool verbose = false;
-    if (rootNode.exists("evaluator")) {
-      auto evaluator = rootNode.lookup("evaluator");
-      evaluator.lookupValue("verbose", verbose);
+    if (rootNode.exists("model"))
+    {
+      auto model = rootNode.lookup("model");
+      model.lookupValue("verbose", verbose);
     }
-    if (verbose) {
+    if (verbose)
+    {
       for (auto& line: banner)
         std::cout << line << std::endl;
       std::cout << std::endl;
@@ -96,22 +98,29 @@ class Application
 
     // Architecture configuration.
     config::CompoundConfigNode arch;
-    if (rootNode.exists("arch")) {
+    if (rootNode.exists("arch"))
+    {
       arch = rootNode.lookup("arch");
-    } else if (rootNode.exists("architecture")) {
+    }
+    else if (rootNode.exists("architecture"))
+    {
       arch = rootNode.lookup("architecture");
     }
     arch_specs_ = model::Engine::ParseSpecs(arch);
 
-    if (rootNode.exists("ERT")) {
+    if (rootNode.exists("ERT"))
+    {
       auto ert = rootNode.lookup("ERT");
       if (verbose)
         std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
-    } else {
+    }
+    else
+    {
 #ifdef USE_ACCELERGY
       // Call accelergy ERT with all input files
-      if (arch.exists("subtree") || arch.exists("local")) {
+      if (arch.exists("subtree") || arch.exists("local"))
+      {
         accelergy::invokeAccelergy(config->inFiles);
         auto ertConfig = new config::CompoundConfig("ERT.yaml");
         auto ert = ertConfig->getRoot().lookup("ERT");

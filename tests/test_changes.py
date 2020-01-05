@@ -49,7 +49,7 @@ import parse_timeloop_output
 
 
 test_suite = [
-        'configs/timeloop/sample.cfg',
+        'configs/mapper/sample.cfg',
         ]
 
 def diff(ref, actual, location='stats'):
