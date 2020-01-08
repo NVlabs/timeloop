@@ -89,6 +89,7 @@ This will place timeloop's log in `sample.out` and generate the following output
 
 ## Further reading
 
-Serially walking through the exercises in our [Timeloop tutorial series](https://github.com/jsemer/timeloop-accelergy-exercises/tree/master/exercises/timeloop) serves as an excellent hands-on introduction to the tool:
+Serially walking through the exercises in our [Timeloop tutorial series](https://github.com/jsemer/timeloop-accelergy-exercises/tree/master/exercises/timeloop) serves as an excellent hands-on introduction to the tool.
 
-For a deeper technical overview please read our [ISPASS 2019 paper](http://parashar.org/ispass19.pdf)
+For a deeper technical overview please read our [ISPASS 2019 paper](http://parashar.org/ispass19.pdf).
+
