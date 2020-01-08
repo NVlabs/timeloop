@@ -7,16 +7,44 @@ the root YAML key:
 mapper:
 ```
 
-The mapper supports a number of selectable search heuristics. The search heuristic
-can be selected via the `algorithm` key, as in:
-```
-mapper:
-  algorithm: linear-pruned
-```
+## Main knobs
 
-Note that _all_ search heuristics are multi-threaded. The mapper module splits up the
-IndexFactorization mapspace across the threads. Each thread independently follows the
-specified heuristic, periodically exchanging data with other threads.
+The main configuration knobs for the mapper are:
+* `algorithm`: Selects one of several search heuristics (see below). Default is `hybrid`.
+* `optimization-metrics`: A prioritized list of cost metrics (starting with most-significant).
+The list of supported metrics is:
+  * `energy`
+  * `delay`
+  * `edp`
+  * `last-level-accesses`
+* `num-threads`: _All_ search heuristics are multi-threaded. The mapper module instantiates
+the given number of threads and divvies up the IndexFactorization mapspace across them. Each
+thread independently follows the specified heuristic, periodically exchanging data with other
+threads. If left unspecified, the mapper queries the underlying host platform for the
+available hardware concurrency and instantiates that many threads.
+
+## Tuning search termination conditions
+
+The following knobs are used to tune the search heuristics. Specifically, they determine
+when a search thread either declares victory or gives up and terminates.
+
+* `timeout`: If a thread sees this many consecutive invalid mappings, it gives up and
+self-terminates. If this is set to `0`, invalid mappings are ignored and not used as a criterion
+for thread termination. Default is `1000`.
+* `victory-condition`: If a thread sees this many consecutive _valid_ but _suboptimal_ mappings
+(i.e., mappings that have higher cost than the best mapping seen so far), it declares victory
+and self-terminates. If this is set to `0`, suboptimal mappings are not used as a criterion
+for thread termination. Default is `500`.
+* `search-size`: If a thread encounters this many valid mappings in total, it self-terminates. If
+this is set to `0`, total number of valid mappings encountered is not used as a criterion for 
+thread termination. Default is `0`.
+* `sync-interval`: Time interval (measured in terms of number of mappings examined) after which
+each thread shares the best mapping it has seen so far (and its cost) with other threads. This
+is not a full barrier - each thread simply syncs with a globally-shared best mapping. Default is
+`0` (threads operate independently and do not sync, except at the end after all threads have
+terminated).
+
+## Search algorithms
 
 The current set of supported algorithms is as follows:
 * `exhaustive`: A linear search through the mapspace. Although it is called
