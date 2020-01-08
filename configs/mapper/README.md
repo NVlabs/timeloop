@@ -67,3 +67,10 @@ is controlled by the knob `max-permutations-per-if-visit` (default is `16`).
 * `hybrid` (DEFAULT): Selects a random index factorization, prunes the superfluous permutations for
 that factorization, and linearly visits the pruned permutation subspace before selecting
 the next random factorization.
+
+## Other knobs
+
+* `log-stats`
+* `log-suboptimal`
+* `live-status`
+* `diagnostics`
