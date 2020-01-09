@@ -53,34 +53,39 @@
 struct MapResult
 {
   std::string config_name_;
-  Mapping best_mapping_;
+  //Mapping best_mapping_; can't be used due to bug
   model::Engine best_mapped_engine_;
 
-  void PrintResults()
+  void PrintResultsHeader()
   {
-      std::cout << config_name_ << "Summary stats for best mapping found by mapper:" << std::endl; 
-      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
-                << best_mapped_engine_.Utilization() << " | pJ/MACC = " << std::setw(8)
-                << std::fixed << std::setprecision(3) << best_mapped_engine_.Energy() /
-        best_mapped_engine_.GetTopology().MACCs() << std::endl;
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl; 
+      std::cout << "config_name, MACCs, utilization, pj/MACC" << std::endl;
+  }
+
+  void PrintResults(std::ostream& out)
+  {
+      out << config_name_ ; 
+      out << ", " << best_mapped_engine_.GetTopology().MACCs();
+      out << ", " << std::setw(4) << std::fixed << std::setprecision(2) << best_mapped_engine_.Utilization();
+      out << ", " << std::setw(8) << std::fixed << std::setprecision(3) << best_mapped_engine_.Energy() / best_mapped_engine_.GetTopology().MACCs() << std::endl;
   }
 };
 
-class Mapper 
+class Mapper
 {
  protected:
-   
-  //solver specs
-  problem::Workload workload_;
-  model::Engine::Specs arch_specs_;
-  mapspace::MapSpace* mapspace_;
 
   //solver results
   MapResult best_result_;
+  //Mapping best_mapping;
 
+  
+  problem::Workload workload_;
+
+  model::Engine::Specs arch_specs_;
+  mapspace::MapSpace* mapspace_;
   std::vector<mapspace::MapSpace*> split_mapspaces_;
   std::vector<search::SearchAlgorithm*> search_;
-
 
   uint128_t search_size_;
   std::uint32_t num_threads_;
@@ -113,38 +118,31 @@ class Mapper
   }
 
  public:
-  
-  Mapper(std::string name, config::CompoundConfigNode arch, config::CompoundConfigNode problem)
+
+  Mapper(std::string name, config::CompoundConfigNode point_arch, config::CompoundConfigNode point_prob)
   {
     best_result_.config_name_ = name;
-
+    
     // Problem configuration.
-    std::cout << "Starting mapper for : \"" << name << "\"" << std::endl;
-
-    std::cout << "Problem YAML : " << problem.getYNode() << "" << std::endl;
-   
-    auto problem_spec = problem.lookup("problem");    
-    problem::ParseWorkload(problem_spec, workload_);
-    std::cout << "Problem configuration complete.." << std::endl;
-
+    auto problem = point_prob.lookup("problem");
+    problem::ParseWorkload(problem, workload_);
+    std::cout << "Problem configuration complete." << std::endl;
 
     // Architecture configuration.
-    auto arch_spec = arch.lookup("architecture");
-    if (arch.exists("arch")) {
-      arch_spec = arch.lookup("arch");
-    } else if (arch.exists("architecture")) {
-      arch_spec = arch.lookup("architecture");
+    config::CompoundConfigNode arch;
+    if (point_arch.exists("arch")) {
+      arch = point_arch.lookup("arch");
+    } else if (point_arch.exists("architecture")) {
+      arch = point_arch.lookup("architecture");
     }
-    arch_specs_ = model::Engine::ParseSpecs(arch_spec);
-    std::cout << "Architecture configuration complete." << std::endl;
+    arch_specs_ = model::Engine::ParseSpecs(arch);
 
-    //embed ERT in arch YAML
-    if (arch.exists("ERT")) {
-      auto ert = arch.lookup("ERT");
+    if (point_arch.exists("ERT")) {
+      auto ert = point_arch.lookup("ERT");
       std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
     } else {
-#ifdef USE_ACCELERGY
+/*#ifdef USE_ACCELERGY
       // Call accelergy ERT with all input files
       if (arch.exists("subtree") || arch.exists("local")) {
         accelergy::invokeAccelergy(config->inFiles);
@@ -153,12 +151,13 @@ class Mapper
         std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;
         arch_specs_.topology.ParseAccelergyERT(ert);
       }
-#endif
+#endif*/
     }
-    std::cout << "Energy Tables complete." << std::endl;
+
+    std::cout << "Architecture configuration complete." << std::endl;
 
     // Mapper (this application) configuration.
-    auto mapper = arch.lookup("mapper");
+    auto mapper = point_arch.lookup("mapper");
     num_threads_ = std::thread::hardware_concurrency();
     if (mapper.lookupValue("num-threads", num_threads_))
     {
@@ -221,18 +220,16 @@ class Mapper
     std::cout << "Mapper configuration complete." << std::endl;
 
     // MapSpace configuration.
-    if (arch.exists("mapspace"))
+    if (point_arch.exists("mapspace"))
     {
-      // MapSpace configuration is combined with arch in same node
-      auto mapspace = arch.lookup("mapspace");
-      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_); 
-    } 
-    else if (arch.exists("mapspace_constraints"))
+      auto mapspace = point_arch.lookup("mapspace");
+      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
+    }
+    else if (point_arch.exists("mapspace_constraints"))
     {
-      // MapSpace configuration is combined with arch in same node
-      auto mapspace = arch.lookup("mapspace_constraints");
-      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_); 
-    } 
+      auto mapspace = point_arch.lookup("mapspace_constraints");
+      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);      
+    }
     else
     {
       std::cerr << "ERROR: found neither \"mapspace\" nor \"mapspace_constraints\" "
@@ -240,31 +237,33 @@ class Mapper
                 << "mapspace_constraints as an empty list []." << std::endl;
       exit(1);
     }
-
     split_mapspaces_ = mapspace_->Split(num_threads_);
     std::cout << "Mapspace construction complete." << std::endl;
 
     // Search configuration.
-    auto search = arch.lookup("mapper");
+    auto search = point_arch.lookup("mapper");
     for (unsigned t = 0; t < num_threads_; t++)
     {
       search_.push_back(search::ParseAndConstruct(search, split_mapspaces_.at(t), t));
     }
     std::cout << "Search configuration complete." << std::endl;
     // Store the complete configuration in a string.
+/*    if (config->hasLConfig()) {
+      std::size_t len;
+      FILE* cfg_stream = open_memstream(&cfg_string_, &len);
+      auto& lconfig = config->getLConfig();
+      lconfig.write(cfg_stream);
+      fclose(cfg_stream);
+    } else {
+      cfg_string_ = nullptr;
+    }*/
     cfg_string_ = nullptr;
-  }
 
-  MapResult GetResults()
-  {
-    return best_result_;
   }
-
 
   // This class does not support being copied
-  Mapper() {};
-  //Mapper(const Mapper&) = delete;
-  //Mapper& operator=(const Mapper&) = delete;
+  Mapper(const Mapper&) = delete;
+  Mapper& operator=(const Mapper&) = delete;
 
   ~Mapper()
   {
@@ -282,7 +281,10 @@ class Mapper
     }
   }
 
-
+  MapResult GetResults()
+  {
+    return best_result_;
+  }
 
   // ---------------
   // Run the mapper.
@@ -290,7 +292,7 @@ class Mapper
   void Run()
   {
     // Output file names.
-    const std::string out_prefix = "timeloop-mapper.";
+    const std::string out_prefix = "results/mapper." + best_result_.config_name_ + ".";
     const std::string log_file_name = out_prefix + "log";
     const std::string stats_file_name = out_prefix + "stats.txt";
     const std::string xml_file_name = out_prefix + "map+stats.xml";
@@ -451,8 +453,8 @@ class Mapper
     }
 
     // Select the best mapping from each thread.
-    //Mapping best_mapping_;
-    //model::Engine best_mapped_engine_;
+    Mapping best_mapping;
+    //model::Engine best_mapped_engine;
     for (unsigned t = 0; t < num_threads_; t++)
     {
       auto& mapping = threads_.at(t)->BestMapping();
@@ -460,12 +462,10 @@ class Mapper
       if (!best_result_.best_mapped_engine_.IsSpecced() ||
           (engine.IsSpecced() && IsBetter(engine, best_result_.best_mapped_engine_, optimization_metrics_)))
       {
-          best_result_.best_mapping_ = mapping;
+          best_mapping = mapping;
           best_result_.best_mapped_engine_ = engine;
       }
     }
-
-
 
     std::cout << std::endl;
 
@@ -478,7 +478,8 @@ class Mapper
     if (best_result_.best_mapped_engine_.IsEvaluated())
     {
       std::ofstream map_txt_file(map_txt_file_name);
-      best_result_.best_mapping_.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), best_result_.best_mapped_engine_.GetTopology().TileSizes());
+      best_mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
+                               best_result_.best_mapped_engine_.GetTopology().TileSizes());
       map_txt_file.close();
 
       std::ofstream stats_file(stats_file_name);
@@ -488,7 +489,7 @@ class Mapper
       if (emit_whoop_nest_)
       {
         std::ofstream map_cpp_file(map_cpp_file_name);
-        best_result_.best_mapping_.PrintWhoopNest(map_cpp_file, arch_specs_.topology.StorageLevelNames(),
+        best_mapping.PrintWhoopNest(map_cpp_file, arch_specs_.topology.StorageLevelNames(),
                                     best_result_.best_mapped_engine_.GetTopology().TileSizes(),
                                     best_result_.best_mapped_engine_.GetTopology().UtilizedInstances());
         map_cpp_file.close();
@@ -523,7 +524,7 @@ class Mapper
     std::ofstream ofs(xml_file_name);
     boost::archive::xml_oarchive ar(ofs);
     ar << BOOST_SERIALIZATION_NVP(best_result_.best_mapped_engine_);
-    ar << BOOST_SERIALIZATION_NVP(best_result_.best_mapping_);
+    ar << BOOST_SERIALIZATION_NVP(best_mapping);
     const Mapper* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
 
@@ -563,7 +564,7 @@ class Mapper
     libconfig::Setting& mapspace = root.add("mapspace", libconfig::Setting::TypeGroup);
     
     // Format the best mapping as libconfig constraints.
-    best_result_.best_mapping_.FormatAsConstraints(mapspace);
+    best_mapping.FormatAsConstraints(mapspace);
 
     config.writeFile(map_cfg_file_name.c_str());
   }
