@@ -12,11 +12,11 @@ mapper:
 The main configuration knobs for the mapper are:
 * `algorithm`: Selects one of several search heuristics (see below). Default is `hybrid`.
 * `optimization-metrics`: A prioritized list of cost metrics (starting with most-significant).
-The list of supported metrics is:
+The default is `[ edp ]`, and the complete set of supported metrics is:
   * `energy`
   * `delay`
-  * `edp`
-  * `last-level-accesses`
+  * `edp` (energy-delay product)
+  * `last-level-accesses` (accesses the the last/outermost buffer level)
 * `num-threads`: _All_ search heuristics are multi-threaded. The mapper module instantiates
 the given number of threads and divvies up the IndexFactorization mapspace across them. Each
 thread independently follows the specified heuristic, periodically exchanging data with other
@@ -70,7 +70,34 @@ the next random factorization.
 
 ## Other knobs
 
-* `log-stats`
-* `log-suboptimal`
-* `live-status`
-* `diagnostics`
+* `log-stats`: If `True`, emit the number of valid/invalid mappings and optimal-mapping updates seen
+by each thread after each successful evaluation. Default is `False`.
+* `log-suboptimal`: If `True`, emit summary statistics for each evaluated mapping. If `False`, emit
+summary statistics only when an optimal mapping is updated. Default is `False`.
+* `live-status`: If `True`, display an ncurses-based status screen tracking statistics for each
+thread. Extremely useful and informative for interactive runs. Default is `False`.
+* `diagnostics`: If `True`, run the mapper in diagnostic mode (more expensive, but collects statistics
+about reasons why mappings failed). Used for debugging cases where the mapper isn't able to find
+any valid mappings.
+
+## Examples
+
+Default values (i.e., an empty `mapper` section) usually serve as a good starting point.
+Here is an example that simply sets the optimization metrics to prioritize mappings
+with minimum `delay`, and if two mappings have the same delay, then prioritize mappings
+with lower `energy`:
+```
+mapper:
+  optimization-metric: [ delay, energy ]
+```
+
+Here is a setup to perform an exhaustive search across the entire mapspace (with the
+same optimization metrics as the above example):
+```
+mapper:
+  optimization-metric: [ delay, energy ]
+  algorithm:           linear-pruned
+  timeout:             0
+  victory-condition:   0
+  search-size:         0
+```  
