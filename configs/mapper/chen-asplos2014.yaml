@@ -104,158 +104,146 @@
 
 # ==============================================================================
 
-arch =
-{
-    arithmetic =
-    {
-        instances               =   256;
-        word-bits               =   16;
-        meshX                   =   16;
-    };
-    storage =
-    (
-        {
-            name                =   "WeightBuffer";
-            entries             =   64;
-            instances           =   256;
-            meshX               =   16;
-            word-bits           =   16;
-            cluster-size        =   256;
-            read_bandwidth      =   1; # words/cycle
-            write_bandwidth     =   1; # words/cycle
-        },
-        {
-            name                =   "PsumRegFile";
-            entries             =   1;
-            instances           =   16;
-            meshX               =   16;
-            word-bits           =   16;
-            cluster-size        =   16;
-            read_bandwidth      =   1; # words/cycle
-            write_bandwidth     =   1; # words/cycle
-        },
-        {
-            name                =   "InputBuffer";
-            entries             =   1024; # 64 * 16 = 1024
-            instances           =   1;
-            meshX               =   1;
-            word-bits           =   16;
-            block-size          =   16;
-            read_bandwidth      =   16; # words/cycle
-            write_bandwidth     =   16; # words/cycle
-        },
-        {
-            name                =   "OutputBuffer";
-            entries             =   1024; # 64 * 16 = 1024
-            instances           =   1;
-            meshX               =   1;
-            word-bits           =   16;
-            block-size          =   16;
-            read_bandwidth      =   16; # words/cycle
-            write_bandwidth     =   16; # words/cycle
-        },
-        {
-            name                =   "DRAM";
-            technology          =   "DRAM";
-            instances           =   1;
-            word-bits           =   16;
-        }
-    );
-};
+architecture:
+  version: 0.2
 
-mapspace =
-{
-    constraints                 =   "diannao";
-    constraints_diannao =
-    (
-        # Datatype
-        {
-            target              =   "WeightBuffer";
-            type                =   "datatype";
-            keep                =   [ "Weights" ];
-            bypass              =   [ "Inputs", "Outputs" ];
-        },
-        {
-            target              =   "PsumRegFile";
-            type                =   "datatype";
-            keep                =   [ "Outputs" ];
-            bypass              =   [ "Inputs", "Weights" ];
-        },
-        {
-            target              =   "InputBuffer";
-            type                =   "datatype";
-            keep                =   [ "Inputs" ];
-            bypass              =   [ "Outputs", "Weights" ];
-        },
-        {
-            target              =   "OutputBuffer";
-            type                =   "datatype";
-            keep                =   [ "Outputs" ];
-            bypass              =   [ "Inputs", "Weights" ];
-        },
-        # Spatial
-        {
-            target              =   "PsumRegFile";
-            type                =   "spatial";
-            factors             =   "N1 K1 P1 Q1 R1 S1 C16";
-            permutation         =   "C NKPQRS";
-            split               =   0;
-        },
-        {
-            target              =   "InputBuffer";
-            type                =   "spatial";
-            factors             =   "N1 C1 P1 Q1 R1 S1 K16";
-            permutation         =   "K NCPQRS";
-            split               =   1;
-        },
-        # Temporal
-        {
-          target                =   "WeightBuffer";
-          type                  =   "temporal";
-          factors               =   "N1 K1 P1 Q1";
-          permutation           =   "NKPQ CRS";
-        },
-        {
-          target                =   "PsumRegFile";
-          type                  =   "temporal";
-          factors               =   "N1 K1 C1 P1 Q1 R1 S1";
-          permutation           =   "NKCPQRS";
-        },
-        {
-          target                =   "InputBuffer";
-          type                  =   "temporal";
-          factors               =   "N1 K1 C1 P1 Q1 R1 S1";
-          permutation           =   "NKCPQRS";
-        },
-        {
-          target                =   "OutputBuffer";
-          type                  =   "temporal";
-          factors               =   "N1 C1 R1 S1";
-          permutation           =   "NCRS KQP";
-        },
-        {
-          target                =   "DRAM";
-          type                  =   "temporal";
-          permutation           =   "CRSKQPN";
-        }
-    );
-};
+  subtree:
+    - name: diannao
+      attributes:
+        technology: 40nm
 
-mapper =
-{
-    live-status = True;
-};
+      local:
+        - name       : DRAM
+          class      : DRAM
+          attributes :
+            instances       : 1
+            word-bits       : 16
+        
+        - name       : OutputBuffer
+          class      : SRAM
+          attributes :
+            entries         : 1024  # 64 * 16 = 1024
+            instances       : 1
+            meshX           : 1
+            word-bits       : 16
+            block-size      : 16
+            read_bandwidth  : 16 # words/cycle
+            write_bandwidth : 16 # words/cycle
 
-problem =
-{
-    R                           =   3;
-    S                           =   3;
-    P                           =   16;
-    Q                           =   16;
-    C                           =   128;
-    K                           =   128;
-    N                           =   1;
-    Wstride                     =   1;
-    Hstride                     =   1;
-};
+        - name       : InputBuffer
+          class      : SRAM
+          attributes :
+            entries         : 1024 # 64 * 16 = 1024
+            instances       : 1
+            meshX           : 1
+            word-bits       : 16
+            block-size      : 16
+            read_bandwidth  : 16 # words/cycle
+            write_bandwidth : 16 # words/cycle
+
+        - name       : PsumRegFile
+          class      : regfile
+          attributes :
+            entries         : 1
+            instances       : 16
+            meshX           : 16
+            word-bits       : 16
+            cluster-size    : 16
+            read_bandwidth  : 1  # words/cycle
+            write_bandwidth : 1  # words/cycle
+            
+        - name       : WeightBuffer
+          class      : regfile
+          attributes :
+            entries         : 64
+            instances       : 256
+            meshX           : 16
+            word-bits       : 16
+            cluster-size    : 256
+            read_bandwidth  : 1  # words/cycle
+            write_bandwidth : 1  # words/cycle
+
+        - name       : MACs
+          class      : intmac
+          attributes :            
+            instances       : 256
+            meshX           : 16
+            word-bits       : 16
+
+mapspace:
+  targets:
+    
+    - name : DRAM
+      constraints :
+        - type       : temporal
+          attributes :
+            permutation : CRSKQPN
+
+    - name : OutputBuffer
+      constraints :
+        - type       : bypassing
+          attributes :
+            keep        : [ Outputs ]
+            bypass      : [ Inputs, Weights ]
+        - type       : temporal
+          attributes :
+            factors     : N=1 C=1 R=1 S=1
+            permutation : NCRS KQP
+
+    - name : InputBuffer
+      constraints :
+        - type       : bypassing
+          attributes :
+            keep        : [ Inputs ]
+            bypass      : [ Outputs, Weights ]
+        - type       : temporal
+          attributes :
+            factors     : N=1 K=1 C=1 P=1 Q=1 R=1 S=1
+            permutation : NKCPQRS
+        - type       : spatial
+          attributes :
+            factors     : N=1 C=1 P=1 Q=1 R=1 S=1 K=16
+            permutation : K NCPQRS
+            split       : 1
+        
+    - name : PsumRegFile
+      constraints :
+        - type       : bypassing
+          attributes :
+            keep        : [ Outputs ]
+            bypass      : [ Inputs, Weights ]
+        - type       : temporal
+          attributes :
+            factors     : N=1 K=1 C=1 P=1 Q=1 R=1 S=1
+            permutation : NKCPQRS
+        - type       : spatial
+          attributes :
+            factors     : N=1 K=1 P=1 Q=1 R=1 S=1 C=16
+            permutation : C NKPQRS
+            split       : 0
+    
+    - name : WeightBuffer
+      constraints :
+        - type       : bypassing
+          attributes :
+            keep        : [ Weights ]
+            bypass      : [ Inputs, Outputs ]
+        - type       : temporal
+          attributes :
+            factors     : N=1 K=1 P=1 Q=1
+            permutation : NKPQ CR
+
+mapper:
+  live-status : True
+
+problem:
+  R       : 3
+  S       : 3
+  P       : 16
+  Q       : 16
+  C       : 128
+  K       : 128
+  N       : 1
+  Wstride : 1
+  Hstride : 1
 
