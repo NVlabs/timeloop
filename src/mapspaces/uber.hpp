@@ -874,14 +874,24 @@ class Uber : public MapSpace
     {
       // Constraints can be specified either anonymously as a list, or indirected
       // via a string name.
-      std::string name;
-      if (config.lookup("constraints").isList())
-        name = "constraints";
-      else if (config.lookupValue("constraints", name))
-        name = std::string("constraints_") + name;
-      else
+      std::string name = "";
+      if (config.exists("constraints"))
+      {
+        if (config.lookup("constraints").isList())
+          name = "constraints";
+        else if (config.lookupValue("constraints", name))
+          name = std::string("constraints_") + name;
+      }
+      else if (config.exists("targets"))
+      {
+        if (config.lookup("targets").isList())
+          name = "targets";
+      }
+
+      if (name == "")
         // No constraints specified, nothing to do.
         return;
+
       auto constraints = config.lookup(name);
       ParseUserConstraints(constraints, user_factors, user_max_factors, user_permutations,
                            user_spatial_splits, user_bypass_strings);
@@ -910,32 +920,87 @@ class Uber : public MapSpace
       user_bypass_strings[problem::Shape::DataSpaceID(pvi)] = xxx;
     }
 
-    // Iterate over all the constraints.
+    // Iterate over all the constraints/targets.
     int len = constraints.getLength();
     for (int i = 0; i < len; i++)
     {
-      auto constraint = constraints[i];
+      // Prepare a set of CompoundConfigNodes that we will be parsing. These
+      // nodes can be in different places in the hierarchy for backwards-
+      // compatibility reasons.
+      config::CompoundConfigNode target, constraint, attributes;
+
+      target = constraints[i];
+      if (target.exists("constraints"))
+      {
+        auto constraints_list = target.lookup("constraints");
+        assert(constraints_list.isList());
+        
+        for (int j = 0; j < constraints_list.getLength(); j++)
+        {
+          auto constraint = constraints_list[j];
+
+          config::CompoundConfigNode attributes;
+          if (constraint.exists("attributes"))
+            attributes = constraint.lookup("attributes");
+          else
+            attributes = constraint; // Backwards compatibility.
+
+          ParseSingleConstraint(target, constraint, attributes,        
+                                user_factors, user_max_factors, user_permutations,
+                                user_spatial_splits, user_bypass_strings);
+        }
+      }
+      else // Backwards compatibility.
+      {
+        auto constraint = target;
+
+        config::CompoundConfigNode attributes;
+        if (constraint.exists("attributes"))
+          attributes = constraint.lookup("attributes");
+        else
+          attributes = constraint; // Backwards compatibility.
+
+        ParseSingleConstraint(target, constraint, attributes,        
+                              user_factors, user_max_factors, user_permutations,
+                              user_spatial_splits, user_bypass_strings);
+      }
+    }    
+  }
+
+  //
+  // Parse a single user constraint.
+  //
+  void ParseSingleConstraint(
+    config::CompoundConfigNode target,
+    config::CompoundConfigNode constraint,
+    config::CompoundConfigNode attributes,
+    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
+    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors,
+    std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
+    std::map<unsigned, std::uint32_t>& user_spatial_splits,
+    problem::PerDataSpace<std::string>& user_bypass_strings)
+  {
       // Find out if this is a temporal constraint or a spatial constraint.
       std::string type;
       assert(constraint.lookupValue("type", type));
 
-      auto level_id = FindTargetTilingLevel(constraint, type);
+      auto level_id = FindTargetTilingLevel(target, type);
 
       if (type == "temporal" || type == "spatial")
       {
-        auto level_factors = ParseUserFactors(constraint);
+        auto level_factors = ParseUserFactors(attributes);
         if (level_factors.size() > 0)
         {
           user_factors[level_id] = level_factors;
         }
 
-        auto level_max_factors = ParseUserMaxFactors(constraint);
+        auto level_max_factors = ParseUserMaxFactors(attributes);
         if (level_max_factors.size() > 0)
         {
           user_max_factors[level_id] = level_max_factors;
         }
 
-        auto level_permutations = ParseUserPermutations(constraint);
+        auto level_permutations = ParseUserPermutations(attributes);
         if (level_permutations.size() > 0)
         {
           user_permutations[level_id] = level_permutations;
@@ -950,21 +1015,20 @@ class Uber : public MapSpace
           }
         }
       }
-      else if (type == "datatype" || type == "bypass")
+      else if (type == "datatype" || type == "bypass" || type == "bypassing")
       {
-        ParseUserDatatypeBypassSettings(constraint,
+        ParseUserDatatypeBypassSettings(attributes,
                                         arch_props_.TilingToStorage(level_id),
                                         user_bypass_strings);
       }
       else if (type == "utilization" || type == "parallelism")
       {
-        assert(constraint.lookupValue("min", min_parallelism_));
+        assert(attributes.lookupValue("min", min_parallelism_));
       }
       else
       {
         assert(false);
       }
-    }    
   }
 
   //
@@ -980,7 +1044,8 @@ class Uber : public MapSpace
     std::string storage_level_name;
     unsigned storage_level_id;
     
-    if (constraint.lookupValue("target", storage_level_name))
+    if (constraint.lookupValue("target", storage_level_name) ||
+        constraint.lookupValue("name", storage_level_name))
     {
       // Find this name within the storage hierarchy in the arch specs.
       for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++)
@@ -1008,7 +1073,7 @@ class Uber : public MapSpace
     // Translate this storage ID to a tiling ID.
     //
     unsigned tiling_level_id;
-    if (type == "temporal" || type == "datatype" || type == "bypass")
+    if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing")
     {
       // This should always succeed.
       tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);
@@ -1053,7 +1118,7 @@ class Uber : public MapSpace
     }
     else
     {
-      std::cerr << "ERROR: unrecognized mapping directive type: " << type << std::endl;
+      std::cerr << "ERROR: unrecognized constraint type: " << type << std::endl;
       exit(1);
     }
 

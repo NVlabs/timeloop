@@ -125,11 +125,18 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(drain_network_name);
         ar& BOOST_SERIALIZATION_NVP(update_network_name);
       }
-    }    
+    }
+
+   public:
+    std::shared_ptr<LevelSpecs> Clone() const override
+    {
+      return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
+    }
+
   };
   
   //
-  // Specs.
+  // Stats.
   //
   struct Stats
   {
@@ -199,7 +206,6 @@ class BufferLevel : public Level
   std::shared_ptr<Network> network_update_;
   std::shared_ptr<Network> network_drain_;
 
- private:
   // Serialization
   friend class boost::serialization::access;
   template <class Archive>
@@ -238,6 +244,11 @@ class BufferLevel : public Level
   BufferLevel();
   BufferLevel(const Specs & specs);
   ~BufferLevel();
+
+  std::shared_ptr<Level> Clone() const override
+  {
+    return std::static_pointer_cast<Level>(std::make_shared<BufferLevel>(*this));
+  }
 
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by

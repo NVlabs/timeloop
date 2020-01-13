@@ -29,6 +29,7 @@
 
 #include <iostream>
 #include <memory>
+#include <algorithm>
 
 #include "loop-analysis/tiling.hpp"
 #include "loop-analysis/nest-analysis.hpp"
@@ -66,6 +67,10 @@ bool isNetworkClass(std::string className);
 class Topology : public Module
 {
  public:
+
+  //
+  // Specs.
+  //
   class Specs
   {
    private:
@@ -76,6 +81,43 @@ class Topology : public Module
     unsigned arithmetic_map;
 
    public:
+    // Constructors and assignment operators.
+    Specs() = default;
+    ~Specs() = default;
+
+    // We need an explicit deep-copy constructor because of shared_ptrs.
+    Specs(const Specs& other)
+    {
+      for (auto& level_p: other.levels)
+        levels.push_back(level_p->Clone());
+
+      for (auto& inferred_network_p: other.inferred_networks)
+        inferred_networks.push_back(std::make_shared<LegacyNetwork::Specs>(*inferred_network_p));
+
+      for (auto& network_p: other.networks)
+        networks.push_back(network_p->Clone());
+
+      storage_map = other.storage_map;
+      arithmetic_map = other.arithmetic_map;
+    }
+
+    // Copy-and-swap idiom.
+    friend void swap(Specs& first, Specs& second)
+    {
+      using std::swap;
+      swap(first.levels, second.levels);
+      swap(first.inferred_networks, second.inferred_networks);
+      swap(first.networks, second.networks);
+      swap(first.storage_map, second.storage_map);
+      swap(first.arithmetic_map, second.arithmetic_map);
+    }
+
+    Specs& operator = (Specs other)
+    {
+      swap(*this, other);
+      return *this;
+    }
+
     unsigned NumLevels() const;
     unsigned NumStorageLevels() const;
     unsigned NumNetworks() const;
@@ -98,7 +140,22 @@ class Topology : public Module
     std::shared_ptr<LegacyNetwork::Specs> GetInferredNetwork(unsigned network_id) const;
     std::shared_ptr<NetworkSpecs> GetNetwork(unsigned network_id) const;
   };
-  
+
+  //
+  // Stats.
+  //
+  struct Stats
+  {
+    double energy;
+    double area;
+    std::uint64_t cycles;
+    double utilization;
+    std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
+    std::vector<problem::PerDataSpace<std::uint64_t>> utilized_instances;
+    std::uint64_t maccs;
+    std::uint64_t last_level_accesses;
+  };
+    
  private:
   std::vector<std::shared_ptr<Level>> levels_;
   std::map<std::string, std::shared_ptr<Network>> networks_;
@@ -124,6 +181,7 @@ class Topology : public Module
   std::map<unsigned, double> tile_area_;
 
   Specs specs_;
+  Stats stats_;
   
   // Serialization
   friend class boost::serialization::access;
@@ -142,8 +200,50 @@ class Topology : public Module
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
   void FloorPlan();
+  void ComputeStats();
 
  public:
+
+  // Constructors and assignment operators.
+  Topology() = default;
+  ~Topology() = default;
+
+  // We need an explicit deep-copy constructor because of shared_ptrs.
+  Topology(const Topology& other)
+  {
+    is_specced_ = other.is_specced_;
+    is_evaluated_ = other.is_evaluated_;
+
+    for (auto& level_p: other.levels_)
+      levels_.push_back(level_p->Clone());
+
+    for (auto& network_kv: other.networks_)
+      networks_[network_kv.first] = network_kv.second->Clone();
+
+    tile_area_ = other.tile_area_;
+    specs_ = other.specs_;
+    stats_ = other.stats_;
+  }
+
+  // Copy-and-swap idiom.
+  friend void swap(Topology& first, Topology& second)
+  {
+    using std::swap;
+    swap(first.is_specced_, second.is_specced_);
+    swap(first.is_evaluated_, second.is_evaluated_);
+    swap(first.levels_, second.levels_);
+    swap(first.networks_, second.networks_);
+    swap(first.tile_area_, second.tile_area_);
+    swap(first.specs_, second.specs_);
+    swap(first.stats_, second.stats_);
+  }
+
+  Topology& operator = (Topology other)
+  {
+    swap(*this, other);
+    return *this;
+  }
+
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
@@ -158,14 +258,18 @@ class Topology : public Module
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
   std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload, bool break_on_failure);
 
-  double Energy() const;
-  double Area() const;
-  std::uint64_t Cycles() const;
-  double Utilization() const;
-  std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const;
-  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const;
-  std::uint64_t MACCs() const;
-  std::uint64_t LastLevelAccesses() const;
+  const Stats& GetStats() const { return stats_; }
+
+  // FIXME: these stat-specific accessors are deprecated and only exist for
+  // backwards-compatibility with some applications.
+  double Energy() const { return stats_.energy; }
+  double Area() const { return stats_.area; }
+  std::uint64_t Cycles() const { return stats_.cycles; }
+  double Utilization() const { return stats_.utilization; }
+  std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const { return stats_.tile_sizes; }
+  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const { return stats_.utilized_instances; }
+  std::uint64_t MACCs() const { return stats_.maccs; }
+  std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };

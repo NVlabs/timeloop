@@ -55,6 +55,9 @@ class ReductionTreeNetwork : public Network
     Attribute<double> adder_energy; // let user overwrite the one in pat
     Attribute<double> wire_energy;
 
+    // Post-floorplanning physical attributes.
+    Attribute<double> tile_width; // um
+
     const std::string Type() const override { return type; }
 
     // Serialization
@@ -69,8 +72,16 @@ class ReductionTreeNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(word_bits);
         ar& BOOST_SERIALIZATION_NVP(adder_energy);
         ar& BOOST_SERIALIZATION_NVP(wire_energy);
+        ar& BOOST_SERIALIZATION_NVP(tile_width);
       }
     }
+
+   public:
+    std::shared_ptr<NetworkSpecs> Clone() const override
+    {
+      return std::static_pointer_cast<NetworkSpecs>(std::make_shared<Specs>(*this));
+    }
+
   }; // struct Specs
 
   struct Stats
@@ -143,6 +154,11 @@ class ReductionTreeNetwork : public Network
   ReductionTreeNetwork(const Specs& specs);
   ~ReductionTreeNetwork();
 
+  std::shared_ptr<Network> Clone() const override
+  {
+    return std::static_pointer_cast<Network>(std::make_shared<ReductionTreeNetwork>(*this));
+  }
+  
   static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements);
 
   void ConnectSource(std::weak_ptr<Level> source);
@@ -150,8 +166,11 @@ class ReductionTreeNetwork : public Network
   void SetName(std::string name);
   std::string Name() const;
   bool DistributedMulticastSupported() const;
+
+  // Floorplanner interface.
+  void SetTileWidth(double width_um);
+ 
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                              const double inner_tile_area,
                               const bool break_on_failure,
                               const bool reduction = false);
   void Print(std::ostream& out) const;

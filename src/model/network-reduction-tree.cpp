@@ -127,13 +127,21 @@ bool ReductionTreeNetwork::DistributedMulticastSupported() const
   return false;
 }
 
+// Floorplanner interface.
+void ReductionTreeNetwork::SetTileWidth(double width_um)
+{
+  // Only set this if user didn't specify a pre-floorplanned tile width.
+  if (specs_.tile_width.Get() == 0.0)
+  {
+    specs_.tile_width = width_um;
+  }
+}
+
 EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
-                              const double inner_tile_area,
                               const bool break_on_failure,
                               const bool reduction)
 {
   (void) tile;
-  (void) inner_tile_area;
   (void) break_on_failure;
   assert(reduction);
   auto eval_status = EvalStatus{true, std::string("")};

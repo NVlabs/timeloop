@@ -115,6 +115,11 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   network.lookupValue("wire-energy", wire_energy);
   specs.wire_energy = wire_energy;
 
+  // Tile width.
+  double tile_width = 0.0;
+  network.lookupValue("tile-width", tile_width);
+  specs.tile_width = tile_width;
+
   return specs;
 }
 
@@ -147,8 +152,18 @@ bool LegacyNetwork::DistributedMulticastSupported() const
   return retval;
 }
 
+// Floorplanner interface.
+void LegacyNetwork::SetTileWidth(double width_um)
+{
+  // Only set this if user didn't specify a pre-floorplanned tile width.
+  if (specs_.tile_width.Get() == 0.0)
+  {
+    specs_.tile_width = width_um;
+  }
+}
+
+// Evaluate.
 EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
-                                 const double inner_tile_area,
                                  const bool break_on_failure,
                                  const bool reduction)
 {
@@ -158,7 +173,7 @@ EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
   auto eval_status = ComputeAccesses(tile, break_on_failure);
   if (!break_on_failure || eval_status.success)
   {
-    ComputeNetworkEnergy(inner_tile_area);
+    ComputeNetworkEnergy();
     ComputeSpatialReductionEnergy();
     ComputePerformance();
   }
@@ -299,7 +314,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
 //
 // Compute network energy.
 //
-void LegacyNetwork::ComputeNetworkEnergy(const double inner_tile_area)
+void LegacyNetwork::ComputeNetworkEnergy()
 {
 #define PROBABILISTIC_MULTICAST 0
 #define PRECISE_MULTICAST 1
@@ -313,11 +328,7 @@ void LegacyNetwork::ComputeNetworkEnergy(const double inner_tile_area)
     auto pv = problem::Shape::DataSpaceID(pvi);
 
     double energy_per_hop =
-      WireEnergyPerHop(specs_.word_bits.Get(), inner_tile_area);
-    double energy_wire = specs_.wire_energy.Get();
-    if (energy_wire != 0.0) { // user provided energy per wire length per bit
-      energy_per_hop = specs_.word_bits.Get() * inner_tile_area * energy_wire;
-    }
+      WireEnergyPerHop(specs_.word_bits.Get(), specs_.tile_width.Get(), specs_.wire_energy.Get());
     double energy_per_router = specs_.router_energy.Get();
     
     auto fanout = stats_.distributed_multicast.at(pv) ?
@@ -521,12 +532,19 @@ void LegacyNetwork::Print(std::ostream& out) const
 //
 // PAT interface.
 //
-double LegacyNetwork::WireEnergyPerHop(std::uint64_t word_bits, const double inner_tile_area)
+double LegacyNetwork::WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance,
+                                       double wire_energy_override)
 {
-  // Assuming square modules
-  double inner_tile_width = std::sqrt(inner_tile_area);  // um
-  inner_tile_width /= 1000;                              // mm
-  return pat::WireEnergy(word_bits, inner_tile_width);
+  double hop_distance_mm = hop_distance / 1000;
+  if (wire_energy_override != 0.0)
+  {
+    // Internal wire model using user-provided average wire-energy/b/mm.
+    return word_bits * hop_distance_mm * wire_energy_override;
+  }
+  else
+  {
+    return pat::WireEnergy(word_bits, hop_distance_mm);
+  }
 }
 
 double LegacyNetwork::NumHops(std::uint32_t multicast_factor, std::uint32_t fanout)

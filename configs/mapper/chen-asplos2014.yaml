@@ -1,0 +1,249 @@
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#  * Neither the name of NVIDIA CORPORATION nor the names of its
+#    contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+# OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# ==============================================================================
+# DISCLAIMER: This configuration attempts to reproduce the architecture
+# described in the following publication to the best of our ability:
+#   Tianshi Chen, Zidong Du, Ninghui Sun, Jia Wang, Chengyong Wu, Yunji
+#   Chen, and Olivier Temam. DianNao: A Small-footprint High-throughput
+#   Accelerator for Ubiquitous Machine-learning. In Proceedings of the
+#   International Conference on Architectural Support for Programming
+#   Languages and Operation Systems (ASPLOS), pages 269-284, March
+#   2014.
+#
+# However, due to limitations of the hardware template, the analytical nature
+# of the model, differences in the underlying technology models, and possible
+# deficiencies in our understanding of the architecture, the emitted statistics
+# may or may not be representative of the behavior of the DianNao architecture.
+# Therefore, this sample configuration is only meant to be a pedagogical tool. 
+# 
+#   I. Architecture:
+#       * all data types are 16-bit.
+#       * 256 MACs arranged into a 16x16 array with C-K spatial partition. 
+#         There are 16 adder trees, each is capable of reducing 16 psums (from 
+#         different C) spatially into one each cycle. 
+#       * 16 psum accumulation registers for psums from the 16 adder trees.
+#       * A Weight buffer that can supply 16x16 weights each cycle to the MACs. It 
+#         has a capacity of 64 entries.
+#       * An Input buffer that can supply 16 inputs each cycle to the MACs, each 
+#         input is reused spatially across the K dimension. It has a capacity of 
+#         64 entries.
+#       * An Output buffer that can store 16 psums (or fully accumulated outputs)
+#         each cycle. It also has 64 entries.
+#
+#   II. Loop Nest:
+#       ---
+#       P2
+#       Q2
+#       K2
+#       S2
+#       R2
+#       C2
+#       ---
+#       P0
+#       Q0
+#       K0
+#       ---
+#       S0
+#       R0
+#       C0
+#       ---
+#       K1 (spatial)
+#       C1 (spatial)
+#       ---
+#
+#       * K1 <= 16, C1 <=16.
+#       * each psum is accumulated spatially C1 times, and then C0*R0*S0 times
+#         through the psum registers, and then C2 times through the output buffer.
+#       * K1 psums (or fully accumulated outputs) are generated each cycle, they 
+#         are either stored in the psum registers or the output buffer.
+#       * weight buffer reads C1*K1 weights each cycle, and loops through C0*R0*S0 
+#         (<= 64) different entries sequentially.
+#       * Similarly, input buffer reads C1 inputs each cycle, and loops through 
+#         C0*R0*S0 (<= 64) different entries sequentially. The same 64 entires is
+#         then reused K2 times.
+#       * The output buffer hold K0*P0*Q0 (<= 64) psums.
+#
+#       $$$ in the original loop nest of DianNao, there's no C2, R2 and S2. It 
+#           assumes that C = C0*C1, R0 = R and S0 = S. However, there are many
+#           layers that, under such condition, have C0*R0*S0 larger than 64.
+#           For example, when R = S = 11. Therefore, we've created the additional 
+#           loops of C2, R2 and S2 to make it more flexible while still respecting
+#           the original loop nest.
+#
+#   III. Fidelity issue:
+#       We use 'block-size' to emulate the parallel reads/writes from the 
+#       input and output buffers. However, this creates the problem when K1 
+#       and/or C1 are smaller than 16. Timeloop becomes too optimistic because
+#       it does not have the notion of a block read boundary. The real 
+#       solution is to create parallel input and output buffer instances and use
+#       'cluster-size' instead of 'block-size'. TBD.
+
+# ==============================================================================
+
+architecture:
+  version: 0.2
+
+  subtree:
+    - name: diannao
+      attributes:
+        technology: 40nm
+
+      local:
+        - name       : DRAM
+          class      : DRAM
+          attributes :
+            instances       : 1
+            word-bits       : 16
+        
+        - name       : OutputBuffer
+          class      : SRAM
+          attributes :
+            entries         : 1024  # 64 * 16 = 1024
+            instances       : 1
+            meshX           : 1
+            word-bits       : 16
+            block-size      : 16
+            read_bandwidth  : 16 # words/cycle
+            write_bandwidth : 16 # words/cycle
+
+        - name       : InputBuffer
+          class      : SRAM
+          attributes :
+            entries         : 1024 # 64 * 16 = 1024
+            instances       : 1
+            meshX           : 1
+            word-bits       : 16
+            block-size      : 16
+            read_bandwidth  : 16 # words/cycle
+            write_bandwidth : 16 # words/cycle
+
+        - name       : PsumRegFile
+          class      : regfile
+          attributes :
+            entries         : 1
+            instances       : 16
+            meshX           : 16
+            word-bits       : 16
+            cluster-size    : 16
+            read_bandwidth  : 1  # words/cycle
+            write_bandwidth : 1  # words/cycle
+            
+        - name       : WeightBuffer
+          class      : regfile
+          attributes :
+            entries         : 64
+            instances       : 256
+            meshX           : 16
+            word-bits       : 16
+            cluster-size    : 256
+            read_bandwidth  : 1  # words/cycle
+            write_bandwidth : 1  # words/cycle
+
+        - name       : MACs
+          class      : intmac
+          attributes :            
+            instances       : 256
+            meshX           : 16
+            word-bits       : 16
+
+mapspace:
+  targets:
+    
+    - name : DRAM
+      constraints :
+        - type       : temporal
+          attributes :
+            permutation : CRSKQPN
+
+    - name : OutputBuffer
+      constraints :
+        - type       : bypassing
+          attributes :
+            keep        : [ Outputs ]
+            bypass      : [ Inputs, Weights ]
+        - type       : temporal
+          attributes :
+            factors     : N=1 C=1 R=1 S=1
+            permutation : NCRS KQP
+
+    - name : InputBuffer
+      constraints :
+        - type       : bypassing
+          attributes :
+            keep        : [ Inputs ]
+            bypass      : [ Outputs, Weights ]
+        - type       : temporal
+          attributes :
+            factors     : N=1 K=1 C=1 P=1 Q=1 R=1 S=1
+            permutation : NKCPQRS
+        - type       : spatial
+          attributes :
+            factors     : N=1 C=1 P=1 Q=1 R=1 S=1 K=16
+            permutation : K NCPQRS
+            split       : 1
+        
+    - name : PsumRegFile
+      constraints :
+        - type       : bypassing
+          attributes :
+            keep        : [ Outputs ]
+            bypass      : [ Inputs, Weights ]
+        - type       : temporal
+          attributes :
+            factors     : N=1 K=1 C=1 P=1 Q=1 R=1 S=1
+            permutation : NKCPQRS
+        - type       : spatial
+          attributes :
+            factors     : N=1 K=1 P=1 Q=1 R=1 S=1 C=16
+            permutation : C NKPQRS
+            split       : 0
+    
+    - name : WeightBuffer
+      constraints :
+        - type       : bypassing
+          attributes :
+            keep        : [ Weights ]
+            bypass      : [ Inputs, Outputs ]
+        - type       : temporal
+          attributes :
+            factors     : N=1 K=1 P=1 Q=1
+            permutation : NKPQ CR
+
+mapper:
+  live-status : True
+
+problem:
+  R       : 3
+  S       : 3
+  P       : 16
+  Q       : 16
+  C       : 128
+  K       : 128
+  N       : 1
+  Wstride : 1
+  Hstride : 1
+

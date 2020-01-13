@@ -72,6 +72,12 @@ class ArithmeticUnits : public Level
         ar& BOOST_SERIALIZATION_NVP(word_bits);
       }
     }
+
+   public:
+    std::shared_ptr<LevelSpecs> Clone() const override
+    {
+      return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
+    }
   };
   
  private:
@@ -110,6 +116,11 @@ class ArithmeticUnits : public Level
   ArithmeticUnits(const Specs & specs);
   ~ArithmeticUnits() { }
   
+  std::shared_ptr<Level> Clone() const override
+  {
+    return std::static_pointer_cast<Level>(std::make_shared<ArithmeticUnits>(*this));
+  }
+
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.

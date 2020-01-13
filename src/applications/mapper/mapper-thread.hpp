@@ -29,44 +29,38 @@
 
 extern bool gTerminate;
 
-struct EvaluationResult
-{
-  Mapping mapping;
-  model::Engine engine;
-};
-
 enum class Betterness
 {
   Better,
-    SlightlyBetter,
-    SlightlyWorse,
-    Worse
-    };
+  SlightlyBetter,
+  SlightlyWorse,
+  Worse
+};
   
-static double Cost(const model::Engine& engine, const std::string metric)
+static double Cost(const model::Topology::Stats& stats, const std::string metric)
 {
   if (metric == "delay")
   {
-    return static_cast<double>(engine.Cycles());
+    return static_cast<double>(stats.cycles);
   }
   else if (metric == "energy")
   {
-    return engine.Energy();
+    return stats.energy;
   }
   else if (metric == "last-level-accesses")
   {
-    return engine.GetTopology().LastLevelAccesses();
+    return stats.last_level_accesses;
   }
   else
   {
     assert(metric == "edp");
-    return (engine.Energy() * engine.Cycles());
+    return (stats.energy * stats.cycles);
   }
 }
 
-static Betterness IsBetterRecursive_(const model::Engine& candidate, const model::Engine& incumbent,
-                                     const std::vector<std::string>::iterator metric,
-                                     const std::vector<std::string>::iterator end)
+static Betterness IsBetterRecursive_(const model::Topology::Stats& candidate, const model::Topology::Stats& incumbent,
+                                     const std::vector<std::string>::const_iterator metric,
+                                     const std::vector<std::string>::const_iterator end)
 {
   const double tolerance = 0.001;
 
@@ -110,19 +104,40 @@ static Betterness IsBetterRecursive_(const model::Engine& candidate, const model
   }
 }
 
-static inline bool IsBetter(const model::Engine& candidate, const model::Engine& incumbent,
-                            std::vector<std::string> metrics)
+static inline bool IsBetter(const model::Topology::Stats& candidate, const model::Topology::Stats& incumbent,
+                            const std::vector<std::string>& metrics)
 {
   Betterness b = IsBetterRecursive_(candidate, incumbent, metrics.begin(), metrics.end());
   return (b == Betterness::Better || b == Betterness::SlightlyBetter);
 }
 
-static inline bool IsBetter(const model::Engine& candidate, const model::Engine& incumbent,
-                            const std::string metric)
+static inline bool IsBetter(const model::Topology::Stats& candidate, const model::Topology::Stats& incumbent,
+                            const std::string& metric)
 {
   std::vector<std::string> metrics = { metric };
   return IsBetter(candidate, incumbent, metrics);
 }
+
+struct EvaluationResult
+{
+  bool valid = false;
+  Mapping mapping;
+  model::Topology::Stats stats;
+
+  bool UpdateIfBetter(const EvaluationResult& other, const std::vector<std::string>& metrics)
+  {
+    bool updated = false;
+    if (!valid ||
+        (other.valid && IsBetter(other.stats, stats, metrics)))
+    {
+      valid = true;
+      mapping = other.mapping;
+      stats = other.stats;
+      updated = true;
+    }
+    return updated;
+  }
+};
 
 //--------------------------------------------//
 //               Mapper Thread                //
@@ -154,7 +169,7 @@ class MapperThread
   std::thread thread_;
   EvaluationResult thread_best_;
   std::vector<uint128_t> invalid_eval_counts_;
-  std::vector<EvaluationResult> invalid_eval_sample_results_;
+  std::vector<Mapping> invalid_eval_sample_mappings_;
 
  public:
   MapperThread(
@@ -195,7 +210,7 @@ class MapperThread
       best_(best),
       thread_(),
       invalid_eval_counts_(arch_specs_.topology.NumLevels(), 0),
-      invalid_eval_sample_results_(arch_specs_.topology.NumLevels())
+      invalid_eval_sample_mappings_(arch_specs_.topology.NumLevels())
   {
   }
 
@@ -210,14 +225,9 @@ class MapperThread
     thread_.join();
   }
 
-  Mapping& BestMapping()
+  EvaluationResult& BestResult()
   {
-    return thread_best_.mapping;
-  }
-
-  model::Engine& BestMappedEngine()
-  {
-    return thread_best_.engine;
+    return thread_best_;
   }
 
   std::vector<uint128_t>& InvalidEvalCounts()
@@ -225,9 +235,9 @@ class MapperThread
     return invalid_eval_counts_;
   }
 
-  std::vector<EvaluationResult>& InvalidEvalSampleResults()
+  std::vector<Mapping>& InvalidEvalSampleMappings()
   {
-    return invalid_eval_sample_results_;
+    return invalid_eval_sample_mappings_;
   }
 
   void Run()
@@ -241,6 +251,7 @@ class MapperThread
     const int ncurses_line_offset = 6;
       
     model::Engine engine;
+    engine.Spec(arch_specs_);
 
     // =================
     // Main mapper loop.
@@ -258,9 +269,9 @@ class MapperThread
 
         if (valid_mappings > 0)
         {
-          msg << std::setw(10) << std::fixed << std::setprecision(2) << (thread_best_.engine.Utilization() * 100) << "%"
-              << std::setw(11) << std::fixed << std::setprecision(3) << thread_best_.engine.Energy() /
-            thread_best_.engine.GetTopology().MACCs();
+          msg << std::setw(10) << std::fixed << std::setprecision(2) << (thread_best_.stats.utilization * 100) << "%"
+              << std::setw(11) << std::fixed << std::setprecision(3) << thread_best_.stats.energy /
+            thread_best_.stats.maccs;
         }
 
         mutex_->lock();
@@ -348,24 +359,18 @@ class MapperThread
           
         // Sync from global best to thread_best.
         bool global_pulled = false;
-        if (best_->engine.IsSpecced())
+        if (best_->valid)
         {
-          if (!thread_best_.engine.IsSpecced() || IsBetter(best_->engine, thread_best_.engine, optimization_metrics_))
+          if (thread_best_.UpdateIfBetter(*best_, optimization_metrics_))
           {
-            thread_best_.mapping = best_->mapping;
-            thread_best_.engine = best_->engine;
             global_pulled = true;
           }
         }
 
         // Sync from thread_best to global best.
-        if (thread_best_.engine.IsSpecced() && !global_pulled)
+        if (thread_best_.valid && !global_pulled)
         {
-          if (!best_->engine.IsSpecced() || IsBetter(thread_best_.engine, best_->engine, optimization_metrics_))
-          {
-            best_->mapping = thread_best_.mapping;
-            best_->engine = thread_best_.engine;
-          }            
+          best_->UpdateIfBetter(thread_best_, optimization_metrics_);
         }
           
         mutex_->unlock();
@@ -396,7 +401,7 @@ class MapperThread
       // Stage 2: (Re)Configure a hardware model to evaluate the mapping
       //          on, and run some lightweight pre-checks that the
       //          model can use to quickly reject a nest.
-      engine.Spec(arch_specs_);
+      //engine.Spec(arch_specs_);
       status_per_level = engine.PreEvaluationCheck(mapping, workload_, !diagnostics_on_);
       success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                  [](bool cur, const model::EvalStatus& status)
@@ -413,7 +418,7 @@ class MapperThread
             {
               // Collect 1 sample failed mapping per level.
               if (invalid_eval_counts_.at(level) == 0)
-                invalid_eval_sample_results_.at(level) = { mapping, engine };
+                invalid_eval_sample_mappings_.at(level) = mapping;
               invalid_eval_counts_.at(level)++;
             }
           }
@@ -438,7 +443,7 @@ class MapperThread
             {
               // Collect 1 sample failed mapping per level.
               if (invalid_eval_counts_.at(level) == 0)
-                invalid_eval_sample_results_.at(level) = { mapping, engine };
+                invalid_eval_sample_mappings_.at(level) = mapping;
               invalid_eval_counts_.at(level)++;
             }
           }
@@ -448,6 +453,9 @@ class MapperThread
       }
 
       // SUCCESS!!!
+      auto stats = engine.GetTopology().GetStats();
+      EvaluationResult result = { true, mapping, stats };
+
       valid_mappings++;
       if (log_stats_)
       {
@@ -458,43 +466,40 @@ class MapperThread
       }        
       invalid_mappings_mapcnstr = 0;
       invalid_mappings_eval = 0;
-      search_->Report(search::Status::Success, Cost(engine, optimization_metrics_.at(0)));
+      search_->Report(search::Status::Success, Cost(stats, optimization_metrics_.at(0)));
 
       if (log_suboptimal_)
       {
         mutex_->lock();
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                    << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
-                    << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-          engine.GetTopology().MACCs() << std::endl;
+                    << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
+                    << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy /
+          stats.maccs << std::endl;
         mutex_->unlock();
       }
 
       // Is the new mapping "better" than the previous best mapping?
-      if (!thread_best_.engine.IsSpecced() || IsBetter(engine, thread_best_.engine, optimization_metrics_))
+      if (thread_best_.UpdateIfBetter(result, optimization_metrics_))
       {
         if (log_stats_)
         {
           // FIXME: improvement only captures the primary stat.
-          double improvement = thread_best_.engine.IsSpecced() ?
-            (Cost(thread_best_.engine, optimization_metrics_.at(0)) - Cost(engine, optimization_metrics_.at(0))) /
-            Cost(thread_best_.engine, optimization_metrics_.at(0)) : 1.0;
+          double improvement = thread_best_.valid ?
+            (Cost(thread_best_.stats, optimization_metrics_.at(0)) - Cost(stats, optimization_metrics_.at(0))) /
+            Cost(thread_best_.stats, optimization_metrics_.at(0)) : 1.0;
           mutex_->lock();
           log_stream_ << "[" << thread_id_ << "] UPDATE " << total_mappings << " " << valid_mappings
                       << " " << mappings_since_last_best_update << " " << improvement << std::endl;
           mutex_->unlock();
         }
-          
-        thread_best_.mapping = mapping;
-        thread_best_.engine = engine;
-          
+        
         if (!log_suboptimal_)
         {
           mutex_->lock();
           log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                      << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
-                      << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-            engine.GetTopology().MACCs() << std::endl;
+                      << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
+                      << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy /
+            stats.maccs << std::endl;
           mutex_->unlock();
         }
 

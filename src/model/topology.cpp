@@ -214,7 +214,7 @@ std::shared_ptr<NetworkSpecs> Topology::Specs::GetNetwork(unsigned network_id) c
 //                  Topology                  //
 //--------------------------------------------//
 
-std::ostream& operator<<(std::ostream& out, const Topology& topology)
+std::ostream& operator << (std::ostream& out, const Topology& topology)
 {
   // Save ios format state.
   std::ios state(NULL);
@@ -263,9 +263,9 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
 
   if (topology.is_evaluated_)
   {
-    out << "Total topology energy: " << topology.Energy() << " pJ" << std::endl;
-    out << "Total topology area: " << topology.Area() << " um^2" << std::endl;
-    out << "Max topology cycles: " << topology.Cycles() << std::endl;
+    out << "Total topology energy: " << topology.stats_.energy << " pJ" << std::endl;
+    out << "Total topology area: " << topology.stats_.area << " um^2" << std::endl;
+    out << "Max topology cycles: " << topology.stats_.cycles << std::endl;
   }
 
   out << std::endl;
@@ -278,16 +278,16 @@ std::ostream& operator<<(std::ostream& out, const Topology& topology)
     
   if (topology.is_evaluated_)
   {
-    out << "Utilization: " << topology.Utilization() << std::endl;
-    out << "Cycles: " << topology.Cycles() << std::endl;
-    out << "Energy: " << topology.Energy() / 1000000 << " uJ" << std::endl;
+    out << "Utilization: " << topology.stats_.utilization << std::endl;
+    out << "Cycles: " << topology.stats_.cycles << std::endl;
+    out << "Energy: " << topology.stats_.energy / 1000000 << " uJ" << std::endl;
   }
-  out << "Area: " << topology.Area() / 1000000 << " mm^2" << std::endl;
+  out << "Area: " << topology.stats_.area / 1000000 << " mm^2" << std::endl;
   out << std::endl;
 
   if (topology.is_evaluated_)
   {
-    auto num_maccs = topology.MACCs();
+    auto num_maccs = topology.stats_.maccs;
     out << "MACCs = " << num_maccs << std::endl;
     out << "pJ/MACC" << std::endl;
 
@@ -574,6 +574,17 @@ void Topology::Spec(const Topology::Specs& specs)
   is_specced_ = true;
 
   FloorPlan();
+
+  // Compute area at spec-time (instead of at eval-time).
+  // FIXME: area is being stored as a stat here, while it is stored as a spec
+  // in individual modules. We need to be consistent.
+  double area = 0;
+  for (auto level : levels_)
+  {
+    assert(level->Area() >= 0);
+    area += level->Area();
+  }
+  stats_.area = area;
 }
 
 // The hierarchical ParseSpecs functions are static and do not
@@ -896,13 +907,17 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   }
 
   if (success_accum)
+  {
     is_evaluated_ = true;
+    ComputeStats();
+  }
 
   return eval_status;
 }
 
-double Topology::Energy() const
+void Topology::ComputeStats()
 {
+  // Energy.
   double energy = 0;
   for (auto level : levels_)
   {
@@ -910,10 +925,6 @@ double Topology::Energy() const
     energy += level->Energy();
   }
 
-  // for (unsigned i = 1 /*note*/; i < NumLevels(); i++)
-  // {
-  //   energy += std::static_pointer_cast<BufferLevel>(GetLevel(i))->network_.Energy();    
-  // }
   for (auto& network: networks_)
   {
     //poan: users might add a network to the arch but never connect/use it
@@ -923,55 +934,35 @@ double Topology::Energy() const
     energy += e;
   }
 
-  return energy;
-}
+  stats_.energy = energy;
 
-double Topology::Area() const
-{
-  double area = 0;
-  for (auto level : levels_)
-  {
-    assert(level->Area() >= 0);
-    area += level->Area();
-  }
-  return area;
-}
-
-std::uint64_t Topology::Cycles() const
-{
+  // Cycles.
   std::uint64_t cycles = 0;
   for (auto level : levels_)
   {
     cycles = std::max(cycles, level->Cycles());
   }
-  return cycles;
-}
+  stats_.cycles = cycles;
 
-double Topology::Utilization() const
-{
+  // Utilization.
   // FIXME.
-  return (GetArithmeticLevel()->IdealCycles() / Cycles());
-}
+  stats_.utilization = GetArithmeticLevel()->IdealCycles() / stats_.cycles;
 
-std::vector<problem::PerDataSpace<std::uint64_t>> Topology::TileSizes() const
-{
-  std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
+  // Tile sizes.
+  stats_.tile_sizes.clear();
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
-    problem::PerDataSpace<std::uint64_t> uc;
+    problem::PerDataSpace<std::uint64_t> ts;
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
-      uc[pv] = GetStorageLevel(storage_level_id)->UtilizedCapacity(pv);
+      ts[pv] = GetStorageLevel(storage_level_id)->UtilizedCapacity(pv);
     }
-    tile_sizes.push_back(uc);
+    stats_.tile_sizes.push_back(ts);
   }
-  return tile_sizes;
-}
 
-std::vector<problem::PerDataSpace<std::uint64_t>> Topology::UtilizedInstances() const
-{
-  std::vector<problem::PerDataSpace<std::uint64_t>> utilized_instances;
+  // Utilized instances.
+  stats_.utilized_instances.clear();
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     problem::PerDataSpace<std::uint64_t> uc;
@@ -980,21 +971,19 @@ std::vector<problem::PerDataSpace<std::uint64_t>> Topology::UtilizedInstances() 
       auto pv = problem::Shape::DataSpaceID(pvi);
       uc[pv] = GetStorageLevel(storage_level_id)->UtilizedInstances(pv);
     }
-    utilized_instances.push_back(uc);
+    stats_.utilized_instances.push_back(uc);
   }
-  return utilized_instances;
+
+  // MACCs.
+  stats_.maccs = GetArithmeticLevel()->MACCs();
+
+  // Last-level accesses.
+  stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses();
 }
 
-std::uint64_t Topology::MACCs() const
-{
-  return GetArithmeticLevel()->MACCs();
-}
-
-std::uint64_t Topology::LastLevelAccesses() const
-{
-  return GetStorageLevel(NumStorageLevels()-1)->Accesses();
-}
-
+//
+// Floorplanner.
+//
 void Topology::FloorPlan()
 {
   // Area of all the compute + buffer elements in inner levels
@@ -1002,6 +991,7 @@ void Topology::FloorPlan()
   double cur_tile_area = 0;
   std::uint64_t inner_instances = 0;
 
+  // Compute the area of each hierarchical tile.
   for (unsigned i = 0; i < NumLevels(); i++)
   {
     unsigned fanout;
@@ -1022,6 +1012,16 @@ void Topology::FloorPlan()
     cur_tile_area = GetLevel(i)->AreaPerInstance() + (cur_tile_area * fanout);
     tile_area_[i] = cur_tile_area;
   }
+
+  // Tell each network the width of each hop's tile.
+  for (unsigned i = 1; i < NumLevels(); i++)
+  {
+    auto level = GetLevel(i);
+    auto storage_level = std::static_pointer_cast<BufferLevel>(level);
+    auto network = storage_level->GetReadNetwork();
+    double inner_tile_width = sqrt(tile_area_.at(i-1));
+    network->SetTileWidth(inner_tile_width);
+  }  
 }
 
 bool isBufferClass(std::string className)

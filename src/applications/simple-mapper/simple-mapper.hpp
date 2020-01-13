@@ -76,9 +76,26 @@ class Application
     }
 #endif
 
-    // MapSpace configuration.
-    auto mapspace = rootNode.lookup("mapspace_constraints");
-    mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);      
+  
+
+       // MapSpace configuration.
+    if (rootNode.exists("mapspace"))
+    {
+      auto mapspace = rootNode.lookup("mapspace");
+      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
+    }
+    else if (rootNode.exists("mapspace_constraints"))
+    {
+      auto mapspace = rootNode.lookup("mapspace_constraints");
+      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);      
+    }
+    else
+    {
+      std::cerr << "ERROR: found neither \"mapspace\" nor \"mapspace_constraints\" "
+                << "directive. To run the mapper without any constraints set "
+                << "mapspace_constraints as an empty list []." << std::endl;
+      exit(1);
+    }
   }
 
   ~Application()
@@ -135,7 +152,7 @@ class Application
             }
 
             // Configure the model and evaluate the mapping.
-            engine.Spec(arch_specs_);
+            //engine.Spec(arch_specs_);
             auto status_per_level = engine.Evaluate(mapping, workload_);
             success = std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                       [](bool cur, const model::EvalStatus& status)

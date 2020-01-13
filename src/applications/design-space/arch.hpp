@@ -166,8 +166,21 @@ class ArchSpace
   ArchSpace(std::string n) : name_(n) {}
 
   
-  void InitializeFromFileList(YAML::Node list_yaml)
+  void InitializeFromFile(std::string filename)
   {    
+    std::ifstream fin;
+    fin.open(filename);
+    YAML::Node filecontents = YAML::Load(fin);
+
+    ArchSpaceNode new_arch = ArchSpaceNode(filename, filecontents);
+    architectures_.push_back(new_arch);
+  }
+
+
+  void InitializeFromFileList(YAML::Node list_yaml)
+  {  
+    std::cout << "Initializing Architectures from list "  << std::endl;
+
     //traverse list, create new nodes and push_back
     for (std::size_t i = 0; i < list_yaml.size(); i++)
     {
@@ -176,6 +189,7 @@ class ArchSpace
       std::ifstream fin;
       fin.open(filename);
       YAML::Node filecontents = YAML::Load(fin);
+      std::cout << "  Using arch file: " << filename  << std::endl;
 
       ArchSpaceNode new_arch = ArchSpaceNode(filename, filecontents);
       architectures_.push_back(new_arch);
@@ -184,7 +198,7 @@ class ArchSpace
 
   void InitializeFromFileSweep(YAML::Node sweep_yaml)
   {
-    std::cout << "Reading arch sweep parameters"  << std::endl;
+    std::cout << "  Reading arch sweep parameters"  << std::endl;
     std::string base_yaml_filename = sweep_yaml["arch-spec"].as<std::string>();
 
     //get list of arch variables that change

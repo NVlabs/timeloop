@@ -54,8 +54,13 @@ class LegacyNetwork : public Network
     std::string type;
     std::string legacy_subtype;
     Attribute<std::uint64_t> word_bits;
+
+    // Physical attributes.
     Attribute<double> router_energy;
     Attribute<double> wire_energy;
+
+    // Post-floorplanning physical attributes.
+    Attribute<double> tile_width; // um
 
     const std::string Type() const override { return type; }
 
@@ -71,8 +76,16 @@ class LegacyNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(word_bits);
         ar& BOOST_SERIALIZATION_NVP(router_energy);
         ar& BOOST_SERIALIZATION_NVP(wire_energy);
+        ar& BOOST_SERIALIZATION_NVP(tile_width);
       }
     }
+
+   public:
+    std::shared_ptr<NetworkSpecs> Clone() const override
+    {
+      return std::static_pointer_cast<NetworkSpecs>(std::make_shared<Specs>(*this));
+    }
+
   }; // struct Specs
 
   struct Stats
@@ -154,6 +167,11 @@ class LegacyNetwork : public Network
   LegacyNetwork(const Specs& specs);
   ~LegacyNetwork();
 
+  std::shared_ptr<Network> Clone() const override
+  {
+    return std::static_pointer_cast<Network>(std::make_shared<LegacyNetwork>(*this));
+  }
+
   static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements);
 
   void ConnectSource(std::weak_ptr<Level> source);
@@ -162,13 +180,15 @@ class LegacyNetwork : public Network
   std::string Name() const;
   bool DistributedMulticastSupported() const;
 
+  // Floorplanner interface.
+  void SetTileWidth(double width_um);
+
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                      const double inner_tile_area,
                       const bool break_on_failure,
                       const bool reduction = false);
 
   EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const bool break_on_failure);
-  void ComputeNetworkEnergy(const double inner_tile_area);
+  void ComputeNetworkEnergy();
   void ComputeSpatialReductionEnergy();
   void ComputePerformance();
 
@@ -176,7 +196,8 @@ class LegacyNetwork : public Network
 
   void Print(std::ostream& out) const;
 
-  static double WireEnergyPerHop(std::uint64_t word_bits, const double inner_tile_area);
+  // PAT interface.
+  static double WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance, double wire_energy_override);
   static double NumHops(std::uint32_t multicast_factor, std::uint32_t fanout);
 
   STAT_ACCESSOR_HEADER(double, NetworkEnergy);

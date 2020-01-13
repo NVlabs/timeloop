@@ -44,6 +44,8 @@ struct NetworkSpecs
 {
   virtual ~NetworkSpecs() { }
 
+  virtual std::shared_ptr<NetworkSpecs> Clone() const = 0;
+
   virtual const std::string Type() const = 0;
 
   std::string name = "UNSET";
@@ -72,6 +74,8 @@ class Network : public Module
  public:
   virtual ~Network() { }
 
+  virtual std::shared_ptr<Network> Clone() const = 0;
+
   virtual void ConnectSource(std::weak_ptr<Level> source) = 0;
   virtual void ConnectSink(std::weak_ptr<Level> sink) = 0;
   virtual void SetName(std::string name) = 0;
@@ -81,8 +85,11 @@ class Network : public Module
 
   virtual std::string Name() const = 0;
   virtual bool DistributedMulticastSupported() const = 0;
+
+  // Floorplanner interface.
+  virtual void SetTileWidth(double width_um) = 0;
+
   virtual EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                              const double inner_tile_area,
                               const bool break_on_failure,
                               const bool reduction = false) = 0;
 

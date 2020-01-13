@@ -29,6 +29,7 @@
 
 #include <fstream>
 #include <iomanip>
+#include <algorithm>
 
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/array.hpp>
@@ -87,7 +88,7 @@ class Application
       pspec_space.InitializeFromFileList(list);
     }
     else {
-      assert(0 && "Failed to find problem-space-files in YAML");
+      pspec_space.InitializeFromFile(problemspec_filename_);      
     }
 
     //read in the arch spec space file as YAML, decide type of space we have:
@@ -108,39 +109,53 @@ class Application
       aspec_space.InitializeFromFileSweep(sweep);
     }
     else {
-      assert(0 && "Failed to find problem-space-files in YAML");
+      aspec_space.InitializeFromFile(archspec_filename_);      
     }
+
+    
+    std::cout << "*** total arch: " << aspec_space.GetSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
 
     std::cout << "****** SOLVING ******" << std::endl;        
     //main loop, do the full product of problems x arches
-    for (int arch_id = 0; arch_id < 1; /*aspec_space.GetSize(); */ arch_id ++)
+    for (int arch_id = 0; arch_id < aspec_space.GetSize(); arch_id ++)
     {
       //retrieved via reference
       ArchSpaceNode curr_arch = aspec_space.GetNode(arch_id);
-      for (int problem_id = 0; problem_id < 1; /*pspec_space.GetSize();*/ problem_id ++)
+
+      std::cout << "*** working on arch : " << curr_arch.name_ << "  " << arch_id << std::endl;        
+
+      for (int problem_id = 0; problem_id < pspec_space.GetSize(); problem_id ++)
       {
         //retrieved via reference
         ProblemSpaceNode curr_problem = pspec_space.GetNode(problem_id);
         
         // use problem and arch to run a mapper
         std::string config_name = curr_arch.name_ + "--" + curr_problem.name_;
+        std::cout << "*** working on config : " << config_name << std::endl;        
+        replace(config_name.begin(),config_name.end(),'/', '.'); 
         CompoundConfigNode arch = CompoundConfigNode(nullptr, YAML::Clone(curr_arch.yaml_));
         CompoundConfigNode problem = CompoundConfigNode(nullptr, YAML::Clone(curr_problem.yaml_));
-        std::cout << "arch yaml: \n" << curr_arch.yaml_ << std::endl;
-        Mapper mapper = Mapper(config_name, arch, problem);
-        mapper.Run();
+        //std::cout << "arch yaml: \n" << curr_arch.yaml_ << std::endl;
+        Mapper mapper(config_name, arch, problem);
         //SimpleMapper mapper = SimpleMapper(config_name, arch, problem);
+        mapper.Run();
         designs_.push_back(mapper.GetResults());
+    std::cout << "*** total arch: " << aspec_space.GetSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
         
       }
     }
 
-    std::cout << "instance size" << sizeof(MapResult) << std::endl;
+    
+
+    std::string result_filename =  archspec_filename_ + problemspec_filename_ + ".txt";
+    replace(result_filename.begin(),result_filename.end(),'/', '.'); 
+    std::ofstream result_txt_file("results/" + result_filename);
     //print final results
     for (size_t i = 0; i < designs_.size(); i++)
     {
-      designs_[i].PrintResults();
+      designs_[i].PrintResults(result_txt_file);
     }
+    result_txt_file.close();
 
   }
 };

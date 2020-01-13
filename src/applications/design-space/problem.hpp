@@ -57,6 +57,16 @@ class ProblemSpace
   ProblemSpace(std::string n) : name_(n) {}
 
   
+  void InitializeFromFile(std::string filename)
+  {    
+    std::ifstream fin;
+    fin.open(filename);
+    YAML::Node filecontents = YAML::Load(fin);
+
+    ProblemSpaceNode new_problem = ProblemSpaceNode(filename, filecontents);
+    problems_.push_back(new_problem);
+  }
+
   void InitializeFromFileList(YAML::Node list_yaml)
   {    
     //traverse list, create new nodes and push_back
