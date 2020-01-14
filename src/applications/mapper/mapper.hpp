@@ -406,6 +406,8 @@ class Application
         model::Engine engine;
         engine.Spec(arch_specs_);
         engine.Evaluate(mapping, workload_, false);
+        std::cout << "num storage levels = " << arch_specs_.topology.StorageLevelNames().size() << std::endl;
+        std::cout << "num tile sizes = " << engine.GetTopology().GetStats().tile_sizes.size() << std::endl;
         mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
                             engine.GetTopology().GetStats().tile_sizes);
       }

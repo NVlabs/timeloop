@@ -904,10 +904,14 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     success_accum &= s.success;
   }
 
+  if (!break_on_failure || success_accum)
+  {
+    ComputeStats();
+  }
+
   if (success_accum)
   {
     is_evaluated_ = true;
-    ComputeStats();
   }
 
   return eval_status;
