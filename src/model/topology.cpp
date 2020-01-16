@@ -43,11 +43,42 @@ namespace model
 void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
 {
   // std::cout << "Replacing energy numbers..." << std::endl;
-  std::vector<std::string> keys;
   assert(ert.exists("tables"));
-  auto table = ert.lookup("tables");
+  assert(ert.exists("version"));  
+  double ertVersion;
+  // check the version of the ERT
+  ert.lookupValue("version", ertVersion);
+  config::CompoundConfigNode formattedErt;
+  if (ertVersion == 0.2) {
+    // no additional formatting needed
+    formattedErt = ert;
+  } else if (ertVersion == 0.3) {
+    auto table = ert.lookup("tables");
+    assert(table.isList());
+    YAML::Node root;
+    std::string componentName;
+    std::string actionName;
+    config::CompoundConfigNode componentActionList;
+    for(int i = 0; i < table.getLength(); i++){
+      assert(table[i].exists("name"));
+      assert(table[i].exists("actions"));
+      table[i].lookupValue("name", componentName);
+      componentActionList = table[i].lookup("actions");
+      for (int i = 0; i < componentActionList.getLength(); i++){
+        assert(componentActionList[i].exists("name"));
+        componentActionList[i].lookupValue("name", actionName);
+        root["tables"][componentName][actionName].push_back(componentActionList[i].getYNode());
+      }
+    }
+    formattedErt = config::CompoundConfigNode(nullptr, root);
+  } else {
+    std::cout << "Invalid Accelergy ERT version: " << ertVersion << std::endl;
+    assert(false);
+  }
+  // parsing 
+  std::vector<std::string> keys;
+  auto table = formattedErt.lookup("tables");
   table.getMapKeys(keys);
-
   for (auto key : keys) {
     auto componentERT = table.lookup(key);
     auto pos = key.rfind(".");
@@ -906,10 +937,14 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     success_accum &= s.success;
   }
 
+  if (!break_on_failure || success_accum)
+  {
+    ComputeStats();
+  }
+
   if (success_accum)
   {
     is_evaluated_ = true;
-    ComputeStats();
   }
 
   return eval_status;

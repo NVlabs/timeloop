@@ -45,14 +45,16 @@
 namespace model
 {
 
-static std::string bufferClasses[4] = { "DRAM",
+static std::string bufferClasses[5] = { "DRAM",
                                         "SRAM",
                                         "regfile",
-                                        "smartbuffer"};
+                                        "smartbuffer",
+                                        "storage"};
 
-static std::string computeClasses[3] = { "mac",
+static std::string computeClasses[4] = { "mac",
                                          "intmac",
-                                         "fpmac" };
+                                         "fpmac",
+                                         "compute" };
 
 // FIXME: derive these from a statically-instantiated list of class names that
 // are auto-populated by each Network class at program init time.
