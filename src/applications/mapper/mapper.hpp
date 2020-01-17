@@ -457,7 +457,7 @@ class Application
       engine.Evaluate(global_best_.mapping, workload_);
 
       std::ofstream stats_file(stats_file_name);
-      stats_file << engine << std::endl; // <------------ HERE.
+      stats_file << engine << std::endl;
       stats_file.close();
 
       if (emit_whoop_nest_)
