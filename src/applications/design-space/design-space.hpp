@@ -41,16 +41,40 @@
 #include "problem.hpp"
 #include "arch.hpp"
 //#include "simple-mapper.hpp"
-#include "mapper.hpp"
+#include "../mapper/mapper.hpp"
 #include <vector>
 
 using namespace config;
+
+struct PointResult
+{
+  std::string config_name_;
+  //Mapping best_mapping_; can't be used due to bug
+  EvaluationResult result_;
+  
+  PointResult(std::string name, EvaluationResult result) : config_name_(name), result_(result) {}
+  
+  void PrintEvaluationResultsHeader(std::ostream& out)
+  {
+      out << "Summary stats for best mapping found by mapper:" << std::endl; 
+      out << "config_name, MACCs, utilization, pj/MACC" << std::endl;
+  }
+
+  void PrintEvaluationResult(std::ostream& out)
+  {
+      out << config_name_ ; 
+      out << ", " << result_.stats.maccs;
+      out << ", " << std::setw(4) << std::fixed << std::setprecision(2) << result_.stats.utilization;
+      out << ", " << std::setw(8) << std::fixed << std::setprecision(3) << result_.stats.energy / result_.stats.maccs << std::endl;
+  }
+
+};
 
 //--------------------------------------------//
 //                Application                 //
 //--------------------------------------------//
 
-class Application
+class DesignSpaceExplorer
 {
  protected:
 
@@ -58,15 +82,17 @@ class Application
   std::string problemspec_filename_;
   std::string archspec_filename_;
 
-  std::vector<MapResult> designs_;
+  std::vector<PointResult> designs_;
+  std::vector<Application*> mappers_;
 
  public:
 
-  Application(std::string problemfile, std::string archfile)
+  DesignSpaceExplorer(std::string problemfile, std::string archfile)
   {
     problemspec_filename_ = problemfile;
     archspec_filename_ = archfile;
   }
+
 
   // ---------------
   // Run the design space exploration.
@@ -133,13 +159,26 @@ class Application
         std::string config_name = curr_arch.name_ + "--" + curr_problem.name_;
         std::cout << "*** working on config : " << config_name << std::endl;        
         replace(config_name.begin(),config_name.end(),'/', '.'); 
-        CompoundConfigNode arch = CompoundConfigNode(nullptr, YAML::Clone(curr_arch.yaml_));
-        CompoundConfigNode problem = CompoundConfigNode(nullptr, YAML::Clone(curr_problem.yaml_));
+
+        std::string file_name = "results/" + config_name;
+
+        //output the two yaml to a single file
+        //CompoundConfigNode arch = CompoundConfigNode(nullptr, YAML::Clone(curr_arch.yaml_));
+        //CompoundConfigNode problem = CompoundConfigNode(nullptr, YAML::Clone(curr_problem.yaml_));
+        std::ofstream combined_yaml_file("temp_dse.yaml");
+        combined_yaml_file << curr_arch.yaml_ << std::endl; // <------------ HERE.
+        combined_yaml_file << curr_problem.yaml_ << std::endl; // <------------ HERE.
+        combined_yaml_file.close();
+        //pull tempfile into a compound config
+        config::CompoundConfig config("temp_dse.yaml");
+
         //std::cout << "arch yaml: \n" << curr_arch.yaml_ << std::endl;
-        Mapper mapper(config_name, arch, problem);
+        Application* mapper = new Application(&config, file_name);
         //SimpleMapper mapper = SimpleMapper(config_name, arch, problem);
-        mapper.Run();
-        designs_.push_back(mapper.GetResults());
+        mapper->Run();
+        PointResult result(mapper->name_, mapper->GetGlobalBest());
+        mappers_.push_back(mapper);
+        designs_.push_back(result);
     std::cout << "*** total arch: " << aspec_space.GetSize() << "   total prob: " << pspec_space.GetSize() << std::endl;        
         
       }
@@ -147,15 +186,18 @@ class Application
 
     
 
-    std::string result_filename =  archspec_filename_ + problemspec_filename_ + ".txt";
+    std::string result_filename =  "overview_" + archspec_filename_ + problemspec_filename_ + ".txt";
     replace(result_filename.begin(),result_filename.end(),'/', '.'); 
     std::ofstream result_txt_file("results/" + result_filename);
     //print final results
+    designs_[0].PrintEvaluationResultsHeader(result_txt_file);
     for (size_t i = 0; i < designs_.size(); i++)
     {
-      designs_[i].PrintResults(result_txt_file);
+      designs_[i].PrintEvaluationResult(result_txt_file);
     }
     result_txt_file.close();
 
   }
+
+
 };
