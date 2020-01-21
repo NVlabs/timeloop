@@ -131,7 +131,7 @@ bool ReductionTreeNetwork::DistributedMulticastSupported() const
 void ReductionTreeNetwork::SetTileWidth(double width_um)
 {
   // Only set this if user didn't specify a pre-floorplanned tile width.
-  if (specs_.tile_width.Get() == 0.0)
+  if (!specs_.tile_width.IsSpecified() || specs_.tile_width.Get() == 0.0)
   {
     specs_.tile_width = width_um;
   }
