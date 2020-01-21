@@ -127,8 +127,8 @@ struct EvaluationResult
   bool UpdateIfBetter(const EvaluationResult& other, const std::vector<std::string>& metrics)
   {
     bool updated = false;
-    if (!valid ||
-        (other.valid && IsBetter(other.stats, stats, metrics)))
+    if (other.valid &&
+        (!valid || IsBetter(other.stats, stats, metrics)))
     {
       valid = true;
       mapping = other.mapping;

@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
   archspec_filename = std::string(argv[1]);
   problemspec_filename = std::string(argv[2]);
 
-  Application application(problemspec_filename, archspec_filename);  
+  DesignSpaceExplorer application(problemspec_filename, archspec_filename);  
   application.Run();
 
   return 0;

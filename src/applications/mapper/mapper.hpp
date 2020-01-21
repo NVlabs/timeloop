@@ -44,7 +44,7 @@
 #include "mapspaces/mapspace-factory.hpp"
 #include "search/search-factory.hpp"
 #include "compound-config/compound-config.hpp"
-#include "mapper-thread.hpp"
+#include "applications/mapper/mapper-thread.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -52,7 +52,11 @@
 
 class Application
 {
+ public:
+  std::string name_;  
+
  protected:
+
   problem::Workload workload_;
 
   model::Engine::Specs arch_specs_;
@@ -76,7 +80,8 @@ class Application
   char* cfg_string_;
 
   EvaluationResult best_;
-  
+  EvaluationResult global_best_;
+
  private:
 
   // Serialization
@@ -92,8 +97,9 @@ class Application
 
  public:
 
-  Application(config::CompoundConfig* config)
+  Application(config::CompoundConfig* config, std::string name = "timeloop-mapper") : name_(name)
   {
+
     auto rootNode = config->getRoot();
     // Problem configuration.
     auto problem = rootNode.lookup("problem");
@@ -231,6 +237,7 @@ class Application
     }
   }
 
+
   // This class does not support being copied
   Application(const Application&) = delete;
   Application& operator=(const Application&) = delete;
@@ -251,13 +258,19 @@ class Application
     }
   }
 
+
+  EvaluationResult GetGlobalBest()
+  {
+    return global_best_;
+  }
+
   // ---------------
   // Run the mapper.
   // ---------------
   void Run()
   {
     // Output file names.
-    const std::string out_prefix = "timeloop-mapper.";
+    const std::string out_prefix = name_ + ".";
     const std::string log_file_name = out_prefix + "log";
     const std::string stats_file_name = out_prefix + "stats.txt";
     const std::string xml_file_name = out_prefix + "map+stats.xml";
@@ -400,7 +413,7 @@ class Application
         std::cout << std::endl << "Level with most failures: "
                   << arch_specs_.topology.GetLevel(worst_eval_fail_level_id)->level_name
                   << ": " << worst_eval_fail_count << std::endl;
-        std::cout << "Sample failed mapping: " << std::endl;
+        std::cout << "Sample failed mapping : " << std::endl;
 
         auto& mapping = eval_fail_sample_mappings.at(worst_eval_fail_level_id);
         model::Engine engine;
@@ -416,11 +429,10 @@ class Application
     }
 
     // Select the best mapping from each thread.
-    EvaluationResult global_best;
     for (unsigned t = 0; t < num_threads_; t++)
     {
       auto& thread_best = threads_.at(t)->BestResult();
-      global_best.UpdateIfBetter(thread_best, optimization_metrics_);
+      global_best_.UpdateIfBetter(thread_best, optimization_metrics_);
     }
 
     std::cout << std::endl;
@@ -431,43 +443,43 @@ class Application
       threads_.at(t) = nullptr;
     }
 
-    if (global_best.valid)
+    if (global_best_.valid)
     {
       std::ofstream map_txt_file(map_txt_file_name);
-      global_best.mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
-                                      global_best.stats.tile_sizes);
+      global_best_.mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
+                                      global_best_.stats.tile_sizes);
       map_txt_file.close();
 
       // Re-evaluate the mapping so that we get a live engine with complete specs and stats
       // that can be printed out hierarchically.
       model::Engine engine;
       engine.Spec(arch_specs_);
-      engine.Evaluate(global_best.mapping, workload_);
+      engine.Evaluate(global_best_.mapping, workload_);
 
       std::ofstream stats_file(stats_file_name);
-      stats_file << engine << std::endl; // <------------ HERE.
+      stats_file << engine << std::endl;
       stats_file.close();
 
       if (emit_whoop_nest_)
       {
         std::ofstream map_cpp_file(map_cpp_file_name);
-        global_best.mapping.PrintWhoopNest(map_cpp_file, arch_specs_.topology.StorageLevelNames(),
-                                           global_best.stats.tile_sizes,
-                                           global_best.stats.utilized_instances);
+        global_best_.mapping.PrintWhoopNest(map_cpp_file, arch_specs_.topology.StorageLevelNames(),
+                                           global_best_.stats.tile_sizes,
+                                           global_best_.stats.utilized_instances);
         map_cpp_file.close();
       }
 
       std::cout << "Summary stats for best mapping found by mapper:" << std::endl; 
       std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
-                << global_best.stats.utilization << " | pJ/MACC = " << std::setw(8)
-                << std::fixed << std::setprecision(3) << global_best.stats.energy /
-        global_best.stats.maccs << std::endl;
+                << global_best_.stats.utilization << " | pJ/MACC = " << std::setw(8)
+                << std::fixed << std::setprecision(3) << global_best_.stats.energy /
+        global_best_.stats.maccs << std::endl;
 
       // Print the engine stats and mapping to an XML file
       std::ofstream ofs(xml_file_name);
       boost::archive::xml_oarchive ar(ofs);
       ar << boost::serialization::make_nvp("engine", engine);
-      ar << boost::serialization::make_nvp("mapping", global_best.mapping);
+      ar << boost::serialization::make_nvp("mapping", global_best_.mapping);
       const Application* a = this;
       ar << BOOST_SERIALIZATION_NVP(a);
     }
@@ -522,13 +534,13 @@ class Application
     // Delete the mapspace constraint.
     root.remove("mapspace");
 
-    if (global_best.valid)
+    if (global_best_.valid)
     {
       // Create a new mapspace constraint.
       libconfig::Setting& mapspace = root.add("mapspace", libconfig::Setting::TypeGroup);
     
       // Format the best mapping as libconfig constraints.
-      global_best.mapping.FormatAsConstraints(mapspace);
+      global_best_.mapping.FormatAsConstraints(mapspace);
     }
 
     config.writeFile(map_cfg_file_name.c_str());
