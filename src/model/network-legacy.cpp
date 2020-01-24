@@ -143,6 +143,16 @@ std::string LegacyNetwork::Name() const
   return specs_.name;
 }
 
+void LegacyNetwork::AddConnectionType(ConnectionType ct)
+{
+  specs_.cType = static_cast<ConnectionType>(static_cast<int>(specs_.cType) | static_cast<int>(ct));
+}
+
+void LegacyNetwork::ResetConnectionType()
+{
+  specs_.cType = UNUSED;
+}
+
 bool LegacyNetwork::DistributedMulticastSupported() const
 {
   bool retval = true;
@@ -164,11 +174,8 @@ void LegacyNetwork::SetTileWidth(double width_um)
 
 // Evaluate.
 EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
-                                 const bool break_on_failure,
-                                 const bool reduction)
+                                 const bool break_on_failure)
 {
-  // FIXME: Use reduction flag to decide whether to include reduction cost
-  (void) reduction;
 
   auto eval_status = ComputeAccesses(tile, break_on_failure);
   if (!break_on_failure || eval_status.success)
@@ -462,6 +469,7 @@ void LegacyNetwork::Print(std::ostream& out) const
 
   out << indent << indent << "Type            : " << specs_.type << std::endl;
   out << indent << indent << "Legacy sub-type : " << specs_.legacy_subtype << std::endl;
+  out << indent << indent << "ConnectionType  : " << specs_.cType << std::endl;
   out << indent << indent << "Word bits       : " << specs_.word_bits << std::endl;
   out << indent << indent << "Router energy   : " << specs_.router_energy << " pJ" << std::endl;
   out << indent << indent << "Wire energy     : " << specs_.wire_energy << " pJ/b/mm" << std::endl;

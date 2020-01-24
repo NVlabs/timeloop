@@ -122,6 +122,17 @@ std::string ReductionTreeNetwork::Name() const
   return specs_.name;
 }
 
+void ReductionTreeNetwork::AddConnectionType(ConnectionType ct)
+{
+  specs_.cType = static_cast<ConnectionType>(static_cast<int>(specs_.cType) | static_cast<int>(ct));
+}
+
+void ReductionTreeNetwork::ResetConnectionType()
+{
+  specs_.cType = UNUSED;
+}
+
+
 bool ReductionTreeNetwork::DistributedMulticastSupported() const
 {
   return false;
@@ -138,16 +149,127 @@ void ReductionTreeNetwork::SetTileWidth(double width_um)
 }
 
 EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
-                              const bool break_on_failure,
-                              const bool reduction)
+                              const bool break_on_failure)
 {
   (void) tile;
   (void) break_on_failure;
-  assert(reduction);
+  assert(specs_.cType == UD); // ReductionTreeNetwork can only be used in update-drain connection
+
+  // Get stats from the CompoundTile
+  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  {
+    auto pv = problem::Shape::DataSpaceID(pvi);
+      
+    stats_.utilized_instances[pv] = tile[pvi].replication_factor;
+
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    {
+      stats_.ingresses[pv].resize(tile[pvi].accesses.size());
+      for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
+      {
+        if (tile[pvi].accesses[i] > 0)
+        {
+          assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
+          stats_.ingresses[pv][i] = 2*tile[pvi].accesses[i] - tile[pvi].partition_size;
+        }
+        else
+        {
+          stats_.ingresses[pv][i] = 0;
+        }
+      }
+    }
+    else // Read-only data
+    {
+      stats_.ingresses[pv] = tile[pvi].accesses;
+    }
+
+    stats_.link_transfers[pv] = tile[pvi].link_transfers;
+    stats_.fanout[pv] = tile[pvi].fanout;
+
+    for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
+    {
+      if (stats_.ingresses[pv][i] > 0)
+      {
+        if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+        {
+          stats_.spatial_reductions[pv] += (i * stats_.ingresses[pv][i]);
+        }
+      }
+    }
+  } 
+
+  // Calculate energy
+  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  {
+    auto pv = problem::Shape::DataSpaceID(pvi);
+
+    double energy_per_hop =
+      WireEnergyPerHop(specs_.word_bits.Get(), specs_.tile_width.Get(), specs_.wire_energy.Get());
+    double total_wire_hops = 0;
+    double total_ingresses = 0;
+    for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
+    {
+      auto ingresses = stats_.ingresses.at(pv).at(i);
+      total_ingresses += ingresses;
+      double num_hops = 0;
+      if (ingresses > 0)
+      {
+        if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
+          // Modeling reduction tree here!
+          num_hops = std::floor(std::log2(ingresses)) * 0.5;
+        }
+      }
+      total_wire_hops += num_hops * ingresses;
+    }
+    stats_.energy_per_hop[pv] = energy_per_hop;
+    stats_.num_hops[pv] = total_ingresses > 0 ? total_wire_hops / total_ingresses : 0;
+    stats_.energy[pv] =
+      total_wire_hops * energy_per_hop;
+
+    stats_.link_transfer_energy[pv] =
+      stats_.link_transfers.at(pv) * energy_per_hop;
+
+  }
+
+  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  {
+    auto pv = problem::Shape::DataSpaceID(pvi);
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    {
+      stats_.spatial_reduction_energy[pv] = stats_.spatial_reductions[pv] * 
+        pat::AdderEnergy(specs_.word_bits.Get(), specs_.word_bits.Get());
+    }
+    else
+    {
+      stats_.spatial_reduction_energy[pv] = 0;
+    }
+  }    
+
+
   auto eval_status = EvalStatus{true, std::string("")};
   std::cout << "ReductionNetwork::Evaluate()" << std::endl;
+
   return eval_status;
 }
+
+// FIXME: Should merge this back to the common abstract Network class
+// PAT interface.
+//
+double ReductionTreeNetwork::WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance,
+                                       double wire_energy_override)
+{
+  double hop_distance_mm = hop_distance / 1000;
+  if (wire_energy_override != 0.0)
+  {
+    // Internal wire model using user-provided average wire-energy/b/mm.
+    return word_bits * hop_distance_mm * wire_energy_override;
+  }
+  else
+  {
+    return pat::WireEnergy(word_bits, hop_distance_mm);
+  }
+}
+
 
 void ReductionTreeNetwork::Print(std::ostream& out) const
 {
@@ -161,6 +283,7 @@ void ReductionTreeNetwork::Print(std::ostream& out) const
   out << indent << "-----" << std::endl;
 
   out << indent << indent << "Type            : " << specs_.type << std::endl;
+  out << indent << indent << "ConnectionType  : " << specs_.cType << std::endl;
   out << indent << indent << "Word bits       : " << specs_.word_bits << std::endl;
   out << indent << indent << "Adder energy    : " << specs_.adder_energy << " pJ" << std::endl;
   out << indent << indent << "Wire energy     : " << specs_.wire_energy << " pJ/b/mm" << std::endl;

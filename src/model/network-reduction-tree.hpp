@@ -87,6 +87,7 @@ class ReductionTreeNetwork : public Network
   struct Stats
   {
     problem::PerDataSpace<std::uint64_t> fanout;
+    problem::PerDataSpace<std::vector<unsigned long>> ingresses;
     problem::PerDataSpace<unsigned long> link_transfers;
     problem::PerDataSpace<unsigned long> spatial_reductions;
     problem::PerDataSpace<double> link_transfer_energy;
@@ -107,6 +108,7 @@ class ReductionTreeNetwork : public Network
       if (version == 0)
       {
         ar& BOOST_SERIALIZATION_NVP(fanout);
+        ar& BOOST_SERIALIZATION_NVP(ingresses);
         ar& BOOST_SERIALIZATION_NVP(link_transfers);
         ar& BOOST_SERIALIZATION_NVP(spatial_reductions);
         ar& BOOST_SERIALIZATION_NVP(link_transfer_energy);
@@ -165,14 +167,19 @@ class ReductionTreeNetwork : public Network
   void ConnectSink(std::weak_ptr<Level> sink);
   void SetName(std::string name);
   std::string Name() const;
+  void AddConnectionType(ConnectionType ct);
+  void ResetConnectionType();
+
   bool DistributedMulticastSupported() const;
 
   // Floorplanner interface.
   void SetTileWidth(double width_um);
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                              const bool break_on_failure,
-                              const bool reduction = false);
+                              const bool break_on_failure);
+  // PAT interface.
+  static double WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance, double wire_energy_override);
+
   void Print(std::ostream& out) const;
 
   // Ugly abstraction-breaking probes that should be removed.

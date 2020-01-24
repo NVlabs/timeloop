@@ -178,14 +178,16 @@ class LegacyNetwork : public Network
   void ConnectSink(std::weak_ptr<Level> sink);
   void SetName(std::string name);
   std::string Name() const;
+  void AddConnectionType(ConnectionType ct);
+  void ResetConnectionType();
+
   bool DistributedMulticastSupported() const;
 
   // Floorplanner interface.
   void SetTileWidth(double width_um);
 
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                      const bool break_on_failure,
-                      const bool reduction = false);
+                      const bool break_on_failure);
 
   EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const bool break_on_failure);
   void ComputeNetworkEnergy();

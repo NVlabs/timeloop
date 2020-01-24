@@ -596,6 +596,9 @@ void Topology::Spec(const Topology::Specs& specs)
       read_fill_network->ConnectSink(inner);
     }
 
+    read_fill_network->AddConnectionType(model::ConnectionType::RF);
+    drain_update_network->AddConnectionType(model::ConnectionType::UD);
+
     connection_map_[i] = Connection{read_fill_network, drain_update_network};
 
   } // for all levels.
@@ -919,11 +922,21 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   {
     auto connection = connection_map_[connection_id];
     auto rf_net = connection.read_fill_network;
-    //auto du_net = connection.drain_update_network;
-    auto tile_area_id = connection_id; // connection_id matches the inner tile level id
-    auto s = rf_net->Evaluate(tiles[connection_id], tile_area_.at(tile_area_id), break_on_failure);
-    eval_status.at(connection_id) = s;
-    success_accum &= s.success;
+    EvalStatus s;
+    if (!rf_net->IsEvaluated())
+    {
+      s = rf_net->Evaluate(tiles[connection_id], break_on_failure);
+      eval_status.at(connection_id) = s;
+      success_accum &= s.success;
+    }
+
+    auto du_net = connection.drain_update_network;
+    if (!du_net->IsEvaluated())
+    {
+      s = du_net->Evaluate(tiles[connection_id], break_on_failure);
+      eval_status.at(connection_id) = s;
+      success_accum &= s.success;
+    }
 
     if (break_on_failure && !s.success)
       break;    
@@ -1054,9 +1067,12 @@ void Topology::FloorPlan()
   {
     auto level = GetLevel(i);
     auto storage_level = std::static_pointer_cast<BufferLevel>(level);
-    auto network = storage_level->GetReadNetwork();
+    auto r_network = storage_level->GetReadNetwork();
     double inner_tile_width = sqrt(tile_area_.at(i-1));
-    network->SetTileWidth(inner_tile_width);
+    r_network->SetTileWidth(inner_tile_width);
+    auto u_network = storage_level->GetUpdateNetwork();
+    u_network->SetTileWidth(inner_tile_width);
+
   }  
 }
 

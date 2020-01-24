@@ -269,7 +269,8 @@ class BufferLevel : public Level
   void ConnectUpdate(std::shared_ptr<Network> network);
   void ConnectDrain(std::shared_ptr<Network> network);
   std::shared_ptr<Network> GetReadNetwork() { return network_read_; }
-  
+  std::shared_ptr<Network> GetUpdateNetwork() { return network_update_; }
+ 
   // Evaluation functions.
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,

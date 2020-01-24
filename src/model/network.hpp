@@ -40,6 +40,13 @@ namespace model
 //               Network Specs                //
 //--------------------------------------------//
 
+enum ConnectionType : int {
+    UNUSED = 0,
+    RF = 1, // Read-Fill
+    UD = 2, // Update-Drain
+    RFUD = 3
+};
+
 struct NetworkSpecs
 {
   virtual ~NetworkSpecs() { }
@@ -49,6 +56,7 @@ struct NetworkSpecs
   virtual const std::string Type() const = 0;
 
   std::string name = "UNSET";
+  ConnectionType cType = UNUSED;
 
   // Serialization
   friend class boost::serialization::access;
@@ -79,6 +87,8 @@ class Network : public Module
   virtual void ConnectSource(std::weak_ptr<Level> source) = 0;
   virtual void ConnectSink(std::weak_ptr<Level> sink) = 0;
   virtual void SetName(std::string name) = 0;
+  virtual void AddConnectionType(ConnectionType ct) = 0;
+  virtual void ResetConnectionType() = 0;
 
   // STAT_ACCESSOR_HEADER(virtual double, Energy) = 0;
   virtual double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
@@ -90,8 +100,7 @@ class Network : public Module
   virtual void SetTileWidth(double width_um) = 0;
 
   virtual EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                              const bool break_on_failure,
-                              const bool reduction = false) = 0;
+                              const bool break_on_failure) = 0;
 
   virtual void Print(std::ostream& out) const = 0;
 
