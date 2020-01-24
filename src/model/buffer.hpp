@@ -93,6 +93,7 @@ class BufferLevel : public Level
     // FIXME: move into separate struct?
     Attribute<double> vector_access_energy; // pJ
     Attribute<double> storage_area; // um^2
+    Attribute<double> addr_gen_energy; // pJ
 
     // Serialization
     friend class boost::serialization::access;

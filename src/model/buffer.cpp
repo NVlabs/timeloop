@@ -321,6 +321,11 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   // Allow user to override the access energy.
   buffer.lookupValue("vector-access-energy", tmp_access_energy);
 
+  // Allow user to override the addr gen energy.
+  double tmp_addr_gen_energy = -0.1;
+  buffer.lookupValue("addr-gen-energy", tmp_addr_gen_energy);
+  specs.addr_gen_energy = tmp_addr_gen_energy;
+
   // Allow user to override the cluster area.
   double tmp_cluster_area = 0;
   buffer.lookupValue("cluster-area", tmp_cluster_area);
@@ -628,7 +633,6 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
     specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
 #endif
   }
-
   if (!specs_.instances.IsSpecified())
   {
 #ifdef UPDATE_UNSPECIFIED_SPECS
@@ -739,8 +743,14 @@ void BufferLevel::ComputeAddrGenEnergy()
     // it's probably cheaper than that. However, we can't assume
     // a 1-bit increment.
     auto pv = problem::Shape::DataSpaceID(pvi);
-    stats_.addr_gen_energy[pv] = stats_.address_generations[pv] *
-      pat::AdderEnergy(specs_.addr_gen_bits.Get(), specs_.addr_gen_bits.Get());
+    if (specs_.addr_gen_energy.Get() < 0.0) { 
+      stats_.addr_gen_energy[pv] = stats_.address_generations[pv] *
+        pat::AdderEnergy(specs_.addr_gen_bits.Get(), specs_.addr_gen_bits.Get());
+    }
+    else
+    {
+       stats_.addr_gen_energy[pv] = stats_.address_generations[pv] * specs_.addr_gen_energy.Get();
+    }
   }
 }
 
