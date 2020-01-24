@@ -175,7 +175,7 @@ class Topology : public Module
   // drain_update_network can be the same network.
   struct Connection
   {
-    std::shared_ptr<Network>  read_fill_network;
+    std::shared_ptr<Network> read_fill_network;
     std::shared_ptr<Network> drain_update_network;
   };
   std::map<unsigned, Connection> connection_map_;

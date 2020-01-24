@@ -962,7 +962,8 @@ void Topology::ComputeStats()
 
   for (auto& network: networks_)
   {
-    //poan: users might add a network to the arch but never connect/use it
+    //poan: Users might add a network to the arch but never connect/use it
+    //      Such network should always have 0 energy though.
     if (!network.second->IsEvaluated()) continue;
     auto e = network.second->Energy();
     assert(e >= 0);

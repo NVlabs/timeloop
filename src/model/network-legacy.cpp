@@ -302,6 +302,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
     // this later in the ComputePerformance() function.    
 
   (void) break_on_failure;
+  is_evaluated_ = success;
 
   EvalStatus eval_status;
   eval_status.success = success;
