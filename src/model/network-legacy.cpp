@@ -266,7 +266,8 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
     // 1. link transfers should result in buffer accesses to a peer.
     // 2. should reductions via link transfers be counted as spatial or temporal?
     stats_.link_transfers[pv] = tile[pvi].link_transfers;
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
+            (specs_.cType & ConnectionType::UD) )
     {
       stats_.spatial_reductions[pv] += tile[pvi].link_transfers;
     }
@@ -291,7 +292,8 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
         {
           stats_.multicast_factor[pv] = factor;
         }
-        if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+        if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
+                (specs_.cType & ConnectionType::UD) )
         {
           stats_.spatial_reductions[pv] += (i * stats_.ingresses[pv][i]);
         }
@@ -354,7 +356,6 @@ void LegacyNetwork::ComputeNetworkEnergy()
       if (ingresses > 0)
       {
         auto multicast_factor = i + 1;
-
 #if MULTICAST_MODEL == PROBABILISTIC_MULTICAST
 
         auto num_hops = NumHops(multicast_factor, fanout);
@@ -419,7 +420,8 @@ void LegacyNetwork::ComputeSpatialReductionEnergy()
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv)
+            && (specs_.cType & ConnectionType::UD)) // also used for UD connections
     {
       stats_.spatial_reduction_energy[pv] = stats_.spatial_reductions[pv] * 
         pat::AdderEnergy(specs_.word_bits.Get(), specs_.word_bits.Get());
