@@ -86,11 +86,8 @@ class ReductionTreeNetwork : public Network
 
   struct Stats
   {
-    problem::PerDataSpace<std::uint64_t> fanout;
     problem::PerDataSpace<std::vector<unsigned long>> ingresses;
-    problem::PerDataSpace<unsigned long> link_transfers;
     problem::PerDataSpace<unsigned long> spatial_reductions;
-    problem::PerDataSpace<double> link_transfer_energy;
     problem::PerDataSpace<double> num_hops;
     problem::PerDataSpace<double> energy_per_hop;
     problem::PerDataSpace<double> energy;
@@ -107,11 +104,8 @@ class ReductionTreeNetwork : public Network
     {
       if (version == 0)
       {
-        ar& BOOST_SERIALIZATION_NVP(fanout);
         ar& BOOST_SERIALIZATION_NVP(ingresses);
-        ar& BOOST_SERIALIZATION_NVP(link_transfers);
         ar& BOOST_SERIALIZATION_NVP(spatial_reductions);
-        ar& BOOST_SERIALIZATION_NVP(link_transfer_energy);
         ar& BOOST_SERIALIZATION_NVP(num_hops);
         ar& BOOST_SERIALIZATION_NVP(energy_per_hop);
         ar& BOOST_SERIALIZATION_NVP(energy);
@@ -179,6 +173,7 @@ class ReductionTreeNetwork : public Network
                               const bool break_on_failure);
   // PAT interface.
   static double WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance, double wire_energy_override);
+  static double AdderEnergy(std::uint64_t word_bits, double adder_energy_override);
 
   void Print(std::ostream& out) const;
 

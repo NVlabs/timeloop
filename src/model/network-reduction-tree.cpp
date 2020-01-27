@@ -90,7 +90,7 @@ ReductionTreeNetwork::Specs ReductionTreeNetwork::ParseSpecs(config::CompoundCon
   }
 
   // adder energy.
-  double adder_energy = 0;
+  double adder_energy = 0.0;
   network.lookupValue("adder-energy", adder_energy);
   specs.adder_energy = adder_energy;
 
@@ -151,7 +151,6 @@ void ReductionTreeNetwork::SetTileWidth(double width_um)
 EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
                               const bool break_on_failure)
 {
-  (void) tile;
   (void) break_on_failure;
   assert(specs_.cType == UD); // ReductionTreeNetwork can only be used in update-drain connection
 
@@ -178,13 +177,10 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
         }
       }
     }
-    else // Read-only data
+    else // Read-only data, all zeros
     {
-      stats_.ingresses[pv] = tile[pvi].accesses;
+      stats_.ingresses[pv] = std::vector<long unsigned int>(stats_.ingresses[pv].size(), 0);
     }
-
-    stats_.link_transfers[pv] = tile[pvi].link_transfers;
-    stats_.fanout[pv] = tile[pvi].fanout;
 
     for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
     {
@@ -215,19 +211,19 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
       if (ingresses > 0)
       {
         if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
-          // Modeling reduction tree here!
+          // Modeling the reduction tree here!
           num_hops = std::floor(std::log2(ingresses)) * 0.5;
         }
       }
       total_wire_hops += num_hops * ingresses;
     }
-    stats_.energy_per_hop[pv] = energy_per_hop;
-    stats_.num_hops[pv] = total_ingresses > 0 ? total_wire_hops / total_ingresses : 0;
-    stats_.energy[pv] =
-      total_wire_hops * energy_per_hop;
 
-    stats_.link_transfer_energy[pv] =
-      stats_.link_transfers.at(pv) * energy_per_hop;
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    {
+      stats_.energy_per_hop[pv] = energy_per_hop;
+      stats_.num_hops[pv] = total_ingresses > 0 ? total_wire_hops / total_ingresses : 0;
+      stats_.energy[pv] = total_wire_hops * energy_per_hop;
+    }
 
   }
 
@@ -236,18 +232,18 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
     auto pv = problem::Shape::DataSpaceID(pvi);
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
-      stats_.spatial_reduction_energy[pv] = stats_.spatial_reductions[pv] * 
-        pat::AdderEnergy(specs_.word_bits.Get(), specs_.word_bits.Get());
+      stats_.spatial_reduction_energy[pv] = stats_.spatial_reductions[pv] *
+          AdderEnergy(specs_.word_bits.Get(), specs_.adder_energy.Get());
     }
     else
     {
       stats_.spatial_reduction_energy[pv] = 0;
     }
-  }    
-
+  }
 
   auto eval_status = EvalStatus{true, std::string("")};
-  std::cout << "ReductionNetwork::Evaluate()" << std::endl;
+  is_evaluated_ = true;
+  // std::cout << "ReductionNetwork::Evaluate()" << std::endl;
 
   return eval_status;
 }
@@ -270,6 +266,18 @@ double ReductionTreeNetwork::WireEnergyPerHop(std::uint64_t word_bits, const dou
   }
 }
 
+double ReductionTreeNetwork::AdderEnergy(std::uint64_t word_bits, double adder_energy_override)
+{
+  if (adder_energy_override != 0.0)
+  {
+    // Use user-provided adder energy.
+    return adder_energy_override;
+  }
+  else
+  {
+    return pat::AdderEnergy(word_bits, word_bits);
+  }
+}
 
 void ReductionTreeNetwork::Print(std::ostream& out) const
 {
@@ -285,8 +293,13 @@ void ReductionTreeNetwork::Print(std::ostream& out) const
   out << indent << indent << "Type            : " << specs_.type << std::endl;
   out << indent << indent << "ConnectionType  : " << specs_.cType << std::endl;
   out << indent << indent << "Word bits       : " << specs_.word_bits << std::endl;
-  out << indent << indent << "Adder energy    : " << specs_.adder_energy << " pJ" << std::endl;
-  out << indent << indent << "Wire energy     : " << specs_.wire_energy << " pJ/b/mm" << std::endl;
+  if (specs_.adder_energy.Get() != 0.0) {
+    out << indent << indent << "Adder energy    : " << specs_.adder_energy << " pJ" << std::endl;
+  }
+  if (specs_.wire_energy.Get() != 0.0) {
+    out << indent << indent << "Wire energy     : " << specs_.wire_energy << " pJ/b/mm" << std::endl;
+  }
+
 
   out << std::endl;
 
@@ -297,11 +310,6 @@ void ReductionTreeNetwork::Print(std::ostream& out) const
     auto pv = problem::Shape::DataSpaceID(pvi);
     out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
-    out << indent + indent << "Fanout                                  : "
-        << stats_.fanout.at(pv) << std::endl;
-      
-    out << indent + indent << "Link transfers                          : "
-        << stats_.link_transfers.at(pv) << std::endl;
     out << indent + indent << "Spatial reductions                      : "
         << stats_.spatial_reductions.at(pv) << std::endl;
     
@@ -316,11 +324,6 @@ void ReductionTreeNetwork::Print(std::ostream& out) const
     out << indent + indent << "Energy (total)                          : "
         << stats_.energy.at(pv) * stats_.utilized_instances.at(pv)
         << " pJ" << std::endl;
-    out << indent + indent << "Link transfer energy (per-instance)     : "
-        << stats_.link_transfer_energy.at(pv) << " pJ" << std::endl;
-    out << indent + indent << "Link transfer energy (total)            : "
-        << stats_.link_transfer_energy.at(pv) * stats_.utilized_instances.at(pv)
-        << " pJ" << std::endl;    
     out << indent + indent << "Spatial Reduction Energy (per-instance) : "
         << stats_.spatial_reduction_energy.at(pv) << " pJ" << std::endl;
     out << indent + indent << "Spatial Reduction Energy (total)        : "
@@ -344,8 +347,6 @@ STAT_ACCESSOR(double, ReductionTreeNetwork, SpatialReductionEnergy,
               stats_.spatial_reduction_energy.at(pv) * stats_.utilized_instances.at(pv))
 */
 STAT_ACCESSOR(double, ReductionTreeNetwork, Energy,
-              //NetworkEnergy(pv) +
-              //SpatialReductionEnergy(pv))
-              0.0)
+              stats_.energy.at(pv) + stats_.spatial_reduction_energy.at(pv) )
 
 } // namespace model
