@@ -84,37 +84,44 @@ std::string ShapeFileName(const std::string shape_name)
   shape_dir_list.push_back(std::string(timeloopdir) + "/problem-shapes");
 
   // Append ".cfg" extension if not provided.
-  std::string shape_file_name;
+  std::list<std::string> shape_file_name_list;
   if (std::strstr(shape_name.c_str(), ".yml") || std::strstr(shape_name.c_str(), ".yaml") || std::strstr(shape_name.c_str(), ".cfg"))
   {
-    shape_file_name = shape_name;
+    shape_file_name_list = { shape_name };
   }
   else
   {
-    shape_file_name = shape_name + ".cfg";
+    shape_file_name_list = { shape_name + ".yaml", shape_name + ".cfg" };
   }
 
   bool found = false;
   for (auto& shape_dir: shape_dir_list)
   {
-    shape_file_path = shape_dir + "/" + shape_file_name;
-
-    // Check if file exists.
-    std::ifstream f(shape_file_path);
-    if (f.good())
+    for (auto& shape_file_name: shape_file_name_list)
     {
-      found = true;
-      break;
+      shape_file_path = shape_dir + "/" + shape_file_name;
+
+      // Check if file exists.
+      std::ifstream f(shape_file_path);
+      if (f.good())
+      {
+        found = true;
+        break;
+      }
     }
+
+    if (found)
+      break;
   }
 
   if (!found)
   {
-    std::cerr << "ERROR: problem shape file " << shape_file_name << " not found in problem dir search path:" << std::endl;
+    std::cerr << "ERROR: problem shape files: ";
+    for (auto& shape_file_name: shape_file_name_list)
+      std::cerr << shape_file_name << " ";
+    std::cerr << "not found in problem dir search path:" << std::endl;
     for (auto& shape_dir: shape_dir_list)
-    {
       std::cerr << "    " << shape_dir << std::endl;
-    }
     exit(1);
   }
   

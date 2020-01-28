@@ -24,37 +24,37 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-shape =
-{
-  name = "CNN-Layer";
-  dimensions = [ "R", "S", "P", "Q", "C", "K", "N" ];
-  coefficients =
-  (
-    { name = "Wstride";   default = 1; },
-    { name = "Hstride";   default = 1; },
-    { name = "Wdilation"; default = 1; },
-    { name = "Hdilation"; default = 1; }
-  );
-  data-spaces =
-  (
-    {
-      name = "Weights";
-      projection = [ "R", "S", "C", "K" ]; # simple projections.
-    },
-    {
-      name = "Inputs";
-      projection =
-      ( 
-        ([ "R", "Wdilation" ], [ "P", "Wstride" ]), # SOP form: R*Wdilation + P*Wstride
-        ([ "S", "Hdilation" ], [ "Q", "Hstride" ]), # SOP form: S*Hdilation + Q*Hstride 
-        ([ "C" ]),                                  # simple.
-        ([ "N" ])                                   # simple.
-      );
-    },
-    {
-      name = "Outputs";
-      projection = [ "P", "Q", "K", "N" ]; # simple projections.
-      read-write = True;
-    }
-  );
-};
+shape:
+
+  name: "CNN-Layer"
+  dimensions: [ R, S, P, Q, C, K, N ]
+  coefficients:
+    - name: Wstride
+      default: 1
+    - name: Hstride
+      default: 1
+    - name: Wdilation
+      default: 1
+    - name: Hdilation
+      default: 1
+      
+  data-spaces:
+    - name: Weights
+      projection:
+        - [ [C] ]
+        - [ [K] ]
+        - [ [R] ]
+        - [ [S] ]
+    - name: Inputs
+      projection:
+        - [ [N] ]
+        - [ [C] ]
+        - [ [R, Wdilation], [P, Wstride] ] # SOP form: R*Wdilation + P*Wstride
+        - [ [S, Hdilation], [Q, Hstride] ] # SOP form: S*Hdilation + Q*Hstride 
+    - name: Outputs
+      projection:
+        - [ [N] ]
+        - [ [K] ]
+        - [ [Q] ]
+        - [ [P] ]
+      read-write: True
