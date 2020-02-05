@@ -130,8 +130,9 @@ class Application
       // Call accelergy ERT with all input files
       if (arch.exists("subtree") || arch.exists("local"))
       {
-        accelergy::invokeAccelergy(config->inFiles);
-        auto ertConfig = new config::CompoundConfig("ERT.yaml");
+        accelergy::invokeAccelergy(config->inFiles, out_prefix_);
+        std::string ertPath = out_prefix_ + ".ERT.yaml";
+        auto ertConfig = new config::CompoundConfig(ertPath.c_str());
         auto ert = ertConfig->getRoot().lookup("ERT");
         if (verbose_)
           std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;

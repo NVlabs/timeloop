@@ -51,7 +51,9 @@ class Application
  protected:
   model::Engine::Specs arch_specs_;
   model::Engine engine_;
-  
+ 
+  std::string out_prefix_ = "timeloop-metric";
+ 
  public:
 
   Application(config::CompoundConfig* config)
@@ -74,8 +76,9 @@ class Application
 #ifdef USE_ACCELERGY
       // Call accelergy ERT with all input files
       if (arch.exists("subtree") || arch.exists("local")) {
-        accelergy::invokeAccelergy(config->inFiles);
-        auto ertConfig = new config::CompoundConfig("ERT.yaml");
+        accelergy::invokeAccelergy(config->inFiles, out_prefix_);
+        std::string ertPath = out_prefix_ + ".ERT.yaml";
+        auto ertConfig = new config::CompoundConfig(ertPath.c_str());
         auto ert = ertConfig->getRoot().lookup("ERT");
         arch_specs_.topology.ParseAccelergyERT(ert);
       }

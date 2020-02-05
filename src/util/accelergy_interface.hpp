@@ -24,7 +24,7 @@ namespace accelergy
     return result;
   }
 
-  void invokeAccelergy(std::vector<std::string> inputFiles) {
+  void invokeAccelergy(std::vector<std::string> input_files, std::string out_prefix) {
 #ifdef USE_ACCELERGY
     std::string accelergy_path = exec("which accelergy");
     // if `which` does not find it, we will try env
@@ -34,10 +34,11 @@ namespace accelergy
     }
     //std::cout << "Invoke Accelergy at: " << accelergy_path << std::endl;
     std::string cmd = accelergy_path.substr(0, accelergy_path.size() - 1);
-    for (auto inputFile : inputFiles) {
-      cmd += " " + inputFile;
+    for (auto input_file : input_files) {
+      cmd += " " + input_file;
     }
-    cmd += " -o ./ > ./accelergy.log 2>&1";
+    cmd += " --oprefix " + out_prefix + ".";
+    cmd += " -o ./ > ./" + out_prefix + ".accelergy.log 2>&1";
     //std::cout << "execute:" << cmd << std::endl;
     int ret = system(cmd.c_str());
     if (ret) {
@@ -45,7 +46,7 @@ namespace accelergy
       exit(0);
     }
 #else
-    (void) inputFiles;
+    (void) input_files;
 #endif
     return;
   }
