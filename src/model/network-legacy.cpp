@@ -216,7 +216,8 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
       //        of here.
       if (auto sink = sink_.lock())
       {      
-        if (sink->HardwareReductionSupported())
+        if (sink->HardwareReductionSupported() ||
+            (specs_.cType == ConnectionType::RF) )
         {
           stats_.ingresses[pv] = tile[pvi].accesses;
         }

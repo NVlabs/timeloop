@@ -166,31 +166,13 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
       stats_.ingresses[pv].resize(tile[pvi].accesses.size());
       for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
       {
-        if (tile[pvi].accesses[i] > 0)
-        {
-          assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
-          stats_.ingresses[pv][i] = 2*tile[pvi].accesses[i] - tile[pvi].partition_size;
-        }
-        else
-        {
-          stats_.ingresses[pv][i] = 0;
-        }
+        stats_.ingresses[pv][i] = tile[pvi].accesses[i];
+        stats_.spatial_reductions[pv] += (i * stats_.ingresses[pv][i]);
       }
     }
     else // Read-only data, all zeros
     {
       stats_.ingresses[pv] = std::vector<long unsigned int>(stats_.ingresses[pv].size(), 0);
-    }
-
-    for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
-    {
-      if (stats_.ingresses[pv][i] > 0)
-      {
-        if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
-        {
-          stats_.spatial_reductions[pv] += (i * stats_.ingresses[pv][i]);
-        }
-      }
     }
   } 
 
@@ -212,7 +194,8 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
       {
         if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
           // Modeling the reduction tree here!
-          num_hops = std::floor(std::log2(ingresses)) * 0.5;
+          auto reduction_factor = i + 1;
+          num_hops = std::floor(std::log2(reduction_factor)) * 0.5;
         }
       }
       total_wire_hops += num_hops * ingresses;
@@ -223,21 +206,8 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
       stats_.energy_per_hop[pv] = energy_per_hop;
       stats_.num_hops[pv] = total_ingresses > 0 ? total_wire_hops / total_ingresses : 0;
       stats_.energy[pv] = total_wire_hops * energy_per_hop;
-    }
-
-  }
-
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-  {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
-    {
       stats_.spatial_reduction_energy[pv] = stats_.spatial_reductions[pv] *
           AdderEnergy(specs_.word_bits.Get(), specs_.adder_energy.Get());
-    }
-    else
-    {
-      stats_.spatial_reduction_energy[pv] = 0;
     }
   }
 
