@@ -106,19 +106,21 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   }
 
   // Router energy.
-  double router_energy = 0;
-  network.lookupValue("router-energy", router_energy);
-  specs.router_energy = router_energy;
+  double router_energy;
+  if (network.lookupValue("router-energy", router_energy)) {specs.router_energy = router_energy;}
 
   // Wire energy.
-  double wire_energy = 0.0;
-  network.lookupValue("wire-energy", wire_energy);
-  specs.wire_energy = wire_energy;
+  double wire_energy;
+  if (network.lookupValue("wire-energy", wire_energy)) {specs.wire_energy = wire_energy;}
 
   // Tile width.
-  double tile_width = 0.0;
-  network.lookupValue("tile-width", tile_width);
-  specs.tile_width = tile_width;
+  double tile_width;
+  if (network.lookupValue("tile-width", tile_width)) {specs.tile_width = tile_width;}
+
+  double energy_per_hop;
+  if (network.lookupValue("energy-per-hop", energy_per_hop)) {
+      specs.energy_per_hop = energy_per_hop;
+  }
 
   return specs;
 }
@@ -166,10 +168,7 @@ bool LegacyNetwork::DistributedMulticastSupported() const
 void LegacyNetwork::SetTileWidth(double width_um)
 {
   // Only set this if user didn't specify a pre-floorplanned tile width.
-  if (specs_.tile_width.Get() == 0.0)
-  {
-    specs_.tile_width = width_um;
-  }
+  specs_.tile_width = specs_.tile_width.IsSpecified() ? specs_.tile_width.Get() : width_um;
 }
 
 // Evaluate.
@@ -337,10 +336,12 @@ void LegacyNetwork::ComputeNetworkEnergy()
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-
+    // WireEnergyPerHop checks if wire energy is 0.0 before using default pat
+    double wire_energy = specs_.wire_energy.IsSpecified() ? specs_.wire_energy.Get() : 0.0;
     double energy_per_hop =
-      WireEnergyPerHop(specs_.word_bits.Get(), specs_.tile_width.Get(), specs_.wire_energy.Get());
-    double energy_per_router = specs_.router_energy.Get();
+      specs_.energy_per_hop.IsSpecified() ?
+      specs_.energy_per_hop.Get() : WireEnergyPerHop(specs_.word_bits.Get(), specs_.tile_width.Get(), wire_energy);
+    double energy_per_router = specs_.router_energy.IsSpecified() ? specs_.router_energy.Get() : 0.0; // Set to 0 since no internal model yet
     
     auto fanout = stats_.distributed_multicast.at(pv) ?
       stats_.distributed_fanout.at(pv) :

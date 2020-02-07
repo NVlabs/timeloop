@@ -58,9 +58,10 @@ class Application
   // instantiate it before the problem shape has been parsed. UGH.
   Mapping* mapping_;
   
-  // Application flags.
+  // Application flags/config.
   bool verbose_ = false;
   bool auto_bypass_on_failure_ = false;
+  std::string out_prefix_ = "timeloop-model";
 
  private:
 
@@ -89,6 +90,7 @@ class Application
       auto model = rootNode.lookup("model");
       model.lookupValue("verbose", verbose_);
       model.lookupValue("auto_bypass_on_failure", auto_bypass_on_failure_);
+      model.lookupValue("out_prefix", out_prefix_);
     }
     if (verbose_)
     {
@@ -128,8 +130,9 @@ class Application
       // Call accelergy ERT with all input files
       if (arch.exists("subtree") || arch.exists("local"))
       {
-        accelergy::invokeAccelergy(config->inFiles);
-        auto ertConfig = new config::CompoundConfig("ERT.yaml");
+        accelergy::invokeAccelergy(config->inFiles, out_prefix_);
+        std::string ertPath = out_prefix_ + ".ERT.yaml";
+        auto ertConfig = new config::CompoundConfig(ertPath.c_str());
         auto ert = ertConfig->getRoot().lookup("ERT");
         if (verbose_)
           std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;
@@ -162,10 +165,9 @@ class Application
   void Run()
   {
     // Output file names.
-    const std::string out_prefix = "timeloop-model.";
-    const std::string stats_file_name = out_prefix + "stats.txt";
-    const std::string xml_file_name = out_prefix + "map+stats.xml";
-    const std::string map_txt_file_name = out_prefix + "map.txt";
+    std::string stats_file_name = out_prefix_ + ".stats.txt";
+    std::string xml_file_name = out_prefix_ + ".map+stats.xml";
+    std::string map_txt_file_name = out_prefix_ + ".map.txt";
 
     model::Engine engine;
     engine.Spec(arch_specs_);

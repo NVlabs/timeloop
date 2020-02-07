@@ -61,6 +61,7 @@ class LegacyNetwork : public Network
 
     // Post-floorplanning physical attributes.
     Attribute<double> tile_width; // um
+    Attribute<double> energy_per_hop; //pJ
 
     const std::string Type() const override { return type; }
 
@@ -77,6 +78,7 @@ class LegacyNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(router_energy);
         ar& BOOST_SERIALIZATION_NVP(wire_energy);
         ar& BOOST_SERIALIZATION_NVP(tile_width);
+        ar& BOOST_SERIALIZATION_NVP(energy_per_hop);
       }
     }
 

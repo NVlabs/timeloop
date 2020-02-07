@@ -74,6 +74,7 @@ class Application
   bool live_status_;
   bool diagnostics_on_;
   bool emit_whoop_nest_;
+  std::string out_prefix_ = "timeloop-model";
 
   std::vector<std::string> optimization_metrics_;
 
@@ -106,6 +107,10 @@ class Application
     problem::ParseWorkload(problem, workload_);
     std::cout << "Problem configuration complete." << std::endl;
 
+    // Mapper (this application) configuration. (only out_prefix)
+    auto mapper = rootNode.lookup("mapper");
+    mapper.lookupValue("out_prefix", out_prefix_);
+
     // Architecture configuration.
     config::CompoundConfigNode arch;
     if (rootNode.exists("arch")) {
@@ -123,8 +128,9 @@ class Application
 #ifdef USE_ACCELERGY
       // Call accelergy ERT with all input files
       if (arch.exists("subtree") || arch.exists("local")) {
-        accelergy::invokeAccelergy(config->inFiles);
-        auto ertConfig = new config::CompoundConfig("ERT.yaml");
+        accelergy::invokeAccelergy(config->inFiles, out_prefix_);
+        std::string ertPath = out_prefix_ + ".ERT.yaml";
+        auto ertConfig = new config::CompoundConfig(ertPath.c_str());
         auto ert = ertConfig->getRoot().lookup("ERT");
         std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;
         arch_specs_.topology.ParseAccelergyERT(ert);
@@ -134,8 +140,8 @@ class Application
 
     std::cout << "Architecture configuration complete." << std::endl;
 
-    // Mapper (this application) configuration.
-    auto mapper = rootNode.lookup("mapper");
+    // Mapper (this application) configuration. (the rest)
+
     num_threads_ = std::thread::hardware_concurrency();
     if (mapper.lookupValue("num-threads", num_threads_))
     {
@@ -270,13 +276,12 @@ class Application
   void Run()
   {
     // Output file names.
-    const std::string out_prefix = name_ + ".";
-    const std::string log_file_name = out_prefix + "log";
-    const std::string stats_file_name = out_prefix + "stats.txt";
-    const std::string xml_file_name = out_prefix + "map+stats.xml";
-    const std::string map_txt_file_name = out_prefix + "map.txt";
-    const std::string map_cfg_file_name = out_prefix + "map.cfg";
-    const std::string map_cpp_file_name = out_prefix + "map.cpp";
+    std::string log_file_name = out_prefix_ + ".log";
+    std::string stats_file_name = out_prefix_ + ".stats.txt";
+    std::string xml_file_name = out_prefix_ + ".map+stats.xml";
+    std::string map_txt_file_name = out_prefix_ + ".map.txt";
+    std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
+    std::string map_cpp_file_name = out_prefix_ + ".map.cpp";
     
     // Prepare live status/log stream.
     std::ofstream log_file;

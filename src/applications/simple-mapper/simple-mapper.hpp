@@ -51,6 +51,8 @@ class Application
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
 
+  std::string out_prefix_ = "timeloop-mapper";
+
  public:
 
   Application(config::CompoundConfig* config)
@@ -69,8 +71,9 @@ class Application
 #ifdef USE_ACCELERGY
     if (arch.exists("subtree") || arch.exists("local"))
     {
-      accelergy::invokeAccelergy(config->inFiles);
-      auto ertConfig = new config::CompoundConfig("ERT.yaml");
+      accelergy::invokeAccelergy(config->inFiles, out_prefix_);
+      std::string ertPath = out_prefix_ + ".ERT.yaml";
+      auto ertConfig = new config::CompoundConfig(ertPath.c_str());
       auto ert = ertConfig->getRoot().lookup("ERT");
       arch_specs_.topology.ParseAccelergyERT(ert);
     }
@@ -112,9 +115,8 @@ class Application
   void Run()
   {
     // Output file names.
-    const std::string out_prefix = "timeloop-mapper.";
-    const std::string stats_file_name = out_prefix + "stats.txt";
-    const std::string map_txt_file_name = out_prefix + "map.txt";
+    const std::string stats_file_name = out_prefix_ + ".stats.txt";
+    const std::string map_txt_file_name = out_prefix_ + ".map.txt";
     
     Mapping best_mapping;
     model::Engine best_engine;
