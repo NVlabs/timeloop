@@ -117,6 +117,11 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   double tile_width;
   if (network.lookupValue("tile-width", tile_width)) {specs.tile_width = tile_width;}
 
+  double energy_per_hop;
+  if (network.lookupValue("energy-per-hop", energy_per_hop)) {
+      specs.energy_per_hop = energy_per_hop;
+  }
+
   return specs;
 }
 
@@ -319,7 +324,8 @@ void LegacyNetwork::ComputeNetworkEnergy()
     // WireEnergyPerHop checks if wire energy is 0.0 before using default pat
     double wire_energy = specs_.wire_energy.IsSpecified() ? specs_.wire_energy.Get() : 0.0;
     double energy_per_hop =
-      WireEnergyPerHop(specs_.word_bits.Get(), specs_.tile_width.Get(), wire_energy);
+      specs_.energy_per_hop.IsSpecified() ?
+      specs_.energy_per_hop.Get() : WireEnergyPerHop(specs_.word_bits.Get(), specs_.tile_width.Get(), wire_energy);
     double energy_per_router = specs_.router_energy.IsSpecified() ? specs_.router_energy.Get() : 0.0; // Set to 0 since no internal model yet
     
     auto fanout = stats_.distributed_multicast.at(pv) ?
