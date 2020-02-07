@@ -47,6 +47,7 @@ namespace accelergy
     }
 #else
     (void) input_files;
+    (void) out_prefix;
 #endif
     return;
   }
