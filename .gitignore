@@ -13,6 +13,8 @@ timeloop-model.log
 timeloop-model.stats.txt
 timeloop-model.map+stats.xml
 timeloop-model.map.txt
+# an extra file that gets generated when running test
+timeloop-model.map.cfg 
 
 ### Common, non-project-specific generated files.
 # Scons caches
