@@ -152,7 +152,7 @@ void LegacyNetwork::AddConnectionType(ConnectionType ct)
 
 void LegacyNetwork::ResetConnectionType()
 {
-  specs_.cType = UNUSED;
+  specs_.cType = Unused;
 }
 
 bool LegacyNetwork::DistributedMulticastSupported() const
@@ -216,7 +216,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
       if (auto sink = sink_.lock())
       {      
         if (sink->HardwareReductionSupported() ||
-            (specs_.cType == ConnectionType::RF) )
+            (specs_.cType == ConnectionType::ReadFill) )
         {
           stats_.ingresses[pv] = tile[pvi].accesses;
         }
@@ -267,7 +267,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
     // 2. should reductions via link transfers be counted as spatial or temporal?
     stats_.link_transfers[pv] = tile[pvi].link_transfers;
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
-            (specs_.cType & ConnectionType::UD) )
+            (specs_.cType & ConnectionType::UpdateDrain) )
     {
       stats_.spatial_reductions[pv] += tile[pvi].link_transfers;
     }
@@ -293,7 +293,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
           stats_.multicast_factor[pv] = factor;
         }
         if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
-                (specs_.cType & ConnectionType::UD) )
+                (specs_.cType & ConnectionType::UpdateDrain) )
         {
           stats_.spatial_reductions[pv] += (i * stats_.ingresses[pv][i]);
         }
@@ -423,7 +423,7 @@ void LegacyNetwork::ComputeSpatialReductionEnergy()
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv)
-            && (specs_.cType & ConnectionType::UD)) // also used for UD connections
+            && (specs_.cType & ConnectionType::UpdateDrain)) // also used for UpdateDrain connections
     {
       stats_.spatial_reduction_energy[pv] = stats_.spatial_reductions[pv] * 
         pat::AdderEnergy(specs_.word_bits.Get(), specs_.word_bits.Get());

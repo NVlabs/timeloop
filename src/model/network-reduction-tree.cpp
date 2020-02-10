@@ -129,7 +129,7 @@ void ReductionTreeNetwork::AddConnectionType(ConnectionType ct)
 
 void ReductionTreeNetwork::ResetConnectionType()
 {
-  specs_.cType = UNUSED;
+  specs_.cType = Unused;
 }
 
 
@@ -152,7 +152,7 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
                               const bool break_on_failure)
 {
   (void) break_on_failure;
-  assert(specs_.cType == UD); // ReductionTreeNetwork can only be used in update-drain connection
+  assert(specs_.cType == UpdateDrain); // ReductionTreeNetwork can only be used in update-drain connection
 
   // Get stats from the CompoundTile
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)

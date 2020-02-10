@@ -41,10 +41,10 @@ namespace model
 //--------------------------------------------//
 
 enum ConnectionType : int {
-    UNUSED = 0,
-    RF = 1, // Read-Fill
-    UD = 2, // Update-Drain
-    RFUD = 3
+    Unused = 0,
+    ReadFill = 1, // Read-Fill
+    UpdateDrain = 2, // Update-Drain
+    ReadFillUpdateDrain = 3
 };
 
 struct NetworkSpecs
@@ -56,7 +56,7 @@ struct NetworkSpecs
   virtual const std::string Type() const = 0;
 
   std::string name = "UNSET";
-  ConnectionType cType = UNUSED;
+  ConnectionType cType = Unused;
 
   // Serialization
   friend class boost::serialization::access;

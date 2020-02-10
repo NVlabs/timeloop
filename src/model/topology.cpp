@@ -596,8 +596,8 @@ void Topology::Spec(const Topology::Specs& specs)
       read_fill_network->ConnectSink(inner);
     }
 
-    read_fill_network->AddConnectionType(model::ConnectionType::RF);
-    drain_update_network->AddConnectionType(model::ConnectionType::UD);
+    read_fill_network->AddConnectionType(model::ConnectionType::ReadFill);
+    drain_update_network->AddConnectionType(model::ConnectionType::UpdateDrain);
 
     connection_map_[i] = Connection{read_fill_network, drain_update_network};
 
