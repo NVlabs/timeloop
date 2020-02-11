@@ -338,12 +338,46 @@ void ComputePartitionSizes(std::vector<TileInfo>& tile_nest)
 
   for (int cur = num_tiling_levels-2; cur >= 0; cur--)
   {
+    if (tile_nest[cur].partition_fraction_denominator != 0)
+    {
     partition_size = (partition_size * tile_nest[cur].size) /
       tile_nest[cur].partition_fraction_denominator;
+    }
     tile_nest[cur].partition_size = partition_size;
   }  
 }
 
+// Compute the extra fills and accesses due to link transfers in the previous
+// level. Link transfers are handled at the network model, and the extra buffer
+// accesses should charge the buffer model.
+void ComputePeerAccesses(std::vector<TileInfo>& tile_nest)
+{
+  // Loop through all levels and update peer_{accesses, fills}.
+  //
+  int num_tiling_levels = tile_nest.size();
+
+  // pair-wise comparison
+  for (int cur = num_tiling_levels-1; cur > 0; cur--)
+  {
+    if (tile_nest[cur].link_transfers != 0)
+    {
+      // FIXME: For now our assumption is that all spatial units in a level
+      // are responsible for all peer communication, even though there can be
+      // some optimizations. For example, one read for PE x is multicast to
+      // two other PEs, saving one read to the buffer.  Simially, we also
+      // assume read and fill comes in pair. However, there can be some other
+      // optimizations that break this assumption.
+      auto spatial_size = tile_nest[cur - 1].replication_factor;
+      assert(spatial_size > 1);
+      auto access_per_element = tile_nest[cur].link_transfers / spatial_size;
+      auto fills_per_element = tile_nest[cur].link_transfers / spatial_size;
+      tile_nest[cur - 1].peer_accesses += access_per_element;
+      tile_nest[cur - 1].peer_fills += fills_per_element;
+    }
+  }
+
+  return;
+}
 // Collapse tiles into a given number of levels.
 // Input and output are both arrays of tile nests,
 // with one nest per problem::Shape::DataSpaceID.
@@ -398,6 +432,8 @@ CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
       collapsed_tile.cumulative_hops = tiles[pv][innermost_loop].cumulative_hops;
       collapsed_tile.content_accesses = tiles[pv][innermost_loop].content_accesses;
       collapsed_tile.link_transfers = tiles[pv][innermost_loop].link_transfers;
+      collapsed_tile.peer_accesses = 0;
+      collapsed_tile.peer_fills = 0;
       collapsed_tile.replication_factor = tiles[pv][outermost_loop].replication_factor;
       collapsed_tile.fanout = tiles[pv][innermost_loop].fanout;
 
@@ -429,6 +465,10 @@ CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
 
     // Perform distributed-multicast if supported.
     DistributeTiles(solution[pv], distribution_supported[pv]);
+
+    // Calculate the extra accesses and fills due to link transfers
+    ComputePeerAccesses(solution[pv]);
+
   }
   return solution;
 }

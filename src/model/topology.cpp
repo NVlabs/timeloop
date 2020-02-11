@@ -906,15 +906,6 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     if (break_on_failure && !s.success)
       break;
 
-    // Evaluate network.
-    // FIXME: move this out of this loop.    
-    //auto network = storage_level->GetReadNetwork(); // GetNetwork(storage_level_id);
-    //s = network->Evaluate(tiles[storage_level_id], tile_area_.at(level_id-1), break_on_failure);
-    //eval_status.at(level_id) = s;
-    //success_accum &= s.success;
-
-    //if (break_on_failure && !s.success)
-    //  break;    
   }
 
   unsigned int numConnections = NumStorageLevels();

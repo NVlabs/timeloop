@@ -560,9 +560,9 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
       // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
       assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
 
-      stats_.reads[pv] = tile[pvi].content_accesses - tile[pvi].partition_size;
+      stats_.reads[pv] = tile[pvi].content_accesses - tile[pvi].partition_size + tile[pvi].peer_accesses;
       stats_.updates[pv] = tile[pvi].content_accesses;
-      stats_.fills[pv] = tile[pvi].fills;
+      stats_.fills[pv] = tile[pvi].fills + tile[pvi].peer_fills;
       stats_.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
 
       // FIXME: temporal reduction and network costs if hardware reduction isn't
@@ -572,9 +572,9 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
     }
     else // Read-only data type.
     {
-      stats_.reads[pv] = tile[pvi].content_accesses;
+      stats_.reads[pv] = tile[pvi].content_accesses + tile[pvi].peer_accesses;
       stats_.updates[pv] = 0;
-      stats_.fills[pv] = tile[pvi].fills;
+      stats_.fills[pv] = tile[pvi].fills + tile[pvi].peer_fills;
       stats_.address_generations[pv] = stats_.reads[pv] + stats_.fills[pv]; // scalar
       stats_.temporal_reductions[pv] = 0;
     }

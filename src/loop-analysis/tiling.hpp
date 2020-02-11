@@ -64,6 +64,8 @@ struct TileInfo
   std::uint64_t content_accesses;
   std::uint64_t fills;
   std::uint64_t link_transfers;
+  std::uint64_t peer_accesses;           // number of accesses caused by link transfers in the previous level 
+  std::uint64_t peer_fills;              // number of fills caused by link transfers in the previous level
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t fanout;                  // per-element fanout to next-level.
@@ -98,6 +100,8 @@ struct TileInfo
     content_accesses = 0;
     fills = 0;
     link_transfers = 0;
+    peer_accesses = 0;
+    peer_fills = 0;
     subnest.resize(0);
     replication_factor = 0;
     fanout = 0;

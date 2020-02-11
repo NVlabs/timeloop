@@ -265,12 +265,11 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
     // FIXME: issues with link-transfer modeling:
     // 1. link transfers should result in buffer accesses to a peer.
     // 2. should reductions via link transfers be counted as spatial or temporal?
+    // poan: This two issues are fixed. For 1., see peer_accesses/fills stats in buffer.cpp
+    // and for 2., we should count them as temporal reduction because the link
+    // in this legacy/X-Y mesh network should not be able to reduce the partial
+    // output.
     stats_.link_transfers[pv] = tile[pvi].link_transfers;
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
-            (specs_.cType & ConnectionType::UpdateDrain) )
-    {
-      stats_.spatial_reductions[pv] += tile[pvi].link_transfers;
-    }
 
     stats_.fanout[pv] = tile[pvi].fanout;
     if (stats_.distributed_multicast.at(pv))
