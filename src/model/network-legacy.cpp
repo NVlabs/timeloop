@@ -145,6 +145,16 @@ std::string LegacyNetwork::Name() const
   return specs_.name;
 }
 
+void LegacyNetwork::AddConnectionType(ConnectionType ct)
+{
+  specs_.cType = static_cast<ConnectionType>(static_cast<int>(specs_.cType) | static_cast<int>(ct));
+}
+
+void LegacyNetwork::ResetConnectionType()
+{
+  specs_.cType = Unused;
+}
+
 bool LegacyNetwork::DistributedMulticastSupported() const
 {
   bool retval = true;
@@ -165,6 +175,7 @@ void LegacyNetwork::SetTileWidth(double width_um)
 EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
                                  const bool break_on_failure)
 {
+
   auto eval_status = ComputeAccesses(tile, break_on_failure);
   if (!break_on_failure || eval_status.success)
   {
@@ -204,7 +215,8 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
       //        of here.
       if (auto sink = sink_.lock())
       {      
-        if (sink->HardwareReductionSupported())
+        if (sink->HardwareReductionSupported() ||
+            (specs_.cType == ConnectionType::ReadFill) )
         {
           stats_.ingresses[pv] = tile[pvi].accesses;
         }
@@ -254,7 +266,8 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
     // 1. link transfers should result in buffer accesses to a peer.
     // 2. should reductions via link transfers be counted as spatial or temporal?
     stats_.link_transfers[pv] = tile[pvi].link_transfers;
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
+            (specs_.cType & ConnectionType::UpdateDrain) )
     {
       stats_.spatial_reductions[pv] += tile[pvi].link_transfers;
     }
@@ -279,7 +292,8 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
         {
           stats_.multicast_factor[pv] = factor;
         }
-        if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+        if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
+                (specs_.cType & ConnectionType::UpdateDrain) )
         {
           stats_.spatial_reductions[pv] += (i * stats_.ingresses[pv][i]);
         }
@@ -297,6 +311,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
     // this later in the ComputePerformance() function.    
 
   (void) break_on_failure;
+  is_evaluated_ = success;
 
   EvalStatus eval_status;
   eval_status.success = success;
@@ -343,7 +358,6 @@ void LegacyNetwork::ComputeNetworkEnergy()
       if (ingresses > 0)
       {
         auto multicast_factor = i + 1;
-
 #if MULTICAST_MODEL == PROBABILISTIC_MULTICAST
 
         auto num_hops = NumHops(multicast_factor, fanout);
@@ -408,7 +422,8 @@ void LegacyNetwork::ComputeSpatialReductionEnergy()
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv)
+            && (specs_.cType & ConnectionType::UpdateDrain)) // also used for UpdateDrain connections
     {
       stats_.spatial_reduction_energy[pv] = stats_.spatial_reductions[pv] * 
         pat::AdderEnergy(specs_.word_bits.Get(), specs_.word_bits.Get());
@@ -458,6 +473,7 @@ void LegacyNetwork::Print(std::ostream& out) const
 
   out << indent << indent << "Type            : " << specs_.type << std::endl;
   out << indent << indent << "Legacy sub-type : " << specs_.legacy_subtype << std::endl;
+  out << indent << indent << "ConnectionType  : " << specs_.cType << std::endl;
   out << indent << indent << "Word bits       : " << specs_.word_bits << std::endl;
   out << indent << indent << "Router energy   : " << specs_.router_energy << " pJ" << std::endl;
   out << indent << indent << "Wire energy     : " << specs_.wire_energy << " pJ/b/mm" << std::endl;

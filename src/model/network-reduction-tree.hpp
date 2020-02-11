@@ -39,9 +39,8 @@
 namespace model
 {
 
-class LegacyNetwork : public Network
+class ReductionTreeNetwork : public Network
 {
-
  public:
 
   //
@@ -52,16 +51,12 @@ class LegacyNetwork : public Network
     static const std::uint64_t kDefaultWordBits = 16;
 
     std::string type;
-    std::string legacy_subtype;
     Attribute<std::uint64_t> word_bits;
-
-    // Physical attributes.
-    Attribute<double> router_energy;
+    Attribute<double> adder_energy; // let user overwrite the one in pat
     Attribute<double> wire_energy;
 
     // Post-floorplanning physical attributes.
     Attribute<double> tile_width; // um
-    Attribute<double> energy_per_hop; //pJ
 
     const std::string Type() const override { return type; }
 
@@ -75,10 +70,9 @@ class LegacyNetwork : public Network
       if (version == 0)
       {
         ar& BOOST_SERIALIZATION_NVP(word_bits);
-        ar& BOOST_SERIALIZATION_NVP(router_energy);
+        ar& BOOST_SERIALIZATION_NVP(adder_energy);
         ar& BOOST_SERIALIZATION_NVP(wire_energy);
         ar& BOOST_SERIALIZATION_NVP(tile_width);
-        ar& BOOST_SERIALIZATION_NVP(energy_per_hop);
       }
     }
 
@@ -92,16 +86,9 @@ class LegacyNetwork : public Network
 
   struct Stats
   {
-    problem::PerDataSpace<std::uint64_t> fanout;
-    problem::PerDataSpace<std::uint64_t> distributed_fanout;
-    problem::PerDataSpace<std::uint64_t> multicast_factor;
     problem::PerDataSpace<std::vector<unsigned long>> ingresses;
-    problem::PerDataSpace<bool> distributed_multicast;
-    problem::PerDataSpace<unsigned long> link_transfers;
     problem::PerDataSpace<unsigned long> spatial_reductions;
-    problem::PerDataSpace<double> link_transfer_energy;
     problem::PerDataSpace<double> num_hops;
-    problem::PerDataSpace<std::vector<double>> avg_hops;
     problem::PerDataSpace<double> energy_per_hop;
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> spatial_reduction_energy;
@@ -117,14 +104,8 @@ class LegacyNetwork : public Network
     {
       if (version == 0)
       {
-        ar& BOOST_SERIALIZATION_NVP(fanout);
-        ar& BOOST_SERIALIZATION_NVP(distributed_fanout);
-        ar& BOOST_SERIALIZATION_NVP(multicast_factor);
         ar& BOOST_SERIALIZATION_NVP(ingresses);
-        ar& BOOST_SERIALIZATION_NVP(distributed_multicast);
-        ar& BOOST_SERIALIZATION_NVP(link_transfers);
         ar& BOOST_SERIALIZATION_NVP(spatial_reductions);
-        ar& BOOST_SERIALIZATION_NVP(link_transfer_energy);
         ar& BOOST_SERIALIZATION_NVP(num_hops);
         ar& BOOST_SERIALIZATION_NVP(energy_per_hop);
         ar& BOOST_SERIALIZATION_NVP(energy);
@@ -165,15 +146,15 @@ class LegacyNetwork : public Network
 
  public:
 
-  LegacyNetwork(); // Need this to make Boost happy.
-  LegacyNetwork(const Specs& specs);
-  ~LegacyNetwork();
+  ReductionTreeNetwork(); // Need this to make Boost happy.
+  ReductionTreeNetwork(const Specs& specs);
+  ~ReductionTreeNetwork();
 
   std::shared_ptr<Network> Clone() const override
   {
-    return std::static_pointer_cast<Network>(std::make_shared<LegacyNetwork>(*this));
+    return std::static_pointer_cast<Network>(std::make_shared<ReductionTreeNetwork>(*this));
   }
-
+  
   static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements);
 
   void ConnectSource(std::weak_ptr<Level> source);
@@ -187,28 +168,21 @@ class LegacyNetwork : public Network
 
   // Floorplanner interface.
   void SetTileWidth(double width_um);
-
+ 
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                      const bool break_on_failure);
-
-  EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const bool break_on_failure);
-  void ComputeNetworkEnergy();
-  void ComputeSpatialReductionEnergy();
-  void ComputePerformance();
-
-  std::uint64_t WordBits() const;
+                              const bool break_on_failure);
+  // PAT interface.
+  static double WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance, double wire_energy_override);
+  static double AdderEnergy(std::uint64_t word_bits, double adder_energy_override);
 
   void Print(std::ostream& out) const;
 
-  // PAT interface.
-  static double WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance, double wire_energy_override);
-  static double NumHops(std::uint32_t multicast_factor, std::uint32_t fanout);
+  // Ugly abstraction-breaking probes that should be removed.
+  std::uint64_t WordBits() const;
 
-  STAT_ACCESSOR_HEADER(double, NetworkEnergy);
-  STAT_ACCESSOR_HEADER(double, SpatialReductionEnergy);
   STAT_ACCESSOR_HEADER(double, Energy);
 
-}; // class Network
+}; // class ReductionTreeNetwork
 
 } // namespace model
 

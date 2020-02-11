@@ -29,6 +29,8 @@
 
 #include "model/network.hpp"
 #include "model/network-legacy.hpp"
+#include "model/network-reduction-tree.hpp"
+#include "model/network-simple-multicast.hpp"
 #include "compound-config/compound-config.hpp"
 
 namespace model
@@ -55,6 +57,17 @@ class NetworkFactory
         auto legacy_specs = LegacyNetwork::ParseSpecs(network, n_elements);
         specs = std::make_shared<LegacyNetwork::Specs>(legacy_specs);
       }
+      else if (network_class.compare("ReductionTree") == 0)
+      {
+        auto reduction_tree_specs = ReductionTreeNetwork::ParseSpecs(network, n_elements);
+        specs = std::make_shared<ReductionTreeNetwork::Specs>(reduction_tree_specs);
+      }
+      else if (network_class.compare("SimpleMulticast") == 0)
+      {
+        auto simple_multicast_specs = SimpleMulticastNetwork::ParseSpecs(network, n_elements);
+        specs = std::make_shared<SimpleMulticastNetwork::Specs>(simple_multicast_specs);
+      }
+
       else
       {
         std::cerr << "ERROR: unrecognized network class: " << network_class << std::endl;
@@ -81,6 +94,19 @@ class NetworkFactory
       auto legacy_network = std::make_shared<LegacyNetwork>(legacy_specs);
       network = std::static_pointer_cast<Network>(legacy_network);
     }
+    else if (specs->Type() == "ReductionTree")
+    {
+      auto reduction_tree_specs = *std::static_pointer_cast<ReductionTreeNetwork::Specs>(specs);
+      auto reduction_tree_network = std::make_shared<ReductionTreeNetwork>(reduction_tree_specs);
+      network = std::static_pointer_cast<Network>(reduction_tree_network);
+    }
+    else if (specs->Type() == "SimpleMulticast")
+    {
+      auto simple_multicast_specs = *std::static_pointer_cast<SimpleMulticastNetwork::Specs>(specs);
+      auto simple_multicast_network = std::make_shared<SimpleMulticastNetwork>(simple_multicast_specs);
+      network = std::static_pointer_cast<Network>(simple_multicast_network);
+    }
+
     else
     {
       std::cerr << "ERROR: unrecognized network type: " << specs->Type() << std::endl;

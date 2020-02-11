@@ -59,7 +59,9 @@ static std::string computeClasses[4] = { "mac",
 // FIXME: derive these from a statically-instantiated list of class names that
 // are auto-populated by each Network class at program init time.
 static std::string networkClasses[] = { "XY_NoC",
-                                        "Legacy" };
+                                        "Legacy",
+                                        "ReductionTree",
+                                        "SimpleMulticast"};
 
 bool isBufferClass(std::string className);
 bool isComputeClass(std::string className);
@@ -160,6 +162,25 @@ class Topology : public Module
  private:
   std::vector<std::shared_ptr<Level>> levels_;
   std::map<std::string, std::shared_ptr<Network>> networks_;
+
+  // Maps to store the binding relationship between architectural tiling level
+  // to actual micro-architecture. The key here is a temporal/spatial tiling
+  // level id, and the value is the pointer to the actual micro-architecture
+  // (buffer/network) for the tiling level. We might deprecate the above two
+  // members in the future.
+
+  // Level map
+  std::map<unsigned, std::shared_ptr<Level>> level_map_;
+  // Network map. The pair of network connecting two storage levels should
+  // share the same spatial tiling id. Note that these read_fill network and
+  // drain_update_network can be the same network.
+  struct Connection
+  {
+    std::shared_ptr<Network> read_fill_network;
+    std::shared_ptr<Network> drain_update_network;
+  };
+  std::map<unsigned, Connection> connection_map_;
+
   std::map<unsigned, double> tile_area_;
 
   Specs specs_;
