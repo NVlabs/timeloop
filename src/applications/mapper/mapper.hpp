@@ -74,7 +74,7 @@ class Application
   bool live_status_;
   bool diagnostics_on_;
   bool emit_whoop_nest_;
-  std::string out_prefix_ = "timeloop-model";
+  std::string out_prefix_ = "timeloop-mapper";
 
   std::vector<std::string> optimization_metrics_;
 
