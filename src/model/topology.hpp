@@ -60,7 +60,8 @@ static std::string computeClasses[4] = { "mac",
 // are auto-populated by each Network class at program init time.
 static std::string networkClasses[] = { "XY_NoC",
                                         "Legacy",
-                                        "ReductionTree"};
+                                        "ReductionTree",
+                                        "SimpleMulticast"};
 
 bool isBufferClass(std::string className);
 bool isComputeClass(std::string className);
