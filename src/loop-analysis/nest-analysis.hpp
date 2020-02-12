@@ -125,7 +125,7 @@ class NestAnalysis
       unaccounted_delta,
       problem::PerDataSpace<std::vector<std::uint64_t>>& accesses,
       problem::PerDataSpace<std::vector<std::uint64_t>>& scatter_factors,
-      problem::PerDataSpace<std::vector<std::uint64_t>>& cumulative_hops
+      problem::PerDataSpace<std::vector<double>>& cumulative_hops
     );
 
   void ComputeApproxMulticastedAccesses(

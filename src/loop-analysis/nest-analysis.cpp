@@ -807,11 +807,17 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 
   problem::PerDataSpace<std::vector<std::uint64_t>>
     accesses_without_link_transfers, accesses_with_link_transfers,
-    scatter_factors_without_link_transfers, scatter_factors_with_link_transfers,
+    scatter_factors_without_link_transfers, scatter_factors_with_link_transfers;
+
+   problem::PerDataSpace<std::vector<double>>
     cumulative_hops_without_link_transfers, cumulative_hops_with_link_transfers;
 
   problem::PerDataSpace<std::vector<std::uint64_t>*>
-    accesses, scatter_factors, cumulative_hops;
+    accesses, scatter_factors;
+
+   problem::PerDataSpace<std::vector<double>*>
+       cumulative_hops;
+
   
   for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
@@ -1139,7 +1145,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
     problem::PerDataSpace<std::vector<std::uint64_t>>& accesses,
     problem::PerDataSpace<std::vector<std::uint64_t>>& scatter_factors,
-    problem::PerDataSpace<std::vector<std::uint64_t>>& cumulative_hops)
+    problem::PerDataSpace<std::vector<double>>& cumulative_hops)
 {
   std::uint64_t num_deltas = spatial_deltas.size();
 
