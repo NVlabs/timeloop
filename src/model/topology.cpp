@@ -917,20 +917,25 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     if (!rf_net->IsEvaluated())
     {
       s = rf_net->Evaluate(tiles[connection_id], break_on_failure);
-      eval_status.at(connection_id) = s;
+      eval_status.at(connection_id).success &= s.success;
+      eval_status.at(connection_id).fail_reason += s.fail_reason;
       success_accum &= s.success;
     }
+
+    if (break_on_failure && !s.success)
+      break;
 
     auto du_net = connection.drain_update_network;
     if (!du_net->IsEvaluated())
     {
       s = du_net->Evaluate(tiles[connection_id], break_on_failure);
-      eval_status.at(connection_id) = s;
+      eval_status.at(connection_id).success &= s.success;
+      eval_status.at(connection_id).fail_reason += s.fail_reason;
       success_accum &= s.success;
     }
 
     if (break_on_failure && !s.success)
-      break;    
+      break;
   }
 
   if (!break_on_failure || success_accum)
