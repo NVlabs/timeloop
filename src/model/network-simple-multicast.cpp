@@ -139,7 +139,7 @@ void SimpleMulticastNetwork::SetTileWidth(double width_um)
 }
 
 // Parse ERT to get multi-casting energy
-double SimpleMulticastNetwork::getMulticastEnergy(std::uint64_t multicast_factor){
+double SimpleMulticastNetwork::GetMulticastEnergy(std::uint64_t multicast_factor){
     std::vector<std::string> actions;
     double opEnergy = 0.0;
     specs_.accelergyERT.getMapKeys(actions);
@@ -192,7 +192,7 @@ EvalStatus SimpleMulticastNetwork::Evaluate(const tiling::CompoundTile& tile,
       if (ingresses > 0)
       {
         auto multicast_factor = i + 1;
-        stats_.energy[pv] = getMulticastEnergy(multicast_factor) * ingresses;
+        stats_.energy[pv] = GetMulticastEnergy(multicast_factor) * ingresses;
         stats_.multicast_factor[pv] = multicast_factor;
       }
     }
