@@ -138,11 +138,65 @@ void SimpleMulticastNetwork::SetTileWidth(double width_um)
   }
 }
 
+// Parse ERT to get multi-casting energy
+double SimpleMulticastNetwork::GetMulticastEnergy(std::uint64_t multicast_factor){
+    std::vector<std::string> actions;
+    double opEnergy = 0.0;
+    specs_.accelergyERT.getMapKeys(actions);
+    // use transfer as the keyword for multicast NoC action specification
+    if (specs_.accelergyERT.exists("transfer")){
+        auto actionERT = specs_.accelergyERT.lookup("transfer");
+        if (actionERT.isList()){
+            for(int i = 0; i < actionERT.getLength(); i ++){
+                config::CompoundConfigNode arguments = actionERT[i].lookup("arguments");
+                unsigned int num_destinations;
+                // use num_destinations as a keyword to perform ERT search (might be updated)
+                arguments.lookupValue("num_destinations", num_destinations);
+                if (num_destinations == multicast_factor){
+                  // std::cout << "found correct num destinations" << std::endl;
+                  actionERT[i].lookupValue("energy", opEnergy);
+                }
+             }
+        } else {
+            // if there is no argument, use the available energy
+            actionERT.lookupValue("energy", opEnergy);
+        }
+    }
+    return opEnergy;
+}
+
 EvalStatus SimpleMulticastNetwork::Evaluate(const tiling::CompoundTile& tile,
                               const bool break_on_failure)
 {
   (void) tile;
   (void) break_on_failure;
+
+  // Get stats from the CompoundTile
+  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  {
+    auto pv = problem::Shape::DataSpaceID(pvi);
+    stats_.utilized_instances[pv] = tile[pvi].replication_factor;
+    stats_.fanout = tile[pvi].fanout;
+    stats_.multicast_factor[pv] = 0;
+
+    // don't care what type of connection this is
+    // only need to count the number of transfers
+    stats_.ingresses[pv].resize(tile[pvi].accesses.size());
+    for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
+    {
+      stats_.ingresses[pv][i] = tile[pvi].accesses[i];
+    }
+    for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
+    {
+      auto ingresses = stats_.ingresses.at(pv).at(i);
+      if (ingresses > 0)
+      {
+        auto multicast_factor = i + 1;
+        stats_.energy[pv] = GetMulticastEnergy(multicast_factor) * ingresses;
+        stats_.multicast_factor[pv] = multicast_factor;
+      }
+    }
+  }
 
   auto eval_status = EvalStatus{true, std::string("")};
   is_evaluated_ = true;
@@ -173,16 +227,23 @@ void SimpleMulticastNetwork::Print(std::ostream& out) const
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
-
+    out << indent + indent << "Fanout                                  : "
+    << stats_.fanout.at(pv) << std::endl;
+    out << indent + indent << "Multicast factor                        : "
+        << stats_.multicast_factor.at(pv) << std::endl;
+    auto total_accesses =
+      std::accumulate(stats_.ingresses.at(pv).begin(),
+                      stats_.ingresses.at(pv).end(),
+                      static_cast<std::uint64_t>(0));
+    out << indent + indent << "Ingresses                               : "
+        << total_accesses << std::endl;
     out << indent + indent << "Energy (per-instance)                   : "
         << stats_.energy.at(pv) << " pJ" << std::endl;
     out << indent + indent << "Energy (total)                          : "
         << stats_.energy.at(pv) * stats_.utilized_instances.at(pv)
         << " pJ" << std::endl;
   }
-
   out << std::endl;
-
 }
 
 std::uint64_t SimpleMulticastNetwork::WordBits() const

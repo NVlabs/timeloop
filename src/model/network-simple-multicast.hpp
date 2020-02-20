@@ -55,6 +55,7 @@ class SimpleMulticastNetwork : public Network
 
     // Post-floorplanning physical attributes.
     Attribute<double> tile_width; // um
+    config::CompoundConfigNode accelergyERT;
 
     const std::string Type() const override { return type; }
 
@@ -83,9 +84,10 @@ class SimpleMulticastNetwork : public Network
   struct Stats
   {
     problem::PerDataSpace<double> energy;
-
-    // Redundant stats with outer buffer.
-    problem::PerDataSpace<std::uint64_t> utilized_instances;    
+    problem::PerDataSpace<std::uint64_t> utilized_instances;
+    problem::PerDataSpace<std::vector<unsigned long>> ingresses;
+    problem::PerDataSpace<std::uint64_t> fanout;
+    problem::PerDataSpace<std::uint64_t> multicast_factor;
 
     // Serialization
     friend class boost::serialization::access;
@@ -96,6 +98,9 @@ class SimpleMulticastNetwork : public Network
       if (version == 0)
       {
         ar& BOOST_SERIALIZATION_NVP(energy);
+        ar& BOOST_SERIALIZATION_NVP(ingresses);
+        ar& BOOST_SERIALIZATION_NVP(fanout);
+        ar& BOOST_SERIALIZATION_NVP(multicast_factor);
       }
     }      
   }; // struct Stats
@@ -154,6 +159,9 @@ class SimpleMulticastNetwork : public Network
 
   // Floorplanner interface.
   void SetTileWidth(double width_um);
+
+  // Parse ERT to get multi-casting energy
+  double GetMulticastEnergy(std::uint64_t multicast_factor);
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
                               const bool break_on_failure);
