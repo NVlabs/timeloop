@@ -98,13 +98,13 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       }
     } else {
       // Check if the ERT describes any network associated with a storage component
-      for (unsigned i = 0; i < NumStorageLevels(); i++) {
-          auto bufferSpec = GetStorageLevel(i);
+      for (unsigned i = 0; i < NumNetworks(); i++) {
+          // only check the user-defined networks
           auto networkSpec = GetNetwork(i);
           if (networkSpec->Type() == "SimpleMulticast" && networkSpec->name == componentName){
-           // std::cout << "simple multicast component identified: " << componentName << std::endl;
+            // std::cout << "simple multicast component identified: " << componentName << std::endl;
             std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
-          }
+           }
       }
       // Find the level that matches this name and see what type it is
       bool isArithmeticUnit = false;
@@ -145,7 +145,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       } else if (isBuffer) {
         auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
         // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
-        bufferSpec->vector_access_energy = opEnergy / bufferSpec->cluster_size.Get();
+        bufferSpec->vector_access_energy = opEnergy/bufferSpec->cluster_size.Get();
       } else {
         // std::cout << "  Unused component ERT: "  << key << std::endl;
       }
@@ -280,7 +280,7 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   out << "Networks" << std::endl;
   out << "--------" << std::endl;
 
-#define PRINT_NETWORKS_IN_LEGACY_ORDER
+//#define PRINT_NETWORKS_IN_LEGACY_ORDER
 #ifdef PRINT_NETWORKS_IN_LEGACY_ORDER
   for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
   {
