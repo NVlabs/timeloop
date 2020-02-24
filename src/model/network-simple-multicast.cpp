@@ -139,13 +139,14 @@ void SimpleMulticastNetwork::SetTileWidth(double width_um)
 }
 
 // Parse ERT to get multi-casting energy
-double SimpleMulticastNetwork::GetMulticastEnergy(std::uint64_t multicast_factor){
+double SimpleMulticastNetwork::GetMulticastEnergy(std::uint64_t multicast_factor, std::string data_space_name){
     std::vector<std::string> actions;
+    std::string operation_name = "transfer_" + data_space_name;
     double opEnergy = 0.0;
     specs_.accelergyERT.getMapKeys(actions);
     // use transfer as the keyword for multicast NoC action specification
-    if (specs_.accelergyERT.exists("transfer")){
-        auto actionERT = specs_.accelergyERT.lookup("transfer");
+    if (specs_.accelergyERT.exists(operation_name)){
+        auto actionERT = specs_.accelergyERT.lookup(operation_name);
         if (actionERT.isList()){
             for(int i = 0; i < actionERT.getLength(); i ++){
                 config::CompoundConfigNode arguments = actionERT[i].lookup("arguments");
@@ -179,6 +180,7 @@ EvalStatus SimpleMulticastNetwork::Evaluate(const tiling::CompoundTile& tile,
     stats_.fanout = tile[pvi].fanout;
     stats_.multicast_factor[pv] = 0;
 
+    std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
     // don't care what type of connection this is
     // only need to count the number of transfers
     stats_.ingresses[pv].resize(tile[pvi].accesses.size());
@@ -192,7 +194,7 @@ EvalStatus SimpleMulticastNetwork::Evaluate(const tiling::CompoundTile& tile,
       if (ingresses > 0)
       {
         auto multicast_factor = i + 1;
-        stats_.energy[pv] = GetMulticastEnergy(multicast_factor) * ingresses;
+        stats_.energy[pv] = GetMulticastEnergy(multicast_factor, data_space_name) * ingresses;
         stats_.multicast_factor[pv] = multicast_factor;
       }
     }

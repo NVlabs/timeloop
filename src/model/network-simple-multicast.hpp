@@ -161,7 +161,7 @@ class SimpleMulticastNetwork : public Network
   void SetTileWidth(double width_um);
 
   // Parse ERT to get multi-casting energy
-  double GetMulticastEnergy(std::uint64_t multicast_factor);
+  double GetMulticastEnergy(std::uint64_t multicast_factor, std::string data_space_name);
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
                               const bool break_on_failure);
