@@ -81,9 +81,18 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
   table.getMapKeys(keys);
   for (auto key : keys) {
     auto componentERT = table.lookup(key);
-    auto pos = key.rfind(".");
-    auto componentName = key.substr(pos + 1, key.size() - pos - 1);
-    // std::cout << componentName << std::endl;
+    auto rangePos = key.rfind("..");
+    auto levelPos = key.rfind(".");
+    std::string componentName;
+    if (rangePos != std::string::npos && rangePos == levelPos - 1){
+       std::string subkey = key.substr(0, rangePos - 2);
+       levelPos = subkey.rfind(".");
+       componentName = subkey.substr(levelPos + 1, subkey.size() - levelPos - 1);
+       // std::cout << "component name: " << componentName << std::endl;
+    } else {
+       componentName = key.substr(levelPos + 1, key.size() - levelPos - 1);
+       // std::cout << "component name: " << componentName << std::endl;
+    }
 
     // update levels by name and the type of it
     if (componentName == "wire" || componentName == "Wire") { // special case, update interal wire model
@@ -111,7 +120,6 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       bool isBuffer = false;
       std::shared_ptr<LevelSpecs> specToUpdate;
       for (auto level : levels) {
-        //std::cout << "  level: " << level->level_name << std::endl;
         if (level->level_name == componentName) {
           specToUpdate = level;
           if (level->Type() == "BufferLevel") isBuffer = true;
