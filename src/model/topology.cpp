@@ -81,9 +81,18 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
   table.getMapKeys(keys);
   for (auto key : keys) {
     auto componentERT = table.lookup(key);
-    auto pos = key.rfind(".");
-    auto componentName = key.substr(pos + 1, key.size() - pos - 1);
-    // std::cout << componentName << std::endl;
+    auto rangePos = key.rfind("..");
+    auto levelPos = key.rfind(".");
+    std::string componentName;
+    if (rangePos != std::string::npos && rangePos == levelPos - 1){
+       std::string subkey = key.substr(0, rangePos - 2);
+       levelPos = subkey.rfind(".");
+       componentName = subkey.substr(levelPos + 1, subkey.size() - levelPos - 1);
+       // std::cout << "component name: " << componentName << std::endl;
+    } else {
+       componentName = key.substr(levelPos + 1, key.size() - levelPos - 1);
+       // std::cout << "component name: " << componentName << std::endl;
+    }
 
     // update levels by name and the type of it
     if (componentName == "wire" || componentName == "Wire") { // special case, update interal wire model
@@ -98,20 +107,19 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       }
     } else {
       // Check if the ERT describes any network associated with a storage component
-      for (unsigned i = 0; i < NumStorageLevels(); i++) {
-          auto bufferSpec = GetStorageLevel(i);
+      for (unsigned i = 0; i < NumNetworks(); i++) {
+          // only check the user-defined networks
           auto networkSpec = GetNetwork(i);
           if (networkSpec->Type() == "SimpleMulticast" && networkSpec->name == componentName){
-           // std::cout << "simple multicast component identified: " << componentName << std::endl;
+            // std::cout << "simple multicast component identified: " << componentName << std::endl;
             std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
-          }
+           }
       }
       // Find the level that matches this name and see what type it is
       bool isArithmeticUnit = false;
       bool isBuffer = false;
       std::shared_ptr<LevelSpecs> specToUpdate;
       for (auto level : levels) {
-        //std::cout << "  level: " << level->level_name << std::endl;
         if (level->level_name == componentName) {
           specToUpdate = level;
           if (level->Type() == "BufferLevel") isBuffer = true;
@@ -145,7 +153,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       } else if (isBuffer) {
         auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
         // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
-        bufferSpec->vector_access_energy = opEnergy / bufferSpec->cluster_size.Get();
+        bufferSpec->vector_access_energy = opEnergy/bufferSpec->cluster_size.Get();
       } else {
         // std::cout << "  Unused component ERT: "  << key << std::endl;
       }
@@ -280,7 +288,7 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   out << "Networks" << std::endl;
   out << "--------" << std::endl;
 
-#define PRINT_NETWORKS_IN_LEGACY_ORDER
+//#define PRINT_NETWORKS_IN_LEGACY_ORDER
 #ifdef PRINT_NETWORKS_IN_LEGACY_ORDER
   for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
   {
