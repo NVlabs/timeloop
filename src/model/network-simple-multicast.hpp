@@ -55,7 +55,12 @@ class SimpleMulticastNetwork : public Network
 
     // Post-floorplanning physical attributes.
     Attribute<double> tile_width; // um
+
+    // For ERT parsing
     config::CompoundConfigNode accelergyERT;
+    std::string action_name;
+    std::string multicast_factor_argument;
+    bool per_datatype_ERT;
 
     const std::string Type() const override { return type; }
 
@@ -69,7 +74,9 @@ class SimpleMulticastNetwork : public Network
       if (version == 0)
       {
         ar& BOOST_SERIALIZATION_NVP(word_bits);
-        ar& BOOST_SERIALIZATION_NVP(tile_width);
+        ar& BOOST_SERIALIZATION_NVP(action_name);
+        ar& BOOST_SERIALIZATION_NVP(multicast_factor_argument);
+        ar& BOOST_SERIALIZATION_NVP(per_datatype_ERT);
       }
     }
 
@@ -161,7 +168,9 @@ class SimpleMulticastNetwork : public Network
   void SetTileWidth(double width_um);
 
   // Parse ERT to get multi-casting energy
-  double GetMulticastEnergy(std::uint64_t multicast_factor, std::string data_space_name);
+  double GetOpEnergyFromERT(std::uint64_t multicast_factor, std::string operation_name);
+  double GetMulticastEnergy(std::uint64_t multicast_factor);
+  double GetMulticastEnergyByDataType(std::uint64_t multicast_factor, std::string data_space_name);
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
                               const bool break_on_failure);
