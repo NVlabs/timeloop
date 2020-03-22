@@ -133,13 +133,19 @@ class Uber : public MapSpace
                 << "] Size: " << size_[i] << std::endl;
     }
     
-    // check for integer overflow in the above multiplications
+    // Check for integer overflow in the above multiplications.
     uint128_t de_cumulative_prod = Size();
     for (int i = 0; i < int(mapspace::Dimension::Num); i++)
     {
       de_cumulative_prod /= size_[i];
     }
-    assert(de_cumulative_prod == 1);
+    if (de_cumulative_prod != 1)
+    {
+      std::cerr << "ERROR: overflow detected: mapspace size appears to be "
+                << "greater than 2^128. Please add some mapspace constraints."
+                << std::endl;
+      exit(1);
+    }
   }
   
   //
