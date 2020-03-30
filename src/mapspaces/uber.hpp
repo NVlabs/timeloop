@@ -72,6 +72,7 @@ class Uber : public MapSpace
 
   // Minimum parallelism (constraint).
   double min_parallelism_;
+  bool min_parallelism_isset_;
   
  public:
 
@@ -995,20 +996,46 @@ class Uber : public MapSpace
       if (type == "temporal" || type == "spatial")
       {
         auto level_factors = ParseUserFactors(attributes);
-        if (level_factors.size() > 0)
+        for (auto& factor: level_factors)
         {
-          user_factors[level_id] = level_factors;
+          if (user_factors[level_id].find(factor.first) != user_factors[level_id].end())
+          {
+            std::cerr << "ERROR: re-specification of factor for dimension "
+                      << problem::GetShape()->DimensionIDToName.at(factor.first)
+                      << " at level " << arch_props_.TilingLevelName(level_id)
+                      << ". This may imply a conflict between architecture and "
+                      << "mapspace constraints." << std::endl;
+            exit(1);
+          }
+          user_factors[level_id][factor.first] = factor.second;
         }
 
         auto level_max_factors = ParseUserMaxFactors(attributes);
-        if (level_max_factors.size() > 0)
+        for (auto& max_factor: level_max_factors)
         {
-          user_max_factors[level_id] = level_max_factors;
+          if (user_max_factors[level_id].find(max_factor.first) != user_max_factors[level_id].end())
+          {
+            std::cerr << "ERROR: re-specification of max factor for dimension "
+                      << problem::GetShape()->DimensionIDToName.at(max_factor.first)
+                      << " at level " << arch_props_.TilingLevelName(level_id)
+                      << ". This may imply a conflict between architecture and "
+                      << "mapspace constraints." << std::endl;
+            exit(1);
+          }
+          user_max_factors[level_id][max_factor.first] = max_factor.second;
         }
 
         auto level_permutations = ParseUserPermutations(attributes);
         if (level_permutations.size() > 0)
         {
+          if (user_permutations[level_id].size() > 0)
+          {
+            std::cerr << "ERROR: re-specification of permutation at level "
+                      << arch_props_.TilingLevelName(level_id)
+                      << ". This may imply a conflict between architecture and "
+                      << "mapspace constraints." << std::endl;
+            exit(1);
+          }
           user_permutations[level_id] = level_permutations;
         }
 
@@ -1017,19 +1044,37 @@ class Uber : public MapSpace
           std::uint32_t user_split;
           if (constraint.lookupValue("split", user_split))
           {
+            if (user_spatial_splits.find(level_id) != user_spatial_splits.end())
+            {
+              std::cerr << "ERROR: re-specification of spatial split at level "
+                        << arch_props_.TilingLevelName(level_id)
+                        << ". This may imply a conflict between architecture and "
+                        << "mapspace constraints." << std::endl;
+              exit(1);
+            }
             user_spatial_splits[level_id] = user_split;
           }
         }
       }
       else if (type == "datatype" || type == "bypass" || type == "bypassing")
       {
+        // Error handling for re-spec conflicts are inside the parse function.
         ParseUserDatatypeBypassSettings(attributes,
                                         arch_props_.TilingToStorage(level_id),
                                         user_bypass_strings);
       }
       else if (type == "utilization" || type == "parallelism")
       {
+        if (min_parallelism_isset_)
+        {
+          std::cerr << "ERROR: re-specification of min parallelism/utilization at level "
+                    << arch_props_.TilingLevelName(level_id)
+                    << ". This may imply a conflict between architecture and "
+                    << "mapspace constraints." << std::endl;
+          exit(1);
+        }
         assert(attributes.lookupValue("min", min_parallelism_));
+        min_parallelism_isset_ = true;
       }
       else
       {
@@ -1292,6 +1337,16 @@ class Uber : public MapSpace
                     << " not found in problem shape." << std::endl;
           exit(1);
         }
+        // FIXME: no error handling for overwriting last-level bypass setting.
+        if (level != arch_specs_.topology.NumStorageLevels()-1 &&
+            user_bypass_strings.at(datatype).at(level) != 'X')
+        {
+          std::cerr << "ERROR: re-specification of dataspace keep flag at level "
+                    << arch_props_.StorageLevelName(level) << ". This may imply a "
+                    << "conflict between architecture and mapspace constraints."
+                    << std::endl;
+          exit(1);          
+        }
         user_bypass_strings.at(datatype).at(level) = '1';
       }
     }
@@ -1313,6 +1368,15 @@ class Uber : public MapSpace
           std::cerr << "ERROR: parsing bypass setting: data-space " << datatype_string
                     << " not found in problem shape." << std::endl;
           exit(1);
+        }
+        if (level != arch_specs_.topology.NumStorageLevels()-1 &&
+            user_bypass_strings.at(datatype).at(level) != 'X')
+        {
+          std::cerr << "ERROR: re-specification of dataspace bypass flag at level "
+                    << arch_props_.StorageLevelName(level) << ". This may imply a "
+                    << "conflict between architecture and mapspace constraints."
+                    << std::endl;
+          exit(1);          
         }
         user_bypass_strings.at(datatype).at(level) = '0';
       }
