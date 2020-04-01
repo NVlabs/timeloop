@@ -83,6 +83,7 @@ class Uber : public MapSpace
   //
   Uber(
     config::CompoundConfigNode config,
+    config::CompoundConfigNode arch_constraints,
     model::Engine::Specs arch_specs,
     const problem::Workload& workload,
     bool skip_init = false) :
@@ -94,7 +95,7 @@ class Uber : public MapSpace
   {
     if (!skip_init)
     {
-      Init(config);
+      Init(config, arch_constraints);
     }
   }
 
@@ -105,7 +106,7 @@ class Uber : public MapSpace
   //
   // Init() - called by derived classes or by constructor.
   //
-  void Init(config::CompoundConfigNode config)
+  void Init(config::CompoundConfigNode config, config::CompoundConfigNode arch_constraints)
   {
     // Setup Map space.
     user_factors_.clear();
@@ -113,8 +114,17 @@ class Uber : public MapSpace
     user_spatial_splits_.clear();
     user_bypass_strings_.clear();
 
+    // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    {
+      std::string xxx(arch_specs_.topology.NumStorageLevels(), 'X');
+      xxx.back() = '1';
+      user_bypass_strings_[problem::Shape::DataSpaceID(pvi)] = xxx;
+    }
+
     // Parse config.
-    ParseUserConfig(config, user_factors_, user_max_factors_, user_permutations_,
+    ParseUserConfig(config, arch_constraints,
+                    user_factors_, user_max_factors_, user_permutations_,
                     user_spatial_splits_, user_bypass_strings_);
 
     // Setup all the mapping sub-spaces.
@@ -861,47 +871,58 @@ class Uber : public MapSpace
   //
   void ParseUserConfig(
     config::CompoundConfigNode config,
+    config::CompoundConfigNode arch_constraints,
     std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
     std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors,
     std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
     std::map<unsigned, std::uint32_t>& user_spatial_splits,
     problem::PerDataSpace<std::string>& user_bypass_strings)
   {
-    // This is primarily a wrapper function written to handle various ways to
-    // get to the list of constraints. The only reason there are multiple ways
-    // to get to this list is because of backwards compatibility.
-    if (config.isList())
-    {
-      // We're already at the constraints list.
-      
-      ParseUserConstraints(config, user_factors, user_max_factors, user_permutations,
-                           user_spatial_splits, user_bypass_strings);
-    }
-    else
-    {
-      // Constraints can be specified either anonymously as a list, or indirected
-      // via a string name.
-      std::string name = "";
-      if (config.exists("constraints"))
-      {
-        if (config.lookup("constraints").isList())
-          name = "constraints";
-        else if (config.lookupValue("constraints", name))
-          name = std::string("constraints_") + name;
-      }
-      else if (config.exists("targets"))
-      {
-        if (config.lookup("targets").isList())
-          name = "targets";
-      }
+    // We accept mapspace config and arch_constraints as separate configuration
+    // trees, but as far as parsing is concerned we handle them in exactly the
+    // same way. The underlying parsing methods are built to handle conflicts.
+    std::vector<config::CompoundConfigNode> config_vector = { config, arch_constraints };
 
-      if (name == "")
-        // No constraints specified, nothing to do.
-        return;
+    for (auto& config: config_vector)
+    {
+      // This is primarily a wrapper function written to handle various ways to
+      // get to the list of constraints. The only reason there are multiple ways
+      // to get to this list is because of backwards compatibility.
+      if (config.isList())
+      {
+        // We're already at the constraints list.
+        ParseUserConstraints(config, user_factors, user_max_factors, user_permutations,
+                             user_spatial_splits, user_bypass_strings);
+      }
+      else
+      {
+        // Constraints can be specified either anonymously as a list, or indirected
+        // via a string name.
+        std::string name = "";
+        if (config.exists("constraints"))
+        {
+          if (config.lookup("constraints").isList())
+            name = "constraints";
+          else if (config.lookupValue("constraints", name))
+            name = std::string("constraints_") + name;
+        }
+        else if (config.exists("targets"))
+        {
+          if (config.lookup("targets").isList())
+            name = "targets";
+        }
 
-      auto constraints = config.lookup(name);
-      ParseUserConstraints(constraints, user_factors, user_max_factors, user_permutations,
-                           user_spatial_splits, user_bypass_strings);
+        if (name != "")
+        {
+          auto constraints = config.lookup(name);
+          ParseUserConstraints(constraints, user_factors, user_max_factors, user_permutations,
+                               user_spatial_splits, user_bypass_strings);
+        }
+        else
+        {
+          // No constraints specified, nothing to do.
+        }
+      }
     }
   }  
 
@@ -917,15 +938,6 @@ class Uber : public MapSpace
     problem::PerDataSpace<std::string>& user_bypass_strings)
   {
     assert(constraints.isList());
-
-    // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
-    // FIXME: there's probably a cleaner way/place to initialize this.
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    {
-      std::string xxx(arch_specs_.topology.NumStorageLevels(), 'X');
-      xxx.back() = '1';
-      user_bypass_strings[problem::Shape::DataSpaceID(pvi)] = xxx;
-    }
 
     // Iterate over all the constraints/targets.
     int len = constraints.getLength();
