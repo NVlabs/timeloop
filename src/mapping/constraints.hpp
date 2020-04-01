@@ -34,7 +34,7 @@ namespace mapping
 {
 
 //--------------------------------------------//
-//                Uber MapSpace               //
+//                 Constraints                //
 //--------------------------------------------//
 
 class Constraints
