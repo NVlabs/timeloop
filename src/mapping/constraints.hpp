@@ -114,159 +114,335 @@ class Constraints
   }
 
   //
+  // Create a constraints object from a given mapping object. The resultant
+  // constraints will *only* be satisfied by that mapping.
+  //
+  void Generate(Mapping* mapping)
+  {
+    auto num_storage_levels = mapping->loop_nest.storage_tiling_boundaries.size();
+    
+    // Data-space Bypass.
+    auto mask_nest = tiling::TransposeMasks(mapping->datatype_bypass_nest);
+    
+    for (unsigned storage_level = 0; storage_level < num_storage_levels; storage_level++)
+    {
+      auto& compound_mask = mask_nest.at(storage_level);
+      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+      {
+        problem::Shape::DataSpaceID pv = problem::Shape::DataSpaceID(pvi);
+        if (compound_mask.at(pv))
+          bypass_strings_.at(pv).at(storage_level) = '1';
+        else
+          bypass_strings_.at(pv).at(storage_level) = '0';
+      }
+    }
+    
+    // Factors, Permutations and Spatial Split.
+    unsigned loop_level = 0;
+    for (unsigned storage_level = 0; storage_level < num_storage_levels; storage_level++)
+    {
+      std::map<spacetime::Dimension, std::vector<problem::Shape::DimensionID>> permutations;
+      std::map<spacetime::Dimension, std::map<problem::Shape::DimensionID, int>> factors;
+      unsigned spatial_split;
+      
+      // Collect loop bounds and ordering.
+      for (unsigned sdi = 0; sdi < unsigned(spacetime::Dimension::Num); sdi++)
+      {
+        auto sd = spacetime::Dimension(sdi);
+        permutations[sd] = { };
+        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+          factors[sd][problem::Shape::DimensionID(idim)] = 1;
+      }
+
+      for (; loop_level <= mapping->loop_nest.storage_tiling_boundaries.at(storage_level); loop_level++)
+      {
+        auto& loop = mapping->loop_nest.loops.at(loop_level);
+        if (loop.end > 1)
+        {
+          factors.at(loop.spacetime_dimension).at(loop.dimension) = loop.end;
+          permutations.at(loop.spacetime_dimension).push_back(loop.dimension);
+        }
+      }
+
+      // Determine X-Y split.
+      spatial_split = permutations.at(spacetime::Dimension::SpaceX).size();
+    
+      // Merge spatial X and Y factors and permutations.
+      std::vector<problem::Shape::DimensionID> spatial_permutation;
+      spatial_permutation = permutations.at(spacetime::Dimension::SpaceX);
+      spatial_permutation.insert(spatial_permutation.end(),
+                                 permutations.at(spacetime::Dimension::SpaceY).begin(),
+                                 permutations.at(spacetime::Dimension::SpaceY).end());
+      
+      // Only generate spatial constraints if there is a spatial permutation.
+      if (spatial_permutation.size() > 0)
+      {
+        std::map<problem::Shape::DimensionID, int> spatial_factors;
+        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+        {
+          auto dim = problem::Shape::DimensionID(idim);
+          spatial_factors[dim] =
+            factors.at(spacetime::Dimension::SpaceX).at(dim) *
+            factors.at(spacetime::Dimension::SpaceY).at(dim);
+
+          // If the factor is 1, concatenate it to the permutation.
+          if (spatial_factors.at(dim) == 1)
+            spatial_permutation.push_back(dim);
+        }
+
+        auto tiling_level = arch_props_.SpatialToTiling(storage_level);
+        factors_[tiling_level] = spatial_factors;
+        permutations_[tiling_level] = spatial_permutation;
+        spatial_splits_[tiling_level] = spatial_split;
+      }
+
+      auto& temporal_permutation = permutations.at(spacetime::Dimension::Time);
+      auto& temporal_factors = factors.at(spacetime::Dimension::Time);
+    
+      // Temporal factors: if the factor is 1, concatenate it into the permutation.
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+      {
+        auto dim = problem::Shape::DimensionID(idim);
+        if (temporal_factors.at(dim) == 1)
+          temporal_permutation.push_back(dim);
+      }
+    
+      auto tiling_level = arch_props_.TemporalToTiling(storage_level);
+      factors_[tiling_level] = temporal_factors;
+      permutations_[tiling_level] = temporal_permutation;
+    }
+  }
+  
+  //
+  // Check if a given Constraints object is a subset (i.e., more constrained).
+  //
+  bool operator >= (const Constraints& other) const
+  {
+    // This other constraints must be *equal or more* constrained than us.
+    // Walk through each constraint type and check for this property.
+
+    // --- Factors vs. other's Factors ---
+    for (auto& level_entry: factors_)
+    {
+      unsigned level = level_entry.first;
+      auto& level_factors = level_entry.second;
+
+      auto other_level_it = other.factors_.find(level);
+      if (other_level_it == other.factors_.end())
+      {
+        // Other doesn't have an entry for this level. This is almost
+        // certainly a FAIL, unless our factors object is an empty map.
+        if (!level_factors.empty())
+        {
+          return false;
+        }
+      }
+
+      auto& other_level_factors = other_level_it->second;
+      for (auto& dim_entry: level_factors)
+      {
+        auto dim = dim_entry.first;
+        auto val = dim_entry.second;
+        
+        auto other_dim_entry = other_level_factors.find(dim);
+        if (other_dim_entry == other_level_factors.end())
+        {
+          // Other doesn't have an entry for this dimension. Ergo, it
+          // is less constrained than us.
+          return false;
+        }
+        else if (other_dim_entry->second != val)
+        {
+          // Constraints are different.
+          return false;
+        }
+      }
+    }
+
+    // =================================
+    // FIXME: this method is incomplete.
+    // =================================
+    std::cerr << "ERROR: constraints subset-check implementation is incomplete." << std::endl;
+    exit(1);
+
+    // for (auto& level_entry: max_factors_)
+    // {
+    //   unsigned level = level_entry.first;
+    //   auto& level_max_factors = level_entry.second;
+
+    //   auto other_level_it = other.factors_.find(level);
+    //   // RESUME HERE.      
+
+    //   auto other_max_level_it = other.max_factors_.find(level);
+    //   if (other_max_level_it == other.max_factors_.end())
+    //   {
+    //     // Other doesn't have an entry for this level. This is almost
+    //     // certainly a FAIL, unless our max_factors object is an empty map.
+    //     if (!level_max_factors.empty())
+    //     {
+    //       return false;
+    //     }
+    //   }
+
+    //   other_level_max_factors = other_level_it->second;
+    //   for (auto& dim_entry: level_max_factors)
+    //   {
+    //     auto dim = dim_entry.first;
+    //     auto val = dim_entry.second;
+        
+    //     auto other_dim_entry = other_level_max_factors.find(dim);
+    //     if (other_dim_entry == other_level_max_factors.end())
+    //     {
+    //       // Other doesn't have an entry for this dimension. Ergo, it
+    //       // is less constrained than us.
+    //       return false;
+    //     }
+    //     else if (other_dim_entry->second > val)
+    //     {
+    //       // Other has an entry, but its max value is greater than our
+    //       // max value. Ergo, it is less constrained than us.
+    //       return false;
+    //     }
+    //   }      
+    // }
+
+    return true;
+  }
+
+  //
   // Check if a given mapping satisfies these constraints.
   //
-  bool SatisfiedBy(Mapping* mapping)
+  bool SatisfiedBy(Mapping* mapping) const
   {
-    (void) mapping;
-    // bool success = true;
+    // First generate a constraints object from the mapping.
+    Constraints other(arch_props_, workload_);
+    other.Generate(mapping);
 
-    // auto num_storage_levels = loop_nest.storage_tiling_boundaries.size();
-  
-    // // Datatype Bypass.
-    // auto mask_nest = tiling::TransposeMasks(datatype_bypass_nest);
+    // We would like to use the more general subset-check function, but
+    // its implementation is incomplete. Instead, we have some narrower checks
+    // below which suffices for checking a specific mapping.
 
-    // for (unsigned level = 0; level < num_storage_levels; level++)
-    // {
-    //   auto& compound_mask = mask_nest.at(level);    
-    //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    //   {
-    //     problem::Shape::DataSpaceID pv = problem::Shape::DataSpaceID(pvi);
-    //     if (compound_mask.at(pv))
-    //     {
-    //       success &= (constraints->BypassStrings().at(pv).at(level) == 'X' ||
-    //                   constraints->BypassStrings().at(pv).at(level) == '1');
-    //     }
-    //     else
-    //     {
-    //       success &= (constraints->BypassStrings().at(pv).at(level) == 'X' ||
-    //                   constraints->BypassStrings().at(pv).at(level) == '0');
-    //     }
-    //   }
-    // }
+    // (NOT IMPLEMENTED) return (*this >= candidate);
 
-    // if (!success)
-    // {
-    //   std::cerr << "WARNING: mapping violates dataspace bypass constraints." << std::endl;
-    //   return false;
-    // }
+    // --- Factors vs. other's Factors ---
+    for (auto& level_entry: factors_)
+    {
+      unsigned level = level_entry.first;
+      auto& level_factors = level_entry.second;
 
-    // // Factors and Permutations.
-    // unsigned loop_level = 0;
-    // for (unsigned storage_level = 0; storage_level < num_storage_levels; storage_level++)
-    // {
-    //   std::map<spacetime::Dimension, std::string> permutations;
-    //   std::map<spacetime::Dimension, std::map<problem::Shape::DimensionID, unsigned>> factors;
-    //   unsigned spatial_split;
+      auto other_level_it = other.factors_.find(level);
+      assert(other_level_it != other.factors_.end());
 
-    //   for (unsigned sdi = 0; sdi < unsigned(spacetime::Dimension::Num); sdi++)
-    //   {
-    //     auto sd = spacetime::Dimension(sdi);
-    //     permutations[sd] = "";
-    //     for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
-    //       factors[sd][problem::Shape::DimensionID(idim)] = 1;
-    //   }
-
-    //   for (; loop_level <= loop_nest.storage_tiling_boundaries.at(storage_level); loop_level++)
-    //   {
-    //     auto& loop = loop_nest.loops.at(loop_level);
-    //     if (loop.end > 1)
-    //     {
-    //       factors.at(loop.spacetime_dimension).at(loop.dimension) = loop.end;
-    //       permutations.at(loop.spacetime_dimension) += problem::GetShape()->DimensionIDToName.at(loop.dimension);
-    //     }
-    //   }
-
-    //   if (constraints_spatial_splits != constraints->SpatialSplits().end())
-    //   {
-    //     spatial_split = permutations.at(spacetime::Dimension::SpaceX).size();
-    //     success &= (spatial_split == *constraints_spatial_splits);
-    //   }
-
-    //   if (!success)
-    //   {
-    //     std::cerr << "WARNING: splatial split constraint violation at level "
-    //               << arch_props_.StorageLevelName(storage_level) << std::endl;
-    //     return false;
-    //   }
-
-    // // Merge spatial X and Y factors and permutations.
-    // std::string spatial_permutation =
-    //   permutations.at(spacetime::Dimension::SpaceX) +
-    //   permutations.at(spacetime::Dimension::SpaceY);
-    
-    // // Only print spatial constraints if there is a spatial permutation.
-    // if (spatial_permutation.size() > 0)
-    // {
-    //   auto level = arch_props_.SpatialToTiling(storage_level);
-
-
-    //   std::string spatial_factor_string = "";
-
-    //   std::map<problem::Shape::DimensionID, unsigned> spatial_factors;
-    //   for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
-    //   {
-    //     auto dim = problem::Shape::DimensionID(idim);
-    //     spatial_factors[dim] =
-    //       factors.at(spacetime::Dimension::SpaceX).at(dim) *
-    //       factors.at(spacetime::Dimension::SpaceY).at(dim);
-
-    //     spatial_factor_string += problem::GetShape()->DimensionIDToName.at(dim);
-    //     char factor[8];
-    //     sprintf(factor, "%d", spatial_factors.at(dim));
-    //     spatial_factor_string += factor;
-    //     if (idim != unsigned(problem::GetShape()->NumDimensions)-1)
-    //       spatial_factor_string += " ";
+      auto other_level_factors = other_level_it->second;
+      for (auto& dim_entry: level_factors)
+      {
+        auto dim = dim_entry.first;
+        auto val = dim_entry.second;
         
-    //     // If the factor is 1, concatenate it to the permutation.
-    //     if (spatial_factors.at(dim) == 1)
-    //       spatial_permutation += problem::GetShape()->DimensionIDToName.at(dim);
-    //   }
-      
+        auto other_dim_entry = other_level_factors.find(dim);
+        assert(other_dim_entry != other_level_factors.end());
 
-    //   auto constraints_factors = constraints->Factors().find(level);
-    //   auto constraints_max_factors = constraints->MaxFactors().find(level);
-    //   auto constraints_permutations = constraints->Permutations().find(level);
-    //   auto constraints_spatial_splits = constraints->SpatialSplits().find(level);
-      
+        if (other_dim_entry->second != val)
+        {
+          return false;
+        }
+      }
+    }
 
-      
-    //   libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);
-    //   constraint.add("target", libconfig::Setting::TypeInt) = static_cast<int>(storage_level);
-    //   constraint.add("type", libconfig::Setting::TypeString) = "spatial";
-    //   constraint.add("factors", libconfig::Setting::TypeString) = spatial_factor_string;
-    //   constraint.add("permutation", libconfig::Setting::TypeString) = spatial_permutation;
-    //   constraint.add("split", libconfig::Setting::TypeInt) = static_cast<int>(spatial_split);
-    // }
+    // --- Max Factors vs. other's Factors ---
+    // Note: other doesn't have a Max Factors because it was derived from
+    // a single mapping.
+    for (auto& level_entry: max_factors_)
+    {
+      unsigned level = level_entry.first;
+      auto& level_max_factors = level_entry.second;
 
-    // auto& temporal_permutation = permutations.at(spacetime::Dimension::Time);
-    // auto& temporal_factors = factors.at(spacetime::Dimension::Time);
-    // std::string temporal_factor_string = "";
+      auto other_level_it = other.factors_.find(level);
+      assert(other_level_it != other.factors_.end());
+
+      auto& other_level_factors = other_level_it->second;
+      for (auto& dim_entry: level_max_factors)
+      {
+        auto dim = dim_entry.first;
+        auto max_val = dim_entry.second;
+        
+        auto other_dim_entry = other_level_factors.find(dim);
+        assert(other_dim_entry != other_level_factors.end());
+
+        if (other_dim_entry->second > max_val)
+        {
+          return false;
+        }
+      }
+    }
     
-    // // Temporal factors: if the factor is 1, concatenate it into the permutation.
-    // for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+    // --- Permutations ---
+    for (auto& level_entry: permutations_)
+    {
+      // This is tricky. We need to ignore unit-factors in other.
+      unsigned level = level_entry.first;
+      auto& permutation = level_entry.second;
+
+      auto other_factors_level_it = other.factors_.find(level);
+      assert(other_factors_level_it != other.factors_.end());
+      auto& other_level_factors = other_factors_level_it->second;
+
+      auto other_permutation_level_it = other.permutations_.find(level);
+      assert(other_permutation_level_it != other.permutations_.end());
+      auto& other_permutation = other_permutation_level_it->second;
+      
+      unsigned idx = 0, other_idx = 0;
+      while (idx < permutation.size() && other_idx < other_permutation.size())
+      {
+        if (permutation.at(idx) == other_permutation.at(other_idx))
+        {
+          // So far so good...
+          idx++;
+          other_idx++;
+          continue;
+        }
+
+        // We have a mismatch. However, if this is a unit-factor
+        // we can skip ahead.
+        if (other_level_factors.at(other_permutation.at(idx)) == 1)
+        {
+          other_idx++;
+          continue;
+        }
+
+        // Fail.
+        return false;
+      }
+    }
+    
+    // --- Spatial splits ---
+    for (auto& level_entry: spatial_splits_)
+    {
+      unsigned level = level_entry.first;
+      auto split = level_entry.second;
+
+      auto other_level_it = other.spatial_splits_.find(level);
+      assert(other_level_it != other.spatial_splits_.end());
+
+      if (split != other_level_it->second)
+      {
+        return false;
+      }
+    }
+
+    // --- Bypass strings ---
+    // for (auto& level_entry: bypass_strings_)
     // {
-    //   auto dim = problem::Shape::DimensionID(idim);
+    //   unsigned level = level_entry.first;
+    //   auto strings = level_entry.second;
 
-    //   temporal_factor_string += problem::GetShape()->DimensionIDToName.at(dim);
-    //   char factor[8];
-    //   sprintf(factor, "%d", temporal_factors.at(dim));
-    //   temporal_factor_string += factor;
-    //   if (idim != unsigned(problem::GetShape()->NumDimensions)-1)
-    //     temporal_factor_string += " ";
+    //   auto other_level_it = other.bypass_strings_.find(level);
+    //   assert(other_level_it != other.bypass_strings_.end());
+
       
-    //   if (temporal_factors.at(dim) == 1)
-    //     temporal_permutation += problem::GetShape()->DimensionIDToName.at(dim);
+
     // }
 
-    // libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);
-    // constraint.add("target", libconfig::Setting::TypeInt) = static_cast<int>(storage_level);
-    // constraint.add("type", libconfig::Setting::TypeString) = "temporal";
-    // constraint.add("factors", libconfig::Setting::TypeString) = temporal_factor_string;
-    // constraint.add("permutation", libconfig::Setting::TypeString) = temporal_permutation;
-    
-    // }
-    
     return true;
   }
 
