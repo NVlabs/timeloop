@@ -50,6 +50,7 @@ namespace mapspace
 class Uber : public MapSpace
 {
  protected:
+
   // Sub-spaces.
   PermutationSpace permutation_space_;
   IndexFactorizationSpace index_factorization_space_;
@@ -860,50 +861,9 @@ class Uber : public MapSpace
     // We accept mapspace config and arch_constraints as separate configuration
     // trees, but as far as parsing is concerned we handle them in exactly the
     // same way. The underlying parsing methods are built to handle conflicts.
-    ParseConstraints(config);
-    ParseConstraints(arch_constraints);
+    constraints_.Parse(config);
+    constraints_.Parse(arch_constraints);
   }
-
-  //
-  // Parse one set of user constraints.
-  //
-  void ParseConstraints(config::CompoundConfigNode config)
-  {
-    // This is primarily a wrapper function written to handle various ways to
-    // get to the list of constraints. The only reason there are multiple ways
-    // to get to this list is because of backwards compatibility.
-    if (config.isList())
-    {
-      // We're already at the constraints list.
-      constraints_.Parse(config);
-    }
-    else
-    {
-      // Constraints can be specified either anonymously as a list, or indirected
-      // via a string name.
-      std::string name = "";
-      if (config.exists("constraints"))
-      {
-        if (config.lookup("constraints").isList())
-          name = "constraints";
-        else if (config.lookupValue("constraints", name))
-          name = std::string("constraints_") + name;
-      }
-      else if (config.exists("targets"))
-      {
-        if (config.lookup("targets").isList())
-          name = "targets";
-      }
-
-      if (name != "")
-      {
-        auto constraints = config.lookup(name);
-        constraints_.Parse(constraints);
-      }
-      // else: no constraints specified, nothing to do.
-    }
-  }  
-
 };
 
 

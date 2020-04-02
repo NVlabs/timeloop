@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include "mapping/arch-properties.hpp"
+
 namespace mapping
 {
 
@@ -112,9 +114,206 @@ class Constraints
   }
 
   //
+  // Check if a given mapping satisfies these constraints.
+  //
+  bool SatisfiedBy(Mapping* mapping)
+  {
+    (void) mapping;
+    // bool success = true;
+
+    // auto num_storage_levels = loop_nest.storage_tiling_boundaries.size();
+  
+    // // Datatype Bypass.
+    // auto mask_nest = tiling::TransposeMasks(datatype_bypass_nest);
+
+    // for (unsigned level = 0; level < num_storage_levels; level++)
+    // {
+    //   auto& compound_mask = mask_nest.at(level);    
+    //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    //   {
+    //     problem::Shape::DataSpaceID pv = problem::Shape::DataSpaceID(pvi);
+    //     if (compound_mask.at(pv))
+    //     {
+    //       success &= (constraints->BypassStrings().at(pv).at(level) == 'X' ||
+    //                   constraints->BypassStrings().at(pv).at(level) == '1');
+    //     }
+    //     else
+    //     {
+    //       success &= (constraints->BypassStrings().at(pv).at(level) == 'X' ||
+    //                   constraints->BypassStrings().at(pv).at(level) == '0');
+    //     }
+    //   }
+    // }
+
+    // if (!success)
+    // {
+    //   std::cerr << "WARNING: mapping violates dataspace bypass constraints." << std::endl;
+    //   return false;
+    // }
+
+    // // Factors and Permutations.
+    // unsigned loop_level = 0;
+    // for (unsigned storage_level = 0; storage_level < num_storage_levels; storage_level++)
+    // {
+    //   std::map<spacetime::Dimension, std::string> permutations;
+    //   std::map<spacetime::Dimension, std::map<problem::Shape::DimensionID, unsigned>> factors;
+    //   unsigned spatial_split;
+
+    //   for (unsigned sdi = 0; sdi < unsigned(spacetime::Dimension::Num); sdi++)
+    //   {
+    //     auto sd = spacetime::Dimension(sdi);
+    //     permutations[sd] = "";
+    //     for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+    //       factors[sd][problem::Shape::DimensionID(idim)] = 1;
+    //   }
+
+    //   for (; loop_level <= loop_nest.storage_tiling_boundaries.at(storage_level); loop_level++)
+    //   {
+    //     auto& loop = loop_nest.loops.at(loop_level);
+    //     if (loop.end > 1)
+    //     {
+    //       factors.at(loop.spacetime_dimension).at(loop.dimension) = loop.end;
+    //       permutations.at(loop.spacetime_dimension) += problem::GetShape()->DimensionIDToName.at(loop.dimension);
+    //     }
+    //   }
+
+    //   if (constraints_spatial_splits != constraints->SpatialSplits().end())
+    //   {
+    //     spatial_split = permutations.at(spacetime::Dimension::SpaceX).size();
+    //     success &= (spatial_split == *constraints_spatial_splits);
+    //   }
+
+    //   if (!success)
+    //   {
+    //     std::cerr << "WARNING: splatial split constraint violation at level "
+    //               << arch_props_.StorageLevelName(storage_level) << std::endl;
+    //     return false;
+    //   }
+
+    // // Merge spatial X and Y factors and permutations.
+    // std::string spatial_permutation =
+    //   permutations.at(spacetime::Dimension::SpaceX) +
+    //   permutations.at(spacetime::Dimension::SpaceY);
+    
+    // // Only print spatial constraints if there is a spatial permutation.
+    // if (spatial_permutation.size() > 0)
+    // {
+    //   auto level = arch_props_.SpatialToTiling(storage_level);
+
+
+    //   std::string spatial_factor_string = "";
+
+    //   std::map<problem::Shape::DimensionID, unsigned> spatial_factors;
+    //   for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+    //   {
+    //     auto dim = problem::Shape::DimensionID(idim);
+    //     spatial_factors[dim] =
+    //       factors.at(spacetime::Dimension::SpaceX).at(dim) *
+    //       factors.at(spacetime::Dimension::SpaceY).at(dim);
+
+    //     spatial_factor_string += problem::GetShape()->DimensionIDToName.at(dim);
+    //     char factor[8];
+    //     sprintf(factor, "%d", spatial_factors.at(dim));
+    //     spatial_factor_string += factor;
+    //     if (idim != unsigned(problem::GetShape()->NumDimensions)-1)
+    //       spatial_factor_string += " ";
+        
+    //     // If the factor is 1, concatenate it to the permutation.
+    //     if (spatial_factors.at(dim) == 1)
+    //       spatial_permutation += problem::GetShape()->DimensionIDToName.at(dim);
+    //   }
+      
+
+    //   auto constraints_factors = constraints->Factors().find(level);
+    //   auto constraints_max_factors = constraints->MaxFactors().find(level);
+    //   auto constraints_permutations = constraints->Permutations().find(level);
+    //   auto constraints_spatial_splits = constraints->SpatialSplits().find(level);
+      
+
+      
+    //   libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);
+    //   constraint.add("target", libconfig::Setting::TypeInt) = static_cast<int>(storage_level);
+    //   constraint.add("type", libconfig::Setting::TypeString) = "spatial";
+    //   constraint.add("factors", libconfig::Setting::TypeString) = spatial_factor_string;
+    //   constraint.add("permutation", libconfig::Setting::TypeString) = spatial_permutation;
+    //   constraint.add("split", libconfig::Setting::TypeInt) = static_cast<int>(spatial_split);
+    // }
+
+    // auto& temporal_permutation = permutations.at(spacetime::Dimension::Time);
+    // auto& temporal_factors = factors.at(spacetime::Dimension::Time);
+    // std::string temporal_factor_string = "";
+    
+    // // Temporal factors: if the factor is 1, concatenate it into the permutation.
+    // for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+    // {
+    //   auto dim = problem::Shape::DimensionID(idim);
+
+    //   temporal_factor_string += problem::GetShape()->DimensionIDToName.at(dim);
+    //   char factor[8];
+    //   sprintf(factor, "%d", temporal_factors.at(dim));
+    //   temporal_factor_string += factor;
+    //   if (idim != unsigned(problem::GetShape()->NumDimensions)-1)
+    //     temporal_factor_string += " ";
+      
+    //   if (temporal_factors.at(dim) == 1)
+    //     temporal_permutation += problem::GetShape()->DimensionIDToName.at(dim);
+    // }
+
+    // libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);
+    // constraint.add("target", libconfig::Setting::TypeInt) = static_cast<int>(storage_level);
+    // constraint.add("type", libconfig::Setting::TypeString) = "temporal";
+    // constraint.add("factors", libconfig::Setting::TypeString) = temporal_factor_string;
+    // constraint.add("permutation", libconfig::Setting::TypeString) = temporal_permutation;
+    
+    // }
+    
+    return true;
+  }
+
+  //
   // Parse user-provided constraints.
   //
-  void Parse(config::CompoundConfigNode constraints)
+  void Parse(config::CompoundConfigNode config)
+  {
+    // This is primarily a wrapper function written to handle various ways to
+    // get to the list of constraints. The only reason there are multiple ways
+    // to get to this list is because of backwards compatibility.
+    if (config.isList())
+    {
+      // We're already at the constraints list.
+      ParseList(config);
+    }
+    else
+    {
+      // Constraints can be specified either anonymously as a list, or indirected
+      // via a string name.
+      std::string name = "";
+      if (config.exists("constraints"))
+      {
+        if (config.lookup("constraints").isList())
+          name = "constraints";
+        else if (config.lookupValue("constraints", name))
+          name = std::string("constraints_") + name;
+      }
+      else if (config.exists("targets"))
+      {
+        if (config.lookup("targets").isList())
+          name = "targets";
+      }
+
+      if (name != "")
+      {
+        auto constraints = config.lookup(name);
+        ParseList(constraints);
+      }
+      // else: no constraints specified, nothing to do.
+    }
+  }  
+
+  //
+  // Parse a list of constraints.
+  //
+  void ParseList(config::CompoundConfigNode constraints)
   {
     assert(constraints.isList());
 

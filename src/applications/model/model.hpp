@@ -41,6 +41,8 @@
 #include "util/accelergy_interface.hpp"
 #include "util/banner.hpp"
 #include "mapping/parser.hpp"
+#include "mapping/arch-properties.hpp"
+#include "mapping/constraints.hpp"
 #include "compound-config/compound-config.hpp"
 
 //--------------------------------------------//
@@ -54,9 +56,18 @@ class Application
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
   
-  // The mapping has to be a dynamic object because we cannot
-  // instantiate it before the problem shape has been parsed. UGH.
+  // Many of the following submodules are dynamic objects because
+  // we can only instantiate them after certain config files have
+  // been parsed.
+
+  // The mapping.
   Mapping* mapping_;
+
+  // Abstract representation of the architecture.
+  ArchProperties* arch_props_;
+
+  // Constraints.
+  mapping::Constraints* constraints_;  
   
   // Application flags/config.
   bool verbose_ = false;
@@ -141,6 +152,21 @@ class Application
 #endif
     }
 
+    arch_props_ = new ArchProperties(arch_specs_);
+
+    // Architecture constraints.
+    config::CompoundConfigNode arch_constraints;
+
+    if (arch.exists("constraints"))
+      arch_constraints = arch.lookup("constraints");
+    else if (rootNode.exists("arch_constraints"))
+      arch_constraints = rootNode.lookup("arch_constraints");
+    else if (rootNode.exists("architecture_constraints"))
+      arch_constraints = rootNode.lookup("architecture_constraints");
+
+    constraints_ = new mapping::Constraints(*arch_props_, workload_);
+    constraints_->Parse(arch_constraints);
+
     if (verbose_)
       std::cout << "Architecture configuration complete." << std::endl;
 
@@ -149,6 +175,13 @@ class Application
     mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
     if (verbose_)
       std::cout << "Mapping construction complete." << std::endl;
+
+    // Validate mapping against the architecture constraints.
+    if (!constraints_->SatisfiedBy(mapping_))
+    {
+      std::cerr << "ERROR: mapping violates architecture constraints." << std::endl;
+      exit(1);
+    }
   }
 
   // This class does not support being copied
@@ -159,6 +192,12 @@ class Application
   {
     if (mapping_)
       delete mapping_;
+
+    if (arch_props_)
+      delete arch_props_;
+
+    if (constraints_)
+      delete constraints_;
   }
 
   // Run the evaluation.
