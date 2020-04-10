@@ -34,15 +34,19 @@
 namespace config
 {
 
+class CompoundConfig; // forward declaration
+
 class CompoundConfigNode
 {
  private:
   libconfig::Setting* LNode = nullptr;
   YAML::Node YNode;
+  CompoundConfig* cConfig;  
 
  public:
   CompoundConfigNode(){}
   CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode);
+  CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode, CompoundConfig* _cConfig);
 
   libconfig::Setting& getLNode() {return *LNode;}
   YAML::Node getYNode() {return YNode;}
@@ -118,6 +122,7 @@ class CompoundConfig
   libconfig::Config LConfig;
   YAML::Node YConfig;
   CompoundConfigNode root;
+  CompoundConfigNode variableRoot;
 
  public:
   CompoundConfig(){assert(false);}
@@ -130,6 +135,7 @@ class CompoundConfig
   libconfig::Config& getLConfig();
   YAML::Node& getYConfig();
   CompoundConfigNode getRoot() const;
+  CompoundConfigNode getVariableRoot() const;
 
   bool hasLConfig() { return useLConfig;}
 

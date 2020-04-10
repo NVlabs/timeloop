@@ -79,16 +79,22 @@ CompoundConfigNode::CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _y
   YNode = _ynode;
 }
 
+CompoundConfigNode::CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode, CompoundConfig* _cConfig) {
+  LNode = _lnode;
+  YNode = _ynode;
+  cConfig = _cConfig;
+}
+
 CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
   EXCEPTION_PROLOGUE;
   if (LNode) {
     libconfig::Setting& nextNode = LNode->lookup(path);
-    return CompoundConfigNode(&nextNode, YAML::Node());
+    return CompoundConfigNode(&nextNode, YAML::Node(), cConfig);
   } else if (YNode) {
     if (!YNode[path]) {
       // The best implementation is to just throw exception here, but
       // yaml-cpp-0.5 API does not have Node::Mark(), so this is a workaround
-      // to force an expection and get the Mark and then throw the correct
+      // to force an exception and get the Mark and then throw the correct
       // exception on our own.
       try {
         YNode[path].as<int>(); // force an exception!
@@ -97,7 +103,7 @@ CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
       }
     }
     YAML::Node nextNode = YNode[path];
-    return CompoundConfigNode(nullptr, nextNode);
+    return CompoundConfigNode(nullptr, nextNode, cConfig);
   } else {
     assert(false);
   }
@@ -110,7 +116,17 @@ bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
   if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
-    value = YNode[name].as<bool>();
+    try {
+      value = YNode[name].as<bool>();
+    } catch (YAML::BadConversion e) {
+      std::string variableName = YNode[name].as<std::string>();
+      if (cConfig->getVariableRoot().exists(variableName)) {
+        cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else {
+        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        throw e;
+      }
+    }
     return true;
   }
   else {
@@ -122,10 +138,28 @@ bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, int &value) const {
   EXCEPTION_PROLOGUE;
-  if (LNode) return LNode->lookupValue(name, value);
+  if (LNode) {
+    if (!LNode->lookupValue(name, value)) {
+      std::string variableName;
+      if (LNode->lookupValue(name, variableName) &&
+          cConfig->getVariableRoot().exists(variableName) ) {
+        return cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else return false;
+    } else return true;
+  }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
-    value = YNode[name].as<int>();
+    try {
+      value = YNode[name].as<int>();
+    } catch (YAML::BadConversion e) {
+      std::string variableName = YNode[name].as<std::string>();
+      if (cConfig->getVariableRoot().exists(variableName)) {
+        cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else {
+        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        throw e;
+      }
+    }
     return true;
   }
   else {
@@ -137,10 +171,28 @@ bool CompoundConfigNode::lookupValue(const char *name, int &value) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) const {
   EXCEPTION_PROLOGUE;
-  if (LNode) return LNode->lookupValue(name, value);
+  if (LNode) {
+    if (!LNode->lookupValue(name, value)) {
+      std::string variableName;
+      if (LNode->lookupValue(name, variableName) &&
+          cConfig->getVariableRoot().exists(variableName) ) {
+        return cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else return false;
+    } else return true;
+  }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
-    value = YNode[name].as<unsigned int>();
+    try {
+      value = YNode[name].as<unsigned int>();
+    } catch (YAML::BadConversion e) {
+      std::string variableName = YNode[name].as<std::string>();
+      if (cConfig->getVariableRoot().exists(variableName)) {
+        cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else {
+        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        throw e;
+      }
+    }
     return true;
   }
   else {
@@ -153,10 +205,28 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) cons
 
 bool CompoundConfigNode::lookupValue(const char *name, long long &value) const {
   EXCEPTION_PROLOGUE;
-  if (LNode) return LNode->lookupValue(name, value);
+  if (LNode) {
+    if (!LNode->lookupValue(name, value)) {
+      std::string variableName;
+      if (LNode->lookupValue(name, variableName) &&
+          cConfig->getVariableRoot().exists(variableName) ) {
+        return cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else return false;
+    } else return true;
+  }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
-    value = YNode[name].as<long long>();
+    try {
+      value = YNode[name].as<long long>();
+    } catch (YAML::BadConversion e) {
+      std::string variableName = YNode[name].as<std::string>();
+      if (cConfig->getVariableRoot().exists(variableName)) {
+        cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else {
+        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        throw e;
+      }
+    }
     return true;
   }
   else {
@@ -168,10 +238,28 @@ bool CompoundConfigNode::lookupValue(const char *name, long long &value) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value) const {
   EXCEPTION_PROLOGUE;
-  if (LNode) return LNode->lookupValue(name, value);
+  if (LNode) {
+    if (!LNode->lookupValue(name, value)) {
+      std::string variableName;
+      if (LNode->lookupValue(name, variableName) &&
+          cConfig->getVariableRoot().exists(variableName) ) {
+        return cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else return false;
+    } else return true;
+  }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
-    value = YNode[name].as<unsigned long long>();
+    try {
+      value = YNode[name].as<unsigned long long>();
+    } catch (YAML::BadConversion e) {
+      std::string variableName = YNode[name].as<std::string>();
+      if (cConfig->getVariableRoot().exists(variableName)) {
+        cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else {
+        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        throw e;
+      }
+    }
     return true;
   }
   else {
@@ -188,13 +276,27 @@ bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
     if (LNode->lookupValue(name, i_value)) {
       value = static_cast<double>(i_value);
       return true;
-    } else {
-      return LNode->lookupValue(name, value);
-    }
+    } else if (!LNode->lookupValue(name, value)) {
+      std::string variableName;
+      if (LNode->lookupValue(name, variableName) &&
+          cConfig->getVariableRoot().exists(variableName) ) {
+        return cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else return false;
+    } else return true;
   }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
-    value = YNode[name].as<double, int>(0);
+    try {
+      value = YNode[name].as<double, int>(0);
+    } catch (YAML::BadConversion e) {
+      std::string variableName = YNode[name].as<std::string>();
+      if (cConfig->getVariableRoot().exists(variableName)) {
+        cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else {
+        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        throw e;
+      }
+    }
     return true;
   }
   else {
@@ -211,13 +313,27 @@ bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
     if (LNode->lookupValue(name, i_value)) {
       value = static_cast<float>(i_value);
       return true;
-    } else {
-      return LNode->lookupValue(name, value);
-    }
+    } else if (!LNode->lookupValue(name, value)) {
+      std::string variableName;
+      if (LNode->lookupValue(name, variableName) &&
+          cConfig->getVariableRoot().exists(variableName) ) {
+        return cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else return false;
+    } else return true;
   }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
-    value = YNode[name].as<float, int>(0);
+    try {
+      value = YNode[name].as<float, int>(0);
+    } catch (YAML::BadConversion e) {
+      std::string variableName = YNode[name].as<std::string>();
+      if (cConfig->getVariableRoot().exists(variableName)) {
+        cConfig->getVariableRoot().lookupValue(variableName, value);
+      } else {
+        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        throw e;
+      }
+    }
     return true;
   }
   else {
@@ -229,10 +345,22 @@ bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, const char *&value) const {
   EXCEPTION_PROLOGUE;
-  if (LNode) return LNode->lookupValue(name, value);
+  if (LNode) {
+    if (LNode->lookupValue(name, value)) {
+      std::string variableName(value);
+      if (cConfig->getVariableRoot().exists(variableName)) {
+        cConfig->getVariableRoot().lookupValue(variableName, value);
+      }
+      return true;
+    } else return false;
+  }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<std::string>().c_str();
+    std::string variableName = YNode[name].as<std::string>();
+    if (cConfig->getVariableRoot().exists(variableName)) {
+      cConfig->getVariableRoot().lookupValue(variableName, value);
+    }
     return true;
   }
   else {
@@ -244,10 +372,22 @@ bool CompoundConfigNode::lookupValue(const char *name, const char *&value) const
 
 bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const {
   EXCEPTION_PROLOGUE;
-  if (LNode) return LNode->lookupValue(name, value);
+  if (LNode) {
+    if (LNode->lookupValue(name, value)) {
+      std::string variableName(value);
+      if (cConfig->getVariableRoot().exists(variableName)) {
+        cConfig->getVariableRoot().lookupValue(variableName, value);
+      }
+      return true;
+    } else return false;
+  }
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     value = YNode[name].as<std::string>();
+    std::string variableName = YNode[name].as<std::string>();
+    if (cConfig->getVariableRoot().exists(variableName)) {
+      cConfig->getVariableRoot().lookupValue(variableName, value);
+    }
     return true;
   }
   else {
@@ -327,16 +467,16 @@ int CompoundConfigNode::getLength() const {
 
 CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
   assert(isList() || isArray());
-  if(LNode) return CompoundConfigNode(&(*LNode)[idx], YAML::Node());
+  if(LNode) return CompoundConfigNode(&(*LNode)[idx], YAML::Node(), cConfig);
   else if (YNode) {
       auto yIter = YNode.begin();
       for (int i = 0; i < idx; i++) yIter++;
       auto nextNode = *yIter;
-      return CompoundConfigNode(nullptr, nextNode);
+      return CompoundConfigNode(nullptr, nextNode, cConfig);
   }
   else {
     assert(false);
-    return CompoundConfigNode(nullptr, YAML::Node());
+    return CompoundConfigNode(nullptr, YAML::Node(), cConfig);
   }
 }
 
@@ -386,12 +526,12 @@ CompoundConfig::CompoundConfig(const char* inputFile) {
     LConfig.readFile(inputFile);
     auto& lroot = LConfig.getRoot();
     useLConfig = true;
-    root = CompoundConfigNode(&lroot, YAML::Node());
+    root = CompoundConfigNode(&lroot, YAML::Node(), this);
   } else if (std::strstr(inputFile, ".yml") || std::strstr(inputFile, ".yaml")) {
     std::ifstream f;
     f.open(inputFile);
     YConfig = YAML::Load(f);
-    root = CompoundConfigNode(nullptr, YConfig);
+    root = CompoundConfigNode(nullptr, YConfig, this);
     useLConfig = false;
     // std::cout << YConfig << std::endl;
   } else {
@@ -418,17 +558,24 @@ CompoundConfig::CompoundConfig(std::vector<std::string> inputFiles) {
     LConfig.readString(combinedString);
     auto& lroot = LConfig.getRoot();
     useLConfig = true;
-    root = CompoundConfigNode(&lroot, YAML::Node());
+    root = CompoundConfigNode(&lroot, YAML::Node(), this);
   } else if (std::strstr(inputFiles[0].c_str(), ".yml") || std::strstr(inputFiles[0].c_str(), ".yaml")) {
     std::istringstream combinedStream(combinedString);
     YConfig = YAML::Load(combinedStream);
-    root = CompoundConfigNode(nullptr, YConfig);
+    root = CompoundConfigNode(nullptr, YConfig, this);
     useLConfig = false;
     // std::cout << YConfig << std::endl;
   } else {
     std::cerr << "ERROR: Input configuration file does not end with .cfg, .yml, or .yaml" << std::endl;
     exit(1);
   }
+
+  if (root.exists("variables")) {
+    variableRoot = root.lookup("variables");
+  } else {
+    variableRoot = CompoundConfigNode(nullptr, YAML::Node()); // null node
+  }
+
 }
 
 libconfig::Config& CompoundConfig::getLConfig() {
@@ -441,6 +588,10 @@ YAML::Node& CompoundConfig::getYConfig() {
 
 CompoundConfigNode CompoundConfig::getRoot() const {
   return root;
+}
+
+CompoundConfigNode CompoundConfig::getVariableRoot() const {
+  return variableRoot;
 }
 
 uint32_t parseElementSize(std::string name) {
