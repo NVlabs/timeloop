@@ -29,10 +29,9 @@
 #include <csignal>
 #include <cstring>
 
-#include <sys/stat.h>
-
 #include "mapper.hpp"
 #include "util/banner.hpp"
+#include "util/args.hpp"
 #include "compound-config/compound-config.hpp"
 
 bool gTerminate = false;
@@ -75,33 +74,13 @@ int main(int argc, char* argv[])
   action.sa_flags = 0;
   sigaction(SIGINT, &action, NULL);
 
-  // Very rudimentary argument parsing. The only recognized pattern is "-o <odir>"
-  // and a set of .yaml or .cfg files.
-  std::vector<std::string> input_args(argv + 1, argv + argc);
   std::vector<std::string> input_files;
   std::string output_dir = ".";
-  for (auto arg = input_args.begin(); arg != input_args.end(); arg++)
+  bool success = ParseArgs(argc, argv, input_files, output_dir);
+  if (!success)
   {
-    if (arg->compare("-o") == 0)
-    {
-      arg++;
-      output_dir = *arg;
-      struct stat info;
-      if (stat(output_dir.c_str(), &info) != 0)
-      {
-        std::cerr << "ERROR: cannot access output directory: " << output_dir << std::endl;
-        exit(1);
-      }
-      else if (!(info.st_mode & S_IFDIR))
-      {
-        std::cerr << "ERROR: non-existent output directory: " << output_dir << std::endl;
-        exit(1);
-      }
-    }
-    else
-    {
-      input_files.push_back(*arg);
-    }
+    std::cerr << "ERROR: error parsing command line." << std::endl;
+    exit(1);
   }
 
   auto config = new config::CompoundConfig(input_files);
