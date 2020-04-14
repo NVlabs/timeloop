@@ -31,6 +31,7 @@
 
 #include "model.hpp"
 #include "compound-config/compound-config.hpp"
+#include "util/args.hpp"
 
 bool gTerminate = false;
 bool gTerminateEval = false;
@@ -72,10 +73,18 @@ int main(int argc, char* argv[])
   action.sa_flags = 0;
   sigaction(SIGINT, &action, NULL);
   
-  std::vector<std::string> inputFiles(argv + 1, argv + argc);
-  auto cConfig = new config::CompoundConfig(inputFiles);
+  std::vector<std::string> input_files;
+  std::string output_dir = ".";
+  bool success = ParseArgs(argc, argv, input_files, output_dir);
+  if (!success)
+  {
+    std::cerr << "ERROR: error parsing command line." << std::endl;
+    exit(1);
+  }
 
-  Application application(cConfig);
+  auto config = new config::CompoundConfig(input_files);
+
+  Application application(config, output_dir);
   
   application.Run();
 

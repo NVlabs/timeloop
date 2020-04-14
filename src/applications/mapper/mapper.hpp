@@ -103,8 +103,8 @@ class Application
               std::string name = "timeloop-mapper") :
       name_(name)
   {
-
     auto rootNode = config->getRoot();
+
     // Problem configuration.
     auto problem = rootNode.lookup("problem");
     problem::ParseWorkload(problem, workload_);

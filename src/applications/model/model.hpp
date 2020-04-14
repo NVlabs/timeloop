@@ -51,6 +51,9 @@
 
 class Application
 {
+ public:
+  std::string name_;
+
  protected:
   // Critical state.
   problem::Workload workload_;
@@ -72,7 +75,7 @@ class Application
   // Application flags/config.
   bool verbose_ = false;
   bool auto_bypass_on_failure_ = false;
-  std::string out_prefix_ = "timeloop-model";
+  std::string out_prefix_;
 
  private:
 
@@ -89,20 +92,27 @@ class Application
 
  public:
 
-  Application(config::CompoundConfig* config)
+  Application(config::CompoundConfig* config,
+              std::string output_dir = ".",
+              std::string name = "timeloop-model") :
+      name_(name)
   {    
     auto rootNode = config->getRoot();
 
     // Model application configuration.
     auto_bypass_on_failure_ = false;
+    std::string semi_qualified_prefix = name;
 
     if (rootNode.exists("model"))
     {
       auto model = rootNode.lookup("model");
       model.lookupValue("verbose", verbose_);
       model.lookupValue("auto_bypass_on_failure", auto_bypass_on_failure_);
-      model.lookupValue("out_prefix", out_prefix_);
+      model.lookupValue("out_prefix", semi_qualified_prefix);
     }
+
+    out_prefix_ = output_dir + "/" + semi_qualified_prefix;
+
     if (verbose_)
     {
       for (auto& line: banner)
