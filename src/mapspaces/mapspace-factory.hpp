@@ -40,6 +40,7 @@ namespace mapspace
 //--------------------------------------------//
 
 MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
+                            config::CompoundConfigNode arch_constraints,
                             model::Engine::Specs& arch_specs,
                             const problem::Workload& workload)
 {
@@ -50,7 +51,7 @@ MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
     
   if (mapspace_template == "uber")
   {
-    mapspace = new Uber(config, arch_specs, workload);
+    mapspace = new Uber(config, arch_constraints, arch_specs, workload);
   }
   else
   {

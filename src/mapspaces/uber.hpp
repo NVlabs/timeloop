@@ -38,6 +38,7 @@
 #include "mapspaces/subspaces.hpp"
 #include "compound-config/compound-config.hpp"
 #include "mapping/arch-properties.hpp"
+#include "mapping/constraints.hpp"
 
 namespace mapspace
 {
@@ -49,6 +50,7 @@ namespace mapspace
 class Uber : public MapSpace
 {
  protected:
+
   // Sub-spaces.
   PermutationSpace permutation_space_;
   IndexFactorizationSpace index_factorization_space_;
@@ -60,19 +62,12 @@ class Uber : public MapSpace
   std::uint64_t split_id_;
   std::uint64_t num_parent_splits_;
   
-  // Parsed metadata needed to construct subspaces.
-  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> user_factors_;
-  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> user_max_factors_;
-  std::map<unsigned, std::vector<problem::Shape::DimensionID>> user_permutations_;
-  std::map<unsigned, std::uint32_t> user_spatial_splits_;
-  problem::PerDataSpace<std::string> user_bypass_strings_;
-
   // Abstract representation of the architecture.
   ArchProperties arch_props_;
 
-  // Minimum parallelism (constraint).
-  double min_parallelism_;
-  
+  // Constraints.
+  mapping::Constraints constraints_;
+
  public:
 
   //
@@ -82,6 +77,7 @@ class Uber : public MapSpace
   //
   Uber(
     config::CompoundConfigNode config,
+    config::CompoundConfigNode arch_constraints,
     model::Engine::Specs arch_specs,
     const problem::Workload& workload,
     bool skip_init = false) :
@@ -89,11 +85,11 @@ class Uber : public MapSpace
       split_id_(0),
       num_parent_splits_(0),
       arch_props_(arch_specs),
-      min_parallelism_(0.0)
+      constraints_(arch_props_, workload)
   {
     if (!skip_init)
     {
-      Init(config);
+      Init(config, arch_constraints);
     }
   }
 
@@ -104,23 +100,16 @@ class Uber : public MapSpace
   //
   // Init() - called by derived classes or by constructor.
   //
-  void Init(config::CompoundConfigNode config)
+  void Init(config::CompoundConfigNode config, config::CompoundConfigNode arch_constraints)
   {
-    // Setup Map space.
-    user_factors_.clear();
-    user_permutations_.clear();
-    user_spatial_splits_.clear();
-    user_bypass_strings_.clear();
-
-    // Parse config.
-    ParseUserConfig(config, user_factors_, user_max_factors_, user_permutations_,
-                    user_spatial_splits_, user_bypass_strings_);
+    // Parse user config.
+    Parse(config, arch_constraints);
 
     // Setup all the mapping sub-spaces.
-    InitIndexFactorizationSpace(user_factors_, user_max_factors_);
-    InitLoopPermutationSpace(user_permutations_);
-    InitSpatialSpace(user_spatial_splits_);
-    InitDatatypeBypassNestSpace(user_bypass_strings_);
+    InitIndexFactorizationSpace();
+    InitLoopPermutationSpace();
+    InitSpatialSpace();
+    InitDatatypeBypassNestSpace();
 
     // FIXME: optimization: add a "deferred" flag which bypasses
     // PermutationSpace initialization if it's going to be re-initialized
@@ -151,9 +140,11 @@ class Uber : public MapSpace
   //
   // InitIndexFactorizationSpace()
   //
-  void InitIndexFactorizationSpace(std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
-                                   std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors)
+  void InitIndexFactorizationSpace()
   {
+    auto user_factors = constraints_.Factors();
+    auto user_max_factors = constraints_.MaxFactors();
+
     assert(user_factors.size() <= arch_props_.TilingLevels());
 
     // We'll initialize the index_factorization_space_ object here. To do that, we first
@@ -226,9 +217,10 @@ class Uber : public MapSpace
   //
   // InitLoopPermutationSpace()
   //
-  void InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
-                                std::map<unsigned, std::vector<problem::Shape::DimensionID>> pruned_dimensions = {})
+  void InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shape::DimensionID>> pruned_dimensions = {})
   {
+    auto user_permutations = constraints_.Permutations();
+
     permutation_space_.Init(arch_props_.TilingLevels());
     
     for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
@@ -276,9 +268,10 @@ class Uber : public MapSpace
   //
   // InitSpatialSpace()
   //
-  void InitSpatialSpace(std::map<unsigned, std::uint32_t>& user_spatial_splits,
-                        std::map<unsigned, unsigned> unit_factors = {})
+  void InitSpatialSpace(std::map<unsigned, unsigned> unit_factors = {})
   {
+    auto user_spatial_splits = constraints_.SpatialSplits();
+
     // Given a spatial permutation, this indicates where the changeover from X
     // to Y dimension occurs. Obviously, this is limited by hardware fanout
     // capabilities at this spatial level.
@@ -308,9 +301,10 @@ class Uber : public MapSpace
     size_[int(mapspace::Dimension::Spatial)] = spatial_split_space_.Size();
   }
 
-  void InitDatatypeBypassNestSpace(problem::PerDataSpace<std::string> user_bypass_strings =
-                                   problem::PerDataSpace<std::string>(""))
+  void InitDatatypeBypassNestSpace()
   {
+    auto user_bypass_strings = constraints_.BypassStrings();
+
     // The user_mask input is a set of per-datatype strings. Each string has a length
     // equal to num_storage_levels, and contains the characters 0 (bypass), 1 (keep),
     // or X (evaluate both).
@@ -472,6 +466,9 @@ class Uber : public MapSpace
   {
     assert(!IsSplit());
 
+    auto user_permutations = constraints_.Permutations();
+    auto user_spatial_splits = constraints_.SpatialSplits();
+
     // Each split knows its private IF size and should never generate an out-of-range ID.
     if (index_factorization_id >= size_[int(mapspace::Dimension::IndexFactorization)])
     {
@@ -496,7 +493,7 @@ class Uber : public MapSpace
       // spatial splits, because pruning re-orders the dimensions, which
       // changes the user-intended spatial split point. There's probably
       // a smarter way to do this, but we'll use the easy way out for now.
-      if (user_spatial_splits_.find(level) == user_spatial_splits_.end())
+      if (user_spatial_splits.find(level) == user_spatial_splits.end())
       {
         for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
         { 
@@ -513,8 +510,8 @@ class Uber : public MapSpace
     }
 
     // Re-initialize the Permutation and Spatial Split sub-spaces.
-    InitLoopPermutationSpace(user_permutations_, pruned_dimensions);
-    InitSpatialSpace(user_spatial_splits_, unit_factors);
+    InitLoopPermutationSpace(pruned_dimensions);
+    InitSpatialSpace(unit_factors);
   }
 
 
@@ -734,7 +731,7 @@ class Uber : public MapSpace
       
     } // for (level)
     
-    success &= (cumulative_fanout_utilization >= min_parallelism_);
+    success &= (cumulative_fanout_utilization >= constraints_.MinParallelism());
       
     return success;
   }
@@ -852,471 +849,20 @@ class Uber : public MapSpace
   }
 
   //------------------------------------------//
-  //                Helper/Misc.              // 
+  //                 Parsing                  // 
   //------------------------------------------//
   
   //
-  // Parse user config.
+  // Parse.
   //
-  void ParseUserConfig(
-    config::CompoundConfigNode config,
-    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
-    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors,
-    std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
-    std::map<unsigned, std::uint32_t>& user_spatial_splits,
-    problem::PerDataSpace<std::string>& user_bypass_strings)
+  void Parse(config::CompoundConfigNode config, config::CompoundConfigNode arch_constraints)
   {
-    // This is primarily a wrapper function written to handle various ways to
-    // get to the list of constraints. The only reason there are multiple ways
-    // to get to this list is because of backwards compatibility.
-    if (config.isList())
-    {
-      // We're already at the constraints list.
-      
-      ParseUserConstraints(config, user_factors, user_max_factors, user_permutations,
-                           user_spatial_splits, user_bypass_strings);
-    }
-    else
-    {
-      // Constraints can be specified either anonymously as a list, or indirected
-      // via a string name.
-      std::string name = "";
-      if (config.exists("constraints"))
-      {
-        if (config.lookup("constraints").isList())
-          name = "constraints";
-        else if (config.lookupValue("constraints", name))
-          name = std::string("constraints_") + name;
-      }
-      else if (config.exists("targets"))
-      {
-        if (config.lookup("targets").isList())
-          name = "targets";
-      }
-
-      if (name == "")
-        // No constraints specified, nothing to do.
-        return;
-
-      auto constraints = config.lookup(name);
-      ParseUserConstraints(constraints, user_factors, user_max_factors, user_permutations,
-                           user_spatial_splits, user_bypass_strings);
-    }
-  }  
-
-  //
-  // Parse user-provided constraints.
-  //
-  void ParseUserConstraints(
-    config::CompoundConfigNode constraints,
-    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
-    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors,
-    std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
-    std::map<unsigned, std::uint32_t>& user_spatial_splits,
-    problem::PerDataSpace<std::string>& user_bypass_strings)
-  {
-    assert(constraints.isList());
-
-    // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
-    // FIXME: there's probably a cleaner way/place to initialize this.
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    {
-      std::string xxx(arch_specs_.topology.NumStorageLevels(), 'X');
-      xxx.back() = '1';
-      user_bypass_strings[problem::Shape::DataSpaceID(pvi)] = xxx;
-    }
-
-    // Iterate over all the constraints/targets.
-    int len = constraints.getLength();
-    for (int i = 0; i < len; i++)
-    {
-      // Prepare a set of CompoundConfigNodes that we will be parsing. These
-      // nodes can be in different places in the hierarchy for backwards-
-      // compatibility reasons.
-      config::CompoundConfigNode target, constraint, attributes;
-
-      target = constraints[i];
-      if (target.exists("constraints"))
-      {
-        auto constraints_list = target.lookup("constraints");
-        assert(constraints_list.isList());
-        
-        for (int j = 0; j < constraints_list.getLength(); j++)
-        {
-          auto constraint = constraints_list[j];
-
-          config::CompoundConfigNode attributes;
-          if (constraint.exists("attributes"))
-            attributes = constraint.lookup("attributes");
-          else
-            attributes = constraint; // Backwards compatibility.
-
-          ParseSingleConstraint(target, constraint, attributes,        
-                                user_factors, user_max_factors, user_permutations,
-                                user_spatial_splits, user_bypass_strings);
-        }
-      }
-      else // Backwards compatibility.
-      {
-        auto constraint = target;
-
-        config::CompoundConfigNode attributes;
-        if (constraint.exists("attributes"))
-          attributes = constraint.lookup("attributes");
-        else
-          attributes = constraint; // Backwards compatibility.
-
-        ParseSingleConstraint(target, constraint, attributes,        
-                              user_factors, user_max_factors, user_permutations,
-                              user_spatial_splits, user_bypass_strings);
-      }
-    }    
-  }
-
-  //
-  // Parse a single user constraint.
-  //
-  void ParseSingleConstraint(
-    config::CompoundConfigNode target,
-    config::CompoundConfigNode constraint,
-    config::CompoundConfigNode attributes,
-    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_factors,
-    std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& user_max_factors,
-    std::map<unsigned, std::vector<problem::Shape::DimensionID>>& user_permutations,
-    std::map<unsigned, std::uint32_t>& user_spatial_splits,
-    problem::PerDataSpace<std::string>& user_bypass_strings)
-  {
-      // Find out if this is a temporal constraint or a spatial constraint.
-      std::string type;
-      assert(constraint.lookupValue("type", type));
-
-      auto level_id = FindTargetTilingLevel(target, type);
-
-      if (type == "temporal" || type == "spatial")
-      {
-        auto level_factors = ParseUserFactors(attributes);
-        if (level_factors.size() > 0)
-        {
-          user_factors[level_id] = level_factors;
-        }
-
-        auto level_max_factors = ParseUserMaxFactors(attributes);
-        if (level_max_factors.size() > 0)
-        {
-          user_max_factors[level_id] = level_max_factors;
-        }
-
-        auto level_permutations = ParseUserPermutations(attributes);
-        if (level_permutations.size() > 0)
-        {
-          user_permutations[level_id] = level_permutations;
-        }
-
-        if (type == "spatial")
-        {
-          std::uint32_t user_split;
-          if (constraint.lookupValue("split", user_split))
-          {
-            user_spatial_splits[level_id] = user_split;
-          }
-        }
-      }
-      else if (type == "datatype" || type == "bypass" || type == "bypassing")
-      {
-        ParseUserDatatypeBypassSettings(attributes,
-                                        arch_props_.TilingToStorage(level_id),
-                                        user_bypass_strings);
-      }
-      else if (type == "utilization" || type == "parallelism")
-      {
-        assert(attributes.lookupValue("min", min_parallelism_));
-      }
-      else
-      {
-        assert(false);
-      }
-  }
-
-  //
-  // FindTargetTilingLevel()
-  //
-  unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type)
-  {
-    auto num_storage_levels = arch_specs_.topology.NumStorageLevels();
-    
-    //
-    // Find the target storage level. This can be specified as either a name or an ID.
-    //
-    std::string storage_level_name;
-    unsigned storage_level_id;
-    
-    if (constraint.lookupValue("target", storage_level_name) ||
-        constraint.lookupValue("name", storage_level_name))
-    {
-      // Find this name within the storage hierarchy in the arch specs.
-      for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++)
-      {
-        if (arch_specs_.topology.GetStorageLevel(storage_level_id)->level_name == storage_level_name)
-          break;
-      }
-      if (storage_level_id == num_storage_levels)
-      {
-        std::cerr << "ERROR: target storage level not found: " << storage_level_name << std::endl;
-        exit(1);
-      }
-    }
-    else
-    {
-      int id;
-      assert(constraint.lookupValue("target", id));
-      assert(id >= 0 && id < int(num_storage_levels));
-      storage_level_id = static_cast<unsigned>(id);
-    }
-    
-    assert(storage_level_id < num_storage_levels);    
-
-    //
-    // Translate this storage ID to a tiling ID.
-    //
-    unsigned tiling_level_id;
-    if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing")
-    {
-      // This should always succeed.
-      tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);
-    }
-    else if (type == "spatial")
-    {
-      // This will fail if this level isn't a spatial tiling level.
-      try
-      {
-        tiling_level_id = arch_props_.SpatialToTiling(storage_level_id);
-      }
-      catch (const std::out_of_range& oor)
-      {
-        std::cerr << "ERROR: cannot find spatial tiling level associated with "
-                  << "storage level " << arch_props_.StorageLevelName(storage_level_id)
-                  << ". This is because the number of instances of the next-inner "
-                  << "level ";
-        if (storage_level_id != 0)
-        {
-          std::cerr << "(" << arch_props_.StorageLevelName(storage_level_id-1) << ") ";
-        }
-        std::cerr << "is the same as this level, which means there cannot "
-                  << "be a spatial fanout." << std::endl;
-        exit(1);
-      }
-    }
-    else if (type == "utilization" || type == "parallelism")
-    {
-      // For now, we only allow parallelism to be specified for level 0.
-      // Note that this is the level 0 storage, not arithmetic. Fanout from
-      // level 0 to arithmetic is undefined. The parallelism specified here
-      // is the cumulative fanout utilization all the way from the top of
-      // the storage tree down to level 0.
-      if (storage_level_id != 0)
-      {
-        std::cerr << "ERROR: parallelism cannot be constrained at level "
-                  << storage_level_name << ". It must be constrained at the "
-                  << "innermost storage level." << std::endl;
-        exit(1);
-      }
-      tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);
-    }
-    else
-    {
-      std::cerr << "ERROR: unrecognized constraint type: " << type << std::endl;
-      exit(1);
-    }
-
-    return tiling_level_id;
-  }
-
-  //
-  // Parse user factors.
-  //
-  std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConfigNode constraint)
-  {
-    std::map<problem::Shape::DimensionID, int> retval;
-
-    std::string buffer;
-    if (constraint.lookupValue("factors", buffer))
-    {
-      std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)", std::regex::extended);
-      std::smatch sm;
-      std::string str = std::string(buffer);
-
-      while (std::regex_search(str, sm, re))
-      {
-        std::string dimension_name = sm[1];
-        problem::Shape::DimensionID dimension;
-        try
-        {
-          dimension = problem::GetShape()->DimensionNameToID.at(dimension_name);
-        }
-        catch (const std::out_of_range& oor)
-        {
-          std::cerr << "ERROR: parsing factors: " << buffer << ": dimension " << dimension_name
-                    << " not found in problem shape." << std::endl;
-          exit(1);
-        }
-
-        int end = std::stoi(sm[2]);
-        if (end == 0)
-        {
-          std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-          end = workload_.GetBound(dimension);
-        }
-        else if (end > workload_.GetBound(dimension))
-        {
-          std::cerr << "WARNING: Constraint " << dimension_name << "=" << end
-                    << " exceeds problem dimension " << dimension_name << "="
-                    << workload_.GetBound(dimension) << ". Setting constraint "
-                    << dimension << "=" << workload_.GetBound(dimension) << std::endl;
-          end = workload_.GetBound(dimension);
-        }
-        else
-        {
-          assert(end > 0);
-        }
-
-        // Found all the information we need to setup a factor!
-        retval[dimension] = end;
-
-        str = sm.suffix().str();
-      }
-    }
-
-    return retval;
-  }
-
-  //
-  // Parse user max factors.
-  //
-  std::map<problem::Shape::DimensionID, int> ParseUserMaxFactors(config::CompoundConfigNode constraint)
-  {
-    std::map<problem::Shape::DimensionID, int> retval;
-
-    std::string buffer;
-    if (constraint.lookupValue("factors", buffer))
-    {
-      std::regex re("([A-Za-z]+)[[:space:]]*<=[[:space:]]*([0-9]+)", std::regex::extended);
-      std::smatch sm;
-      std::string str = std::string(buffer);
-
-      while (std::regex_search(str, sm, re))
-      {
-        std::string dimension_name = sm[1];
-        problem::Shape::DimensionID dimension;
-        try
-        {
-          dimension = problem::GetShape()->DimensionNameToID.at(dimension_name);
-        }
-        catch (const std::out_of_range& oor)
-        {
-          std::cerr << "ERROR: parsing factors: " << buffer << ": dimension " << dimension_name
-                    << " not found in problem shape." << std::endl;
-          exit(1);
-        }
-
-        int max = std::stoi(sm[2]);
-        if (max <= 0)
-        {
-          std::cerr << "ERROR: max factor must be positive in constraint: " << buffer << std::endl;
-          exit(1);
-        }
-
-        // Found all the information we need to setup a factor!
-        retval[dimension] = max;
-
-        str = sm.suffix().str();
-      }
-    }
-
-    return retval;
-  }
-
-  //
-  // Parse user permutations.
-  //
-  std::vector<problem::Shape::DimensionID> ParseUserPermutations(config::CompoundConfigNode constraint)
-  {
-    std::vector<problem::Shape::DimensionID> retval;
-    
-    std::string buffer;
-    if (constraint.lookupValue("permutation", buffer))
-    {
-      std::istringstream iss(buffer);
-      char token;
-      while (iss >> token)
-      {
-        problem::Shape::DimensionID dimension;
-        try
-        {
-          dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token));
-        }
-        catch (const std::out_of_range& oor)
-        {
-          std::cerr << "ERROR: parsing permutation: " << buffer << ": dimension " << token
-                    << " not found in problem shape." << std::endl;
-          exit(1);
-        }
-        retval.push_back(dimension);
-      }
-    }
-
-    return retval;
-  }
-
-  //
-  // Parse user datatype bypass settings.
-  //
-  void ParseUserDatatypeBypassSettings(config::CompoundConfigNode constraint,
-                                       unsigned level,
-                                       problem::PerDataSpace<std::string>& user_bypass_strings)
-  {
-    // Datatypes to "keep" at this level.
-    if (constraint.exists("keep"))
-    {
-      std::vector<std::string> datatype_strings;
-      constraint.lookupArrayValue("keep", datatype_strings);
-      for (const std::string& datatype_string: datatype_strings)
-      {
-        problem::Shape::DataSpaceID datatype;
-        try
-        {
-          datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
-        }
-        catch (std::out_of_range& oor)
-        {
-          std::cerr << "ERROR: parsing keep setting: data-space " << datatype_string
-                    << " not found in problem shape." << std::endl;
-          exit(1);
-        }
-        user_bypass_strings.at(datatype).at(level) = '1';
-      }
-    }
-      
-    // Datatypes to "bypass" at this level.
-    if (constraint.exists("bypass"))
-    {
-      std::vector<std::string> datatype_strings;
-      constraint.lookupArrayValue("bypass", datatype_strings);
-      for (const std::string& datatype_string: datatype_strings)
-      {
-        problem::Shape::DataSpaceID datatype;
-        try
-        {
-          datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
-        }
-        catch (std::out_of_range& oor)
-        {
-          std::cerr << "ERROR: parsing bypass setting: data-space " << datatype_string
-                    << " not found in problem shape." << std::endl;
-          exit(1);
-        }
-        user_bypass_strings.at(datatype).at(level) = '0';
-      }
-    }
+    // Parse constraints.
+    // We accept mapspace config and arch_constraints as separate configuration
+    // trees, but as far as parsing is concerned we handle them in exactly the
+    // same way. The underlying parsing methods are built to handle conflicts.
+    constraints_.Parse(config);
+    constraints_.Parse(arch_constraints);
   }
 };
 

@@ -79,26 +79,31 @@ class Application
     }
 #endif
 
-  
+    // MapSpace configuration.
+    // MapSpace configuration.
+    config::CompoundConfigNode arch_constraints;
+    config::CompoundConfigNode mapspace;
 
-       // MapSpace configuration.
+    // Architecture constraints.
+    if (arch.exists("constraints"))
+      arch_constraints = arch.lookup("constraints");
+    else if (rootNode.exists("arch_constraints"))
+      arch_constraints = rootNode.lookup("arch_constraints");
+    else if (rootNode.exists("architecture_constraints"))
+      arch_constraints = rootNode.lookup("architecture_constraints");
+
+    // Mapspace constraints.
     if (rootNode.exists("mapspace"))
-    {
-      auto mapspace = rootNode.lookup("mapspace");
-      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);
-    }
+      mapspace = rootNode.lookup("mapspace");
     else if (rootNode.exists("mapspace_constraints"))
-    {
-      auto mapspace = rootNode.lookup("mapspace_constraints");
-      mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_specs_, workload_);      
-    }
-    else
-    {
-      std::cerr << "ERROR: found neither \"mapspace\" nor \"mapspace_constraints\" "
-                << "directive. To run the mapper without any constraints set "
-                << "mapspace_constraints as an empty list []." << std::endl;
-      exit(1);
-    }
+      mapspace = rootNode.lookup("mapspace_constraints");
+    // else
+    // {
+    //   std::cerr << "ERROR: found neither \"mapspace\" nor \"mapspace_constraints\" "
+    //             << "directive. To run the mapper without any constraints set "
+    //             << "mapspace_constraints as an empty list []." << std::endl;
+    //   exit(1);
+    // }
   }
 
   ~Application()

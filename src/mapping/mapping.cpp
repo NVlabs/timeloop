@@ -43,6 +43,9 @@ std::ostream& operator << (std::ostream& out, const Mapping& mapping)
   return out;
 }
 
+//
+// FIXME: move to Constraints class.
+//
 void Mapping::PrintAsConstraints(const std::string filename)
 {
   libconfig::Config config;
@@ -54,6 +57,9 @@ void Mapping::PrintAsConstraints(const std::string filename)
   config.writeFile(filename.c_str());
 }
 
+//
+// FIXME: move to Constraints class.
+//
 void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
 {
   mapspace.add("constraints", libconfig::Setting::TypeString) = "singlemapping";
