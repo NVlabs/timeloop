@@ -133,7 +133,7 @@ class Application
 #ifdef USE_ACCELERGY
       // Call accelergy ERT with all input files
       if (arch.exists("subtree") || arch.exists("local")) {
-        accelergy::invokeAccelergy(config->inFiles, out_prefix_);
+        accelergy::invokeAccelergy(config->inFiles, semi_qualified_prefix, output_dir);
         std::string ertPath = out_prefix_ + ".ERT.yaml";
         auto ertConfig = new config::CompoundConfig(ertPath.c_str());
         auto ert = ertConfig->getRoot().lookup("ERT");
