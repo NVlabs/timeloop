@@ -74,7 +74,7 @@ class Application
   bool live_status_;
   bool diagnostics_on_;
   bool emit_whoop_nest_;
-  std::string out_prefix_ = "timeloop-mapper";
+  std::string out_prefix_;
 
   std::vector<std::string> optimization_metrics_;
 
@@ -98,7 +98,10 @@ class Application
 
  public:
 
-  Application(config::CompoundConfig* config, std::string name = "timeloop-mapper") : name_(name)
+  Application(config::CompoundConfig* config,
+              std::string output_dir = ".",
+              std::string name = "timeloop-mapper") :
+      name_(name)
   {
 
     auto rootNode = config->getRoot();
@@ -107,9 +110,11 @@ class Application
     problem::ParseWorkload(problem, workload_);
     std::cout << "Problem configuration complete." << std::endl;
 
-    // Mapper (this application) configuration. (only out_prefix)
+    // Mapper (this application) configuration.
     auto mapper = rootNode.lookup("mapper");
-    mapper.lookupValue("out_prefix", out_prefix_);
+    std::string semi_qualified_prefix = name;
+    mapper.lookupValue("out_prefix", semi_qualified_prefix);
+    out_prefix_ = output_dir + "/" + semi_qualified_prefix;
 
     // Architecture configuration.
     config::CompoundConfigNode arch;
