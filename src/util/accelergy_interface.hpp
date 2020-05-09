@@ -24,7 +24,7 @@ namespace accelergy
     return result;
   }
 
-  void invokeAccelergy(std::vector<std::string> input_files, std::string out_prefix) {
+  void invokeAccelergy(std::vector<std::string> input_files, std::string out_prefix, std::string out_dir) {
 #ifdef USE_ACCELERGY
     std::string accelergy_path = exec("which accelergy");
     // if `which` does not find it, we will try env
@@ -38,8 +38,8 @@ namespace accelergy
       cmd += " " + input_file;
     }
     cmd += " --oprefix " + out_prefix + ".";
-    cmd += " -o ./ > ./" + out_prefix + ".accelergy.log 2>&1";
-    //std::cout << "execute:" << cmd << std::endl;
+    cmd += " -o " + out_dir + "/ > " + out_prefix + ".accelergy.log 2>&1";
+    std::cout << "execute:" << cmd << std::endl;
     int ret = system(cmd.c_str());
     if (ret) {
       std::cout << "Failed to run Accelergy. Did you install Accelergy or specify ACCELERGYPATH correctly? Or check accelergy.log to see what went wrong" << std::endl;
@@ -48,6 +48,7 @@ namespace accelergy
 #else
     (void) input_files;
     (void) out_prefix;
+    (void) out_dir;
 #endif
     return;
   }
