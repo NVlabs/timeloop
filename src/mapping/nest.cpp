@@ -135,12 +135,16 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
       std::ostringstream str;
       str << storage_level_names.at(inv_storage_level) << " [ ";
       auto& mask = mask_nest.at(inv_storage_level);
-      auto& tiles = tile_sizes.at(inv_storage_level);
       for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
       {
         if (mask.at(pvi))
         {
-          str << problem::GetShape()->DataSpaceIDToName.at(pvi) << ":" << tiles.at(pvi) << " ";
+          str << problem::GetShape()->DataSpaceIDToName.at(pvi);
+          if (tile_sizes.size() > 0)
+          {
+            str << ":" << tile_sizes.at(inv_storage_level).at(pvi);
+          }
+          str << " ";
         }
       }
       str << "] " << std::endl;

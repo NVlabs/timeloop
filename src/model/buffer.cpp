@@ -558,7 +558,10 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
       // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
-      assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
+
+      // The following assertion is *incorrect* for coefficients (e.g. stride, pad) > 1.
+      // FIXME: find a safety check that works with coefficients > 1.
+      // assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
 
       stats_.reads[pv] = tile[pvi].content_accesses - tile[pvi].partition_size + tile[pvi].peer_accesses;
       stats_.updates[pv] = tile[pvi].content_accesses;
