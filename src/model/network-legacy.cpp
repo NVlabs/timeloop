@@ -227,7 +227,9 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, cons
           {
             if (tile[pvi].accesses[i] > 0)
             {
-              assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
+              // The following assertion is *incorrect* for coefficients (e.g. stride, pad) > 1.
+              // FIXME: find a safety check that works with coefficients > 1.
+              // assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
               stats_.ingresses[pv][i] = 2*tile[pvi].accesses[i] - tile[pvi].partition_size;
             }
             else
