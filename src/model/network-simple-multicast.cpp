@@ -109,9 +109,9 @@ SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::Compoun
   // whether ERT specification is in terms of data types
   bool per_datatype_ERT;
   if (network.lookupValue("per_datatype_ERT", per_datatype_ERT)){
-    per_datatype_ERT = true;
+    specs.per_datatype_ERT = true;
   } else {
-    per_datatype_ERT = false;
+    specs.per_datatype_ERT = false;
   }
 
   return specs;
@@ -186,7 +186,7 @@ double SimpleMulticastNetwork::GetOpEnergyFromERT(std::uint64_t multicast_factor
             // if there is no argument, use the available energy
             actionERT.lookupValue("energy", opEnergy);
         }
-    }
+    } 
     return opEnergy;
 }
 
