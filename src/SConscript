@@ -81,6 +81,8 @@ env["CPPPATH"] += ["."]
 if not os.path.isdir('../src/pat'):
     print ("ERROR: 'src/pat' not found. Please create a symbolic link to the source code for the power-area-timing model and place it in src/pat. E.g., ln -s pat-public/src/pat src/pat.")
     Exit(1)
+
+# Build the model library.
     
 common_sources = Split("""
 loop-analysis/tiling.cpp
@@ -102,46 +104,58 @@ workload/operation-space.cpp
 compound-config/compound-config.cpp
 """)
 
-metrics_sources = common_sources + Split("""
+modellib_sources = common_sources + Split("""
+data/cnn/cnn-layers.cpp
+mapping/mapping.cpp
+mapping/parser.cpp
+""")
+
+libenv = env.Clone()
+
+lib_model_shared = libenv.SharedLibrary(target = 'timeloop-model', source = modellib_sources)
+lib_model_static = libenv.StaticLibrary(target = 'timeloop-model', source = modellib_sources)
+
+libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared, lib_model_static ])
+
+# Build the various binaries.
+
+metrics_sources = Split("""
 applications/metrics/main.cpp
 """)
 
-model_sources = common_sources + Split("""
-data/cnn/cnn-layers.cpp
-mapping/mapping.cpp
-mapping/parser.cpp
+model_sources = Split("""
 applications/model/main.cpp
 """)
 
-mapper_sources = common_sources + Split("""
-data/cnn/cnn-layers.cpp
-mapping/mapping.cpp
-mapping/parser.cpp
+mapper_sources = Split("""
 mapspaces/mapspace-base.cpp
 applications/mapper/main.cpp
 """)
 
-simple_mapper_sources = common_sources + Split("""
-data/cnn/cnn-layers.cpp
-mapping/mapping.cpp
-mapping/parser.cpp
+simple_mapper_sources = Split("""
 mapspaces/mapspace-base.cpp
 applications/simple-mapper/main.cpp
 """)
 
-design_space_sources = common_sources + Split("""
-data/cnn/cnn-layers.cpp
-mapping/mapping.cpp
-mapping/parser.cpp
+design_space_sources = Split("""
 mapspaces/mapspace-base.cpp
 applications/design-space/main.cpp
 """)
 
-env.Program(target = 'timeloop-mapper', source = mapper_sources)
-env.Program(target = 'timeloop-model', source = model_sources)
-env.Program(target = 'timeloop-metrics', source = metrics_sources)
-env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
-env.Program(target = 'timeloop-design-space', source = design_space_sources)
+env["LIBS"] += ['timeloop-model']
+env["LIBPATH"] += ['.']
+
+bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
+bin_model = env.Program(target = 'timeloop-model', source = model_sources)
+bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
+bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
+bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
+
+env.Install(env["BUILD_BASE_DIR"] + '/bin', [ bin_metrics,
+                                              bin_model,
+                                              bin_simple_mapper,
+                                              bin_mapper,
+                                              bin_design_space ])
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))
 #os.symlink(os.path.abspath('timeloop-model'), os.path.abspath('model'))

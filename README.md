@@ -72,6 +72,14 @@ This builds 3 different tools:
   workload-independent characteristics such as area and energy-per-access
   for various architectural structures.
 
+* By default, the scons script will use shared (dynamic) linking. The timeloop
+  libraries will be placed in the `lib/` subdirectory. You can manually add that
+  to `LD_LIBRARY_PATH`, or if you are using bash you can just source the provided
+  environment setup script:
+```
+source env/setup-env.bash
+```
+
 * Run timeloop with a sample configuration.
 ```
 cd configs/timeloop
