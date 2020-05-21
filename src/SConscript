@@ -73,6 +73,11 @@ if "YAMLCPPPATH" in os.environ:
     env["LIBPATH"] += [YAMLCPPPATH + '/lib']
     env["CPPFLAGS"] += ['-I' + YAMLCPPPATH + '/include']
 
+if "NCURSESPATH" in os.environ:
+    NCURSESPATH = os.environ["NCURSESPATH"]
+    env.Append(LIBPATH = [NCURSESPATH + '/lib'])
+    env.Append(CPPFLAGS = ['-I' + NCURSESPATH + '/include'])
+
 if GetOption('use_accelergy'):
     env["CPPDEFINES"] += [('USE_ACCELERGY')]
 
@@ -112,10 +117,13 @@ mapping/parser.cpp
 
 libenv = env.Clone()
 
-lib_model_shared = libenv.SharedLibrary(target = 'timeloop-model', source = modellib_sources)
-lib_model_static = libenv.StaticLibrary(target = 'timeloop-model', source = modellib_sources)
-
-libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared, lib_model_static ])
+if GetOption('link_static'):
+    lib_model_static = libenv.StaticLibrary(target = 'timeloop-model', source = modellib_sources)
+    libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_static ])
+else:
+    lib_model_shared = libenv.SharedLibrary(target = 'timeloop-model', source = modellib_sources)
+    libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared ])
+#libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared, lib_model_static ])
 
 # Build the various binaries.
 
