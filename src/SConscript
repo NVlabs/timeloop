@@ -142,8 +142,8 @@ mapspaces/mapspace-base.cpp
 applications/design-space/main.cpp
 """)
 
-env["LIBS"] += ['timeloop-model']
-env["LIBPATH"] += ['.']
+env.Append(LIBS = ['timeloop-model'])
+env.Append(LIBPATH = ['.'])
 
 bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
 bin_model = env.Program(target = 'timeloop-model', source = model_sources)
