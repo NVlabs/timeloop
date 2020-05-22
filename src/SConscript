@@ -37,6 +37,12 @@ else:
     env.Append(CCFLAGS = ['-g', '-O3'])
 env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++14', '-pthread'])
 
+env.Append(LIBPATH = ['.'])
+# If we are doing a static build, the timeloop library must be the first
+# item in the link order.
+if GetOption('link_static'):
+    env.Append(LIBS = ['timeloop-model'])
+
 env.Append(LINKFLAGS = ['-std=c++11', '-static-libgcc', '-static-libstdc++', '-pthread'])
 env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses'])
 
@@ -125,6 +131,11 @@ else:
     libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared ])
 #libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared, lib_model_static ])
 
+# If we are doing a dynamic build, the timeloop library must be the last
+# item in the link order.
+if not GetOption('link_static'):
+    env.Append(LIBS = ['timeloop-model'])
+
 # Build the various binaries.
 
 metrics_sources = Split("""
@@ -149,9 +160,6 @@ design_space_sources = Split("""
 mapspaces/mapspace-base.cpp
 applications/design-space/main.cpp
 """)
-
-env.Append(LIBS = ['timeloop-model'])
-env.Append(LIBPATH = ['.'])
 
 bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
 bin_model = env.Program(target = 'timeloop-model', source = model_sources)
