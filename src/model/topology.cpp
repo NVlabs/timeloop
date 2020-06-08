@@ -95,14 +95,36 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
     }
 
     // update levels by name and the type of it
+    // std::cout << "componentName: " << componentName << std::endl;
     if (componentName == "wire" || componentName == "Wire") { // special case, update interal wire model
-      float transferEnergy;
       auto actionERT = componentERT.lookup("transfer_random");
-      if (actionERT.lookupValue("energy", transferEnergy)) {
+      float transferEnergy = 0.0;
+      float argEnergy = 0.0;
+      // consider the formats that are possible in both ERT v0.2 and v0.3
+      if (actionERT.isList()) { // v2 ERT and action support argument and all v3 ERT actions
+        for (int i = 0; i < actionERT.getLength(); i ++) {
+          if (actionERT[i].lookupValue("energy", argEnergy)) {
+              transferEnergy = std::max(argEnergy, transferEnergy);
+          }
+        }
+      } else { // v2 ERT and no arg actions
+          if (actionERT.lookupValue("energy", argEnergy)) {
+            transferEnergy = std::max(argEnergy, transferEnergy);
+          }
+        }
+      //std::cout << "interpreted wire energy: " << transferEnergy << std::endl;
+      if (transferEnergy!=0.0) {
+        // Nellie's UPDATE: go through the inferred NoC first, important for legacy NoC class
         for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
           auto bufferSpec = GetStorageLevel(i);
-          auto networkSpec = GetNetwork(i); // FIXME.
-          std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy; // FIXME.
+          auto networkSpec = GetInferredNetwork(i); // (FIXME) See Nellie's UPDATE
+          std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy; 
+          //std::cout << "set wire energy: " << componentName << std::endl;
+        }
+        // Nellie's UPDATE: go through the user-defined NoCs, just in case those NoCs also need wire energy
+        for (unsigned i = 0; i < NumNetworks(); i++) {
+            auto networkSpec = GetNetwork(i);
+            std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy;
         }
       }
     } else {
@@ -133,13 +155,13 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       double argEnergy = 0.0;
       for (auto action : actions) {
         auto actionERT = componentERT.lookup(action);
-        if (actionERT.isList()) { // action support argument
+        if (actionERT.isList()) { // v2 ERT and action support argument and all v3 ERT actions
           for (int i = 0; i < actionERT.getLength(); i ++) {
             if (actionERT[i].lookupValue("energy", argEnergy)) {
               opEnergy = std::max(argEnergy, opEnergy);
             }
           }
-        } else { // no argument action
+        } else { // v2 ERT and no arg actions
           if (actionERT.lookupValue("energy", argEnergy)) {
             opEnergy = std::max(argEnergy, opEnergy);
           }

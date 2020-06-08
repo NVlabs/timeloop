@@ -402,7 +402,6 @@ void LegacyNetwork::ComputeNetworkEnergy()
         total_wire_hops += num_hops * ingresses;
       }
     }
-
     stats_.energy_per_hop[pv] = energy_per_hop;
     stats_.num_hops[pv] = total_ingresses > 0 ? total_wire_hops / total_ingresses : 0;
     stats_.energy[pv] =
