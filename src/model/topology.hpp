@@ -129,6 +129,7 @@ class Topology : public Module
     std::vector<std::string> StorageLevelNames() const;
 
     void ParseAccelergyERT(config::CompoundConfigNode ert);
+    void ParseAccelergyART(config::CompoundConfigNode art);
 
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
     void AddInferredNetwork(std::shared_ptr<LegacyNetwork::Specs> specs);
