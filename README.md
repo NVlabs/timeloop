@@ -82,7 +82,7 @@ source env/setup-env.bash
 
 * Run timeloop with a sample configuration.
 ```
-cd configs/timeloop
+cd configs/mapper
 ../../build/timeloop-mapper ./sample.yaml > sample.out
 ```
 
