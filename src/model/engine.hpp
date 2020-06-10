@@ -114,7 +114,7 @@ class Engine : public Module
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest);
     
-    auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, workload, break_on_failure);
+    auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, break_on_failure);
 
     is_evaluated_ = std::accumulate(eval_status.begin(), eval_status.end(), true,
                                     [](bool cur, const EvalStatus& status)

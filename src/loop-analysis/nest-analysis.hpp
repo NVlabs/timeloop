@@ -138,6 +138,8 @@ class NestAnalysis
       std::vector<problem::PerDataSpace<bool>>&
       unaccounted_delta,
       problem::PerDataSpace<std::uint64_t>& link_transfers);
+ 
+ void ComputeDataDensity();
   
  public:  
   // API

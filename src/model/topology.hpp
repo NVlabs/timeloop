@@ -260,7 +260,7 @@ class Topology : public Module
   unsigned NumNetworks() const;
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload, bool break_on_failure);
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
 
   const Stats& GetStats() const { return stats_; }
 

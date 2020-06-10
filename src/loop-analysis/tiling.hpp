@@ -33,6 +33,7 @@
 #include "util/numeric.hpp"
 #include "workload/problem-shape.hpp"
 #include "workload/per-data-space.hpp"
+#include "workload/workload.hpp"
 
 namespace tiling
 {
@@ -74,6 +75,9 @@ struct TileInfo
   bool is_master_spatial;
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
+  // tile density
+  problem::DataDensity tile_density;             // statistical representation of tile data density
+  
 
   std::uint64_t GetTotalAccesses() const
   {
@@ -146,6 +150,8 @@ struct BodyInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t accesses;
+  
+  problem::PerDataSpace<problem::DataDensity> data_densities;;     // data densities at this level (will be derived from workload in nest_analysis)
 
   BodyInfo() { Reset(); }
 

@@ -925,7 +925,6 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
 
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            analysis::NestAnalysis* analysis,
-                                           const problem::Workload& workload,
                                            bool break_on_failure)
 {
   assert(is_specced_);
@@ -1039,7 +1038,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   if (!break_on_failure || success_accum)
   {
     auto level_id = specs_.ArithmeticMap();
-    auto s = GetArithmeticLevel()->HackEvaluate(analysis, workload);
+    auto s = GetArithmeticLevel()->HackEvaluate(analysis);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
   }
