@@ -175,17 +175,14 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
         }
       //std::cout << "interpreted wire energy: " << transferEnergy << std::endl;
       if (transferEnergy!=0.0) {
-        // Nellie's UPDATE: go through the inferred NoC first, important for legacy NoC class
+        // Nellie's UPDATE: go through the inferred NoC, important for legacy NoC class
         for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
           auto bufferSpec = GetStorageLevel(i);
           auto networkSpec = GetInferredNetwork(i); // (FIXME) See Nellie's UPDATE
-          std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy; 
-          //std::cout << "set wire energy: " << componentName << std::endl;
-        }
-        // Nellie's UPDATE: go through the user-defined NoCs, just in case those NoCs also need wire energy
-        for (unsigned i = 0; i < NumNetworks(); i++) {
-            auto networkSpec = GetNetwork(i);
-            std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy;
+          if (std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)){
+            std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy;   
+            //std::cout << "set wire energy: " << componentName << std::endl;
+          }
         }
       }
     } else {
@@ -194,9 +191,11 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
           // only check the user-defined networks
           auto networkSpec = GetNetwork(i);
           if (networkSpec->Type() == "SimpleMulticast" && networkSpec->name == componentName){
-            // std::cout << "simple multicast component identified: " << componentName << std::endl;
-            std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
-           }
+            if (std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)){
+              // std::cout << "simple multicast component identified: " << componentName << std::endl;
+              std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
+            }
+          }
       }
       // Find the level that matches this name and see what type it is
       bool isArithmeticUnit = false;
