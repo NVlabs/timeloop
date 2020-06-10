@@ -40,6 +40,67 @@ namespace model
 //              Topology::Specs               //
 //--------------------------------------------//
 
+void Topology::Specs::ParseAccelergyART(config::CompoundConfigNode art)
+{
+  // std::cout << "Replacing area numbers..." << std::endl;
+  assert(art.exists("tables"));
+  assert(art.exists("version"));  
+  double artVersion;
+  // check the version of the ART
+  art.lookupValue("version", artVersion);
+  assert(artVersion==0.3);
+    
+  // parsing 
+  auto table = art.lookup("tables");
+  assert(table.isList());
+  for(int i = 0; i < table.getLength(); i++){
+    auto componentART = table[i];
+    std::string hierachicalName;
+    table[i].lookupValue("name", hierachicalName);
+    auto rangePos = hierachicalName.rfind("..");
+    auto levelPos = hierachicalName.rfind(".");
+    std::string componentName;
+    if (rangePos != std::string::npos && rangePos == levelPos - 1){
+       std::string subName = hierachicalName.substr(0, rangePos - 2);
+       levelPos = subName.rfind(".");
+       componentName = subName.substr(levelPos + 1, subName.size() - levelPos - 1);
+       //std::cout << "component name: " << componentName << std::endl;
+    } else {
+       componentName = hierachicalName.substr(levelPos + 1, hierachicalName.size() - levelPos - 1);
+       //std::cout << "component name: " << componentName << std::endl;
+    }
+    
+    float componentArea;
+    componentART.lookupValue("area", componentArea);
+    
+    // Find the level that matches this name and see what type it is
+    bool isArithmeticUnit = false;
+    bool isBuffer = false;
+    std::shared_ptr<LevelSpecs> specToUpdate;
+    for (auto level : levels) {
+      if (level->level_name == componentName) {
+        specToUpdate = level;
+        if (level->Type() == "BufferLevel") isBuffer = true;
+        if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
+      }
+    }
+ 
+    // Replace the energy per action
+    if (isArithmeticUnit) {
+      //std::cout << "  Replace " << componentName << " area with area " << componentArea << std::endl;
+      auto arithmeticSpec = GetArithmeticLevel();
+      arithmeticSpec->area = componentArea;
+    } else if (isBuffer) {
+      auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
+      //std::cout << "  Replace " << componentName << " cluster area with area " << componentArea << std::endl;
+      bufferSpec->storage_area = componentArea/bufferSpec->cluster_size.Get();
+    } else {
+      //std::cout << "  Unused component ART: "  << hierachicalName << std::endl;
+    } 
+  }
+}
+
+
 void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
 {
   // std::cout << "Replacing energy numbers..." << std::endl;
@@ -95,14 +156,33 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
     }
 
     // update levels by name and the type of it
+    // std::cout << "componentName: " << componentName << std::endl;
     if (componentName == "wire" || componentName == "Wire") { // special case, update interal wire model
-      float transferEnergy;
       auto actionERT = componentERT.lookup("transfer_random");
-      if (actionERT.lookupValue("energy", transferEnergy)) {
+      float transferEnergy = 0.0;
+      float argEnergy = 0.0;
+      // consider the formats that are possible in both ERT v0.2 and v0.3
+      if (actionERT.isList()) { // v2 ERT and action support argument and all v3 ERT actions
+        for (int i = 0; i < actionERT.getLength(); i ++) {
+          if (actionERT[i].lookupValue("energy", argEnergy)) {
+              transferEnergy = std::max(argEnergy, transferEnergy);
+          }
+        }
+      } else { // v2 ERT and no arg actions
+          if (actionERT.lookupValue("energy", argEnergy)) {
+            transferEnergy = std::max(argEnergy, transferEnergy);
+          }
+        }
+      //std::cout << "interpreted wire energy: " << transferEnergy << std::endl;
+      if (transferEnergy!=0.0) {
+        // Nellie's UPDATE: go through the inferred NoC, important for legacy NoC class
         for (unsigned i = 0; i < NumStorageLevels(); i++) { // update wire energy for all storage levels
           auto bufferSpec = GetStorageLevel(i);
-          auto networkSpec = GetNetwork(i); // FIXME.
-          std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy; // FIXME.
+          auto networkSpec = GetInferredNetwork(i); // (FIXME) See Nellie's UPDATE
+          if (std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)){
+            std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy;   
+            //std::cout << "set wire energy: " << componentName << std::endl;
+          }
         }
       }
     } else {
@@ -111,9 +191,11 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
           // only check the user-defined networks
           auto networkSpec = GetNetwork(i);
           if (networkSpec->Type() == "SimpleMulticast" && networkSpec->name == componentName){
-            // std::cout << "simple multicast component identified: " << componentName << std::endl;
-            std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
-           }
+            if (std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)){
+              // std::cout << "simple multicast component identified: " << componentName << std::endl;
+              std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
+            }
+          }
       }
       // Find the level that matches this name and see what type it is
       bool isArithmeticUnit = false;
@@ -133,13 +215,13 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       double argEnergy = 0.0;
       for (auto action : actions) {
         auto actionERT = componentERT.lookup(action);
-        if (actionERT.isList()) { // action support argument
+        if (actionERT.isList()) { // v2 ERT and action support argument and all v3 ERT actions
           for (int i = 0; i < actionERT.getLength(); i ++) {
             if (actionERT[i].lookupValue("energy", argEnergy)) {
               opEnergy = std::max(argEnergy, opEnergy);
             }
           }
-        } else { // no argument action
+        } else { // v2 ERT and no arg actions
           if (actionERT.lookupValue("energy", argEnergy)) {
             opEnergy = std::max(argEnergy, opEnergy);
           }
@@ -159,7 +241,6 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       }
     }
   }
-
   return;
 }
 
@@ -844,7 +925,6 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
 
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            analysis::NestAnalysis* analysis,
-                                           const problem::Workload& workload,
                                            bool break_on_failure)
 {
   assert(is_specced_);
@@ -958,7 +1038,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   if (!break_on_failure || success_accum)
   {
     auto level_id = specs_.ArithmeticMap();
-    auto s = GetArithmeticLevel()->HackEvaluate(analysis, workload);
+    auto s = GetArithmeticLevel()->HackEvaluate(analysis);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
   }

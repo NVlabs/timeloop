@@ -129,6 +129,7 @@ class Topology : public Module
     std::vector<std::string> StorageLevelNames() const;
 
     void ParseAccelergyERT(config::CompoundConfigNode ert);
+    void ParseAccelergyART(config::CompoundConfigNode art);
 
     void AddLevel(unsigned typed_id, std::shared_ptr<LevelSpecs> level_specs);
     void AddInferredNetwork(std::shared_ptr<LegacyNetwork::Specs> specs);
@@ -259,7 +260,7 @@ class Topology : public Module
   unsigned NumNetworks() const;
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, const problem::Workload& workload, bool break_on_failure);
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
 
   const Stats& GetStats() const { return stats_; }
 

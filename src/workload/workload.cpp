@@ -181,7 +181,7 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
   workload.SetCoefficients(coefficients);
   
   Workload::Densities densities;
-  double common_density;
+  DataDensity common_density;
   if (config.lookupValue("commonDensity", common_density))
   {
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)

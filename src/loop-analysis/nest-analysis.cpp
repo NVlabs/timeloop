@@ -208,6 +208,7 @@ void NestAnalysis::ComputeWorkingSets()
     // Recursive call starting from the last element of the list.
     num_epochs_ = 1;
     ComputeDeltas(nest_state_.rbegin());
+    ComputeDataDensity();
 
     CollectWorkingSets();
   }
@@ -217,6 +218,25 @@ void NestAnalysis::ComputeWorkingSets()
 }
 
 // Internal helper methods
+
+
+void NestAnalysis::ComputeDataDensity(){
+    
+    for (auto& cur : nest_state_){
+        // All spatial levels that are not a master-spatial level are not valid
+        bool valid_level = !loop::IsSpatial(cur.descriptor.spacetime_dimension) || master_spatial_level_[cur.level];
+        if (valid_level)
+        {
+          for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+          {
+              for (std::uint64_t i = 1; i < cur.live_state.size(); i++)
+                cur.live_state[i].data_densities[pv] = workload_->GetDensity(pv); // uniformly distributed workload density across elements
+          }
+        }
+    }
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+      body_info_.data_densities[pv] = workload_->GetDensity(pv); // uniformly distributed workload density for arithmetic elements
+}
 
 void NestAnalysis::InitializeNestProperties()
 {
@@ -313,6 +333,8 @@ void NestAnalysis::CollectWorkingSets()
             cur.live_state[REPR_ELEM_ID].max_size[pv];
         condensed_state.link_transfers[pv] =
             cur.live_state[REPR_ELEM_ID].link_transfers[pv];
+        condensed_state.data_densities[pv] =
+            cur.live_state[REPR_ELEM_ID].data_densities[pv];  // FIXME: probaly too much of a simplification for PEs...
       }
 
       // Build the subnest corresponding to this level.
@@ -349,6 +371,7 @@ void NestAnalysis::CollectWorkingSets()
         tile.fanout                 = spatial_fanouts_[cur.level];
         tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
         tile.is_master_spatial      = master_spatial_level_[cur.level];
+        tile.tile_density           = condensed_state.data_densities[pv];
         working_sets_[pv].push_back(tile);
       }
 

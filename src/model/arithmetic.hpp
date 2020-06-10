@@ -182,8 +182,7 @@ class ArithmeticUnits : public Level
 
   // --- Temporary hack interfaces, these will be removed ---
   
-  EvalStatus HackEvaluate(analysis::NestAnalysis* analysis,
-                          const problem::Workload& workload)
+  EvalStatus HackEvaluate(analysis::NestAnalysis* analysis)
   {
     assert(is_specced_);
 
@@ -207,7 +206,8 @@ class ArithmeticUnits : public Level
       for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
       {
         if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
-          energy_ *= workload.GetDensity(d);
+          //energy_ *= workload.GetDensity(d);
+          energy_ *= body_info.data_densities[d];
       }
 
       is_evaluated_ = true;    

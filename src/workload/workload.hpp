@@ -56,12 +56,14 @@ const Shape* GetShape();
 //                 Workload                 //
 // ======================================== //
 
+typedef double DataDensity;  // prepare for more sophisiticated statiscal representations
+
 class Workload
 {
  public:
   typedef std::map<Shape::DimensionID, Coordinate> Bounds;
   typedef std::map<Shape::CoefficientID, int> Coefficients;
-  typedef std::map<Shape::DataSpaceID, double> Densities;  
+  typedef std::map<Shape::DataSpaceID, DataDensity> Densities;  
   
  protected:
   Bounds bounds_;
@@ -87,7 +89,7 @@ class Workload
     return coefficients_.at(p);
   }
   
-  double GetDensity(Shape::DataSpaceID pv) const
+  DataDensity GetDensity(Shape::DataSpaceID pv) const
   {
     return densities_.at(pv);
   }
