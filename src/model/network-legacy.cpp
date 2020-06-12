@@ -176,7 +176,7 @@ EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
                                  const bool break_on_failure)
 {
 
-  auto eval_status = ComputeAccesses(tile, break_on_failure);
+  auto eval_status = ComputeAccesses(tile.data_movement_info, break_on_failure);
   if (!break_on_failure || eval_status.success)
   {
     ComputeNetworkEnergy();
@@ -186,7 +186,7 @@ EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
   return eval_status;
 }
 
-EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundTile& tile, const bool break_on_failure)
+EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const bool break_on_failure)
 {
   bool success = true;
   std::ostringstream fail_reason;

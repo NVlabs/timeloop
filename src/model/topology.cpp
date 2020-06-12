@@ -945,10 +945,14 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   bool success_accum = true;
   
   // Compute working-set tile hierarchy for the nest.
+  tiling::CompoundTileNest tile_info_nest;
   problem::PerDataSpace<std::vector<tiling::DataMovementInfo>> ws_tiles;
   try
   {
     ws_tiles = analysis->GetWorkingSets();
+    // construct a summaried tileinfo with both datamovement info and compute info
+    tile_info_nest.compound_compute_info_nest = analysis->GetComputeInfo();
+    tile_info_nest.compound_data_movement_info_nest = ws_tiles;
   }
   catch (std::runtime_error& e)
   {
@@ -957,8 +961,9 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     return eval_status;
   }
 
+
   // Ugh... FIXME.
-  auto compute_cycles = analysis->GetComputeInfo().accesses;
+  auto compute_cycles = analysis->GetComputeInfo()[0][0].accesses; //1 op_type, innermost level
 
   // Create a mask indicating which levels support distributed multicast.
   tiling::CompoundMaskNest distribution_supported;
@@ -976,11 +981,11 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   
   // Collapse tiles into a specified number of tiling levels. The solutions are
   // received in a set of per-problem::Shape::DataSpaceID arrays.
-  auto collapsed_tiles = tiling::CollapseTiles(ws_tiles, specs_.NumStorageLevels(),
+  auto collapsed_tiles = tiling::CollapseTiles(tile_info_nest, specs_.NumStorageLevels(),
                                                mapping.datatype_bypass_nest,
                                                distribution_supported);
 
-  // Transpose the tiles into level->datatype structure.
+  // Transpose the tiles into level->datatype/level->optype structure.
   auto tiles = tiling::TransposeTiles(collapsed_tiles);
   assert(tiles.size() == NumStorageLevels());
 
@@ -1038,7 +1043,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   if (!break_on_failure || success_accum)
   {
     auto level_id = specs_.ArithmeticMap();
-    auto s = GetArithmeticLevel()->HackEvaluate(analysis->GetComputeInfo());
+    auto s = GetArithmeticLevel()->Evaluate(tiles[0], keep_masks[0],
+                                            compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
   }

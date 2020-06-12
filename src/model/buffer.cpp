@@ -489,7 +489,7 @@ EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling:
                                  const std::uint64_t compute_cycles,
                                  const bool break_on_failure)
 {
-  auto eval_status = ComputeAccesses(tile, mask, break_on_failure);
+  auto eval_status = ComputeAccesses(tile.data_movement_info, mask, break_on_failure);
   if (!break_on_failure || eval_status.success)
   {
     ComputeBufferEnergy();
@@ -527,7 +527,7 @@ void BufferLevel::ConnectDrain(std::shared_ptr<Network> network)
   network_drain_ = network;
 }
 
-EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundTile& tile,
+EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& tile,
                                         const tiling::CompoundMask& mask,
                                         const bool break_on_failure)
 {

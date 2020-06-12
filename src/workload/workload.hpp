@@ -40,6 +40,12 @@ namespace problem
 {
 
 // ======================================== //
+//             Operation Type               //
+// ======================================== //
+
+int GetNumOpTypes();
+
+// ======================================== //
 //              Shape instance              //
 // ======================================== //
 // Sadly, this has to be a static instance outside Workload for now

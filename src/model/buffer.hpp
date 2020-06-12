@@ -226,7 +226,7 @@ class BufferLevel : public Level
   //
 
  private:
-  EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+  EvalStatus ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const tiling::CompoundMask& mask,
                              const bool break_on_failure);
   void ComputePerformance(const std::uint64_t compute_cycles);
   void ComputeBufferEnergy();

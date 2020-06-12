@@ -155,16 +155,16 @@ class ArithmeticUnits : public Level
     return { true, "" };
   }
 
-  EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                      const std::uint64_t compute_cycles,
-                      const bool break_on_failure) override
-  {
-    (void) tile;
-    (void) mask;
-    (void) compute_cycles;
-    (void) break_on_failure;
-    return { false, "ArithmeticLevel must use the HackEvaluate() function" };
-  }
+  // EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+  //                     const std::uint64_t compute_cycles,
+  //                     const bool break_on_failure) override
+  // {
+  //   (void) tile;
+  //   (void) mask;
+  //   (void) compute_cycles;
+  //   (void) break_on_failure;
+  //   return { false, "ArithmeticLevel must use the HackEvaluate() function" };
+  // }
   
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
   {
@@ -179,18 +179,23 @@ class ArithmeticUnits : public Level
     (void) pv;
     return 0;
   }
-
-  // --- Temporary hack interfaces, these will be removed ---
-  
-  EvalStatus HackEvaluate(const tiling::ComputeInfo& compute_info)
+ 
+  EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                          const std::uint64_t compute_cycles,
+                          const bool break_on_failure)
   {
     assert(is_specced_);
 
+    (void) mask;
+    (void) break_on_failure;
+
     EvalStatus eval_status;
     eval_status.success = true;
+
+    tiling::ComputeInfo compute_info = tile.compute_info[0]; // one optype only
+    tiling::CompoundDataMovementInfo data_movement_info = tile.data_movement_info;
   
     utilized_instances_ = compute_info.replication_factor;
-    auto compute_cycles = compute_info.accesses;
 
     // maccs_ = analysis->GetMACs();
 
@@ -204,7 +209,7 @@ class ArithmeticUnits : public Level
       for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
       {
         if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
-          energy_ *= compute_info.data_densities[d].GetAverageDensity();
+          energy_ *= data_movement_info[d].tile_density.GetAverageDensity();
       }
 
       is_evaluated_ = true;    

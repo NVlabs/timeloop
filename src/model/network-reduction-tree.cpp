@@ -151,6 +151,8 @@ void ReductionTreeNetwork::SetTileWidth(double width_um)
 EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
                               const bool break_on_failure)
 {
+  tiling::CompoundDataMovementInfo data_movement = tile.data_movement_info;
+
   (void) break_on_failure;
   assert(specs_.cType == UpdateDrain); // ReductionTreeNetwork can only be used in update-drain connection
 
@@ -159,14 +161,14 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
       
-    stats_.utilized_instances[pv] = tile[pvi].replication_factor;
+    stats_.utilized_instances[pv] = data_movement[pvi].replication_factor;
 
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
-      stats_.ingresses[pv].resize(tile[pvi].accesses.size());
-      for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
+      stats_.ingresses[pv].resize(data_movement[pvi].accesses.size());
+      for (unsigned i = 0; i < data_movement[pvi].accesses.size(); i++)
       {
-        stats_.ingresses[pv][i] = tile[pvi].accesses[i];
+        stats_.ingresses[pv][i] = data_movement[pvi].accesses[i];
         stats_.spatial_reductions[pv] += (i * stats_.ingresses[pv][i]);
       }
     }

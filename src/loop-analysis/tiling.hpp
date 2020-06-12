@@ -162,21 +162,47 @@ struct ComputeInfo
   }
 };
 
-typedef problem::PerDataSpace<DataMovementInfo> CompoundTile;
+// datatypes needed before transpose
+// indexing order: [datatype/optype, nest_level]
+typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest ; 
+typedef std::vector<std::vector<ComputeInfo>> CompoundComputeInfoNest;
+struct CompoundTileNest{
+   CompoundDataMovementNest compound_data_movement_info_nest;
+   CompoundComputeInfoNest compound_compute_info_nest;
+};
+
+
+// datatypes needed after transpose
+typedef problem::PerDataSpace<DataMovementInfo> CompoundDataMovementInfo;
+typedef std::vector<ComputeInfo> CompoundComputeInfo;
+
+// indexing order: [nest_level, datatype/optype]
+typedef std::vector<CompoundDataMovementInfo> NestCompoundDataMovement ; 
+typedef std::vector<CompoundComputeInfo> NestComputeInfo;
+struct CompoundTile{
+  CompoundDataMovementInfo data_movement_info;
+  CompoundComputeInfo compute_info;
+};
+
+typedef std::vector<CompoundTile> NestOfCompoundTiles;
 typedef problem::PerDataSpace<bool> CompoundMask;
 
-typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundTileNest;
 typedef problem::PerDataSpace<std::bitset<MaxTilingLevels>> CompoundMaskNest;
-typedef std::vector<CompoundTile> NestOfCompoundTiles;
 typedef std::vector<CompoundMask> NestOfCompoundMasks;
 
 bool operator < (const DataMovementInfo& a, const DataMovementInfo& b);
 std::ostream& operator << (std::ostream& out, const DataMovementInfo& info);
 
-//nCompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels);
-CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
+
+CompoundDataMovementNest CollapseDataMovementNest(CompoundDataMovementNest& tiles, 
+                                                  int num_tiling_levels,
+                                                  const CompoundMaskNest& tile_mask,
+                                                  const CompoundMaskNest& distribution_supported);
+CompoundTileNest CollapseTiles(CompoundTileNest& tiles, 
+                               int num_tiling_levels,
                                const CompoundMaskNest& tile_mask,
                                const CompoundMaskNest& distribution_supported);
+
 NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles);
 NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks);
 

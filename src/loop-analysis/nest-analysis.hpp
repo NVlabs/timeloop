@@ -52,8 +52,12 @@ class NestAnalysis
   // Dynamically updated by recursive calls.
   std::uint64_t spatial_id_;
   
-  tiling::CompoundTileNest working_sets_;
+  // tiling::CompoundTileNest working_sets_;
+  // tiling::ComputeInfo compute_info_;
+
+  tiling::CompoundDataMovementNest working_sets_;
   tiling::ComputeInfo compute_info_;
+  tiling::CompoundComputeInfoNest compute_info_sets_;
 
   // Memoization structures to accelerate IndexToOperationPoint()
   std::vector<problem::PerProblemDimension<std::uint64_t>>
@@ -150,7 +154,7 @@ class NestAnalysis
   std::vector<problem::PerDataSpace<std::size_t>> GetWorkingSetSizes_LTW() const;
 
   problem::PerDataSpace<std::vector<tiling::DataMovementInfo>> GetWorkingSets();
-  tiling::ComputeInfo GetComputeInfo();
+  tiling::CompoundComputeInfoNest GetComputeInfo();
 
   // Serialization.
   friend class boost::serialization::access;
