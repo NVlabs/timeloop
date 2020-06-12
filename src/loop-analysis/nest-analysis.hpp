@@ -53,7 +53,7 @@ class NestAnalysis
   std::uint64_t spatial_id_;
   
   tiling::CompoundTileNest working_sets_;
-  tiling::BodyInfo body_info_;
+  tiling::ComputeInfo compute_info_;
 
   // Memoization structures to accelerate IndexToOperationPoint()
   std::vector<problem::PerProblemDimension<std::uint64_t>>
@@ -149,8 +149,8 @@ class NestAnalysis
  
   std::vector<problem::PerDataSpace<std::size_t>> GetWorkingSetSizes_LTW() const;
 
-  problem::PerDataSpace<std::vector<tiling::TileInfo>> GetWorkingSets();
-  tiling::BodyInfo GetBodyInfo();
+  problem::PerDataSpace<std::vector<tiling::DataMovementInfo>> GetWorkingSets();
+  tiling::ComputeInfo GetComputeInfo();
 
   // Serialization.
   friend class boost::serialization::access;

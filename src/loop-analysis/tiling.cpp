@@ -33,14 +33,14 @@
 namespace tiling
 {
 
-bool operator < (const TileInfo& a, const TileInfo& b)
+bool operator < (const DataMovementInfo& a, const DataMovementInfo& b)
 {
   // Logic doesn't matter as long as we provide a way to detect inequality.
   return (a.size < b.size) ||
          (a.size == b.size && a.GetTotalAccesses() < b.GetTotalAccesses());
 }
 
-std::ostream& operator << (std::ostream& out, const TileInfo& info)
+std::ostream& operator << (std::ostream& out, const DataMovementInfo& info)
 {
   out << "size = " << info.size << " accesses = " << info.GetTotalAccesses()
       << " fanout = " << info.fanout << " repfactor = " << info.replication_factor
@@ -59,7 +59,7 @@ namespace tiling
 {
 
 // Helper function: find the multicast factor.
-uint64_t FindMulticastFactor(const TileInfo& tile)
+uint64_t FindMulticastFactor(const DataMovementInfo& tile)
 {
   uint64_t multicast_factor = 1;
   bool multicast_found = false;
@@ -77,7 +77,7 @@ uint64_t FindMulticastFactor(const TileInfo& tile)
 }
 
 // Mask Tiles.
-void MaskTiles(std::vector<TileInfo>& tile_nest, std::bitset<MaxTilingLevels> mask)
+void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLevels> mask)
 {
   // std::cout << "***** BEFORE *****" << std::endl;
   // std::cout << "Tile nest = " << std::endl;
@@ -187,7 +187,7 @@ void MaskTiles(std::vector<TileInfo>& tile_nest, std::bitset<MaxTilingLevels> ma
 
 // Convert multicasts into scatter->distributed-multicasts if certain conditions
 // are met.
-void DistributeTiles(std::vector<TileInfo>& tile_nest,
+void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
                      const std::bitset<MaxTilingLevels>& distribution_supported)
 {
   int num_tiling_levels = tile_nest.size();
@@ -267,7 +267,7 @@ void DistributeTiles(std::vector<TileInfo>& tile_nest,
 }
 
 // Compute Fills.
-void ComputeFills(std::vector<TileInfo>& tile_nest)
+void ComputeFills(std::vector<DataMovementInfo>& tile_nest)
 {
   int num_tiling_levels = tile_nest.size();
 
@@ -327,7 +327,7 @@ void ComputeFills(std::vector<TileInfo>& tile_nest)
 }
 
 // Compute partition sizes.
-void ComputePartitionSizes(std::vector<TileInfo>& tile_nest)
+void ComputePartitionSizes(std::vector<DataMovementInfo>& tile_nest)
 {
   int num_tiling_levels = tile_nest.size();
 
@@ -350,7 +350,7 @@ void ComputePartitionSizes(std::vector<TileInfo>& tile_nest)
 // Compute the extra fills and accesses due to link transfers in the previous
 // level. Link transfers are handled at the network model, and the extra buffer
 // accesses should charge the buffer model.
-void ComputePeerAccesses(std::vector<TileInfo>& tile_nest)
+void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
 {
   // Loop through all levels and update peer_{accesses, fills}.
   //
@@ -399,7 +399,7 @@ CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
     while (processed_loop_count < total_loops)
     {
       // Form a new physical tiling level.
-      TileInfo collapsed_tile;
+      DataMovementInfo collapsed_tile;
 
       // Find the last loop that belongs to the current tile.
       int boundary_loop_id = processed_loop_count;

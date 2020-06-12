@@ -128,7 +128,7 @@ void NestAnalysis::Reset()
 
   working_sets_computed_ = false;
   
-  body_info_.Reset();
+  compute_info_.Reset();
 }
 
 // Ugly function for pre-checking capacity fits before running the heavyweight
@@ -167,7 +167,7 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
   return working_set_sizes;
 }
 
-problem::PerDataSpace<std::vector<tiling::TileInfo>>
+problem::PerDataSpace<std::vector<tiling::DataMovementInfo>>
 NestAnalysis::GetWorkingSets()
 {
   if (!working_sets_computed_)
@@ -178,14 +178,14 @@ NestAnalysis::GetWorkingSets()
   return working_sets_;
 }
 
-tiling::BodyInfo NestAnalysis::GetBodyInfo()
+tiling::ComputeInfo NestAnalysis::GetComputeInfo()
 {
   if (!working_sets_computed_)
   {
     ComputeWorkingSets();
   }
   ASSERT(working_sets_computed_);
-  return body_info_;
+  return compute_info_;
 }
 
 std::ostream& operator << (std::ostream& out, const NestAnalysis& n)
@@ -235,7 +235,7 @@ void NestAnalysis::ComputeDataDensity(){
         }
     }
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-      body_info_.data_densities[pv] = workload_->GetDensity(pv); // uniformly distributed workload density for arithmetic elements
+      compute_info_.data_densities[pv] = workload_->GetDensity(pv); // uniformly distributed workload density for arithmetic elements
 }
 
 void NestAnalysis::InitializeNestProperties()
@@ -251,7 +251,7 @@ void NestAnalysis::InitializeLiveState()
   indices_.resize(nest_state_.size());
   spatial_id_ = 0;
   
-  body_info_.Reset();
+  compute_info_.Reset();
 
   for (auto loop = nest_state_.rbegin(); loop != nest_state_.rend(); loop++)
   {
@@ -357,7 +357,7 @@ void NestAnalysis::CollectWorkingSets()
       // Transfer data from condensed_state to working_sets_
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
-        tiling::TileInfo tile;
+        tiling::DataMovementInfo tile;
         tile.size                   = condensed_state.max_size[pv];
         tile.partition_size         = 0; // will be set later.
         tile.accesses               = condensed_state.accesses[pv]; // network accesses
@@ -385,7 +385,7 @@ void NestAnalysis::CollectWorkingSets()
     bool valid_level = !loop::IsSpatial(cur.descriptor.spacetime_dimension) || master_spatial_level_[cur.level];
     if (valid_level)
     {
-      body_info_.replication_factor = num_spatial_elems_[cur.level] * spatial_fanouts_[cur.level];
+      compute_info_.replication_factor = num_spatial_elems_[cur.level] * spatial_fanouts_[cur.level];
       break;
     }
   }
@@ -551,7 +551,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     {
       // To avoid double counting of compute_cycles when there are multiple PEs.
       // compute_cycles_ += body_iterations;
-      body_info_.accesses += body_iterations;
+      compute_info_.accesses += body_iterations;
     }
 
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
@@ -1039,7 +1039,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
     if (base_index == 0 && spatial_id_ == 0)
     {
       // compute_cycles_ += num_epochs_;
-      body_info_.accesses += num_epochs_;
+      compute_info_.accesses += num_epochs_;
     }
 
     // No more recursive calls, directly update spatial_deltas.

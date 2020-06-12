@@ -40,7 +40,7 @@ namespace tiling
 
 const int MaxTilingLevels = 16;
 
-struct TileInfo
+struct DataMovementInfo
 {
   friend class boost::serialization::access;
 
@@ -146,14 +146,14 @@ struct TileInfo
 
 };
 
-struct BodyInfo
+struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t accesses;
   
   problem::PerDataSpace<problem::DataDensity> data_densities;;     // data densities at this level (will be derived from workload in nest_analysis)
 
-  BodyInfo() { Reset(); }
+  ComputeInfo() { Reset(); }
 
   void Reset()
   {
@@ -162,16 +162,16 @@ struct BodyInfo
   }
 };
 
-typedef problem::PerDataSpace<TileInfo> CompoundTile;
+typedef problem::PerDataSpace<DataMovementInfo> CompoundTile;
 typedef problem::PerDataSpace<bool> CompoundMask;
 
-typedef problem::PerDataSpace<std::vector<TileInfo>> CompoundTileNest;
+typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundTileNest;
 typedef problem::PerDataSpace<std::bitset<MaxTilingLevels>> CompoundMaskNest;
 typedef std::vector<CompoundTile> NestOfCompoundTiles;
 typedef std::vector<CompoundMask> NestOfCompoundMasks;
 
-bool operator < (const TileInfo& a, const TileInfo& b);
-std::ostream& operator << (std::ostream& out, const TileInfo& info);
+bool operator < (const DataMovementInfo& a, const DataMovementInfo& b);
+std::ostream& operator << (std::ostream& out, const DataMovementInfo& info);
 
 //nCompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels);
 CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,

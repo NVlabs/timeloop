@@ -182,17 +182,15 @@ class ArithmeticUnits : public Level
 
   // --- Temporary hack interfaces, these will be removed ---
   
-  EvalStatus HackEvaluate(analysis::NestAnalysis* analysis)
+  EvalStatus HackEvaluate(const tiling::ComputeInfo& compute_info)
   {
     assert(is_specced_);
 
     EvalStatus eval_status;
     eval_status.success = true;
-
-    auto body_info = analysis->GetBodyInfo();
-    
-    utilized_instances_ = body_info.replication_factor;
-    auto compute_cycles = body_info.accesses;
+  
+    utilized_instances_ = compute_info.replication_factor;
+    auto compute_cycles = compute_info.accesses;
 
     // maccs_ = analysis->GetMACs();
 
@@ -206,7 +204,7 @@ class ArithmeticUnits : public Level
       for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
       {
         if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
-          energy_ *= body_info.data_densities[d].GetAverageDensity();
+          energy_ *= compute_info.data_densities[d].GetAverageDensity();
       }
 
       is_evaluated_ = true;    

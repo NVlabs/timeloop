@@ -945,7 +945,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   bool success_accum = true;
   
   // Compute working-set tile hierarchy for the nest.
-  problem::PerDataSpace<std::vector<tiling::TileInfo>> ws_tiles;
+  problem::PerDataSpace<std::vector<tiling::DataMovementInfo>> ws_tiles;
   try
   {
     ws_tiles = analysis->GetWorkingSets();
@@ -958,7 +958,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   }
 
   // Ugh... FIXME.
-  auto compute_cycles = analysis->GetBodyInfo().accesses;
+  auto compute_cycles = analysis->GetComputeInfo().accesses;
 
   // Create a mask indicating which levels support distributed multicast.
   tiling::CompoundMaskNest distribution_supported;
@@ -1038,7 +1038,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   if (!break_on_failure || success_accum)
   {
     auto level_id = specs_.ArithmeticMap();
-    auto s = GetArithmeticLevel()->HackEvaluate(analysis);
+    auto s = GetArithmeticLevel()->HackEvaluate(analysis->GetComputeInfo());
     eval_status.at(level_id) = s;
     success_accum &= s.success;
   }
