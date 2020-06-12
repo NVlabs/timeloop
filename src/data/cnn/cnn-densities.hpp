@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-std::map<std::string, Workload::Densities> densities = {
+std::map<std::string, std::map<Shape::DataSpaceID, double>> densities = {
 {"TEST",
   {{kDataSpaceWeight, 1},
    {kDataSpaceInput, 1}, 

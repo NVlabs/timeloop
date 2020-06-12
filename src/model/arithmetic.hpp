@@ -206,8 +206,7 @@ class ArithmeticUnits : public Level
       for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
       {
         if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
-          //energy_ *= workload.GetDensity(d);
-          energy_ *= body_info.data_densities[d];
+          energy_ *= body_info.data_densities[d].GetAverageDensity();
       }
 
       is_evaluated_ = true;    

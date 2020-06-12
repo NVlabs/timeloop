@@ -34,6 +34,7 @@
 #include "compound-config/compound-config.hpp"
 
 #include "problem-shape.hpp"
+#include "data-density.hpp"
 
 namespace problem
 {
@@ -55,8 +56,6 @@ const Shape* GetShape();
 // ======================================== //
 //                 Workload                 //
 // ======================================== //
-
-typedef double DataDensity;  // prepare for more sophisiticated statiscal representations
 
 class Workload
 {

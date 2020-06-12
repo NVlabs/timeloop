@@ -181,22 +181,25 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
   workload.SetCoefficients(coefficients);
   
   Workload::Densities densities;
-  DataDensity common_density;
-  if (config.lookupValue("commonDensity", common_density))
+  double common_avg_density;
+  if (config.lookupValue("commonDensity", common_avg_density))
   {
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
-      densities[i] = common_density;
+      densities[i] = DataDensity(common_avg_density);
   }
   else if (config.exists("densities"))
   {
     auto config_densities = config.lookup("densities");
-    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
-      assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), densities[i]));
+    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
+      double dataspace_avg_density;
+      assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
+      densities[i]= DataDensity(dataspace_avg_density);
+    }
   }
   else
   {
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
-      densities[i] = 1.0;
+      densities[i]= DataDensity(1.0);
   }
   workload.SetDensities(densities);
 }
