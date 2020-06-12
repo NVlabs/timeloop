@@ -69,6 +69,20 @@ class Point
     Reset();
   }
   
+  // Copy-and-swap idiom.
+  Point& operator = (Point other)
+  {
+    swap(*this, other);
+    return *this;
+  }
+
+  friend void swap(Point& first, Point& second)
+  {
+    using std::swap;
+    swap(first.order_, second.order_);
+    swap(first.coordinates_, second.coordinates_);
+  }
+
   void Reset()
   {
     std::fill(coordinates_.begin(), coordinates_.end(), 0);
