@@ -29,6 +29,8 @@
 
 #include "mapping/nest.hpp"
 #include "workload/per-problem-dimension.hpp"
+#include "workload/operation-type.hpp"
+
 
 namespace analysis
 {

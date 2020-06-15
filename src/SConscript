@@ -112,6 +112,7 @@ util/map2d.cpp
 workload/problem-shape.cpp
 workload/workload.cpp
 workload/operation-space.cpp
+workload/operation-type.cpp
 compound-config/compound-config.cpp
 """)
 

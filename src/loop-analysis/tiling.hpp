@@ -34,6 +34,7 @@
 #include "workload/problem-shape.hpp"
 #include "workload/per-data-space.hpp"
 #include "workload/workload.hpp"
+#include "workload/operation-type.hpp"
 
 namespace tiling
 {

@@ -35,13 +35,6 @@
 namespace problem
 {
 
-int GetNumOpTypes()
-{
-  // FIXME: I'm confused about where the op types should be specified
-  return 1;
-}
-
-
 // ======================================== //
 //              Shape instance              //
 // ======================================== //
