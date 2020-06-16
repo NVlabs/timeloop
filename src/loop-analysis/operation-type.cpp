@@ -29,12 +29,13 @@
 
 #include "operation-type.hpp"
 
-namespace problem
+
+namespace tiling
 {
 
 int GetNumOpTypes()
 {
-  // FIXME: assuming one op type
+  // default placeholder: assuming one op type
   return 1;
 }
 
@@ -45,9 +46,44 @@ int GetNumOpTypes(std::string component_type){
 	} else if (component_type == "storage"){
 		return sizeof(storageOperationTypes) / sizeof(storageOperationTypes[0]);
         
-	} else {
+	} else if (component_type == "network") {
 		return sizeof(networkOperationTypes) / sizeof(networkOperationTypes[0]);
-    }
+ 
+  } else {
+  	assert(false);
+  }
 }
+
+
+int CalculateNumGatedCompute(tiling::ComputeInfo compute_info, tiling::CompoundDataMovementInfo compound_data_movement){
+
+	int total_accesses = compute_info.replication_factor * compute_info.accesses;
+	double avg_density = 1;
+  for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
+  	if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    	avg_density *= compound_data_movement[pv].tile_density.GetAverageDensity();
+	return int(total_accesses * (1-avg_density));
+}
+
+int CalculateNumRandomCompute(tiling::ComputeInfo compute_info,tiling::CompoundDataMovementInfo compound_data_movement){
+
+	int total_accesses = compute_info.replication_factor * compute_info.accesses;
+	double avg_density = 1;
+  for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
+  	if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    	avg_density *= compound_data_movement[pv].tile_density.GetAverageDensity();
+	return int(total_accesses * avg_density);
+}
+
+int CalculateNumArithmeticOps(tiling::ComputeInfo compute_info, tiling::CompoundDataMovementInfo compound_data_movement, std::string op_name){
+	if (op_name == "random_compute")
+		return CalculateNumRandomCompute(compute_info, compound_data_movement);
+	else if (op_name == "gated_compute")
+		return CalculateNumGatedCompute(compute_info, compound_data_movement);
+	else
+		assert(false);
+}
+
+
 
 }// namespace problem

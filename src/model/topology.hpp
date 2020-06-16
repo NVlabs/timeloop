@@ -32,6 +32,7 @@
 #include <algorithm>
 
 #include "loop-analysis/tiling.hpp"
+#include "loop-analysis/tiling-tile-info.hpp"
 #include "loop-analysis/nest-analysis.hpp"
 #include "mapping/nest.hpp"
 #include "mapping/mapping.hpp"

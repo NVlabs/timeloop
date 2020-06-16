@@ -192,10 +192,10 @@ class ArithmeticUnits : public Level
     EvalStatus eval_status;
     eval_status.success = true;
 
-    tiling::ComputeInfo compute_info = tile.compute_info[0]; // one optype only
-    tiling::CompoundDataMovementInfo data_movement_info = tile.data_movement_info;
+    // tiling::ComputeInfo compute_info = tile.compute_info[0]; // one optype only
+    // tiling::CompoundDataMovementInfo data_movement_info = tile.data_movement_info;
   
-    utilized_instances_ = compute_info.replication_factor;
+    utilized_instances_ = tile.compute_info[0].replication_factor; // replication factor is the same for all op types
 
     // maccs_ = analysis->GetMACs();
 
@@ -203,13 +203,26 @@ class ArithmeticUnits : public Level
     {
       cycles_ = compute_cycles;
       maccs_ = utilized_instances_ * compute_cycles;
-      energy_ = maccs_ * specs_.energy_per_op.Get();
+      // energy_ = maccs_ * specs_.energy_per_op.Get();
 
-      // Scale energy for sparsity.
-      for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
-      {
-        if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
-          energy_ *= data_movement_info[d].tile_density.GetAverageDensity();
+      // // Scale energy for sparsity.
+      // for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
+      // {
+      //   if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
+      //     energy_ *= data_movement_info[d].tile_density.GetAverageDensity();
+      // }
+      energy_ = 0;
+      
+      for (unsigned op_id = 0; op_id < tile.compute_info.size(); op_id++){
+        int op_accesses = tile.compute_info[op_id].accesses;
+        std::string op_name = tiling::arithmeticOperationTypes[op_id];
+        // FIXME: use ERT entries directly
+        if (op_name == "random_compute") {
+          // random compute has nonzero compute energy
+          energy_ += op_accesses * specs_.energy_per_op.Get();
+          // std::cout << "op_accesses: " << op_accesses << std::endl;
+          // std::cout << "energy_per_op: " << specs_.energy_per_op << std::endl;
+        }
       }
 
       is_evaluated_ = true;    

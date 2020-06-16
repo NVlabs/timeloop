@@ -24,8 +24,13 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <bitset>
+
 #pragma once
+
+#include <bitset>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+
 namespace problem
 {
 
@@ -47,8 +52,8 @@ struct DataDensity{
 
 		// Serialization.
 		friend class boost::serialization::access;
-	  template <class Archive>
-	  void serialize(Archive& ar, const unsigned int version=0){
+	    template <class Archive>
+	    void serialize(Archive& ar, const unsigned int version=0){
 	  	if (version == 0)
 	    {
 	      ar& BOOST_SERIALIZATION_NVP(average_density_);

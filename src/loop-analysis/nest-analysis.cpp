@@ -167,7 +167,7 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
   return working_set_sizes;
 }
 
-problem::PerDataSpace<std::vector<tiling::DataMovementInfo>>
+problem::PerDataSpace<std::vector<analysis::DataMovementInfo>>
 NestAnalysis::GetWorkingSets()
 {
   if (!working_sets_computed_)
@@ -178,7 +178,7 @@ NestAnalysis::GetWorkingSets()
   return working_sets_;
 }
 
-tiling::CompoundComputeInfoNest NestAnalysis::GetComputeInfo()
+analysis::CompoundComputeNest NestAnalysis::GetComputeInfo()
 {
   if (!working_sets_computed_)
   {
@@ -187,6 +187,10 @@ tiling::CompoundComputeInfoNest NestAnalysis::GetComputeInfo()
   ASSERT(working_sets_computed_);
   //return compute_info_;
   return compute_info_sets_;
+}
+
+problem::Workload* NestAnalysis::GetWorkload(){
+  return workload_;
 }
 
 std::ostream& operator << (std::ostream& out, const NestAnalysis& n)
@@ -209,7 +213,6 @@ void NestAnalysis::ComputeWorkingSets()
     // Recursive call starting from the last element of the list.
     num_epochs_ = 1;
     ComputeDeltas(nest_state_.rbegin());
-    ComputeDataDensity();
     CollectWorkingSets();
   }
 
@@ -218,23 +221,6 @@ void NestAnalysis::ComputeWorkingSets()
 }
 
 // Internal helper methods
-
-void NestAnalysis::ComputeDataDensity(){
-    for (std::uint64_t i = 0; i < nest_state_.size(); i++){
-        // All spatial levels that are not a master-spatial level are not valid
-        bool valid_level = !loop::IsSpatial(nest_state_[i].descriptor.spacetime_dimension) || master_spatial_level_[nest_state_[i].level];
-        if (valid_level)
-        {
-          for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-          {
-              for (std::uint64_t j = 0; j < nest_state_[i].live_state.size(); j++){
-                // uniformly distributed workload density across elements
-                nest_state_[i].live_state[j].data_densities[pv] = workload_->GetDensity(pv); 
-              }
-          }
-        }
-    }
-}
 
 void NestAnalysis::InitializeNestProperties()
 {
@@ -331,8 +317,8 @@ void NestAnalysis::CollectWorkingSets()
             cur.live_state[REPR_ELEM_ID].max_size[pv];
         condensed_state.link_transfers[pv] =
             cur.live_state[REPR_ELEM_ID].link_transfers[pv];
-        condensed_state.data_densities[pv] =
-            cur.live_state[REPR_ELEM_ID].data_densities[pv];  
+        // condensed_state.data_densities[pv] =
+        //     cur.live_state[REPR_ELEM_ID].data_densities[pv];  
       }
 
       // Build the subnest corresponding to this level.
@@ -355,21 +341,21 @@ void NestAnalysis::CollectWorkingSets()
       // Transfer data from condensed_state to working_sets_
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
-        tiling::DataMovementInfo tile;
+        DataMovementInfo tile;
         tile.size                   = condensed_state.max_size[pv];
-        tile.partition_size         = 0; // will be set later.
+        // tile.partition_size         = 0; // will be set later.
         tile.accesses               = condensed_state.accesses[pv]; // network accesses
-        tile.fills                  = 0; // will be set later
+        // tile.fills                  = 0; // will be set later
         tile.scatter_factors        = condensed_state.scatter_factors[pv];
         tile.cumulative_hops        = condensed_state.cumulative_hops[pv];
-        tile.content_accesses       = tile.GetTotalAccesses();
+        // tile.content_accesses       = tile.GetTotalAccesses();
         tile.link_transfers         = condensed_state.link_transfers[pv];
         tile.subnest                = subnest;
         tile.replication_factor     = num_spatial_elems_[cur.level];
         tile.fanout                 = spatial_fanouts_[cur.level];
         tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
         tile.is_master_spatial      = master_spatial_level_[cur.level];
-        tile.tile_density           = condensed_state.data_densities[pv];
+        // tile.tile_density           = condensed_state.data_densities[pv];
         working_sets_[pv].push_back(tile);
       }
     } // if (valid_level)
@@ -377,32 +363,24 @@ void NestAnalysis::CollectWorkingSets()
 
   // Extract body data from innermost spatial level.
   bool innermost_level_compute_info_collected = false; 
-  int number_of_op_typs = int(problem::GetNumOpTypes());  
-  compute_info_sets_.reserve(number_of_op_typs);
-  std::vector<tiling::ComputeInfo> ComputeInfoInnerNest;
-  compute_info_sets_.push_back(ComputeInfoInnerNest);
   
   for (auto& cur : nest_state_)
   {
     // All spatial levels that are not a master-spatial level are not valid
     bool valid_level = !loop::IsSpatial(cur.descriptor.spacetime_dimension) || master_spatial_level_[cur.level];
     if (valid_level){
-      for (int op = 0; op < number_of_op_typs; op++){
-        if(!innermost_level_compute_info_collected){
-          tiling::ComputeInfo compute_info;
-          compute_info.replication_factor = num_spatial_elems_[cur.level] * spatial_fanouts_[cur.level];
-          compute_info.accesses = compute_info_.accesses;
-          compute_info.data_densities = compute_info_.data_densities;
-          compute_info_sets_[op].push_back(compute_info);
-          innermost_level_compute_info_collected = true;
-        }       
-        else {  // if not the inner most level
-          tiling::ComputeInfo compute_info;
-          compute_info.replication_factor = 0;
-          compute_info.accesses = 0;
-          compute_info_sets_[op].push_back(compute_info);
-        } // inner most
-      }
+      if(!innermost_level_compute_info_collected){
+        analysis::ComputeInfo compute_info;
+        compute_info.replication_factor = num_spatial_elems_[cur.level] * spatial_fanouts_[cur.level];
+        compute_info.accesses = compute_info_.accesses;
+        compute_info_sets_.push_back(compute_info);
+        innermost_level_compute_info_collected = true;
+      } else {  // if not the inner most level
+        analysis::ComputeInfo compute_info;
+        compute_info.replication_factor = 0;
+        compute_info.accesses = 0;
+        compute_info_sets_.push_back(compute_info);
+      } // inner most
     } // valid level
   }
 }

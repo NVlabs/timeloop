@@ -98,6 +98,7 @@ if not os.path.isdir('../src/pat'):
 common_sources = Split("""
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
+loop-analysis/operation-type.cpp
 pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp
@@ -112,7 +113,6 @@ util/map2d.cpp
 workload/problem-shape.cpp
 workload/workload.cpp
 workload/operation-space.cpp
-workload/operation-type.cpp
 compound-config/compound-config.cpp
 """)
 

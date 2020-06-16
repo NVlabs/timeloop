@@ -945,8 +945,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   bool success_accum = true;
   
   // Compute working-set tile hierarchy for the nest.
-  tiling::CompoundTileNest tile_info_nest;
-  problem::PerDataSpace<std::vector<tiling::DataMovementInfo>> ws_tiles;
+  analysis::CompoundTileNest tile_info_nest;
+  problem::PerDataSpace<std::vector<analysis::DataMovementInfo>> ws_tiles;
   try
   {
     ws_tiles = analysis->GetWorkingSets();
@@ -963,7 +963,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
 
   // Ugh... FIXME.
-  auto compute_cycles = analysis->GetComputeInfo()[0][0].accesses; //1 op_type, innermost level
+  auto compute_cycles = analysis->GetComputeInfo()[0].accesses; //innermost level
 
   // Create a mask indicating which levels support distributed multicast.
   tiling::CompoundMaskNest distribution_supported;
@@ -983,7 +983,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   // received in a set of per-problem::Shape::DataSpaceID arrays.
   auto collapsed_tiles = tiling::CollapseTiles(tile_info_nest, specs_.NumStorageLevels(),
                                                mapping.datatype_bypass_nest,
-                                               distribution_supported);
+                                               distribution_supported,
+                                               analysis->GetWorkload());
 
   // Transpose the tiles into level->datatype/level->optype structure.
   auto tiles = tiling::TransposeTiles(collapsed_tiles);
