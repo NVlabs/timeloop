@@ -380,6 +380,48 @@ void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
   return;
 }
 
+
+void ComputeReadUpdateReductionAcesses(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv){
+  // Loop through all levels and update reads, writes, updates.
+  //
+  int num_tiling_levels = tile_nest.size();
+
+  for (int cur = 0; cur < num_tiling_levels; cur++){
+    
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    {
+      // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
+
+      // The following assertion is *incorrect* for coefficients (e.g. stride, pad) > 1.
+      // FIXME: find a safety check that works with coefficients > 1.
+      // assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
+
+      tile_nest[cur].reads = tile_nest[cur].content_accesses - tile_nest[cur].partition_size + tile_nest[cur].peer_accesses;
+      tile_nest[cur].updates = tile_nest[cur].content_accesses;
+      tile_nest[cur].fills = tile_nest[cur].fills + tile_nest[cur].peer_fills;
+      //tile.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
+
+      // FIXME: temporal reduction and network costs if hardware reduction isn't
+      // supported appears to be wonky - network costs may need to trickle down
+      // all the way to the level that has the reduction hardware.
+      tile_nest[cur].temporal_reductions = tile_nest[cur].content_accesses - tile_nest[cur].partition_size;
+
+      // std::cout << "tile: reads, updates, fills " 
+      // << tile.reads << " " <<  tile.updates<< " " << tile.fills <<std::endl;
+    }
+    else // Read-only data type.
+    {
+      tile_nest[cur].reads = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses;
+      tile_nest[cur].updates = 0;
+      tile_nest[cur].fills = tile_nest[cur].fills + tile_nest[cur].peer_fills;
+      //tile.address_generations = tile.reads + tile.fills; // scalar
+      tile_nest[cur].temporal_reductions = 0;
+    }
+  }
+
+  return;
+}
+
 void ComputeDataDensity(std::vector<DataMovementInfo>& tile_nest, problem::Workload* workload, problem::Shape::DataSpaceID pv){
   int num_tiling_levels = tile_nest.size();
   for (int cur = num_tiling_levels-1; cur >= 0; cur--){  
@@ -389,7 +431,7 @@ void ComputeDataDensity(std::vector<DataMovementInfo>& tile_nest, problem::Workl
   return;
 }
 
-tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles, 
+  tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles, 
                                        int num_tiling_levels,
                                        const CompoundMaskNest& tile_mask,
                                        const CompoundMaskNest& distribution_supported,
@@ -400,27 +442,38 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
                                                                                    tile_mask,
                                                                                    distribution_supported, 
                                                                                    workload);
-  CompoundComputeNest collapsed_compound_compute_nest = CollapseComputeNest(tiles.compound_compute_info_nest); // no need to collapse for now
-  
+  ComputeNest collapsed_compound_compute_nest = CollapseComputeNest(tiles.compound_compute_info_nest, num_tiling_levels); 
   tiling::CompoundTileNest solution;
   solution.compound_data_movement_info_nest = collapsed_compound_data_nest;
-  solution.compound_compute_info_nest = collapsed_compound_compute_nest;
+  solution.compute_info_nest = collapsed_compound_compute_nest;
   return solution;
 }
 
 
-CompoundComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles){
-  CompoundComputeNest solution;
-  for (int op_id = 0; op_id < tiling::GetNumOpTypes("arithmetic"); op_id++){
-    std::vector<ComputeInfo> ComputeInfoNest;
-    solution.push_back(ComputeInfoNest);
-    // compute info is only valid for the inner most level
+ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels){
+  ComputeNest solution;
+  
+  for (int level=0; level < num_tiling_levels; level++){
+    
     ComputeInfo collapsed_tile;
-    collapsed_tile.replication_factor = tiles[0].replication_factor;
-    collapsed_tile.accesses = tiles[0].accesses;
-    solution[op_id].push_back(collapsed_tile);
-  }
+    if (level == 0 ){
+      // compute info is only valid for the inner most level
+      collapsed_tile.replication_factor = tiles[0].replication_factor;
+      collapsed_tile.accesses = tiles[0].accesses;
+    } else {
+      collapsed_tile.replication_factor = 0;
+      collapsed_tile.accesses = 0;
+    }
 
+    // initialize the fine-grained access dictionary
+    std::string op_name;
+    for (int op_id = 0; op_id < tiling::GetNumOpTypes("arithmetic"); op_id++){
+      op_name = tiling::arithmeticOperationTypes[op_id];
+      collapsed_tile.fine_grained_accesses[op_name] = 0;
+    }
+
+    solution.push_back(collapsed_tile);
+  }
 
   return solution;
 }
@@ -486,7 +539,16 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.peer_fills = 0;
       collapsed_tile.replication_factor = tiles[pv][outermost_loop].replication_factor;
       collapsed_tile.fanout = tiles[pv][innermost_loop].fanout;
+      
+      // initialize data density
       collapsed_tile.tile_density = problem::DataDensity(1.0);
+      
+      // initialize the fine-grained access dictionary
+      std::string op_name;
+      for (int op_id = 0; op_id < tiling::GetNumOpTypes("storage"); op_id++){
+        op_name = tiling::storageOperationTypes[op_id];
+        collapsed_tile.fine_grained_accesses[op_name] = 0;
+      }
 
       if (!solution[pv].empty())
       {
@@ -522,6 +584,10 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 
     // Calculate the data density in this nest of tiles
     ComputeDataDensity(solution[pv], workload, pv);
+
+    // split the accesses to read and update and generate reduction
+    ComputeReadUpdateReductionAcesses(solution[pv], pv);
+
   }
   return solution;
 }
@@ -541,25 +607,26 @@ NestOfCompoundTiles TransposeTiles(const CompoundTileNest & tiles)
   NestOfCompoundTiles retval;
 
   CompoundDataMovementNest data_movement_nest =  tiles.compound_data_movement_info_nest;
-  CompoundComputeNest compute_nest = tiles.compound_compute_info_nest;
+  ComputeNest compute_nest = tiles.compute_info_nest;
 
   std::size_t num_levels = data_movement_nest[0].size();
-  for (std::size_t level = 0; level < num_levels; level++)
-  {
-    CompoundTile tile_level;
-    for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
-    {
+  std::string op_name;
+  CompoundTile tile_level;
+  ComputeInfo compute_info;
+
+  for (std::size_t level = 0; level < num_levels; level++){
+  
+    //  Datamovement
+    for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++){
       tile_level.data_movement_info[pv] = data_movement_nest[pv][level];
     }
+    ComputeFineGrainDataMovementAcesses(tile_level.data_movement_info, level);
     
-    for (int op =0; op < int(tiling::GetNumOpTypes("arithmetic")); op++){
-      ComputeInfo compute_info;
-      tile_level.compute_info.push_back(compute_info);
-      std::string op_name = arithmeticOperationTypes[op];
-      tile_level.compute_info[op] = compute_nest[op][level];
-      tile_level.compute_info[op].accesses = CalculateNumArithmeticOps(compute_nest[op][level], tile_level.data_movement_info, op_name);
-    }
-    
+    //  Compute
+    tile_level.compute_info = compute_nest[level];
+    if (level == 0)
+      ComputeFineGrainComputeAcesses(tile_level.compute_info, tile_level.data_movement_info);   
+
     retval.push_back(tile_level);
   }
 

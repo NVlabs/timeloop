@@ -47,43 +47,78 @@ int GetNumOpTypes(std::string component_type){
 		return sizeof(storageOperationTypes) / sizeof(storageOperationTypes[0]);
         
 	} else if (component_type == "network") {
-		return sizeof(networkOperationTypes) / sizeof(networkOperationTypes[0]);
+		return sizeof(networkOperationTypes) / sizeof(networkOperationTypes[0]     );
  
   } else {
   	assert(false);
   }
 }
 
+//
+// Storage
+//
 
-int CalculateNumGatedCompute(tiling::ComputeInfo compute_info, tiling::CompoundDataMovementInfo compound_data_movement){
+void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, int level){
 
-	int total_accesses = compute_info.replication_factor * compute_info.accesses;
-	double avg_density = 1;
-  for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
-  	if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
-    	avg_density *= compound_data_movement[pv].tile_density.GetAverageDensity();
-	return int(total_accesses * (1-avg_density));
+  double avg_density=1.0;
+  std::uint64_t total_reads;
+  std::uint64_t num_random_reads;
+
+  // get the average density across various data types  #FIXME: this calculation should be dependent on arch spec
+  for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++){
+    if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    avg_density *= compound_data_movement[pv].tile_density.GetAverageDensity();
+  }
+
+  for (int pv =0; pv < int(problem::GetShape() -> NumDataSpaces); pv++){  
+    // given the current access info, compute the gated/random/sequential access types    
+
+    total_reads = compound_data_movement[pv].reads;
+    
+    if (level == 0){  // we are only considering gating for the inner most level for now
+      num_random_reads = ceil(avg_density * total_reads);
+    } else {
+      num_random_reads = total_reads;
+    }
+    
+    compound_data_movement[pv].fine_grained_accesses["random_read"] = num_random_reads;
+    compound_data_movement[pv].fine_grained_accesses["gated_read"] = total_reads - num_random_reads;
+
+    // fine-grained calculations for fill actions
+    compound_data_movement[pv].fine_grained_accesses["random_fill"] = compound_data_movement[pv].fills;
+    
+    // fine-grained calculations for update actions
+    compound_data_movement[pv].fine_grained_accesses["random_update"] = compound_data_movement[pv].updates;
+
+    // std::cout << "level " << level << " reads: " << total_reads << " random reads: " << num_random_reads << std::endl;
+  }
 }
 
-int CalculateNumRandomCompute(tiling::ComputeInfo compute_info,tiling::CompoundDataMovementInfo compound_data_movement){
 
-	int total_accesses = compute_info.replication_factor * compute_info.accesses;
-	double avg_density = 1;
-  for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
-  	if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
-    	avg_density *= compound_data_movement[pv].tile_density.GetAverageDensity();
-	return int(total_accesses * avg_density);
+//
+// Arithmetic
+//
+
+void ComputeFineGrainComputeAcesses(tiling::ComputeInfo& compute_info, 
+	                                  tiling::CompoundDataMovementInfo& compound_data_movement){
+
+ 
+  int total_accesses;  
+  double avg_density = 1.0;
+  std::string op_name;
+  
+  // get the average density across various data types #FIXME: this calculation should be dependent on arch spec
+  for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++){
+    if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    avg_density *= compound_data_movement[pv].tile_density.GetAverageDensity();
+  }
+
+  total_accesses = compute_info.replication_factor * compute_info.accesses; 
+
+  // generate the necessary fine-grained action counts
+  compute_info.fine_grained_accesses["random_compute"] = ceil(total_accesses * avg_density);
+  compute_info.fine_grained_accesses["gated_compute"] = total_accesses - compute_info.fine_grained_accesses.at("random_compute");
 }
-
-int CalculateNumArithmeticOps(tiling::ComputeInfo compute_info, tiling::CompoundDataMovementInfo compound_data_movement, std::string op_name){
-	if (op_name == "random_compute")
-		return CalculateNumRandomCompute(compute_info, compound_data_movement);
-	else if (op_name == "gated_compute")
-		return CalculateNumGatedCompute(compute_info, compound_data_movement);
-	else
-		assert(false);
-}
-
 
 
 }// namespace problem

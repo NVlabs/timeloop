@@ -65,6 +65,9 @@ struct DataMovementInfo
   std::vector<double> cumulative_hops;
   std::uint64_t content_accesses;
   std::uint64_t fills;
+  std::uint64_t reads;
+  std::uint64_t updates;
+  std::uint64_t temporal_reductions;
   std::uint64_t link_transfers;
   std::uint64_t peer_accesses;           // number of accesses caused by link transfers in the previous level 
   std::uint64_t peer_fills;              // number of fills caused by link transfers in the previous level
@@ -78,7 +81,8 @@ struct DataMovementInfo
   std::size_t partition_fraction_denominator;
   // tile density
   problem::DataDensity tile_density;             // statistical representation of tile data density
-  
+  // fine grained actions, names defined in operation-type.hpp
+  std::map<std::string, std::uint64_t> fine_grained_accesses; 
 
   std::uint64_t GetTotalAccesses() const
   {
@@ -151,6 +155,9 @@ struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t accesses;
+
+  // fine grained actions, names defined in operation-type.hpp
+  std::map<std::string, std::uint64_t> fine_grained_accesses; 
   
   ComputeInfo() { Reset(); }
 
@@ -164,23 +171,20 @@ struct ComputeInfo
 // datatypes needed before transpose
 // indexing order: [datatype/optype, nest_level]
 typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest ; 
-typedef std::vector<std::vector<ComputeInfo>> CompoundComputeNest;
+typedef std::vector<ComputeInfo> ComputeNest;
 struct CompoundTileNest{
    CompoundDataMovementNest compound_data_movement_info_nest;
-   CompoundComputeNest compound_compute_info_nest;
+   ComputeNest compute_info_nest;
 };
 
 
 // datatypes needed after transpose
 typedef problem::PerDataSpace<DataMovementInfo> CompoundDataMovementInfo;
-typedef std::vector<ComputeInfo> CompoundComputeInfo;
 
 // indexing order: [nest_level, datatype/optype]
-typedef std::vector<CompoundDataMovementInfo> NestCompoundDataMovement ; 
-typedef std::vector<CompoundComputeInfo> NestComputeInfo;
 struct CompoundTile{
   CompoundDataMovementInfo data_movement_info;
-  CompoundComputeInfo compute_info;
+  ComputeInfo compute_info;
 };
 
 typedef std::vector<CompoundTile> NestOfCompoundTiles;

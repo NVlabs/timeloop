@@ -26,29 +26,31 @@
  */
 
 #pragma once
+
+#include <math.h>
+
 #include "workload/data-density.hpp"
 #include "loop-analysis/tiling-tile-info.hpp"
+
 
 namespace tiling
 {
 
 // define the (data-dependent fine-grained) operaton types for each type of components
-static std::string storageOperationTypes[3] = {"random_read",
-                                               "random_write",
-                                               "gated_read"};
+static std::string storageOperationTypes[4] = {"random_read",   
+                                               "random_fill",    
+                                               "random_update", 
+                                               "gated_read"};   
 
 static std::string arithmeticOperationTypes[2] = {"random_compute",
                                                   "gated_compute"};
 
 static std::string networkOperationTypes[1] = {"random_transfer"};
-
-// typedef unsigned OperationID;
-// typedef std::map<OperationID, std::string> OperationIDtoName;
-
-// std::map<std::string, OperationIDtoName> ComponentToOperations;
+										                              
 
 int GetNumOpTypes();
 int GetNumOpTypes(std::string component_type);
-int CalculateNumArithmeticOps(tiling::ComputeInfo compute_info, tiling::CompoundDataMovementInfo data_movement, std::string op_name);
+void ComputeFineGrainComputeAcesses(tiling::ComputeInfo& compute_info, tiling::CompoundDataMovementInfo& data_movement);
+void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, int level);
 
 } // namespace problem

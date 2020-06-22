@@ -46,6 +46,20 @@
 namespace model
 {
 
+// mapping between architectural action names and accelergy's ERT name
+// this mapping can be moved out as a separate yaml file that can be read in by timeloop to allow more flexibility
+
+// format {timeloop_action_name: [priority list of ERT action names]}
+static std::map<std::string, std::vector<std::string>> arithmeticOperationMappings = {{ "random_compute", { "mac_random", "mac"}},
+                                                          { "gated_compute", { "mac_gated", "mac"}}
+                                                         };
+
+static std::map<std::string, std::vector<std::string>> storageOperationMappings = {{ "random_read", { "random_read", "read"}},
+                                                       { "random_fill", { "random_fill", "write"}},
+                                                       { "random_update", { "random_update", "write"}},
+                                                       { "gated_read", { "gated_read", "idle", "read"}},
+                                                       }; 
+
 static std::string bufferClasses[5] = { "DRAM",
                                         "SRAM",
                                         "regfile",

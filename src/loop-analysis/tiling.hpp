@@ -54,7 +54,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
                                                   const CompoundMaskNest& tile_mask,
                                                   const CompoundMaskNest& distribution_supported,
                                                   problem::Workload* workload);
-CompoundComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles);
+ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels);
 
 
 NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles);

@@ -119,16 +119,18 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
     YAML::Node root;
     std::string componentName;
     std::string actionName;
+    std::string argumentValue;
     config::CompoundConfigNode componentActionList;
     for(int i = 0; i < table.getLength(); i++){
       assert(table[i].exists("name"));
       assert(table[i].exists("actions"));
       table[i].lookupValue("name", componentName);
       componentActionList = table[i].lookup("actions");
-      for (int i = 0; i < componentActionList.getLength(); i++){
-        assert(componentActionList[i].exists("name"));
-        componentActionList[i].lookupValue("name", actionName);
-        root["tables"][componentName][actionName].push_back(componentActionList[i].getYNode());
+      // std::cout << "componentName: " << componentName << std::endl;
+      for (int j = 0; j < componentActionList.getLength(); j++){
+        assert(componentActionList[j].exists("name"));
+        componentActionList[j].lookupValue("name", actionName);
+        root["tables"][componentName][actionName].push_back(componentActionList[j].getYNode());
       }
     }
     formattedErt = config::CompoundConfigNode(nullptr, root);
@@ -208,12 +210,16 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
           if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
         }
       }
-      // Find the most expensive action as the unit cost
+      // Find the (most expensive) cost for each action of the component
       std::vector<std::string> actions;
+      std::map<std::string, double> ERT_entries;
       componentERT.getMapKeys(actions);
-      double opEnergy = 0.0;
-      double argEnergy = 0.0;
+      double opEnergy;
+      double argEnergy;
+      double maxEnergy = 0.0;
       for (auto action : actions) {
+        opEnergy = 0.0;
+        argEnergy = 0.0; 
         auto actionERT = componentERT.lookup(action);
         if (actionERT.isList()) { // v2 ERT and action support argument and all v3 ERT actions
           for (int i = 0; i < actionERT.getLength(); i ++) {
@@ -226,16 +232,21 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
             opEnergy = std::max(argEnergy, opEnergy);
           }
         }
+        maxEnergy = std::max(maxEnergy,opEnergy); // keep the old interface as a place holder variable
+        ERT_entries[action] = opEnergy; //assign the energy/action value for the action
+        std::cout << "assign energy " << opEnergy << " to action: " << action << std::endl;
       }
       // Replace the energy per action
       if (isArithmeticUnit) {
         // std::cout << "  Replace " << componentName << " energy with energy " << opEnergy << std::endl;
         auto arithmeticSpec = GetArithmeticLevel();
-        arithmeticSpec->energy_per_op = opEnergy;
+        arithmeticSpec->energy_per_op = maxEnergy;
+        arithmeticSpec->ERT_entries = ERT_entries;
       } else if (isBuffer) {
         auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
         // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
-        bufferSpec->vector_access_energy = opEnergy/bufferSpec->cluster_size.Get();
+        bufferSpec->vector_access_energy = maxEnergy/bufferSpec->cluster_size.Get();
+        bufferSpec->ERT_entries = ERT_entries;
       } else {
         // std::cout << "  Unused component ERT: "  << key << std::endl;
       }

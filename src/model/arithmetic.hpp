@@ -57,6 +57,10 @@ class ArithmeticUnits : public Level
     Attribute<std::string> operand_network_name;
     Attribute<std::string> result_network_name;
 
+    // for ERT parsing
+    std::map<std::string, double> ERT_entries;
+    std::map<std::string, double> op_energy_map;
+
     // Serialization
     friend class boost::serialization::access;
 
@@ -79,6 +83,8 @@ class ArithmeticUnits : public Level
       return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
     }
   };
+
+
   
  private:
   Specs specs_;
@@ -93,6 +99,11 @@ class ArithmeticUnits : public Level
   std::uint64_t cycles_ = 0;
   std::size_t utilized_instances_ = 0;
   std::uint64_t maccs_ = 0;
+  bool populate_energy_per_op = false;
+
+  //fine-grained actions
+  std::uint64_t compute_random = 0;
+  std::uint64_t compute_gated = 0;
 
   // Serialization
   friend class boost::serialization::access;
@@ -126,6 +137,7 @@ class ArithmeticUnits : public Level
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
   static void ValidateTopology(ArithmeticUnits::Specs& specs);
+  void PopulateEnergyPerOp(unsigned num_ops);
   
   Specs& GetSpecs() { return specs_; }
 
@@ -195,7 +207,7 @@ class ArithmeticUnits : public Level
     // tiling::ComputeInfo compute_info = tile.compute_info[0]; // one optype only
     // tiling::CompoundDataMovementInfo data_movement_info = tile.data_movement_info;
   
-    utilized_instances_ = tile.compute_info[0].replication_factor; // replication factor is the same for all op types
+    utilized_instances_ = tile.compute_info.replication_factor; 
 
     // maccs_ = analysis->GetMACs();
 
@@ -212,16 +224,20 @@ class ArithmeticUnits : public Level
       //     energy_ *= data_movement_info[d].tile_density.GetAverageDensity();
       // }
       energy_ = 0;
-      
-      for (unsigned op_id = 0; op_id < tile.compute_info.size(); op_id++){
-        int op_accesses = tile.compute_info[op_id].accesses;
-        std::string op_name = tiling::arithmeticOperationTypes[op_id];
-        // FIXME: use ERT entries directly
-        if (op_name == "random_compute") {
-          // random compute has nonzero compute energy
-          energy_ += op_accesses * specs_.energy_per_op.Get();
-          // std::cout << "op_accesses: " << op_accesses << std::endl;
-          // std::cout << "energy_per_op: " << specs_.energy_per_op << std::endl;
+      int op_accesses;
+      std::string op_name;
+      // find the static correspondence between timeloop action namea and ERT action names
+      if (! populate_energy_per_op)
+        PopulateEnergyPerOp(tiling::GetNumOpTypes("arithmetic"));
+      for (int op_id = 0; op_id < tiling::GetNumOpTypes("arithmetic"); op_id++){
+        op_name = tiling::arithmeticOperationTypes[op_id];
+        op_accesses = tile.compute_info.fine_grained_accesses.at(op_name);
+        energy_ += op_accesses * specs_.op_energy_map.at(op_name);
+        // collect stats...
+        if (op_name == "random_compute"){
+          compute_random = op_accesses;
+        } else if (op_name == "gated_compute"){
+          compute_gated = op_accesses;
         }
       }
 

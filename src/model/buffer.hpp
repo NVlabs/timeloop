@@ -89,6 +89,10 @@ class BufferLevel : public Level
     Attribute<std::string> drain_network_name;
     Attribute<std::string> update_network_name;    
 
+    // for ERT parsing
+    std::map<std::string, double> ERT_entries;
+    std::map<std::string, double> op_energy_map;
+
     // Physical Attributes (derived from technology model).
     // FIXME: move into separate struct?
     Attribute<double> vector_access_energy; // pJ
@@ -158,6 +162,12 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> temporal_reduction_energy;
     problem::PerDataSpace<double> addr_gen_energy;
 
+    // fine-grained action stats
+    problem::PerDataSpace<unsigned long> gated_reads;
+    problem::PerDataSpace<unsigned long> random_reads;
+    problem::PerDataSpace<unsigned long> random_fills;
+    problem::PerDataSpace<unsigned long> random_updates;
+
     std::uint64_t cycles;
     double slowdown;
 
@@ -201,6 +211,8 @@ class BufferLevel : public Level
   Stats stats_;
   Specs specs_;
 
+  bool populate_energy_per_op = false;
+
   // Network endpoints.
   std::shared_ptr<Network> network_read_;
   std::shared_ptr<Network> network_fill_;
@@ -229,7 +241,8 @@ class BufferLevel : public Level
   EvalStatus ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const tiling::CompoundMask& mask,
                              const bool break_on_failure);
   void ComputePerformance(const std::uint64_t compute_cycles);
-  void ComputeBufferEnergy();
+  // void ComputeBufferEnergy();
+  void ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info);
   void ComputeReductionEnergy();
   void ComputeAddrGenEnergy();
 
@@ -258,6 +271,8 @@ class BufferLevel : public Level
   static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n_elements,
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
+
+  void PopulateEnergyPerOp(unsigned num_ops);
 
   Specs& GetSpecs() { return specs_; }
   
