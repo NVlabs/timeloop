@@ -136,6 +136,22 @@ class AxisAlignedHyperRectangle
   {
   }
 
+  // Copy-and-swap idiom.
+  AxisAlignedHyperRectangle& operator = (AxisAlignedHyperRectangle other)
+  {
+    swap(*this, other);
+    return *this;
+  }
+
+  friend void swap(AxisAlignedHyperRectangle& first, AxisAlignedHyperRectangle& second)
+  {
+    using std::swap;
+    swap(first.order_, second.order_);
+    swap(first.min_, second.min_);
+    swap(first.max_, second.max_);
+    swap(first.gradient_, second.gradient_);
+  }
+
   Point Min() const
   {
     return min_;

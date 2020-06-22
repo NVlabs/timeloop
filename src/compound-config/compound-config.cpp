@@ -52,17 +52,17 @@
       std::cerr << "ERROR: setting name exception at: " << e.getPath() << std::endl;\
       exit(1);                                                                      \
     }                                                                               \
-    catch (YAML::KeyNotFound e)                                                     \
+    catch (YAML::KeyNotFound& e)                                                     \
     {                                                                               \
       std::cerr << "ERROR: " << e.msg << ", at line: " << e.mark.line+1<< std::endl;\
       exit(1);                                                                      \
     }                                                                               \
-    catch (YAML::InvalidNode e)                                                     \
+    catch (YAML::InvalidNode& e)                                                     \
     {                                                                               \
       std::cerr << "ERROR: " << e.msg << ", at line: " << e.mark.line+1<< std::endl;\
       exit(1);                                                                      \
     }                                                                               \
-    catch (YAML::BadConversion e)                                                   \
+    catch (YAML::BadConversion& e)                                                   \
     {                                                                               \
       std::cerr << "ERROR: " << e.msg << ", at line: " << e.mark.line+1<< std::endl;\
       exit(1);                                                                      \
@@ -98,7 +98,7 @@ CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
       // exception on our own.
       try {
         YNode[path].as<int>(); // force an exception!
-      } catch (YAML::Exception e) {
+      } catch (YAML::Exception& e) {
         throw YAML::KeyNotFound(e.mark, std::string(path));
       }
     }
@@ -118,7 +118,7 @@ bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     try {
       value = YNode[name].as<bool>();
-    } catch (YAML::BadConversion e) {
+    } catch (YAML::BadConversion& e) {
       std::string variableName = YNode[name].as<std::string>();
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
@@ -151,7 +151,7 @@ bool CompoundConfigNode::lookupValue(const char *name, int &value) const {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     try {
       value = YNode[name].as<int>();
-    } catch (YAML::BadConversion e) {
+    } catch (YAML::BadConversion& e) {
       std::string variableName = YNode[name].as<std::string>();
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
@@ -184,7 +184,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) cons
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     try {
       value = YNode[name].as<unsigned int>();
-    } catch (YAML::BadConversion e) {
+    } catch (YAML::BadConversion& e) {
       std::string variableName = YNode[name].as<std::string>();
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
@@ -218,7 +218,7 @@ bool CompoundConfigNode::lookupValue(const char *name, long long &value) const {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     try {
       value = YNode[name].as<long long>();
-    } catch (YAML::BadConversion e) {
+    } catch (YAML::BadConversion& e) {
       std::string variableName = YNode[name].as<std::string>();
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
@@ -251,7 +251,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     try {
       value = YNode[name].as<unsigned long long>();
-    } catch (YAML::BadConversion e) {
+    } catch (YAML::BadConversion& e) {
       std::string variableName = YNode[name].as<std::string>();
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
@@ -288,7 +288,7 @@ bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     try {
       value = YNode[name].as<double, int>(0);
-    } catch (YAML::BadConversion e) {
+    } catch (YAML::BadConversion& e) {
       std::string variableName = YNode[name].as<std::string>();
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
@@ -325,7 +325,7 @@ bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     try {
       value = YNode[name].as<float, int>(0);
-    } catch (YAML::BadConversion e) {
+    } catch (YAML::BadConversion& e) {
       std::string variableName = YNode[name].as<std::string>();
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
