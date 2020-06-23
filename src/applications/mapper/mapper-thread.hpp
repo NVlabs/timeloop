@@ -160,6 +160,7 @@ class MapperThread
   std::ostream& log_stream_;
   bool live_status_;
   bool diagnostics_on_;
+  bool penalize_consecutive_bypass_fails_;
   std::vector<std::string> optimization_metrics_;
   model::Engine::Specs arch_specs_;
   problem::Workload &workload_;
@@ -186,6 +187,7 @@ class MapperThread
     std::ostream& log_stream,
     bool live_status,
     bool diagnostics_on,
+    bool penalize_consecutive_bypass_fails,
     std::vector<std::string> optimization_metrics,
     model::Engine::Specs arch_specs,
     problem::Workload &workload,
@@ -204,6 +206,7 @@ class MapperThread
       log_stream_(log_stream),
       live_status_(live_status),
       diagnostics_on_(diagnostics_on),
+      penalize_consecutive_bypass_fails_(penalize_consecutive_bypass_fails),
       optimization_metrics_(optimization_metrics),
       arch_specs_(arch_specs),
       workload_(workload),
@@ -252,6 +255,8 @@ class MapperThread
       
     model::Engine engine;
     engine.Spec(arch_specs_);
+
+    mapspace::ID prev_mapping_id;
 
     // =================
     // Main mapper loop.
@@ -377,6 +382,23 @@ class MapperThread
       }
 
       //
+      // Check if the only change vs. the previous mapping was in the Bypass
+      // dimension. This is useful later.
+      //
+      bool only_bypass_changed = false;
+      if (total_mappings > 1)
+      {
+        bool match = true;
+        for (unsigned idim = 0; idim < unsigned(mapspace::Dimension::Num); idim++)
+        {
+          if (mapspace::Dimension(idim) != mapspace::Dimension::DatatypeBypass)
+            match &= (mapping_id[idim] == prev_mapping_id[idim]);
+        }
+        only_bypass_changed = match;
+      }
+      prev_mapping_id = mapping_id;
+
+      //
       // Begin Mapping. We do this in several stages with increasing algorithmic
       // complexity and attempt to bail out as quickly as possible at each stage.
       //
@@ -409,7 +431,15 @@ class MapperThread
 
       if (!success)
       {
-        invalid_mappings_eval++;
+        // Pre-evaluation failed.
+        // If the only change in this mapping vs. the previous mapping was in
+        // its dataspace bypass scheme, then we may not want to make this
+        // failure count towards the timeout termination trigger.
+        if (penalize_consecutive_bypass_fails_ || !only_bypass_changed)
+        {
+          invalid_mappings_eval++;
+        }
+
         if (diagnostics_on_)
         {
           for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
@@ -434,7 +464,15 @@ class MapperThread
                                  { return cur && status.success; });
       if (!success)
       {
-        invalid_mappings_eval++;
+        // Evaluation failed.
+        // If the only change in this mapping vs. the previous mapping was in
+        // its dataspace bypass scheme, then we may not want to make this
+        // failure count towards the timeout termination trigger.
+        if (penalize_consecutive_bypass_fails_ || !only_bypass_changed)
+        {
+          invalid_mappings_eval++;
+        }
+
         if (diagnostics_on_)
         {
           for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
