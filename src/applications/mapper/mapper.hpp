@@ -73,6 +73,7 @@ class Application
   bool log_suboptimal_;
   bool live_status_;
   bool diagnostics_on_;
+  bool penalize_consecutive_bypass_fails_;
   bool emit_whoop_nest_;
   std::string out_prefix_;
 
@@ -208,15 +209,23 @@ class Application
     // Misc.
     log_stats_ = false;
     mapper.lookupValue("log-stats", log_stats_);    
+
     log_suboptimal_ = false;    
     mapper.lookupValue("log-suboptimal", log_suboptimal_);
     mapper.lookupValue("log-all", log_suboptimal_); // backwards compatibility.
+
     live_status_ = false;
     mapper.lookupValue("live-status", live_status_);
+
     diagnostics_on_ = false;
     mapper.lookupValue("diagnostics", diagnostics_on_);
+
+    penalize_consecutive_bypass_fails_ = true;
+    mapper.lookupValue("penalize-consecutive-bypass-fails", penalize_consecutive_bypass_fails_);
+
     emit_whoop_nest_ = false;
     mapper.lookupValue("emit-whoop-nest", emit_whoop_nest_);    
+
     std::cout << "Mapper configuration complete." << std::endl;
 
     // MapSpace configuration.
@@ -361,6 +370,7 @@ class Application
                                           live_status_ ? log_file : std::cerr,
                                           live_status_,
                                           diagnostics_on_,
+                                          penalize_consecutive_bypass_fails_,
                                           optimization_metrics_,
                                           arch_specs_,
                                           workload_,
