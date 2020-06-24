@@ -220,7 +220,7 @@ class Application
     diagnostics_on_ = false;
     mapper.lookupValue("diagnostics", diagnostics_on_);
 
-    penalize_consecutive_bypass_fails_ = true;
+    penalize_consecutive_bypass_fails_ = false;
     mapper.lookupValue("penalize-consecutive-bypass-fails", penalize_consecutive_bypass_fails_);
 
     emit_whoop_nest_ = false;
