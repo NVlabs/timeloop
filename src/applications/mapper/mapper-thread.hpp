@@ -70,7 +70,7 @@ static Betterness IsBetterRecursive_(const model::Topology::Stats& candidate, co
   double relative_improvement = incumbent_cost == 0 ? 1.0 :
     (incumbent_cost - candidate_cost) / incumbent_cost;
 
-  if (abs(relative_improvement) > tolerance)
+  if (fabs(relative_improvement) > tolerance)
   {
     // We have a clear winner.
     if (relative_improvement > 0)
