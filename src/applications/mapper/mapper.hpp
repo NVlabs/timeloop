@@ -45,6 +45,8 @@
 #include "search/search-factory.hpp"
 #include "compound-config/compound-config.hpp"
 #include "applications/mapper/mapper-thread.hpp"
+#include "model/sparse.hpp"
+#include "model/sparse-factory.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -63,6 +65,7 @@ class Application
   mapspace::MapSpace* mapspace_;
   std::vector<mapspace::MapSpace*> split_mapspaces_;
   std::vector<search::SearchAlgorithm*> search_;
+  sparse::ArchGatingInfo sparse_optimizations_;
 
   uint128_t search_size_;
   std::uint32_t num_threads_;
@@ -275,6 +278,13 @@ class Application
     } else {
       cfg_string_ = nullptr;
     }
+
+    // Sparse optimzations
+    if (rootNode.exists("sparse_optimizations")){
+      auto sparse_config = rootNode.lookup("sparse_optimizations");
+      sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
+    }
+    
   }
 
 
@@ -374,6 +384,7 @@ class Application
                                           optimization_metrics_,
                                           arch_specs_,
                                           workload_,
+                                          sparse_optimizations_,
                                           &best_));
     }
 
@@ -458,7 +469,7 @@ class Application
         auto& mapping = eval_fail_sample_mappings.at(worst_eval_fail_level_id);
         model::Engine engine;
         engine.Spec(arch_specs_);
-        engine.Evaluate(mapping, workload_, false);
+        engine.Evaluate(mapping, workload_, sparse_optimizations_ , false);
         mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
                             engine.GetTopology().GetStats().tile_sizes);
       }
@@ -494,7 +505,7 @@ class Application
       // that can be printed out hierarchically.
       model::Engine engine;
       engine.Spec(arch_specs_);
-      engine.Evaluate(global_best_.mapping, workload_);
+      engine.Evaluate(global_best_.mapping, workload_, sparse_optimizations_);
 
       std::ofstream stats_file(stats_file_name);
       stats_file << engine << std::endl;

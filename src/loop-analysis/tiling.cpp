@@ -602,30 +602,41 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 //   return CollapseTiles(tiles, num_tiling_levels, all_enabled);
 // }
 
-NestOfCompoundTiles TransposeTiles(const CompoundTileNest & tiles)
+NestOfCompoundTiles TransposeTiles(const CompoundTileNest & tiles, sparse::ArchGatingInfo* sparse_optimizations)
 {
   NestOfCompoundTiles retval;
 
   CompoundDataMovementNest data_movement_nest =  tiles.compound_data_movement_info_nest;
   ComputeNest compute_nest = tiles.compute_info_nest;
 
-  std::size_t num_levels = data_movement_nest[0].size();
+  unsigned num_levels = data_movement_nest[0].size();
   std::string op_name;
   CompoundTile tile_level;
   ComputeInfo compute_info;
+  
+  
+  sparse::StorageGatingInfo storage_gating_info = sparse_optimizations->storage_info;
 
-  for (std::size_t level = 0; level < num_levels; level++){
+  for (unsigned level = 0; level < num_levels; level++){
   
     //  Datamovement
     for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++){
       tile_level.data_movement_info[pv] = data_movement_nest[pv][level];
     }
-    ComputeFineGrainDataMovementAcesses(tile_level.data_movement_info, level);
+
+    sparse::PerStorageLevelGatingInfo per_strorage_gating_info = {};
+    if (storage_gating_info.find(level) != storage_gating_info.end()){
+      per_strorage_gating_info = storage_gating_info.at(level);
+      // std::cout << "gating optimization at level: " << level << std::endl;
+    }
+
+    ComputeFineGrainDataMovementAcesses(tile_level.data_movement_info, per_strorage_gating_info);
     
     //  Compute
+    sparse::PerDataSpaceGatingInfo compute_gating_info = sparse_optimizations->compute_info;
     tile_level.compute_info = compute_nest[level];
     if (level == 0)
-      ComputeFineGrainComputeAcesses(tile_level.compute_info, tile_level.data_movement_info);   
+      ComputeFineGrainComputeAcesses(tile_level.compute_info, tile_level.data_movement_info, compute_gating_info);   
 
     retval.push_back(tile_level);
   }
@@ -649,7 +660,5 @@ NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks)
 
   return retval;
 }
-
-
 
 }  // namespace tiling

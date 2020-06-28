@@ -38,6 +38,7 @@
 #include "util/accelergy_interface.hpp"
 #include "mapspaces/mapspace-factory.hpp"
 #include "compound-config/compound-config.hpp"
+#include "model/sparse-factory.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -50,6 +51,7 @@ class Application
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
+  sparse::ArchGatingInfo sparse_optimizations_;
 
   std::string out_prefix_ = "timeloop-mapper";
 
@@ -104,6 +106,14 @@ class Application
     //             << "mapspace_constraints as an empty list []." << std::endl;
     //   exit(1);
     // }
+    
+    // Sparse optimzations
+    if (rootNode.exists("sparse_optimizations")){
+      auto sparse_config = rootNode.lookup("sparse_optimizations");
+      sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
+    }
+
+
   }
 
   ~Application()
@@ -160,7 +170,7 @@ class Application
 
             // Configure the model and evaluate the mapping.
             //engine.Spec(arch_specs_);
-            auto status_per_level = engine.Evaluate(mapping, workload_);
+            auto status_per_level = engine.Evaluate(mapping, workload_, sparse_optimizations_);
             success = std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                       [](bool cur, const model::EvalStatus& status)
                                       { return cur && status.success; });

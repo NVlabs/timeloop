@@ -165,7 +165,9 @@ class BufferLevel : public Level
     // fine-grained action stats
     problem::PerDataSpace<unsigned long> gated_reads;
     problem::PerDataSpace<unsigned long> random_reads;
+    problem::PerDataSpace<unsigned long> gated_fills;
     problem::PerDataSpace<unsigned long> random_fills;
+    problem::PerDataSpace<unsigned long> gated_updates;
     problem::PerDataSpace<unsigned long> random_updates;
 
     std::uint64_t cycles;

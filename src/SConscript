@@ -108,6 +108,7 @@ model/topology.cpp
 model/network-legacy.cpp
 model/network-reduction-tree.cpp
 model/network-simple-multicast.cpp
+model/sparse.cpp
 util/numeric.cpp
 util/map2d.cpp
 workload/problem-shape.cpp

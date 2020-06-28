@@ -42,6 +42,7 @@
 #include "compound-config/compound-config.hpp"
 #include "network.hpp"
 #include "network-legacy.hpp"
+#include "sparse.hpp"
 
 namespace model
 {
@@ -51,14 +52,16 @@ namespace model
 
 // format {timeloop_action_name: [priority list of ERT action names]}
 static std::map<std::string, std::vector<std::string>> arithmeticOperationMappings = {{ "random_compute", { "mac_random", "mac"}},
-                                                          { "gated_compute", { "mac_gated", "mac"}}
-                                                         };
+                                                                                      { "gated_compute", { "mac_gated", "mac"}}
+                                                                                     };
 
 static std::map<std::string, std::vector<std::string>> storageOperationMappings = {{ "random_read", { "random_read", "read"}},
-                                                       { "random_fill", { "random_fill", "write"}},
-                                                       { "random_update", { "random_update", "write"}},
-                                                       { "gated_read", { "gated_read", "idle", "read"}},
-                                                       }; 
+                                                                                   { "random_fill", { "random_fill", "write"}},
+                                                                                   { "random_update", { "random_update", "write"}},
+                                                                                   { "gated_read", { "gated_read", "idle", "read"}},
+                                                                                   { "gated_fill", { "gated_write", "gated_write", "idle", "write"}},
+                                                                                   { "gated_update", { "gated_update", "gated_write", "idle", "write"}},
+                                                                                  }; 
 
 static std::string bufferClasses[5] = { "DRAM",
                                         "SRAM",
@@ -275,7 +278,7 @@ class Topology : public Module
   unsigned NumNetworks() const;
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::ArchGatingInfo* sparse_optimizations, bool break_on_failure);
 
   const Stats& GetStats() const { return stats_; }
 

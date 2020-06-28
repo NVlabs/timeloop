@@ -129,6 +129,8 @@ void NestAnalysis::Reset()
   working_sets_computed_ = false;
   
   compute_info_.Reset();
+
+  compute_info_sets_.clear();
 }
 
 // Ugly function for pre-checking capacity fits before running the heavyweight

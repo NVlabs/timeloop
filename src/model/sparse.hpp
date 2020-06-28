@@ -25,35 +25,28 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #pragma once
 
-#include <math.h>
-
-#include "workload/data-density.hpp"
-#include "loop-analysis/tiling-tile-info.hpp"
-#include "model/sparse.hpp"
+#include "workload/problem-shape.hpp"
 
 
-namespace tiling
-{
 
-// define the (data-dependent fine-grained) operaton types for each type of components
-static std::string storageOperationTypes[6] = {"random_read",   
-                                               "random_fill",    
-                                               "random_update", 
-                                               "gated_read",
-                                               "gated_fill",
-                                               "gated_update"};   
+namespace sparse{
 
-static std::string arithmeticOperationTypes[2] = {"random_compute",
-                                                  "gated_compute"};
+	typedef std::string ActionName;
+	typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceGatingInfo;
+	typedef std::map<std::string, PerDataSpaceGatingInfo> PerStorageLevelGatingInfo;
+  
+  // storage_level_id, per_storage_level_gating_info
+	typedef std::map<unsigned, PerStorageLevelGatingInfo> StorageGatingInfo;
 
-static std::string networkOperationTypes[1] = {"random_transfer"};
-										                             
+	typedef std::map<ActionName, std::vector<std::string>> ComputeGatingInfo;
 
-int GetNumOpTypes();
-int GetNumOpTypes(std::string component_type);
-void ComputeFineGrainComputeAcesses(tiling::ComputeInfo& compute_info, tiling::CompoundDataMovementInfo& data_movement, sparse::ComputeGatingInfo compute_gating_info);
-void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, sparse::PerStorageLevelGatingInfo& per_level_sparse_gating);
+	struct ArchGatingInfo{
+    StorageGatingInfo storage_info = {};
+    PerDataSpaceGatingInfo compute_info = {};
+	};
+  
 
-} // namespace problem
+} // namespace

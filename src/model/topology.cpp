@@ -234,7 +234,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
         }
         maxEnergy = std::max(maxEnergy,opEnergy); // keep the old interface as a place holder variable
         ERT_entries[action] = opEnergy; //assign the energy/action value for the action
-        std::cout << "assign energy " << opEnergy << " to action: " << action << std::endl;
+        // std::cout << "assign energy " << opEnergy << " to action: " << action << std::endl;
       }
       // Replace the energy per action
       if (isArithmeticUnit) {
@@ -936,6 +936,7 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
 
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            analysis::NestAnalysis* analysis,
+                                           sparse::ArchGatingInfo* sparse_optimizations,
                                            bool break_on_failure)
 {
   assert(is_specced_);
@@ -998,7 +999,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                                analysis->GetWorkload());
 
   // Transpose the tiles into level->datatype/level->optype structure.
-  auto tiles = tiling::TransposeTiles(collapsed_tiles);
+  auto tiles = tiling::TransposeTiles(collapsed_tiles, sparse_optimizations);
   assert(tiles.size() == NumStorageLevels());
 
   // Transpose the datatype bypass nest into level->datatype structure.

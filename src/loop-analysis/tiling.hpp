@@ -37,6 +37,7 @@
 #include "operation-type.hpp"
 #include "nest-analysis-tile-info.hpp"
 #include "tiling-tile-info.hpp"
+#include "model/sparse.hpp"
 
 namespace tiling
 {
@@ -57,7 +58,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels);
 
 
-NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles);
+NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles, sparse::ArchGatingInfo* sparse_optimizations);
 NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks);
 
 }  // namespace tiling

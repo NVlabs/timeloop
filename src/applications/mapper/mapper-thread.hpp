@@ -26,6 +26,7 @@
  */
 
 #include "model/engine.hpp"
+#include "model/sparse.hpp"
 
 extern bool gTerminate;
 
@@ -164,6 +165,7 @@ class MapperThread
   std::vector<std::string> optimization_metrics_;
   model::Engine::Specs arch_specs_;
   problem::Workload &workload_;
+  sparse::ArchGatingInfo sparse_optimizations_;
   EvaluationResult* best_;
     
   // Thread-local data.
@@ -191,6 +193,7 @@ class MapperThread
     std::vector<std::string> optimization_metrics,
     model::Engine::Specs arch_specs,
     problem::Workload &workload,
+    sparse::ArchGatingInfo sparse_optimizations,
     EvaluationResult* best
     ) :
       thread_id_(thread_id),
@@ -210,6 +213,7 @@ class MapperThread
       optimization_metrics_(optimization_metrics),
       arch_specs_(arch_specs),
       workload_(workload),
+      sparse_optimizations_(sparse_optimizations),
       best_(best),
       thread_(),
       invalid_eval_counts_(arch_specs_.topology.NumLevels(), 0),
@@ -458,7 +462,7 @@ class MapperThread
       }
 
       // Stage 3: Heavyweight evaluation.
-      status_per_level = engine.Evaluate(mapping, workload_, !diagnostics_on_);
+      status_per_level = engine.Evaluate(mapping, workload_, sparse_optimizations_, !diagnostics_on_);
       success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                  [](bool cur, const model::EvalStatus& status)
                                  { return cur && status.success; });

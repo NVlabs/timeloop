@@ -34,6 +34,7 @@
 #include "model/model-base.hpp"
 #include "model/arithmetic.hpp"
 #include "model/topology.hpp"
+#include "model/sparse.hpp"
 #include "mapping/mapping.hpp"
 #include "loop-analysis/nest-analysis.hpp"
 #include "compound-config/compound-config.hpp"
@@ -58,6 +59,9 @@ class Engine : public Module
 
   // Utilities.
   analysis::NestAnalysis nest_analysis_;
+
+  // Sparse optimizations
+  sparse::ArchGatingInfo sparse_optimizatoins_;
   
   // Serialization.
   friend class boost::serialization::access;
@@ -110,11 +114,11 @@ class Engine : public Module
     return topology_.PreEvaluationCheck(mapping, &nest_analysis_, break_on_failure);
   }
 
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, bool break_on_failure = true)
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::ArchGatingInfo sparse_optimizations, bool break_on_failure = true)
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest);
     
-    auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, break_on_failure);
+    auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, &sparse_optimizations, break_on_failure);
 
     is_evaluated_ = std::accumulate(eval_status.begin(), eval_status.end(), true,
                                     [](bool cur, const EvalStatus& status)

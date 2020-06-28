@@ -82,6 +82,7 @@ class ArithmeticUnits : public Level
     {
       return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
     }
+
   };
 
 

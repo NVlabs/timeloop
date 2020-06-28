@@ -639,7 +639,9 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
     // reocrd the access counts for fine-grained actions
     stats_.gated_reads[pv] = tile[pvi].fine_grained_accesses.at("gated_read");
     stats_.random_reads[pv] = tile[pvi].fine_grained_accesses.at("random_read");
+    stats_.gated_fills[pv] = tile[pvi].fine_grained_accesses.at("gated_fill");
     stats_.random_fills[pv] = tile[pvi].fine_grained_accesses.at("random_fill");
+    stats_.gated_updates[pv] = tile[pvi].fine_grained_accesses.at("gated_update");
     stats_.random_updates[pv] = tile[pvi].fine_grained_accesses.at("random_update");
   }
 
@@ -1023,7 +1025,9 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << indent << "Vector access energy(max)    : " << specs.vector_access_energy << " pJ" << std::endl;
   out << indent << indent << "Vector gated read energy     : " << specs.op_energy_map.at("gated_read") << " pJ" << std::endl;
   out << indent << indent << "Vector random read energy    : " << specs.op_energy_map.at("random_read") << " pJ" << std::endl;
+  out << indent << indent << "Vector gated fill energy     : " << specs.op_energy_map.at("gated_fill") << " pJ" << std::endl;
   out << indent << indent << "Vector random fill energy    : " << specs.op_energy_map.at("random_fill") << " pJ" << std::endl;
+  out << indent << indent << "Vector gated update energy   : " << specs.op_energy_map.at("gated_update") << " pJ" << std::endl;
   out << indent << indent << "Vector random update energy  : " << specs.op_energy_map.at("random_update") << " pJ" << std::endl;
   out << indent << indent << "Area                         : " << specs.storage_area << " um^2" << std::endl;
 
@@ -1072,15 +1076,16 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent << "Utilized instances (max)                 : " << stats.utilized_instances.at(pv) << std::endl;
       out << indent + indent << "Utilized clusters (max)                  : " << stats.utilized_clusters.at(pv) << std::endl;
       out << indent + indent << "Total scalar reads (per-instance)        : " << stats.reads.at(pv) << std::endl;
-      out << indent + indent << "Total scalar updates (per-instance)      : " << stats.updates.at(pv) << std::endl;
-      out << indent + indent << "Total scalar fills (per-instance)        : " << stats.fills.at(pv) << std::endl;
       out << indent + indent << "Scalar gated reads (per-instance)        : " << stats.gated_reads.at(pv) << std::endl;
       out << indent + indent << "Scalar random reads (per-instance)       : " << stats.random_reads.at(pv) << std::endl;
-      out << indent + indent << "Scalar random fills (per-instance)       : " << stats.random_fills.at(pv) << std::endl;
+      out << indent + indent << "Total scalar updates (per-instance)      : " << stats.updates.at(pv) << std::endl;
+      out << indent + indent << "Scalar gated updates (per-instance)      : " << stats.gated_updates.at(pv) << std::endl;
       out << indent + indent << "Scalar random updates (per-instance)     : " << stats.random_updates.at(pv) << std::endl;
+      out << indent + indent << "Total scalar fills (per-instance)        : " << stats.fills.at(pv) << std::endl;
+      out << indent + indent << "Scalar gated fills (per-instance)        : " << stats.gated_fills.at(pv) << std::endl;
+      out << indent + indent << "Scalar random fills (per-instance)       : " << stats.random_fills.at(pv) << std::endl;
       out << indent + indent << "Temporal reductions (per-instance)       : " << stats.temporal_reductions.at(pv) << std::endl;
       out << indent + indent << "Address generations (per-cluster)        : " << stats.address_generations.at(pv) << std::endl;
-      
       out << indent + indent << "Energy (per-scalar-access)               : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
       out << indent + indent << "Energy (per-instance)                    : " << stats.energy.at(pv) << " pJ" << std::endl;
       out << indent + indent << "Energy (total)                           : " << stats.energy.at(pv) * stats.utilized_instances.at(pv)

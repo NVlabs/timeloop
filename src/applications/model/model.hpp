@@ -44,6 +44,7 @@
 #include "mapping/arch-properties.hpp"
 #include "mapping/constraints.hpp"
 #include "compound-config/compound-config.hpp"
+#include "model/sparse-factory.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -58,6 +59,7 @@ class Application
   // Critical state.
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
+  sparse::ArchGatingInfo sparse_optimizations_;
   
   // Many of the following submodules are dynamic objects because
   // we can only instantiate them after certain config files have
@@ -203,6 +205,12 @@ class Application
       std::cerr << "ERROR: mapping violates architecture constraints." << std::endl;
       exit(1);
     }
+
+    // Sparse optimzations
+    if (rootNode.exists("sparse_optimizations")){
+      auto sparse_config = rootNode.lookup("sparse_optimizations");
+      sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
+    }
   }
 
   // This class does not support being copied
@@ -261,7 +269,7 @@ class Application
         }
     }
     
-    auto eval_status = engine.Evaluate(mapping, workload_);    
+    auto eval_status = engine.Evaluate(mapping, workload_, sparse_optimizations_);    
     for (unsigned level = 0; level < eval_status.size(); level++)
     {
       if (!eval_status[level].success)

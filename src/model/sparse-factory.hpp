@@ -24,36 +24,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include "model/engine.hpp"
+#include "compound-config/compound-config.hpp"
+#include "sparse.hpp"
 
-#pragma once
-
-#include <math.h>
-
-#include "workload/data-density.hpp"
-#include "loop-analysis/tiling-tile-info.hpp"
-#include "model/sparse.hpp"
-
-
-namespace tiling
-{
-
-// define the (data-dependent fine-grained) operaton types for each type of components
-static std::string storageOperationTypes[6] = {"random_read",   
-                                               "random_fill",    
-                                               "random_update", 
-                                               "gated_read",
-                                               "gated_fill",
-                                               "gated_update"};   
-
-static std::string arithmeticOperationTypes[2] = {"random_compute",
-                                                  "gated_compute"};
-
-static std::string networkOperationTypes[1] = {"random_transfer"};
-										                             
-
-int GetNumOpTypes();
-int GetNumOpTypes(std::string component_type);
-void ComputeFineGrainComputeAcesses(tiling::ComputeInfo& compute_info, tiling::CompoundDataMovementInfo& data_movement, sparse::ComputeGatingInfo compute_gating_info);
-void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, sparse::PerStorageLevelGatingInfo& per_level_sparse_gating);
-
-} // namespace problem
+namespace sparse{
+  // return format <storge_level_id, data_space_gating_info for the level>
+	ArchGatingInfo Parse(config::CompoundConfigNode sparse_config, model::Engine::Specs& arch_specs);
+}
