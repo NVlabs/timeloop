@@ -511,8 +511,12 @@ class MapperThread
         mutex_->lock();
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                     << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                    << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy /
-          stats.maccs << std::endl;
+                    << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
+                    << " | IF = " << mapping_id[int(mapspace::Dimension::IndexFactorization)]
+                    << " | LP = " << mapping_id[int(mapspace::Dimension::LoopPermutation)]
+                    << " | S = " << mapping_id[int(mapspace::Dimension::Spatial)]
+                    << " | B = " << mapping_id[int(mapspace::Dimension::DatatypeBypass)]
+                    << std::endl;
         mutex_->unlock();
       }
 
@@ -545,7 +549,13 @@ class MapperThread
       }
       else
       {
-        mappings_since_last_best_update++;
+        // If the only change in this mapping vs. the previous mapping was in
+        // its dataspace bypass scheme, then we may not want to make this
+        // failure count towards the timeout termination trigger.
+        if (penalize_consecutive_bypass_fails_ || !only_bypass_changed)
+        {
+          mappings_since_last_best_update++;
+        }
       }
     } // while ()
       
