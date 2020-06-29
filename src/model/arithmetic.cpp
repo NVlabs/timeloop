@@ -226,7 +226,7 @@ void ArithmeticUnits::PopulateEnergyPerOp(unsigned num_ops){
   std::vector<std::string> ert_action_names;
 
   for (unsigned op_id = 0; op_id < num_ops; op_id++){
-    // go through all op types for arithmetic units
+    // go through all op types 
     ert_energy_per_op = 0;
     ert_energy_found = false;
     std::string op_name = tiling::arithmeticOperationTypes[op_id];
@@ -238,7 +238,8 @@ void ArithmeticUnits::PopulateEnergyPerOp(unsigned num_ops){
         ert_energy_per_op = specs_.ERT_entries.at(*it);
         ert_energy_found = true;
       if (it == ert_action_names.end() && !ert_energy_found){
-        ert_energy_per_op = specs_.energy_per_op.Get(); // use the max if no mapping is found
+        // ert_energy_per_op = specs_.energy_per_op.Get(); // use the max if no mapping is found
+        ert_energy_per_op = 0;
       }
     }
     // populate the op_energy_map data structure for easier future energy search

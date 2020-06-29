@@ -84,6 +84,9 @@ class BufferLevel : public Level
     Attribute<std::uint64_t> num_ports;
     Attribute<std::uint64_t> num_banks;
 
+    //metadata_storage related
+    Attribute<std::uint64_t> metadata_block_size;
+
     Attribute<std::string> read_network_name;
     Attribute<std::string> fill_network_name;
     Attribute<std::string> drain_network_name;
@@ -169,6 +172,10 @@ class BufferLevel : public Level
     problem::PerDataSpace<unsigned long> random_fills;
     problem::PerDataSpace<unsigned long> gated_updates;
     problem::PerDataSpace<unsigned long> random_updates;
+    problem::PerDataSpace<unsigned long> metadata_reads;
+    problem::PerDataSpace<unsigned long> gated_metadata_reads;
+    problem::PerDataSpace<unsigned long> metadata_writes;
+    problem::PerDataSpace<unsigned long> gated_metadata_writes;
 
     std::uint64_t cycles;
     double slowdown;

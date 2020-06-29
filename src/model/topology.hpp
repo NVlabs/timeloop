@@ -61,6 +61,10 @@ static std::map<std::string, std::vector<std::string>> storageOperationMappings 
                                                                                    { "gated_read", { "gated_read", "idle", "read"}},
                                                                                    { "gated_fill", { "gated_write", "gated_write", "idle", "write"}},
                                                                                    { "gated_update", { "gated_update", "gated_write", "idle", "write"}},
+                                                                                   { "metadata_read", { "metadata_read", "metadata_idle", "idle"}},
+                                                                                   { "gated_metadata_read", { "metadata_gated_read", "metadata_idle", "metadata_read"}},
+                                                                                   { "metadata_fill", { "metadata_write", "metadata_idle", "idle"}},
+                                                                                   { "gated_metadata_fill", { "metadata_gated_write", "metadata_idle", "metadata_write"}}
                                                                                   }; 
 
 static std::string bufferClasses[5] = { "DRAM",

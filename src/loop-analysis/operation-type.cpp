@@ -77,6 +77,10 @@ double GetDensityByGatedDataSpaceNames(sparse::PerDataSpaceGatingInfo data_space
 // Storage
 //
 
+// forward declaration
+void ComputeFineGrainMetaDatAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, 
+                                    sparse::PerStorageLevelGatingInfo& per_level_sparse_gating);
+
 void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, 
                                          sparse::PerStorageLevelGatingInfo& per_level_sparse_gating){
 
@@ -120,6 +124,50 @@ void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compo
     compound_data_movement[pv].fine_grained_accesses["random_update"] = num_random_updates;
     compound_data_movement[pv].fine_grained_accesses["gated_update"] = total_updates - num_random_updates;
     // std::cout << "level " << level << " reads: " << total_reads << " random reads: " << num_random_reads << std::endl;
+  }
+
+  // process meta data information for the buffer level
+  ComputeFineGrainMetaDatAcesses(compound_data_movement, per_level_sparse_gating);
+}
+
+//
+// MetaData
+//
+void ComputeFineGrainMetaDatAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, 
+                                    sparse::PerStorageLevelGatingInfo& per_level_sparse_gating){
+
+  double metadata_read_avg_density;
+  double metadata_write_avg_density;
+
+  for (unsigned pv =0; pv < problem::GetShape() -> NumDataSpaces; pv++){
+
+    std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pv);
+
+    if (per_level_sparse_gating.find(data_space_name) != per_level_sparse_gating.end()){
+
+
+      sparse::PerDataSpaceGatingInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
+
+      metadata_read_avg_density = GetDensityByGatedDataSpaceNames(data_space_gating_info, "metadata_read", compound_data_movement);
+      metadata_write_avg_density = GetDensityByGatedDataSpaceNames(data_space_gating_info, "metadata_write", compound_data_movement);
+
+    } else {
+      // no gating for this datatype at all
+      metadata_read_avg_density = 1.0; 
+      metadata_write_avg_density = 1.0;
+    }
+    
+    // fine-grained calculations for metadata accesses actions
+    std::uint64_t total_memory_reads = compound_data_movement[pv].reads; 
+    std::uint64_t num_metadata_reads = ceil(metadata_read_avg_density * total_memory_reads);
+    compound_data_movement[pv].fine_grained_accesses["metadata_reads"] = num_metadata_reads;
+    compound_data_movement[pv].fine_grained_accesses["gated_metadata_reads"] = total_memory_reads - num_metadata_reads; 
+
+    std::uint64_t total_memory_fills = compound_data_movement[pv].fills; 
+    std::uint64_t num_metadata_fills = ceil(metadata_write_avg_density * total_memory_fills);
+    compound_data_movement[pv].fine_grained_accesses["metadata_fills"] = num_metadata_fills;
+    compound_data_movement[pv].fine_grained_accesses["gated_metadata_fills"] = total_memory_fills - num_metadata_fills; 
+
   }
 }
 

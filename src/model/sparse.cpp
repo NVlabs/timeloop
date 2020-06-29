@@ -115,7 +115,9 @@ namespace sparse
 	                  // go through the gated actions specified for that specific data type
 	                  std::string action_name;
 	                  action_list[action_id].lookupValue("name", action_name);
-	                  assert((action_name == "read")||(action_name == "write")); // we only recognize read and write actions for buffers
+
+	                  // we only recognize read and write actions for buffers and metadata buffers
+	                  assert(action_name == "read" ||action_name == "write" || action_name == "metadata_write" || action_name == "metadata_read"); 
 	                  
 	                  std::vector<std::string> action_data_space_list; 
 	                  action_list[action_id].lookupArrayValue("criteria", action_data_space_list);

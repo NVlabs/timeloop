@@ -106,6 +106,15 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
     specs.block_size = block_size;
   }
 
+  // MetaData Block size
+  std::uint32_t metadata_block_size;
+  specs.metadata_block_size = 1;
+  if (buffer.lookupValue("metadata-block-size", metadata_block_size))
+  {
+    specs.metadata_block_size = block_size;
+  }
+
+
   // Cluster size.
   std::uint32_t cluster_size;
   specs.cluster_size = 1;
@@ -426,7 +435,7 @@ void BufferLevel::PopulateEnergyPerOp(unsigned num_ops){
   std::string op_name;
 
   for (unsigned op_id = 0; op_id < num_ops; op_id++){
-    // go through all op types for arithmetic units
+    // go through all op types
     ert_energy_per_op = 0;
     ert_energy_found = false;
     op_name = tiling::storageOperationTypes[op_id];
@@ -441,7 +450,8 @@ void BufferLevel::PopulateEnergyPerOp(unsigned num_ops){
         ert_energy_found = true;
       }  
       if (it == ert_action_names.end() && !ert_energy_found){
-        ert_energy_per_op = specs_.vector_access_energy.Get(); // use the max if no mapping is found
+        // ert_energy_per_op = specs_.vector_access_energy.Get(); // use the max if no mapping is found
+        ert_energy_per_op = 0;
       }
     }
     // populate the op_energy_map data structure for easier future energy search
@@ -643,6 +653,8 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
     stats_.random_fills[pv] = tile[pvi].fine_grained_accesses.at("random_fill");
     stats_.gated_updates[pv] = tile[pvi].fine_grained_accesses.at("gated_update");
     stats_.random_updates[pv] = tile[pvi].fine_grained_accesses.at("random_update");
+    stats_.metadata_reads[pv] =  tile[pvi].fine_grained_accesses.at("metadata_read");
+    stats_.gated_metadata_reads[pv] =  tile[pvi].fine_grained_accesses.at("gated_metadata_read");
   }
 
   //
@@ -752,7 +764,16 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
       (instance_accesses % block_size == 0) ?
       (instance_accesses / block_size)      :
       (instance_accesses / block_size) + 1;
-    
+
+    // compute for meta data accesses
+    auto instance_metadata_accesses = stats_.reads.at(pv) + stats_.fills.at(pv);
+    auto metadata_block_size = specs_.metadata_block_size.Get();
+    double metadata_vector_accesses =
+      (instance_metadata_accesses % metadata_block_size == 0) ?
+      (instance_metadata_accesses / metadata_block_size)      :
+      (instance_metadata_accesses / metadata_block_size) + 1;
+
+
     // double cluster_access_energy = vector_accesses *
     //   specs_.vector_access_energy.Get();
 
@@ -763,13 +784,27 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     for (unsigned op_id = 0; op_id < unsigned( tiling::GetNumOpTypes("storage")); op_id++){
         op_name = tiling::storageOperationTypes[op_id];
         
-        // get the number of each fine-grained vector accesses according to original accesse ratio
-        if (instance_accesses != 0){
-          op_accesses = std::uint64_t(vector_accesses*data_movement_info[pv].fine_grained_accesses.at(op_name)/instance_accesses); 
-          cluster_access_energy += op_accesses * specs_.op_energy_map.at(op_name);
-        } else {
-          op_accesses = 0;
-          cluster_access_energy += 0; 
+        if (op_name.find("metadata") == std::string::npos) { // data storgae related computations
+
+          // get the number of each fine-grained vector accesses according to original accesse ratio
+          if (instance_accesses != 0){
+            op_accesses = std::uint64_t(vector_accesses*data_movement_info[pv].fine_grained_accesses.at(op_name)/instance_accesses); 
+            cluster_access_energy += op_accesses * specs_.op_energy_map.at(op_name);
+          } else {
+            op_accesses = 0;
+            cluster_access_energy += 0; 
+          }
+        
+        } else { // metadata storage related computations
+
+          if (instance_metadata_accesses != 0){
+            op_accesses = std::uint64_t(metadata_vector_accesses*data_movement_info[pv].fine_grained_accesses.at(op_name)/instance_metadata_accesses); 
+            cluster_access_energy += op_accesses * specs_.op_energy_map.at(op_name);
+          } else {
+            op_accesses = 0;
+            cluster_access_energy += 0; 
+          }
+
         }
         
         // std::cout << op_name << " accesses: " << op_accesses << " vector accesses: " << vector_accesses << std::endl;
@@ -1029,6 +1064,7 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << indent << "Vector random fill energy    : " << specs.op_energy_map.at("random_fill") << " pJ" << std::endl;
   out << indent << indent << "Vector gated update energy   : " << specs.op_energy_map.at("gated_update") << " pJ" << std::endl;
   out << indent << indent << "Vector random update energy  : " << specs.op_energy_map.at("random_update") << " pJ" << std::endl;
+  out << indent << indent << "Vector metadata read energy  : " << specs.op_energy_map.at("metadata_read") << " pJ" << std::endl;
   out << indent << indent << "Area                         : " << specs.storage_area << " um^2" << std::endl;
 
   out << std::endl;
