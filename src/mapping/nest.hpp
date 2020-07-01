@@ -76,6 +76,8 @@ class Nest
                       const tiling::NestOfCompoundMasks& mask_nest,
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances);
+
+  std::string PrintCompact(const tiling::NestOfCompoundMasks& mask_nest);
 };
 
 } // namespace loop

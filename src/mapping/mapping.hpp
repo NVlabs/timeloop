@@ -71,6 +71,8 @@ struct Mapping
   void PrintWhoopNest(std::ostream& out, const std::vector<std::string>& storage_level_names,
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances);
+
+  std::string PrintCompact();
 };
 
 std::ostream& operator << (std::ostream& out, const Mapping& mapping);

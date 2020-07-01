@@ -197,3 +197,8 @@ void Mapping::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& 
 {
   loop_nest.PrintWhoopNest(out, storage_level_names, tiling::TransposeMasks(datatype_bypass_nest), tile_sizes, utilized_instances);
 }
+
+std::string Mapping::PrintCompact()
+{
+  return loop_nest.PrintCompact(tiling::TransposeMasks(datatype_bypass_nest));
+}

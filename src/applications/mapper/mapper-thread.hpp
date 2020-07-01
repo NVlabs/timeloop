@@ -166,7 +166,7 @@ class MapperThread
   problem::Workload &workload_;
   EvaluationResult* best_;
     
-  // Thread-local data.
+  // Thread-local data (stats).
   std::thread thread_;
   EvaluationResult thread_best_;
   std::vector<uint128_t> invalid_eval_counts_;
@@ -512,10 +512,11 @@ class MapperThread
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                     << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
                     << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
-                    << " | IF = " << mapping_id[int(mapspace::Dimension::IndexFactorization)]
-                    << " | LP = " << mapping_id[int(mapspace::Dimension::LoopPermutation)]
-                    << " | S = " << mapping_id[int(mapspace::Dimension::Spatial)]
-                    << " | B = " << mapping_id[int(mapspace::Dimension::DatatypeBypass)]
+                    // << " | IF = " << mapping_id[int(mapspace::Dimension::IndexFactorization)]
+                    // << " | LP = " << mapping_id[int(mapspace::Dimension::LoopPermutation)]
+                    // << " | S = " << mapping_id[int(mapspace::Dimension::Spatial)]
+                    // << " | B = " << mapping_id[int(mapspace::Dimension::DatatypeBypass)]
+                    << " | " << mapping.PrintCompact()
                     << std::endl;
         mutex_->unlock();
       }
@@ -540,8 +541,9 @@ class MapperThread
           mutex_->lock();
           log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                       << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                      << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy /
-            stats.maccs << std::endl;
+                      << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
+                      << " | " << mapping.PrintCompact()
+                      << std::endl;
           mutex_->unlock();
         }
 

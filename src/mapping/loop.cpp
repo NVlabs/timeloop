@@ -144,6 +144,21 @@ void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
   varnames.push_back(varname);
 }
 
+std::string Descriptor::PrintCompact() const
+{
+  assert(start == 0);
+  std::ostringstream str;
+  str << problem::GetShape()->DimensionIDToName.at(dimension) << end;
+  if (IsSpatial(spacetime_dimension))
+  {
+    if (IsSpatialX(spacetime_dimension))
+      str << "X";
+    else
+      str << "Y";
+  }
+  return str.str();
+}
+
 std::ostream& operator << (std::ostream& out, const Descriptor& loop)
 {
   loop.Print(out, true);

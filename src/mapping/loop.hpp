@@ -71,6 +71,8 @@ class Descriptor
                   std::vector<int>& dimbounds,
                   std::vector<std::string>& varnames) const;
 
+  std::string PrintCompact() const;
+
   // Serialization
   friend class boost::serialization::access;
 
