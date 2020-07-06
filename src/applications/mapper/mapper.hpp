@@ -412,8 +412,8 @@ class Application
 
       for (unsigned t = 0; t < num_threads_; t++)
       {
-        auto& thread_counts = threads_.at(t)->InvalidEvalCounts();
-        auto& thread_sample_mappings = threads_.at(t)->InvalidEvalSampleMappings();
+        auto& thread_counts = threads_.at(t)->GetStats().invalid_eval_counts;
+        auto& thread_sample_mappings = threads_.at(t)->GetStats().invalid_eval_sample_mappings;
         for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
         {
           // Pick up a sample mapping from the first thread with non-zero fails at this level.
@@ -471,7 +471,7 @@ class Application
     // Select the best mapping from each thread.
     for (unsigned t = 0; t < num_threads_; t++)
     {
-      auto& thread_best = threads_.at(t)->BestResult();
+      auto& thread_best = threads_.at(t)->GetStats().thread_best;
       global_best_.UpdateIfBetter(thread_best, optimization_metrics_);
     }
 

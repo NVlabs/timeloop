@@ -30,6 +30,7 @@
 #include <iterator>
 #include <mutex>
 #include <regex>
+#include <vector>
 
 #include "util/numeric.hpp"
 #include "util/misc.hpp"
@@ -524,9 +525,10 @@ class Uber : public MapSpace
   //   Given a multi-dimensional mapping ID within this map space,
   //   construct a full mapping.
   //
-  bool ConstructMapping(
-      mapspace::ID mapping_id,
-      Mapping* mapping)
+  std::vector<Status> ConstructMapping(
+    mapspace::ID mapping_id,
+    Mapping* mapping,
+    bool break_on_failure = true)
   {
     // FIXME: add a cache so that if any of the mapping subspace IDs are the same as the
     // last call, we can avoid some re-computing.
@@ -545,8 +547,9 @@ class Uber : public MapSpace
     if (mapping_id[int(mapspace::Dimension::IndexFactorization)] >=
         size_[int(mapspace::Dimension::IndexFactorization)])
     {
+      std::cerr << "FATAL ERROR: mapspace asked to construct a mapping with an out-of-bounds "
+                << "IndexFactorization coordinate." << std::endl;
       assert(false);
-      return false;
     }
     
     // Find global index factorization id (across all splits).
@@ -580,10 +583,16 @@ class Uber : public MapSpace
     // not.
     
     // === Stage 3 ===
-    bool success = AssignSpatialTilingDirections(mapping_spatial_id, subnests, mapping->datatype_bypass_nest);
-    if (!success)
+    auto status = AssignSpatialTilingDirections(mapping_spatial_id,
+                                                subnests,
+                                                mapping->datatype_bypass_nest,
+                                                break_on_failure);
+    bool success = std::accumulate(status.begin(), status.end(), true,
+                                   [](bool cur, const Status& status)
+                                   { return cur && status.success; });
+    if (break_on_failure && !success)
     {
-      return false;
+      return status;
     }
 
     // Concatenate the subnests to form the final mapping nest.    
@@ -618,7 +627,7 @@ class Uber : public MapSpace
     // Finalize mapping.
     mapping->id = mapping_id.Integer();
     
-    return true;
+    return status;
   }
 
   //
@@ -700,11 +709,14 @@ class Uber : public MapSpace
   // Mapping Construction
   // Stage 3: Decide which of the spatial loop nests are along the space_x dimension.
   //
-  bool AssignSpatialTilingDirections(uint128_t mapping_spatial_id,
-                                     loop::NestConfig& subnests,
-                                     tiling::CompoundMaskNest datatype_bypass_nest)
+  std::vector<Status> AssignSpatialTilingDirections(uint128_t mapping_spatial_id,
+                                                    loop::NestConfig& subnests,
+                                                    tiling::CompoundMaskNest datatype_bypass_nest,
+                                                    bool break_on_failure)
   {
     (void) datatype_bypass_nest;
+
+    std::vector<Status> status(arch_props_.StorageLevels(), { .success = true, .fail_reason = "" });
     bool success = true;
 
     auto spatial_splits = spatial_split_space_.GetSplits(mapping_spatial_id);
@@ -712,7 +724,7 @@ class Uber : public MapSpace
     
     double cumulative_fanout_utilization = 1.0;
 
-    for (uint64_t level = 0; level < arch_props_.TilingLevels() && success; level++)
+    for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
     {
       if (!arch_props_.IsSpatial(level))
       {
@@ -723,30 +735,51 @@ class Uber : public MapSpace
       // to deal with the bypass mask.
       // auto& datatype_bypass_mask = datatype_bypass_masks.at(storage_level-1);
 
-      success &= AssignSpatialTilingDirections_Level_Expand(
+      auto s = AssignSpatialTilingDirections_Level_Expand(
         spatial_splits.at(level),
         subnests[level],
         level,
         cumulative_fanout_utilization);
+
+      status.at(arch_props_.TilingToStorage(level)) = s;
+      success &= s.success;
+
+      if (break_on_failure && !s.success)
+        break;
       
     } // for (level)
     
-    success &= (cumulative_fanout_utilization >= constraints_.MinParallelism());
+    if (cumulative_fanout_utilization < constraints_.MinParallelism())
+    {
+      // Piggyback this failure with any existing level-0 failures.
+      std::ostringstream fail_reason;
+      fail_reason << "parallelism " << cumulative_fanout_utilization << " is less than "
+                  << "constrained min-parallelism " << constraints_.MinParallelism();
+      if (status.at(0).success)
+      {
+        status.at(0).success = false;
+        status.at(0).fail_reason = fail_reason.str();
+      }
+      else
+      {
+        status.at(0).fail_reason += ", and " + fail_reason.str();        
+      }
+    }
       
-    return success;
+    return status;
   }
 
-  bool AssignSpatialTilingDirections_Level_Expand(std::uint32_t spatial_split,
-                                                  std::vector<loop::Descriptor>& level_nest,
-                                                  unsigned tiling_level_id,
-                                                  double& fanout_utilization)
+  Status AssignSpatialTilingDirections_Level_Expand(std::uint32_t spatial_split,
+                                                    std::vector<loop::Descriptor>& level_nest,
+                                                    unsigned tiling_level_id,
+                                                    double& fanout_utilization)
   {
     // This version of the function assumes that spatial tiling will expand
     // the instances for *each* datatype exactly by the tiling parameters. For
     // example, if K=16 is a spatial factor, then 16 instances of the next
     // inner level will be created for Weights, Inputs and Outputs.
-    
     bool success = true;
+    std::ostringstream fail_reason;
 
     unsigned storage_level_id = arch_props_.TilingToStorage(tiling_level_id);
     auto level_specs = arch_specs_.topology.GetStorageLevel(storage_level_id);
@@ -782,59 +815,31 @@ class Uber : public MapSpace
     // if (level_specs->SharingType() == model::DataSpaceIDSharing::Shared)
     // {
     if (x_expansion > arch_props_.FanoutX(storage_level_id))
+    {
       success = false;
+      fail_reason << "mapped fanoutX " << x_expansion << " exceeds hardware fanoutX "
+                  << arch_props_.FanoutX(storage_level_id);
+    }
       
     if (y_expansion > arch_props_.FanoutY(storage_level_id))
+    {
       success = false;
+      fail_reason << "mapped fanoutY " << y_expansion << " exceeds hardware fanoutY "
+                  << arch_props_.FanoutY(storage_level_id);
+    }
 
     fanout_max = arch_props_.Fanout(storage_level_id);
-    // }
-    // else
-    // {
-    //   std::size_t x_fanout_max = 0;
-    //   std::size_t y_fanout_max = 0;
-
-    //   // The following loop is silly since we now only allow one fanout per level
-    //   // (as opposed to a per-dataspace fanout for partitioned levels). However,
-    //   // we will keep the code because we may need to move to a multiple-buffers
-    //   // per level later. The loop will not be over data spaces but buffer
-    //   // instances per level.
-
-    //   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-    //   {
-    //     // auto pv = problem::Shape::DataSpaceID(pvi);
-
-    //     if (x_expansion > arch_props_.FanoutX(storage_level_id))
-    //       success = false;
-
-    //     if (y_expansion > arch_props_.FanoutY(storage_level_id))
-    //       success = false;
-
-    //     // Track max available (not utilized) fanout across all datatypes.
-    //     x_fanout_max = std::max(x_fanout_max, arch_props_.FanoutX(storage_level_id));
-    //     y_fanout_max = std::max(y_fanout_max, arch_props_.FanoutY(storage_level_id));
-    //   }
-
-    //   fanout_max = x_fanout_max * y_fanout_max;
-    // }
 
     // Compute fanout utilization at this level.
     // Ignore bypass and partitioning. The only purpose of this is to accumulate
     // the level-wise utilizations to compute arithmetic utilization.
     fanout_utilization *= double(x_expansion) * double(y_expansion) / fanout_max;
 
-    // if (!success)
-    // {
-    //   std::cerr << "Level: " << arch_props_.StorageLevelName(storage_level_id) << std::endl;
-    //   std::cerr << "  X: ";
-    //   std::cerr << " expansion = " << x_expansion << " fanout = " << arch_props_.FanoutX(storage_level_id) << std::endl;
-    //   std::cerr << "  Y: ";
-    //   std::cerr << " expansion = " << y_expansion << " fanout = " << arch_props_.FanoutY(storage_level_id) << std::endl;
-    //   std::cerr << "  util = " << fanout_utilization << std::endl;
-    //   std::cerr << std::endl;
-    // }
-    
-    return success;
+    Status status;
+    status.success = success;
+    status.fail_reason = fail_reason.str();
+
+    return status;
   }
   
   
