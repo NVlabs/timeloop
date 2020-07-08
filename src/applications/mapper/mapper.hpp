@@ -405,40 +405,40 @@ class Application
     if (diagnostics_on_)
     {
       // Aggregate diagnostic data from all threads.
-      std::map<std::string, std::map<unsigned, FailInfo>> fail_stats;
+      std::map<FailClass, std::map<unsigned, FailInfo>> fail_stats;
       
       for (unsigned t = 0; t < num_threads_; t++)
       {
         for (auto& i: threads_.at(t)->GetStats().fail_stats)
         {
-          auto& thread_fail_reason = i.first;
-          auto& thread_fail_class = i.second;
+          auto& thread_fail_class = i.first;
+          auto& thread_fail_bucket = i.second;
 
-          auto fail_class_it = fail_stats.find(thread_fail_reason);
-          if (fail_class_it == fail_stats.end())
+          auto fail_bucket_it = fail_stats.find(thread_fail_class);
+          if (fail_bucket_it == fail_stats.end())
           {
-            // We've never seen this fail reason before.
-            fail_stats[thread_fail_reason] = thread_fail_class;
+            // We've never seen this fail class before.
+            fail_stats[thread_fail_class] = thread_fail_bucket;
           }
           else
           {
-            auto& fail_class = fail_class_it->second;
+            auto& fail_bucket = fail_bucket_it->second;
             
-            // We've seen this fail reason. Walk through each level in this fail class.
-            for (auto& j: thread_fail_class)
+            // We've seen this fail class. Walk through each level in this fail bucket.
+            for (auto& j: thread_fail_bucket)
             {
               auto& thread_fail_level_id = j.first;
               auto& thread_fail_info = j.second;
 
-              auto fail_info_it = fail_class.find(thread_fail_level_id);
-              if (fail_info_it == fail_class.end())
+              auto fail_info_it = fail_bucket.find(thread_fail_level_id);
+              if (fail_info_it == fail_bucket.end())
               {
-                // We haven't seen this level within this fail class.
-                fail_class[thread_fail_level_id] = thread_fail_info;
+                // We haven't seen this level within this fail bucket.
+                fail_bucket[thread_fail_level_id] = thread_fail_info;
               }
               else
               {
-                // We've seen this level within this fail class.
+                // We've seen this level within this fail bucket.
                 fail_info_it->second.count += thread_fail_info.count;
               }
             }
@@ -455,47 +455,26 @@ class Application
 
       for (auto& i: fail_stats)
       {
-        std::cout << "Fail reason: " << i.first << std::endl;
+        std::cout << "Fail class: " << i.first << std::endl;
         for (auto& j: i.second)
         {
-          std::cout << "  Level: " << j.first << std::endl;
+          std::cout << std::endl;
+          std::cout << "  Level: " << arch_specs_.topology.GetLevel(j.first)->level_name << std::endl;
           std::cout << "    Fail count: " << j.second.count << std::endl;
-          std::cout << "    Sample mapping:" << std::endl;
+          std::cout << "    Sample mapping that experienced this fail class:" << std::endl;
 
-          auto& mapping = j.second.sample;
+          auto& mapping = j.second.mapping;
           model::Engine engine;
           engine.Spec(arch_specs_);
           engine.Evaluate(mapping, workload_, false);
           mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
-                              engine.GetTopology().GetStats().tile_sizes, "    ");
+                              engine.GetTopology().GetStats().tile_sizes, "      ");
+
+          std::cout << "    Fail reason: " << j.second.reason << std::endl;
+          std::cout << std::endl;
         }
       }
       
-      // std::cout << "Per-level buffer capacity failure counts: " << std::endl;
-      // for (unsigned level_id = 0; level_id < arch_specs_.topology.NumLevels(); level_id++)
-      // {
-      //   if (eval_fail_counts.at(level_id) > 0)
-      //   {
-      //     std::cout << std::setw(24) << arch_specs_.topology.GetLevel(level_id)->level_name
-      //               << ": " << eval_fail_counts.at(level_id) << std::endl;
-      //   }
-      // }
-      
-      // if (worst_eval_fail_count > 0)
-      // {
-      //   std::cout << std::endl << "Level with most failures: "
-      //             << arch_specs_.topology.GetLevel(worst_eval_fail_level_id)->level_name
-      //             << ": " << worst_eval_fail_count << std::endl;
-      //   std::cout << "Sample failed mapping : " << std::endl;
-
-      //   auto& mapping = eval_fail_sample_mappings.at(worst_eval_fail_level_id);
-      //   model::Engine engine;
-      //   engine.Spec(arch_specs_);
-      //   engine.Evaluate(mapping, workload_, false);
-      //   mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
-      //                       engine.GetTopology().GetStats().tile_sizes);
-      // }
-
       std::cout << "-----------------------------------------------" << std::endl;
       std::cout << "                 END DIAGNOSTICS               " << std::endl;
       std::cout << "===============================================" << std::endl;

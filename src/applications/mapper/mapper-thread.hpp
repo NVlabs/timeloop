@@ -143,10 +143,29 @@ struct EvaluationResult
 //              Failure Tracking              //
 //--------------------------------------------//
 
+enum class FailClass
+{
+  Fanout,
+  Capacity
+};
+
+std::map<FailClass, std::string> FailClassToString =
+{
+  { FailClass::Fanout, "Fanout" },
+  { FailClass::Capacity, "Capacity" }
+};
+
+std::ostream& operator << (std::ostream& out, const FailClass& fail_class)
+{
+  out << FailClassToString.at(fail_class);
+  return out;
+}
+
 struct FailInfo
 {
   uint128_t count = 0;
-  Mapping sample;
+  Mapping mapping;
+  std::string reason;
 };
 
 //--------------------------------------------//
@@ -159,59 +178,59 @@ class MapperThread
   struct Stats
   {
     EvaluationResult thread_best;
-    std::map<std::string, std::map<unsigned, FailInfo>> fail_stats;
+    std::map<FailClass, std::map<unsigned, FailInfo>> fail_stats;
 
-    void UpdateFails(std::string fail_reason, unsigned level, const Mapping& mapping)
+    void UpdateFails(FailClass fail_class, std::string fail_reason, unsigned level, const Mapping& mapping)
     {
-        // Find the data corresponding to this fail reason.
-        auto fail_class_it = fail_stats.find(fail_reason);
-        if (fail_class_it == fail_stats.end())
+        // Find the data corresponding to this fail class.
+        auto fail_bucket_it = fail_stats.find(fail_class);
+        if (fail_bucket_it == fail_stats.end())
         {
-          // We've never seen this fail reason before.
-          std::map<unsigned, FailInfo> fail_class;
-          fail_class[level] = { .count = 1, .sample = mapping };
-          fail_stats[fail_reason] = fail_class;
+          // We've never seen this fail class before.
+          std::map<unsigned, FailInfo> fail_bucket;
+          fail_bucket[level] = { .count = 1, .mapping = mapping, .reason = fail_reason };
+          fail_stats[fail_class] = fail_bucket;
         }
         else
         {
-          // We've seen this fail reason, see if this level has
-          // failed due to this reason.
-          auto& fail_class = fail_class_it->second;
-          auto fail_info_it = fail_class.find(level);
-          if (fail_info_it == fail_class.end())
+          // We've seen this fail class, see if this level has
+          // failed in this class.
+          auto& fail_bucket = fail_bucket_it->second;
+          auto fail_info_it = fail_bucket.find(level);
+          if (fail_info_it == fail_bucket.end())
           {
-            // No, this is the first time this level has failed due
-            // to this fail reason. Create a new entry.
-            fail_class[level] = { .count = 1, .sample = mapping };
+            // No, this is the first time this level has failed in
+            // this fail class. Create a new entry.
+            fail_bucket[level] = { .count = 1, .mapping = mapping, .reason = fail_reason };
           }
           else
           {
-            // This level has already failed due to this reason,
+            // This level has already failed in this class,
             // increment its count.
             fail_info_it->second.count += 1;
           }
         }
     }
     
-    void UpdateFails(const std::vector<model::EvalStatus>& status, const Mapping& mapping)
-    {      
-      for (unsigned level = 0; level < status.size(); level++)
-      {
-        if (status.at(level).success) continue;
-        auto fail_reason = status.at(level).fail_reason;
-        UpdateFails(fail_reason, level, mapping);
-      }
-    }
+    // void UpdateFails(const std::vector<model::EvalStatus>& status, const Mapping& mapping)
+    // {      
+    //   for (unsigned level = 0; level < status.size(); level++)
+    //   {
+    //     if (status.at(level).success) continue;
+    //     auto fail_reason = status.at(level).fail_reason;
+    //     UpdateFails(FailClass::Capacity, fail_reason, level, mapping);
+    //   }
+    // }
 
-    void UpdateFails(const std::vector<mapspace::Status>& status, const Mapping& mapping)
-    {      
-      for (unsigned level = 0; level < status.size(); level++)
-      {
-        if (status.at(level).success) continue;
-        auto fail_reason = status.at(level).fail_reason;
-        UpdateFails(fail_reason, level, mapping);
-      }
-    }    
+    // void UpdateFails(const std::vector<mapspace::Status>& status, const Mapping& mapping)
+    // {      
+    //   for (unsigned level = 0; level < status.size(); level++)
+    //   {
+    //     if (status.at(level).success) continue;
+    //     auto fail_reason = status.at(level).fail_reason;
+    //     UpdateFails(FailClass::Fanout, fail_reason, level, mapping);
+    //   }
+    // }    
   };
 
  private:
@@ -477,7 +496,9 @@ class MapperThread
         invalid_mappings_mapcnstr++;
         if (diagnostics_on_)
         {
-          stats_.UpdateFails(construction_status, mapping);
+          for (unsigned level = 0; level < construction_status.size(); level++)
+            if (!construction_status.at(level).success)
+              stats_.UpdateFails(FailClass::Fanout, construction_status.at(level).fail_reason, level, mapping);
         }
         search_->Report(search::Status::MappingConstructionFailure);
         continue;
@@ -505,7 +526,9 @@ class MapperThread
 
         if (diagnostics_on_)
         {
-          stats_.UpdateFails(status_per_level, mapping);
+          for (unsigned level = 0; level < status_per_level.size(); level++)
+            if (!status_per_level.at(level).success)
+              stats_.UpdateFails(FailClass::Capacity, status_per_level.at(level).fail_reason, level, mapping);
         }
         search_->Report(search::Status::EvalFailure);
         continue;
@@ -529,7 +552,9 @@ class MapperThread
 
         if (diagnostics_on_)
         {
-          stats_.UpdateFails(status_per_level, mapping);
+          for (unsigned level = 0; level < status_per_level.size(); level++)
+            if (!status_per_level.at(level).success)
+              stats_.UpdateFails(FailClass::Capacity, status_per_level.at(level).fail_reason, level, mapping);
         }
         search_->Report(search::Status::EvalFailure);
         continue;

@@ -149,7 +149,9 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
         }
       }
       str << "] " << std::endl;
-      out << str.str();
+      
+      out << _indent << str.str();
+      out << _indent;
       for (unsigned i = 0; i < str.str().length()-2; i++)
         out << "-";
       out << std::endl;
