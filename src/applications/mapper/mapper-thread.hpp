@@ -140,6 +140,16 @@ struct EvaluationResult
 };
 
 //--------------------------------------------//
+//              Failure Tracking              //
+//--------------------------------------------//
+
+struct FailInfo
+{
+  uint128_t count = 0;
+  Mapping sample;
+};
+
+//--------------------------------------------//
 //               Mapper Thread                //
 //--------------------------------------------//
 
@@ -149,47 +159,59 @@ class MapperThread
   struct Stats
   {
     EvaluationResult thread_best;
+    std::map<std::string, std::map<unsigned, FailInfo>> fail_stats;
 
-    struct FailInfo
+    void UpdateFails(std::string fail_reason, unsigned level, const Mapping& mapping)
     {
-      uint128_t count = 0;
-      Mapping sample;
-    };
-
-    std::vector<std::map<std::string, FailInfo>> fail_stats;
-
-    Stats() = delete;
-    
-    Stats(std::size_t num_levels) :
-        fail_stats(num_levels)
-      // invalid_eval_counts(num_levels, 0),
-      // invalid_eval_sample_mappings(num_levels),
-      // invalid_mapcnstr_counts(num_levels, 0),
-      // invalid_mapcnstr_sample_mappings(num_levels)        
-    {
-    }
-
-    void UpdateFails(const std::vector<model::EvalStatus>& status, const Mapping& mapping)
-    {
-      for (unsigned level = 0; level < status.size(); level++)
-      {
-        if (status.at(level).success) continue;
-
-        auto fail_reason = status.at(level).fail_reason;
-        auto& fail_stats_level = fail_stats.at(level);
-        auto fail_info_it = fail_stats_level.find(fail_reason);
-        if (fail_info_it == fail_stats_level.end())
+        // Find the data corresponding to this fail reason.
+        auto fail_class_it = fail_stats.find(fail_reason);
+        if (fail_class_it == fail_stats.end())
         {
-          // Collect 1 sample failed mapping per level.
-          fail_stats_level[fail_reason] = { .count = 1, .sample = mapping };
+          // We've never seen this fail reason before.
+          std::map<unsigned, FailInfo> fail_class;
+          fail_class[level] = { .count = 1, .sample = mapping };
+          fail_stats[fail_reason] = fail_class;
         }
         else
         {
-          (fail_info_it)->count++;
+          // We've seen this fail reason, see if this level has
+          // failed due to this reason.
+          auto& fail_class = fail_class_it->second;
+          auto fail_info_it = fail_class.find(level);
+          if (fail_info_it == fail_class.end())
+          {
+            // No, this is the first time this level has failed due
+            // to this fail reason. Create a new entry.
+            fail_class[level] = { .count = 1, .sample = mapping };
+          }
+          else
+          {
+            // This level has already failed due to this reason,
+            // increment its count.
+            fail_info_it->second.count += 1;
+          }
         }
-      }    
+    }
+    
+    void UpdateFails(const std::vector<model::EvalStatus>& status, const Mapping& mapping)
+    {      
+      for (unsigned level = 0; level < status.size(); level++)
+      {
+        if (status.at(level).success) continue;
+        auto fail_reason = status.at(level).fail_reason;
+        UpdateFails(fail_reason, level, mapping);
+      }
     }
 
+    void UpdateFails(const std::vector<mapspace::Status>& status, const Mapping& mapping)
+    {      
+      for (unsigned level = 0; level < status.size(); level++)
+      {
+        if (status.at(level).success) continue;
+        auto fail_reason = status.at(level).fail_reason;
+        UpdateFails(fail_reason, level, mapping);
+      }
+    }    
   };
 
  private:
@@ -257,7 +279,7 @@ class MapperThread
       workload_(workload),
       best_(best),
       thread_(),
-      stats_(arch_specs_.topology.NumLevels())
+      stats_()
   {
   }
 
@@ -455,28 +477,7 @@ class MapperThread
         invalid_mappings_mapcnstr++;
         if (diagnostics_on_)
         {
-          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
-          {
-            if (!construction_status.at(level).success)
-            {
-              auto fail_reason = construction_status.at(level).fail_reason;
-              auto& fail_stats = stats_.fail_stats.at(level);
-              auto fail_info_it = fail_stats.find(fail_reason);
-              if (fail_info_it == fail_stats.end())
-              {
-                // Collect 1 sample failed mapping per level.
-                fail_stats[fail_reason] = { .count = 1, .sample = mapping };
-              }
-              else
-              {
-                (fail_info_it)->count++;
-              }
-
-              // if (stats_.invalid_mapcnstr_counts.at(level) == 0)
-              //   stats_.invalid_mapcnstr_sample_mappings.at(level) = mapping;
-              // stats_.invalid_mapcnstr_counts.at(level)++;
-            }
-          }
+          stats_.UpdateFails(construction_status, mapping);
         }
         search_->Report(search::Status::MappingConstructionFailure);
         continue;
@@ -504,16 +505,7 @@ class MapperThread
 
         if (diagnostics_on_)
         {
-          UpdateFails(status_per_level, mapping);
-          // for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
-          // {
-          //   if (!status_per_level.at(level).success)
-          //   {
-          //     if (stats_.invalid_eval_counts.at(level) == 0)
-          //       stats_.invalid_eval_sample_mappings.at(level) = mapping;
-          //     stats_.invalid_eval_counts.at(level)++;
-          //   }
-          // }
+          stats_.UpdateFails(status_per_level, mapping);
         }
         search_->Report(search::Status::EvalFailure);
         continue;
@@ -537,17 +529,7 @@ class MapperThread
 
         if (diagnostics_on_)
         {
-          UpdateFails(status_per_level, mapping);
-          // for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
-          // {
-          //   if (!status_per_level.at(level).success)
-          //   {
-          //     // Collect 1 sample failed mapping per level.
-          //     if (stats_.invalid_eval_counts.at(level) == 0)
-          //       stats_.invalid_eval_sample_mappings.at(level) = mapping;
-          //     stats_.invalid_eval_counts.at(level)++;
-          //   }
-          // }
+          stats_.UpdateFails(status_per_level, mapping);
         }
         search_->Report(search::Status::EvalFailure);
         continue;
