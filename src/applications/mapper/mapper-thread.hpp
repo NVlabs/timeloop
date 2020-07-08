@@ -149,20 +149,47 @@ class MapperThread
   struct Stats
   {
     EvaluationResult thread_best;
-    std::vector<uint128_t> invalid_eval_counts;
-    std::vector<Mapping> invalid_eval_sample_mappings;
-    std::vector<uint128_t> invalid_mapcnstr_counts;
-    std::vector<Mapping> invalid_mapcnstr_sample_mappings;
+
+    struct FailInfo
+    {
+      uint128_t count = 0;
+      Mapping sample;
+    };
+
+    std::vector<std::map<std::string, FailInfo>> fail_stats;
 
     Stats() = delete;
     
     Stats(std::size_t num_levels) :
-      invalid_eval_counts(num_levels, 0),
-      invalid_eval_sample_mappings(num_levels),
-      invalid_mapcnstr_counts(num_levels, 0),
-      invalid_mapcnstr_sample_mappings(num_levels)        
+        fail_stats(num_levels)
+      // invalid_eval_counts(num_levels, 0),
+      // invalid_eval_sample_mappings(num_levels),
+      // invalid_mapcnstr_counts(num_levels, 0),
+      // invalid_mapcnstr_sample_mappings(num_levels)        
     {
     }
+
+    void UpdateFails(const std::vector<model::EvalStatus>& status, const Mapping& mapping)
+    {
+      for (unsigned level = 0; level < status.size(); level++)
+      {
+        if (status.at(level).success) continue;
+
+        auto fail_reason = status.at(level).fail_reason;
+        auto& fail_stats_level = fail_stats.at(level);
+        auto fail_info_it = fail_stats_level.find(fail_reason);
+        if (fail_info_it == fail_stats_level.end())
+        {
+          // Collect 1 sample failed mapping per level.
+          fail_stats_level[fail_reason] = { .count = 1, .sample = mapping };
+        }
+        else
+        {
+          (fail_info_it)->count++;
+        }
+      }    
+    }
+
   };
 
  private:
@@ -432,10 +459,22 @@ class MapperThread
           {
             if (!construction_status.at(level).success)
             {
-              // Collect 1 sample failed mapping per level.
-              if (stats_.invalid_mapcnstr_counts.at(level) == 0)
-                stats_.invalid_mapcnstr_sample_mappings.at(level) = mapping;
-              stats_.invalid_mapcnstr_counts.at(level)++;
+              auto fail_reason = construction_status.at(level).fail_reason;
+              auto& fail_stats = stats_.fail_stats.at(level);
+              auto fail_info_it = fail_stats.find(fail_reason);
+              if (fail_info_it == fail_stats.end())
+              {
+                // Collect 1 sample failed mapping per level.
+                fail_stats[fail_reason] = { .count = 1, .sample = mapping };
+              }
+              else
+              {
+                (fail_info_it)->count++;
+              }
+
+              // if (stats_.invalid_mapcnstr_counts.at(level) == 0)
+              //   stats_.invalid_mapcnstr_sample_mappings.at(level) = mapping;
+              // stats_.invalid_mapcnstr_counts.at(level)++;
             }
           }
         }
@@ -465,16 +504,16 @@ class MapperThread
 
         if (diagnostics_on_)
         {
-          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
-          {
-            if (!status_per_level.at(level).success)
-            {
-              // Collect 1 sample failed mapping per level.
-              if (stats_.invalid_eval_counts.at(level) == 0)
-                stats_.invalid_eval_sample_mappings.at(level) = mapping;
-              stats_.invalid_eval_counts.at(level)++;
-            }
-          }
+          UpdateFails(status_per_level, mapping);
+          // for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
+          // {
+          //   if (!status_per_level.at(level).success)
+          //   {
+          //     if (stats_.invalid_eval_counts.at(level) == 0)
+          //       stats_.invalid_eval_sample_mappings.at(level) = mapping;
+          //     stats_.invalid_eval_counts.at(level)++;
+          //   }
+          // }
         }
         search_->Report(search::Status::EvalFailure);
         continue;
@@ -498,16 +537,17 @@ class MapperThread
 
         if (diagnostics_on_)
         {
-          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
-          {
-            if (!status_per_level.at(level).success)
-            {
-              // Collect 1 sample failed mapping per level.
-              if (stats_.invalid_eval_counts.at(level) == 0)
-                stats_.invalid_eval_sample_mappings.at(level) = mapping;
-              stats_.invalid_eval_counts.at(level)++;
-            }
-          }
+          UpdateFails(status_per_level, mapping);
+          // for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
+          // {
+          //   if (!status_per_level.at(level).success)
+          //   {
+          //     // Collect 1 sample failed mapping per level.
+          //     if (stats_.invalid_eval_counts.at(level) == 0)
+          //       stats_.invalid_eval_sample_mappings.at(level) = mapping;
+          //     stats_.invalid_eval_counts.at(level)++;
+          //   }
+          // }
         }
         search_->Report(search::Status::EvalFailure);
         continue;
@@ -535,10 +575,6 @@ class MapperThread
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                     << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
                     << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
-                    // << " | IF = " << mapping_id[int(mapspace::Dimension::IndexFactorization)]
-                    // << " | LP = " << mapping_id[int(mapspace::Dimension::LoopPermutation)]
-                    // << " | S = " << mapping_id[int(mapspace::Dimension::Spatial)]
-                    // << " | B = " << mapping_id[int(mapspace::Dimension::DatatypeBypass)]
                     << " | " << mapping.PrintCompact()
                     << std::endl;
         mutex_->unlock();

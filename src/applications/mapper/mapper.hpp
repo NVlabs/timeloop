@@ -405,6 +405,8 @@ class Application
     if (diagnostics_on_)
     {
       // Aggregate diagnostic data from all threads.
+
+
       std::vector<uint128_t> eval_fail_counts(arch_specs_.topology.NumLevels(), 0);
       std::vector<Mapping> eval_fail_sample_mappings(arch_specs_.topology.NumLevels());
       unsigned worst_eval_fail_level_id = 0;
