@@ -1002,7 +1002,6 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
     if (break_on_failure && !s.success)
       break;
-
   }
 
   unsigned int numConnections = NumStorageLevels();
@@ -1045,7 +1044,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
   if (!break_on_failure || success_accum)
   {
-    ComputeStats();
+    ComputeStats(success_accum);
   }
 
   if (success_accum)
@@ -1056,40 +1055,58 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   return eval_status;
 }
 
-void Topology::ComputeStats()
+void Topology::ComputeStats(bool eval_success)
 {
-  // Energy.
-  double energy = 0;
-  for (auto level : levels_)
+  if (eval_success)
   {
-    assert(level->Energy() >= 0);
-    energy += level->Energy();
-  }
+    // Energy.
+    double energy = 0;
+    
+    for (auto level : levels_)
+    {
+      assert(level->Energy() >= 0);
+      energy += level->Energy();
+    }
 
-  for (auto& network: networks_)
-  {
-    //poan: Users might add a network to the arch but never connect/use it
-    //      Such network should always have 0 energy though.
-    if (!network.second->IsEvaluated()) continue;
-    auto e = network.second->Energy();
-    assert(e >= 0);
-    energy += e;
-  }
+    for (auto& network: networks_)
+    {
+      //poan: Users might add a network to the arch but never connect/use it
+      //      Such network should always have 0 energy though.
+      if (!network.second->IsEvaluated()) continue;
+      auto e = network.second->Energy();
+      assert(e >= 0);
+      energy += e;
+    }
+    
+    stats_.energy = energy;
 
-  stats_.energy = energy;
+    // Cycles.
+    std::uint64_t cycles = 0;
+    for (auto level : levels_)
+    {
+      cycles = std::max(cycles, level->Cycles());
+    }
+    stats_.cycles = cycles;
 
-  // Cycles.
-  std::uint64_t cycles = 0;
-  for (auto level : levels_)
-  {
-    cycles = std::max(cycles, level->Cycles());
-  }
-  stats_.cycles = cycles;
+    // Utilization.
+    // FIXME.
+    if (eval_success)
+    {
+      stats_.utilization = GetArithmeticLevel()->IdealCycles() / stats_.cycles;
+    }
+    
+    // MACCs.
+    stats_.maccs = GetArithmeticLevel()->MACCs();
+    
+    // Last-level accesses.
+    stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses();
+    
+  } // eval_success
 
-  // Utilization.
-  // FIXME.
-  stats_.utilization = GetArithmeticLevel()->IdealCycles() / stats_.cycles;
-
+  //
+  // *** Note ***: the following stat updates are *not* gated by eval_success.
+  //
+  
   // Tile sizes.
   stats_.tile_sizes.clear();
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
@@ -1115,12 +1132,6 @@ void Topology::ComputeStats()
     }
     stats_.utilized_instances.push_back(uc);
   }
-
-  // MACCs.
-  stats_.maccs = GetArithmeticLevel()->MACCs();
-
-  // Last-level accesses.
-  stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses();
 }
 
 //

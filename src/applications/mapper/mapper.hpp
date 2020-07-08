@@ -455,8 +455,11 @@ class Application
 
       for (auto& i: fail_stats)
       {
-        std::cout << "Fail class: " << i.first << std::endl;
-        for (auto& j: i.second)
+        auto& fail_class = i.first;
+        auto& fail_bucket = i.second;
+        
+        std::cout << "Fail class: " << fail_class << std::endl;
+        for (auto& j: fail_bucket)
         {
           std::cout << std::endl;
           std::cout << "  Level: " << arch_specs_.topology.GetLevel(j.first)->level_name << std::endl;
@@ -464,11 +467,22 @@ class Application
           std::cout << "    Sample mapping that experienced this fail class:" << std::endl;
 
           auto& mapping = j.second.mapping;
-          model::Engine engine;
-          engine.Spec(arch_specs_);
-          engine.Evaluate(mapping, workload_, false);
-          mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
-                              engine.GetTopology().GetStats().tile_sizes, "      ");
+
+          // Ugh. This is an abstration-breaking hack that looks at the fail class
+          // to determine what to print. If 
+//          if (fail_class != FailClass::Fanout)
+//          {
+            model::Engine engine;
+            engine.Spec(arch_specs_);
+            engine.Evaluate(mapping, workload_, false);
+            mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
+                                engine.GetTopology().GetStats().tile_sizes, "      ");
+//          }
+//          else
+//          {
+//            mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
+//                                engine.GetTopology().GetStats().tile_sizes, "      ");
+//          }
 
           std::cout << "    Fail reason: " << j.second.reason << std::endl;
           std::cout << std::endl;
