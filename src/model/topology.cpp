@@ -891,6 +891,21 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
   return std::static_pointer_cast<ArithmeticUnits>(levels_.at(level_id));
 }
 
+void Topology::Reset()
+{
+  for (auto & level : levels_)
+  {
+    level->Reset();
+  }
+
+  for (auto & network : networks_)
+  {
+    network.second->Reset();
+  }
+
+  is_evaluated_ = false;
+}
+
 // PreEvaluationCheck(): allows for a very fast capacity-check
 // based on given working-set sizes that can be trivially derived
 // by the caller. The more powerful Evaluate() function also
@@ -928,6 +943,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            bool break_on_failure)
 {
   assert(is_specced_);
+  Reset();
+  assert(!is_evaluated_);
 
   // ==================================================================
   // TODO: connect buffers to networks based on bypass mask in mapping.
