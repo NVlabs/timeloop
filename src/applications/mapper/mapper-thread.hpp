@@ -179,6 +179,12 @@ class MapperThread
   {
     EvaluationResult thread_best;
     std::map<FailClass, std::map<unsigned, FailInfo>> fail_stats;
+    RandomGenerator128 rand_;
+
+    Stats(uint128_t mapspace_size) :
+        rand_(mapspace_size)
+    {
+    }
 
     void UpdateFails(FailClass fail_class, std::string fail_reason, unsigned level, const Mapping& mapping)
     {
@@ -208,6 +214,13 @@ class MapperThread
             // This level has already failed in this class,
             // increment its count.
             fail_info_it->second.count += 1;
+ 
+            // Probabilistically update the mapping.
+            uint128_t roll = rand_.Next() % static_cast<uint128_t>(fail_info_it->second.count);
+            if (roll == 0)
+            {
+              fail_info_it->second.mapping = mapping;
+            }
           }
         }
     }
@@ -298,7 +311,7 @@ class MapperThread
       workload_(workload),
       best_(best),
       thread_(),
-      stats_()
+      stats_(mapspace->Size())
   {
   }
 
