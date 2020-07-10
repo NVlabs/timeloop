@@ -25,6 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <random>
+
 #include "model/engine.hpp"
 
 extern bool gTerminate;
@@ -179,10 +181,12 @@ class MapperThread
   {
     EvaluationResult thread_best;
     std::map<FailClass, std::map<unsigned, FailInfo>> fail_stats;
-    RandomGenerator128 rand_;
 
-    Stats(uint128_t mapspace_size) :
-        rand_(mapspace_size)
+    std::default_random_engine generator;
+    std::uniform_real_distribution<double> distribution;
+
+    Stats() :
+        distribution(0.0,1.0)
     {
     }
 
@@ -206,7 +210,7 @@ class MapperThread
           if (fail_info_it == fail_bucket.end())
           {
             // No, this is the first time this level has failed in
-            // this fail class. Create a new entry.
+            // this fail class, create a new entry.
             fail_bucket[level] = { .count = 1, .mapping = mapping, .reason = fail_reason };
           }
           else
@@ -215,35 +219,31 @@ class MapperThread
             // increment its count.
             fail_info_it->second.count += 1;
  
+            // p(x) = prob. that I switch to x when it arrives
+            // p(0) = 1
+
+            // P(x) = prob. that x is finally selected.
+            // 1/N = P(0) = p(0).(1-p(1)).(1-p(2))...(1-p(N-1))
+            // 1/N = P(1) =        (p(1)).(1-p(2))...(1-p(N-1))
+
+            // p(x).(1-p(x+1)) = p(x+1)
+            // ...
+            // => p(x+1) = p(x) / [1+p(x)]
+            // ...
+            // => p(x) = 1/(1+x)
+
+            // Compute the probability of switching (we've already computed count=x+1)
+            double prob = 1 / fail_info_it->second.count.convert_to<double>();
+
             // Probabilistically update the mapping.
-            uint128_t roll = rand_.Next() % static_cast<uint128_t>(fail_info_it->second.count);
-            if (roll == 0)
+            double roll = distribution(generator);
+            if (roll < prob)
             {
               fail_info_it->second.mapping = mapping;
             }
           }
         }
-    }
-    
-    // void UpdateFails(const std::vector<model::EvalStatus>& status, const Mapping& mapping)
-    // {      
-    //   for (unsigned level = 0; level < status.size(); level++)
-    //   {
-    //     if (status.at(level).success) continue;
-    //     auto fail_reason = status.at(level).fail_reason;
-    //     UpdateFails(FailClass::Capacity, fail_reason, level, mapping);
-    //   }
-    // }
-
-    // void UpdateFails(const std::vector<mapspace::Status>& status, const Mapping& mapping)
-    // {      
-    //   for (unsigned level = 0; level < status.size(); level++)
-    //   {
-    //     if (status.at(level).success) continue;
-    //     auto fail_reason = status.at(level).fail_reason;
-    //     UpdateFails(FailClass::Fanout, fail_reason, level, mapping);
-    //   }
-    // }    
+    }    
   };
 
  private:
@@ -311,7 +311,7 @@ class MapperThread
       workload_(workload),
       best_(best),
       thread_(),
-      stats_(mapspace->Size())
+      stats_()
   {
   }
 
