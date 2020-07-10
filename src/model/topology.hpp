@@ -62,9 +62,9 @@ static std::map<std::string, std::vector<std::string>> storageOperationMappings 
                                                                                    { "gated_fill", { "gated_write", "gated_write", "idle", "write"}},
                                                                                    { "gated_update", { "gated_update", "gated_write", "idle", "write"}},
                                                                                    { "metadata_read", { "metadata_read", "metadata_idle", "idle"}},
-                                                                                   { "gated_metadata_read", { "metadata_gated_read", "metadata_idle", "metadata_read"}},
+                                                                                   { "gated_metadata_read", { "gated_metadata_read", "metadata_idle", "metadata_read"}},
                                                                                    { "metadata_fill", { "metadata_write", "metadata_idle", "idle"}},
-                                                                                   { "gated_metadata_fill", { "metadata_gated_write", "metadata_idle", "metadata_write"}}
+                                                                                   { "gated_metadata_fill", { "gated_metadata_write", "metadata_idle", "metadata_write"}}
                                                                                   }; 
 
 static std::string bufferClasses[5] = { "DRAM",
@@ -177,6 +177,7 @@ class Topology : public Module
     std::uint64_t cycles;
     double utilization;
     std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
+    std::vector<problem::PerDataSpace<std::uint64_t>> utilized_capacities;
     std::vector<problem::PerDataSpace<std::uint64_t>> utilized_instances;
     std::uint64_t maccs;
     std::uint64_t last_level_accesses;
@@ -282,7 +283,7 @@ class Topology : public Module
   unsigned NumNetworks() const;
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::ArchGatingInfo* sparse_optimizations, bool break_on_failure);
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
 
   const Stats& GetStats() const { return stats_; }
 
@@ -293,6 +294,7 @@ class Topology : public Module
   std::uint64_t Cycles() const { return stats_.cycles; }
   double Utilization() const { return stats_.utilization; }
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const { return stats_.tile_sizes; }
+  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedCapacities() const { return stats_.utilized_capacities; }
   std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const { return stats_.utilized_instances; }
   std::uint64_t MACCs() const { return stats_.maccs; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }

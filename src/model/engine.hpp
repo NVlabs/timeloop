@@ -61,7 +61,7 @@ class Engine : public Module
   analysis::NestAnalysis nest_analysis_;
 
   // Sparse optimizations
-  sparse::ArchGatingInfo sparse_optimizatoins_;
+  sparse::SparseOptimizationInfo sparse_optimizations_;
   
   // Serialization.
   friend class boost::serialization::access;
@@ -114,7 +114,7 @@ class Engine : public Module
     return topology_.PreEvaluationCheck(mapping, &nest_analysis_, break_on_failure);
   }
 
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::ArchGatingInfo sparse_optimizations, bool break_on_failure = true)
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo sparse_optimizations, bool break_on_failure = true)
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest);
     

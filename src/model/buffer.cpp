@@ -123,7 +123,8 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   {
     specs.cluster_size = cluster_size;
   }
-  else if (buffer.lookupValue("width", width))
+  else if (buffer.lookupValue("width", width)||
+           buffer.lookupValue("memory_width", width))
   {
     word_bits = specs.word_bits.Get();
     block_size = specs.block_size.Get();
@@ -159,6 +160,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   std::string technology;
   specs.technology = Technology::SRAM;
   if (className == "DRAM") specs.technology = Technology::DRAM;
+  if (className.find("DRAM") != std::string::npos) specs.technology = Technology::DRAM;
 
   if (buffer.lookupValue("technology", technology) && technology == "DRAM")
   {
@@ -474,6 +476,7 @@ void BufferLevel::PopulateEnergyPerOp(unsigned num_ops){
 EvalStatus BufferLevel::PreEvaluationCheck(
   const problem::PerDataSpace<std::size_t> working_set_sizes,
   const tiling::CompoundMask mask,
+  const problem::Workload* workload,
   const bool break_on_failure)
 {
   (void) break_on_failure;
@@ -500,7 +503,10 @@ EvalStatus BufferLevel::PreEvaluationCheck(
     {
       if (mask[pvi])
       {
-        required_capacity += working_set_sizes.at(problem::Shape::DataSpaceID(pvi));
+        auto dense_working_set_size = working_set_sizes.at(problem::Shape::DataSpaceID(pvi));
+        auto sparse_working_set_size = ceil(dense_working_set_size * workload->GetDensity(pvi).GetAverageDensity());
+        // required_capacity += working_set_sizes.at(problem::Shape::DataSpaceID(pvi));
+        required_capacity += sparse_working_set_size;
       }
     }
 
@@ -599,7 +605,9 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
     stats_.keep[pv] = mask[pv];
     
     stats_.partition_size[pv] = tile[pvi].partition_size;
-    stats_.utilized_capacity[pv] = tile[pvi].size;
+    // stats_.utilized_capacity[pv] = tile[pvi].size;
+    stats_.tile_size[pv] = tile[pvi].size;
+    stats_.utilized_capacity[pv] = tile[pvi].compressed_size;
     stats_.utilized_instances[pv] = tile[pvi].replication_factor;
 
     assert((tile[pvi].size == 0) == (tile[pvi].content_accesses == 0));
@@ -784,9 +792,9 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     for (unsigned op_id = 0; op_id < unsigned( tiling::GetNumOpTypes("storage")); op_id++){
         op_name = tiling::storageOperationTypes[op_id];
         
-        if (op_name.find("metadata") == std::string::npos) { // data storgae related computations
+        if (op_name.find("metadata") == std::string::npos) { // data storage related computations
 
-          // get the number of each fine-grained vector accesses according to original accesse ratio
+          // get the number of each fine-grained vector accesses according to original access ratio
           if (instance_accesses != 0){
             op_accesses = std::uint64_t(vector_accesses*data_movement_info[pv].fine_grained_accesses.at(op_name)/instance_accesses); 
             cluster_access_energy += op_accesses * specs_.op_energy_map.at(op_name);
@@ -800,6 +808,11 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
           if (instance_metadata_accesses != 0){
             op_accesses = std::uint64_t(metadata_vector_accesses*data_movement_info[pv].fine_grained_accesses.at(op_name)/instance_metadata_accesses); 
             cluster_access_energy += op_accesses * specs_.op_energy_map.at(op_name);
+//            std::cout << "====================================" << std::endl;
+//            std::cout << "op name: " << op_name << std::endl;
+//            std::cout << "op energy: " << specs_.op_energy_map.at(op_name) << std::endl;
+//            std::cout << "op accesses: " << op_accesses << std::endl;
+//            std::cout << "vector accesses: " << metadata_vector_accesses << std::endl;
           } else {
             op_accesses = 0;
             cluster_access_energy += 0; 
@@ -960,6 +973,7 @@ STAT_ACCESSOR(double, BufferLevel, Energy,
 
 STAT_ACCESSOR(std::uint64_t, BufferLevel, Accesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv)))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedCapacity, stats_.utilized_capacity.at(pv))
+STAT_ACCESSOR(std::uint64_t, BufferLevel, TileSize, stats_.tile_size.at(pv))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedInstances, stats_.utilized_instances.at(pv))
 
 std::string BufferLevel::Name() const
@@ -1108,6 +1122,7 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
       out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
+      out << indent + indent << "Tile size                                : " << stats.tile_size.at(pv) << std::endl;
       out << indent + indent << "Utilized capacity                        : " << stats.utilized_capacity.at(pv) << std::endl;
       out << indent + indent << "Utilized instances (max)                 : " << stats.utilized_instances.at(pv) << std::endl;
       out << indent + indent << "Utilized clusters (max)                  : " << stats.utilized_clusters.at(pv) << std::endl;

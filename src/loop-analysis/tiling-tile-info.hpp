@@ -59,6 +59,7 @@ struct DataMovementInfo
 
   std::size_t size;
   std::size_t partition_size;
+  std::size_t compressed_size;
   bool distributed_multicast;
   std::vector<std::uint64_t> accesses;   // accesses at various multicast factors.
   std::vector<std::uint64_t> scatter_factors;

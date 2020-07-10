@@ -82,7 +82,7 @@ class Level : public Module
   virtual bool HardwareReductionSupported() = 0;
 
   virtual EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
-                                        const tiling::CompoundMask mask, const bool break_on_failure) = 0;
+                                        const tiling::CompoundMask mask, const problem::Workload* workload, const bool break_on_failure) = 0;
   virtual EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                               const std::uint64_t compute_cycles,
                               const bool break_on_failure) = 0;
@@ -96,6 +96,7 @@ class Level : public Module
   virtual std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   virtual double CapacityUtilization() const = 0;
   virtual std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
+  virtual std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   virtual std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   
   virtual void Print(std::ostream& out) const = 0;

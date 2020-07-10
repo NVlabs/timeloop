@@ -924,7 +924,7 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
   {
     auto level_id = specs_.StorageMap(storage_level_id);
     auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
-      working_set_sizes.at(storage_level_id), masks.at(storage_level_id),
+      working_set_sizes.at(storage_level_id), masks.at(storage_level_id), analysis->GetWorkload(),
       break_on_failure);
     eval_status.at(level_id) = s;
     if (break_on_failure && !s.success)
@@ -936,7 +936,7 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
 
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            analysis::NestAnalysis* analysis,
-                                           sparse::ArchGatingInfo* sparse_optimizations,
+                                           sparse::SparseOptimizationInfo* sparse_optimizations,
                                            bool break_on_failure)
 {
   assert(is_specced_);
@@ -1111,15 +1111,19 @@ void Topology::ComputeStats()
 
   // Tile sizes.
   stats_.tile_sizes.clear();
+  stats_.utilized_capacities.clear();
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     problem::PerDataSpace<std::uint64_t> ts;
+    problem::PerDataSpace<std::uint64_t> utilized_cap;
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
-      ts[pv] = GetStorageLevel(storage_level_id)->UtilizedCapacity(pv);
+      ts[pv] = GetStorageLevel(storage_level_id)->TileSize(pv);
+      utilized_cap[pv] = GetStorageLevel(storage_level_id)->UtilizedCapacity(pv);
     }
     stats_.tile_sizes.push_back(ts);
+    stats_.utilized_capacities.push_back(utilized_cap);
   }
 
   // Utilized instances.

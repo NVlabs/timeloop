@@ -34,18 +34,51 @@
 
 namespace sparse{
 
+  //
+  // data structures for action gating information
+  //
 	typedef std::string ActionName;
-	typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceGatingInfo;
-	typedef std::map<std::string, PerDataSpaceGatingInfo> PerStorageLevelGatingInfo;
-  
+	typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceActionGatingInfo;
+	typedef std::map<std::string, PerDataSpaceActionGatingInfo> PerStorageLevelActionGatingInfo;
+
   // storage_level_id, per_storage_level_gating_info
-	typedef std::map<unsigned, PerStorageLevelGatingInfo> StorageGatingInfo;
+	typedef std::map<unsigned, PerStorageLevelActionGatingInfo> StorageActionGatingInfo;
 
-	typedef std::map<ActionName, std::vector<std::string>> ComputeGatingInfo;
+	typedef std::map<ActionName, std::vector<std::string>> ComputeActionGatingInfo;
 
-	struct ArchGatingInfo{
-    StorageGatingInfo storage_info = {};
-    PerDataSpaceGatingInfo compute_info = {};
+	struct ActionGatingInfo{
+    StorageActionGatingInfo storage_info = {};
+    ComputeActionGatingInfo compute_info = {};
+	};
+
+  //
+  // data structures for action skipping information
+  //
+  typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceActionSkippingInfo;
+  typedef std::map<std::string, PerDataSpaceActionSkippingInfo> PerStorageLevelActionSkippingInfo;
+	typedef std::map<unsigned, PerStorageLevelActionSkippingInfo> StorageActionSkippingInfo;
+
+	typedef std::map<ActionName, std::vector<std::string>> ComputeActionSkippingInfo;
+
+	struct ActionSkippingInfo{
+    StorageActionGatingInfo storage_info = {};
+    ComputeActionGatingInfo compute_info = {};
+	};
+
+  //
+  // data structures for compression information
+  //
+	typedef std::map<std::string, double> PerStorageLevelCompressionInfo;
+	// storage_level_id, per_storage_level_gating_info
+	typedef std::map<unsigned, PerStorageLevelCompressionInfo> CompressionInfo;
+
+  //
+  // aggregation of all sparse optimization related information
+  //
+	struct SparseOptimizationInfo{
+	  ActionGatingInfo action_gating_info;
+	  ActionSkippingInfo action_skipping_info;
+	  CompressionInfo compression_info = {};
 	};
   
 

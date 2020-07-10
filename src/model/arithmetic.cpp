@@ -234,9 +234,10 @@ void ArithmeticUnits::PopulateEnergyPerOp(unsigned num_ops){
     // go through ERT entries and look for appopriate energy values 
     ert_action_names = model::arithmeticOperationMappings.at(op_name);
     for (auto it = ert_action_names.begin(); it != ert_action_names.end(); ++it){
-      if(specs_.ERT_entries.count(*it)>0 && !ert_energy_found)
+      if(specs_.ERT_entries.count(*it)>0 && !ert_energy_found){
         ert_energy_per_op = specs_.ERT_entries.at(*it);
         ert_energy_found = true;
+      }
       if (it == ert_action_names.end() && !ert_energy_found){
         // ert_energy_per_op = specs_.energy_per_op.Get(); // use the max if no mapping is found
         ert_energy_per_op = 0;

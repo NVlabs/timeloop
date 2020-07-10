@@ -58,7 +58,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels);
 
 
-NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles, sparse::ArchGatingInfo* sparse_optimizations);
+NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles, sparse::SparseOptimizationInfo* sparse_optimizations);
 NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks);
 
 }  // namespace tiling

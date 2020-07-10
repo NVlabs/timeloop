@@ -32,133 +32,209 @@
 namespace sparse
 {
 
-	ArchGatingInfo arch_gating_info_;
-	ArchProperties arch_props_;
+SparseOptimizationInfo sparse_optimization_info_;
 
-	// forward declaration
-  unsigned FindTargetStorageLevel(std::string storage_level_name);
+ActionGatingInfo action_gating_info_;
+ActionSkippingInfo action_skipping_info_;
+CompressionInfo compression_info_;
 
+ArchProperties arch_props_;
 
-	ArchGatingInfo Parse(config::CompoundConfigNode sparse_config, model::Engine::Specs& arch_specs){
-		
-		
-		arch_props_.Construct(arch_specs);
-		config::CompoundConfigNode opt_target_list;
-		
-		if (sparse_config.exists("targets")){
-      opt_target_list = sparse_config.lookup("targets");
-      assert(opt_target_list.isList());
+// forward declaration
+unsigned FindTargetStorageLevel(std::string storage_level_name);
+void ParseActionGatingInfo(config::CompoundConfigNode directive);
+void ParseCompressionInfo(config::CompoundConfigNode directive);
 
-      for (int i = 0; i < opt_target_list.getLength(); i ++){
-      	// each element in the list represent a storage level's information
-      	auto directive = opt_target_list[i];
-      	// std::string optimization_type;
-      	// assert(directive.lookupValue("type", optimization_type));
+// highest level parse function
+SparseOptimizationInfo Parse(config::CompoundConfigNode sparse_config, model::Engine::Specs& arch_specs){
 
-        std::string level_name;
-        assert(directive.exists("name"));
-        directive.lookupValue("name", level_name);
+  arch_props_.Construct(arch_specs);
+  config::CompoundConfigNode opt_target_list;
 
-        // if (optimization_type == "data-gating"){
-        if (directive.exists("action-gating")){
+  if (sparse_config.exists("targets")){
+    opt_target_list = sparse_config.lookup("targets");
+    assert(opt_target_list.isList());
 
-        	auto action_gating_directive = directive.lookup("action-gating");
+    for (int i = 0; i < opt_target_list.getLength(); i ++){
+      // each element in the list represent a storage level's information
+      auto directive = opt_target_list[i];
+      if (directive.exists("action-gating")){
+        ParseActionGatingInfo(directive);
+      }
+      if (directive.exists("compression")){
+        ParseCompressionInfo(directive);
+      }
+    }
+  }
 
-          if (arch_props_.Specs().topology.GetArithmeticLevel()->name.Get() == level_name){
-	      	   // compute level gating optimization
-	           auto action_list = action_gating_directive.lookup("actions");
-	           assert(action_list.isList());
-	           PerDataSpaceGatingInfo compute_gating_info;
-	           
-	          for (int action_id = 0; action_id < action_list.getLength(); action_id ++){
+  sparse_optimization_info_.action_gating_info = action_gating_info_;
+  sparse_optimization_info_.compression_info = compression_info_;
+  return sparse_optimization_info_;
+}
 
-	           	std::string action_name;
-	           	action_list[action_id].lookupValue("name", action_name);
-	           	assert(action_name == "compute"); // we only recognize compute for MACs
+// parse for compression info (storage only) of one directive
+void ParseCompressionInfo(config::CompoundConfigNode directive){
 
-	            std::vector<std::string> action_data_space_list; 
-	              
-	            action_list[action_id].lookupArrayValue("criteria", action_data_space_list);
+  std::string level_name;
+  assert(directive.exists("name"));
+  directive.lookupValue("name", level_name);
 
-	            for (unsigned action_pv = 0; action_pv < unsigned(action_data_space_list.size()); action_pv++){
-	            	// go thorugh the data spaces that the action should gate on
-	            	std::string action_pv_name = action_data_space_list[action_pv];
-	            	compute_gating_info[action_name].push_back(action_pv_name);
-	            	// std::cout << "action " << action_name << " gated on " << action_pv_name << std::endl;
-		          }
-            }
+  auto compression_directive = directive.lookup("compression");
+  unsigned storage_level_id = FindTargetStorageLevel(level_name);
 
-            arch_gating_info_.compute_info = compute_gating_info;
+  if (compression_directive.exists("data-spaces")){
+     auto data_space_list = compression_directive.lookup("data-spaces");
+     assert(data_space_list.isList());
+     PerStorageLevelCompressionInfo per_storage_level_compression_info;
 
+     // action optimization specifications for later checking
+     PerStorageLevelActionGatingInfo per_storage_level_gating_info = {};
+     if (action_gating_info_.storage_info.find(storage_level_id) != action_gating_info_.storage_info.end()){
+       per_storage_level_gating_info = action_gating_info_.storage_info[storage_level_id];
+     }
+
+     PerStorageLevelActionSkippingInfo per_storage_level_skipping_info = {};
+     if (action_skipping_info_.storage_info.find(storage_level_id) != action_skipping_info_.storage_info.end()){
+       per_storage_level_skipping_info = action_skipping_info_.storage_info[storage_level_id];
+     }
+
+     // check if there is any compressed datatypes
+     for(unsigned pv = 0; pv < unsigned(data_space_list.getLength()); pv++){
+       std::string data_space_name;
+       data_space_list[pv].lookupValue("name", data_space_name);
+
+       double compression_rate = 1.0;  //default to fully compressed
+       if (data_space_list[pv].exists("compression_rate"))
+         data_space_list[pv].lookupValue("compression_rate", compression_rate);
+
+       per_storage_level_compression_info[data_space_name] = compression_rate;
+
+       // check if any architecture optimization is specified for the compressed data (action-gating for now)
+       if (per_storage_level_gating_info.find(data_space_name) == per_storage_level_gating_info.end() &&
+           per_storage_level_skipping_info.find(data_space_name) == per_storage_level_skipping_info.end()){
+         std::cout << level_name << ": please specify architecture optimization for processing compressed data" << std::endl;
+         exit(1);
+       } else {
+          std::map<ActionName, std::vector<std::string>> action_info;
+          if (per_storage_level_gating_info.find(data_space_name) != per_storage_level_gating_info.end()){
+              action_info = per_storage_level_gating_info.at(data_space_name);
           } else {
-      	    // stroage level gating optimization
-            unsigned storage_level_id = FindTargetStorageLevel(level_name);
+              action_info = per_storage_level_skipping_info.at(data_space_name);
+          }
+          // both read and write optimizations need to be specified
+          bool read_specified = false;
+          bool fill_specified = false;
+          for(auto const& action: action_info){
+            if (action.first == "read")
+              read_specified = true;
+            if (action.first == "write")
+              fill_specified = true;
+          }
+          assert(read_specified && fill_specified);
+       }
+     } // loop through the data spaces
 
-	        	// parse for data-gating optimization
-	        	if (action_gating_directive.exists("data-spaces")){
-	        		
-	        		PerStorageLevelGatingInfo per_storage_level_gating_info;
-	        		auto data_space_list = action_gating_directive.lookup("data-spaces");
-	        		assert(data_space_list.isList());
-	        		       		
-	        		for(unsigned pv = 0; pv < unsigned(data_space_list.getLength()); pv++){
-	            // go through the data spaces that have gated actions specified 
-	              if(data_space_list[pv].exists("actions")){
-	              	PerDataSpaceGatingInfo data_space_gating_info;
-	        			  std::string data_space_name;
-	                assert(data_space_list[pv].lookupValue("name", data_space_name));
-	                
-	                auto action_list = data_space_list[pv].lookup("actions");
-	                assert(action_list.isList());
-	                
-	                for(unsigned action_id = 0; action_id < unsigned(action_list.getLength()); action_id++){
-	                  // go through the gated actions specified for that specific data type
-	                  std::string action_name;
-	                  action_list[action_id].lookupValue("name", action_name);
+     compression_info_[storage_level_id] = per_storage_level_compression_info;
+  } // if there is compression specification in terms of data spaces
+}
 
-	                  // we only recognize read and write actions for buffers and metadata buffers
-	                  assert(action_name == "read" ||action_name == "write" || action_name == "metadata_write" || action_name == "metadata_read"); 
-	                  
-	                  std::vector<std::string> action_data_space_list; 
-	                  action_list[action_id].lookupArrayValue("criteria", action_data_space_list);
 
-	                  for (unsigned action_pv = 0; action_pv < unsigned(action_data_space_list.size()); action_pv++){
-	                  	// go thorugh the data spaces that the action should gate on
-	                  	std::string action_pv_name = action_data_space_list[action_pv];
-	                  	data_space_gating_info[action_name].push_back(action_pv_name);
-	                  	// std::cout << "action " << action_name << " gated on " << action_pv_name << std::endl;
-	                  }
-	                } // go through action list
-	                
-	                per_storage_level_gating_info[data_space_name] = data_space_gating_info;
-	              } // if exists gated-actions 
-	        		} // go through data-space list
-	        		
-	        		arch_gating_info_.storage_info[storage_level_id] = per_storage_level_gating_info;
-	        	}
-	        }
-	          
-        } else {
-        	std::cout << "Cannot recognize sparse optimization type" << std::endl;
-        	exit(1);
-        }
+// parse for action gating info (storage and compute) of one directive
+void ParseActionGatingInfo(config::CompoundConfigNode directive){
+
+  std::string level_name;
+  assert(directive.exists("name"));
+  directive.lookupValue("name", level_name);
+
+  auto action_gating_directive = directive.lookup("action-gating");
+
+  if (arch_props_.Specs().topology.GetArithmeticLevel()->name.Get() == level_name){
+     // compute level gating optimization
+     auto action_list = action_gating_directive.lookup("actions");
+     assert(action_list.isList());
+     PerDataSpaceActionGatingInfo compute_gating_info;
+
+    for (int action_id = 0; action_id < action_list.getLength(); action_id ++){
+
+      std::string action_name;
+      action_list[action_id].lookupValue("name", action_name);
+      assert(action_name == "compute"); // we only recognize compute for MACs
+
+      std::vector<std::string> action_data_space_list;
+
+      action_list[action_id].lookupArrayValue("criteria", action_data_space_list);
+
+      for (unsigned action_pv = 0; action_pv < unsigned(action_data_space_list.size()); action_pv++){
+        // go thorugh the data spaces that the action should gate on
+        std::string action_pv_name = action_data_space_list[action_pv];
+        compute_gating_info[action_name].push_back(action_pv_name);
+        // std::cout << "action " << action_name << " gated on " << action_pv_name << std::endl;
       }
     }
 
-    return arch_gating_info_;
-	}
+    action_gating_info_.compute_info = compute_gating_info;
+
+  } else {
+    // storage level gating optimization
+    unsigned storage_level_id = FindTargetStorageLevel(level_name);
+
+    // parse for data-gating optimization
+    if (action_gating_directive.exists("data-spaces")){
+
+      PerStorageLevelActionGatingInfo per_storage_level_gating_info;
+      auto data_space_list = action_gating_directive.lookup("data-spaces");
+      assert(data_space_list.isList());
+
+      for(unsigned pv = 0; pv < unsigned(data_space_list.getLength()); pv++){
+      // go through the data spaces that have gated actions specified
+        if(data_space_list[pv].exists("actions")){
+          PerDataSpaceActionGatingInfo data_space_gating_info;
+          std::string data_space_name;
+          assert(data_space_list[pv].lookupValue("name", data_space_name));
+
+          auto action_list = data_space_list[pv].lookup("actions");
+          assert(action_list.isList());
+
+          for(unsigned action_id = 0; action_id < unsigned(action_list.getLength()); action_id++){
+            // go through the gated actions specified for that specific data type
+            std::string action_name;
+            action_list[action_id].lookupValue("name", action_name);
+
+            // we only recognize read and write actions for buffers and metadata buffers
+            // assert(action_name == "read" ||action_name == "write" || action_name == "metadata_write" || action_name == "metadata_read");
+
+            std::vector<std::string> action_data_space_list;
+            action_list[action_id].lookupArrayValue("criteria", action_data_space_list);
+
+            for (unsigned action_pv = 0; action_pv < unsigned(action_data_space_list.size()); action_pv++){
+              // go thorugh the data spaces that the action should gate on
+              std::string action_pv_name = action_data_space_list[action_pv];
+              data_space_gating_info[action_name].push_back(action_pv_name);
+              // std::cout << "action " << action_name << " gated on " << action_pv_name << std::endl;
+            }
+          } // go through action list
+
+          per_storage_level_gating_info[data_space_name] = data_space_gating_info;
+        } // if exists gated-actions
+      } // go through data-space list
+
+      action_gating_info_.storage_info[storage_level_id] = per_storage_level_gating_info;
+    }
+  }
+}
+
 
 //
 // FindTargetTilingLevel()
 //
 unsigned FindTargetStorageLevel(std::string storage_level_name){
- 
+
   auto num_storage_levels = arch_props_.StorageLevels();
-    
+
   //
   // Find the target storage level using its name
   //
-  
+
    unsigned storage_level_id;
   // Find this name within the storage hierarchy in the arch specs.
   for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++)
@@ -166,7 +242,7 @@ unsigned FindTargetStorageLevel(std::string storage_level_name){
     if (arch_props_.Specs().topology.GetStorageLevel(storage_level_id)->level_name == storage_level_name)
       break;
   }
-  
+
   if (storage_level_id == num_storage_levels)
   {
     std::cerr << "ERROR: target storage level not found: " << storage_level_name << std::endl;

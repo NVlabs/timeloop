@@ -55,7 +55,7 @@ int GetNumOpTypes(std::string component_type){
 }
 
 
-double GetDensityByGatedDataSpaceNames(sparse::PerDataSpaceGatingInfo data_space_gating_info, 
+double GetDensityByGatedActionNames(sparse::PerDataSpaceActionGatingInfo data_space_gating_info,
                                        std::string action_name,
                                        tiling::CompoundDataMovementInfo& compound_data_movement){
   
@@ -64,29 +64,34 @@ double GetDensityByGatedDataSpaceNames(sparse::PerDataSpaceGatingInfo data_space
 
   if (data_space_gating_info.find(action_name)!= data_space_gating_info.end()){
     std::vector<std::string> gated_data_space_names = data_space_gating_info.at(action_name);
-    for (unsigned i = 0; i < gated_data_space_names.size(); i++){
-      id = problem::GetShape()->DataSpaceNameToID.at(gated_data_space_names[i]);
-      density *= compound_data_movement[id].tile_density.GetAverageDensity();
+    if (gated_data_space_names[0] == "all"){
+       density = 0.0;
+    } else {
+      for (unsigned i = 0; i < gated_data_space_names.size(); i++){
+        id = problem::GetShape()->DataSpaceNameToID.at(gated_data_space_names[i]);
+        density *= compound_data_movement[id].tile_density.GetAverageDensity();
+      }
     }
   }
 
   return density;
 }
 
+
 //
 // Storage
 //
 
 // forward declaration
-void ComputeFineGrainMetaDatAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, 
-                                    sparse::PerStorageLevelGatingInfo& per_level_sparse_gating);
+void ComputeFineGrainMetaDataAccesses(tiling::CompoundDataMovementInfo& compound_data_movement,
+                                      sparse::PerStorageLevelActionGatingInfo& per_level_sparse_gating);
 
-void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, 
-                                         sparse::PerStorageLevelGatingInfo& per_level_sparse_gating){
+void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& compound_data_movement,
+                                         sparse::PerStorageLevelActionGatingInfo& per_level_sparse_gating){
 
   double read_avg_density;
   double write_avg_density;
-  
+
   for (unsigned pv =0; pv < problem::GetShape() -> NumDataSpaces; pv++){  
     
     std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pv);
@@ -95,10 +100,10 @@ void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compo
 
       // std::cout << "   gating for dataspace: " << data_space_name << std::endl;
 
-      sparse::PerDataSpaceGatingInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
+      sparse::PerDataSpaceActionGatingInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
 
-      read_avg_density = GetDensityByGatedDataSpaceNames(data_space_gating_info, "read", compound_data_movement);
-      write_avg_density = GetDensityByGatedDataSpaceNames(data_space_gating_info, "write", compound_data_movement);
+      read_avg_density = GetDensityByGatedActionNames(data_space_gating_info, "read", compound_data_movement);
+      write_avg_density = GetDensityByGatedActionNames(data_space_gating_info, "write", compound_data_movement);
 
     } else {
       // no gating for this datatype at all
@@ -120,21 +125,22 @@ void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compo
 
     // fine-grained calculations for update actions
     std::uint64_t total_updates = compound_data_movement[pv].updates; 
-    std::uint64_t num_random_updates = ceil(write_avg_density * total_updates);
+    // std::uint64_t num_random_updates = ceil(write_avg_density * total_updates);
+    std::uint64_t num_random_updates = total_updates;  // we do not consider gating to update actions
     compound_data_movement[pv].fine_grained_accesses["random_update"] = num_random_updates;
     compound_data_movement[pv].fine_grained_accesses["gated_update"] = total_updates - num_random_updates;
     // std::cout << "level " << level << " reads: " << total_reads << " random reads: " << num_random_reads << std::endl;
   }
 
   // process meta data information for the buffer level
-  ComputeFineGrainMetaDatAcesses(compound_data_movement, per_level_sparse_gating);
+  ComputeFineGrainMetaDataAccesses(compound_data_movement, per_level_sparse_gating);
 }
 
 //
 // MetaData
 //
-void ComputeFineGrainMetaDatAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, 
-                                    sparse::PerStorageLevelGatingInfo& per_level_sparse_gating){
+void ComputeFineGrainMetaDataAccesses(tiling::CompoundDataMovementInfo& compound_data_movement,
+                                      sparse::PerStorageLevelActionGatingInfo& per_level_sparse_gating){
 
   double metadata_read_avg_density;
   double metadata_write_avg_density;
@@ -146,10 +152,10 @@ void ComputeFineGrainMetaDatAcesses(tiling::CompoundDataMovementInfo& compound_d
     if (per_level_sparse_gating.find(data_space_name) != per_level_sparse_gating.end()){
 
 
-      sparse::PerDataSpaceGatingInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
+      sparse::PerDataSpaceActionGatingInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
 
-      metadata_read_avg_density = GetDensityByGatedDataSpaceNames(data_space_gating_info, "metadata_read", compound_data_movement);
-      metadata_write_avg_density = GetDensityByGatedDataSpaceNames(data_space_gating_info, "metadata_write", compound_data_movement);
+      metadata_read_avg_density = GetDensityByGatedActionNames(data_space_gating_info, "metadata_read", compound_data_movement);
+      metadata_write_avg_density = GetDensityByGatedActionNames(data_space_gating_info, "metadata_write", compound_data_movement);
 
     } else {
       // no gating for this datatype at all
@@ -160,13 +166,14 @@ void ComputeFineGrainMetaDatAcesses(tiling::CompoundDataMovementInfo& compound_d
     // fine-grained calculations for metadata accesses actions
     std::uint64_t total_memory_reads = compound_data_movement[pv].reads; 
     std::uint64_t num_metadata_reads = ceil(metadata_read_avg_density * total_memory_reads);
-    compound_data_movement[pv].fine_grained_accesses["metadata_reads"] = num_metadata_reads;
-    compound_data_movement[pv].fine_grained_accesses["gated_metadata_reads"] = total_memory_reads - num_metadata_reads; 
+    compound_data_movement[pv].fine_grained_accesses["metadata_read"] = num_metadata_reads;
+    compound_data_movement[pv].fine_grained_accesses["gated_metadata_read"] = total_memory_reads - num_metadata_reads;
+    // std::cout << "metadata_reads" << compound_data_movement[pv].fine_grained_accesses["metadata_reads"] << std::endl;
 
-    std::uint64_t total_memory_fills = compound_data_movement[pv].fills; 
+    std::uint64_t total_memory_fills = compound_data_movement[pv].fills;
     std::uint64_t num_metadata_fills = ceil(metadata_write_avg_density * total_memory_fills);
-    compound_data_movement[pv].fine_grained_accesses["metadata_fills"] = num_metadata_fills;
-    compound_data_movement[pv].fine_grained_accesses["gated_metadata_fills"] = total_memory_fills - num_metadata_fills; 
+    compound_data_movement[pv].fine_grained_accesses["metadata_fill"] = num_metadata_fills;
+    compound_data_movement[pv].fine_grained_accesses["gated_metadata_fill"] = total_memory_fills - num_metadata_fills;
 
   }
 }
@@ -176,14 +183,14 @@ void ComputeFineGrainMetaDatAcesses(tiling::CompoundDataMovementInfo& compound_d
 // Arithmetic
 //
 
-void ComputeFineGrainComputeAcesses(tiling::ComputeInfo& compute_info, 
+void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info,
 	                                  tiling::CompoundDataMovementInfo& compound_data_movement,
-                                    sparse::ComputeGatingInfo compute_gating_info){
+                                    sparse::ComputeActionGatingInfo compute_gating_info){
 
  
   int total_accesses;  
   
-  double compute_avg_density = GetDensityByGatedDataSpaceNames(compute_gating_info, "compute", compound_data_movement);
+  double compute_avg_density = GetDensityByGatedActionNames(compute_gating_info, "compute", compound_data_movement);
   total_accesses = compute_info.replication_factor * compute_info.accesses; 
 
   // generate the necessary fine-grained action counts

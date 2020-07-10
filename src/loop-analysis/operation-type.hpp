@@ -57,7 +57,8 @@ static std::string networkOperationTypes[1] = {"random_transfer"};
 
 int GetNumOpTypes();
 int GetNumOpTypes(std::string component_type);
-void ComputeFineGrainComputeAcesses(tiling::ComputeInfo& compute_info, tiling::CompoundDataMovementInfo& data_movement, sparse::ComputeGatingInfo compute_gating_info);
-void ComputeFineGrainDataMovementAcesses(tiling::CompoundDataMovementInfo& compound_data_movement, sparse::PerStorageLevelGatingInfo& per_level_sparse_gating);
+void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info, tiling::CompoundDataMovementInfo& data_movement, sparse::ComputeActionGatingInfo compute_gating_info);
+void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& compound_data_movement, sparse::PerStorageLevelActionGatingInfo& per_level_sparse_gating);
+
 
 } // namespace problem

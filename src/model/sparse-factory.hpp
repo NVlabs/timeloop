@@ -29,6 +29,6 @@
 #include "sparse.hpp"
 
 namespace sparse{
-  // return format <storge_level_id, data_space_gating_info for the level>
-	ArchGatingInfo Parse(config::CompoundConfigNode sparse_config, model::Engine::Specs& arch_specs);
+  // return the information related to all types of sparse optimization
+	SparseOptimizationInfo Parse(config::CompoundConfigNode sparse_config, model::Engine::Specs& arch_specs);
 }

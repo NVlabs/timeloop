@@ -151,6 +151,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<bool> keep;
     problem::PerDataSpace<std::uint64_t> partition_size;
     problem::PerDataSpace<std::uint64_t> utilized_capacity;
+    problem::PerDataSpace<std::uint64_t> tile_size;
     problem::PerDataSpace<std::uint64_t> utilized_instances;
     problem::PerDataSpace<std::uint64_t> utilized_clusters;
     problem::PerDataSpace<unsigned long> reads;
@@ -298,6 +299,7 @@ class BufferLevel : public Level
   // Evaluation functions.
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
+                                const problem::Workload* workload,
                                 const bool break_on_failure) override;
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                       const std::uint64_t compute_cycles,
@@ -315,6 +317,7 @@ class BufferLevel : public Level
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   double CapacityUtilization() const override;
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
+  std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   
   // Printers.

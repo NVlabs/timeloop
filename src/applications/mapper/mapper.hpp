@@ -65,7 +65,7 @@ class Application
   mapspace::MapSpace* mapspace_;
   std::vector<mapspace::MapSpace*> split_mapspaces_;
   std::vector<search::SearchAlgorithm*> search_;
-  sparse::ArchGatingInfo sparse_optimizations_;
+  sparse::SparseOptimizationInfo sparse_optimizations_;
 
   uint128_t search_size_;
   std::uint32_t num_threads_;
@@ -471,6 +471,7 @@ class Application
         engine.Spec(arch_specs_);
         engine.Evaluate(mapping, workload_, sparse_optimizations_ , false);
         mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
+                            engine.GetTopology().GetStats().utilized_capacities,
                             engine.GetTopology().GetStats().tile_sizes);
       }
 
@@ -498,6 +499,7 @@ class Application
     {
       std::ofstream map_txt_file(map_txt_file_name);
       global_best_.mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
+                                      global_best_.stats.utilized_capacities,
                                       global_best_.stats.tile_sizes);
       map_txt_file.close();
 

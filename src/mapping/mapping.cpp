@@ -186,9 +186,10 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
 }
 
 void Mapping::PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
+                          const std::vector<problem::PerDataSpace<std::uint64_t>>& utlized_capacities,
                           const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes)
 {
-  loop_nest.PrettyPrint(out, storage_level_names, tiling::TransposeMasks(datatype_bypass_nest), tile_sizes);
+  loop_nest.PrettyPrint(out, storage_level_names, tiling::TransposeMasks(datatype_bypass_nest), utlized_capacities, tile_sizes);
 }
 
 void Mapping::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& storage_level_names,

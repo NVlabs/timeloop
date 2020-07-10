@@ -119,6 +119,7 @@ std::ostream& operator << (std::ostream& out, const Nest& nest)
 
 void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
                        const tiling::NestOfCompoundMasks& mask_nest,
+                       const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_capacities,
                        const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes)
 {
   unsigned num_loops = loops.size();
@@ -143,6 +144,11 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
           if (tile_sizes.size() > 0)
           {
             str << ":" << tile_sizes.at(inv_storage_level).at(pvi);
+          }
+          str << " ";
+          if (utilized_capacities.size() > 0)
+          {
+            str << "(" << utilized_capacities.at(inv_storage_level).at(pvi) << ")";
           }
           str << " ";
         }

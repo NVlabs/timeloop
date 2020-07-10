@@ -238,6 +238,7 @@ void NestAnalysis::InitializeLiveState()
   spatial_id_ = 0;
   
   compute_info_.Reset();
+  compute_info_sets_.clear();
 
   for (auto loop = nest_state_.rbegin(); loop != nest_state_.rend(); loop++)
   {

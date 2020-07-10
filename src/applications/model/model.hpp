@@ -59,7 +59,7 @@ class Application
   // Critical state.
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
-  sparse::ArchGatingInfo sparse_optimizations_;
+  sparse::SparseOptimizationInfo sparse_optimizations_;
   
   // Many of the following submodules are dynamic objects because
   // we can only instantiate them after certain config files have
@@ -292,7 +292,7 @@ class Application
           engine.GetTopology().MACCs() << std::endl;
     
       std::ofstream map_txt_file(map_txt_file_name);
-      mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().TileSizes());
+      mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());
       map_txt_file.close();
 
       std::ofstream stats_file(stats_file_name);

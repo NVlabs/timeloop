@@ -160,10 +160,12 @@ class ArithmeticUnits : public Level
 
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
+                                const problem::Workload* workload,
                                 const bool break_on_failure) override
   {
     (void) working_set_sizes;
     (void) mask;
+    (void) workload;
     (void) break_on_failure;
     return { true, "" };
   }
@@ -186,6 +188,12 @@ class ArithmeticUnits : public Level
   }
 
   double CapacityUtilization() const override { return 0; }
+
+  std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
+  {
+    (void) pv;
+    return 0;
+  }
 
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
   {

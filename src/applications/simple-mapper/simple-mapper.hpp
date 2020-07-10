@@ -51,7 +51,7 @@ class Application
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
-  sparse::ArchGatingInfo sparse_optimizations_;
+  sparse::SparseOptimizationInfo sparse_optimizations_;
 
   std::string out_prefix_ = "timeloop-mapper";
 
@@ -193,6 +193,7 @@ class Application
     {
       std::ofstream map_txt_file(map_txt_file_name);
       best_mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
+                               best_engine.GetTopology().UtilizedCapacities(),
                                best_engine.GetTopology().TileSizes());
       map_txt_file.close();
 
