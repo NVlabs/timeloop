@@ -157,12 +157,17 @@ class Application
             // loop levels where they are actually changing. Alternatively, since
             // we are simply walking through the space linearly, we can simply
             // use mapping_id.Increment(), it will walk across all dimensions.
+            bool success = true;
 
             // Construct a mapping from the mapping ID. This step can fail
             // because the space of *legal* mappings isn't dense (unfortunately),
             // so a mapping ID may point to an illegal mapping.
             Mapping mapping;
-            bool success = mapspace_->ConstructMapping(mapping_id, &mapping);
+
+            auto construction_status = mapspace_->ConstructMapping(mapping_id, &mapping);
+            success &= std::accumulate(construction_status.begin(), construction_status.end(), true,
+                                       [](bool cur, const mapspace::Status& status)
+                                       { return cur && status.success; });
             if (!success)
             {
               continue;

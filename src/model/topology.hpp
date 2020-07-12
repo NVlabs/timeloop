@@ -278,6 +278,7 @@ class Topology : public Module
   static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot);
   
   void Spec(const Specs& specs);
+  void Reset();
   unsigned NumLevels() const;
   unsigned NumStorageLevels() const;
   unsigned NumNetworks() const;

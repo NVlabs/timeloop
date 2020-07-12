@@ -146,6 +146,26 @@ struct EvaluationResult
 
 class MapperThread
 {
+ public:
+  struct Stats
+  {
+    EvaluationResult thread_best;
+    std::vector<uint128_t> invalid_eval_counts;
+    std::vector<Mapping> invalid_eval_sample_mappings;
+    std::vector<uint128_t> invalid_mapcnstr_counts;
+    std::vector<Mapping> invalid_mapcnstr_sample_mappings;
+
+    Stats() = delete;
+    
+    Stats(std::size_t num_levels) :
+      invalid_eval_counts(num_levels, 0),
+      invalid_eval_sample_mappings(num_levels),
+      invalid_mapcnstr_counts(num_levels, 0),
+      invalid_mapcnstr_sample_mappings(num_levels)        
+    {
+    }
+  };
+
  private:
   // Configuration information sent from main thread.
   unsigned thread_id_;
@@ -168,12 +188,10 @@ class MapperThread
   sparse::SparseOptimizationInfo sparse_optimizations_;
   EvaluationResult* best_;
     
-  // Thread-local data.
+  // Thread-local data (stats etc.).
   std::thread thread_;
-  EvaluationResult thread_best_;
-  std::vector<uint128_t> invalid_eval_counts_;
-  std::vector<Mapping> invalid_eval_sample_mappings_;
-
+  Stats stats_;
+  
  public:
   MapperThread(
     unsigned thread_id,
@@ -216,8 +234,7 @@ class MapperThread
       sparse_optimizations_(sparse_optimizations),
       best_(best),
       thread_(),
-      invalid_eval_counts_(arch_specs_.topology.NumLevels(), 0),
-      invalid_eval_sample_mappings_(arch_specs_.topology.NumLevels())
+      stats_(arch_specs_.topology.NumLevels())
   {
   }
 
@@ -232,19 +249,9 @@ class MapperThread
     thread_.join();
   }
 
-  EvaluationResult& BestResult()
+  const Stats& GetStats() const
   {
-    return thread_best_;
-  }
-
-  std::vector<uint128_t>& InvalidEvalCounts()
-  {
-    return invalid_eval_counts_;
-  }
-
-  std::vector<Mapping>& InvalidEvalSampleMappings()
-  {
-    return invalid_eval_sample_mappings_;
+    return stats_;
   }
 
   void Run()
@@ -278,9 +285,9 @@ class MapperThread
 
         if (valid_mappings > 0)
         {
-          msg << std::setw(10) << std::fixed << std::setprecision(2) << (thread_best_.stats.utilization * 100) << "%"
-              << std::setw(11) << std::fixed << std::setprecision(3) << thread_best_.stats.energy /
-            thread_best_.stats.maccs;
+          msg << std::setw(10) << std::fixed << std::setprecision(2) << (stats_.thread_best.stats.utilization * 100) << "%"
+              << std::setw(11) << std::fixed << std::setprecision(3) << stats_.thread_best.stats.energy /
+            stats_.thread_best.stats.maccs;
         }
 
         mutex_->lock();
@@ -370,16 +377,16 @@ class MapperThread
         bool global_pulled = false;
         if (best_->valid)
         {
-          if (thread_best_.UpdateIfBetter(*best_, optimization_metrics_))
+          if (stats_.thread_best.UpdateIfBetter(*best_, optimization_metrics_))
           {
             global_pulled = true;
           }
         }
 
         // Sync from thread_best to global best.
-        if (thread_best_.valid && !global_pulled)
+        if (stats_.thread_best.valid && !global_pulled)
         {
-          best_->UpdateIfBetter(thread_best_, optimization_metrics_);
+          best_->UpdateIfBetter(stats_.thread_best, optimization_metrics_);
         }
           
         mutex_->unlock();
@@ -407,19 +414,35 @@ class MapperThread
       // complexity and attempt to bail out as quickly as possible at each stage.
       //
       bool success = true;
-      std::vector<model::EvalStatus> status_per_level;
 
       // Stage 1: Construct a mapping from the mapping ID. This step can fail
       //          because the space of *legal* mappings isn't dense (unfortunately),
       //          so a mapping ID may point to an illegal mapping.
       Mapping mapping;
 
-      success &= mapspace_->ConstructMapping(mapping_id, &mapping);
+      auto construction_status = mapspace_->ConstructMapping(mapping_id, &mapping, !diagnostics_on_);
+      success &= std::accumulate(construction_status.begin(), construction_status.end(), true,
+                                 [](bool cur, const mapspace::Status& status)
+                                 { return cur && status.success; });
+
       total_mappings++;
 
       if (!success)
       {
         invalid_mappings_mapcnstr++;
+        if (diagnostics_on_)
+        {
+          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
+          {
+            if (!construction_status.at(level).success)
+            {
+              // Collect 1 sample failed mapping per level.
+              if (stats_.invalid_mapcnstr_counts.at(level) == 0)
+                stats_.invalid_mapcnstr_sample_mappings.at(level) = mapping;
+              stats_.invalid_mapcnstr_counts.at(level)++;
+            }
+          }
+        }
         search_->Report(search::Status::MappingConstructionFailure);
         continue;
       }
@@ -428,7 +451,7 @@ class MapperThread
       //          on, and run some lightweight pre-checks that the
       //          model can use to quickly reject a nest.
       //engine.Spec(arch_specs_);
-      status_per_level = engine.PreEvaluationCheck(mapping, workload_, !diagnostics_on_);
+      auto status_per_level = engine.PreEvaluationCheck(mapping, workload_, !diagnostics_on_);
       success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                  [](bool cur, const model::EvalStatus& status)
                                  { return cur && status.success; });
@@ -451,9 +474,9 @@ class MapperThread
             if (!status_per_level.at(level).success)
             {
               // Collect 1 sample failed mapping per level.
-              if (invalid_eval_counts_.at(level) == 0)
-                invalid_eval_sample_mappings_.at(level) = mapping;
-              invalid_eval_counts_.at(level)++;
+              if (stats_.invalid_eval_counts.at(level) == 0)
+                stats_.invalid_eval_sample_mappings.at(level) = mapping;
+              stats_.invalid_eval_counts.at(level)++;
             }
           }
         }
@@ -484,9 +507,9 @@ class MapperThread
             if (!status_per_level.at(level).success)
             {
               // Collect 1 sample failed mapping per level.
-              if (invalid_eval_counts_.at(level) == 0)
-                invalid_eval_sample_mappings_.at(level) = mapping;
-              invalid_eval_counts_.at(level)++;
+              if (stats_.invalid_eval_counts.at(level) == 0)
+                stats_.invalid_eval_sample_mappings.at(level) = mapping;
+              stats_.invalid_eval_counts.at(level)++;
             }
           }
         }
@@ -516,23 +539,24 @@ class MapperThread
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                     << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
                     << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
-                    << " | IF = " << mapping_id[int(mapspace::Dimension::IndexFactorization)]
-                    << " | LP = " << mapping_id[int(mapspace::Dimension::LoopPermutation)]
-                    << " | S = " << mapping_id[int(mapspace::Dimension::Spatial)]
-                    << " | B = " << mapping_id[int(mapspace::Dimension::DatatypeBypass)]
+                    // << " | IF = " << mapping_id[int(mapspace::Dimension::IndexFactorization)]
+                    // << " | LP = " << mapping_id[int(mapspace::Dimension::LoopPermutation)]
+                    // << " | S = " << mapping_id[int(mapspace::Dimension::Spatial)]
+                    // << " | B = " << mapping_id[int(mapspace::Dimension::DatatypeBypass)]
+                    << " | " << mapping.PrintCompact()
                     << std::endl;
         mutex_->unlock();
       }
 
       // Is the new mapping "better" than the previous best mapping?
-      if (thread_best_.UpdateIfBetter(result, optimization_metrics_))
+      if (stats_.thread_best.UpdateIfBetter(result, optimization_metrics_))
       {
         if (log_stats_)
         {
           // FIXME: improvement only captures the primary stat.
-          double improvement = thread_best_.valid ?
-            (Cost(thread_best_.stats, optimization_metrics_.at(0)) - Cost(stats, optimization_metrics_.at(0))) /
-            Cost(thread_best_.stats, optimization_metrics_.at(0)) : 1.0;
+          double improvement = stats_.thread_best.valid ?
+            (Cost(stats_.thread_best.stats, optimization_metrics_.at(0)) - Cost(stats, optimization_metrics_.at(0))) /
+            Cost(stats_.thread_best.stats, optimization_metrics_.at(0)) : 1.0;
           mutex_->lock();
           log_stream_ << "[" << thread_id_ << "] UPDATE " << total_mappings << " " << valid_mappings
                       << " " << mappings_since_last_best_update << " " << improvement << std::endl;
@@ -544,8 +568,9 @@ class MapperThread
           mutex_->lock();
           log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                       << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                      << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy /
-            stats.maccs << std::endl;
+                      << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
+                      << " | " << mapping.PrintCompact()
+                      << std::endl;
           mutex_->unlock();
         }
 

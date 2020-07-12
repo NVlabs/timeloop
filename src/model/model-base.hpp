@@ -104,8 +104,10 @@ class Module
   bool is_evaluated_ = false;
 
  public:
+  virtual ~Module() {}
   bool IsSpecced() const { return is_specced_; }
   bool IsEvaluated() const { return is_evaluated_; }
+  virtual void Reset() { is_evaluated_ = false; }
 };
 
 } // namespace model

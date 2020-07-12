@@ -35,12 +35,12 @@
 
 using namespace boost::multiprecision;
 
+namespace mapspace
+{
+
 //--------------------------------------------//
 //             Mapspace Dimensions            //
 //--------------------------------------------//
-
-namespace mapspace
-{
 
 enum class Dimension
 {
@@ -54,7 +54,21 @@ enum class Dimension
 
 std::ostream& operator << (std::ostream& out, Dimension d);
 
+//--------------------------------------------//
+//                MapSpace ID                 //
+//--------------------------------------------//
+
 typedef CartesianCounter<int(Dimension::Num)> ID;
+
+//--------------------------------------------//
+//                   Status                   //
+//--------------------------------------------//
+
+struct Status
+{
+  bool success;
+  std::string fail_reason;
+};
 
 //--------------------------------------------//
 //                  MapSpace                  //
@@ -81,14 +95,13 @@ class MapSpace
 
   virtual void InitPruned(uint128_t local_index_factorization_id) = 0;
 
-  virtual bool ConstructMapping(ID mapping_id, Mapping* mapping) = 0;
+  virtual std::vector<Status> ConstructMapping(ID mapping_id, Mapping* mapping, bool break_on_failure = true) = 0;
 
-  bool ConstructMapping(const uint128_t mapping_id,
-                        Mapping* mapping)
+  std::vector<Status> ConstructMapping(const uint128_t mapping_id, Mapping* mapping, bool break_on_failure = true)
   {
     ID cmapping_id(size_);
     cmapping_id.Set(mapping_id);
-    return ConstructMapping(cmapping_id, mapping); 
+    return ConstructMapping(cmapping_id, mapping, break_on_failure); 
   }
 
   uint128_t Size(Dimension dim)
