@@ -745,7 +745,12 @@ class Uber : public MapSpace
       unsigned storage_level = arch_props_.TilingToStorage(level);
       unsigned topology_level = arch_props_.Specs().topology.StorageMap(storage_level);
 
-      status.at(topology_level) = s;
+      // Merge with existing failures at this level.
+      if (status.at(topology_level).success)
+        status.at(topology_level) = s;
+      else
+        status.at(topology_level).fail_reason += ", " + s.fail_reason;
+
       success &= s.success;
 
       if (break_on_failure && !s.success)
@@ -755,19 +760,18 @@ class Uber : public MapSpace
     
     if (cumulative_fanout_utilization < constraints_.MinParallelism())
     {
-      // Piggyback this failure with any existing level-0 failures.
       std::ostringstream fail_reason;
       fail_reason << "parallelism " << cumulative_fanout_utilization << " is less than "
                   << "constrained min-parallelism " << constraints_.MinParallelism();
-      if (status.at(0).success)
-      {
-        status.at(0).success = false;
-        status.at(0).fail_reason = fail_reason.str();
-      }
+
+      // Report this as an arithmetic-level failure.
+      unsigned topology_level = arch_props_.Specs().topology.ArithmeticMap();
+
+      // Merge with existing failures at this level.
+      if (status.at(topology_level).success)
+        status.at(topology_level) = { false, fail_reason.str() };
       else
-      {
-        status.at(0).fail_reason += ", and " + fail_reason.str();        
-      }
+        status.at(topology_level).fail_reason += ", " + fail_reason.str();
     }
       
     return status;
