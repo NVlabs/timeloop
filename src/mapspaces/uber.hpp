@@ -716,7 +716,8 @@ class Uber : public MapSpace
   {
     (void) datatype_bypass_nest;
 
-    std::vector<Status> status(arch_props_.StorageLevels(), { .success = true, .fail_reason = "" });
+    std::vector<Status> status(arch_props_.Specs().topology.NumLevels(),
+                               { .success = true, .fail_reason = "" });
     bool success = true;
 
     auto spatial_splits = spatial_split_space_.GetSplits(mapping_spatial_id);
@@ -741,7 +742,10 @@ class Uber : public MapSpace
         level,
         cumulative_fanout_utilization);
 
-      status.at(arch_props_.TilingToStorage(level)) = s;
+      unsigned storage_level = arch_props_.TilingToStorage(level);
+      unsigned topology_level = arch_props_.Specs().topology.StorageMap(storage_level);
+
+      status.at(topology_level) = s;
       success &= s.success;
 
       if (break_on_failure && !s.success)
