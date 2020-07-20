@@ -204,7 +204,7 @@ class Topology : public Module
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
   void FloorPlan();
-  void ComputeStats();
+  void ComputeStats(bool eval_success);
 
  public:
 

@@ -25,6 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <random>
+
 #include "model/engine.hpp"
 
 extern bool gTerminate;
@@ -140,6 +142,35 @@ struct EvaluationResult
 };
 
 //--------------------------------------------//
+//              Failure Tracking              //
+//--------------------------------------------//
+
+enum class FailClass
+{
+  Fanout,
+  Capacity
+};
+
+std::map<FailClass, std::string> FailClassToString =
+{
+  { FailClass::Fanout, "Fanout" },
+  { FailClass::Capacity, "Capacity" }
+};
+
+std::ostream& operator << (std::ostream& out, const FailClass& fail_class)
+{
+  out << FailClassToString.at(fail_class);
+  return out;
+}
+
+struct FailInfo
+{
+  uint128_t count = 0;
+  Mapping mapping;
+  std::string reason;
+};
+
+//--------------------------------------------//
 //               Mapper Thread                //
 //--------------------------------------------//
 
@@ -149,20 +180,70 @@ class MapperThread
   struct Stats
   {
     EvaluationResult thread_best;
-    std::vector<uint128_t> invalid_eval_counts;
-    std::vector<Mapping> invalid_eval_sample_mappings;
-    std::vector<uint128_t> invalid_mapcnstr_counts;
-    std::vector<Mapping> invalid_mapcnstr_sample_mappings;
+    std::map<FailClass, std::map<unsigned, FailInfo>> fail_stats;
 
-    Stats() = delete;
-    
-    Stats(std::size_t num_levels) :
-      invalid_eval_counts(num_levels, 0),
-      invalid_eval_sample_mappings(num_levels),
-      invalid_mapcnstr_counts(num_levels, 0),
-      invalid_mapcnstr_sample_mappings(num_levels)        
+    std::default_random_engine generator;
+    std::uniform_real_distribution<double> distribution;
+
+    Stats() :
+        distribution(0.0,1.0)
     {
     }
+
+    void UpdateFails(FailClass fail_class, std::string fail_reason, unsigned level, const Mapping& mapping)
+    {
+        // Find the data corresponding to this fail class.
+        auto fail_bucket_it = fail_stats.find(fail_class);
+        if (fail_bucket_it == fail_stats.end())
+        {
+          // We've never seen this fail class before.
+          std::map<unsigned, FailInfo> fail_bucket;
+          fail_bucket[level] = { .count = 1, .mapping = mapping, .reason = fail_reason };
+          fail_stats[fail_class] = fail_bucket;
+        }
+        else
+        {
+          // We've seen this fail class, see if this level has
+          // failed in this class.
+          auto& fail_bucket = fail_bucket_it->second;
+          auto fail_info_it = fail_bucket.find(level);
+          if (fail_info_it == fail_bucket.end())
+          {
+            // No, this is the first time this level has failed in
+            // this fail class, create a new entry.
+            fail_bucket[level] = { .count = 1, .mapping = mapping, .reason = fail_reason };
+          }
+          else
+          {
+            // This level has already failed in this class,
+            // increment its count.
+            fail_info_it->second.count += 1;
+ 
+            // p(x) = prob. that I switch to x when it arrives
+            // p(0) = 1
+
+            // P(x) = prob. that x is finally selected.
+            // 1/N = P(0) = p(0).(1-p(1)).(1-p(2))...(1-p(N-1))
+            // 1/N = P(1) =        (p(1)).(1-p(2))...(1-p(N-1))
+
+            // p(x).(1-p(x+1)) = p(x+1)
+            // ...
+            // => p(x+1) = p(x) / [1+p(x)]
+            // ...
+            // => p(x) = 1/(1+x)
+
+            // Compute the probability of switching (we've already computed count=x+1)
+            double prob = 1 / fail_info_it->second.count.convert_to<double>();
+
+            // Probabilistically update the mapping.
+            double roll = distribution(generator);
+            if (roll < prob)
+            {
+              fail_info_it->second.mapping = mapping;
+            }
+          }
+        }
+    }    
   };
 
  private:
@@ -230,7 +311,7 @@ class MapperThread
       workload_(workload),
       best_(best),
       thread_(),
-      stats_(arch_specs_.topology.NumLevels())
+      stats_()
   {
   }
 
@@ -428,16 +509,9 @@ class MapperThread
         invalid_mappings_mapcnstr++;
         if (diagnostics_on_)
         {
-          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
-          {
+          for (unsigned level = 0; level < construction_status.size(); level++)
             if (!construction_status.at(level).success)
-            {
-              // Collect 1 sample failed mapping per level.
-              if (stats_.invalid_mapcnstr_counts.at(level) == 0)
-                stats_.invalid_mapcnstr_sample_mappings.at(level) = mapping;
-              stats_.invalid_mapcnstr_counts.at(level)++;
-            }
-          }
+              stats_.UpdateFails(FailClass::Fanout, construction_status.at(level).fail_reason, level, mapping);
         }
         search_->Report(search::Status::MappingConstructionFailure);
         continue;
@@ -465,16 +539,9 @@ class MapperThread
 
         if (diagnostics_on_)
         {
-          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
-          {
+          for (unsigned level = 0; level < status_per_level.size(); level++)
             if (!status_per_level.at(level).success)
-            {
-              // Collect 1 sample failed mapping per level.
-              if (stats_.invalid_eval_counts.at(level) == 0)
-                stats_.invalid_eval_sample_mappings.at(level) = mapping;
-              stats_.invalid_eval_counts.at(level)++;
-            }
-          }
+              stats_.UpdateFails(FailClass::Capacity, status_per_level.at(level).fail_reason, level, mapping);
         }
         search_->Report(search::Status::EvalFailure);
         continue;
@@ -498,16 +565,9 @@ class MapperThread
 
         if (diagnostics_on_)
         {
-          for (unsigned level = 0; level < arch_specs_.topology.NumLevels(); level++)
-          {
+          for (unsigned level = 0; level < status_per_level.size(); level++)
             if (!status_per_level.at(level).success)
-            {
-              // Collect 1 sample failed mapping per level.
-              if (stats_.invalid_eval_counts.at(level) == 0)
-                stats_.invalid_eval_sample_mappings.at(level) = mapping;
-              stats_.invalid_eval_counts.at(level)++;
-            }
-          }
+              stats_.UpdateFails(FailClass::Capacity, status_per_level.at(level).fail_reason, level, mapping);
         }
         search_->Report(search::Status::EvalFailure);
         continue;
@@ -535,10 +595,6 @@ class MapperThread
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                     << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
                     << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
-                    // << " | IF = " << mapping_id[int(mapspace::Dimension::IndexFactorization)]
-                    // << " | LP = " << mapping_id[int(mapspace::Dimension::LoopPermutation)]
-                    // << " | S = " << mapping_id[int(mapspace::Dimension::Spatial)]
-                    // << " | B = " << mapping_id[int(mapspace::Dimension::DatatypeBypass)]
                     << " | " << mapping.PrintCompact()
                     << std::endl;
         mutex_->unlock();
