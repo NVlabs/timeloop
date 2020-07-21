@@ -37,19 +37,25 @@
 namespace tiling
 {
 
-// define the (data-dependent fine-grained) operaton types for each type of components
-static std::string storageOperationTypes[10] = {"random_read",   
-                                               "random_fill",    
-                                               "random_update", 
-                                               "gated_read",
-                                               "gated_fill",
-                                               "gated_update",
-                                               "metadata_read",
-                                               "gated_metadata_read",
-                                               "metadata_fill",
-                                               "gated_metadata_fill"};   // we don't update a metadata
+// define the (data-dependent fine-grained) operation types for each type of components
+static std::string storageOperationTypes[15] = {"random_read",
+                                                "random_fill",
+                                                "random_update",
+                                                "gated_read",
+                                                "gated_fill",
+                                                "gated_update",
+                                                "skipped_read",
+                                                "skipped_fill",
+                                                "skipped_update",
+                                                "metadata_read",
+                                                "gated_metadata_read",
+                                                "metadata_fill",
+                                                "gated_metadata_fill",
+                                                "decompression_count",
+                                                "compression_count"};   // we don't update a metadata
 
-static std::string arithmeticOperationTypes[2] = {"random_compute",
+static std::string arithmeticOperationTypes[3] = {"random_compute",
+                                                  "skipped_compute",
                                                   "gated_compute"};
 
 static std::string networkOperationTypes[1] = {"random_transfer"};
@@ -57,8 +63,19 @@ static std::string networkOperationTypes[1] = {"random_transfer"};
 
 int GetNumOpTypes();
 int GetNumOpTypes(std::string component_type);
-void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info, tiling::CompoundDataMovementInfo& data_movement, sparse::ComputeActionGatingInfo compute_gating_info);
-void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& compound_data_movement, sparse::PerStorageLevelActionGatingInfo& per_level_sparse_gating);
+void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info,
+                                     tiling::CompoundDataMovementInfo& data_movement,
+                                     sparse::ComputeActionOptimizationInfo& compute_gating_info,
+                                     sparse::ComputeActionOptimizationInfo& compute_skipping_info);
+
+void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& compound_data_movement,
+                                          sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
+                                          sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_skipping);
+
+void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& per_level_compression_info,
+                                      tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                                      sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
+                                      unsigned level);
 
 
 } // namespace problem

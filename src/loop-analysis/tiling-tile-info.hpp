@@ -68,6 +68,8 @@ struct DataMovementInfo
   std::uint64_t fills;
   std::uint64_t reads;
   std::uint64_t updates;
+  std::uint64_t metadata_fills;
+  std::uint64_t metadata_reads;
   std::uint64_t temporal_reductions;
   std::uint64_t link_transfers;
   std::uint64_t peer_accesses;           // number of accesses caused by link transfers in the previous level 
@@ -83,7 +85,21 @@ struct DataMovementInfo
   // tile density
   problem::DataDensity tile_density;             // statistical representation of tile data density
   // fine grained actions, names defined in operation-type.hpp
-  std::map<std::string, std::uint64_t> fine_grained_accesses; 
+  std::map<std::string, std::uint64_t> fine_grained_accesses;
+
+  // compression related
+  bool compressed;
+  std::string metadata_format;
+  std::uint64_t metadata_tile_size;
+  // for CSR only
+  std::vector<problem::Shape::DimensionID> rank0_list;
+  std::vector<problem::Shape::DimensionID> rank1_list;
+
+  // parent/child level for inferring decompression/compression overhead
+  problem::Shape::DataSpaceID parent_level;
+  problem::Shape::DataSpaceID child_level;
+  bool parent_level_compressed;
+  bool child_level_compressed;
 
   std::uint64_t GetTotalAccesses() const
   {
@@ -116,6 +132,16 @@ struct DataMovementInfo
     replication_factor = 0;
     fanout = 0;
     distributed_fanout = 0;
+    compressed = false;
+    compressed_size = 0;
+    metadata_format.resize(0);
+    parent_level=std::numeric_limits<unsigned>::max();
+    child_level=std::numeric_limits<unsigned>::max();
+    parent_level_compressed = false;
+    child_level_compressed = false;
+    fine_grained_accesses.clear();
+    rank1_list.resize(0);
+    rank0_list.resize(0);
   }
 
   void Validate()

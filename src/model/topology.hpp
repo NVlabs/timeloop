@@ -52,19 +52,25 @@ namespace model
 
 // format {timeloop_action_name: [priority list of ERT action names]}
 static std::map<std::string, std::vector<std::string>> arithmeticOperationMappings = {{ "random_compute", { "mac_random", "mac"}},
+                                                                                      { "skipped_compute", {"mac_skipped", "mac_gated", "mac"}},
                                                                                       { "gated_compute", { "mac_gated", "mac"}}
                                                                                      };
 
 static std::map<std::string, std::vector<std::string>> storageOperationMappings = {{ "random_read", { "random_read", "read"}},
                                                                                    { "random_fill", { "random_fill", "write"}},
-                                                                                   { "random_update", { "random_update", "write"}},
+                                                                                   { "random_update", { "random_fill", "write"}},
                                                                                    { "gated_read", { "gated_read", "idle", "read"}},
                                                                                    { "gated_fill", { "gated_write", "gated_write", "idle", "write"}},
-                                                                                   { "gated_update", { "gated_update", "gated_write", "idle", "write"}},
+                                                                                   { "gated_update", { "gated_write", "gated_write", "idle", "write"}},
+                                                                                   { "skipped_read", { "skipped_read", "gated_read", "idle", "read"}},
+                                                                                   { "skipped_fill", { "skipped_fill", "skipped_write", "gated_write", "idle", "write"}},
+                                                                                   { "skipped_update", { "skipped_update", "skipped_write", "gated_write", "idle", "write"}},
                                                                                    { "metadata_read", { "metadata_read", "metadata_idle", "idle"}},
                                                                                    { "gated_metadata_read", { "gated_metadata_read", "metadata_idle", "metadata_read"}},
                                                                                    { "metadata_fill", { "metadata_write", "metadata_idle", "idle"}},
-                                                                                   { "gated_metadata_fill", { "gated_metadata_write", "metadata_idle", "metadata_write"}}
+                                                                                   { "gated_metadata_fill", { "gated_metadata_write", "metadata_idle", "metadata_write"}},
+                                                                                   { "decompression_count", { "decompression_count"}},
+                                                                                   { "compression_count", { "compression_count"}}
                                                                                   }; 
 
 static std::string bufferClasses[5] = { "DRAM",

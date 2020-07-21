@@ -86,6 +86,7 @@ class BufferLevel : public Level
 
     //metadata_storage related
     Attribute<std::uint64_t> metadata_block_size;
+    Attribute<std::uint64_t> metadata_word_bits;
 
     Attribute<std::string> read_network_name;
     Attribute<std::string> fill_network_name;
@@ -168,15 +169,27 @@ class BufferLevel : public Level
 
     // fine-grained action stats
     problem::PerDataSpace<unsigned long> gated_reads;
+    problem::PerDataSpace<unsigned long> skipped_reads;
     problem::PerDataSpace<unsigned long> random_reads;
+
     problem::PerDataSpace<unsigned long> gated_fills;
+    problem::PerDataSpace<unsigned long> skipped_fills;
     problem::PerDataSpace<unsigned long> random_fills;
+
     problem::PerDataSpace<unsigned long> gated_updates;
+    problem::PerDataSpace<unsigned long> skipped_updates;
     problem::PerDataSpace<unsigned long> random_updates;
+
     problem::PerDataSpace<unsigned long> metadata_reads;
+    problem::PerDataSpace<unsigned long> random_metadata_reads;
     problem::PerDataSpace<unsigned long> gated_metadata_reads;
-    problem::PerDataSpace<unsigned long> metadata_writes;
-    problem::PerDataSpace<unsigned long> gated_metadata_writes;
+    problem::PerDataSpace<unsigned long> metadata_fills;
+    problem::PerDataSpace<unsigned long> random_metadata_fills;
+    problem::PerDataSpace<unsigned long> gated_metadata_fills;
+    problem::PerDataSpace<unsigned long> metadata_tile_size;
+
+    problem::PerDataSpace<unsigned long> decompression_counts;
+    problem::PerDataSpace<unsigned long> compression_counts;
 
     std::uint64_t cycles;
     double slowdown;

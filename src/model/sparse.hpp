@@ -35,46 +35,52 @@
 namespace sparse{
 
   //
-  // data structures for action gating information
+  // data structures shared by action-gating and action-skipping optimization info
   //
 	typedef std::string ActionName;
-	typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceActionGatingInfo;
-	typedef std::map<std::string, PerDataSpaceActionGatingInfo> PerStorageLevelActionGatingInfo;
+	typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceActionOptimizationInfo;
+	typedef std::map<std::string, PerDataSpaceActionOptimizationInfo> PerStorageLevelActionOptimizationInfo;
 
   // storage_level_id, per_storage_level_gating_info
-	typedef std::map<unsigned, PerStorageLevelActionGatingInfo> StorageActionGatingInfo;
+	typedef std::map<unsigned, PerStorageLevelActionOptimizationInfo> StorageActionOptimizationInfo;
 
-	typedef std::map<ActionName, std::vector<std::string>> ComputeActionGatingInfo;
+	typedef std::map<ActionName, std::vector<std::string>> ComputeActionOptimizationInfo;
 
+  //
+  // data structure for action gating information
+  //
 	struct ActionGatingInfo{
-    StorageActionGatingInfo storage_info = {};
-    ComputeActionGatingInfo compute_info = {};
+    StorageActionOptimizationInfo storage_info = {};
+    ComputeActionOptimizationInfo compute_info = {};
 	};
 
   //
-  // data structures for action skipping information
+  // data structure for action skipping information
   //
-  typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceActionSkippingInfo;
-  typedef std::map<std::string, PerDataSpaceActionSkippingInfo> PerStorageLevelActionSkippingInfo;
-	typedef std::map<unsigned, PerStorageLevelActionSkippingInfo> StorageActionSkippingInfo;
-
-	typedef std::map<ActionName, std::vector<std::string>> ComputeActionSkippingInfo;
-
 	struct ActionSkippingInfo{
-    StorageActionGatingInfo storage_info = {};
-    ComputeActionGatingInfo compute_info = {};
+    StorageActionOptimizationInfo storage_info = {};
+    ComputeActionOptimizationInfo compute_info = {};
 	};
 
   //
   // data structures for compression information
   //
-	typedef std::map<std::string, double> PerStorageLevelCompressionInfo;
+  struct PerDataSpaceCompressionInfo{
+    bool compressed;
+    double compression_rate;
+    std::string metadata_format;
+    // specific for CSR
+    std::vector<unsigned> rank0_list={};
+    std::vector<unsigned> rank1_list={};
+  };
+	typedef std::map<std::string, PerDataSpaceCompressionInfo> PerStorageLevelCompressionInfo;
 	// storage_level_id, per_storage_level_gating_info
 	typedef std::map<unsigned, PerStorageLevelCompressionInfo> CompressionInfo;
 
   //
   // aggregation of all sparse optimization related information
   //
+
 	struct SparseOptimizationInfo{
 	  ActionGatingInfo action_gating_info;
 	  ActionSkippingInfo action_skipping_info;

@@ -114,6 +114,16 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
     specs.metadata_block_size = block_size;
   }
 
+  // Metadata data width
+  // we currently consider metadata to be stored in the same storage
+  // metadata data width is important to get a realistic size for the metadata
+  // default to 0 -> no metadata
+  // FIXME: consider metatdata as its own dataspace
+  std::uint32_t metadata_word_bits;
+  specs.metadata_word_bits = 0;
+  if (buffer.lookupValue("metadata_datawidth", metadata_word_bits)){
+     specs.metadata_word_bits = metadata_word_bits;
+  }
 
   // Cluster size.
   std::uint32_t cluster_size;
@@ -607,7 +617,11 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
     stats_.partition_size[pv] = tile[pvi].partition_size;
     // stats_.utilized_capacity[pv] = tile[pvi].size;
     stats_.tile_size[pv] = tile[pvi].size;
-    stats_.utilized_capacity[pv] = tile[pvi].compressed_size;
+    // assume metadata is stored in the same storage as the actual data
+    stats_.metadata_tile_size[pv] = tile[pvi].metadata_tile_size;
+    stats_.utilized_capacity[pv] = tile[pvi].compressed_size
+                                   + ceil(tile[pvi].metadata_tile_size
+                                          * specs_.metadata_word_bits.Get() / specs_.word_bits.Get());
     stats_.utilized_instances[pv] = tile[pvi].replication_factor;
 
     assert((tile[pvi].size == 0) == (tile[pvi].content_accesses == 0));
@@ -654,15 +668,30 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
     else
       stats_.address_generations[pv] = stats_.reads[pv] + stats_.fills[pv]; // FIXME? we want address generation be accounted for in energy/compound action?
 
-    // reocrd the access counts for fine-grained actions
+    stats_.metadata_reads[pv] = tile[pvi].metadata_reads;
+    stats_.metadata_fills[pv] = tile[pvi].metadata_fills;
+
+    // record the access counts for fine-grained actions
     stats_.gated_reads[pv] = tile[pvi].fine_grained_accesses.at("gated_read");
+    stats_.skipped_reads[pv] = tile[pvi].fine_grained_accesses.at("skipped_read");
     stats_.random_reads[pv] = tile[pvi].fine_grained_accesses.at("random_read");
+
     stats_.gated_fills[pv] = tile[pvi].fine_grained_accesses.at("gated_fill");
+    stats_.skipped_fills[pv] = tile[pvi].fine_grained_accesses.at("skipped_fill");
     stats_.random_fills[pv] = tile[pvi].fine_grained_accesses.at("random_fill");
-    stats_.gated_updates[pv] = tile[pvi].fine_grained_accesses.at("gated_update");
+
     stats_.random_updates[pv] = tile[pvi].fine_grained_accesses.at("random_update");
-    stats_.metadata_reads[pv] =  tile[pvi].fine_grained_accesses.at("metadata_read");
+    stats_.gated_updates[pv] = tile[pvi].fine_grained_accesses.at("gated_update");
+    stats_.skipped_updates[pv] = tile[pvi].fine_grained_accesses.at("skipped_update");
+
+    stats_.random_metadata_reads[pv] =  tile[pvi].fine_grained_accesses.at("metadata_read");
     stats_.gated_metadata_reads[pv] =  tile[pvi].fine_grained_accesses.at("gated_metadata_read");
+
+    stats_.random_metadata_fills[pv] =  tile[pvi].fine_grained_accesses.at("metadata_fill");
+    stats_.gated_metadata_fills[pv] =  tile[pvi].fine_grained_accesses.at("gated_metadata_fill");
+
+    stats_.decompression_counts[pv] =  tile[pvi].fine_grained_accesses.at("decompression_count");
+    stats_.compression_counts[pv] =  tile[pvi].fine_grained_accesses.at("compression_count");
   }
 
   //
@@ -774,7 +803,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
       (instance_accesses / block_size) + 1;
 
     // compute for meta data accesses
-    auto instance_metadata_accesses = stats_.reads.at(pv) + stats_.fills.at(pv);
+    auto instance_metadata_accesses = stats_.metadata_reads[pv] + stats_.metadata_fills[pv];
     auto metadata_block_size = specs_.metadata_block_size.Get();
     double metadata_vector_accesses =
       (instance_metadata_accesses % metadata_block_size == 0) ?
@@ -792,7 +821,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     for (unsigned op_id = 0; op_id < unsigned( tiling::GetNumOpTypes("storage")); op_id++){
         op_name = tiling::storageOperationTypes[op_id];
         
-        if (op_name.find("metadata") == std::string::npos) { // data storage related computations
+        if (op_name.find("metadata") == std::string::npos && op_name.find("count") == std::string::npos) { // data storage related computations
 
           // get the number of each fine-grained vector accesses according to original access ratio
           if (instance_accesses != 0){
@@ -803,21 +832,25 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
             cluster_access_energy += 0; 
           }
         
-        } else { // metadata storage related computations
+        } else if (op_name.find("count") == std::string::npos){ // metadata storage related computations
 
           if (instance_metadata_accesses != 0){
             op_accesses = std::uint64_t(metadata_vector_accesses*data_movement_info[pv].fine_grained_accesses.at(op_name)/instance_metadata_accesses); 
             cluster_access_energy += op_accesses * specs_.op_energy_map.at(op_name);
-//            std::cout << "====================================" << std::endl;
 //            std::cout << "op name: " << op_name << std::endl;
 //            std::cout << "op energy: " << specs_.op_energy_map.at(op_name) << std::endl;
 //            std::cout << "op accesses: " << op_accesses << std::endl;
-//            std::cout << "vector accesses: " << metadata_vector_accesses << std::endl;
+//            std::cout << "metadata energy:  " << op_accesses * specs_.op_energy_map.at(op_name) << std::endl;
+//            std::cout << "total energy:  " << cluster_access_energy << std::endl;
+
           } else {
             op_accesses = 0;
             cluster_access_energy += 0; 
           }
 
+        } else { // decompression/compression energy
+          op_accesses = std::uint64_t(data_movement_info[pv].fine_grained_accesses.at(op_name));
+          cluster_access_energy += op_accesses * specs_.op_energy_map.at(op_name);
         }
         
         // std::cout << op_name << " accesses: " << op_accesses << " vector accesses: " << vector_accesses << std::endl;
@@ -1073,12 +1106,16 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << indent << "Min utilization              : " << specs.min_utilization << std::endl;
   out << indent << indent << "Vector access energy(max)    : " << specs.vector_access_energy << " pJ" << std::endl;
   out << indent << indent << "Vector gated read energy     : " << specs.op_energy_map.at("gated_read") << " pJ" << std::endl;
+  out << indent << indent << "Vector skipped read energy   : " << specs.op_energy_map.at("skipped_read") << " pJ" << std::endl;
   out << indent << indent << "Vector random read energy    : " << specs.op_energy_map.at("random_read") << " pJ" << std::endl;
   out << indent << indent << "Vector gated fill energy     : " << specs.op_energy_map.at("gated_fill") << " pJ" << std::endl;
+  out << indent << indent << "Vector skipped fill energy   : " << specs.op_energy_map.at("skipped_fill") << " pJ" << std::endl;
   out << indent << indent << "Vector random fill energy    : " << specs.op_energy_map.at("random_fill") << " pJ" << std::endl;
   out << indent << indent << "Vector gated update energy   : " << specs.op_energy_map.at("gated_update") << " pJ" << std::endl;
+  out << indent << indent << "Vector skipped update energy : " << specs.op_energy_map.at("skipped_update") << " pJ" << std::endl;
   out << indent << indent << "Vector random update energy  : " << specs.op_energy_map.at("random_update") << " pJ" << std::endl;
   out << indent << indent << "Vector metadata read energy  : " << specs.op_energy_map.at("metadata_read") << " pJ" << std::endl;
+  out << indent << indent << "Decompression energy         : " << specs.op_energy_map.at("decompression_count") << " pJ" << std::endl;
   out << indent << indent << "Area                         : " << specs.storage_area << " um^2" << std::endl;
 
   out << std::endl;
@@ -1121,29 +1158,42 @@ void BufferLevel::Print(std::ostream& out) const
     {
       out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
-      out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
-      out << indent + indent << "Tile size                                : " << stats.tile_size.at(pv) << std::endl;
-      out << indent + indent << "Utilized capacity                        : " << stats.utilized_capacity.at(pv) << std::endl;
-      out << indent + indent << "Utilized instances (max)                 : " << stats.utilized_instances.at(pv) << std::endl;
-      out << indent + indent << "Utilized clusters (max)                  : " << stats.utilized_clusters.at(pv) << std::endl;
-      out << indent + indent << "Total scalar reads (per-instance)        : " << stats.reads.at(pv) << std::endl;
-      out << indent + indent << "Scalar gated reads (per-instance)        : " << stats.gated_reads.at(pv) << std::endl;
-      out << indent + indent << "Scalar random reads (per-instance)       : " << stats.random_reads.at(pv) << std::endl;
-      out << indent + indent << "Total scalar updates (per-instance)      : " << stats.updates.at(pv) << std::endl;
-      out << indent + indent << "Scalar gated updates (per-instance)      : " << stats.gated_updates.at(pv) << std::endl;
-      out << indent + indent << "Scalar random updates (per-instance)     : " << stats.random_updates.at(pv) << std::endl;
-      out << indent + indent << "Total scalar fills (per-instance)        : " << stats.fills.at(pv) << std::endl;
-      out << indent + indent << "Scalar gated fills (per-instance)        : " << stats.gated_fills.at(pv) << std::endl;
-      out << indent + indent << "Scalar random fills (per-instance)       : " << stats.random_fills.at(pv) << std::endl;
-      out << indent + indent << "Temporal reductions (per-instance)       : " << stats.temporal_reductions.at(pv) << std::endl;
-      out << indent + indent << "Address generations (per-cluster)        : " << stats.address_generations.at(pv) << std::endl;
-      out << indent + indent << "Energy (per-scalar-access)               : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Energy (per-instance)                    : " << stats.energy.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Energy (total)                           : " << stats.energy.at(pv) * stats.utilized_instances.at(pv)
+      out << indent + indent << "Partition size                                        : " << stats.partition_size.at(pv) << std::endl;
+      out << indent + indent << "Tile size                                             : " << stats.tile_size.at(pv) << std::endl;
+      out << indent + indent << "Utilized capacity                                     : " << stats.utilized_capacity.at(pv) << std::endl;
+      out << indent + indent << "Utilized instances (max)                              : " << stats.utilized_instances.at(pv) << std::endl;
+      out << indent + indent << "Utilized clusters (max)                               : " << stats.utilized_clusters.at(pv) << std::endl;
+      out << indent + indent << "Metadata tile size                                    : " << stats.metadata_tile_size.at(pv) << std::endl;
+      out << indent + indent << "Metadata utilized capacity                            : " << int(ceil(stats.metadata_tile_size.at(pv) * specs_.metadata_word_bits.Get()/specs_.word_bits.Get())) << std::endl;
+      out << indent + indent << "Total scalar reads (per-instance)                     : " << stats.reads.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar skipped reads (per-instance): " << stats.skipped_reads.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar gated reads (per-instance): " << stats.gated_reads.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar random reads (per-instance): " << stats.random_reads.at(pv) << std::endl;
+      out << indent + indent << "Total scalar fills (per-instance)                     : " << stats.fills.at(pv) << std::endl;
+      out << indent + indent + indent << "Total skipped fills (per-instance): " << stats.skipped_fills.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar gated fills (per-instance): " << stats.gated_fills.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar random fills (per-instance): " << stats.random_fills.at(pv) << std::endl;
+      out << indent + indent << "Total scalar updates (per-instance)                   : " << stats.updates.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar skipped  updates (per-instance): " << stats.skipped_updates.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar gated  updates (per-instance): " << stats.gated_updates.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar random  updates (per-instance): " << stats.random_updates.at(pv) << std::endl;
+      out << indent + indent << "Temporal reductions (per-instance)                    : " << stats.temporal_reductions.at(pv) << std::endl;
+      out << indent + indent << "Address generations (per-cluster)                     : " << stats.address_generations.at(pv) << std::endl;
+      out << indent + indent << "Total scalar metadata reads (per-cluster)             : " << stats.metadata_reads.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar metadata random reads (per-cluster): " << stats.random_metadata_reads.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar metadata gated reads (per-cluster): " << stats.gated_metadata_reads.at(pv) << std::endl;
+      out << indent + indent << "Total scalar metadata fills (per-cluster)             : " << stats.metadata_fills.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar metadata random fills (per-cluster): " << stats.random_metadata_fills.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar metadata gated fills (per-cluster): " << stats.gated_metadata_fills.at(pv) << std::endl;
+      out << indent + indent << "Scalar decompression counts (per-cluster)             : " << stats.decompression_counts.at(pv) << std::endl;
+      out << indent + indent << "Scalar compression counts (per-cluster)               : " << stats.compression_counts.at(pv) << std::endl;
+      out << indent + indent << "Energy (per-scalar-access)                            : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
+      out << indent + indent << "Energy (per-instance)                                 : " << stats.energy.at(pv) << " pJ" << std::endl;
+      out << indent + indent << "Energy (total)                                        : " << stats.energy.at(pv) * stats.utilized_instances.at(pv)
           << " pJ" << std::endl;
-      out << indent + indent << "Temporal Reduction Energy (per-instance) : "
+      out << indent + indent << "Temporal Reduction Energy (per-instance)              : "
           << stats.temporal_reduction_energy.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Temporal Reduction Energy (total)        : "
+      out << indent + indent << "Temporal Reduction Energy (total)                     : "
           << stats.temporal_reduction_energy.at(pv) * stats.utilized_instances.at(pv)
           << " pJ" << std::endl;
       // out << indent + indent << "Address Generation Energy (per-cluster)  : "
@@ -1151,10 +1201,10 @@ void BufferLevel::Print(std::ostream& out) const
       // out << indent + indent << "Address Generation Energy (total)        : "
       //     << stats.addr_gen_energy.at(pv) * stats.utilized_clusters.at(pv)
       //     << " pJ" << std::endl;
-      out << indent + indent << "Read Bandwidth (per-instance)            : " << stats.read_bandwidth.at(pv) << " words/cycle" << std::endl;
-      out << indent + indent << "Read Bandwidth (total)                   : " << stats.read_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
-      out << indent + indent << "Write Bandwidth (per-instance)           : " << stats.write_bandwidth.at(pv) << " words/cycle" << std::endl;
-      out << indent + indent << "Write Bandwidth (total)                  : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
+      out << indent + indent << "Read Bandwidth (per-instance)                         : " << stats.read_bandwidth.at(pv) << " words/cycle" << std::endl;
+      out << indent + indent << "Read Bandwidth (total)                                : " << stats.read_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
+      out << indent + indent << "Write Bandwidth (per-instance)                        : " << stats.write_bandwidth.at(pv) << " words/cycle" << std::endl;
+      out << indent + indent << "Write Bandwidth (total)                               : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
     }
   }
 

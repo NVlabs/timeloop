@@ -320,18 +320,20 @@ void ArithmeticUnits::Print(std::ostream& out) const
   out << indent << "Max energy-per-op     : " << specs_.energy_per_op << " pJ" << std::endl;
   out << indent << "Random compute energy : " << specs_.op_energy_map.at("random_compute") << " pJ" << std::endl;
   out << indent << "Gated compute energy  : " << specs_.op_energy_map.at("gated_compute") << " pJ" << std::endl;
+  out << indent << "Skipped compute energy: " << specs_.op_energy_map.at("skipped_compute") << " pJ" << std::endl;
   out << std::endl;
 
   // Print stats.
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
 
-  out << indent << "Utilized instances     : " << UtilizedInstances() << std::endl;
-  out << indent << "Cycles                 : " << Cycles() << std::endl;
-  out << indent << "Random Computes (total): " << compute_random << std::endl;
-  out << indent << "Gated Computes (total) : " << compute_gated << std::endl;
-  out << indent << "Energy (total)         : " << Energy() << " pJ" << std::endl;
-  out << indent << "Area (total)           : " << Area() << " um^2" << std::endl;
+  out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
+  out << indent << "Cycles                  : " << Cycles() << std::endl;
+  out << indent << "Random Computes (total) : " << compute_random << std::endl;
+  out << indent + indent << "Gated Computes (total): " << compute_gated << std::endl;
+  out << indent + indent << "Skipped Computes (total): " << compute_skipped << std::endl;
+  out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
+  out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
   out << std::endl;
 }
 

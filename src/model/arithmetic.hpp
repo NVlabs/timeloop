@@ -104,6 +104,7 @@ class ArithmeticUnits : public Level
 
   //fine-grained actions
   std::uint64_t compute_random = 0;
+  std::uint64_t compute_skipped = 0;
   std::uint64_t compute_gated = 0;
 
   // Serialization
@@ -247,6 +248,8 @@ class ArithmeticUnits : public Level
           compute_random = op_accesses;
         } else if (op_name == "gated_compute"){
           compute_gated = op_accesses;
+        } else if (op_name == "skipped_compute"){
+          compute_skipped = op_accesses;
         }
       }
 
