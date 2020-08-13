@@ -33,6 +33,9 @@ import pickle
 import pprint
 import xml.etree.ElementTree as ET
 
+#FIXME assumes 1 arithmetic level and names it MAC
+#FIXME assumes an output prefix if base dir vs. individual file provided 
+
 # Output file names.
 out_prefix = "timeloop-mapper."
 xml_file_name = out_prefix + "map+stats.xml";
@@ -57,16 +60,9 @@ def parse_timeloop_stats(filename):
     
     # Parse out the problem shape
     problem_dims = root.findall('a')[0].findall('workload_')[0].findall('bounds_')[0].findall('item')
-    problem = {'FH': int(problem_dims[0].findall('second')[0].text),\
-               'FW': int(problem_dims[1].findall('second')[0].text),\
-               'OH': int(problem_dims[2].findall('second')[0].text),\
-               'OW': int(problem_dims[3].findall('second')[0].text),\
-               'IC': int(problem_dims[4].findall('second')[0].text),\
-               'OC': int(problem_dims[5].findall('second')[0].text),\
-               'IN': int(problem_dims[6].findall('second')[0].text),\
-              }
+    problem = [ int(pd.findall('second')[0].text) for pd in problem_dims ] #FIXedME generalize for non-conv problems
 
-    macs = problem['FH']*problem['FW']*problem['IC']*problem['OH']*problem['OW']*problem['IN']*problem['OC']
+    macs = np.prod(problem)
 
     topology = root.findall('engine')[0].findall('topology_')[0]
     
@@ -80,8 +76,6 @@ def parse_timeloop_stats(filename):
     num_networks = int(networks.findall('count')[0].text)    
     network_ptrs = networks.findall('item')
 
-    assert(num_levels == num_networks + 1)
-    
     # Initialize a dictionary that stores energy breakdown and other statistics
     energy_breakdown_pJ = {}
 
@@ -90,8 +84,6 @@ def parse_timeloop_stats(filename):
     for level_id in range(len(level_ptrs)):
 
         level_ptr = level_ptrs[level_id]
-
-#    for level_ptr in level_ptrs:
 
         level = level_ptr.findall('px')[0]
 
@@ -172,11 +164,17 @@ def parse_timeloop_stats(filename):
         # network = level.findall('network_')[0]
         network_stats = network.findall('stats_')[0]
 
+        #FIXedME when router energy !== zero, need to fetch total energy per instance
         num_hops = get_stat(network_stats, 'num_hops', float)
         energy_per_hop_per_instance = get_stat(network_stats, 'energy_per_hop', float)
-        ingresses = get_stat(network_stats, 'ingresses', int)      
-        network_energy_in_pJ = num_hops * ingresses * energy_per_hop_per_instance * instances
-        
+        ingresses = get_stat(network_stats, 'ingresses', int)
+        network_energy_per_instance_pJ = get_stat(network_stats, 'energy', float)
+        network_energy_in_pJ = network_energy_per_instance_pJ * instances
+       
+        # Add multicast factors
+        multicast = get_stat(network_stats, 'multicast_factor', int)
+        dist_multicast = get_stat(network_stats, 'distributed_multicast', int)
+
         # Add energy
         spatial_add_energy_per_instance = get_stat(network_stats, 'spatial_reduction_energy', float) 
         temporal_add_energy_per_instance = get_stat(stats, 'temporal_reduction_energy', float) 
@@ -208,6 +206,8 @@ def parse_timeloop_stats(filename):
             'accesses_per_instance': accesses_per_instance,\
             'instances': instances,\
             'utilization': utilization,\
+            'multicast': multicast,\
+            'dist_multicast': dist_multicast,\
             'num_hops': num_hops,\
             'ingresses': ingresses,\
             'energy_per_hop_per_instance': energy_per_hop_per_instance}
@@ -243,6 +243,8 @@ def main():
     outfile = options.outfile
 
     output = parse_timeloop_stats(infile)
+    pprint.pprint(output)
+
     with outfile:
         pickle.dump(output, outfile, pickle.HIGHEST_PROTOCOL)
     print('Wrote output to %s.' % (outfile.name))
