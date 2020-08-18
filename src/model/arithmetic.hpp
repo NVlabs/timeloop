@@ -203,13 +203,14 @@ class ArithmeticUnits : public Level
   }
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                          const std::uint64_t compute_cycles,
-                          const bool break_on_failure)
+                      const std::uint64_t compute_cycles,
+                      const bool break_on_failure)
   {
     assert(is_specced_);
 
     (void) mask;
     (void) break_on_failure;
+//    (void) compute_cycles;
 
     EvalStatus eval_status;
     eval_status.success = true;
@@ -223,8 +224,7 @@ class ArithmeticUnits : public Level
 
     if (utilized_instances_ <= specs_.instances.Get())
     {
-      cycles_ = compute_cycles;
-      maccs_ = utilized_instances_ * compute_cycles;
+
       // energy_ = maccs_ * specs_.energy_per_op.Get();
 
       // // Scale energy for sparsity.
@@ -236,13 +236,17 @@ class ArithmeticUnits : public Level
       energy_ = 0;
       int op_accesses;
       std::string op_name;
-      // find the static correspondence between timeloop action namea and ERT action names
+
+      // find the static correspondence between timeloop action name and ERT action names
       if (! populate_energy_per_op)
         PopulateEnergyPerOp(tiling::GetNumOpTypes("arithmetic"));
+
+      // go through the fine grained actions and reflect the special impacts
       for (int op_id = 0; op_id < tiling::GetNumOpTypes("arithmetic"); op_id++){
         op_name = tiling::arithmeticOperationTypes[op_id];
         op_accesses = tile.compute_info.fine_grained_accesses.at(op_name);
         energy_ += op_accesses * specs_.op_energy_map.at(op_name);
+
         // collect stats...
         if (op_name == "random_compute"){
           compute_random = op_accesses;
@@ -252,6 +256,18 @@ class ArithmeticUnits : public Level
           compute_skipped = op_accesses;
         }
       }
+
+      // FIXME: phase 1 computations here -- everything is dense
+      // dense compute cycles and dense MACCs
+      cycles_ = compute_cycles;
+      maccs_ = utilized_instances_ * compute_cycles;
+
+      // FIXME: phase 2 computations should be finalized and taken into account
+      // unstable phase 2 logic: account for cycle savings due to skipping
+      //   tile info compute cycles contains the post-processed number of cycles by looking at the sparsity distribution
+      //   by commenting out this line, we are still using the dense # of computes
+      // cycles_ = tile.compute_info.compute_cycles;
+      // maccs_ = utilized_instances_ * tile.compute_info.accesses; // total number of dense maccs
 
       is_evaluated_ = true;    
     }

@@ -36,7 +36,8 @@ namespace problem
 
 struct DataDensity{ 
 		
-		double average_density_;
+		double average_density_ = 1.0;
+		double variance_ = 0.0;
 
 		DataDensity(){
 			average_density_ = 1;  // default density to 1
@@ -46,8 +47,17 @@ struct DataDensity{
 			average_density_ = average_density;
 		}
 
+		DataDensity(const double& average_density, const double& variance){
+		  average_density_ = average_density;
+		  variance_ = variance;
+		}
+
 		double GetAverageDensity() const {
 			return average_density_;
+		}
+
+		double GetVariance() const {
+		  return variance_;
 		}
 
 		// Serialization.
@@ -57,6 +67,7 @@ struct DataDensity{
 	  	if (version == 0)
 	    {
 	      ar& BOOST_SERIALIZATION_NVP(average_density_);
+	      ar& BOOST_SERIALIZATION_NVP(variance_);
 	    }
 	  }
 	  

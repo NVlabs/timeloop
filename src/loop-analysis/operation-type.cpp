@@ -30,6 +30,8 @@
 #include "operation-type.hpp"
 #include "mapping/loop.hpp"
 
+#include <random>
+
 
 namespace tiling
 {
@@ -55,7 +57,7 @@ int GetNumOpTypes(std::string component_type){
   }
 }
 
-double GetDensityByGatedActionNames(sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info,
+double GetDensityByActionOptimizationNames(sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info,
                                        std::string action_name,
                                        tiling::CompoundDataMovementInfo& compound_data_movement){
   
@@ -64,17 +66,33 @@ double GetDensityByGatedActionNames(sparse::PerDataSpaceActionOptimizationInfo d
 
   if (data_space_gating_info.find(action_name)!= data_space_gating_info.end()){
     std::vector<std::string> gated_data_space_names = data_space_gating_info.at(action_name);
-    if (gated_data_space_names[0] == "all"){
-       density = 0.0;
-    } else {
       for (unsigned i = 0; i < gated_data_space_names.size(); i++){
         id = problem::GetShape()->DataSpaceNameToID.at(gated_data_space_names[i]);
         density *= compound_data_movement[id].tile_density.GetAverageDensity();
       }
-    }
   }
 
   return density;
+}
+
+
+double GetVarianceByActionOptimizationNames(sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info,
+                                            std::string action_name,
+                                            tiling::CompoundDataMovementInfo& compound_data_movement){
+
+  double variance = 0.0;
+  unsigned id;
+
+  if (data_space_gating_info.find(action_name)!= data_space_gating_info.end()){
+    std::vector<std::string> gated_data_space_names = data_space_gating_info.at(action_name);
+    for (unsigned i = 0; i < gated_data_space_names.size(); i++){
+      id = problem::GetShape()->DataSpaceNameToID.at(gated_data_space_names[i]);
+      //  VAR(A+B) = VAR(A) + VAR(B) + COV(A,B), assume independent random variables COV(A,B)=0
+      variance += compound_data_movement[id].tile_density.GetVariance();
+    }
+  }
+
+  return variance;
 }
 
 
@@ -112,8 +130,8 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
 //      std::cout << "   skipping for dataspace: " << data_space_name << std::endl;
 
       sparse::PerDataSpaceActionOptimizationInfo data_space_skipping_info = per_level_sparse_skipping.at(data_space_name);
-      read_avg_density *= GetDensityByGatedActionNames(data_space_skipping_info, "read", compound_data_movement);
-      write_avg_density *= GetDensityByGatedActionNames(data_space_skipping_info, "write", compound_data_movement);
+      read_avg_density *= GetDensityByActionOptimizationNames(data_space_skipping_info, "read", compound_data_movement);
+      write_avg_density *= GetDensityByActionOptimizationNames(data_space_skipping_info, "write", compound_data_movement);
 
       // skipped actions
       num_skipped_reads = ceil((1-read_avg_density)* total_reads);
@@ -131,8 +149,8 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
 //       std::cout << "   gating for dataspace: " << data_space_name << std::endl;
 
       sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
-      read_avg_density *= GetDensityByGatedActionNames(data_space_gating_info, "read", compound_data_movement);
-      write_avg_density *= GetDensityByGatedActionNames(data_space_gating_info, "write", compound_data_movement);
+      read_avg_density *= GetDensityByActionOptimizationNames(data_space_gating_info, "read", compound_data_movement);
+      write_avg_density *= GetDensityByActionOptimizationNames(data_space_gating_info, "write", compound_data_movement);
 
       // gated actions
       num_gated_reads = ceil((1-read_avg_density)* total_reads);
@@ -340,8 +358,8 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       std::uint64_t gated_metadata_fills = 0;
       if (per_level_sparse_gating.find(data_space_name) != per_level_sparse_gating.end()){
         sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
-        metadata_read_avg_density = GetDensityByGatedActionNames(data_space_gating_info, "metadata_read", compound_data_movement);
-        metadata_write_avg_density = GetDensityByGatedActionNames(data_space_gating_info, "metadata_write", compound_data_movement);
+        metadata_read_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_read", compound_data_movement);
+        metadata_write_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_write", compound_data_movement);
         gated_metadata_reads = ceil(compound_data_movement[pv].metadata_reads * (1-metadata_read_avg_density));
         gated_metadata_fills = ceil(compound_data_movement[pv].metadata_fills * (1-metadata_write_avg_density));
       }
@@ -403,20 +421,119 @@ void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info,
                                     sparse::ComputeActionOptimizationInfo& compute_gating_info,
                                     sparse::ComputeActionOptimizationInfo& compute_skipping_info){
 
-  uint64_t total_accesses;
-  total_accesses = compute_info.replication_factor * compute_info.accesses;
+  // total number of dense accesses
+  uint64_t total_accesses = compute_info.replication_factor * compute_info.accesses;
 
-  double compute_avg_density = 1.0;
-  compute_avg_density *= GetDensityByGatedActionNames(compute_skipping_info, "compute", compound_data_movement);
-  compute_info.fine_grained_accesses["skipped_compute"] = ceil(total_accesses * (1-compute_avg_density));
+  //  std::cout << "dense compute cycles: " << compute_info.accesses << std::endl;
 
-  compute_avg_density *= GetDensityByGatedActionNames(compute_gating_info, "compute", compound_data_movement);
-  compute_info.fine_grained_accesses["gated_compute"] = ceil(total_accesses * (1-compute_avg_density));
+  // the number of cycles needed for the slowest PE
+  uint64_t compute_cycles;
 
-  compute_info.fine_grained_accesses["random_compute"] = total_accesses
-                                                         - compute_info.fine_grained_accesses["gated_compute"]
-                                                         - compute_info.fine_grained_accesses["skipped_compute"];
+  // gating related stats
+  double gating_avg_density = GetDensityByActionOptimizationNames(compute_gating_info, "compute", compound_data_movement);
+  double gating_variance = GetVarianceByActionOptimizationNames(compute_gating_info, "compute", compound_data_movement);
+
+  // skipping related stats
+  double skipping_avg_density = GetDensityByActionOptimizationNames(compute_skipping_info, "compute", compound_data_movement);
+  double skipping_variance = GetVarianceByActionOptimizationNames(compute_skipping_info, "compute", compound_data_movement);
+
+  // only allow gated compute or skipped compute or none, but seems to be sufficient for many architectures
+  assert(((gating_avg_density!=1.0 || gating_variance!=0.0) &&(skipping_avg_density ==1.0 && skipping_variance==0.0)) ||
+         ((skipping_avg_density!=1.0 || skipping_variance!=0.0) &&(gating_avg_density ==1.0 && gating_variance==0.0)) ||
+         ((skipping_avg_density==1.0 && skipping_variance==0.0) &&(gating_avg_density ==1.0 && gating_variance==0.0))
+         );
+
+  // set a flag for what optimization is applied
+  std::string type;
+  if (gating_avg_density!=1.0 || gating_variance!=0.0){
+     type = "gated";
+  } else if (skipping_avg_density!=1.0 || skipping_variance!=0.0){
+     type = "skipped";
+  } else {
+     type = "none";
+  }
+
+  //std::cout << "type: " << type << std::endl;
+
+  if (type == "none"){
+
+    // dense data or no optimization at all, use the dense formulation
+    // all of the compute instances have the same performance
+    compute_cycles = compute_info.accesses;
+    compute_info.fine_grained_accesses["skipped_compute"] = 0;
+    compute_info.fine_grained_accesses["gated_compute"] = 0;
+    compute_info.fine_grained_accesses["random_compute"] = total_accesses;
+
+  } else {
+
+    double mean = type == "gated" ? gating_avg_density : skipping_avg_density;
+    double var = type == "gated" ? gating_variance : skipping_variance;
+    double std_dev = std::sqrt(var);
+    // std::cout << "mean: " << mean << " var: " << var << " std_dev: " << std_dev << std::endl;
+
+    double max_instance_density = 0.0; // for cases with skipping -- capture the slowest compute instance
+
+    if ((type == "gated" && gating_variance==0.0) || (type== "skipped" && skipping_variance==0.0)){
+
+       // uniform distribution
+
+       if (type == "gated"){
+          compute_info.fine_grained_accesses["gated_compute"] = ceil(total_accesses * (1-gating_avg_density));
+       } else {
+          compute_info.fine_grained_accesses["skipped_compute"] = ceil(total_accesses * (1-skipping_avg_density));
+       }
+
+       // phase 2 skipping cycles
+       if(type!="gated"){
+         max_instance_density = skipping_avg_density;
+       }
+
+    } else {
+
+      // phase 2 nonuniform distribution (normal distribution here) and skipping cycles
+      // create a random engine for sampling
+
+      std::default_random_engine generator;
+      std::normal_distribution<double> distribution(mean,std_dev);
+
+      for (std::uint64_t utilized_instance_id = 0; utilized_instance_id < compute_info.replication_factor; utilized_instance_id++){
+
+         double instance_density = distribution(generator);
+         if (instance_density < 0) { // we don't allow density less than zero
+           instance_density = 0;
+         }
+         // std::cout << "generated density: " << instance_density << std::endl;
+
+         // update on the slowest instance if involves skipping
+         if(type!="gating" && instance_density > max_instance_density){
+            max_instance_density = instance_density;
+         }
+
+         // std::cout << "PE compute cycles: " << ceil(compute_info.accesses * instance_density) << std::endl;
+
+         if (type == "gated"){
+           compute_info.fine_grained_accesses["gated_compute"] += ceil(compute_info.accesses * (1-instance_density));
+         } else {
+           compute_info.fine_grained_accesses["skipped_compute"] += ceil(compute_info.accesses * (1-instance_density));
+         }
+      }
+    }
+
+    // generate # of random computes according to gated computes and skipped computes
+    compute_info.fine_grained_accesses["random_compute"] = total_accesses
+                                                           - compute_info.fine_grained_accesses["gated_compute"]
+                                                           - compute_info.fine_grained_accesses["skipped_compute"];
+
+    // assign the number of cycles (slowest compute instance)
+    // gating does not impact number of compute cycles, skipping reduces number of compute cycles
+    compute_cycles = type == "gating" ? compute_info.accesses : ceil(compute_info.accesses * max_instance_density);
+  }
+
+
+
+  compute_info.compute_cycles = compute_cycles;
+  // std::cout << "slowest compute instance cycles: " << compute_cycles << std::endl;
+
 }
-
 
 }// namespace problem

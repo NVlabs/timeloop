@@ -182,6 +182,7 @@ struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t accesses;
+  std::uint64_t compute_cycles;
 
   // fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses; 
@@ -192,6 +193,7 @@ struct ComputeInfo
   {
     replication_factor = 0;
     accesses = 0;
+    compute_cycles = 0;
   }
 };
 

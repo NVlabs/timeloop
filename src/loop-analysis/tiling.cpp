@@ -511,6 +511,7 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
   tiling::CompoundTileNest solution;
   solution.compound_data_movement_info_nest = collapsed_compound_data_nest;
   solution.compute_info_nest = collapsed_compound_compute_nest;
+  solution.compute_info_nest[0].compute_cycles = solution.compute_info_nest[0].accesses;
   return solution;
 }
 
