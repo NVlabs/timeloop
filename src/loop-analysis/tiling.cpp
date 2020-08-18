@@ -97,9 +97,10 @@ void SetChildLevel(std::vector<DataMovementInfo>& tile_nest){
 
   for (unsigned cur = 0; cur < num_tiling_levels; cur++)
   {
-
-    // Skip if this tile level has 0 size or 0 accesses.
-    if (tile_nest[cur].size == 0)
+    // Skip
+    //     if this tile level has 0 size or 0 accesses.
+    //     if this tile level is the inner most level
+    if (cur == 0 || tile_nest[cur].size == 0)
     {
       continue;
     }
@@ -114,6 +115,7 @@ void SetChildLevel(std::vector<DataMovementInfo>& tile_nest){
       // Body is empty.
     }
 
+    // skip if it is a compute level
     if (inner == 0) // level 0 is compute
     {
       // No outer tiling level.
@@ -669,7 +671,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 
     // find the parent and child levels for later compression/decompression logic
     SetParentLevel(solution[pv]);
-    SetParentLevel(solution[pv]);
+    SetChildLevel(solution[pv]);
 
   }
   return solution;
