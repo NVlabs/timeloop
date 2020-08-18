@@ -139,7 +139,7 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
       num_skipped_updates = ceil((1-write_avg_density) * total_updates);
       compound_data_movement[pv].fine_grained_accesses["skipped_read"] = num_skipped_reads;
       compound_data_movement[pv].fine_grained_accesses["skipped_fill"] = num_skipped_fills;
-      compound_data_movement[pv].fine_grained_accesses["skipped_updates"] = num_skipped_updates;
+      compound_data_movement[pv].fine_grained_accesses["skipped_update"] = num_skipped_updates;
 
     }
 
@@ -158,7 +158,7 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
       num_gated_updates = ceil((1-write_avg_density) * total_updates);
       compound_data_movement[pv].fine_grained_accesses["gated_read"] = num_gated_reads;
       compound_data_movement[pv].fine_grained_accesses["gated_fill"] = num_gated_fills;
-      compound_data_movement[pv].fine_grained_accesses["gated_updates"] = num_gated_fills;
+      compound_data_movement[pv].fine_grained_accesses["gated_update"] = num_gated_updates;
     }
 
     num_random_reads = total_reads - num_gated_reads - num_skipped_reads;
@@ -242,12 +242,13 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
           std::vector<loop::Descriptor> subnest = nest_of_compound_tiles.at(inner).data_movement_info[pv].subnest;
           for (unsigned loop = 0; loop < subnest.size(); loop++){
           // go through the loops in the subnest to intialize the subnest tile size and the total tile size
-//            subnest[loop].Print(std::cout);
-//            std::cout<<std::endl;
+            // subnest[loop].Print(std::cout);
+            // std::cout<<std::endl;
             problem::Shape::DimensionID id = subnest[loop].dimension;
             if (std::find(rank0_index.begin(), rank0_index.end(), id) != rank0_index.end()){
               uint64_t num_rank0_elements =  (subnest[loop].end - subnest[loop].start)/subnest[loop].stride;
               total_num_rank0_elements *= num_rank0_elements;
+              // std::cout << "num_rank0_elements: " << num_rank0_elements << " total_num_rank0_elements: " << total_num_rank0_elements << std::endl;
               nest_ranks.push_back("rank0");
             } else if (std::find(rank1_index.begin(), rank1_index.end(), id) != rank1_index.end()){
               uint64_t num_rank1_elements = (subnest[loop].end - subnest[loop].start)/subnest[loop].stride;
@@ -261,7 +262,11 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
 
       // number of binary searches needed to find the location in a compressed fiber
       // # of accesses = log2(occupancy)
-      std::uint64_t num_binary_searches = std::uint64_t(log2(total_num_rank0_elements * data_space_density));
+      double raw_num_binary_searches = log2(total_num_rank0_elements * data_space_density);
+      if (raw_num_binary_searches < 0){
+        raw_num_binary_searches = 0;
+      }
+      std::uint64_t num_binary_searches = std::uint64_t(raw_num_binary_searches);
       // std::cout << "number of binary searches: " << num_binary_searches << std::endl;
 
       // look at all the subnests for all the levels that are below this storage level to extract the access patterns
@@ -423,7 +428,6 @@ void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info,
 
   // total number of dense accesses
   uint64_t total_accesses = compute_info.replication_factor * compute_info.accesses;
-
   //  std::cout << "dense compute cycles: " << compute_info.accesses << std::endl;
 
   // the number of cycles needed for the slowest PE

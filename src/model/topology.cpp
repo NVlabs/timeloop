@@ -1098,6 +1098,9 @@ void Topology::ComputeStats()
   double energy = 0;
   for (auto level : levels_)
   {
+    if(level->Energy() < 0){
+      std::cout << level->Name() << " energy: " << level->Energy() << std::endl;
+    }
     assert(level->Energy() >= 0);
     energy += level->Energy();
   }
