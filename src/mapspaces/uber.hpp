@@ -716,7 +716,8 @@ class Uber : public MapSpace
   {
     (void) datatype_bypass_nest;
 
-    std::vector<Status> status(arch_props_.StorageLevels(), { .success = true, .fail_reason = "" });
+    std::vector<Status> status(arch_props_.Specs().topology.NumLevels(),
+                               { .success = true, .fail_reason = "" });
     bool success = true;
 
     auto spatial_splits = spatial_split_space_.GetSplits(mapping_spatial_id);
@@ -741,7 +742,15 @@ class Uber : public MapSpace
         level,
         cumulative_fanout_utilization);
 
-      status.at(arch_props_.TilingToStorage(level)) = s;
+      unsigned storage_level = arch_props_.TilingToStorage(level);
+      unsigned topology_level = arch_props_.Specs().topology.StorageMap(storage_level);
+
+      // Merge with existing failures at this level.
+      if (status.at(topology_level).success)
+        status.at(topology_level) = s;
+      else
+        status.at(topology_level).fail_reason += ", " + s.fail_reason;
+
       success &= s.success;
 
       if (break_on_failure && !s.success)
@@ -751,19 +760,18 @@ class Uber : public MapSpace
     
     if (cumulative_fanout_utilization < constraints_.MinParallelism())
     {
-      // Piggyback this failure with any existing level-0 failures.
       std::ostringstream fail_reason;
       fail_reason << "parallelism " << cumulative_fanout_utilization << " is less than "
                   << "constrained min-parallelism " << constraints_.MinParallelism();
-      if (status.at(0).success)
-      {
-        status.at(0).success = false;
-        status.at(0).fail_reason = fail_reason.str();
-      }
+
+      // Report this as an arithmetic-level failure.
+      unsigned topology_level = arch_props_.Specs().topology.ArithmeticMap();
+
+      // Merge with existing failures at this level.
+      if (status.at(topology_level).success)
+        status.at(topology_level) = { false, fail_reason.str() };
       else
-      {
-        status.at(0).fail_reason += ", and " + fail_reason.str();        
-      }
+        status.at(topology_level).fail_reason += ", " + fail_reason.str();
     }
       
     return status;

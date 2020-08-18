@@ -34,7 +34,6 @@ import sys
 import xml.etree.ElementTree as ET
 
 import numpy as np
-import libconf
 import yaml
 
 this_file_path = os.path.abspath(inspect.getfile(inspect.currentframe()))
@@ -46,12 +45,11 @@ from cnn_layers import *
 import timeloop
 import parse_timeloop_output
 
-config_abspath = os.path.join(root_dir, 'configs/timeloop/sample.yaml')
+config_abspath = os.path.join(root_dir, 'configs/mapper/sample.yaml')
 
 # Just test that path points to a valid config file.
 with open(config_abspath, 'r') as f:
     config = yaml.load(f)
-    #config = libconf.load(f)
 
 for i in range(0, len(cnn_layers)):
     problem = cnn_layers[i]
@@ -68,7 +66,7 @@ for i in range(0, len(cnn_layers)):
         print("Timeloop couldn't find a mapping for this problem within the search parameters, please check the log for more details.")
     else:
         print("Run successful, see log for text stats, or use the Python parser to parse the XML stats.")
-        # print("Stats from run:")
-        # pprint.pprint(stats)
+        print("Stats from run:")
+        pprint.pprint(stats)
 
 print("DONE.")

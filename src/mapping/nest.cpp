@@ -120,12 +120,14 @@ std::ostream& operator << (std::ostream& out, const Nest& nest)
 void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
                        const tiling::NestOfCompoundMasks& mask_nest,
                        const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_capacities,
-                       const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes)
+                       const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
+                       const std::string _indent)
+
 {
   unsigned num_loops = loops.size();
   unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
 
-  std::string indent = "| ";
+  std::string indent = _indent + "| ";
   for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
   {
     if (inv_storage_level != static_cast<unsigned>(-1) &&
@@ -154,7 +156,9 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
         }
       }
       str << "] " << std::endl;
-      out << str.str();
+      
+      out << _indent << str.str();
+      out << _indent;
       for (unsigned i = 0; i < str.str().length()-2; i++)
         out << "-";
       out << std::endl;
