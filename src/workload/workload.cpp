@@ -181,22 +181,40 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
   workload.SetCoefficients(coefficients);
   
   Workload::Densities densities;
-  DataDensity common_density;
-  if (config.lookupValue("commonDensity", common_density))
+  double common_avg_density;
+  if (config.lookupValue("commonDensity", common_avg_density))
   {
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
-      densities[i] = common_density;
+      densities[i] = DataDensity(common_avg_density);
   }
   else if (config.exists("densities"))
   {
     auto config_densities = config.lookup("densities");
-    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
-      assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), densities[i]));
+    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
+      double dataspace_avg_density;
+      std::string dataspace_name = GetShape()->DataSpaceIDToName.at(i);
+
+      // density specified as a distribution with mean and deviation
+      if (config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap()){
+         double dataspace_variance;
+         auto density_distribution = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
+         // std::cout << " detect densities as distributions for " << GetShape()->DataSpaceIDToName.at(i) << std::endl;
+         assert(density_distribution.lookupValue("mean", dataspace_avg_density));
+         assert(density_distribution.lookupValue("variance", dataspace_variance));
+         densities[i] = DataDensity(dataspace_avg_density, dataspace_variance);
+
+      // density specified a a single number
+      } else {
+          assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
+          densities[i]= DataDensity(dataspace_avg_density);
+      }
+
+    }
   }
   else
   {
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
-      densities[i] = 1.0;
+      densities[i]= DataDensity(1.0);
   }
   workload.SetDensities(densities);
 }

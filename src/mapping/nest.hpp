@@ -70,6 +70,7 @@ class Nest
 
   void PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
                    const tiling::NestOfCompoundMasks& mask_nest,
+                   const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_capacities,
                    const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
                    const std::string _indent = "");
 

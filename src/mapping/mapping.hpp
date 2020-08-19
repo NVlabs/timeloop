@@ -66,6 +66,7 @@ struct Mapping
   void PrintAsConstraints(std::string filename);
 
   void PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
+                   const std::vector<problem::PerDataSpace<std::uint64_t>>& utlized_capacities = {},
                    const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes = {},
                    const std::string _indent = "");
 

@@ -456,6 +456,16 @@ bool CompoundConfigNode::isArray() const {
   }
 }
 
+bool CompoundConfigNode::isMap() const {
+  if(LNode) return LNode->isGroup();
+  else if (YNode) return YNode.IsMap();
+  else {
+    assert(false);
+    return false;
+  }
+}
+
+
 int CompoundConfigNode::getLength() const {
   if(LNode) return LNode->getLength();
   else if (YNode) return YNode.size();

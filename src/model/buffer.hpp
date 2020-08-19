@@ -84,10 +84,18 @@ class BufferLevel : public Level
     Attribute<std::uint64_t> num_ports;
     Attribute<std::uint64_t> num_banks;
 
+    //metadata_storage related
+    Attribute<std::uint64_t> metadata_block_size;
+    Attribute<std::uint64_t> metadata_word_bits;
+
     Attribute<std::string> read_network_name;
     Attribute<std::string> fill_network_name;
     Attribute<std::string> drain_network_name;
     Attribute<std::string> update_network_name;    
+
+    // for ERT parsing
+    std::map<std::string, double> ERT_entries;
+    std::map<std::string, double> op_energy_map;
 
     // Physical Attributes (derived from technology model).
     // FIXME: move into separate struct?
@@ -144,6 +152,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<bool> keep;
     problem::PerDataSpace<std::uint64_t> partition_size;
     problem::PerDataSpace<std::uint64_t> utilized_capacity;
+    problem::PerDataSpace<std::uint64_t> tile_size;
     problem::PerDataSpace<std::uint64_t> utilized_instances;
     problem::PerDataSpace<std::uint64_t> utilized_clusters;
     problem::PerDataSpace<unsigned long> reads;
@@ -157,6 +166,30 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> temporal_reduction_energy;
     problem::PerDataSpace<double> addr_gen_energy;
+
+    // fine-grained action stats
+    problem::PerDataSpace<unsigned long> gated_reads;
+    problem::PerDataSpace<unsigned long> skipped_reads;
+    problem::PerDataSpace<unsigned long> random_reads;
+
+    problem::PerDataSpace<unsigned long> gated_fills;
+    problem::PerDataSpace<unsigned long> skipped_fills;
+    problem::PerDataSpace<unsigned long> random_fills;
+
+    problem::PerDataSpace<unsigned long> gated_updates;
+    problem::PerDataSpace<unsigned long> skipped_updates;
+    problem::PerDataSpace<unsigned long> random_updates;
+
+    problem::PerDataSpace<unsigned long> metadata_reads;
+    problem::PerDataSpace<unsigned long> random_metadata_reads;
+    problem::PerDataSpace<unsigned long> gated_metadata_reads;
+    problem::PerDataSpace<unsigned long> metadata_fills;
+    problem::PerDataSpace<unsigned long> random_metadata_fills;
+    problem::PerDataSpace<unsigned long> gated_metadata_fills;
+    problem::PerDataSpace<unsigned long> metadata_tile_size;
+
+    problem::PerDataSpace<unsigned long> decompression_counts;
+    problem::PerDataSpace<unsigned long> compression_counts;
 
     std::uint64_t cycles;
     double slowdown;
@@ -201,6 +234,8 @@ class BufferLevel : public Level
   Stats stats_;
   Specs specs_;
 
+  bool populate_energy_per_op = false;
+
   // Network endpoints.
   std::shared_ptr<Network> network_read_;
   std::shared_ptr<Network> network_fill_;
@@ -226,10 +261,11 @@ class BufferLevel : public Level
   //
 
  private:
-  EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+  EvalStatus ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const tiling::CompoundMask& mask,
                              const bool break_on_failure);
   void ComputePerformance(const std::uint64_t compute_cycles);
-  void ComputeBufferEnergy();
+  // void ComputeBufferEnergy();
+  void ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info);
   void ComputeReductionEnergy();
   void ComputeAddrGenEnergy();
 
@@ -259,6 +295,8 @@ class BufferLevel : public Level
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
 
+  void PopulateEnergyPerOp(unsigned num_ops);
+
   Specs& GetSpecs() { return specs_; }
   
   bool HardwareReductionSupported() override;
@@ -274,6 +312,7 @@ class BufferLevel : public Level
   // Evaluation functions.
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
+                                const problem::Workload* workload,
                                 const bool break_on_failure) override;
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                       const std::uint64_t compute_cycles,
@@ -291,6 +330,7 @@ class BufferLevel : public Level
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   double CapacityUtilization() const override;
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
+  std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   
   // Printers.

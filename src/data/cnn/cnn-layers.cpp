@@ -731,11 +731,13 @@ Workload::Bounds GetLayerBounds(std::string layer_name, bool pad_primes)
 // Function to get the layer density from a layer name.
 Workload::Densities GetLayerDensities(std::string layer_name)
 {
+  std::map<Shape::DataSpaceID, double> avg_dens;
   Workload::Densities dens;
-
   try
   {
-    dens = densities.at(layer_name);
+    avg_dens = densities.at(layer_name);
+    for (unsigned d = 0; d < GetShape()->NumDataSpaces; d++)
+      dens[d]= DataDensity(avg_dens[d]);
   }
   catch (const std::out_of_range& oor)
   {
@@ -862,16 +864,25 @@ void ParseConfig(config::CompoundConfigNode config, Workload &workload)
   double common_density;
   if (config.lookupValue("commonDensity", common_density))
   {
-    densities[kDataSpaceWeight] = common_density;
-    densities[kDataSpaceInput] = common_density;
-    densities[kDataSpaceOutput] = common_density;
+    densities[kDataSpaceWeight]= DataDensity(common_density);
+    densities[kDataSpaceInput]= DataDensity(common_density);
+    densities[kDataSpaceOutput]= DataDensity(common_density);
   }
   else if (config.exists("densities"))
   {
     config::CompoundConfigNode config_densities = config.lookup("densities");
-    assert(config_densities.lookupValue("weights", densities[kDataSpaceWeight]));
-    assert(config_densities.lookupValue("inputs", densities[kDataSpaceInput]));
-    assert(config_densities.lookupValue("outputs", densities[kDataSpaceOutput]));
+    
+    double weights_average_density;
+    double input_average_density;
+    double output_average_density;
+
+    assert(config_densities.lookupValue("weights", weights_average_density));
+    assert(config_densities.lookupValue("inputs", input_average_density));
+    assert(config_densities.lookupValue("outputs", output_average_density));
+
+    densities[kDataSpaceWeight] = DataDensity(weights_average_density);
+    densities[kDataSpaceInput]= DataDensity(input_average_density);
+    densities[kDataSpaceOutput]= DataDensity(output_average_density);    
   }
   else if (layer_name != "")
   {
@@ -879,9 +890,9 @@ void ParseConfig(config::CompoundConfigNode config, Workload &workload)
   }
   else
   {
-    densities[kDataSpaceWeight] = 1.0;
-    densities[kDataSpaceInput] = 1.0;
-    densities[kDataSpaceOutput] = 1.0;
+    densities[kDataSpaceWeight]= DataDensity(1.0);
+    densities[kDataSpaceInput]= DataDensity(1.0);
+    densities[kDataSpaceOutput]= DataDensity(1.0);
   }
   workload.SetDensities(densities);
 }

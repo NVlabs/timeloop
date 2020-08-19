@@ -128,7 +128,9 @@ void NestAnalysis::Reset()
 
   working_sets_computed_ = false;
   
-  body_info_.Reset();
+  compute_info_.Reset();
+
+  compute_info_sets_.clear();
 }
 
 // Ugly function for pre-checking capacity fits before running the heavyweight
@@ -167,7 +169,7 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
   return working_set_sizes;
 }
 
-problem::PerDataSpace<std::vector<tiling::TileInfo>>
+problem::PerDataSpace<std::vector<analysis::DataMovementInfo>>
 NestAnalysis::GetWorkingSets()
 {
   if (!working_sets_computed_)
@@ -178,14 +180,19 @@ NestAnalysis::GetWorkingSets()
   return working_sets_;
 }
 
-tiling::BodyInfo NestAnalysis::GetBodyInfo()
+analysis::CompoundComputeNest NestAnalysis::GetComputeInfo()
 {
   if (!working_sets_computed_)
   {
     ComputeWorkingSets();
   }
   ASSERT(working_sets_computed_);
-  return body_info_;
+  //return compute_info_;
+  return compute_info_sets_;
+}
+
+problem::Workload* NestAnalysis::GetWorkload(){
+  return workload_;
 }
 
 std::ostream& operator << (std::ostream& out, const NestAnalysis& n)
@@ -208,8 +215,6 @@ void NestAnalysis::ComputeWorkingSets()
     // Recursive call starting from the last element of the list.
     num_epochs_ = 1;
     ComputeDeltas(nest_state_.rbegin());
-    ComputeDataDensity();
-
     CollectWorkingSets();
   }
 
@@ -218,25 +223,6 @@ void NestAnalysis::ComputeWorkingSets()
 }
 
 // Internal helper methods
-
-
-void NestAnalysis::ComputeDataDensity(){
-    
-    for (auto& cur : nest_state_){
-        // All spatial levels that are not a master-spatial level are not valid
-        bool valid_level = !loop::IsSpatial(cur.descriptor.spacetime_dimension) || master_spatial_level_[cur.level];
-        if (valid_level)
-        {
-          for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-          {
-              for (std::uint64_t i = 1; i < cur.live_state.size(); i++)
-                cur.live_state[i].data_densities[pv] = workload_->GetDensity(pv); // uniformly distributed workload density across elements
-          }
-        }
-    }
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-      body_info_.data_densities[pv] = workload_->GetDensity(pv); // uniformly distributed workload density for arithmetic elements
-}
 
 void NestAnalysis::InitializeNestProperties()
 {
@@ -251,7 +237,8 @@ void NestAnalysis::InitializeLiveState()
   indices_.resize(nest_state_.size());
   spatial_id_ = 0;
   
-  body_info_.Reset();
+  compute_info_.Reset();
+  compute_info_sets_.clear();
 
   for (auto loop = nest_state_.rbegin(); loop != nest_state_.rend(); loop++)
   {
@@ -333,8 +320,8 @@ void NestAnalysis::CollectWorkingSets()
             cur.live_state[REPR_ELEM_ID].max_size[pv];
         condensed_state.link_transfers[pv] =
             cur.live_state[REPR_ELEM_ID].link_transfers[pv];
-        condensed_state.data_densities[pv] =
-            cur.live_state[REPR_ELEM_ID].data_densities[pv];  // FIXME: probaly too much of a simplification for PEs...
+        // condensed_state.data_densities[pv] =
+        //     cur.live_state[REPR_ELEM_ID].data_densities[pv];  
       }
 
       // Build the subnest corresponding to this level.
@@ -357,37 +344,47 @@ void NestAnalysis::CollectWorkingSets()
       // Transfer data from condensed_state to working_sets_
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
-        tiling::TileInfo tile;
+        DataMovementInfo tile;
         tile.size                   = condensed_state.max_size[pv];
-        tile.partition_size         = 0; // will be set later.
+        // tile.partition_size         = 0; // will be set later.
         tile.accesses               = condensed_state.accesses[pv]; // network accesses
-        tile.fills                  = 0; // will be set later
+        // tile.fills                  = 0; // will be set later
         tile.scatter_factors        = condensed_state.scatter_factors[pv];
         tile.cumulative_hops        = condensed_state.cumulative_hops[pv];
-        tile.content_accesses       = tile.GetTotalAccesses();
+        // tile.content_accesses       = tile.GetTotalAccesses();
         tile.link_transfers         = condensed_state.link_transfers[pv];
         tile.subnest                = subnest;
         tile.replication_factor     = num_spatial_elems_[cur.level];
         tile.fanout                 = spatial_fanouts_[cur.level];
         tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
         tile.is_master_spatial      = master_spatial_level_[cur.level];
-        tile.tile_density           = condensed_state.data_densities[pv];
+        // tile.tile_density           = condensed_state.data_densities[pv];
         working_sets_[pv].push_back(tile);
       }
-
     } // if (valid_level)
   } // for (nest)
 
   // Extract body data from innermost spatial level.
+  bool innermost_level_compute_info_collected = false; 
+  
   for (auto& cur : nest_state_)
   {
     // All spatial levels that are not a master-spatial level are not valid
     bool valid_level = !loop::IsSpatial(cur.descriptor.spacetime_dimension) || master_spatial_level_[cur.level];
-    if (valid_level)
-    {
-      body_info_.replication_factor = num_spatial_elems_[cur.level] * spatial_fanouts_[cur.level];
-      break;
-    }
+    if (valid_level){
+      if(!innermost_level_compute_info_collected){
+        analysis::ComputeInfo compute_info;
+        compute_info.replication_factor = num_spatial_elems_[cur.level] * spatial_fanouts_[cur.level];
+        compute_info.accesses = compute_info_.accesses;
+        compute_info_sets_.push_back(compute_info);
+        innermost_level_compute_info_collected = true;
+      } else {  // if not the inner most level
+        analysis::ComputeInfo compute_info;
+        compute_info.replication_factor = 0;
+        compute_info.accesses = 0;
+        compute_info_sets_.push_back(compute_info);
+      } // inner most
+    } // valid level
   }
 }
 
@@ -551,7 +548,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     {
       // To avoid double counting of compute_cycles when there are multiple PEs.
       // compute_cycles_ += body_iterations;
-      body_info_.accesses += body_iterations;
+      compute_info_.accesses += body_iterations;
     }
 
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
@@ -1039,7 +1036,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
     if (base_index == 0 && spatial_id_ == 0)
     {
       // compute_cycles_ += num_epochs_;
-      body_info_.accesses += num_epochs_;
+      compute_info_.accesses += num_epochs_;
     }
 
     // No more recursive calls, directly update spatial_deltas.

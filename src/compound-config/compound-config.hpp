@@ -105,6 +105,7 @@ class CompoundConfigNode
 
   bool isList() const;
   bool isArray() const;
+  bool isMap() const;
   int getLength() const;
 
   CompoundConfigNode operator [](int idx) const;

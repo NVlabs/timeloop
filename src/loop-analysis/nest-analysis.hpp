@@ -29,6 +29,8 @@
 
 #include "mapping/nest.hpp"
 #include "workload/per-problem-dimension.hpp"
+#include "nest-analysis-tile-info.hpp"
+
 
 namespace analysis
 {
@@ -52,8 +54,9 @@ class NestAnalysis
   // Dynamically updated by recursive calls.
   std::uint64_t spatial_id_;
   
-  tiling::CompoundTileNest working_sets_;
-  tiling::BodyInfo body_info_;
+  CompoundDataMovementNest working_sets_;
+  ComputeInfo compute_info_;  
+  CompoundComputeNest compute_info_sets_;
 
   // Memoization structures to accelerate IndexToOperationPoint()
   std::vector<problem::PerProblemDimension<std::uint64_t>>
@@ -140,7 +143,8 @@ class NestAnalysis
       problem::PerDataSpace<std::uint64_t>& link_transfers);
  
  void ComputeDataDensity();
-  
+
+
  public:  
   // API
   NestAnalysis();
@@ -149,8 +153,10 @@ class NestAnalysis
  
   std::vector<problem::PerDataSpace<std::size_t>> GetWorkingSetSizes_LTW() const;
 
-  problem::PerDataSpace<std::vector<tiling::TileInfo>> GetWorkingSets();
-  tiling::BodyInfo GetBodyInfo();
+  CompoundDataMovementNest GetWorkingSets();
+  CompoundComputeNest GetComputeInfo();
+  problem::Workload* GetWorkload();
+  
 
   // Serialization.
   friend class boost::serialization::access;

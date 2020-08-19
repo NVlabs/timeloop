@@ -98,6 +98,7 @@ if not os.path.isdir('../src/pat'):
 common_sources = Split("""
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
+loop-analysis/operation-type.cpp
 pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp
@@ -107,6 +108,7 @@ model/topology.cpp
 model/network-legacy.cpp
 model/network-reduction-tree.cpp
 model/network-simple-multicast.cpp
+model/sparse.cpp
 util/numeric.cpp
 util/map2d.cpp
 workload/problem-shape.cpp

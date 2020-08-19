@@ -63,7 +63,7 @@ struct ElementState
   problem::PerDataSpace<unsigned long> link_transfers;
   
   // Data density in each spatial element
-  problem::PerDataSpace<problem::DataDensity> data_densities;
+  // problem::PerDataSpace<problem::DataDensity> data_densities;
 
   void Reset()
   {

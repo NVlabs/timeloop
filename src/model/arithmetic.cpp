@@ -33,6 +33,7 @@
 BOOST_CLASS_EXPORT(model::ArithmeticUnits)
 
 #include "pat/pat.hpp"
+#include "topology.hpp"
 
 namespace model
 {
@@ -218,6 +219,37 @@ void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
   }
 }
 
+void ArithmeticUnits::PopulateEnergyPerOp(unsigned num_ops){
+ 
+  double ert_energy_per_op;
+  bool  ert_energy_found;
+  std::vector<std::string> ert_action_names;
+
+  for (unsigned op_id = 0; op_id < num_ops; op_id++){
+    // go through all op types 
+    ert_energy_per_op = 0;
+    ert_energy_found = false;
+    std::string op_name = tiling::arithmeticOperationTypes[op_id];
+    
+    // go through ERT entries and look for appopriate energy values 
+    ert_action_names = model::arithmeticOperationMappings.at(op_name);
+    for (auto it = ert_action_names.begin(); it != ert_action_names.end(); ++it){
+      if(specs_.ERT_entries.count(*it)>0 && !ert_energy_found){
+        ert_energy_per_op = specs_.ERT_entries.at(*it);
+        ert_energy_found = true;
+      }
+      if (it == ert_action_names.end() && !ert_energy_found){
+        // ert_energy_per_op = specs_.energy_per_op.Get(); // use the max if no mapping is found
+        ert_energy_per_op = 0;
+      }
+    }
+    // populate the op_energy_map data structure for easier future energy search
+    specs_.op_energy_map[op_name] = ert_energy_per_op;
+  }
+  populate_energy_per_op = true;
+}
+
+
 // Connect networks.
 
 void ArithmeticUnits::ConnectOperand(std::shared_ptr<Network> network)
@@ -282,20 +314,26 @@ void ArithmeticUnits::Print(std::ostream& out) const
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
 
-  out << indent << "Word bits            : " << specs_.word_bits << std::endl;    
-  out << indent << "Instances            : " << specs_.instances << " ("
+  out << indent << "Word bits             : " << specs_.word_bits << std::endl;    
+  out << indent << "Instances             : " << specs_.instances << " ("
       << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
-  out << indent << "Energy-per-op        : " << specs_.energy_per_op << " pJ" << std::endl;
+  out << indent << "Max energy-per-op     : " << specs_.energy_per_op << " pJ" << std::endl;
+  out << indent << "Random compute energy : " << specs_.op_energy_map.at("random_compute") << " pJ" << std::endl;
+  out << indent << "Gated compute energy  : " << specs_.op_energy_map.at("gated_compute") << " pJ" << std::endl;
+  out << indent << "Skipped compute energy: " << specs_.op_energy_map.at("skipped_compute") << " pJ" << std::endl;
   out << std::endl;
 
   // Print stats.
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
 
-  out << indent << "Utilized instances   : " << UtilizedInstances() << std::endl;
-  out << indent << "Cycles               : " << Cycles() << std::endl;
-  out << indent << "Energy (total)       : " << Energy() << " pJ" << std::endl;
-  out << indent << "Area (total)         : " << Area() << " um^2" << std::endl;
+  out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
+  out << indent << "Cycles                  : " << Cycles() << std::endl;
+  out << indent << "Random Computes (total) : " << compute_random << std::endl;
+  out << indent + indent << "Gated Computes (total): " << compute_gated << std::endl;
+  out << indent + indent << "Skipped Computes (total): " << compute_skipped << std::endl;
+  out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
+  out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
   out << std::endl;
 }
 

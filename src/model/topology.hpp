@@ -32,6 +32,7 @@
 #include <algorithm>
 
 #include "loop-analysis/tiling.hpp"
+#include "loop-analysis/tiling-tile-info.hpp"
 #include "loop-analysis/nest-analysis.hpp"
 #include "mapping/nest.hpp"
 #include "mapping/mapping.hpp"
@@ -41,9 +42,36 @@
 #include "compound-config/compound-config.hpp"
 #include "network.hpp"
 #include "network-legacy.hpp"
+#include "sparse.hpp"
 
 namespace model
 {
+
+// mapping between architectural action names and accelergy's ERT name
+// this mapping can be moved out as a separate yaml file that can be read in by timeloop to allow more flexibility
+
+// format {timeloop_action_name: [priority list of ERT action names]}
+static std::map<std::string, std::vector<std::string>> arithmeticOperationMappings = {{ "random_compute", { "mac_random", "mac"}},
+                                                                                      { "skipped_compute", {"mac_skipped", "mac_gated", "mac"}},
+                                                                                      { "gated_compute", { "mac_gated", "mac"}}
+                                                                                     };
+
+static std::map<std::string, std::vector<std::string>> storageOperationMappings = {{ "random_read", { "random_read", "read"}},
+                                                                                   { "random_fill", { "random_fill", "write"}},
+                                                                                   { "random_update", { "random_fill", "write"}},
+                                                                                   { "gated_read", { "gated_read", "idle", "read"}},
+                                                                                   { "gated_fill", { "gated_write", "gated_write", "idle", "write"}},
+                                                                                   { "gated_update", { "gated_write", "gated_write", "idle", "write"}},
+                                                                                   { "skipped_read", { "skipped_read", "gated_read", "idle", "read"}},
+                                                                                   { "skipped_fill", { "skipped_fill", "skipped_write", "gated_write", "idle", "write"}},
+                                                                                   { "skipped_update", { "skipped_update", "skipped_write", "gated_write", "idle", "write"}},
+                                                                                   { "metadata_read", { "metadata_read", "metadata_idle", "idle"}},
+                                                                                   { "gated_metadata_read", { "gated_metadata_read", "metadata_idle", "metadata_read"}},
+                                                                                   { "metadata_fill", { "metadata_write", "metadata_idle", "idle"}},
+                                                                                   { "gated_metadata_fill", { "gated_metadata_write", "metadata_idle", "metadata_write"}},
+                                                                                   { "decompression_count", { "decompression_count"}},
+                                                                                   { "compression_count", { "compression_count"}}
+                                                                                  }; 
 
 static std::string bufferClasses[5] = { "DRAM",
                                         "SRAM",
@@ -155,6 +183,7 @@ class Topology : public Module
     std::uint64_t cycles;
     double utilization;
     std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
+    std::vector<problem::PerDataSpace<std::uint64_t>> utilized_capacities;
     std::vector<problem::PerDataSpace<std::uint64_t>> utilized_instances;
     std::uint64_t maccs;
     std::uint64_t last_level_accesses;
@@ -261,7 +290,7 @@ class Topology : public Module
   unsigned NumNetworks() const;
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
 
   const Stats& GetStats() const { return stats_; }
 
@@ -272,6 +301,7 @@ class Topology : public Module
   std::uint64_t Cycles() const { return stats_.cycles; }
   double Utilization() const { return stats_.utilization; }
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const { return stats_.tile_sizes; }
+  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedCapacities() const { return stats_.utilized_capacities; }
   std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const { return stats_.utilized_instances; }
   std::uint64_t MACCs() const { return stats_.maccs; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }

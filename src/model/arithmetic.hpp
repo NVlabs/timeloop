@@ -57,6 +57,10 @@ class ArithmeticUnits : public Level
     Attribute<std::string> operand_network_name;
     Attribute<std::string> result_network_name;
 
+    // for ERT parsing
+    std::map<std::string, double> ERT_entries;
+    std::map<std::string, double> op_energy_map;
+
     // Serialization
     friend class boost::serialization::access;
 
@@ -78,7 +82,10 @@ class ArithmeticUnits : public Level
     {
       return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
     }
+
   };
+
+
   
  private:
   Specs specs_;
@@ -93,6 +100,12 @@ class ArithmeticUnits : public Level
   std::uint64_t cycles_ = 0;
   std::size_t utilized_instances_ = 0;
   std::uint64_t maccs_ = 0;
+  bool populate_energy_per_op = false;
+
+  //fine-grained actions
+  std::uint64_t compute_random = 0;
+  std::uint64_t compute_skipped = 0;
+  std::uint64_t compute_gated = 0;
 
   // Serialization
   friend class boost::serialization::access;
@@ -126,6 +139,7 @@ class ArithmeticUnits : public Level
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
   static void ValidateTopology(ArithmeticUnits::Specs& specs);
+  void PopulateEnergyPerOp(unsigned num_ops);
   
   Specs& GetSpecs() { return specs_; }
 
@@ -147,24 +161,26 @@ class ArithmeticUnits : public Level
 
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
+                                const problem::Workload* workload,
                                 const bool break_on_failure) override
   {
     (void) working_set_sizes;
     (void) mask;
+    (void) workload;
     (void) break_on_failure;
     return { true, "" };
   }
 
-  EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                      const std::uint64_t compute_cycles,
-                      const bool break_on_failure) override
-  {
-    (void) tile;
-    (void) mask;
-    (void) compute_cycles;
-    (void) break_on_failure;
-    return { false, "ArithmeticLevel must use the HackEvaluate() function" };
-  }
+  // EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+  //                     const std::uint64_t compute_cycles,
+  //                     const bool break_on_failure) override
+  // {
+  //   (void) tile;
+  //   (void) mask;
+  //   (void) compute_cycles;
+  //   (void) break_on_failure;
+  //   return { false, "ArithmeticLevel must use the HackEvaluate() function" };
+  // }
   
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
   {
@@ -174,41 +190,84 @@ class ArithmeticUnits : public Level
 
   double CapacityUtilization() const override { return 0; }
 
-  std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
+  std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
   {
     (void) pv;
     return 0;
   }
 
-  // --- Temporary hack interfaces, these will be removed ---
-  
-  EvalStatus HackEvaluate(analysis::NestAnalysis* analysis)
+  std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
+  {
+    (void) pv;
+    return 0;
+  }
+ 
+  EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                      const std::uint64_t compute_cycles,
+                      const bool break_on_failure)
   {
     assert(is_specced_);
+
+    (void) mask;
+    (void) break_on_failure;
+//    (void) compute_cycles;
 
     EvalStatus eval_status;
     eval_status.success = true;
 
-    auto body_info = analysis->GetBodyInfo();
-    
-    utilized_instances_ = body_info.replication_factor;
-    auto compute_cycles = body_info.accesses;
+    // tiling::ComputeInfo compute_info = tile.compute_info[0]; // one optype only
+    // tiling::CompoundDataMovementInfo data_movement_info = tile.data_movement_info;
+  
+    utilized_instances_ = tile.compute_info.replication_factor; 
 
     // maccs_ = analysis->GetMACs();
 
     if (utilized_instances_ <= specs_.instances.Get())
     {
+
+      // energy_ = maccs_ * specs_.energy_per_op.Get();
+
+      // // Scale energy for sparsity.
+      // for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
+      // {
+      //   if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
+      //     energy_ *= data_movement_info[d].tile_density.GetAverageDensity();
+      // }
+      energy_ = 0;
+      int op_accesses;
+      std::string op_name;
+
+      // find the static correspondence between timeloop action name and ERT action names
+      if (! populate_energy_per_op)
+        PopulateEnergyPerOp(tiling::GetNumOpTypes("arithmetic"));
+
+      // go through the fine grained actions and reflect the special impacts
+      for (int op_id = 0; op_id < tiling::GetNumOpTypes("arithmetic"); op_id++){
+        op_name = tiling::arithmeticOperationTypes[op_id];
+        op_accesses = tile.compute_info.fine_grained_accesses.at(op_name);
+        energy_ += op_accesses * specs_.op_energy_map.at(op_name);
+
+        // collect stats...
+        if (op_name == "random_compute"){
+          compute_random = op_accesses;
+        } else if (op_name == "gated_compute"){
+          compute_gated = op_accesses;
+        } else if (op_name == "skipped_compute"){
+          compute_skipped = op_accesses;
+        }
+      }
+
+      // FIXME: phase 1 computations here -- everything is dense
+      // dense compute cycles and dense MACCs
       cycles_ = compute_cycles;
       maccs_ = utilized_instances_ * compute_cycles;
-      energy_ = maccs_ * specs_.energy_per_op.Get();
 
-      // Scale energy for sparsity.
-      for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
-      {
-        if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
-          //energy_ *= workload.GetDensity(d);
-          energy_ *= body_info.data_densities[d];
-      }
+      // FIXME: phase 2 computations should be finalized and taken into account
+      // unstable phase 2 logic: account for cycle savings due to skipping
+      //   tile info compute cycles contains the post-processed number of cycles by looking at the sparsity distribution
+      //   by commenting out this line, we are still using the dense # of computes
+      // cycles_ = tile.compute_info.compute_cycles;
+      // maccs_ = utilized_instances_ * tile.compute_info.accesses; // total number of dense maccs
 
       is_evaluated_ = true;    
     }
