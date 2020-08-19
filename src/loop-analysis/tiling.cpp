@@ -447,6 +447,7 @@ void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
   return;
 }
 
+// FIXME: check the if logic for hardware reduction support is still in the loop
 
 void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv){
   // Loop through all levels and update reads, writes, updates.
@@ -686,6 +687,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 //   all_enabled.fill(all_ones);
 //   return CollapseTiles(tiles, num_tiling_levels, all_enabled);
 // }
+
+// FIXME: need a more descriptive function name here
 
 void ComputeCompressedTileSizeSetParentChild(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
                                              sparse::CompressionInfo& storage_compression_info){

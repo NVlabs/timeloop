@@ -34,6 +34,14 @@
 namespace problem
 {
 
+// notes for future improvements
+// this class should be more general, statiscal modeling focused, and directly produces the following
+//    (1) largest density of the tile (for the occupancy check and slowest compute unit)
+//    (2) smallest density of the tile
+//    (3) avgerage density of the tile 
+// the interface should invovle coordinate dependent setup, i.e., where is the tile in the workload
+// the other parts of the infrastructure should be independent from the distribution format
+
 struct DataDensity{ 
 
   double average_density_ = 1.0;
