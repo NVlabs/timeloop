@@ -43,17 +43,17 @@ int GetNumOpTypes()
 }
 
 int GetNumOpTypes(std::string component_type){
-	if (component_type == "arithmetic"){
+  if (component_type == "arithmetic"){
         return sizeof(arithmeticOperationTypes) / sizeof(arithmeticOperationTypes[0]);
 
-	} else if (component_type == "storage"){
-		return sizeof(storageOperationTypes) / sizeof(storageOperationTypes[0]);
+  } else if (component_type == "storage"){
+    return sizeof(storageOperationTypes) / sizeof(storageOperationTypes[0]);
         
-	} else if (component_type == "network") {
-		return sizeof(networkOperationTypes) / sizeof(networkOperationTypes[0]);
+  } else if (component_type == "network") {
+    return sizeof(networkOperationTypes) / sizeof(networkOperationTypes[0]);
  
   } else {
-  	assert(false);
+    assert(false);
   }
 }
 

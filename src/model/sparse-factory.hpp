@@ -30,5 +30,5 @@
 
 namespace sparse{
   // return the information related to all types of sparse optimization
-	SparseOptimizationInfo Parse(config::CompoundConfigNode sparse_config, model::Engine::Specs& arch_specs);
+  SparseOptimizationInfo Parse(config::CompoundConfigNode sparse_config, model::Engine::Specs& arch_specs);
 }

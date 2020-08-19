@@ -35,41 +35,40 @@ namespace problem
 {
 
 struct DataDensity{ 
-		
-		double average_density_ = 1.0;
-		double variance_ = 0.0;
 
-		DataDensity(){
-			average_density_ = 1;  // default density to 1
-		}
-		
-		DataDensity(const double& average_density){
-			average_density_ = average_density;
-		}
+  double average_density_ = 1.0;
+  double variance_ = 0.0;
 
-		DataDensity(const double& average_density, const double& variance){
-		  average_density_ = average_density;
-		  variance_ = variance;
-		}
+  DataDensity(){
+    average_density_ = 1;  // default density to 1
+  }
+  
+  DataDensity(const double& average_density){
+    average_density_ = average_density;
+  }
 
-		double GetAverageDensity() const {
-			return average_density_;
-		}
+  DataDensity(const double& average_density, const double& variance){
+    average_density_ = average_density;
+    variance_ = variance;
+  }
 
-		double GetVariance() const {
-		  return variance_;
-		}
+  double GetAverageDensity() const {
+    return average_density_;
+  }
 
-		// Serialization.
-		friend class boost::serialization::access;
-	    template <class Archive>
-	    void serialize(Archive& ar, const unsigned int version=0){
-	  	if (version == 0)
-	    {
-	      ar& BOOST_SERIALIZATION_NVP(average_density_);
-	      ar& BOOST_SERIALIZATION_NVP(variance_);
-	    }
-	  }
-	  
+  double GetVariance() const {
+    return variance_;
+  }
+
+  // Serialization.
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version=0){
+    if (version == 0)
+     { 
+       ar& BOOST_SERIALIZATION_NVP(average_density_);
+       ar& BOOST_SERIALIZATION_NVP(variance_);
+     }
+  }
 }; // struct
 } // namespace

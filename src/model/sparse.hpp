@@ -37,30 +37,30 @@ namespace sparse{
   //
   // data structures shared by action-gating and action-skipping optimization info
   //
-	typedef std::string ActionName;
-	typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceActionOptimizationInfo;
-	typedef std::map<std::string, PerDataSpaceActionOptimizationInfo> PerStorageLevelActionOptimizationInfo;
+  typedef std::string ActionName;
+  typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceActionOptimizationInfo;
+  typedef std::map<std::string, PerDataSpaceActionOptimizationInfo> PerStorageLevelActionOptimizationInfo;
 
   // storage_level_id, per_storage_level_gating_info
-	typedef std::map<unsigned, PerStorageLevelActionOptimizationInfo> StorageActionOptimizationInfo;
+  typedef std::map<unsigned, PerStorageLevelActionOptimizationInfo> StorageActionOptimizationInfo;
 
-	typedef std::map<ActionName, std::vector<std::string>> ComputeActionOptimizationInfo;
+  typedef std::map<ActionName, std::vector<std::string>> ComputeActionOptimizationInfo;
 
   //
   // data structure for action gating information
   //
-	struct ActionGatingInfo{
+  struct ActionGatingInfo{
     StorageActionOptimizationInfo storage_info = {};
     ComputeActionOptimizationInfo compute_info = {};
-	};
+  };
 
   //
   // data structure for action skipping information
   //
-	struct ActionSkippingInfo{
+  struct ActionSkippingInfo{
     StorageActionOptimizationInfo storage_info = {};
     ComputeActionOptimizationInfo compute_info = {};
-	};
+  };
 
   //
   // data structures for compression information
@@ -73,19 +73,19 @@ namespace sparse{
     std::vector<unsigned> rank0_list={};
     std::vector<unsigned> rank1_list={};
   };
-	typedef std::map<std::string, PerDataSpaceCompressionInfo> PerStorageLevelCompressionInfo;
-	// storage_level_id, per_storage_level_gating_info
-	typedef std::map<unsigned, PerStorageLevelCompressionInfo> CompressionInfo;
+  typedef std::map<std::string, PerDataSpaceCompressionInfo> PerStorageLevelCompressionInfo;
+  // storage_level_id, per_storage_level_gating_info
+  typedef std::map<unsigned, PerStorageLevelCompressionInfo> CompressionInfo;
 
   //
   // aggregation of all sparse optimization related information
   //
 
-	struct SparseOptimizationInfo{
-	  ActionGatingInfo action_gating_info;
-	  ActionSkippingInfo action_skipping_info;
-	  CompressionInfo compression_info = {};
-	};
+  struct SparseOptimizationInfo{
+    ActionGatingInfo action_gating_info;
+    ActionSkippingInfo action_skipping_info;
+    CompressionInfo compression_info = {};
+  };
   
 
 } // namespace
