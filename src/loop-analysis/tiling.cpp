@@ -494,7 +494,7 @@ void ComputeDataDensity(std::vector<DataMovementInfo>& tile_nest, problem::Workl
   int num_tiling_levels = tile_nest.size();
   for (int cur = num_tiling_levels-1; cur >= 0; cur--){  
     // uniformly distributed workload density
-    tile_nest[cur].tile_density = workload->GetDensity(pv); 
+    tile_nest[cur].tile_density = workload->GetDensity(pv).GetTileDensity(tile_nest[cur].size);
   }
   return;
 }
@@ -623,7 +623,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.child_level = std::numeric_limits<unsigned>::max();
       
       // initialize data density
-      collapsed_tile.tile_density = problem::DataDensity(1.0);
+      collapsed_tile.tile_density = 1.0;
       
       // initialize the fine-grained access dictionary
       std::string op_name;
@@ -649,9 +649,6 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     }
     assert(cur_tiling_level == num_tiling_levels);
 
-    // Calculate the data density in this nest of tiles
-    ComputeDataDensity(solution[pv], workload, pv);
-
     // Compute partition sizes.
     ComputePartitionSizes(solution[pv]);
 
@@ -669,6 +666,9 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 
     // split the accesses to read and update and generate reduction
     ComputeReadUpdateReductionAccesses(solution[pv], pv);
+
+    // Calculate the data density in this nest of tiles
+    ComputeDataDensity(solution[pv], workload, pv);
 
     // find the parent and child levels for later compression/decompression logic
     SetParentLevel(solution[pv]);
@@ -708,7 +708,7 @@ void ComputeCompressedTileSizeSetParentChild(tiling::NestOfCompoundTiles& nest_o
           compound_data_movement[pv].compressed = per_level_compression_info.at(data_space_name).compressed;
 
           if (per_level_compression_info.at(data_space_name).compressed){ // specified and compressed
-            double stored_data_density = compound_data_movement[pv].tile_density.GetAverageDensity() ;
+            double stored_data_density = compound_data_movement[pv].tile_density;
             double compression_rate = per_level_compression_info.at(data_space_name).compression_rate;
             compound_data_movement[pv].compressed_size = ceil(compound_data_movement[pv].size * stored_data_density / compression_rate);
             //std::cout << "dense tile size: " << compound_data_movement[pv].size << std::endl;

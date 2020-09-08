@@ -83,7 +83,7 @@ struct DataMovementInfo
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
   // tile density
-  problem::DataDensity tile_density;             // statistical representation of tile data density
+  double tile_density;
   // fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
 

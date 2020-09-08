@@ -179,13 +179,15 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
     config.lookupValue(GetShape()->CoefficientIDToName.at(i), coefficients[i]);
   }
   workload.SetCoefficients(coefficients);
-  
+
   Workload::Densities densities;
   double common_avg_density;
   if (config.lookupValue("commonDensity", common_avg_density))
   {
-    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
-      densities[i] = DataDensity(common_avg_density);
+    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
+      densities[i]= DataDensity("constant");
+      densities[i].SetDensity(common_avg_density);
+    }
   }
   else if (config.exists("densities"))
   {
@@ -194,27 +196,29 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
       double dataspace_avg_density;
       std::string dataspace_name = GetShape()->DataSpaceIDToName.at(i);
 
-      // density specified as a distribution with mean and deviation
-      if (config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap()){
-         double dataspace_variance;
-         auto density_distribution = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
+      // FIXME: add support later -- density specified as a distribution with mean and deviation
+      // if (config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap()){
+         // double dataspace_variance;
+         // auto density_distribution = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
          // std::cout << " detect densities as distributions for " << GetShape()->DataSpaceIDToName.at(i) << std::endl;
-         assert(density_distribution.lookupValue("mean", dataspace_avg_density));
-         assert(density_distribution.lookupValue("variance", dataspace_variance));
-         densities[i] = DataDensity(dataspace_avg_density, dataspace_variance);
+         // assert(density_distribution.lookupValue("mean", dataspace_avg_density));
+         // assert(density_distribution.lookupValue("variance", dataspace_variance));
+         // densities[i] = DataDensity(dataspace_avg_density, dataspace_variance);
+         // assert(false);
 
-      // density specified a a single number
-      } else {
-          assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
-          densities[i]= DataDensity(dataspace_avg_density);
-      }
+//      } else {
+        // density specified a a single number (constant)
+       assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
+       densities[i]= DataDensity("constant");
+       densities[i].SetDensity(dataspace_avg_density);
+//      }
 
     }
-  }
-  else
-  {
-    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
-      densities[i]= DataDensity(1.0);
+  } else {
+    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
+      densities[i]= DataDensity("constant");
+      densities[i].SetDensity(1.0);
+    }
   }
   workload.SetDensities(densities);
 }
