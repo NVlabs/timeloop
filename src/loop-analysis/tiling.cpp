@@ -493,8 +493,9 @@ void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest
 void ComputeDataDensity(std::vector<DataMovementInfo>& tile_nest, problem::Workload* workload, problem::Shape::DataSpaceID pv){
   int num_tiling_levels = tile_nest.size();
   for (int cur = num_tiling_levels-1; cur >= 0; cur--){  
-    // uniformly distributed workload density
-    tile_nest[cur].tile_density = workload->GetDensity(pv).GetTileDensity(tile_nest[cur].size);
+    tile_nest[cur].tile_expected_density = workload->GetDensity(pv).GetTileExpectedDensity(tile_nest[cur].size);
+    tile_nest[cur].tile_confidence_density = workload->GetDensity(pv).GetTileConfidentDensity(tile_nest[cur].size);
+//    std::cout << "tiling: " << tile_nest[cur].tile_density << std::endl;
   }
   return;
 }
@@ -623,7 +624,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.child_level = std::numeric_limits<unsigned>::max();
       
       // initialize data density
-      collapsed_tile.tile_density = 1.0;
+      collapsed_tile.tile_expected_density = 1.0;
+      collapsed_tile.tile_confidence_density = 1.0;
       
       // initialize the fine-grained access dictionary
       std::string op_name;
@@ -708,7 +710,7 @@ void ComputeCompressedTileSizeSetParentChild(tiling::NestOfCompoundTiles& nest_o
           compound_data_movement[pv].compressed = per_level_compression_info.at(data_space_name).compressed;
 
           if (per_level_compression_info.at(data_space_name).compressed){ // specified and compressed
-            double stored_data_density = compound_data_movement[pv].tile_density;
+            double stored_data_density = compound_data_movement[pv].tile_confidence_density;
             double compression_rate = per_level_compression_info.at(data_space_name).compression_rate;
             compound_data_movement[pv].compressed_size = ceil(compound_data_movement[pv].size * stored_data_density / compression_rate);
             //std::cout << "dense tile size: " << compound_data_movement[pv].size << std::endl;

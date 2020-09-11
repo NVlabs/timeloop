@@ -514,7 +514,7 @@ EvalStatus BufferLevel::PreEvaluationCheck(
       if (mask[pvi])
       {
         auto dense_working_set_size = working_set_sizes.at(problem::Shape::DataSpaceID(pvi));
-        auto sparse_working_set_size = ceil(dense_working_set_size * workload->GetDensity(pvi).GetTileDensity(dense_working_set_size));
+        auto sparse_working_set_size = ceil(dense_working_set_size * workload->GetDensity(pvi).GetTileConfidentDensity(dense_working_set_size));
         // required_capacity += working_set_sizes.at(problem::Shape::DataSpaceID(pvi));
         required_capacity += sparse_working_set_size;
       }

@@ -63,12 +63,12 @@ double GetDensityByActionOptimizationNames(sparse::PerDataSpaceActionOptimizatio
   
   double density = 1.0;
   unsigned id;
-
   if (data_space_gating_info.find(action_name)!= data_space_gating_info.end()){
     std::vector<std::string> gated_data_space_names = data_space_gating_info.at(action_name);
       for (unsigned i = 0; i < gated_data_space_names.size(); i++){
         id = problem::GetShape()->DataSpaceNameToID.at(gated_data_space_names[i]);
-        density *= compound_data_movement[id].tile_density;
+        density *= compound_data_movement[id].tile_expected_density;
+//        std::cout << "id: " << gated_data_space_names[i] << " tile size: " << compound_data_movement[id].size << " density: " << compound_data_movement[id].tile_density << std::endl;
       }
   }
 
@@ -198,7 +198,7 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       std::uint64_t dense_memory_fills = compound_data_movement[pv].fills;
 
       std::string metadata_format = per_level_compression_info.at(data_space_name).metadata_format;
-      double data_space_density = compound_data_movement[pv].tile_density;
+      double data_space_density = compound_data_movement[pv].tile_expected_density;
       double compression_rate = per_level_compression_info.at(data_space_name).compression_rate;
 
       // calculate the number of metadata reads/fills according to metadata format
@@ -430,10 +430,13 @@ void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info,
   total_accesses = compute_info.replication_factor * compute_info.accesses;
 
   double compute_avg_density = 1.0;
-  compute_avg_density = GetDensityByActionOptimizationNames(compute_skipping_info, "compute", compound_data_movement);
-  compute_info.fine_grained_accesses["skipped_compute"] = ceil(total_accesses * (1-compute_avg_density));
 
+  compute_avg_density = GetDensityByActionOptimizationNames(compute_skipping_info, "compute", compound_data_movement);
+
+  compute_info.fine_grained_accesses["skipped_compute"] = ceil(total_accesses * (1-compute_avg_density));
+//  std::cout << "---------------------" << std::endl;
   compute_avg_density = GetDensityByActionOptimizationNames(compute_gating_info, "compute", compound_data_movement);
+//  std::cout << "compute avg density: " << compute_avg_density << std::endl;
   compute_info.fine_grained_accesses["gated_compute"] = ceil(total_accesses * (1-compute_avg_density));
 
   compute_info.fine_grained_accesses["random_compute"] = total_accesses

@@ -127,7 +127,7 @@ void NestAnalysis::Reset()
   linked_spatial_level_.clear();
 
   working_sets_computed_ = false;
-  
+
   compute_info_.Reset();
 
   compute_info_sets_.clear();

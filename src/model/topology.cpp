@@ -934,15 +934,18 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
   auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   auto working_set_sizes = analysis->GetWorkingSetSizes_LTW();
 
-  // set the workload_tensor sizes that were not available during parsing stage
+
   problem::Workload* workload = analysis->GetWorkload();
 
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++){
-       problem::DataDensity dataspace_density = workload->GetDensity(pvi);
-       // last level is the entire tensor
-       std::uint64_t tensor_size = working_set_sizes[NumStorageLevels()-1][problem::Shape::DataSpaceID(pvi)];
-       dataspace_density.SetWorkloadTensorSize(tensor_size);
-       // std::cout << "setting workload tensor size for " << pvi << " to " << working_set_sizes[NumStorageLevels()-1][problem::Shape::DataSpaceID(pvi)] <<std::endl;
+  // set the workload_tensor sizes that were not available during parsing stage
+  // this step should only happen once to a workload
+  if (! workload->IsWorkloadTensorSizesSet()){
+    // std::cout << "this should only happen once" << std::endl;
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++){
+        // set tensor size for all dataspaces
+        workload->SetWorkloadTensorSize(problem::Shape::DataSpaceID(pvi),
+                                        working_set_sizes[NumStorageLevels()-1][problem::Shape::DataSpaceID(pvi)]);
+    }
   }
 
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });

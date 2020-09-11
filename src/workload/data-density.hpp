@@ -31,6 +31,7 @@
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/math/distributions/hypergeometric.hpp>
+#include <iostream>
 
 namespace problem
 {
@@ -52,17 +53,24 @@ namespace problem
 struct ConstantDensity{
 
     std::string type = "constant";
-    double constant_density = 1.0;
+    double constant_density_ = 1.0;
 
     ConstantDensity(double density = 1.0){
-       constant_density = density;
+       constant_density_ = density;
     }
 
-    double GetTileDensity(std::uint64_t tile_shape, double confidence = 0.99){
+    double GetTileConfidentDensity(std::uint64_t tile_shape, double confidence) const {
        // constant density always return the same constant value
        (void) tile_shape;
        (void) confidence;
-       return constant_density;
+       return constant_density_;
+    }
+
+    double GetTileExpectedDensity( uint64_t tile_shape ) const {
+
+       (void) tile_shape;
+
+       return constant_density_;
     }
 };
 
@@ -73,19 +81,21 @@ struct ConstantDensity{
 // the zeros are randomly distributed across the coordinates, i.e., for the same tile size, the sampled tiles will have
 // similar property
 
-struct CoordinateUniformAverage{
+struct CoordinateUniform{
 
-    std::string type = "coordinate_uniform_average";
-    double average_density_ = 1.0;
-    std::uint64_t workload_tensor_size_ = 0;
-    bool workload_tensor_size_set_ = false;
+    std::string type = "coordinate_uniform";
+    double average_density_;
+    std::uint64_t workload_tensor_size_;
+    bool workload_tensor_size_set_;
 
-    CoordinateUniformAverage(double density = 1.0){
+    CoordinateUniform(double density = 1.0){
       // if workload tensor is not available at the parsing stage, set the average density fist
       average_density_ = density;
+      workload_tensor_size_set_ = false;
+      workload_tensor_size_ = 0;
     }
 
-    CoordinateUniformAverage(std::uint64_t size, double density = 1.0){
+    CoordinateUniform(std::uint64_t size, double density = 1.0){
       // constructor that sets both parameters at the same time
       workload_tensor_size_set_ = true;
       workload_tensor_size_ = size;
@@ -94,34 +104,53 @@ struct CoordinateUniformAverage{
 
     void SetWorkloadTensorSize(std::uint64_t size){
       // setter that allows workload tensor size at a latter stage (topology.cpp, PreEvaluationCheck)
-      assert(! workload_tensor_size_set_);
+      // assert(! workload_tensor_size_set_);
       workload_tensor_size_set_ = true;
       workload_tensor_size_ = size;
     }
 
-    double GetTileDensity(std::uint64_t tile_shape, double confidence = 0.99){
+    double GetTileConfidentDensity(std::uint64_t tile_shape, double confidence) const {
+
+        double tile_density;
 
         if (average_density_ == 1.0){
           // dense data does not need distribution
-          return 1.0;
+          tile_density = 1.0;
+        } else if (tile_shape == 0) {
+          // zero sized tile does not make sense for distribution
+          tile_density = average_density_;
+        } else {
+
+            // check necessary parameter is set
+            assert(workload_tensor_size_set_);
+
+            // construct a hypergeometric distribution according to
+            //    1) N: population of objects -> workload size
+            //    2) n: sample size -> tile size
+            //    3) r: defective objects -> total number of zero data
+
+            std::uint64_t r = workload_tensor_size_ * average_density_;
+            std::uint64_t n = tile_shape;
+            std::uint64_t N = workload_tensor_size_;
+            boost::math::hypergeometric_distribution<double> distribution(r, n, N);
+            std::uint64_t k_percentile = quantile(distribution, confidence);
+
+            tile_density = 1.0*k_percentile/tile_shape;
+
         }
 
-        // check necessary parameter is set
-        assert(workload_tensor_size_set_);
 
-        // construct a hypergeometric distribution according to
-        //    1) N: population of objects -> workload size
-        //    2) n: sample size -> tile size
-        //    3) r: defective objects -> total number of zero data
+//        std::cout << "average density: " << average_density_ << " tensor size: " << workload_tensor_size_ << " tile size: " << tile_shape
+//                  << " --->" << confidence <<" confident density: " << tile_density << std::endl;
 
-        std::uint64_t r = workload_tensor_size_ * average_density_;
-        std::uint64_t n = tile_shape;
-        std::uint64_t N = workload_tensor_size_;
-        boost::math::hypergeometric_distribution<double> distribution(r, n, N);
-        std::uint64_t k_percentile = quantile(distribution, confidence);
-        double density = 1.0*k_percentile/tile_shape;
+        return tile_density;
+    }
 
-        return density;
+    double GetTileExpectedDensity( uint64_t tile_shape ) const {
+
+       (void) tile_shape;
+
+       return average_density_;
     }
 };
 
@@ -133,17 +162,20 @@ class DataDensity{
   bool is_typed_ = false;
   bool distribution_instantiated_= false;
   std::string type_ = "constant";
+  double confidence_knob_ = 0.5;
 
   // place holder distributions, one of them will be defined
   ConstantDensity constant_distribution;
-  CoordinateUniformAverage hypergeometric_distribution;
+
 
   public:
+  CoordinateUniform hypergeometric_distribution;
 
   // constructor
-  DataDensity(std::string density_type = "constant"){
+  DataDensity(std::string density_type = "constant", double knob = 0.5){
     is_typed_ = true;
     type_ = density_type;
+    confidence_knob_ = knob;
   }
 
   bool IsTyped() const { return is_typed_; }
@@ -155,9 +187,11 @@ class DataDensity{
     if (type_ == "constant"){
        ConstantDensity distribution(density);
        constant_distribution = distribution;
-    } else if (type_ == "coordinate_uniform_average"){
-       CoordinateUniformAverage distribution(density);
+
+    } else if (type_ == "coordinate_uniform"){
+       CoordinateUniform distribution(density);
        hypergeometric_distribution = distribution;
+
     } else {
        assert(false);
     }
@@ -172,25 +206,55 @@ class DataDensity{
 
     assert(is_typed_);
     assert(distribution_instantiated_);
-    if (type_ == "coordinate_uniform_average"){
+    if (type_ == "coordinate_uniform"){
        hypergeometric_distribution.SetWorkloadTensorSize(size);
+    } else {
+       // no need to set workload tensor sizes
     }
-
   }
 
-  std::string GetType(){
+  std::uint64_t GetWorkloadTensorSize() const {
+
+    assert(is_typed_);
+    assert(distribution_instantiated_);
+    if (type_ == "coordinate_uniform"){
+      return hypergeometric_distribution.workload_tensor_size_;
+    } else {
+      std::cout << "WARN: workload tensor size is not used for this distribution, so not set" << std::endl;
+      return 0;
+    }
+  }
+
+  std::string GetType() const{
      assert(is_typed_);
      return type_;
   }
 
-  double GetTileDensity(std::uint64_t tile_shape, double confidence = 0.99){
+  double GetTileConfidentDensity(std::uint64_t tile_shape, double confidence = 0.5) const {
     assert(is_typed_);
+    (void) confidence; // use the user-defined knob that can be defined outside
 
     double density;
     if (type_ == "constant"){
-      density = constant_distribution.GetTileDensity(tile_shape, confidence);
-    } else if (type_ == "coordinate_uniform_average"){
-      density = hypergeometric_distribution.GetTileDensity(tile_shape, confidence);
+      density = constant_distribution.GetTileConfidentDensity(tile_shape, confidence_knob_);
+
+    } else if (type_ == "coordinate_uniform"){
+      density = hypergeometric_distribution.GetTileConfidentDensity(tile_shape, confidence_knob_);
+
+    } else {
+      assert(false);
+    }
+    return density;
+  }
+
+  double GetTileExpectedDensity(std::uint64_t tile_shape) const {
+    double density;
+    if (type_ == "constant"){
+      density = constant_distribution.GetTileExpectedDensity(tile_shape);
+
+    } else if (type_ == "coordinate_uniform"){
+      density = hypergeometric_distribution.GetTileExpectedDensity(tile_shape);
+
     } else {
       assert(false);
     }

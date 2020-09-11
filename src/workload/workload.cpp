@@ -196,25 +196,50 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
       double dataspace_avg_density;
       std::string dataspace_name = GetShape()->DataSpaceIDToName.at(i);
 
-      // FIXME: add support later -- density specified as a distribution with mean and deviation
-      // if (config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap()){
-         // double dataspace_variance;
-         // auto density_distribution = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
-         // std::cout << " detect densities as distributions for " << GetShape()->DataSpaceIDToName.at(i) << std::endl;
-         // assert(density_distribution.lookupValue("mean", dataspace_avg_density));
-         // assert(density_distribution.lookupValue("variance", dataspace_variance));
-         // densities[i] = DataDensity(dataspace_avg_density, dataspace_variance);
-         // assert(false);
+      if (! config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap()){
+        // single number for density is given, default to constant density type
+        assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
+        densities[i]= DataDensity("constant");
+        densities[i].SetDensity(dataspace_avg_density);
+      } else {
+        auto density_specification = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
+        std::string density_type;
+        assert(density_specification.lookupValue("type", density_type));
+        double confidence_knob;
 
-//      } else {
-        // density specified a a single number (constant)
-       assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
-       densities[i]= DataDensity("constant");
-       densities[i].SetDensity(dataspace_avg_density);
-//      }
+        // parse for user-defined confidence knob
+        if (density_specification.lookupValue("knob", confidence_knob)){
+           densities[i]= DataDensity(density_type, confidence_knob);
+        } else {
+           densities[i]= DataDensity(density_type);
+        }
 
+        // each distribution has a different way of specification,
+        // here we need to do it case by case by looking at the distribution type
+        if ((density_type == "constant") | (density_type == "coordinate_uniform")){
+           double density;
+           assert(density_specification.lookupValue("density", density));
+           densities[i].SetDensity(density);
+
+        } else {
+          // fall into categories that we don't support yet
+          std::cout << "ERROR: distribution type not supported..." << std::endl;
+          assert(false);
+          // FIXME: add support for normal density specified as a distribution with mean and deviation
+          // if (config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap()){
+          // double dataspace_variance;
+          // auto density_distribution = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
+          // std::cout << " detect densities as distributions for " << GetShape()->DataSpaceIDToName.at(i) << std::endl;
+          // assert(density_distribution.lookupValue("mean", dataspace_avg_density));
+          // assert(density_distribution.lookupValue("variance", dataspace_variance));
+          // densities[i] = DataDensity(dataspace_avg_density, dataspace_variance);
+          // assert(false);
+        }
+      }
     }
+
   } else {
+    // no density specification -> dense workload tensors
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
       densities[i]= DataDensity("constant");
       densities[i].SetDensity(1.0);

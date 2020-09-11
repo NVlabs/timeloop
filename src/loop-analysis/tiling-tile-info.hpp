@@ -83,7 +83,10 @@ struct DataMovementInfo
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
   // tile density
-  double tile_density;
+  double tile_expected_density; // expected/average tile tensity, this is usually the workload density
+  // the density that is dependent on confidence, and is used for tile occupancy calculations
+  //    e.g., with a 99% confidence, I'm sure the tile density will be less the proposed tile_confidence_density
+  double tile_confidence_density;
   // fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
 
