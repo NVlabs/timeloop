@@ -83,10 +83,8 @@ struct DataMovementInfo
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
   // tile density
-  double tile_expected_density; // expected/average tile tensity, this is usually the workload density
-  // the density that is dependent on confidence, and is used for tile occupancy calculations
-  //    e.g., with a 99% confidence, I'm sure the tile density will be less the proposed tile_confidence_density
-  double tile_confidence_density;
+  problem::DataDensity tile_density;  // statistical representation of tile data density
+  double tile_confidence;
   // fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
 
@@ -99,10 +97,13 @@ struct DataMovementInfo
   std::vector<problem::Shape::DimensionID> rank1_list;
 
   // parent/child level for inferring decompression/compression overhead
-  problem::Shape::DataSpaceID parent_level;
-  problem::Shape::DataSpaceID child_level;
+  unsigned parent_level;
+  unsigned child_level;
   bool parent_level_compressed;
   bool child_level_compressed;
+
+  std::map<std::string, std::uint64_t> parent_level_simple_specs;
+  std::map<std::string, double> parent_level_op_energy;
 
   std::uint64_t GetTotalAccesses() const
   {
@@ -137,12 +138,16 @@ struct DataMovementInfo
     distributed_fanout = 0;
     compressed = false;
     compressed_size = 0;
+    tile_density = problem::DataDensity();
+    tile_confidence = 1.0;
     metadata_format.resize(0);
     parent_level=std::numeric_limits<unsigned>::max();
     child_level=std::numeric_limits<unsigned>::max();
     parent_level_compressed = false;
     child_level_compressed = false;
     fine_grained_accesses.clear();
+    parent_level_simple_specs.clear();
+    parent_level_op_energy.clear();
     rank1_list.resize(0);
     rank0_list.resize(0);
   }

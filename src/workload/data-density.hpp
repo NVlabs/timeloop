@@ -72,6 +72,25 @@ struct ConstantDensity{
 
        return constant_density_;
     }
+
+    double GetTileConfidence(std::uint64_t tile_shape, std::uint64_t buffer_size) const {
+
+        double confidence;
+        if ( buffer_size >= tile_shape){
+            confidence = 1.0; // for sure the tile will fit, no matter what the density is
+        } else {
+
+          // binary option -> fit or not fit
+          if (tile_shape * constant_density_ > buffer_size){
+            confidence = 0.0;
+          } else {
+            confidence = 1.0;
+          }
+        }
+
+        return confidence;
+    }
+
 };
 
 //
@@ -146,11 +165,47 @@ struct CoordinateUniform{
         return tile_density;
     }
 
+
+
     double GetTileExpectedDensity( uint64_t tile_shape ) const {
 
        (void) tile_shape;
 
        return average_density_;
+    }
+
+ double GetTileConfidence(std::uint64_t tile_shape, std::uint64_t buffer_size) const {
+
+    // given a specific buffer size, return the confidence of tile shape with workload density fitting in
+    // the buffer
+
+    double confidence;
+
+    if ( buffer_size >= tile_shape){
+
+          confidence = 1.0; // for sure the tile will fit, no matter what the density is
+
+    } else if (average_density_ == 1.0) {
+
+      confidence = 0.0; // for sure will not fit
+
+    } else {  // buffer size < tile shape, and sparse data
+
+        // construct a hypergeometric distribution according to
+        //    1) N: population of objects -> workload size
+        //    2) n: sample size -> tile size
+        //    3) r: defective objects -> total number of zero data
+
+       std::uint64_t r = workload_tensor_size_ * average_density_;
+       std::uint64_t n = tile_shape;
+       std::uint64_t N = workload_tensor_size_;
+
+       boost::math::hypergeometric_distribution<double> distribution(r, n, N);
+       confidence = cdf(distribution, buffer_size);
+    }
+
+    return confidence;
+
     }
 };
 
@@ -172,7 +227,7 @@ class DataDensity{
   CoordinateUniform hypergeometric_distribution;
 
   // constructor
-  DataDensity(std::string density_type = "constant", double knob = 0.5){
+  DataDensity(std::string density_type = "constant", double knob = 1){
     is_typed_ = true;
     type_ = density_type;
     confidence_knob_ = knob;
@@ -201,6 +256,9 @@ class DataDensity{
 
   }
 
+  double GetTileConfidence(){
+     return confidence_knob_;
+  }
 
   void SetWorkloadTensorSize( std::uint64_t size){
 
@@ -260,6 +318,8 @@ class DataDensity{
     }
     return density;
   }
+
+
 
   // Serialization.
   friend class boost::serialization::access;

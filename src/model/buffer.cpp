@@ -440,36 +440,41 @@ void BufferLevel::ValidateTopology(BufferLevel::Specs& specs)
 
 
 void BufferLevel::PopulateEnergyPerOp(unsigned num_ops){
- 
-  double ert_energy_per_op;
-  bool  ert_energy_found;
-  std::vector<std::string> ert_action_names;
-  std::string op_name;
 
-  for (unsigned op_id = 0; op_id < num_ops; op_id++){
-    // go through all op types
-    ert_energy_per_op = 0;
-    ert_energy_found = false;
-    op_name = tiling::storageOperationTypes[op_id];
-    
-    // go through ERT entries and look for appopriate energy values 
-    // std::cout <<"operation name: " << op_name << std::endl;
-    ert_action_names = model::storageOperationMappings.at(op_name);
+  if (! populate_energy_per_op){
 
-    for (auto it = ert_action_names.begin(); it != ert_action_names.end(); it++){
-      if(specs_.ERT_entries.count(*it)>0 && (!ert_energy_found)){
-        ert_energy_per_op = specs_.ERT_entries.at(*it);
-        ert_energy_found = true;
-      }  
-      if (it == ert_action_names.end() && !ert_energy_found){
-        // ert_energy_per_op = specs_.vector_access_energy.Get(); // use the max if no mapping is found
-        ert_energy_per_op = 0;
+    double ert_energy_per_op;
+    bool  ert_energy_found;
+    std::vector<std::string> ert_action_names;
+    std::string op_name;
+
+    for (unsigned op_id = 0; op_id < num_ops; op_id++){
+      // go through all op types
+      ert_energy_per_op = 0;
+      ert_energy_found = false;
+      op_name = tiling::storageOperationTypes[op_id];
+
+      // go through ERT entries and look for appopriate energy values
+      // std::cout <<"operation name: " << op_name << std::endl;
+      ert_action_names = model::storageOperationMappings.at(op_name);
+
+      for (auto it = ert_action_names.begin(); it != ert_action_names.end(); it++){
+        if(specs_.ERT_entries.count(*it)>0 && (!ert_energy_found)){
+          ert_energy_per_op = specs_.ERT_entries.at(*it);
+          ert_energy_found = true;
+        }
+        if (it == ert_action_names.end() && !ert_energy_found){
+          // ert_energy_per_op = specs_.vector_access_energy.Get(); // use the max if no mapping is found
+          ert_energy_per_op = 0;
+        }
       }
-    }
-    // populate the op_energy_map data structure for easier future energy search
-    specs_.op_energy_map[op_name] = ert_energy_per_op;
+      // populate the op_energy_map data structure for easier future energy search
+      specs_.op_energy_map[op_name] = ert_energy_per_op;
   }
   populate_energy_per_op = true;
+
+ }
+
 }
 
 
@@ -600,10 +605,6 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
   // Subnest FSM should be same for each problem::Shape::DataSpaceID in the list,
   // so just copy it from datatype #0.
   subnest_ = tile[0].subnest;
-
-
-  if (! populate_energy_per_op)
-  PopulateEnergyPerOp(unsigned(tiling::GetNumOpTypes("storage")));
 
   //
   // 1. Collect stats (stats are always collected per-DataSpaceID).
@@ -852,10 +853,25 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
           op_accesses = std::uint64_t(data_movement_info[pv].fine_grained_accesses.at(op_name));
           cluster_access_energy += op_accesses * specs_.op_energy_map.at(op_name);
         }
-        
+
         // std::cout << op_name << " accesses: " << op_accesses << " vector accesses: " << vector_accesses << std::endl;
         // std::cout << "specs_.op_energy_map.at(op_name): " << specs_.op_energy_map.at(op_name) << std::endl;
     }
+
+    if (data_movement_info[pvi].parent_level != std::numeric_limits<unsigned>::max()){
+          double parent_scalar_read_energy = data_movement_info[pvi].parent_level_op_energy.at("random_read")/data_movement_info[pvi].parent_level_simple_specs.at("block_size");
+          double child_scalar_read_energy = specs_.op_energy_map.at("random_read")/specs_.block_size.Get();
+//          std::cout << "parent scalar energy: " << parent_scalar_read_energy << " confidence: " << data_movement_info[pvi].tile_confidence << std::endl;
+//          std::cout << "child scalar energy: " << child_scalar_read_energy  << std::endl;
+////
+//          std::cout << parent_scalar_read_energy/child_scalar_read_energy << std::endl;
+//          std::uint64_t cluster_access_energy_before = cluster_access_energy;
+//          std::cout << "before: " << cluster_access_energy << std::endl;
+          cluster_access_energy += cluster_access_energy * (1-data_movement_info[pvi].tile_confidence) * (parent_scalar_read_energy/child_scalar_read_energy);
+//          std::cout << "after: " << cluster_access_energy << std::endl;
+//          std::cout << "---------------- " << double(cluster_access_energy)/cluster_access_energy_before << std::endl;
+    }
+
 
     // Spread out the cost between the utilized instances in each cluster.
     // This is because all the later stat-processing is per-instance.

@@ -67,7 +67,7 @@ double GetDensityByActionOptimizationNames(sparse::PerDataSpaceActionOptimizatio
     std::vector<std::string> gated_data_space_names = data_space_gating_info.at(action_name);
       for (unsigned i = 0; i < gated_data_space_names.size(); i++){
         id = problem::GetShape()->DataSpaceNameToID.at(gated_data_space_names[i]);
-        density *= compound_data_movement[id].tile_expected_density;
+        density *= compound_data_movement[id].tile_density.GetTileExpectedDensity(compound_data_movement[id].size);
 //        std::cout << "id: " << gated_data_space_names[i] << " tile size: " << compound_data_movement[id].size << " density: " << compound_data_movement[id].tile_density << std::endl;
       }
   }
@@ -198,7 +198,7 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       std::uint64_t dense_memory_fills = compound_data_movement[pv].fills;
 
       std::string metadata_format = per_level_compression_info.at(data_space_name).metadata_format;
-      double data_space_density = compound_data_movement[pv].tile_expected_density;
+      double data_space_density = compound_data_movement[pv].tile_density.GetTileExpectedDensity(compound_data_movement[pv].size);
       double compression_rate = per_level_compression_info.at(data_space_name).compression_rate;
 
       // calculate the number of metadata reads/fills according to metadata format
