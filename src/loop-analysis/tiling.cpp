@@ -495,7 +495,7 @@ void ComputeDataDensity(std::vector<DataMovementInfo>& tile_nest, problem::Workl
   for (int cur = num_tiling_levels-1; cur >= 0; cur--){
     // coordinate independent tile density distribution
     tile_nest[cur].tile_density = workload->GetDensity(pv);
-    tile_nest[cur].tile_confidence = tile_nest[cur].tile_density.GetTileConfidence();
+//    tile_nest[cur].tile_confidence = tile_nest[cur].tile_density.GetTileConfidence();
 //    std::cout << "tiling: " << tile_nest[cur].tile_density << std::endl;
   }
   return;
@@ -710,9 +710,9 @@ void ComputeCompressedTileSizeSetParentChild(tiling::NestOfCompoundTiles& nest_o
           compound_data_movement[pv].compressed = per_level_compression_info.at(data_space_name).compressed;
 
           if (per_level_compression_info.at(data_space_name).compressed){ // specified and compressed
-            double stored_data_density = compound_data_movement[pv].tile_density.GetTileConfidentDensity(compound_data_movement[pv].size);
-            double compression_rate = per_level_compression_info.at(data_space_name).compression_rate;
-            compound_data_movement[pv].compressed_size = ceil(compound_data_movement[pv].size * stored_data_density / compression_rate);
+            // double stored_data_density = compound_data_movement[pv].tile_density.GetTileConfidentDensity(compound_data_movement[pv].size);
+            // double compression_rate = per_level_compression_info.at(data_space_name).compression_rate;
+            // compound_data_movement[pv].compressed_size = ceil(compound_data_movement[pv].size * stored_data_density / compression_rate);
             //std::cout << "dense tile size: " << compound_data_movement[pv].size << std::endl;
             //std::cout << "compression rate: " << compression_rate << std::endl;
             //std::cout << "stored_data_density: " << stored_data_density << std::endl;
@@ -724,12 +724,12 @@ void ComputeCompressedTileSizeSetParentChild(tiling::NestOfCompoundTiles& nest_o
             }
 
           }
-          else { //specified but uncompressed
-            compound_data_movement[pv].compressed_size = compound_data_movement[pv].size;
-          }
+//          else { //specified but uncompressed
+//            compound_data_movement[pv].compressed_size = compound_data_movement[pv].size;
+//          }
 
       } else { // no compression specified in sparse optimization, compressed tile size == tile size
-        compound_data_movement[pv].compressed_size = compound_data_movement[pv].size;
+        //compound_data_movement[pv].compressed_size = compound_data_movement[pv].size;
         compound_data_movement[pv].compressed = false;
       }
 

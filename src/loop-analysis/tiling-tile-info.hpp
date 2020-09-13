@@ -95,6 +95,8 @@ struct DataMovementInfo
   // for CSR only
   std::vector<problem::Shape::DimensionID> rank0_list;
   std::vector<problem::Shape::DimensionID> rank1_list;
+  std::uint64_t dense_rank1_fills;
+  std::uint64_t dense_rank0_fills;
 
   // parent/child level for inferring decompression/compression overhead
   unsigned parent_level;
@@ -150,6 +152,8 @@ struct DataMovementInfo
     parent_level_op_energy.clear();
     rank1_list.resize(0);
     rank0_list.resize(0);
+    dense_rank1_fills = 0;
+    dense_rank0_fills = 0;
   }
 
   void Validate()

@@ -210,6 +210,7 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
         // parse for user-defined confidence knob
         if (density_specification.lookupValue("knob", confidence_knob)){
            densities[i]= DataDensity(density_type, confidence_knob);
+           densities[i].SetUserKnob();
         } else {
            densities[i]= DataDensity(density_type);
         }

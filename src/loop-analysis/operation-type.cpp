@@ -68,7 +68,8 @@ double GetDensityByActionOptimizationNames(sparse::PerDataSpaceActionOptimizatio
       for (unsigned i = 0; i < gated_data_space_names.size(); i++){
         id = problem::GetShape()->DataSpaceNameToID.at(gated_data_space_names[i]);
         density *= compound_data_movement[id].tile_density.GetTileExpectedDensity(compound_data_movement[id].size);
-//        std::cout << "id: " << gated_data_space_names[i] << " tile size: " << compound_data_movement[id].size << " density: " << compound_data_movement[id].tile_density << std::endl;
+//        std::cout << "id: " << gated_data_space_names[i] << " tile size: " << compound_data_movement[id].size << " density: "
+//<< compound_data_movement[id].tile_density.GetTileExpectedDensity(compound_data_movement[id].size) << std::endl;
       }
   }
 
@@ -205,13 +206,13 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       if (metadata_format == "bitmask"){
          compound_data_movement[pv].metadata_reads = dense_memory_reads;
          compound_data_movement[pv].metadata_fills = dense_memory_fills;
-         compound_data_movement[pv].metadata_tile_size = compound_data_movement[pv].size;
+         //compound_data_movement[pv].metadata_tile_size = compound_data_movement[pv].size;
 
       } else if (metadata_format == "RLE"){
          // assume memory layout is concordant with mapping under eval
          compound_data_movement[pv].metadata_reads = dense_memory_reads * data_space_density / compression_rate;
          compound_data_movement[pv].metadata_fills = dense_memory_fills * data_space_density / compression_rate;
-         compound_data_movement[pv].metadata_tile_size = compound_data_movement[pv].compressed_size;
+         //compound_data_movement[pv].metadata_tile_size = compound_data_movement[pv].compressed_size;
 
       } else if (metadata_format == "CSR"){
 
@@ -340,8 +341,11 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       int num_rank1_index_fills = total_num_rank1_elements + 1;
       int num_rank0_index_fills = total_num_rank1_elements * total_num_rank0_elements * data_space_density;
 
+       compound_data_movement[pv].dense_rank1_fills = total_num_rank1_elements + 1;
+       compound_data_movement[pv].dense_rank0_fills = total_num_rank1_elements * total_num_rank0_elements;
+
       // total fills == total metadata tile size needed
-      compound_data_movement[pv].metadata_tile_size = num_rank1_index_fills + num_rank0_index_fills;
+      // compound_data_movement[pv].metadata_tile_size = num_rank1_index_fills + num_rank0_index_fills;
       // std::cout << "metadata tile size: " << compound_data_movement[pv].metadata_tile_size << std::endl;
 
       compound_data_movement[pv].metadata_fills = num_rank1_index_fills + num_rank0_index_fills;

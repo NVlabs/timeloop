@@ -609,6 +609,12 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
   //
   // 1. Collect stats (stats are always collected per-DataSpaceID).
   //
+
+  uint64_t total_tile_size = 0;
+  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++){
+      total_tile_size += tile[pvi].size;
+  }
+
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
@@ -619,9 +625,47 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
     // stats_.utilized_capacity[pv] = tile[pvi].size;
     stats_.tile_size[pv] = tile[pvi].size;
     // assume metadata is stored in the same storage as the actual data
-    stats_.metadata_tile_size[pv] = tile[pvi].metadata_tile_size;
-    stats_.utilized_capacity[pv] = tile[pvi].compressed_size
-                                   + ceil(tile[pvi].metadata_tile_size
+    // stats_.metadata_tile_size[pv] = tile[pvi].metadata_tile_size;
+
+    double tile_confidence = 0;
+    uint64_t compressed_tile_size = 0;
+    uint64_t metadata_tile_size = 0;
+
+    if (tile[pvi].tile_density.user_defined_knob){
+        double stored_data_density = tile[pvi].tile_density.GetTileConfidentDensity(tile[pvi].size);
+        tile_confidence = tile[pvi].tile_density.GetTileConfidence();
+        if (tile[pvi].compressed){
+          compressed_tile_size = ceil(tile[pvi].size * stored_data_density);
+        } else {
+          compressed_tile_size = tile[pvi].size;
+        }
+
+        if (tile[pvi].metadata_format == "bitmask"){
+           metadata_tile_size = tile[pvi].size;
+        } else if (tile[pvi].metadata_format == "RLE"){
+           metadata_tile_size = compressed_tile_size;
+//           metadata_tile_size = tile[pvi].size * tile[pvi].tile_density.GetTileExpectedDensity(tile[pv].size);
+//           std::cout << "RLE   " << metadata_tile_size << std::endl;
+        } else if (tile[pvi].metadata_format == "CSR"){
+           metadata_tile_size = tile[pvi].dense_rank1_fills + tile[pvi].dense_rank0_fills * stored_data_density;
+        } else {
+           metadata_tile_size = 0;
+        }
+
+        stats_.tile_confidence[pv] = tile_confidence;
+        stats_.compressed_tile_size[pv] = compressed_tile_size;
+        stats_.metadata_tile_size[pv] = metadata_tile_size;
+
+    } else {
+       assert(false);
+    }
+
+//    stats_.utilized_capacity[pv] = tile[pvi].compressed_size
+//                                   + ceil(tile[pvi].metadata_tile_size
+//                                          * specs_.metadata_word_bits.Get() / specs_.word_bits.Get());
+
+    stats_.utilized_capacity[pv] = compressed_tile_size
+                                   + ceil(metadata_tile_size
                                           * specs_.metadata_word_bits.Get() / specs_.word_bits.Get());
     stats_.utilized_instances[pv] = tile[pvi].replication_factor;
 
@@ -867,7 +911,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
 //          std::cout << parent_scalar_read_energy/child_scalar_read_energy << std::endl;
 //          std::uint64_t cluster_access_energy_before = cluster_access_energy;
 //          std::cout << "before: " << cluster_access_energy << std::endl;
-          cluster_access_energy += cluster_access_energy * (1-data_movement_info[pvi].tile_confidence) * (parent_scalar_read_energy/child_scalar_read_energy);
+          cluster_access_energy += cluster_access_energy * (1-stats_.tile_confidence[pvi]) * (parent_scalar_read_energy/child_scalar_read_energy);
 //          std::cout << "after: " << cluster_access_energy << std::endl;
 //          std::cout << "---------------- " << double(cluster_access_energy)/cluster_access_energy_before << std::endl;
     }
@@ -878,7 +922,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     if (stats_.utilized_instances.at(pv) > 0)
     {
       double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
-        double(stats_.utilized_clusters.at(pv));
+      double(stats_.utilized_clusters.at(pv));
       stats_.energy[pv] = cluster_access_energy / cluster_utilization;
       stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
     }

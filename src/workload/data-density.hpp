@@ -225,12 +225,14 @@ class DataDensity{
 
   public:
   CoordinateUniform hypergeometric_distribution;
+  bool user_defined_knob;
 
   // constructor
   DataDensity(std::string density_type = "constant", double knob = 1){
     is_typed_ = true;
     type_ = density_type;
     confidence_knob_ = knob;
+    user_defined_knob = false;
   }
 
   bool IsTyped() const { return is_typed_; }
@@ -256,8 +258,14 @@ class DataDensity{
 
   }
 
-  double GetTileConfidence(){
+  double GetTileConfidence() const{
      return confidence_knob_;
+  }
+
+  void SetUserKnob(){
+
+    user_defined_knob = true;
+
   }
 
   void SetWorkloadTensorSize( std::uint64_t size){
