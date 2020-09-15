@@ -167,9 +167,12 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> temporal_reduction_energy;
     problem::PerDataSpace<double> addr_gen_energy;
 
+    problem::PerDataSpace<double> speculation_energy_cost;
+
     problem::PerDataSpace<std::uint64_t> compressed_tile_size;
     problem::PerDataSpace<std::uint64_t> metadata_tile_size;
     problem::PerDataSpace<double> tile_confidence;
+    problem::PerDataSpace<double> tile_max_density;
 
 
     // fine-grained action stats

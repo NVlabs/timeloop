@@ -59,10 +59,11 @@ struct ConstantDensity{
        constant_density_ = density;
     }
 
-    double GetTileConfidentDensity(std::uint64_t tile_shape, double confidence) const {
+    double GetTileDensityByConfidence(std::uint64_t tile_shape, double confidence, uint64_t buffer_size = 0) const {
        // constant density always return the same constant value
        (void) tile_shape;
        (void) confidence;
+       (void) buffer_size;
        return constant_density_;
     }
 
@@ -128,16 +129,33 @@ struct CoordinateUniform{
       workload_tensor_size_ = size;
     }
 
-    double GetTileConfidentDensity(std::uint64_t tile_shape, double confidence) const {
+    double GetTileDensityByConfidence(std::uint64_t tile_shape, double confidence, uint64_t buffer_size = 0) const {
 
         double tile_density;
+        (void) buffer_size;
 
         if (average_density_ == 1.0){
           // dense data does not need distribution
           tile_density = 1.0;
+
         } else if (tile_shape == 0) {
           // zero sized tile does not make sense for distribution
           tile_density = average_density_;
+
+        } else if (confidence == 1.0){
+
+          if (buffer_size <= tile_shape && buffer_size > workload_tensor_size_ * average_density_){
+             tile_density = workload_tensor_size_ * average_density_/tile_shape;
+          } else if (buffer_size <= tile_shape) {
+             tile_density = double(buffer_size)/tile_shape;
+          } else if (buffer_size > tile_shape && tile_shape > workload_tensor_size_ * average_density_){
+             tile_density = workload_tensor_size_ * average_density_/tile_shape;
+          } else if (buffer_size > tile_shape){
+             tile_density = 1.0;
+          } else {
+             assert(false);
+          }
+
         } else {
 
             // check necessary parameter is set
@@ -179,17 +197,29 @@ struct CoordinateUniform{
     // given a specific buffer size, return the confidence of tile shape with workload density fitting in
     // the buffer
 
-    double confidence;
+    float confidence;
+
+    //std::cout << "total nonzeros: " << workload_tensor_size_ * average_density_ << std::endl;
 
     if ( buffer_size >= tile_shape){
 
-          confidence = 1.0; // for sure the tile will fit, no matter what the density is
+      confidence = 1.0; // for sure the tile will fit, no matter what the density is
+
+    } else if ( buffer_size >=  workload_tensor_size_ * average_density_){
+
+      // can store more than total number of nonzeros, tile must fit, check on upper bound min(n,r)
+      confidence = 1.0;
+
+    } else if ( buffer_size < tile_shape + workload_tensor_size_ * average_density_ - workload_tensor_size_){
+
+      // check on lower bound max(0, n+r-N)
+      confidence = 0.0;
 
     } else if (average_density_ == 1.0) {
+      // if not larger than tile shape or total number of nonzeros, and has a density of 1.0, for sure will not fit
+      confidence = 0.0;
 
-      confidence = 0.0; // for sure will not fit
-
-    } else {  // buffer size < tile shape, and sparse data
+    } else {  // buffer size < tile shape, buffer size < total number of nonzeros and sparse data
 
         // construct a hypergeometric distribution according to
         //    1) N: population of objects -> workload size
@@ -199,9 +229,10 @@ struct CoordinateUniform{
        std::uint64_t r = workload_tensor_size_ * average_density_;
        std::uint64_t n = tile_shape;
        std::uint64_t N = workload_tensor_size_;
-
+       // std::cout << "r: " << r << " n: " << tile_shape << " N: " << workload_tensor_size_ << " x: "<< buffer_size << std::endl;
        boost::math::hypergeometric_distribution<double> distribution(r, n, N);
-       confidence = cdf(distribution, buffer_size);
+       confidence = cdf(distribution, 1.0*buffer_size) >= 0.9999 ? 1.0 : cdf(distribution, 1.0*buffer_size);
+       // std::cout << "print version 1.0 buffer size: " << cdf(distribution, 1.0*buffer_size) << std::endl;
     }
 
     return confidence;
@@ -258,8 +289,29 @@ class DataDensity{
 
   }
 
-  double GetTileConfidence() const{
+  double GetUserDefinedConfidence() const{
+     assert(user_defined_knob);
      return confidence_knob_;
+  }
+
+  double GetTileConfidence(std::uint64_t tile_shape, std::uint64_t buffer_size) const{
+    assert(is_typed_);
+    assert(distribution_instantiated_);
+
+    double confidence;
+
+    if (type_ == "constant"){
+      confidence = constant_distribution.GetTileConfidence(tile_shape, buffer_size);
+
+    } else if (type_ == "coordinate_uniform"){
+      confidence = hypergeometric_distribution.GetTileConfidence(tile_shape, buffer_size);
+
+    } else {
+      assert(false);
+    }
+
+    return confidence;
+
   }
 
   void SetUserKnob(){
@@ -296,22 +348,22 @@ class DataDensity{
      return type_;
   }
 
-  double GetTileConfidentDensity(std::uint64_t tile_shape, double confidence = 0.5) const {
+  double GetTileDensityByConfidence(std::uint64_t tile_shape, double confidence, uint64_t buffer_size = 0) const {
     assert(is_typed_);
-    (void) confidence; // use the user-defined knob that can be defined outside
 
     double density;
     if (type_ == "constant"){
-      density = constant_distribution.GetTileConfidentDensity(tile_shape, confidence_knob_);
+      density = constant_distribution.GetTileDensityByConfidence(tile_shape, confidence, buffer_size);
 
     } else if (type_ == "coordinate_uniform"){
-      density = hypergeometric_distribution.GetTileConfidentDensity(tile_shape, confidence_knob_);
+      density = hypergeometric_distribution.GetTileDensityByConfidence(tile_shape, confidence, buffer_size);
 
     } else {
       assert(false);
     }
     return density;
   }
+
 
   double GetTileExpectedDensity(std::uint64_t tile_shape) const {
     double density;
