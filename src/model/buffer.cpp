@@ -703,22 +703,24 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
 //          std::cout << " stored_data_density: "<<  stored_data_density << " compressed size 1: " << compressed_tile_size << std::endl;
           metadata_tile_size = GetMetaDataTileSize(tile[pvi], stored_data_density);
           equivalent_metadata_tile_size = ceil((double)metadata_tile_size * specs_.metadata_word_bits.Get() / specs_.word_bits.Get());
-//          std::cout  << " name: " << specs_.name.Get() << "  metadata format: " << tile[pvi].metadata_format << "  metadata tile size 1: " << metadata_tile_size
-//                     << "equivalent_metadata_tile_size: " << equivalent_metadata_tile_size
-//                     << "  stored_data_density: "<<  stored_data_density << "  tile_size: " << tile[pvi].size << " total buffer size: " << allocated_effective_buffer_size <<std::endl;
+//          std::cout  << " --> name: " << specs_.name.Get() << "  metadata format: " << tile[pvi].metadata_format << "  metadata tile size 1: " << metadata_tile_size
+//                     << "  equivalent_metadata_tile_size: " << equivalent_metadata_tile_size
+//                     << "  stored_data_density: "<<  stored_data_density << "  tile_size: " << tile[pvi].size << " compressed_tile_size: " << compressed_tile_size
+//                     << " total buffer size: " << allocated_effective_buffer_size <<std::endl;
 
           // if the data tile takes to much space, regenerate a conservative estimation
           if (equivalent_metadata_tile_size + compressed_tile_size > allocated_effective_buffer_size && tile_confidence != 0){
 
-//             std::cout << "buffer size 2: " << allocated_effective_buffer_size - equivalent_metadata_tile_size << std::endl;
-             tile_confidence = tile[pvi].tile_density.GetTileConfidence(tile[pvi].size, allocated_effective_buffer_size - equivalent_metadata_tile_size);
+             // use -1 here for buffer size to prevent failure for cases when the percentile number is rounded up by one in the GetTileConfidence's
+             // quantile function
+             tile_confidence = tile[pvi].tile_density.GetTileConfidence(tile[pvi].size, allocated_effective_buffer_size - equivalent_metadata_tile_size-1);
              stored_data_density = tile[pvi].tile_density.GetTileDensityByConfidence(tile[pvi].size,
                                                                                      tile_confidence,
-                                                                                     allocated_effective_buffer_size - equivalent_metadata_tile_size);
+                                                                                     allocated_effective_buffer_size - equivalent_metadata_tile_size-1);
 //             std::cout << "buffer size 2: " << allocated_effective_buffer_size - equivalent_metadata_tile_size
-//                       << "tile_confidence 2: " << tile_confidence << " stored_data_density 2: " << stored_data_density << std::endl;
+//                       << "  tile_confidence 2: " << tile_confidence << " stored_data_density 2: " << stored_data_density << std::endl;
              compressed_tile_size = ceil(tile[pvi].size * stored_data_density);
-//             std::cout << "compressed size 2: " << compressed_tile_size << std::endl;
+//             std::cout << "  compressed size 2: " << compressed_tile_size << std::endl;
 
              metadata_tile_size = GetMetaDataTileSize(tile[pvi], stored_data_density);
              updated_equivalent_metadata_tile_size = ceil((double)metadata_tile_size * specs_.metadata_word_bits.Get() / specs_.word_bits.Get());
@@ -1040,13 +1042,16 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
 //          std::cout << "parent scalar energy: " << parent_scalar_read_energy << " confidence: " << data_movement_info[pvi].tile_confidence << std::endl;
 //          std::cout << "child scalar energy: " << child_scalar_read_energy  << std::endl;
 ////
-//          std::cout << parent_scalar_read_energy/child_scalar_read_energy << std::endl;
+//            std::cout <<"-----> ratio: " << parent_scalar_read_energy/child_scalar_read_energy << std::endl;
 //          std::uint64_t cluster_access_energy_before = cluster_access_energy;
 //          std::cout << "before: " << cluster_access_energy << std::endl;
-//          std::cout << stats_.tile_confidence[pvi] << std::endl;
+//          std::cout << "confidence: " << stats_.tile_confidence[pvi] << std::endl;
 //          cluster_access_energy += cluster_access_energy * (1-stats_.tile_confidence[pvi]) * (parent_scalar_read_energy/child_scalar_read_energy);
            cluster_speculation_energy_cost = ceil(cluster_access_energy * (1-stats_.tile_confidence[pvi]) * (parent_scalar_read_energy/child_scalar_read_energy));
-//           cluster_access_energy = cluster_access_energy * (stats_.tile_confidence[pvi]);
+//           std::cout << "original cluster_access_energy: " << cluster_access_energy << std::endl;
+//           std::cout << "cluster_speculation_energy_cost: " << cluster_speculation_energy_cost << std::endl;
+           cluster_access_energy = cluster_access_energy * (stats_.tile_confidence[pvi]);
+//           std::cout << "weighted cluster_access_energy: " << cluster_access_energy << std::endl;
 //          std::cout << "after: " << cluster_access_energy << std::endl;
 //          std::cout << "---------------- " << double(cluster_access_energy)/cluster_access_energy_before << std::endl;
     } else {
@@ -1062,9 +1067,9 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     {
       double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
       double(stats_.utilized_clusters.at(pv));
-      stats_.energy[pv] = cluster_access_energy / cluster_utilization;
       stats_.speculation_energy_cost[pv]  = cluster_speculation_energy_cost/ cluster_utilization;
-      stats_.energy_per_access[pv] = stats_.energy.at(pv) + stats_.speculation_energy_cost[pv] / instance_accesses;
+      stats_.energy[pv] = (cluster_access_energy + cluster_speculation_energy_cost) / cluster_utilization;
+      stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
     }
     else
     {
@@ -1391,7 +1396,7 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent + indent << "Scalar metadata gated fills (per-cluster): " << stats.gated_metadata_fills.at(pv) << std::endl;
       out << indent + indent << "Scalar decompression counts (per-cluster)             : " << stats.decompression_counts.at(pv) << std::endl;
       out << indent + indent << "Scalar compression counts (per-cluster)               : " << stats.compression_counts.at(pv) << std::endl;
-      out << indent + indent << "Speculation energy cost                               : " << stats.speculation_energy_cost.at(pv) << std::endl;
+      out << indent + indent << "Speculation energy cost (per-instance)                : " << stats.speculation_energy_cost.at(pv) << std::endl;
       out << indent + indent << "Energy (per-scalar-access)                            : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
       out << indent + indent << "Energy (per-instance)                                 : " << stats.energy.at(pv) << " pJ" << std::endl;
       out << indent + indent << "Energy (total)                                        : " << stats.energy.at(pv) * stats.utilized_instances.at(pv)

@@ -171,6 +171,7 @@ struct CoordinateUniform{
             std::uint64_t N = workload_tensor_size_;
             boost::math::hypergeometric_distribution<double> distribution(r, n, N);
             std::uint64_t k_percentile = quantile(distribution, confidence);
+            // std::cout << "k: " << k_percentile << std::endl;
 
             tile_density = 1.0*k_percentile/tile_shape;
 
