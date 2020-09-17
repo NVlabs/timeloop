@@ -1036,7 +1036,9 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     }
 
     uint64_t cluster_speculation_energy_cost;
+    stats_.parent_level_name[pvi] = "";
     if (data_movement_info[pvi].parent_level != std::numeric_limits<unsigned>::max()){
+          stats_.parent_level_name[pvi] = data_movement_info[pvi].parent_level_name;
           double parent_scalar_read_energy = data_movement_info[pvi].parent_level_op_energy.at("random_read")/data_movement_info[pvi].parent_level_simple_specs.at("block_size");
           double child_scalar_read_energy = specs_.op_energy_map.at("random_read")/specs_.block_size.Get();
 //          std::cout << "parent scalar energy: " << parent_scalar_read_energy << " confidence: " << data_movement_info[pvi].tile_confidence << std::endl;
@@ -1067,7 +1069,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     {
       double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
       double(stats_.utilized_clusters.at(pv));
-      stats_.speculation_energy_cost[pv]  = cluster_speculation_energy_cost/ cluster_utilization;
+      stats_.speculation_energy_cost[pv]  = cluster_speculation_energy_cost / cluster_utilization;
       stats_.energy[pv] = (cluster_access_energy + cluster_speculation_energy_cost) / cluster_utilization;
       stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
     }
@@ -1366,6 +1368,7 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
       out << indent + indent << "Partition size                                        : " << stats.partition_size.at(pv) << std::endl;
+      out << indent + indent << "Parent level name                                     : " << stats.parent_level_name.at(pv) << std::endl;
       out << indent + indent << "Tile confidence                                       : " << stats.tile_confidence.at(pv) << std::endl;
       out << indent + indent << "Max tile density                                      : " << stats.tile_max_density.at(pv) << std::endl;
       out << indent + indent << "Tile size                                             : " << stats.tile_size.at(pv) << std::endl;
@@ -1396,7 +1399,7 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent + indent << "Scalar metadata gated fills (per-cluster): " << stats.gated_metadata_fills.at(pv) << std::endl;
       out << indent + indent << "Scalar decompression counts (per-cluster)             : " << stats.decompression_counts.at(pv) << std::endl;
       out << indent + indent << "Scalar compression counts (per-cluster)               : " << stats.compression_counts.at(pv) << std::endl;
-      out << indent + indent << "Speculation energy cost (per-instance)                : " << stats.speculation_energy_cost.at(pv) << std::endl;
+      out << indent + indent << "Speculation energy cost (total)                       : "  << stats.speculation_energy_cost.at(pv)* stats.utilized_instances.at(pv)<< std::endl;
       out << indent + indent << "Energy (per-scalar-access)                            : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
       out << indent + indent << "Energy (per-instance)                                 : " << stats.energy.at(pv) << " pJ" << std::endl;
       out << indent + indent << "Energy (total)                                        : " << stats.energy.at(pv) * stats.utilized_instances.at(pv)

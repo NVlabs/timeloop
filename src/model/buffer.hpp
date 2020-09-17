@@ -173,6 +173,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<std::uint64_t> metadata_tile_size;
     problem::PerDataSpace<double> tile_confidence;
     problem::PerDataSpace<double> tile_max_density;
+    problem::PerDataSpace<std::string> parent_level_name;
 
 
     // fine-grained action stats

@@ -1084,10 +1084,10 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
            parent_level_op_energy[it->first] = it->second;
            it++;
          }
-
          // populate parent level info into tile struct
          tiles[storage_level_id].data_movement_info.at(pv).parent_level_simple_specs = parent_level_simple_specs;
          tiles[storage_level_id].data_movement_info.at(pv).parent_level_op_energy = parent_level_op_energy;
+         tiles[storage_level_id].data_movement_info.at(pv).parent_level_name = parent_level_specs.name.Get();
       }
     }
 

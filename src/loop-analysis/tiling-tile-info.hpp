@@ -106,6 +106,7 @@ struct DataMovementInfo
 
   std::map<std::string, std::uint64_t> parent_level_simple_specs;
   std::map<std::string, double> parent_level_op_energy;
+  std::string parent_level_name;
 
   std::uint64_t GetTotalAccesses() const
   {
