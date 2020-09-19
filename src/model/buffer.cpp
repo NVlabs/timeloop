@@ -139,6 +139,9 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   {
     word_bits = specs.word_bits.Get();
     block_size = specs.block_size.Get();
+    if (width % (word_bits * block_size)  != 0){
+      std::cout << "ERROR: width: " << width << "  block_size: " << block_size << "  word_bits: " << word_bits << std::endl;
+    }
     assert(width % (word_bits * block_size)  == 0);
     specs.cluster_size = width / (word_bits * block_size);
   }
@@ -1037,7 +1040,8 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
 
     uint64_t cluster_speculation_energy_cost;
     stats_.parent_level_name[pvi] = "";
-    if (data_movement_info[pvi].parent_level != std::numeric_limits<unsigned>::max()){
+
+    if (stats_.tile_confidence[pvi] != 1.0 && data_movement_info[pvi].parent_level != std::numeric_limits<unsigned>::max()){
           stats_.parent_level_name[pvi] = data_movement_info[pvi].parent_level_name;
           double parent_scalar_read_energy = data_movement_info[pvi].parent_level_op_energy.at("random_read")/data_movement_info[pvi].parent_level_simple_specs.at("block_size");
           double child_scalar_read_energy = specs_.op_energy_map.at("random_read")/specs_.block_size.Get();
@@ -1047,7 +1051,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
 //            std::cout <<"-----> ratio: " << parent_scalar_read_energy/child_scalar_read_energy << std::endl;
 //          std::uint64_t cluster_access_energy_before = cluster_access_energy;
 //          std::cout << "before: " << cluster_access_energy << std::endl;
-//          std::cout << "confidence: " << stats_.tile_confidence[pvi] << std::endl;
+//           std::cout << "confidence: " << stats_.tile_confidence[pvi] << std::endl;
 //          cluster_access_energy += cluster_access_energy * (1-stats_.tile_confidence[pvi]) * (parent_scalar_read_energy/child_scalar_read_energy);
            cluster_speculation_energy_cost = ceil(cluster_access_energy * (1-stats_.tile_confidence[pvi]) * (parent_scalar_read_energy/child_scalar_read_energy));
 //           std::cout << "original cluster_access_energy: " << cluster_access_energy << std::endl;

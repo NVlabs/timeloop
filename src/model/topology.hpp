@@ -51,9 +51,9 @@ namespace model
 // this mapping can be moved out as a separate yaml file that can be read in by timeloop to allow more flexibility
 
 // format {timeloop_action_name: [priority list of ERT action names]}
-static std::map<std::string, std::vector<std::string>> arithmeticOperationMappings = {{ "random_compute", { "mac_random", "mac"}},
-                                                                                      { "skipped_compute", {"mac_skipped", "mac_gated", "mac"}},
-                                                                                      { "gated_compute", { "mac_gated", "mac"}}
+static std::map<std::string, std::vector<std::string>> arithmeticOperationMappings = {{ "random_compute", { "mac_random", "mult_random", "mac", "mult"}},
+                                                                                      { "skipped_compute", {"mac_skipped", "mult_skipped", "mac_gated", "mult_gated", "mac", "mult"}},
+                                                                                      { "gated_compute", { "mac_gated", "mult_gated", "mac", "mult"}}
                                                                                      };
 
 static std::map<std::string, std::vector<std::string>> storageOperationMappings = {{ "random_read", { "random_read", "read"}},

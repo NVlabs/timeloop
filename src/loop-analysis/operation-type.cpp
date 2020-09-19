@@ -126,6 +126,18 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
     double read_avg_density = 1.0;
     double write_avg_density = 1.0;
 
+    // initialize the gated and skipped action counts, if optimizations applied, these values will be updated
+    compound_data_movement[pv].fine_grained_accesses["skipped_read"] = num_skipped_reads;
+    compound_data_movement[pv].fine_grained_accesses["skipped_fill"] = num_skipped_fills;
+    compound_data_movement[pv].fine_grained_accesses["skipped_update"] = num_skipped_updates;
+    compound_data_movement[pv].fine_grained_accesses["gated_read"] = num_gated_reads;
+    compound_data_movement[pv].fine_grained_accesses["gated_fill"] = num_gated_fills;
+    compound_data_movement[pv].fine_grained_accesses["gated_update"] = num_gated_updates;
+
+    //
+    // process the impact of sparse optimizations on memory accesses
+    //
+
     // process skipping first
     if (per_level_sparse_skipping.find(data_space_name) != per_level_sparse_skipping.end()){
 //      std::cout << "   skipping for dataspace: " << data_space_name << std::endl;
@@ -394,6 +406,8 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
     //
     // infer the counts for compression and decompression
     //
+     compound_data_movement[pv].fine_grained_accesses["decompression_count"] = 0;
+     compound_data_movement[pv].fine_grained_accesses["compression_count"]  = 0;
 
     // auto compression/decompression is always performed at the level that's compressed
     if (compound_data_movement[pv].compressed == false){
