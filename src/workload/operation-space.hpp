@@ -61,6 +61,12 @@ class OperationSpace
  private:
   Point Project(Shape::DataSpaceID d, const Workload* wc,
                 const OperationPoint& problem_point);
+  void ProjectLowHigh(Shape::DataSpaceID d,
+                      const Workload* wc,
+                      const OperationPoint& problem_low,
+                      const OperationPoint& problem_high,
+                      Point& data_space_low,
+                      Point& data_space_high);
   
  public:
   OperationSpace();
