@@ -69,6 +69,8 @@ static std::map<std::string, std::vector<std::string>> storageOperationMappings 
                                                                                    { "gated_metadata_read", { "gated_metadata_read", "metadata_idle", "metadata_read"}},
                                                                                    { "metadata_fill", { "metadata_write", "metadata_idle", "idle"}},
                                                                                    { "gated_metadata_fill", { "gated_metadata_write", "metadata_idle", "metadata_write"}},
+                                                                                   { "metadata_update", { "metadata_write", "metadata_idle", "idle"}},
+                                                                                   { "gated_metadata_update", { "gated_metadata_write", "metadata_idle", "metadata_write"}},
                                                                                    { "decompression_count", { "decompression_count"}},
                                                                                    { "compression_count", { "compression_count"}}
                                                                                   }; 

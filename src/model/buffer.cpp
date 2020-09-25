@@ -850,6 +850,7 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
 
     stats_.metadata_reads[pv] = tile[pvi].metadata_reads;
     stats_.metadata_fills[pv] = tile[pvi].metadata_fills;
+    stats_.metadata_updates[pv] = tile[pvi].metadata_updates;
 
     // record the access counts for fine-grained actions
     stats_.gated_reads[pv] = tile[pvi].fine_grained_accesses.at("gated_read");
@@ -869,6 +870,9 @@ EvalStatus BufferLevel::ComputeAccesses(const tiling::CompoundDataMovementInfo& 
 
     stats_.random_metadata_fills[pv] =  tile[pvi].fine_grained_accesses.at("metadata_fill");
     stats_.gated_metadata_fills[pv] =  tile[pvi].fine_grained_accesses.at("gated_metadata_fill");
+
+    stats_.random_metadata_updates[pv] =  tile[pvi].fine_grained_accesses.at("metadata_update");
+    stats_.gated_metadata_updates[pv] =  tile[pvi].fine_grained_accesses.at("gated_metadata_update");
 
     stats_.decompression_counts[pv] =  tile[pvi].fine_grained_accesses.at("decompression_count");
     stats_.compression_counts[pv] =  tile[pvi].fine_grained_accesses.at("compression_count");
@@ -983,7 +987,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
       (instance_accesses / block_size) + 1;
 
     // compute for meta data accesses
-    auto instance_metadata_accesses = stats_.metadata_reads[pv] + stats_.metadata_fills[pv];
+    auto instance_metadata_accesses = stats_.metadata_reads[pv] + stats_.metadata_fills[pv] + stats_.metadata_updates[pv];
     auto metadata_block_size = specs_.metadata_block_size.Get();
     double metadata_vector_accesses =
       (instance_metadata_accesses % metadata_block_size == 0) ?
@@ -1401,6 +1405,9 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent << "Total scalar metadata fills (per-cluster)             : " << stats.metadata_fills.at(pv) << std::endl;
       out << indent + indent + indent << "Scalar metadata random fills (per-cluster): " << stats.random_metadata_fills.at(pv) << std::endl;
       out << indent + indent + indent << "Scalar metadata gated fills (per-cluster): " << stats.gated_metadata_fills.at(pv) << std::endl;
+      out << indent + indent << "Total scalar metadata updates (per-cluster)           : " << stats.metadata_updates.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar metadata random updates (per-cluster): " << stats.random_metadata_updates.at(pv) << std::endl;
+      out << indent + indent + indent << "Scalar metadata gated updates (per-cluster): " << stats.gated_metadata_updates.at(pv) << std::endl;
       out << indent + indent << "Scalar decompression counts (per-cluster)             : " << stats.decompression_counts.at(pv) << std::endl;
       out << indent + indent << "Scalar compression counts (per-cluster)               : " << stats.compression_counts.at(pv) << std::endl;
       out << indent + indent << "Speculation energy cost (total)                       : "  << stats.speculation_energy_cost.at(pv)* stats.utilized_instances.at(pv)<< std::endl;

@@ -195,6 +195,9 @@ class BufferLevel : public Level
     problem::PerDataSpace<unsigned long> metadata_fills;
     problem::PerDataSpace<unsigned long> random_metadata_fills;
     problem::PerDataSpace<unsigned long> gated_metadata_fills;
+    problem::PerDataSpace<unsigned long> metadata_updates;
+    problem::PerDataSpace<unsigned long> random_metadata_updates;
+    problem::PerDataSpace<unsigned long> gated_metadata_updates;
 
     problem::PerDataSpace<unsigned long> decompression_counts;
     problem::PerDataSpace<unsigned long> compression_counts;

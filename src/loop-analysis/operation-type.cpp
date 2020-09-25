@@ -209,6 +209,7 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
 
       std::uint64_t dense_memory_reads = compound_data_movement[pv].reads;
       std::uint64_t dense_memory_fills = compound_data_movement[pv].fills;
+      std::uint64_t dense_memory_updates = compound_data_movement[pv].updates;
 
       std::string metadata_format = per_level_compression_info.at(data_space_name).metadata_format;
       double data_space_density = compound_data_movement[pv].tile_density.GetTileExpectedDensity(compound_data_movement[pv].size);
@@ -218,12 +219,14 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       if (metadata_format == "bitmask"){
          compound_data_movement[pv].metadata_reads = dense_memory_reads;
          compound_data_movement[pv].metadata_fills = dense_memory_fills;
+         compound_data_movement[pv].metadata_updates = dense_memory_updates;
          //compound_data_movement[pv].metadata_tile_size = compound_data_movement[pv].size;
 
       } else if (metadata_format == "RLE"){
          // assume memory layout is concordant with mapping under eval
          compound_data_movement[pv].metadata_reads = dense_memory_reads * data_space_density / compression_rate;
          compound_data_movement[pv].metadata_fills = dense_memory_fills * data_space_density / compression_rate;
+         compound_data_movement[pv].metadata_updates = dense_memory_updates * data_space_density / compression_rate;
          //compound_data_movement[pv].metadata_tile_size = compound_data_movement[pv].compressed_size;
 
       } else if (metadata_format == "CSR"){
@@ -377,29 +380,35 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       // process gating optimization on metadata
       std::uint64_t gated_metadata_reads = 0;
       std::uint64_t gated_metadata_fills = 0;
+      std::uint64_t gated_metadata_updates = 0;
       if (per_level_sparse_gating.find(data_space_name) != per_level_sparse_gating.end()){
         sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
         metadata_read_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_read", compound_data_movement);
         metadata_write_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_write", compound_data_movement);
         gated_metadata_reads = ceil(compound_data_movement[pv].metadata_reads * (1-metadata_read_avg_density));
         gated_metadata_fills = ceil(compound_data_movement[pv].metadata_fills * (1-metadata_write_avg_density));
+        gated_metadata_updates = ceil(compound_data_movement[pv].metadata_updates * (1-metadata_write_avg_density));
       }
 
       compound_data_movement[pv].fine_grained_accesses["metadata_read"] = compound_data_movement[pv].metadata_reads - gated_metadata_reads;
       compound_data_movement[pv].fine_grained_accesses["gated_metadata_read"] = gated_metadata_reads;
       compound_data_movement[pv].fine_grained_accesses["metadata_fill"] = compound_data_movement[pv].metadata_fills - gated_metadata_fills;
       compound_data_movement[pv].fine_grained_accesses["gated_metadata_fill"] = gated_metadata_fills;
-
+      compound_data_movement[pv].fine_grained_accesses["metadata_update"] = compound_data_movement[pv].metadata_updates - gated_metadata_updates;
+      compound_data_movement[pv].fine_grained_accesses["gated_metadata_update"] =  gated_metadata_updates;
     }
 
     else {
       // no compression info found, default to no compression and no metadata
       compound_data_movement[pv].metadata_reads = 0;
       compound_data_movement[pv].metadata_fills = 0;
+      compound_data_movement[pv].metadata_updates = 0;
       compound_data_movement[pv].fine_grained_accesses["metadata_read"] = 0;
       compound_data_movement[pv].fine_grained_accesses["gated_metadata_read"] = 0;
       compound_data_movement[pv].fine_grained_accesses["metadata_fill"] = 0;
       compound_data_movement[pv].fine_grained_accesses["gated_metadata_fill"] = 0;
+      compound_data_movement[pv].fine_grained_accesses["metadata_update"] = 0;
+      compound_data_movement[pv].fine_grained_accesses["gated_metadata_update"] =  0;
 
     }
 

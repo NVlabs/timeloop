@@ -68,6 +68,7 @@ struct DataMovementInfo
   std::uint64_t fills;
   std::uint64_t reads;
   std::uint64_t updates;
+  std::uint64_t metadata_updates;
   std::uint64_t metadata_fills;
   std::uint64_t metadata_reads;
   std::uint64_t temporal_reductions;
@@ -155,6 +156,9 @@ struct DataMovementInfo
     rank0_list.resize(0);
     dense_rank1_fills = 0;
     dense_rank0_fills = 0;
+    metadata_updates = 0;
+    metadata_fills = 0;
+    metadata_reads = 0;
   }
 
   void Validate()
