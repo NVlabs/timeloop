@@ -1,0 +1,140 @@
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#  * Neither the name of NVIDIA CORPORATION nor the names of its
+#    contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+# OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+mapper:
+  algorithm: exhaustive
+  optimization-metrics:
+  - energy
+  - delay
+  search-size: 0
+  victory-condition: 100
+  timeout: 1000
+
+architecture:
+  version: 0.3
+  subtree:
+    - name: system
+      local:
+        - name: DRAM
+          class: DRAM
+          attributes:
+            type: LPDDR4
+            word-bits: 8
+            block-size: 64
+            bandwidth: 10.0
+        - name: WeightInputBuffer
+          class: SRAM
+          attributes:
+            technology: 45nm
+            width: 512
+            depth: 4096
+            datawidth: 8
+            word-bits: 8
+            block-size: 64
+        - name: AccumulationBuffer[0..15]
+          class: SRAM
+          attributes:
+            technology: 45nm
+            depth: 128
+            width: 24
+            datawidth: 24
+            word-bits: 24
+            cluster-size: 16
+            network-word-bits: 16
+        - name: MAC[0..1023]
+          class: intmac
+          attributes:
+            technology: 45nm
+            meshX: 16
+            datawidth: 8
+            word-bits: 8
+        - name: Registers[0..1023]
+          class: regfile
+          attributes:
+            technology: 45nm
+            depth: 1
+            width: 8
+            datawidth: 8
+            word-bits: 8
+            meshX: 16
+            cluster-size: 64
+
+mapspace:
+  constraints:
+  # Level Bypass
+  - target: AccumulationBuffer
+    type: datatype
+    keep:
+    - Outputs
+    bypass:
+    - Weights
+    - Inputs
+  - target: WeightInputBuffer
+    type: datatype
+    keep:
+    - Weights
+    - Inputs
+    bypass:
+    - Outputs
+  # Spatial
+  - target: AccumulationBuffer
+    type: spatial
+    factors: P1 Q1 R1 S1 C64 K1 N1
+    permutation: KQRSPNC
+  - target: WeightInputBuffer
+    type: spatial
+    factors: P1 Q1 R1 S1 C1 K16 N1
+    permutation: KCQRSPN
+  # Temporal
+  - target: Registers
+    type: temporal
+    factors: R1 S1 C1 K1 N1
+    permutation: PQRSCKN
+  - target: AccumulationBuffer
+    type: temporal
+    factors: P1 Q1 R1 S1 C1 N1
+    permutation: KPQRSCN
+  - target: WeightInputBuffer
+    type: temporal
+    factors: P1 Q1 K1
+  # Parallelism
+  - target: Registers
+    type: utilization
+    min: 0.01
+
+problem:
+  shape: cnn-layer
+  R: 3
+  S: 3
+  P: 48
+  Q: 480
+  C: 1
+  K: 16
+  N: 1
+  Wstride: 1
+  Hstride: 1
+  Wdilation: 1
+  Hdilation: 1

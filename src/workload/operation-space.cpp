@@ -52,13 +52,55 @@ OperationSpace::OperationSpace(const Workload* wc, const OperationPoint& low, co
   // a data-space may not result in the exclusive high point in that data-space.
   for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
   {
-    auto space_low = Project(space_id, workload_, low);
-    auto space_high = Project(space_id, workload_, high);
+    Point space_low(workload_->GetShape()->DataSpaceOrder.at(space_id));
+    Point space_high(workload_->GetShape()->DataSpaceOrder.at(space_id));
+
+    ProjectLowHigh(space_id, workload_, low, high, space_low, space_high);
 
     // Increment the high points by 1 because the AAHR constructor wants
     // an exclusive max point.
     space_high.IncrementAllDimensions();
     data_spaces_.push_back(DataSpace(wc->GetShape()->DataSpaceOrder.at(space_id), space_low, space_high));
+  }
+}
+
+void OperationSpace::ProjectLowHigh(Shape::DataSpaceID d,
+                                    const Workload* wc,
+                                    const OperationPoint& problem_low,
+                                    const OperationPoint& problem_high,
+                                    Point& data_space_low,
+                                    Point& data_space_high)
+{
+  for (unsigned data_space_dim = 0; data_space_dim < wc->GetShape()->DataSpaceOrder.at(d); data_space_dim++)
+  {
+    data_space_low[data_space_dim] = 0;
+    data_space_high[data_space_dim] = 0;
+
+    for (auto& term : wc->GetShape()->Projections.at(d).at(data_space_dim))
+    {
+      Coordinate low = problem_low[term.second];
+      Coordinate high = problem_high[term.second];
+      if (term.first != wc->GetShape()->NumCoefficients)
+      {
+        // If Coefficient is negative, flip high/low.
+        auto coeff = wc->GetCoefficient(term.first);
+        if (coeff < 0)
+        {
+          data_space_low[data_space_dim] += (high * coeff);
+          data_space_high[data_space_dim] += (low * coeff);
+        }
+        else
+        {
+          data_space_low[data_space_dim] += (low * coeff);
+          data_space_high[data_space_dim] += (high * coeff);
+        }
+      }
+      else
+      {
+        data_space_low[data_space_dim] += low;
+        data_space_high[data_space_dim] += high;
+      }
+    }
   }
 }
 
