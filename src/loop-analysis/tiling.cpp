@@ -619,7 +619,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.compressed = false;
       collapsed_tile.rank0_list = {}; // for CSR
       collapsed_tile.rank1_list = {}; // for CSR
-      collapsed_tile.metadata_tile_size = 0; // initialize to no metadata
+      //collapsed_tile.metadata_tile_size = 0; // initialize to no metadata -> move to buff.cpp due to confidence
 
       collapsed_tile.parent_level = std::numeric_limits<unsigned>::max();
       collapsed_tile.child_level = std::numeric_limits<unsigned>::max();

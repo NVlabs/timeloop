@@ -230,17 +230,15 @@ void ArithmeticUnits::PopulateEnergyPerOp(unsigned num_ops){
     ert_energy_per_op = 0;
     ert_energy_found = false;
     std::string op_name = tiling::arithmeticOperationTypes[op_id];
-    
-    // go through ERT entries and look for appopriate energy values 
+    // initialize to the pat values or zero in case no mapping is found
+    ert_energy_per_op = specs_.energy_per_op.Get();
+
+    // go through ERT entries and look for appopriate energy values
     ert_action_names = model::arithmeticOperationMappings.at(op_name);
     for (auto it = ert_action_names.begin(); it != ert_action_names.end(); ++it){
       if(specs_.ERT_entries.count(*it)>0 && !ert_energy_found){
         ert_energy_per_op = specs_.ERT_entries.at(*it);
         ert_energy_found = true;
-      }
-      if (it == ert_action_names.end() && !ert_energy_found){
-        // ert_energy_per_op = specs_.energy_per_op.Get(); // use the max if no mapping is found
-        ert_energy_per_op = 0;
       }
     }
     // populate the op_energy_map data structure for easier future energy search

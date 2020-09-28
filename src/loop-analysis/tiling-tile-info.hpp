@@ -92,7 +92,7 @@ struct DataMovementInfo
   // compression related
   bool compressed;
   std::string metadata_format;
-  std::uint64_t metadata_tile_size;
+  // std::uint64_t metadata_tile_size; // move population to buffer.cpp due to confidence
   // for CSR only
   std::vector<problem::Shape::DimensionID> rank0_list;
   std::vector<problem::Shape::DimensionID> rank1_list;
