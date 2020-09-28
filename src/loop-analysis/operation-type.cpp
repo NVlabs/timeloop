@@ -125,6 +125,7 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
 
     double read_avg_density = 1.0;
     double write_avg_density = 1.0;
+    double update_avg_density = 1.0;
 
     // initialize the gated and skipped action counts, if optimizations applied, these values will be updated
     compound_data_movement[pv].fine_grained_accesses["skipped_read"] = num_skipped_reads;
@@ -145,11 +146,12 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
       sparse::PerDataSpaceActionOptimizationInfo data_space_skipping_info = per_level_sparse_skipping.at(data_space_name);
       read_avg_density *= GetDensityByActionOptimizationNames(data_space_skipping_info, "read", compound_data_movement);
       write_avg_density *= GetDensityByActionOptimizationNames(data_space_skipping_info, "write", compound_data_movement);
+      update_avg_density *= GetDensityByActionOptimizationNames(data_space_skipping_info, "update", compound_data_movement);
 
       // skipped actions
       num_skipped_reads = ceil((1-read_avg_density)* total_reads);
       num_skipped_fills = ceil((1-write_avg_density) * total_fills);
-      num_skipped_updates = ceil((1-write_avg_density) * total_updates);
+      num_skipped_updates = ceil((1-update_avg_density) * total_updates);
       compound_data_movement[pv].fine_grained_accesses["skipped_read"] = num_skipped_reads;
       compound_data_movement[pv].fine_grained_accesses["skipped_fill"] = num_skipped_fills;
       compound_data_movement[pv].fine_grained_accesses["skipped_update"] = num_skipped_updates;
@@ -164,11 +166,12 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
       sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
       read_avg_density *= GetDensityByActionOptimizationNames(data_space_gating_info, "read", compound_data_movement);
       write_avg_density *= GetDensityByActionOptimizationNames(data_space_gating_info, "write", compound_data_movement);
+      update_avg_density *= GetDensityByActionOptimizationNames(data_space_gating_info, "update", compound_data_movement);
 
       // gated actions
       num_gated_reads = ceil((1-read_avg_density)* total_reads);
       num_gated_fills = ceil((1-write_avg_density) * total_fills);
-      num_gated_updates = ceil((1-write_avg_density) * total_updates);
+      num_gated_updates = ceil((1-update_avg_density) * total_updates);
       compound_data_movement[pv].fine_grained_accesses["gated_read"] = num_gated_reads;
       compound_data_movement[pv].fine_grained_accesses["gated_fill"] = num_gated_fills;
       compound_data_movement[pv].fine_grained_accesses["gated_update"] = num_gated_updates;
@@ -192,8 +195,9 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
                                       sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
                                       unsigned level){
 
-  double metadata_read_avg_density;
-  double metadata_write_avg_density;
+  double metadata_read_avg_density = 1.0;
+  double metadata_write_avg_density = 1.0;
+  double metadata_update_avg_density = 1.0;
 
 //  std::cout << "level:  " << level << " --------------------" << std::endl;
 
@@ -201,6 +205,15 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
 
     std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pv);
     tiling::CompoundDataMovementInfo& compound_data_movement = nest_of_compound_tiles.at(level).data_movement_info;
+
+
+    // initialize all fine-grained metadata related accesses to 0
+    compound_data_movement[pv].fine_grained_accesses["metadata_read"] = 0;
+    compound_data_movement[pv].fine_grained_accesses["gated_metadata_read"] = 0;
+    compound_data_movement[pv].fine_grained_accesses["metadata_fill"] = 0;
+    compound_data_movement[pv].fine_grained_accesses["gated_metadata_fill"] = 0;
+    compound_data_movement[pv].fine_grained_accesses["metadata_update"] = 0;
+    compound_data_movement[pv].fine_grained_accesses["gated_metadata_update"] =  0;
 
     if (per_level_compression_info.find(data_space_name) != per_level_compression_info.end()){
       // compression info found, calculate the number of metadata reads/fills according to
@@ -282,8 +295,8 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       if (raw_num_binary_searches < 0){
         raw_num_binary_searches = 0;
       }
-      std::uint64_t num_binary_searches = std::uint64_t(raw_num_binary_searches);
-      // std::cout << "number of binary searches: " << num_binary_searches << std::endl;
+      std::uint64_t num_binary_searches = ceil(raw_num_binary_searches);
+//      std::cout << "number of binary searches: " << num_binary_searches << std::endl;
 
       // look at all the subnests for all the levels that are below this storage level to extract the access patterns
       // note: since we are using the read patterns of the levels below to characterize the read pattern of this storage,
@@ -293,7 +306,7 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
 
       // the logic below is only good for dataspaces whose dimensions are not a sum of more than one dimensions
       // if the dataspace's dimension needs to be projected from other dimensions, this will not work, e.g., Inputs H=R+P W=S+Q
-      // FIXME: add the support for CSR/CSC for Inputs
+      // FIXME: add the more accurate support for CSR/CSC for dataytpes whose dimensions are described in SoC form in the prob spec, inputs in conv calculations
       // note:the major difference for Inputs is that we need to look at the inner loops and calculate halos until a loop for a different rank shows up.
       // From that on, we will not have any halos
 
@@ -313,12 +326,12 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
 
             // if the loop is describing a dimension that belongs to rank0 (compressed format)
             uint64_t num_rank0_elements =  (subnest[loop].end - subnest[loop].start)/subnest[loop].stride;
-//            std::cout << "num cols: " << num_cols << std::endl;
-//            current_rank = 0;
+//            std::cout << "num_rank0_elements: " << num_rank0_elements << std::endl;
+//            int current_rank = 0;
 
             if (rank1_detected == std::numeric_limits<uint16_t>::max()){ //inner most loop
               rank1_reads += 1;
-              rank0_reads += num_rank0_elements + num_binary_searches;
+              rank0_reads += num_rank0_elements*data_space_density + num_binary_searches+1;
               rank1_detected = 0;
             } else if (rank1_detected == 0){
               rank0_reads *= num_rank0_elements;
@@ -335,11 +348,11 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
             // if the loop is describing a dimension that belongs to rows/rank1 (uncompressed format)
 
             uint64_t num_rank1_elements = (subnest[loop].end - subnest[loop].start)/subnest[loop].stride;
-//            std::cout << "num rows: " << num_rows << std::endl;
-//            current_rank = 1;
+//            std::cout << "num_rank1_elements: " << num_rank1_elements << std::endl;
+//            int current_rank = 1;
             if (rank1_detected == std::numeric_limits<uint16_t>::max()){ //inner most loop
               rank1_reads += num_rank1_elements;
-              rank0_reads += num_rank1_elements + num_binary_searches * num_rank1_elements;
+              rank0_reads += num_binary_searches * num_rank1_elements;
             } else {
               rank0_reads *= num_rank1_elements;
               rank1_reads *= num_rank1_elements;
@@ -363,8 +376,17 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       // compound_data_movement[pv].metadata_tile_size = num_rank1_index_fills + num_rank0_index_fills;
       // std::cout << "metadata tile size: " << compound_data_movement[pv].metadata_tile_size << std::endl;
 
-      compound_data_movement[pv].metadata_fills = num_rank1_index_fills + num_rank0_index_fills;
-      compound_data_movement[pv].metadata_reads = rank1_reads + rank0_reads * data_space_density;
+      if (compound_data_movement[pv].fills == 0){
+        // for DRAM cases, there is no fills needed, so no metadata fills needed
+        compound_data_movement[pv].metadata_fills = 0;
+      } else {
+        compound_data_movement[pv].metadata_fills = num_rank1_index_fills + num_rank0_index_fills;
+      }
+      compound_data_movement[pv].metadata_reads = rank1_reads + rank0_reads;
+      // FIXME: distinguish updates from fills
+      // only useful when output is in compressed format
+      compound_data_movement[pv].metadata_updates = 0;
+
 //      std::cout << "data density: " << data_space_density << std::endl;
 //      int num_data_fills = total_num_rows * total_num_cols * data_space_density;
 //      std::cout << "metadata reads: " << compound_data_movement[pv].metadata_reads << std::endl;
@@ -385,9 +407,10 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
         sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
         metadata_read_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_read", compound_data_movement);
         metadata_write_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_write", compound_data_movement);
+        metadata_update_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_update", compound_data_movement);
         gated_metadata_reads = ceil(compound_data_movement[pv].metadata_reads * (1-metadata_read_avg_density));
         gated_metadata_fills = ceil(compound_data_movement[pv].metadata_fills * (1-metadata_write_avg_density));
-        gated_metadata_updates = ceil(compound_data_movement[pv].metadata_updates * (1-metadata_write_avg_density));
+        gated_metadata_updates = ceil(compound_data_movement[pv].metadata_updates * (1-metadata_update_avg_density));
       }
 
       compound_data_movement[pv].fine_grained_accesses["metadata_read"] = compound_data_movement[pv].metadata_reads - gated_metadata_reads;

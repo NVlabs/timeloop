@@ -1325,14 +1325,15 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << indent << "Vector gated read energy     : " << specs.op_energy_map.at("gated_read") << " pJ" << std::endl;
   out << indent << indent << "Vector skipped read energy   : " << specs.op_energy_map.at("skipped_read") << " pJ" << std::endl;
   out << indent << indent << "Vector random read energy    : " << specs.op_energy_map.at("random_read") << " pJ" << std::endl;
-  out << indent << indent << "Vector gated fill energy     : " << specs.op_energy_map.at("gated_fill") << " pJ" << std::endl;
-  out << indent << indent << "Vector skipped fill energy   : " << specs.op_energy_map.at("skipped_fill") << " pJ" << std::endl;
-  out << indent << indent << "Vector random fill energy    : " << specs.op_energy_map.at("random_fill") << " pJ" << std::endl;
-  out << indent << indent << "Vector gated update energy   : " << specs.op_energy_map.at("gated_update") << " pJ" << std::endl;
-  out << indent << indent << "Vector skipped update energy : " << specs.op_energy_map.at("skipped_update") << " pJ" << std::endl;
-  out << indent << indent << "Vector random update energy  : " << specs.op_energy_map.at("random_update") << " pJ" << std::endl;
+  out << indent << indent << "Vector gated write energy    : " << specs.op_energy_map.at("gated_fill") << " pJ" << std::endl;
+  out << indent << indent << "Vector skipped write energy  : " << specs.op_energy_map.at("skipped_fill") << " pJ" << std::endl;
+  out << indent << indent << "Vector random write energy   : " << specs.op_energy_map.at("random_fill") << " pJ" << std::endl;
+//  out << indent << indent << "Vector gated update energy   : " << specs.op_energy_map.at("gated_update") << " pJ" << std::endl;
+//  out << indent << indent << "Vector skipped update energy : " << specs.op_energy_map.at("skipped_update") << " pJ" << std::endl;
+//  out << indent << indent << "Vector random update energy  : " << specs.op_energy_map.at("random_update") << " pJ" << std::endl;
   out << indent << indent << "Vector metadata read energy  : " << specs.op_energy_map.at("metadata_read") << " pJ" << std::endl;
-  out << indent << indent << "Decompression energy         : " << specs.op_energy_map.at("decompression_count") << " pJ" << std::endl;
+  out << indent << indent << "Vector metadata write energy : " << specs.op_energy_map.at("metadata_fill") << " pJ" << std::endl;
+  out << indent << indent << "(De)compression energy       : " << specs.op_energy_map.at("decompression_count") << " pJ" << std::endl;
   out << indent << indent << "Area                         : " << specs.storage_area << " um^2" << std::endl;
 
   out << std::endl;
