@@ -452,9 +452,6 @@ void BufferLevel::PopulateEnergyPerOp(unsigned num_ops){
     std::vector<std::string> ert_action_names;
     std::string op_name;
 
-
-
-
     for (unsigned op_id = 0; op_id < num_ops; op_id++){
       // go through all op types
       ert_energy_per_op = 0;

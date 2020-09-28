@@ -311,7 +311,8 @@ void ArithmeticUnits::Print(std::ostream& out) const
   // Print specs.
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
-
+//#define PRINT_SPARSE_STATS
+#ifdef PRINT_SPARSE_STATS
   out << indent << "Word bits             : " << specs_.word_bits << std::endl;    
   out << indent << "Instances             : " << specs_.instances << " ("
       << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
@@ -320,11 +321,19 @@ void ArithmeticUnits::Print(std::ostream& out) const
   out << indent << "Gated compute energy  : " << specs_.op_energy_map.at("gated_compute") << " pJ" << std::endl;
   out << indent << "Skipped compute energy: " << specs_.op_energy_map.at("skipped_compute") << " pJ" << std::endl;
   out << std::endl;
+#else
+  out << indent << "Word bits             : " << specs_.word_bits << std::endl;
+  out << indent << "Instances             : " << specs_.instances << " ("
+      << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
+  out << indent << "Energy-per-op         : " << specs_.energy_per_op << " pJ" << std::endl;
+  out << std::endl;
+#endif
 
   // Print stats.
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
-
+//#define PRINT_SPARSE_STATS
+#ifdef PRINT_SPARSE_STATS
   out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
   out << indent << "Cycles                  : " << Cycles() << std::endl;
   out << indent << "Random Computes (total) : " << compute_random << std::endl;
@@ -333,6 +342,12 @@ void ArithmeticUnits::Print(std::ostream& out) const
   out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
   out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
   out << std::endl;
+#else
+  out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
+  out << indent << "Cycles                  : " << Cycles() << std::endl;
+  out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
+  out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
+#endif
 }
 
 } // namespace model
