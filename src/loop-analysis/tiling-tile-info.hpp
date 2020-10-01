@@ -68,6 +68,7 @@ struct DataMovementInfo
   std::uint64_t fills;
   std::uint64_t reads;
   std::uint64_t updates;
+  std::uint64_t metadata_updates;
   std::uint64_t metadata_fills;
   std::uint64_t metadata_reads;
   std::uint64_t temporal_reductions;
@@ -83,23 +84,30 @@ struct DataMovementInfo
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
   // tile density
-  problem::DataDensity tile_density;             // statistical representation of tile data density
+  problem::DataDensity tile_density;  // statistical representation of tile data density
+  double tile_confidence;
   // fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
 
   // compression related
   bool compressed;
   std::string metadata_format;
-  std::uint64_t metadata_tile_size;
+  // std::uint64_t metadata_tile_size; // move population to buffer.cpp due to confidence
   // for CSR only
   std::vector<problem::Shape::DimensionID> rank0_list;
   std::vector<problem::Shape::DimensionID> rank1_list;
+  std::uint64_t dense_rank1_fills;
+  std::uint64_t dense_rank0_fills;
 
   // parent/child level for inferring decompression/compression overhead
-  problem::Shape::DataSpaceID parent_level;
-  problem::Shape::DataSpaceID child_level;
+  unsigned parent_level;
+  unsigned child_level;
   bool parent_level_compressed;
   bool child_level_compressed;
+
+  std::map<std::string, std::uint64_t> parent_level_simple_specs;
+  std::map<std::string, double> parent_level_op_energy;
+  std::string parent_level_name;
 
   std::uint64_t GetTotalAccesses() const
   {
@@ -134,14 +142,23 @@ struct DataMovementInfo
     distributed_fanout = 0;
     compressed = false;
     compressed_size = 0;
+    tile_density = problem::DataDensity();
+    tile_confidence = 1.0;
     metadata_format.resize(0);
     parent_level=std::numeric_limits<unsigned>::max();
     child_level=std::numeric_limits<unsigned>::max();
     parent_level_compressed = false;
     child_level_compressed = false;
     fine_grained_accesses.clear();
+    parent_level_simple_specs.clear();
+    parent_level_op_energy.clear();
     rank1_list.resize(0);
     rank0_list.resize(0);
+    dense_rank1_fills = 0;
+    dense_rank0_fills = 0;
+    metadata_updates = 0;
+    metadata_fills = 0;
+    metadata_reads = 0;
   }
 
   void Validate()

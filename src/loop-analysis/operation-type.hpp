@@ -38,7 +38,7 @@ namespace tiling
 {
 
 // define the (data-dependent fine-grained) operation types for each type of components
-static std::string storageOperationTypes[15] = {"random_read",
+static std::string storageOperationTypes[17] = {"random_read",
                                                 "random_fill",
                                                 "random_update",
                                                 "gated_read",
@@ -51,6 +51,8 @@ static std::string storageOperationTypes[15] = {"random_read",
                                                 "gated_metadata_read",
                                                 "metadata_fill",
                                                 "gated_metadata_fill",
+                                                "metadata_update",
+                                                "gated_metadata_update",
                                                 "decompression_count",
                                                 "compression_count"};   // we don't update a metadata
 

@@ -167,6 +167,15 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> temporal_reduction_energy;
     problem::PerDataSpace<double> addr_gen_energy;
 
+    problem::PerDataSpace<double> speculation_energy_cost;
+
+    problem::PerDataSpace<std::uint64_t> compressed_tile_size;
+    problem::PerDataSpace<std::uint64_t> metadata_tile_size;
+    problem::PerDataSpace<double> tile_confidence;
+    problem::PerDataSpace<double> tile_max_density;
+    problem::PerDataSpace<std::string> parent_level_name;
+
+
     // fine-grained action stats
     problem::PerDataSpace<unsigned long> gated_reads;
     problem::PerDataSpace<unsigned long> skipped_reads;
@@ -186,7 +195,9 @@ class BufferLevel : public Level
     problem::PerDataSpace<unsigned long> metadata_fills;
     problem::PerDataSpace<unsigned long> random_metadata_fills;
     problem::PerDataSpace<unsigned long> gated_metadata_fills;
-    problem::PerDataSpace<unsigned long> metadata_tile_size;
+    problem::PerDataSpace<unsigned long> metadata_updates;
+    problem::PerDataSpace<unsigned long> random_metadata_updates;
+    problem::PerDataSpace<unsigned long> gated_metadata_updates;
 
     problem::PerDataSpace<unsigned long> decompression_counts;
     problem::PerDataSpace<unsigned long> compression_counts;

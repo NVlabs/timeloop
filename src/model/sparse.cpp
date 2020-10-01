@@ -76,7 +76,7 @@ SparseOptimizationInfo Parse(config::CompoundConfigNode sparse_config, model::En
       }
     }
 
-    std::cout << "finished parsing sparse optimization for all targets" << std::endl;
+    std::cout << "Sparse optimization configuration complete." << std::endl;
   }
 
   sparse_optimization_info_.action_gating_info = action_gating_info_;

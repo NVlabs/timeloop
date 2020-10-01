@@ -934,12 +934,15 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
   auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   auto working_set_sizes = analysis->GetWorkingSetSizes_LTW();
 
+
+  problem::Workload* workload = analysis->GetWorkload();
+
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     auto level_id = specs_.StorageMap(storage_level_id);
     auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
-      working_set_sizes.at(storage_level_id), masks.at(storage_level_id), analysis->GetWorkload(),
+      working_set_sizes.at(storage_level_id), masks.at(storage_level_id), workload,
       break_on_failure);
     eval_status.at(level_id) = s;
     if (break_on_failure && !s.success)
@@ -948,6 +951,30 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
 
   return eval_status;
 }
+
+
+//void PopulateCompressedSizeAndConfidence(tiling::NestOfCompoundTiles tiles, problem::Workload* workload){
+//  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++){
+//    auto storage_level = GetStorageLevel(storage_level_id);
+//    auto storage_level_effective_capacity = storage_level->GetSpecs().effective_size.Get();
+//
+//    for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++){
+//      uint64_t tile_shape = tiles[storage_level_id].data_movement_info.at(pv).size;
+//      double confidence = workload->GetDensity(pv).GetTileConfidence(tile_shape, storage_level_effective_capacity);
+//      uint64_t compressed_size;
+//      if (storage_level_effective_capacity >= tile_shape){
+//        compressed_size = tile_shape;
+//      }
+//
+//    }
+//
+//
+//
+//
+//    // set confidence according to
+//  }
+//
+//
 
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            analysis::NestAnalysis* analysis,
@@ -1008,6 +1035,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     }
   }
   
+
   // Collapse tiles into a specified number of tiling levels. The solutions are
   // received in a set of per-problem::Shape::DataSpaceID arrays.
   auto collapsed_tiles = tiling::CollapseTiles(tile_info_nest, specs_.NumStorageLevels(),
@@ -1023,6 +1051,13 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   assert(keep_masks.size() >= NumStorageLevels());
 
+
+  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++){
+    auto storage_level = GetStorageLevel(storage_level_id);
+    storage_level->PopulateEnergyPerOp(unsigned(tiling::GetNumOpTypes("storage")));
+  }
+
+
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     auto storage_level = GetStorageLevel(storage_level_id);
@@ -1030,6 +1065,32 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     // Evaluate Loop Nest on hardware structures: calculate
     // primary statistics.
     auto level_id = specs_.StorageMap(storage_level_id);
+
+    // populate simple parent level spec info for compensation calculation
+    for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++){
+      unsigned parent_level_id = tiles[storage_level_id].data_movement_info.at(pv).parent_level;
+      if (parent_level_id != std::numeric_limits<unsigned>::max()){
+
+         // necessary hardware info: block size
+         std::map <std::string, std::uint64_t> parent_level_simple_specs;
+         model::BufferLevel::Specs parent_level_specs = GetStorageLevel(parent_level_id)->GetSpecs();
+         parent_level_simple_specs["block_size"] = parent_level_specs.block_size.Get();
+         parent_level_simple_specs["metadata_block_size"] = parent_level_specs.metadata_block_size.Get();
+
+         // necessary ert info
+         std::map <std::string, double> parent_level_op_energy;
+         std::map<std::string, double>::iterator it = parent_level_specs.op_energy_map.begin();
+         while (it != parent_level_specs.op_energy_map.end()){
+           parent_level_op_energy[it->first] = it->second;
+           it++;
+         }
+         // populate parent level info into tile struct
+         tiles[storage_level_id].data_movement_info.at(pv).parent_level_simple_specs = parent_level_simple_specs;
+         tiles[storage_level_id].data_movement_info.at(pv).parent_level_op_energy = parent_level_op_energy;
+         tiles[storage_level_id].data_movement_info.at(pv).parent_level_name = parent_level_specs.name.Get();
+      }
+    }
+
     auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
                                      compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;

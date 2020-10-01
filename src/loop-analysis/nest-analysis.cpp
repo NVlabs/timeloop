@@ -127,7 +127,7 @@ void NestAnalysis::Reset()
   linked_spatial_level_.clear();
 
   working_sets_computed_ = false;
-  
+
   compute_info_.Reset();
 
   compute_info_sets_.clear();
@@ -166,6 +166,18 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
   }
 
   ASSERT(working_set_sizes.size() == storage_tiling_boundaries_.size());
+
+  // set the workload_tensor sizes that were not available during parsing stage
+  // this step should only happen once to a workload
+  if (! workload_->IsWorkloadTensorSizesSet()){
+    // std::cout << "this should only happen once" << std::endl;
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++){
+        // set tensor size for all dataspaces
+        workload_->SetWorkloadTensorSize(problem::Shape::DataSpaceID(pvi),
+                                        working_set_sizes[storage_tiling_boundaries_.size()-1][problem::Shape::DataSpaceID(pvi)]);
+    }
+  }
+
   return working_set_sizes;
 }
 

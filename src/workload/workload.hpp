@@ -68,6 +68,7 @@ class Workload
   Bounds bounds_;
   Coefficients coefficients_;
   Densities densities_;
+  bool workload_tensor_size_set_ = false;
 
  public:
   Workload() {}
@@ -107,6 +108,15 @@ class Workload
   {
     densities_ = densities;
   }
+
+  void SetWorkloadTensorSize(problem::Shape::DataSpaceID id, std::uint64_t tensor_size)
+  {
+    // hypergeometric distribution specification requires workload tensor sizes
+    densities_.at(id).SetWorkloadTensorSize(tensor_size);
+    workload_tensor_size_set_ = true;
+  }
+
+  bool IsWorkloadTensorSizesSet(){ return workload_tensor_size_set_;}
 
  private:
   // Serialization
