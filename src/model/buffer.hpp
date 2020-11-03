@@ -37,9 +37,24 @@
 #include "compound-config/compound-config.hpp"
 #include "model/util.hpp"
 #include "model/network.hpp"
+#include "workload/data-density.hpp"
 
 namespace model
 {
+
+  //
+  // mean density - tile_size/vectorwidth table
+  //
+
+  // once the tile shape exceeds vec_width * threshold, use the naive mathod for getting the number of vector accesses
+  // used to reduce runtime
+  //             vec_width            threshold for densities (0.1, 0.2, .., 1.0)
+  static std::map<unsigned, std::vector<double>>  VectorWidthCoefficientTable =  {{ 2, { 251, 125, 84, 63, 51, 42, 36, 32, 28, 1}},
+                                                                                   { 4, { 375, 188, 125, 94, 75, 63, 54, 47, 42, 1}},
+                                                                                   { 8, { 438, 219, 146, 110, 88, 73, 63, 55, 49, 1}},
+                                                                                   { 16, { 469, 235, 157, 118, 94, 79, 67, 59, 52, 1}},
+                                                                                   { 32, { 485, 243, 162, 122, 97, 81, 70, 61, 52, 1}}
+                                                                                  };
 
 //--------------------------------------------//
 //                 BufferLevel                //
@@ -177,6 +192,8 @@ class BufferLevel : public Level
 
 
     // fine-grained action stats
+    problem::PerDataSpace<std::map<std::string, unsigned std::uint64_t>> fine_grained_scalar_accesses;
+    problem::PerDataSpace<std::map<std::string, double>> fine_grained_vector_accesses;
     problem::PerDataSpace<unsigned long> gated_reads;
     problem::PerDataSpace<unsigned long> skipped_reads;
     problem::PerDataSpace<unsigned long> random_reads;
@@ -272,8 +289,10 @@ class BufferLevel : public Level
   //
 
  private:
-  EvalStatus ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const tiling::CompoundMask& mask,
-                             const bool break_on_failure);
+  EvalStatus ComputeScalarAccesses(const tiling::CompoundDataMovementInfo& tile, const tiling::CompoundMask& mask,
+                                   const bool break_on_failure);
+  void ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& tile);
+  void ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMovementInfo& tile);
   void ComputePerformance(const std::uint64_t compute_cycles);
   // void ComputeBufferEnergy();
   void ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info);

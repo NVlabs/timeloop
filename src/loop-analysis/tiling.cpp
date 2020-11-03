@@ -107,7 +107,7 @@ void SetChildLevel(std::vector<DataMovementInfo>& tile_nest){
 
     // Initialize child level to min.
     tile_nest[cur].child_level = std::numeric_limits<unsigned>::max();
-
+    tile_nest[cur].child_level_tile_size = std::numeric_limits<unsigned>::max();
     // Find next (inner) non-zero level.
     unsigned inner;
     for (inner = cur-1; inner > 0 && tile_nest[inner].size == 0; inner--)
@@ -115,14 +115,15 @@ void SetChildLevel(std::vector<DataMovementInfo>& tile_nest){
       // Body is empty.
     }
 
-    // skip if it is a compute level
-    if (inner == 0) // level 0 is compute
-    {
-      // No outer tiling level.
-      continue;
-    }
-
     tile_nest[cur].child_level = inner;
+    // better checking for child level
+    if (tile_nest[inner].size != 0){
+      tile_nest[cur].child_level_tile_size = tile_nest[inner].size;
+    } else {
+      // child level is compute
+      // tile size is basically one fetch from the memory, which is dependent on this level's block size
+      // will be set at buffer.cpp once we know the block size
+    }
   }
 }
 
@@ -490,6 +491,30 @@ void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest
   return;
 }
 
+
+void ComputeWorkloadTensorSizes(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv, problem::Workload* workload){
+   if (! workload->IsWorkloadTensorSizesSet()){
+      unsigned num_tiling_levels = tile_nest.size();
+
+      uint64_t max_tensor_size = 0;
+
+      for (unsigned cur = 0; cur < num_tiling_levels; cur++)
+      {
+
+        // Skip if this tile level has 0 size or 0 accesses.
+        if (tile_nest[cur].size >= max_tensor_size)
+        {
+          max_tensor_size = tile_nest[cur].size;
+        }
+      }
+
+      assert(max_tensor_size != 0); //workload tensor size cannot be zero
+      workload->SetWorkloadTensorSize(pv, max_tensor_size);
+   }
+
+}
+
+
 void ComputeDataDensity(std::vector<DataMovementInfo>& tile_nest, problem::Workload* workload, problem::Shape::DataSpaceID pv){
   int num_tiling_levels = tile_nest.size();
   for (int cur = num_tiling_levels-1; cur >= 0; cur--){
@@ -615,6 +640,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       //place holder initializations
       collapsed_tile.metadata_reads = 0;
       collapsed_tile.metadata_fills = 0;
+      collapsed_tile.metadata_updates = 0;
       collapsed_tile.metadata_format = "none";
       collapsed_tile.compressed = false;
       collapsed_tile.rank0_list = {}; // for CSR
@@ -623,6 +649,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 
       collapsed_tile.parent_level = std::numeric_limits<unsigned>::max();
       collapsed_tile.child_level = std::numeric_limits<unsigned>::max();
+      collapsed_tile.child_level_tile_size = 0;
       
       // initialize data density
       collapsed_tile.tile_density = problem::DataDensity();
@@ -669,6 +696,9 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     // split the accesses to read and update and generate reduction
     ComputeReadUpdateReductionAccesses(solution[pv], pv);
 
+    // calculate workload tensor size
+    ComputeWorkloadTensorSizes(solution[pv], pv, workload);
+
     // Calculate the data density in this nest of tiles
     ComputeDataDensity(solution[pv], workload, pv);
 
@@ -677,6 +707,10 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     SetChildLevel(solution[pv]);
 
   }
+
+  // flip the workload tensor set flag if necessary
+  if (! workload->IsWorkloadTensorSizesSet()) {workload->AllTensorsSet();}
+
   return solution;
 }
 

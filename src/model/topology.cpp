@@ -32,6 +32,7 @@
 #include "model/topology.hpp"
 #include "model/network-legacy.hpp"
 #include "model/network-factory.hpp"
+#include "workload/workload.hpp"
 
 namespace model
 {

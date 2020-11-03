@@ -113,10 +113,11 @@ class Workload
   {
     // hypergeometric distribution specification requires workload tensor sizes
     densities_.at(id).SetWorkloadTensorSize(tensor_size);
-    workload_tensor_size_set_ = true;
   }
 
   bool IsWorkloadTensorSizesSet(){ return workload_tensor_size_set_;}
+
+  void AllTensorsSet() {workload_tensor_size_set_ = true;}
 
  private:
   // Serialization

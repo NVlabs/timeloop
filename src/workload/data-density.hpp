@@ -54,9 +54,14 @@ struct ConstantDensity{
 
     std::string type = "constant";
     double constant_density_ = 1.0;
+    std::uint64_t workload_tensor_size_ = 0;
 
     ConstantDensity(double density = 1.0){
        constant_density_ = density;
+    }
+
+    void SetWorkloadTensorSize(std::uint64_t size){
+      workload_tensor_size_ = size;
     }
 
     double GetTileDensityByConfidence(std::uint64_t tile_shape, double confidence, uint64_t buffer_size = 0) const {
@@ -127,6 +132,20 @@ struct CoordinateUniform{
       // assert(! workload_tensor_size_set_);
       workload_tensor_size_set_ = true;
       workload_tensor_size_ = size;
+    }
+
+    double GetProbability(std::uint64_t tile_shape, std::uint64_t nnz_vals){
+        assert(workload_tensor_size_set_);
+        std::uint64_t  r = ceil(workload_tensor_size_ * average_density_);
+        std::uint64_t  n = tile_shape;
+        std::uint64_t  N = workload_tensor_size_;
+
+        if ( (nnz_vals == 0) | ((n + r > N) && (nnz_vals < n + r - N))| (nnz_vals > r)){return 0;}
+
+        boost::math::hypergeometric_distribution<double> distribution(r, n, N);
+        double prob = pdf(distribution, nnz_vals);
+
+        return prob;
     }
 
     double GetTileDensityByConfidence(std::uint64_t tile_shape, double confidence, uint64_t buffer_size = 0) const {
@@ -328,7 +347,7 @@ class DataDensity{
     if (type_ == "coordinate_uniform"){
        hypergeometric_distribution.SetWorkloadTensorSize(size);
     } else {
-       // no need to set workload tensor sizes
+       constant_distribution.SetWorkloadTensorSize(size);
     }
   }
 
@@ -339,8 +358,7 @@ class DataDensity{
     if (type_ == "coordinate_uniform"){
       return hypergeometric_distribution.workload_tensor_size_;
     } else {
-      std::cout << "WARN: workload tensor size is not used for this distribution, so not set" << std::endl;
-      return 0;
+      return constant_distribution.workload_tensor_size_;
     }
   }
 

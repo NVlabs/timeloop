@@ -85,7 +85,6 @@ struct DataMovementInfo
   std::size_t partition_fraction_denominator;
   // tile density
   problem::DataDensity tile_density;  // statistical representation of tile data density
-  double tile_confidence;
   // fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
 
@@ -104,6 +103,7 @@ struct DataMovementInfo
   unsigned child_level;
   bool parent_level_compressed;
   bool child_level_compressed;
+  uint64_t child_level_tile_size;
 
   std::map<std::string, std::uint64_t> parent_level_simple_specs;
   std::map<std::string, double> parent_level_op_energy;
@@ -143,7 +143,6 @@ struct DataMovementInfo
     compressed = false;
     compressed_size = 0;
     tile_density = problem::DataDensity();
-    tile_confidence = 1.0;
     metadata_format.resize(0);
     parent_level=std::numeric_limits<unsigned>::max();
     child_level=std::numeric_limits<unsigned>::max();
