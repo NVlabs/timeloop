@@ -624,6 +624,8 @@ class Uber : public MapSpace
       }
     }
 
+    mapping->confidence_thresholds = constraints_.ConfidenceThresholds();
+
     // Finalize mapping.
     mapping->id = mapping_id.Integer();
     

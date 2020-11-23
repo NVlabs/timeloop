@@ -112,6 +112,9 @@ class BufferLevel : public Level
     std::map<std::string, double> ERT_entries;
     std::map<std::string, double> op_energy_map;
 
+    // for overflow evaluation
+    Attribute<bool> allow_overflow;
+
     // Physical Attributes (derived from technology model).
     // FIXME: move into separate struct?
     Attribute<double> vector_access_energy; // pJ
@@ -189,6 +192,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> tile_confidence;
     problem::PerDataSpace<double> tile_max_density;
     problem::PerDataSpace<std::string> parent_level_name;
+    problem::PerDataSpace<std::string> tile_density_distribution;
 
 
     // fine-grained action stats
@@ -290,9 +294,10 @@ class BufferLevel : public Level
 
  private:
   EvalStatus ComputeScalarAccesses(const tiling::CompoundDataMovementInfo& tile, const tiling::CompoundMask& mask,
+                                   const double confidence_threshold,
                                    const bool break_on_failure);
   void ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& tile);
-  void ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMovementInfo& tile);
+  void ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMovementInfo& tile, const double confidence_threshold);
   void ComputePerformance(const std::uint64_t compute_cycles);
   // void ComputeBufferEnergy();
   void ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info);
@@ -343,9 +348,11 @@ class BufferLevel : public Level
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
                                 const problem::Workload* workload,
+                                const sparse::PerStorageLevelCompressionInfo per_level_compression_info,
+                                const double confidence_threshold,
                                 const bool break_on_failure) override;
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                      const std::uint64_t compute_cycles,
+                      const double confidence_threshold, const std::uint64_t compute_cycles,
                       const bool break_on_failure) override;
 
   // Accessors (post-evaluation).

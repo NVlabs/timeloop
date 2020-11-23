@@ -930,20 +930,25 @@ void Topology::Reset()
 // FIXME: what about instances and fanout checks?
 std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
                                                      analysis::NestAnalysis* analysis,
+                                                     sparse::SparseOptimizationInfo* sparse_optimizations,
                                                      bool break_on_failure)
 {
   auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   auto working_set_sizes = analysis->GetWorkingSetSizes_LTW();
-
+  sparse::CompressionInfo storage_compression_info = sparse_optimizations->compression_info;
 
   problem::Workload* workload = analysis->GetWorkload();
 
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
+    sparse::PerStorageLevelCompressionInfo per_level_compression_info = {};
+    if (storage_compression_info.find(storage_level_id) != storage_compression_info.end())
+      { per_level_compression_info = storage_compression_info.at(storage_level_id); }
     auto level_id = specs_.StorageMap(storage_level_id);
     auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
       working_set_sizes.at(storage_level_id), masks.at(storage_level_id), workload,
+      per_level_compression_info, mapping.confidence_thresholds.at(storage_level_id),
       break_on_failure);
     eval_status.at(level_id) = s;
     if (break_on_failure && !s.success)
@@ -1093,6 +1098,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     }
 
     auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
+                                     mapping.confidence_thresholds.at(storage_level_id),
                                      compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
@@ -1134,7 +1140,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   if (!break_on_failure || success_accum)
   {
     auto level_id = specs_.ArithmeticMap();
-    auto s = GetArithmeticLevel()->Evaluate(tiles[0], keep_masks[0],
+    auto s = GetArithmeticLevel()->Evaluate(tiles[0], keep_masks[0], 0,
                                             compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;

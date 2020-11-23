@@ -279,7 +279,7 @@ class Application
       cfg_string_ = nullptr;
     }
 
-    // Sparse optimzations
+    // Sparse optimizations
     if (rootNode.exists("sparse_optimizations")){
       auto sparse_config = rootNode.lookup("sparse_optimizations");
       sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);

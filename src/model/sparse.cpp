@@ -131,19 +131,24 @@ void ParseCompressionInfo(config::CompoundConfigNode directive){
        bool compressed = false;
        double compression_rate;
 
-       if (format_list.size() == 1 && format_list[0] == "uncompressed-bitmask") {
+       if (format_list.size() == 1 && (format_list[0] == "uncompressed-bitmask" || format_list[0] == "UB")) {
+         // rank-1 bitmask uncompressed
          metadata_format = "bitmask";
          compression_rate = 0.0;
          compressed = false;
-       } else if (format_list.size() == 1 && format_list[0] == "compressed-bitmask"){
+       } else if (format_list.size() == 1 && (format_list[0] == "compressed-bitmask" || format_list[0] == "B")) {
+         // rank-1 bitmask compressed
          metadata_format = "bitmask";
          compression_rate = 1.0;
          compressed = true;
-       } else if (format_list.size() == 1 && format_list[0] == "compressed-RLE"){
+       } else if (format_list.size() == 1 && (format_list[0] == "compressed-RLE" || format_list[0] == "R")){
+         // rank-1 RLE compressed
          metadata_format = "RLE";
          compression_rate = 1.0;
          compressed = true;
-       } else if (format_list.size() == 2 && format_list[0] == "uncompressed" && format_list[1] == "compressed-CP"){
+       } else if (format_list.size() == 2 && ( (format_list[0] == "uncompressed" || format_list[0] == "U")
+                                             && (format_list[1] == "compressed-CP" || format_list[1] == "C"))){
+         // rank-2 uncompressed + coordinate list
          metadata_format = "CSR";
          compression_rate = 1.0;
          compressed = true;

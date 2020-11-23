@@ -162,12 +162,16 @@ class ArithmeticUnits : public Level
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
                                 const problem::Workload* workload,
+                                const sparse::PerStorageLevelCompressionInfo per_level_compression_info,
+                                const double confidence_threshold,
                                 const bool break_on_failure) override
   {
     (void) working_set_sizes;
     (void) mask;
     (void) workload;
     (void) break_on_failure;
+    (void) per_level_compression_info;
+    (void) confidence_threshold;
     return { true, "" };
   }
 
@@ -203,12 +207,13 @@ class ArithmeticUnits : public Level
   }
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                      const std::uint64_t compute_cycles,
+                      const double confidence_threshold, const std::uint64_t compute_cycles,
                       const bool break_on_failure)
   {
     assert(is_specced_);
 
     (void) mask;
+    (void) confidence_threshold;
     (void) break_on_failure;
 //    (void) compute_cycles;
 

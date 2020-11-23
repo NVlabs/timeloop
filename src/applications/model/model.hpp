@@ -206,7 +206,7 @@ class Application
       exit(1);
     }
 
-    // Sparse optimzations
+    // Sparse optimizations
     if (rootNode.exists("sparse_optimizations")){
       auto sparse_config = rootNode.lookup("sparse_optimizations");
       sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
@@ -255,7 +255,7 @@ class Application
     // caused the mapping to fit.
     if (auto_bypass_on_failure_)
     {
-      auto pre_eval_status = engine.PreEvaluationCheck(mapping, workload_, false);
+      auto pre_eval_status = engine.PreEvaluationCheck(mapping, workload_, sparse_optimizations_, false);
       for (unsigned level = 0; level < pre_eval_status.size(); level++)
         if (!pre_eval_status[level].success)
         {

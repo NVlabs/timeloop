@@ -54,6 +54,7 @@ class Constraints
   std::map<unsigned, std::map<problem::Shape::DimensionID, int>> max_factors_;
   std::map<unsigned, std::vector<problem::Shape::DimensionID>> permutations_;
   std::map<unsigned, std::uint32_t> spatial_splits_;
+  std::map<unsigned, double> confidence_thresholds_;
   problem::PerDataSpace<std::string> bypass_strings_;
   double min_parallelism_;
   bool min_parallelism_isset_;  
@@ -70,6 +71,7 @@ class Constraints
     max_factors_.clear();
     permutations_.clear();
     spatial_splits_.clear();
+    confidence_thresholds_.clear();
     bypass_strings_.clear();
     min_parallelism_ = 0.0;
     min_parallelism_isset_ = false;
@@ -80,6 +82,13 @@ class Constraints
       std::string xxx(arch_props_.StorageLevels(), 'X');
       xxx.back() = '1';
       bypass_strings_[problem::Shape::DataSpaceID(pvi)] = xxx;
+    }
+
+    // Initialize confidence thresholds to be 1.0
+    // We want to constraint the mapspace as much as possible by default
+    for (unsigned storage_level_id = 0; storage_level_id < arch_props_.StorageLevels(); storage_level_id++)
+    {
+      confidence_thresholds_[storage_level_id] = 1.0;
     }
   }
 
@@ -111,6 +120,11 @@ class Constraints
   double MinParallelism()
   {
     return min_parallelism_;
+  }
+
+  const std::map<unsigned, double>& ConfidenceThresholds() const
+  {
+    return confidence_thresholds_;
   }
 
   //
@@ -613,6 +627,12 @@ class Constraints
         }
       }
     }
+    else if (type == "confidence")
+    {
+      double threshold;
+      assert(constraint.lookupValue("threshold", threshold));
+      confidence_thresholds_[level_id] = threshold;
+    }
     else if (type == "datatype" || type == "bypass" || type == "bypassing")
     {
       // Error handling for re-spec conflicts are inside the parse function.
@@ -679,7 +699,7 @@ class Constraints
     // Translate this storage ID to a tiling ID.
     //
     unsigned tiling_level_id;
-    if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing")
+    if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing" || type == "confidence")
     {
       // This should always succeed.
       tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);

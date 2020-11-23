@@ -525,7 +525,7 @@ class MapperThread
       //          on, and run some lightweight pre-checks that the
       //          model can use to quickly reject a nest.
       //engine.Spec(arch_specs_);
-      auto status_per_level = engine.PreEvaluationCheck(mapping, workload_, !diagnostics_on_);
+      auto status_per_level = engine.PreEvaluationCheck(mapping, workload_, sparse_optimizations_, !diagnostics_on_);
       success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                  [](bool cur, const model::EvalStatus& status)
                                  { return cur && status.success; });

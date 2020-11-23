@@ -63,6 +63,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   std::map<unsigned, std::vector<problem::Shape::DimensionID>> user_permutations;
   std::map<unsigned, std::uint32_t> user_spatial_splits;
   problem::PerDataSpace<std::string> user_bypass_strings;
+  std::map<unsigned, double> confidence_thresholds;
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
@@ -71,6 +72,13 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     std::string xxx(arch_props_.StorageLevels(), 'X');
     xxx.back() = '1';
     user_bypass_strings[problem::Shape::DataSpaceID(pvi)] = xxx;
+  }
+
+  // Initialize confidence thresholds to be 0.0
+  // We want to allow the model to be able model any mapping as long as memory levels allow overflow
+  for (unsigned storage_level_id = 0; storage_level_id < arch_props_.StorageLevels(); storage_level_id++)
+  {
+    confidence_thresholds[storage_level_id] = 0.0;
   }
 
   // Parse user-provided mapping.
@@ -265,6 +273,8 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       }
     }
   } // for (pvi)
+
+  mapping.confidence_thresholds = confidence_thresholds;
 
     // Finalize mapping.
   mapping.id = 0;
