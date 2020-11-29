@@ -75,7 +75,7 @@ BOOST_SERIALIZATION_ASSUME_ABSTRACT(LevelSpecs)
 class Level : public Module
 {
  public:
-  virtual ~Level() { }tim
+  virtual ~Level() { }
 
   virtual std::shared_ptr<Level> Clone() const = 0;
 
