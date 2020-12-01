@@ -38,13 +38,14 @@ namespace sparse{
   // data structures shared by action-gating and action-skipping optimization info
   //
   typedef std::string ActionName;
-  typedef std::map<ActionName, std::vector<std::string>> PerDataSpaceActionOptimizationInfo;
+  typedef std::map<std::string, unsigned> Conditions; // <dataspace-name, storage-level-id> pairs
+  typedef std::map<ActionName, Conditions> PerDataSpaceActionOptimizationInfo;
   typedef std::map<std::string, PerDataSpaceActionOptimizationInfo> PerStorageLevelActionOptimizationInfo;
 
   // storage_level_id, per_storage_level_gating_info
   typedef std::map<unsigned, PerStorageLevelActionOptimizationInfo> StorageActionOptimizationInfo;
 
-  typedef std::map<ActionName, std::vector<std::string>> ComputeActionOptimizationInfo;
+  typedef std::map<ActionName, Conditions> ComputeActionOptimizationInfo;
 
   //
   // data structure for action gating information

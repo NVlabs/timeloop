@@ -48,16 +48,16 @@ namespace problem
 //
 // Uniform tile density model
 //
-// all the tiles in the workload tensor will have the same uniform density as the workload tensor
+// all the tiles in the workload tensor will have the same fixed density as the workload tensor
 
-struct Uniform{
+struct Fixed{
 
-    std::string type = "uniform";
-    double uniform_density_ = 1.0;
+    std::string type = "fixed";
+    double fixed_density_ = 1.0;
     std::uint64_t workload_tensor_size_ = 0;
 
-    Uniform(double density = 1.0){
-       uniform_density_ = density;
+    Fixed(double density = 1.0){
+       fixed_density_ = density;
     }
 
     void SetWorkloadTensorSize(std::uint64_t size){
@@ -65,19 +65,23 @@ struct Uniform{
     }
 
     double GetProbability(std::uint64_t tile_shape, std::uint64_t nnz_vals) const {
-      if (ceil(tile_shape * uniform_density_) != nnz_vals){
+      if (tile_shape == 1){
+        // tile shape 1 is a special case, where we use a binomial representation to reflect the probability
+        return nnz_vals == 0 ? 1-fixed_density_ : fixed_density_;
+      } else if (ceil(tile_shape * fixed_density_) != nnz_vals){
         return 0.0;
       } else {
+        // fixed distribution is not stochastic
         return 1.0;
       }
     }
 
     double GetTileDensityByConfidence(std::uint64_t tile_shape, double confidence, uint64_t buffer_size = 0) const {
-       // uniform density always return the same uniform value
+       // fixed density always return the same fixed value
        (void) tile_shape;
        (void) confidence;
        (void) buffer_size;
-       return uniform_density_;
+       return fixed_density_;
     }
 
     std::uint64_t GetTileOccupancyByConfidence(std::uint64_t tile_shape, double confidence) const{
@@ -85,7 +89,7 @@ struct Uniform{
        if (confidence == 0){
          return 0;
        } else {
-         return ceil(tile_shape * uniform_density_);
+         return ceil(tile_shape * fixed_density_);
        }
 
     }
@@ -94,7 +98,7 @@ struct Uniform{
 
        (void) tile_shape;
 
-       return uniform_density_;
+       return fixed_density_;
     }
 
     double GetTileConfidence(std::uint64_t tile_shape, std::uint64_t buffer_size) const {
@@ -105,7 +109,7 @@ struct Uniform{
         } else {
 
           // binary option -> fit or not fit
-          if (tile_shape * uniform_density_ > buffer_size){
+          if (tile_shape * fixed_density_ > buffer_size){
             confidence = 0.0;
           } else {
             confidence = 1.0;
@@ -118,7 +122,7 @@ struct Uniform{
 };
 
 //
-// Coordinate uniform average
+// Hypergeometric
 //
 // have a certain workload, and know the amount of involved density, but has no distribution information other than
 // the zeros are randomly distributed across the coordinates, i.e., for the same tile size, the sampled tiles will have
@@ -158,7 +162,7 @@ struct Hypergeometric{
         std::uint64_t  n = tile_shape;
         std::uint64_t  N = workload_tensor_size_;
 
-        if ( (nnz_vals == 0) | ((n + r > N) && (nnz_vals < n + r - N))| (nnz_vals > r)){return 0;}
+        if ( ((n + r > N) && (nnz_vals < n + r - N))| (nnz_vals > r)){return 0;}
 
         boost::math::hypergeometric_distribution<double> distribution(r, n, N);
         double prob = pdf(distribution, nnz_vals);
@@ -311,18 +315,18 @@ class DataDensity{
 
   bool is_typed_ = false;
   bool distribution_instantiated_= false;
-  std::string type_ = "uniform";
+  std::string type_ = "fixed";
   double confidence_constraint_ = 1.0;
 
   public:
 
   // place holder distributions, one of them will be defined
-  Uniform uniform_distribution;
+  Fixed fixed_distribution;
   Hypergeometric hypergeometric_distribution;
 
   // constructor
-  DataDensity(std::string density_type = "uniform", double confidence_constraint = 1.0){
-    // by default, tile density is set as uniform distribution and no constraint
+  DataDensity(std::string density_type = "fixed", double confidence_constraint = 1.0){
+    // by default, tile density is set as fixed distribution and no constraint
     is_typed_ = true;
     type_ = density_type;
     confidence_constraint_ = confidence_constraint;
@@ -338,9 +342,9 @@ class DataDensity{
 
     assert(is_typed_);
 
-    if (type_ == "uniform"){
-       Uniform distribution(density);
-       uniform_distribution = distribution;
+    if (type_ == "fixed"){
+      Fixed distribution(density);
+      fixed_distribution = distribution;
 
     } else if (type_ == "hypergeometric"){
        Hypergeometric distribution(density);
@@ -370,8 +374,8 @@ class DataDensity{
 
     double confidence;
 
-    if (type_ == "uniform"){
-      confidence = uniform_distribution.GetTileConfidence(tile_shape, buffer_size);
+    if (type_ == "fixed"){
+      confidence = fixed_distribution.GetTileConfidence(tile_shape, buffer_size);
 
     } else if (type_ == "hypergeometric"){
       confidence = hypergeometric_distribution.GetTileConfidence(tile_shape, buffer_size);
@@ -388,8 +392,8 @@ class DataDensity{
 
     uint64_t tile_occupancy;
 
-    if (type_ == "uniform"){
-      tile_occupancy = uniform_distribution.GetTileOccupancyByConfidence(tile_shape, confidence);
+    if (type_ == "fixed"){
+      tile_occupancy = fixed_distribution.GetTileOccupancyByConfidence(tile_shape, confidence);
 
     } else if (type_ == "hypergeometric"){
       tile_occupancy = hypergeometric_distribution.GetTileOccupancyByConfidence(tile_shape, confidence);
@@ -408,7 +412,7 @@ class DataDensity{
     if (type_ == "hypergeometric"){
        hypergeometric_distribution.SetWorkloadTensorSize(size);
     } else {
-       uniform_distribution.SetWorkloadTensorSize(size);
+       fixed_distribution.SetWorkloadTensorSize(size);
     }
   }
 
@@ -419,7 +423,7 @@ class DataDensity{
     if (type_ == "hypergeometric"){
       return hypergeometric_distribution.workload_tensor_size_;
     } else {
-      return uniform_distribution.workload_tensor_size_;
+      return fixed_distribution.workload_tensor_size_;
     }
   }
 
@@ -432,8 +436,8 @@ class DataDensity{
     assert(is_typed_);
 
     double density;
-    if (type_ == "uniform"){
-      density = uniform_distribution.GetTileDensityByConfidence(tile_shape, confidence, buffer_size);
+    if (type_ == "fixed"){
+      density = fixed_distribution.GetTileDensityByConfidence(tile_shape, confidence, buffer_size);
 
     } else if (type_ == "hypergeometric"){
       density = hypergeometric_distribution.GetTileDensityByConfidence(tile_shape, confidence, buffer_size);
@@ -447,8 +451,8 @@ class DataDensity{
 
   double GetTileExpectedDensity(std::uint64_t tile_shape) const {
     double density;
-    if (type_ == "uniform"){
-      density = uniform_distribution.GetTileExpectedDensity(tile_shape);
+    if (type_ == "fixed"){
+      density = fixed_distribution.GetTileExpectedDensity(tile_shape);
 
     } else if (type_ == "hypergeometric"){
       density = hypergeometric_distribution.GetTileExpectedDensity(tile_shape);
@@ -464,8 +468,8 @@ class DataDensity{
 
     double probability;
 
-    if (type_ == "uniform"){
-      probability = uniform_distribution.GetProbability(tile_shape, nnz_vals);
+    if (type_ == "fixed"){
+      probability = fixed_distribution.GetProbability(tile_shape, nnz_vals);
 
     } else if (type_ == "hypergeometric") {
       probability = hypergeometric_distribution.GetProbability(tile_shape, nnz_vals);

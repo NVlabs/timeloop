@@ -65,19 +65,25 @@ static std::string networkOperationTypes[1] = {"random_transfer"};
 
 int GetNumOpTypes();
 int GetNumOpTypes(std::string component_type);
-void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info,
-                                     tiling::CompoundDataMovementInfo& data_movement,
-                                     sparse::ComputeActionOptimizationInfo& compute_gating_info,
-                                     sparse::ComputeActionOptimizationInfo& compute_skipping_info);
+//void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info,
+//                                     tiling::CompoundDataMovementInfo& data_movement,
+//                                     sparse::ComputeActionOptimizationInfo& compute_gating_info,
+//                                     sparse::ComputeActionOptimizationInfo& compute_skipping_info);
 
-void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& compound_data_movement,
+  void ComputeFineGrainComputeAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                                       unsigned level,
+                                       sparse::ComputeActionOptimizationInfo& compute_gating_info,
+                                       sparse::ComputeActionOptimizationInfo& compute_skipping_info);
+
+void ComputeFineGrainDataMovementAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                                          unsigned level,
                                           sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
                                           sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_skipping);
 
-void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& per_level_compression_info,
-                                      tiling::NestOfCompoundTiles& nest_of_compound_tiles,
-                                      sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
-                                      unsigned level);
+void ComputeFineGrainMetaDataAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                                      unsigned level,
+                                      sparse::PerStorageLevelCompressionInfo& per_level_compression_info,
+                                      sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating);
 
 
 } // namespace problem

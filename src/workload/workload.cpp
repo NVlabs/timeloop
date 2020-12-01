@@ -188,11 +188,11 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
   if (config.exists("commonDensity")){
     if (! config.lookup("commonDensity").isMap()){
         config.lookupValue("commonDensity", common_avg_density);
-        density_distribution = "uniform";
+        density_distribution = "fixed";
     } else {
         auto density_specification = config.lookup("commonDensity");
         assert(density_specification.lookupValue("distribution", density_distribution));
-        if ((density_distribution == "uniform") | (density_distribution == "hypergeometric")){
+        if ((density_distribution == "fixed") | (density_distribution == "hypergeometric")){
           assert(density_specification.lookupValue("density", common_avg_density));
         } else {
            // fall into categories that we don't support yet
@@ -234,7 +234,7 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
         //}
 
         // detailed check on supported density model
-        if ((density_distribution == "uniform") | (density_distribution == "hypergeometric")){
+        if ((density_distribution == "fixed") | (density_distribution == "hypergeometric")){
            double density;
            assert(density_specification.lookupValue("density", density));
            densities[i].SetDensity(density);

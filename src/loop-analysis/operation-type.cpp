@@ -57,22 +57,46 @@ int GetNumOpTypes(std::string component_type){
   }
 }
 
-double GetDensityByActionOptimizationNames(sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info,
-                                       std::string action_name,
-                                       tiling::CompoundDataMovementInfo& compound_data_movement){
+double GetDensityByActionOptimizationNames(std::string dataspace_name,
+                                           sparse::PerDataSpaceActionOptimizationInfo data_space_optimization_info,
+                                           std::string action_name,
+                                           tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                                           unsigned level) {
   
   double density = 1.0;
-  unsigned id;
-  if (data_space_gating_info.find(action_name)!= data_space_gating_info.end()){
-    std::vector<std::string> gated_data_space_names = data_space_gating_info.at(action_name);
-      for (unsigned i = 0; i < gated_data_space_names.size(); i++){
-        id = problem::GetShape()->DataSpaceNameToID.at(gated_data_space_names[i]);
-        density *= compound_data_movement[id].tile_density.GetTileExpectedDensity(compound_data_movement[id].size);
-//        std::cout << "id: " << gated_data_space_names[i] << " tile size: " << compound_data_movement[id].size << " density: "
-//<< compound_data_movement[id].tile_density.GetTileExpectedDensity(compound_data_movement[id].size) << std::endl;
-      }
+  unsigned storage_level_id, data_space_id;
+  // std::cout << "level" << level << "  dataspace: " << dataspace_name << "  action: " << action_name <<" ====================" <<std::endl;
+
+  // if there is optimization specified for the action
+  if (data_space_optimization_info.find(action_name)!= data_space_optimization_info.end()){
+      sparse::Conditions optimization_conditions = data_space_optimization_info.at(action_name);
+
+      for (sparse::Conditions::iterator c_iter = optimization_conditions.begin();
+           c_iter != optimization_conditions.end(); c_iter++){
+
+        data_space_id = problem::GetShape()->DataSpaceNameToID.at(c_iter->first);
+        storage_level_id = c_iter->second;
+        std::uint32_t gating_granularity;
+
+        // determine the granularity of "zero-block"
+        //  1) scalar zero values: granularity = 1 as we are looking at each value
+        //  2) entire tile of zeros: granularity = tile shape, we are looking at the fiber
+        if (dataspace_name == "compute" || (c_iter->first == dataspace_name && storage_level_id == level)){
+          gating_granularity = 1;
+        } else {
+          gating_granularity = nest_of_compound_tiles[storage_level_id].data_movement_info[data_space_id].child_level_tile_size;
+        }
+
+        tiling::CompoundDataMovementInfo& compound_data_movement = nest_of_compound_tiles[storage_level_id].data_movement_info;
+        density *= (1-compound_data_movement[data_space_id].tile_density.GetProbability(gating_granularity, 0));
+
+        // std::cout << "    gated on: " << c_iter->first << " with density: "
+        // << (1-compound_data_movement[data_space_id].tile_density.GetProbability(gating_granularity, 0)) <<std::endl;
+
+      } // for each condition
   }
 
+  // std::cout <<"     final desnity:"<< density << std::endl;
   return density;
 }
 
@@ -101,9 +125,12 @@ double GetDensityByActionOptimizationNames(sparse::PerDataSpaceActionOptimizatio
 // Storage
 //
 
-void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& compound_data_movement,
+void ComputeFineGrainDataMovementAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                                          unsigned level,
                                           sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
                                           sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_skipping){
+
+  tiling::CompoundDataMovementInfo& compound_data_movement = nest_of_compound_tiles[level].data_movement_info;
 
   for (unsigned pv =0; pv < problem::GetShape() -> NumDataSpaces; pv++){
     
@@ -144,9 +171,12 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
 //      std::cout << "   skipping for dataspace: " << data_space_name << std::endl;
 
       sparse::PerDataSpaceActionOptimizationInfo data_space_skipping_info = per_level_sparse_skipping.at(data_space_name);
-      read_avg_density *= GetDensityByActionOptimizationNames(data_space_skipping_info, "read", compound_data_movement);
-      write_avg_density *= GetDensityByActionOptimizationNames(data_space_skipping_info, "write", compound_data_movement);
-      update_avg_density *= GetDensityByActionOptimizationNames(data_space_skipping_info, "update", compound_data_movement);
+      read_avg_density *= GetDensityByActionOptimizationNames(data_space_name, data_space_skipping_info,
+                                                              "read", nest_of_compound_tiles, level);
+      write_avg_density *= GetDensityByActionOptimizationNames(data_space_name, data_space_skipping_info,
+                                                               "write", nest_of_compound_tiles, level);
+      update_avg_density *= GetDensityByActionOptimizationNames(data_space_name, data_space_skipping_info,
+                                                                "update", nest_of_compound_tiles, level);
 
       // skipped actions
       num_skipped_reads = ceil((1-read_avg_density)* total_reads);
@@ -164,9 +194,12 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
 //       std::cout << "   gating for dataspace: " << data_space_name << std::endl;
 
       sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
-      read_avg_density *= GetDensityByActionOptimizationNames(data_space_gating_info, "read", compound_data_movement);
-      write_avg_density *= GetDensityByActionOptimizationNames(data_space_gating_info, "write", compound_data_movement);
-      update_avg_density *= GetDensityByActionOptimizationNames(data_space_gating_info, "update", compound_data_movement);
+      read_avg_density *= GetDensityByActionOptimizationNames(data_space_name, data_space_gating_info,
+                                                              "read", nest_of_compound_tiles, level);
+      write_avg_density *= GetDensityByActionOptimizationNames(data_space_name, data_space_gating_info,
+                                                               "write", nest_of_compound_tiles, level);
+      update_avg_density *= GetDensityByActionOptimizationNames(data_space_name, data_space_gating_info,
+                                                                "update", nest_of_compound_tiles, level);
 
       // gated actions
       num_gated_reads = ceil((1-read_avg_density)* total_reads);
@@ -190,10 +223,10 @@ void ComputeFineGrainDataMovementAccesses(tiling::CompoundDataMovementInfo& comp
 //
 // MetaData
 //
-void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& per_level_compression_info,
-                                      tiling::NestOfCompoundTiles& nest_of_compound_tiles,
-                                      sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
-                                      unsigned level){
+void ComputeFineGrainMetaDataAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                                      unsigned level,
+                                      sparse::PerStorageLevelCompressionInfo& per_level_compression_info,
+                                      sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating){
 
   double metadata_read_avg_density = 1.0;
   double metadata_write_avg_density = 1.0;
@@ -405,9 +438,12 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
       std::uint64_t gated_metadata_updates = 0;
       if (per_level_sparse_gating.find(data_space_name) != per_level_sparse_gating.end()){
         sparse::PerDataSpaceActionOptimizationInfo data_space_gating_info = per_level_sparse_gating.at(data_space_name);
-        metadata_read_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_read", compound_data_movement);
-        metadata_write_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_write", compound_data_movement);
-        metadata_update_avg_density = GetDensityByActionOptimizationNames(data_space_gating_info, "metadata_update", compound_data_movement);
+        metadata_read_avg_density = GetDensityByActionOptimizationNames(data_space_name, data_space_gating_info,
+                                                                        "metadata_read", nest_of_compound_tiles, level);
+        metadata_write_avg_density = GetDensityByActionOptimizationNames(data_space_name, data_space_gating_info,
+                                                                         "metadata_write", nest_of_compound_tiles, level);
+        metadata_update_avg_density = GetDensityByActionOptimizationNames(data_space_name, data_space_gating_info,
+                                                                          "metadata_update", nest_of_compound_tiles, level);
         gated_metadata_reads = ceil(compound_data_movement[pv].metadata_reads * (1-metadata_read_avg_density));
         gated_metadata_fills = ceil(compound_data_movement[pv].metadata_fills * (1-metadata_write_avg_density));
         gated_metadata_updates = ceil(compound_data_movement[pv].metadata_updates * (1-metadata_update_avg_density));
@@ -471,21 +507,25 @@ void ComputeFineGrainMetaDataAccesses(sparse::PerStorageLevelCompressionInfo& pe
 // Arithmetic
 //
 
-void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info,
-	                                  tiling::CompoundDataMovementInfo& compound_data_movement,
+void ComputeFineGrainComputeAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                                     unsigned level,
                                     sparse::ComputeActionOptimizationInfo& compute_gating_info,
                                     sparse::ComputeActionOptimizationInfo& compute_skipping_info){
 
   uint64_t total_accesses;
+  tiling::ComputeInfo& compute_info = nest_of_compound_tiles[level].compute_info;
   total_accesses = compute_info.replication_factor * compute_info.accesses;
 
   double compute_avg_density = 1.0;
 
-  compute_avg_density = GetDensityByActionOptimizationNames(compute_skipping_info, "compute", compound_data_movement);
+  std::string dataspace_name = "compute";
+  compute_avg_density = GetDensityByActionOptimizationNames(dataspace_name, compute_skipping_info,
+                                                            "compute", nest_of_compound_tiles, level);
 
   compute_info.fine_grained_accesses["skipped_compute"] = ceil(total_accesses * (1-compute_avg_density));
 //  std::cout << "---------------------" << std::endl;
-  compute_avg_density = GetDensityByActionOptimizationNames(compute_gating_info, "compute", compound_data_movement);
+  compute_avg_density = GetDensityByActionOptimizationNames(dataspace_name, compute_gating_info,
+                                                            "compute", nest_of_compound_tiles, level);
 //  std::cout << "compute avg density: " << compute_avg_density << std::endl;
   compute_info.fine_grained_accesses["gated_compute"] = ceil(total_accesses * (1-compute_avg_density));
 

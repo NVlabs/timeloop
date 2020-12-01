@@ -113,7 +113,7 @@ class BufferLevel : public Level
     std::map<std::string, double> op_energy_map;
 
     // for overflow evaluation
-    Attribute<bool> allow_overflow;
+    Attribute<bool> allow_overbooking;
 
     // Physical Attributes (derived from technology model).
     // FIXME: move into separate struct?
@@ -184,14 +184,17 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> temporal_reduction_energy;
     problem::PerDataSpace<double> addr_gen_energy;
+    problem::PerDataSpace<double> cluster_access_energy;
+    problem::PerDataSpace<double> cluster_access_energy_due_to_overflow;
+    problem::PerDataSpace<double> energy_due_to_overflow;
 
-    problem::PerDataSpace<double> speculation_energy_cost;
 
     problem::PerDataSpace<std::uint64_t> compressed_tile_size;
     problem::PerDataSpace<std::uint64_t> metadata_tile_size;
     problem::PerDataSpace<double> tile_confidence;
     problem::PerDataSpace<double> tile_max_density;
     problem::PerDataSpace<std::string> parent_level_name;
+    problem::PerDataSpace<unsigned> parent_level_id;
     problem::PerDataSpace<std::string> tile_density_distribution;
 
 
@@ -333,6 +336,7 @@ class BufferLevel : public Level
   void PopulateEnergyPerOp(unsigned num_ops);
 
   Specs& GetSpecs() { return specs_; }
+  Stats& GetStats() { return stats_;}
   
   bool HardwareReductionSupported() override;
 
@@ -354,6 +358,9 @@ class BufferLevel : public Level
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                       const double confidence_threshold, const std::uint64_t compute_cycles,
                       const bool break_on_failure) override;
+
+  void ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, unsigned data_space_id);
+  void FinalizeBufferEnergy();
 
   // Accessors (post-evaluation).
   

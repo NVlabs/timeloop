@@ -627,11 +627,11 @@ class Constraints
         }
       }
     }
-    else if (type == "confidence")
+    else if (type == "max_overbooked_proportion")
     {
-      double threshold;
-      assert(constraint.lookupValue("threshold", threshold));
-      confidence_thresholds_[level_id] = threshold;
+      double max_overbooked_proportion;
+      assert(constraint.lookupValue("max_overbooked_proportion", max_overbooked_proportion));
+      confidence_thresholds_[level_id] =  1 - max_overbooked_proportion;
     }
     else if (type == "datatype" || type == "bypass" || type == "bypassing")
     {

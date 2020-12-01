@@ -100,14 +100,12 @@ struct DataMovementInfo
 
   // parent/child level for inferring decompression/compression overhead
   unsigned parent_level;
+  std::string parent_level_name;
   unsigned child_level;
   bool parent_level_compressed;
   bool child_level_compressed;
   uint64_t child_level_tile_size;
 
-  std::map<std::string, std::uint64_t> parent_level_simple_specs;
-  std::map<std::string, double> parent_level_op_energy;
-  std::string parent_level_name;
 
   std::uint64_t GetTotalAccesses() const
   {
@@ -149,8 +147,6 @@ struct DataMovementInfo
     parent_level_compressed = false;
     child_level_compressed = false;
     fine_grained_accesses.clear();
-    parent_level_simple_specs.clear();
-    parent_level_op_energy.clear();
     rank1_list.resize(0);
     rank0_list.resize(0);
     dense_rank1_fills = 0;

@@ -112,7 +112,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   specs.metadata_block_size = 1;
   if (buffer.lookupValue("metadata-block-size", metadata_block_size))
   {
-    specs.metadata_block_size = block_size;
+    specs.metadata_block_size = metadata_block_size;
   }
 
   // Metadata data width
@@ -305,11 +305,11 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
     specs.update_network_name = update_network_name;
   }
 
-  bool allow_overflow = false;
-  if (buffer.lookupValue("allow_overflow", allow_overflow)){
-     specs.allow_overflow = allow_overflow;
+  bool allow_overbooking = false;
+  if (buffer.lookupValue("allow_overbooking", allow_overbooking)){
+     specs.allow_overbooking = allow_overbooking;
   } else {
-     specs.allow_overflow = false;
+     specs.allow_overbooking = false;
   }
 
   // Vector Access Energy
@@ -533,7 +533,7 @@ EvalStatus BufferLevel::PreEvaluationCheck(
 
     // Find the total capacity required by all un-masked data types.
     std::size_t required_capacity = 0;
-    double confidence_constraint = ! specs_.allow_overflow.Get() ? 1.0 : confidence_threshold;
+    double confidence_constraint = ! specs_.allow_overbooking.Get() ? 1.0 : confidence_threshold;
     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
     {
       if (mask[pvi])
@@ -682,7 +682,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
     // compute tile occupancy and associated confidence
     // if the tile is not compressed and no overflow allowed,
     //       the confidence is just zero or one derived directly by a comparison of tile shape and allocated capacity
-    if (tile[pvi].compressed || (! tile[pvi].compressed && specs_.allow_overflow.Get()))
+    if (tile[pvi].compressed || (! tile[pvi].compressed && specs_.allow_overbooking.Get()))
     {
 
       if (specs_.effective_size.IsSpecified()){
@@ -706,7 +706,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
 
         // std::cout << "allocated capacity: " << allocated_effective_buffer_size << " out of " << specs_.effective_size.Get() << std::endl;
         // confidence constraint is only useful when we actually allows overflow for this memory level
-        double confidence_constraint = specs_.allow_overflow.Get() ? confidence_threshold: 1.0;
+        double confidence_constraint = specs_.allow_overbooking.Get() ? confidence_threshold: 1.0;
         tile_confidence = tile[pvi].tile_density.GetTileConfidence(tile[pvi].size, allocated_effective_buffer_size - equivalent_metadata_tile_size);
         stored_data_density = tile[pvi].tile_density.GetTileDensityByConfidence(tile[pvi].size,
                                                                                 tile_confidence,
@@ -918,7 +918,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     specs_.size = std::ceil(total_utilized_capacity * specs_.multiple_buffering.Get());
 #endif
   }
-  else if (total_utilized_capacity > specs_.effective_size.Get() && !specs_.allow_overflow.Get() )
+  else if (total_utilized_capacity > specs_.effective_size.Get() && !specs_.allow_overbooking.Get() )
   {
     success = false;
     fail_reason << "mapped tile size " << total_utilized_capacity << " exceeds buffer capacity "
@@ -936,7 +936,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     if (confidence_threshold > stats_.tile_confidence[pvi] ||
-       (specs_.size.IsSpecified() && total_utilized_capacity > specs_.effective_size.Get() && specs_.allow_overflow.Get())){
+       (specs_.size.IsSpecified() && total_utilized_capacity > specs_.effective_size.Get() && specs_.allow_overbooking.Get())){
       success = false;
       fail_reason << "best tile confidence is less than constrained "
                   << "minimum tile confidence " << confidence_threshold;
@@ -1111,7 +1111,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    auto instance_accesses = stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv);
+    // auto instance_accesses = stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv);
 // move all vector access calculations to compute access function
 //    auto block_size = specs_.block_size.Get();
 //    double vector_accesses =
@@ -1133,6 +1133,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
 
     // prepare for speculation energy calculation
     stats_.parent_level_name[pvi] = "";
+    stats_.parent_level_id[pvi] = data_movement_info[pvi].parent_level;
     if (data_movement_info[pvi].parent_level != std::numeric_limits<unsigned>::max()){
        stats_.parent_level_name[pvi] = data_movement_info[pvi].parent_level_name;
     }
@@ -1140,7 +1141,6 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     // compute in terms of fine-grained action types
     std::string op_name;
     double cluster_access_energy = 0;
-    double cluster_speculation_energy_cost = 0;
 
     for (unsigned op_id = 0; op_id < unsigned( tiling::GetNumOpTypes("storage")); op_id++){
         op_name = tiling::storageOperationTypes[op_id];
@@ -1149,18 +1149,6 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
         cluster_access_energy += stats_.fine_grained_vector_accesses[pv].at(op_name) * specs_.op_energy_map.at(op_name)
                                  * stats_.tile_confidence[pvi];
 
-        // calculate speculation related energy (if < 1.0 confidence and has a parent level)
-        // random reads (of data and metadata) can be read from parent level dependent on confidence (skipped and gated do not need to be propagated to parent level)
-        if (stats_.tile_confidence[pvi] != 1.0 && stats_.parent_level_name[pvi] != ""){
-          double parent_action_energy = data_movement_info[pvi].parent_level_op_energy.at(op_name)/data_movement_info[pvi].parent_level_simple_specs.at("block_size");
-          double child_action_energy = specs_.op_energy_map.at(op_name)/specs_.block_size.Get();
-
-          if (op_name.find("read") != std::string::npos && op_name.find("random") != std::string::npos){
-             // for random data read and metadata read actions
-             cluster_speculation_energy_cost += stats_.fine_grained_vector_accesses[pv].at(op_name) * specs_.op_energy_map.at(op_name)
-                                                * (1-stats_.tile_confidence[pvi]) * (parent_action_energy/child_action_energy);
-          }
-        }
 
 //        if (op_name.find("metadata") == std::string::npos && op_name.find("count") == std::string::npos) { // data storage related computations
 //
@@ -1192,25 +1180,66 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     }
 
 
-
-
-
 //    std::cout << "name: " << specs_.name.Get() << " internal energy: " << cluster_access_energy
 //              << " tile confidence: " << stats_.tile_confidence[pvi] << std::endl;
     // Spread out the cost between the utilized instances in each cluster.
     // This is because all the later stat-processing is per-instance.
+    stats_.cluster_access_energy_due_to_overflow[pv] = 0; // will be populated (if any) in the ComputeEnergyDueToChildLevelOverflow
     if (stats_.utilized_instances.at(pv) > 0)
     {
-      double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
-      double(stats_.utilized_clusters.at(pv));
-      stats_.speculation_energy_cost[pv]  = cluster_speculation_energy_cost / cluster_utilization;
-      stats_.energy[pv] = (cluster_access_energy + cluster_speculation_energy_cost) / cluster_utilization;
-      stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
+      // double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
+      // double(stats_.utilized_clusters.at(pv));
+      stats_.cluster_access_energy[pv] = cluster_access_energy;
+      // stats_.energy[pv] = cluster_access_energy / cluster_utilization;
+      // stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
     }
     else
     {
+      stats_.cluster_access_energy[pv] = 0;
+      // stats_.energy_per_access[pv] = 0;
+    }
+  }
+}
+
+void BufferLevel::ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, unsigned data_space_id){
+
+  double cluster_access_energy_due_to_overflow = 0;
+
+  for (unsigned op_id = 0; op_id < unsigned( tiling::GetNumOpTypes("storage")); op_id++) {
+    std::string op_name = tiling::storageOperationTypes[op_id];
+
+    // random reads (of data and metadata) can be read from parent level dependent on confidence
+    // (skipped and gated do not need to be propagated to parent level)
+    if (op_name.find("read") != std::string::npos && op_name.find("random") != std::string::npos) {
+      // for random data read and metadata read actions
+      cluster_access_energy_due_to_overflow += child_level_stats.fine_grained_vector_accesses[data_space_id].at(op_name)
+                                         * specs_.op_energy_map.at(op_name)
+                                         * (1 - child_level_stats.tile_confidence[data_space_id]);
+    }
+  }
+
+  if (stats_.utilized_instances.at(data_space_id) > 0) {
+    stats_.cluster_access_energy[data_space_id] += cluster_access_energy_due_to_overflow;
+    stats_.cluster_access_energy_due_to_overflow[data_space_id] += cluster_access_energy_due_to_overflow;
+  }
+}
+
+
+void BufferLevel::FinalizeBufferEnergy() {
+
+  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) {
+    auto pv = problem::Shape::DataSpaceID(pvi);
+    auto instance_accesses = stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv);
+    double cluster_utilization = double(stats_.utilized_instances.at(pv)) /
+                                 double(stats_.utilized_clusters.at(pv));
+    if (stats_.utilized_instances.at(pvi) > 0) {
+      stats_.energy[pv] = stats_.cluster_access_energy.at(pv) / cluster_utilization;
+      stats_.energy_per_access[pv] = stats_.energy.at(pv) / instance_accesses;
+      stats_.energy_due_to_overflow[pv] = stats_.cluster_access_energy_due_to_overflow.at(pv) / cluster_utilization;
+    } else {
       stats_.energy[pv] = 0;
       stats_.energy_per_access[pv] = 0;
+      stats_.energy_due_to_overflow[pv] = 0;
     }
   }
 }
@@ -1448,7 +1477,7 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << indent << "Read bandwidth               : " << specs.read_bandwidth << std::endl;    
   out << indent << indent << "Write bandwidth              : " << specs.write_bandwidth << std::endl;    
   out << indent << indent << "Multiple buffering           : " << specs.multiple_buffering << std::endl;
-  out << indent << indent << "Allow overflow               : " << specs.allow_overflow << std::endl;
+  out << indent << indent << "Allow overbooking            : " << specs.allow_overbooking << std::endl;
   out << indent << indent << "Effective size               : " << specs.effective_size << std::endl;
   out << indent << indent << "Min utilization              : " << specs.min_utilization << std::endl;
   out << indent << indent << "Vector access energy(max)    : " << specs.vector_access_energy << " pJ" << std::endl;
@@ -1567,16 +1596,17 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent + indent << "Scalar metadata gated updates (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("gated_metadata_update") << std::endl;
       out << indent + indent << "Scalar decompression counts (per-cluster)             : " << stats.fine_grained_scalar_accesses.at(pv).at("decompression_count") << std::endl;
       out << indent + indent << "Scalar compression counts (per-cluster)               : " << stats.fine_grained_scalar_accesses.at(pv).at("compression_count") << std::endl;
-      out << indent + indent << "Speculation energy cost (total)                       : "  << stats.speculation_energy_cost.at(pv)* stats.utilized_instances.at(pv)<< std::endl;
+      out << indent + indent << "Speculation energy cost (total)                       : "  << stats.cluster_access_energy_due_to_overflow.at(pv)<< std::endl;
       out << indent + indent << "Energy (per-scalar-access)                            : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
       out << indent + indent << "Energy (per-instance)                                 : " << stats.energy.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Energy (total)                                        : " << stats.energy.at(pv) * stats.utilized_instances.at(pv)
-          << " pJ" << std::endl;
-      out << indent + indent << "Temporal Reduction Energy (per-instance)              : "
-          << stats.temporal_reduction_energy.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Temporal Reduction Energy (total)                     : "
-          << stats.temporal_reduction_energy.at(pv) * stats.utilized_instances.at(pv)
-          << " pJ" << std::endl;
+      out << indent + indent + indent << "Energy due to current level accesses (per-instance): "  << stats.energy.at(pv) - stats.energy_due_to_overflow.at(pv)<< std::endl;
+      out << indent + indent + indent << "Energy due to child level overflow (per-instance): "  << stats.energy_due_to_overflow.at(pv)<< std::endl;
+      out << indent + indent << "Energy (total)                                        : " << stats.energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
+      out << indent + indent + indent << "Energy due to current level accesses (total): "  << stats.cluster_access_energy.at(pv) - stats.cluster_access_energy_due_to_overflow.at(pv)<< std::endl;
+      out << indent + indent + indent << "Energy due to child level overflow (total): "  << stats.cluster_access_energy_due_to_overflow.at(pv)<< std::endl;
+      out << indent + indent << "Temporal Reduction Energy (per-instance)              : " << stats.temporal_reduction_energy.at(pv) << " pJ" << std::endl;
+      out << indent + indent << "Temporal Reduction Energy (total)                     : " << stats.temporal_reduction_energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
+
       // out << indent + indent << "Address Generation Energy (per-cluster)  : "
       //     << stats.addr_gen_energy.at(pv) << " pJ" << std::endl;
       // out << indent + indent << "Address Generation Energy (total)        : "

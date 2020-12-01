@@ -212,7 +212,7 @@ void ParseCompressionInfo(config::CompoundConfigNode directive){
             // both read and write optimizations need to be specified
             bool read_specified = false;
             bool fill_specified = false;
-            std::map<ActionName, std::vector<std::string>> action_info;
+            std::map<ActionName, Conditions> action_info;
 
             // read and write optimizations can be specified in different optimization directives
             // check gating optimization directive
@@ -272,16 +272,20 @@ void ParseActionOptimizationInfo(config::CompoundConfigNode directive, std::stri
       action_list[action_id].lookupValue("name", action_name);
       assert(action_name == "compute"); // we only recognize compute for MACs
 
-      std::vector<std::string> action_data_space_list;
-
-      action_list[action_id].lookupArrayValue("criteria", action_data_space_list);
-
-      for (unsigned action_pv = 0; action_pv < unsigned(action_data_space_list.size()); action_pv++){
-        // go through the data spaces that the action should gate on
-        std::string action_pv_name = action_data_space_list[action_pv];
-        compute_optimization_info[action_name].push_back(action_pv_name);
+      auto conditions_list = action_list[action_id].lookup("conditions");
+      Conditions conditions;
+      for (unsigned pv_storage_pair_id = 0; pv_storage_pair_id < unsigned(conditions_list.getLength()); pv_storage_pair_id++){
+        // go through the dataspace-storage pair that the action should gate/skip on
+        std::string pv_name;
+        std::string storage_name;
+        unsigned storage_level_id;
+        conditions_list[pv_storage_pair_id].lookupValue("data-space", pv_name);
+        conditions_list[pv_storage_pair_id].lookupValue("storage", storage_name);
+        storage_level_id = FindTargetStorageLevel(storage_name);
+        conditions[pv_name] = storage_level_id;
         // std::cout << "action " << action_name << " gated on " << action_pv_name << std::endl;
       }
+      compute_optimization_info[action_name] = conditions;
     }
     if (optimization_type == "action-gating"){
       action_gating_info_.compute_info = compute_optimization_info;
@@ -311,22 +315,30 @@ void ParseActionOptimizationInfo(config::CompoundConfigNode directive, std::stri
           auto action_list = data_space_list[pv].lookup("actions");
           assert(action_list.isList());
 
-          for(unsigned action_id = 0; action_id < unsigned(action_list.getLength()); action_id++){
+          for(unsigned action_id = 0; action_id < unsigned(action_list.getLength()); action_id++)
+          {
             // go through the  action optimizations specified for that specific data type
             std::string action_name;
             action_list[action_id].lookupValue("name", action_name);
 
-            std::vector<std::string> action_data_space_list;
-            action_list[action_id].lookupArrayValue("criteria", action_data_space_list);
-
-            for (unsigned action_pv = 0; action_pv < unsigned(action_data_space_list.size()); action_pv++){
-              // go thorugh the data spaces that the action should be optimized on
-              std::string action_pv_name = action_data_space_list[action_pv];
-              data_space_optimization_info[action_name].push_back(action_pv_name);
+            auto conditions_list = action_list[action_id].lookup("conditions");
+            Conditions conditions;
+            for (unsigned pv_storage_pair_id = 0; pv_storage_pair_id < unsigned(conditions_list.getLength()); pv_storage_pair_id++)
+            {
+              // go through the dataspace-storage pair that the action should gate/skip on
+              std::string pv_name;
+              std::string storage_name;
+              unsigned storage_level_id;
+              conditions_list[pv_storage_pair_id].lookupValue("data-space", pv_name);
+              conditions_list[pv_storage_pair_id].lookupValue("storage", storage_name);
+              storage_level_id = FindTargetStorageLevel(storage_name);
+              conditions[pv_name] = storage_level_id;
               // std::cout << "action " << action_name << " gated on " << action_pv_name << std::endl;
             }
-          } // go through action list
 
+            data_space_optimization_info[action_name] = conditions;
+
+          } // go through action list
           per_storage_level_optimization_info[data_space_name] = data_space_optimization_info;
         } // if exists action optimizations
       } // go through data-space list
