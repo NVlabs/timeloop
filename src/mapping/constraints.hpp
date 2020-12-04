@@ -630,7 +630,7 @@ class Constraints
     else if (type == "max_overbooked_proportion")
     {
       double max_overbooked_proportion;
-      assert(constraint.lookupValue("max_overbooked_proportion", max_overbooked_proportion));
+      assert(constraint.lookupValue("proportion", max_overbooked_proportion));
       confidence_thresholds_[level_id] =  1 - max_overbooked_proportion;
     }
     else if (type == "datatype" || type == "bypass" || type == "bypassing")
@@ -699,7 +699,7 @@ class Constraints
     // Translate this storage ID to a tiling ID.
     //
     unsigned tiling_level_id;
-    if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing" || type == "confidence")
+    if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing" || type == "max_overbooked_proportion")
     {
       // This should always succeed.
       tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);
