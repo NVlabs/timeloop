@@ -29,7 +29,6 @@
 
 #include <math.h>
 
-#include "workload/data-density.hpp"
 #include "loop-analysis/tiling-tile-info.hpp"
 #include "model/sparse.hpp"
 
@@ -65,10 +64,6 @@ static std::string networkOperationTypes[1] = {"random_transfer"};
 
 int GetNumOpTypes();
 int GetNumOpTypes(std::string component_type);
-//void ComputeFineGrainComputeAccesses(tiling::ComputeInfo& compute_info,
-//                                     tiling::CompoundDataMovementInfo& data_movement,
-//                                     sparse::ComputeActionOptimizationInfo& compute_gating_info,
-//                                     sparse::ComputeActionOptimizationInfo& compute_skipping_info);
 
   void ComputeFineGrainComputeAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
                                        unsigned level,

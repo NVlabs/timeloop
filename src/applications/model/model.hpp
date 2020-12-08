@@ -44,7 +44,7 @@
 #include "mapping/arch-properties.hpp"
 #include "mapping/constraints.hpp"
 #include "compound-config/compound-config.hpp"
-#include "model/sparse-factory.hpp"
+#include "model/sparse-base.hpp"
 
 //--------------------------------------------//
 //                Application                 //

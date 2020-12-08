@@ -84,7 +84,7 @@ struct DataMovementInfo
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
   // tile density
-  problem::DataDensity tile_density;  // statistical representation of tile data density
+  std::shared_ptr<problem::DensityDistribution> tile_density;  // statistical representation of tile data density
   // fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
 
@@ -140,7 +140,7 @@ struct DataMovementInfo
     distributed_fanout = 0;
     compressed = false;
     compressed_size = 0;
-    tile_density = problem::DataDensity();
+    tile_density = NULL;
     metadata_format.resize(0);
     parent_level=std::numeric_limits<unsigned>::max();
     child_level=std::numeric_limits<unsigned>::max();

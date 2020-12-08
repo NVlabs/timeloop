@@ -46,7 +46,7 @@
 #include "compound-config/compound-config.hpp"
 #include "applications/mapper/mapper-thread.hpp"
 #include "model/sparse.hpp"
-#include "model/sparse-factory.hpp"
+#include "model/sparse-base.hpp"
 
 //--------------------------------------------//
 //                Application                 //

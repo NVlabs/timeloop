@@ -26,7 +26,7 @@
  */
 
 #include "sparse.hpp"
-#include "sparse-factory.hpp"
+#include "sparse-base.hpp"
 #include "mapping/arch-properties.hpp"
 
 namespace sparse
@@ -61,17 +61,14 @@ SparseOptimizationInfo Parse(config::CompoundConfigNode sparse_config, model::En
 
       // populate the gating and skipping info first, they will be used for later sanity check when parsing for compression
       if (directive.exists("action-gating")){
-//        std::cout << "target: " << i << " parsing for action-gating directive" << std::endl;
         ParseActionOptimizationInfo(directive, "action-gating");
       }
       if (directive.exists("action-skipping")){
-//        std::cout << "target: " << i << " parsing for action-skipping directive" << std::endl;
         ParseActionOptimizationInfo(directive, "action-skipping");
       }
 
       // parse for compression
       if (directive.exists("compression")){
-//        std::cout << "target: " << i << " parsing for compression directive" << std::endl;
         ParseCompressionInfo(directive);
       }
     }
@@ -283,7 +280,6 @@ void ParseActionOptimizationInfo(config::CompoundConfigNode directive, std::stri
         conditions_list[pv_storage_pair_id].lookupValue("storage", storage_name);
         storage_level_id = FindTargetStorageLevel(storage_name);
         conditions[pv_name] = storage_level_id;
-        // std::cout << "action " << action_name << " gated on " << action_pv_name << std::endl;
       }
       compute_optimization_info[action_name] = conditions;
     }
@@ -378,7 +374,6 @@ unsigned FindTargetStorageLevel(std::string storage_level_name){
     exit(1);
   }
 
-  // std::cout << "locate sparse optimization directive at: " << storage_level_name << std::endl;
   return storage_level_id;
 }
 

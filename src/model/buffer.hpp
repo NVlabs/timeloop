@@ -37,7 +37,7 @@
 #include "compound-config/compound-config.hpp"
 #include "model/util.hpp"
 #include "model/network.hpp"
-#include "workload/data-density.hpp"
+#include "workload/density-distribution.hpp"
 
 namespace model
 {
@@ -46,10 +46,12 @@ namespace model
   // mean density - tile_size/vectorwidth table
   //
 
-  // once the tile shape exceeds vec_width * threshold, use the naive mathod for getting the number of vector accesses
-  // used to reduce runtime
-  //             vec_width            threshold for densities (0.1, 0.2, .., 1.0)
-  static std::map<unsigned, std::vector<double>>  VectorWidthCoefficientTable =  {{ 2, { 251, 125, 84, 63, 51, 42, 36, 32, 28, 1}},
+  // once the tile shape exceeds vec_width * threshold, no statistical modeling is needed for number of vector accesses
+  // in that case, number of vector accesses = ceil(number of scalar access / block size)
+
+  //                                                                                           threshold ratio for densities
+  //                                                                            vec_width 0.1, 0.2, 0.3, ...,                1.0)
+  static std::map<unsigned, std::vector<double>>  VectorWidthCoefficientTable =  { { 2, { 251, 125, 84, 63, 51, 42, 36, 32, 28, 1}},
                                                                                    { 4, { 375, 188, 125, 94, 75, 63, 54, 47, 42, 1}},
                                                                                    { 8, { 438, 219, 146, 110, 88, 73, 63, 55, 49, 1}},
                                                                                    { 16, { 469, 235, 157, 118, 94, 79, 67, 59, 52, 1}},
@@ -359,6 +361,7 @@ class BufferLevel : public Level
                       const double confidence_threshold, const std::uint64_t compute_cycles,
                       const bool break_on_failure) override;
 
+  // Energy calculation functions that are externally accessed in topology.cpp
   void ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, unsigned data_space_id);
   void FinalizeBufferEnergy();
 
