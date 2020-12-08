@@ -44,6 +44,7 @@ struct Mapping
   uint128_t id;
   loop::Nest loop_nest;
   tiling::CompoundMaskNest datatype_bypass_nest;
+  std::map<unsigned, double> confidence_thresholds;
   
   // Serialization
   friend class boost::serialization::access;

@@ -231,7 +231,11 @@ void ArithmeticUnits::PopulateEnergyPerOp(unsigned num_ops){
     ert_energy_found = false;
     std::string op_name = tiling::arithmeticOperationTypes[op_id];
     // initialize to the pat values or zero in case no mapping is found
-    ert_energy_per_op = specs_.energy_per_op.Get();
+    if (op_name.find("random_compute") != std::string::npos){
+      ert_energy_per_op = specs_.energy_per_op.Get();
+    } else {
+      ert_energy_per_op = 0;
+    }
 
     // go through ERT entries and look for appopriate energy values
     ert_action_names = model::arithmeticOperationMappings.at(op_name);
@@ -311,9 +315,9 @@ void ArithmeticUnits::Print(std::ostream& out) const
   // Print specs.
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
-//#define PRINT_SPARSE_STATS
+#define PRINT_SPARSE_STATS
 #ifdef PRINT_SPARSE_STATS
-  out << indent << "Word bits             : " << specs_.word_bits << std::endl;    
+  out << indent << "Word bits             : " << specs_.word_bits << std::endl;
   out << indent << "Instances             : " << specs_.instances << " ("
       << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
   out << indent << "Max energy-per-op     : " << specs_.energy_per_op << " pJ" << std::endl;
@@ -332,13 +336,13 @@ void ArithmeticUnits::Print(std::ostream& out) const
   // Print stats.
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
-//#define PRINT_SPARSE_STATS
+#define PRINT_SPARSE_STATS
 #ifdef PRINT_SPARSE_STATS
   out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
   out << indent << "Cycles                  : " << Cycles() << std::endl;
   out << indent << "Random Computes (total) : " << compute_random << std::endl;
-  out << indent + indent << "Gated Computes (total): " << compute_gated << std::endl;
-  out << indent + indent << "Skipped Computes (total): " << compute_skipped << std::endl;
+  out << indent << "Gated Computes (total): " << compute_gated << std::endl;
+  out << indent << "Skipped Computes (total): " << compute_skipped << std::endl;
   out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
   out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
   out << std::endl;

@@ -32,6 +32,7 @@
 #include "model/topology.hpp"
 #include "model/network-legacy.hpp"
 #include "model/network-factory.hpp"
+#include "workload/workload.hpp"
 
 namespace model
 {
@@ -929,20 +930,25 @@ void Topology::Reset()
 // FIXME: what about instances and fanout checks?
 std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
                                                      analysis::NestAnalysis* analysis,
+                                                     sparse::SparseOptimizationInfo* sparse_optimizations,
                                                      bool break_on_failure)
 {
   auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   auto working_set_sizes = analysis->GetWorkingSetSizes_LTW();
-
+  sparse::CompressionInfo storage_compression_info = sparse_optimizations->compression_info;
 
   problem::Workload* workload = analysis->GetWorkload();
 
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
+    sparse::PerStorageLevelCompressionInfo per_level_compression_info = {};
+    if (storage_compression_info.find(storage_level_id) != storage_compression_info.end())
+      { per_level_compression_info = storage_compression_info.at(storage_level_id); }
     auto level_id = specs_.StorageMap(storage_level_id);
     auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
       working_set_sizes.at(storage_level_id), masks.at(storage_level_id), workload,
+      per_level_compression_info, mapping.confidence_thresholds.at(storage_level_id),
       break_on_failure);
     eval_status.at(level_id) = s;
     if (break_on_failure && !s.success)
@@ -1066,38 +1072,46 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     // primary statistics.
     auto level_id = specs_.StorageMap(storage_level_id);
 
-    // populate simple parent level spec info for compensation calculation
+    // populate parent level for each dataspace
     for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++){
       unsigned parent_level_id = tiles[storage_level_id].data_movement_info.at(pv).parent_level;
       if (parent_level_id != std::numeric_limits<unsigned>::max()){
-
-         // necessary hardware info: block size
-         std::map <std::string, std::uint64_t> parent_level_simple_specs;
-         model::BufferLevel::Specs parent_level_specs = GetStorageLevel(parent_level_id)->GetSpecs();
-         parent_level_simple_specs["block_size"] = parent_level_specs.block_size.Get();
-         parent_level_simple_specs["metadata_block_size"] = parent_level_specs.metadata_block_size.Get();
-
-         // necessary ert info
-         std::map <std::string, double> parent_level_op_energy;
-         std::map<std::string, double>::iterator it = parent_level_specs.op_energy_map.begin();
-         while (it != parent_level_specs.op_energy_map.end()){
-           parent_level_op_energy[it->first] = it->second;
-           it++;
-         }
-         // populate parent level info into tile struct
-         tiles[storage_level_id].data_movement_info.at(pv).parent_level_simple_specs = parent_level_simple_specs;
-         tiles[storage_level_id].data_movement_info.at(pv).parent_level_op_energy = parent_level_op_energy;
-         tiles[storage_level_id].data_movement_info.at(pv).parent_level_name = parent_level_specs.name.Get();
+         tiles[storage_level_id].data_movement_info.at(pv).parent_level_name =
+                                            GetStorageLevel(parent_level_id)->GetSpecs().name.Get();
       }
     }
 
     auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
+                                     mapping.confidence_thresholds.at(storage_level_id),
                                      compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
 
     if (break_on_failure && !s.success)
       break;
+  }
+
+  if (!break_on_failure || success_accum) {
+    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++) {
+      auto storage_level = GetStorageLevel(storage_level_id);
+      auto child_level_stats = storage_level->GetStats();
+
+      // each dataspace can have a different parent level
+      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) {
+        unsigned parent_storage_level_id = tiles[storage_level_id].data_movement_info.at(pvi).parent_level;
+        // if there is any overbooking, add the energy cost to parent level
+        if (child_level_stats.tile_confidence[pvi] != 1.0
+            && parent_storage_level_id != std::numeric_limits<unsigned>::max()) {
+          auto parent_storage_level = GetStorageLevel(parent_storage_level_id);
+          parent_storage_level->ComputeEnergyDueToChildLevelOverflow(child_level_stats, pvi);
+        }
+      }
+    }
+    // finalized energy data
+    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++) {
+      auto storage_level = GetStorageLevel(storage_level_id);
+      storage_level->FinalizeBufferEnergy();
+    }
   }
 
   unsigned int numConnections = NumStorageLevels();
@@ -1133,7 +1147,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   if (!break_on_failure || success_accum)
   {
     auto level_id = specs_.ArithmeticMap();
-    auto s = GetArithmeticLevel()->Evaluate(tiles[0], keep_masks[0],
+    auto s = GetArithmeticLevel()->Evaluate(tiles[0], keep_masks[0], 0,
                                             compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;

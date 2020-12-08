@@ -38,7 +38,7 @@
 #include "util/accelergy_interface.hpp"
 #include "mapspaces/mapspace-factory.hpp"
 #include "compound-config/compound-config.hpp"
-#include "model/sparse-factory.hpp"
+#include "model/sparse-base.hpp"
 
 //--------------------------------------------//
 //                Application                 //

@@ -37,9 +37,26 @@
 #include "compound-config/compound-config.hpp"
 #include "model/util.hpp"
 #include "model/network.hpp"
+#include "workload/density-distribution.hpp"
 
 namespace model
 {
+
+  //
+  // mean density - tile_size/vectorwidth table
+  //
+
+  // once the tile shape exceeds vec_width * threshold, no statistical modeling is needed for number of vector accesses
+  // in that case, number of vector accesses = ceil(number of scalar access / block size)
+
+  //                                                                                           threshold ratio for densities
+  //                                                                            vec_width 0.1, 0.2, 0.3, ...,                1.0)
+  static std::map<unsigned, std::vector<double>>  VectorWidthCoefficientTable =  { { 2, { 251, 125, 84, 63, 51, 42, 36, 32, 28, 1}},
+                                                                                   { 4, { 375, 188, 125, 94, 75, 63, 54, 47, 42, 1}},
+                                                                                   { 8, { 438, 219, 146, 110, 88, 73, 63, 55, 49, 1}},
+                                                                                   { 16, { 469, 235, 157, 118, 94, 79, 67, 59, 52, 1}},
+                                                                                   { 32, { 485, 243, 162, 122, 97, 81, 70, 61, 52, 1}}
+                                                                                  };
 
 //--------------------------------------------//
 //                 BufferLevel                //
@@ -96,6 +113,9 @@ class BufferLevel : public Level
     // for ERT parsing
     std::map<std::string, double> ERT_entries;
     std::map<std::string, double> op_energy_map;
+
+    // for overflow evaluation
+    Attribute<bool> allow_overbooking;
 
     // Physical Attributes (derived from technology model).
     // FIXME: move into separate struct?
@@ -166,17 +186,23 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> temporal_reduction_energy;
     problem::PerDataSpace<double> addr_gen_energy;
+    problem::PerDataSpace<double> cluster_access_energy;
+    problem::PerDataSpace<double> cluster_access_energy_due_to_overflow;
+    problem::PerDataSpace<double> energy_due_to_overflow;
 
-    problem::PerDataSpace<double> speculation_energy_cost;
 
     problem::PerDataSpace<std::uint64_t> compressed_tile_size;
     problem::PerDataSpace<std::uint64_t> metadata_tile_size;
     problem::PerDataSpace<double> tile_confidence;
     problem::PerDataSpace<double> tile_max_density;
     problem::PerDataSpace<std::string> parent_level_name;
+    problem::PerDataSpace<unsigned> parent_level_id;
+    problem::PerDataSpace<std::string> tile_density_distribution;
 
 
     // fine-grained action stats
+    problem::PerDataSpace<std::map<std::string, unsigned std::uint64_t>> fine_grained_scalar_accesses;
+    problem::PerDataSpace<std::map<std::string, double>> fine_grained_vector_accesses;
     problem::PerDataSpace<unsigned long> gated_reads;
     problem::PerDataSpace<unsigned long> skipped_reads;
     problem::PerDataSpace<unsigned long> random_reads;
@@ -272,8 +298,11 @@ class BufferLevel : public Level
   //
 
  private:
-  EvalStatus ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const tiling::CompoundMask& mask,
-                             const bool break_on_failure);
+  EvalStatus ComputeScalarAccesses(const tiling::CompoundDataMovementInfo& tile, const tiling::CompoundMask& mask,
+                                   const double confidence_threshold,
+                                   const bool break_on_failure);
+  void ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& tile);
+  void ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMovementInfo& tile, const double confidence_threshold);
   void ComputePerformance(const std::uint64_t compute_cycles);
   // void ComputeBufferEnergy();
   void ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info);
@@ -309,6 +338,7 @@ class BufferLevel : public Level
   void PopulateEnergyPerOp(unsigned num_ops);
 
   Specs& GetSpecs() { return specs_; }
+  Stats& GetStats() { return stats_;}
   
   bool HardwareReductionSupported() override;
 
@@ -324,10 +354,16 @@ class BufferLevel : public Level
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
                                 const problem::Workload* workload,
+                                const sparse::PerStorageLevelCompressionInfo per_level_compression_info,
+                                const double confidence_threshold,
                                 const bool break_on_failure) override;
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                      const std::uint64_t compute_cycles,
+                      const double confidence_threshold, const std::uint64_t compute_cycles,
                       const bool break_on_failure) override;
+
+  // Energy calculation functions that are externally accessed in topology.cpp
+  void ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, unsigned data_space_id);
+  void FinalizeBufferEnergy();
 
   // Accessors (post-evaluation).
   

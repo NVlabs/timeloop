@@ -181,69 +181,62 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
   workload.SetCoefficients(coefficients);
 
   Workload::Densities densities;
+  std::string density_distribution;
+
+  // shared pointer for parsed density distribution specs
+  std::shared_ptr<DensityDistributionSpecs> density_distribution_specs;
+  YAML::Node ynode;
+
+  // 1) shared density specification for all dataspaces
   double common_avg_density;
-  if (config.lookupValue("commonDensity", common_avg_density))
-  {
+  if (config.exists("commonDensity")){
+    config::CompoundConfigNode density_config;
+    if (! config.lookup("commonDensity").isMap()){
+      config.lookupValue("commonDensity", common_avg_density);
+      ynode["distribution"] = "fixed";
+      ynode["density"] = common_avg_density;
+      density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
+    } else {
+      density_config = config.lookup("commonDensity");
+    }
+    auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
+    // assign all dataspaces the same density value
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
-      densities[i]= DataDensity("constant");
-      densities[i].SetDensity(common_avg_density);
+      densities[i]= DensityDistributionFactory::Construct(density_specs);
     }
   }
+
+  // 2) density specifications for each dataspace
   else if (config.exists("densities"))
   {
     auto config_densities = config.lookup("densities");
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
       double dataspace_avg_density;
+      config::CompoundConfigNode density_config;
       std::string dataspace_name = GetShape()->DataSpaceIDToName.at(i);
 
       if (! config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap()){
-        // single number for density is given, default to constant density type
+        // single number for density is given, default to fixed density distribution
         assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
-        densities[i]= DataDensity("constant");
-        densities[i].SetDensity(dataspace_avg_density);
+        ynode["distribution"] = "fixed";
+        ynode["density"] = dataspace_avg_density;
+        density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
       } else {
-        auto density_specification = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
-        std::string density_type;
-        assert(density_specification.lookupValue("type", density_type));
-        double confidence_knob;
-
-        // parse for user-defined confidence knob
-        if (density_specification.lookupValue("knob", confidence_knob)){
-           densities[i]= DataDensity(density_type, confidence_knob);
-           densities[i].SetUserKnob();
-        } else {
-           densities[i]= DataDensity(density_type);
-        }
-
-        // each distribution has a different way of specification,
-        // here we need to do it case by case by looking at the distribution type
-        if ((density_type == "constant") | (density_type == "coordinate_uniform")){
-           double density;
-           assert(density_specification.lookupValue("density", density));
-           densities[i].SetDensity(density);
-
-        } else {
-          // fall into categories that we don't support yet
-          std::cout << "ERROR: distribution type not supported..." << std::endl;
-          assert(false);
-          // FIXME: add support for normal density specified as a distribution with mean and deviation
-          // if (config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap()){
-          // double dataspace_variance;
-          // auto density_distribution = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
-          // std::cout << " detect densities as distributions for " << GetShape()->DataSpaceIDToName.at(i) << std::endl;
-          // assert(density_distribution.lookupValue("mean", dataspace_avg_density));
-          // assert(density_distribution.lookupValue("variance", dataspace_variance));
-          // densities[i] = DataDensity(dataspace_avg_density, dataspace_variance);
-          // assert(false);
-        }
+        density_config = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
       }
+      auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
+      densities[i]= DensityDistributionFactory::Construct(density_specs);
     }
 
+    // 3) no density specification -> dense workload tensors
   } else {
-    // no density specification -> dense workload tensors
+    config::CompoundConfigNode density_config;
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
-      densities[i]= DataDensity("constant");
-      densities[i].SetDensity(1.0);
+      ynode["distribution"] = "fixed";
+      ynode["density"] = 1.0;
+      density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
+      auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
+      densities[i]= DensityDistributionFactory::Construct(density_specs);
     }
   }
   workload.SetDensities(densities);

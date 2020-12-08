@@ -171,11 +171,18 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
   // this step should only happen once to a workload
   if (! workload_->IsWorkloadTensorSizesSet()){
     // std::cout << "this should only happen once" << std::endl;
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++){
+     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++){
+        std::uint64_t max_tensor_size = 0;
+        for (unsigned level = 0; level < storage_tiling_boundaries_.size(); level++ ){
+           if  (working_set_sizes[level][problem::Shape::DataSpaceID(pvi)] >= max_tensor_size){
+               max_tensor_size = working_set_sizes[level][problem::Shape::DataSpaceID(pvi)];
+           }
+        }
+        assert(max_tensor_size != 0);
         // set tensor size for all dataspaces
-        workload_->SetWorkloadTensorSize(problem::Shape::DataSpaceID(pvi),
-                                        working_set_sizes[storage_tiling_boundaries_.size()-1][problem::Shape::DataSpaceID(pvi)]);
-    }
+        workload_->SetWorkloadTensorSize(problem::Shape::DataSpaceID(pvi), max_tensor_size);
+     }
+     workload_->AllTensorsSet();
   }
 
   return working_set_sizes;

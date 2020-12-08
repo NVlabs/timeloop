@@ -84,8 +84,7 @@ struct DataMovementInfo
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
   // tile density
-  problem::DataDensity tile_density;  // statistical representation of tile data density
-  double tile_confidence;
+  std::shared_ptr<problem::DensityDistribution> tile_density;  // statistical representation of tile data density
   // fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
 
@@ -101,13 +100,12 @@ struct DataMovementInfo
 
   // parent/child level for inferring decompression/compression overhead
   unsigned parent_level;
+  std::string parent_level_name;
   unsigned child_level;
   bool parent_level_compressed;
   bool child_level_compressed;
+  uint64_t child_level_tile_size;
 
-  std::map<std::string, std::uint64_t> parent_level_simple_specs;
-  std::map<std::string, double> parent_level_op_energy;
-  std::string parent_level_name;
 
   std::uint64_t GetTotalAccesses() const
   {
@@ -142,16 +140,13 @@ struct DataMovementInfo
     distributed_fanout = 0;
     compressed = false;
     compressed_size = 0;
-    tile_density = problem::DataDensity();
-    tile_confidence = 1.0;
+    tile_density = NULL;
     metadata_format.resize(0);
     parent_level=std::numeric_limits<unsigned>::max();
     child_level=std::numeric_limits<unsigned>::max();
     parent_level_compressed = false;
     child_level_compressed = false;
     fine_grained_accesses.clear();
-    parent_level_simple_specs.clear();
-    parent_level_op_energy.clear();
     rank1_list.resize(0);
     rank0_list.resize(0);
     dense_rank1_fills = 0;

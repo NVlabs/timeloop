@@ -82,9 +82,12 @@ class Level : public Module
   virtual bool HardwareReductionSupported() = 0;
 
   virtual EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
-                                        const tiling::CompoundMask mask, const problem::Workload* workload, const bool break_on_failure) = 0;
+                                        const tiling::CompoundMask mask, const problem::Workload* workload,
+                                        const sparse::PerStorageLevelCompressionInfo per_level_compression_info,
+                                        const double confidence_threshold,
+                                        const bool break_on_failure) = 0;
   virtual EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                              const std::uint64_t compute_cycles,
+                              const double confidence_threshold, const std::uint64_t compute_cycles,
                               const bool break_on_failure) = 0;
   
   virtual double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;

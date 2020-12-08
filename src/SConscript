@@ -114,6 +114,8 @@ util/map2d.cpp
 workload/problem-shape.cpp
 workload/workload.cpp
 workload/operation-space.cpp
+workload/fixed-distribution.cpp
+workload/hypergeometric-distribution.cpp
 compound-config/compound-config.cpp
 """)
 

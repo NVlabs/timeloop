@@ -108,10 +108,10 @@ class Engine : public Module
 
   const Topology& GetTopology() const { return topology_; }
 
-  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, bool break_on_failure = true)
+  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo sparse_optimizations, bool break_on_failure = true)
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest);
-    return topology_.PreEvaluationCheck(mapping, &nest_analysis_, break_on_failure);
+    return topology_.PreEvaluationCheck(mapping, &nest_analysis_, &sparse_optimizations, break_on_failure);
   }
 
   std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo sparse_optimizations, bool break_on_failure = true)

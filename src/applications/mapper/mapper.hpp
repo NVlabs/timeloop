@@ -46,7 +46,7 @@
 #include "compound-config/compound-config.hpp"
 #include "applications/mapper/mapper-thread.hpp"
 #include "model/sparse.hpp"
-#include "model/sparse-factory.hpp"
+#include "model/sparse-base.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -279,7 +279,7 @@ class Application
       cfg_string_ = nullptr;
     }
 
-    // Sparse optimzations
+    // Sparse optimizations
     if (rootNode.exists("sparse_optimizations")){
       auto sparse_config = rootNode.lookup("sparse_optimizations");
       sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);

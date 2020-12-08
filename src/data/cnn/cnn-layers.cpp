@@ -737,9 +737,12 @@ Workload::Densities GetLayerDensities(std::string layer_name)
   {
     avg_dens = densities.at(layer_name);
     for (unsigned d = 0; d < GetShape()->NumDataSpaces; d++){
-      dens[d]= DataDensity("constant");
-      dens[d].SetDensity(avg_dens[d]);
-      // dens[d]= DataDensity(avg_dens[d]);
+      YAML::Node ynode;
+      ynode["distribution"] = "fixed";
+      ynode["density"] = avg_dens;
+      auto density_specs = problem::DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode(nullptr, ynode,
+                                                                                                      new config::CompoundConfig("dummy.yaml")));
+      dens[d]= problem::DensityDistributionFactory::Construct(density_specs);
     }
 
   }
@@ -866,14 +869,18 @@ void ParseConfig(config::CompoundConfigNode config, Workload &workload)
   Workload::Densities densities;
   // See if user wants to override default densities.
   double common_density;
+  YAML::Node ynode;
   if (config.lookupValue("commonDensity", common_density))
   {
-    densities[kDataSpaceWeight]= DataDensity("constant");
-    densities[kDataSpaceWeight].SetDensity(common_density);
-    densities[kDataSpaceInput]= DataDensity("constant");
-    densities[kDataSpaceInput].SetDensity(common_density);
-    densities[kDataSpaceOutput]= DataDensity("constant");
-    densities[kDataSpaceOutput].SetDensity(common_density);
+    ynode["distribution"] = "fixed";
+    ynode["density"] = common_density;
+    auto density_specs = problem::DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode(nullptr, ynode,
+                                                                                                    new config::CompoundConfig("dummy.yaml")));
+    auto shared_density_distribution = problem::DensityDistributionFactory::Construct(density_specs);
+
+    densities[kDataSpaceWeight]= shared_density_distribution;
+    densities[kDataSpaceInput]= shared_density_distribution;
+    densities[kDataSpaceOutput]= shared_density_distribution;
   }
   else if (config.exists("densities"))
   {
@@ -887,12 +894,23 @@ void ParseConfig(config::CompoundConfigNode config, Workload &workload)
     assert(config_densities.lookupValue("inputs", input_average_density));
     assert(config_densities.lookupValue("outputs", output_average_density));
 
-    densities[kDataSpaceWeight] = DataDensity("constant");
-    densities[kDataSpaceWeight].SetDensity(weights_average_density);
-    densities[kDataSpaceInput]= DataDensity("constant");
-    densities[kDataSpaceInput].SetDensity(input_average_density);
-    densities[kDataSpaceOutput]= DataDensity("constant");
-    densities[kDataSpaceOutput].SetDensity(output_average_density);
+    ynode["distribution"] = "fixed";
+
+    ynode["density"] = weights_average_density;
+    auto density_specs = problem::DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode(nullptr, ynode,
+                                                                                                    new config::CompoundConfig("dummy.yaml")));
+    densities[kDataSpaceWeight] = problem::DensityDistributionFactory::Construct(density_specs);
+
+    ynode["density"] = input_average_density;
+    density_specs = problem::DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode(nullptr, ynode,
+                                                                                                    new config::CompoundConfig("dummy.yaml")));
+    densities[kDataSpaceInput] = problem::DensityDistributionFactory::Construct(density_specs);
+
+    ynode["density"] = output_average_density;
+    density_specs = problem::DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode(nullptr, ynode,
+                                                                                                    new config::CompoundConfig("dummy.yaml")));
+    densities[kDataSpaceOutput] = problem::DensityDistributionFactory::Construct(density_specs);
+
   }
   else if (layer_name != "")
   {
@@ -900,12 +918,17 @@ void ParseConfig(config::CompoundConfigNode config, Workload &workload)
   }
   else
   {
-    densities[kDataSpaceWeight]= DataDensity("constant");
-    densities[kDataSpaceWeight].SetDensity(1.0);
-    densities[kDataSpaceInput]= DataDensity("constant");
-    densities[kDataSpaceInput].SetDensity(1.0);
-    densities[kDataSpaceOutput]= DataDensity("constant");
-    densities[kDataSpaceOutput].SetDensity(1.0);
+
+    ynode["distribution"] = "fixed";
+    ynode["density"] = 1.0;
+    auto density_specs = problem::DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode(nullptr, ynode,
+                                                                                                    new config::CompoundConfig("dummy.yaml")));
+    auto shared_density_distribution = problem::DensityDistributionFactory::Construct(density_specs);
+
+    densities[kDataSpaceWeight]= shared_density_distribution;
+    densities[kDataSpaceInput]= shared_density_distribution;
+    densities[kDataSpaceOutput]= shared_density_distribution;
+
   }
   workload.SetDensities(densities);
 }
