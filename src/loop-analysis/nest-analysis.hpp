@@ -89,12 +89,14 @@ class NestAnalysis
   std::vector<bool> linked_spatial_level_;
 
   bool working_sets_computed_ = false;
+  bool imperfectly_factorized_ = false;
 
   problem::Workload* workload_ = nullptr;
 
   // Internal helper methods.
   void ComputeWorkingSets();
 
+  void DetectImperfectFactorization();
   void InitializeNestProperties();
   void InitNumSpatialElems();
   void InitStorageBoundaries();

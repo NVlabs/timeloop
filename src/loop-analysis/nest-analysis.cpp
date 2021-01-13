@@ -127,6 +127,7 @@ void NestAnalysis::Reset()
   linked_spatial_level_.clear();
 
   working_sets_computed_ = false;
+  imperfectly_factorized_ = false;
 
   compute_info_.Reset();
 
@@ -230,6 +231,7 @@ void NestAnalysis::ComputeWorkingSets()
   {
     InitializeNestProperties();
     InitializeLiveState();
+    DetectImperfectFactorization();
 
     // Recursive call starting from the last element of the list.
     num_epochs_ = 1;
@@ -242,6 +244,18 @@ void NestAnalysis::ComputeWorkingSets()
 }
 
 // Internal helper methods
+
+void NestAnalysis::DetectImperfectFactorization()
+{
+  for (auto cur = nest_state_.rbegin(); cur != nest_state_.rend(); cur++)
+  {
+    if (cur->descriptor.end != cur->descriptor.residual_end)
+    {
+      imperfectly_factorized_ = true;
+      break;
+    }
+  }  
+}
 
 void NestAnalysis::InitializeNestProperties()
 {
@@ -599,7 +613,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool run_last_iteration = true; //false;
+    bool run_last_iteration = imperfectly_factorized_;
       
     if (gExtrapolateUniformTemporal)
     {
