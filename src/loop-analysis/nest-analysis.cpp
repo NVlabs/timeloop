@@ -555,9 +555,12 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   //
   // Step II: Compute Accesses by accumulating deltas returned by inner levels.
   //
-  std::uint64_t num_iterations = 1 +
-    ((cur->descriptor.end - 1 - cur->descriptor.start) /
-     cur->descriptor.stride);
+  int end = (level == int(nest_state_.size()-1) ||
+             !IsLastGlobalIteration_(level+1, cur->descriptor.dimension)) ?
+    cur->descriptor.end : cur->descriptor.residual_end;
+
+  std::uint64_t num_iterations = 1 + ((end - 1 - cur->descriptor.start) /
+                                      cur->descriptor.stride);
 
   if (level == 0) // base
   {
@@ -596,7 +599,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool run_last_iteration = false;
+    bool run_last_iteration = true; //false;
       
     if (gExtrapolateUniformTemporal)
     {
@@ -694,7 +697,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       auto saved_transform = cur_transform_[dim];
 
       for (indices_[level] = cur->descriptor.start;
-           indices_[level] < cur->descriptor.end;
+           indices_[level] < end;
            indices_[level] += cur->descriptor.stride)
       {
         // Invoke next (inner) loop level.
@@ -1040,16 +1043,20 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 {
   int level = cur->level;
 
+  int end = (level == int(nest_state_.size()-1) ||
+             !IsLastGlobalIteration_(level+1, cur->descriptor.dimension)) ?
+    cur->descriptor.end : cur->descriptor.residual_end;
+
   // base_index determines which element of spatial_deltas
   // is going to be updated at the last recursive call to FillSpatialDeltas.
   // It's value is updated as we recursively call FillSpatialDeltas.
   // Very similar to how spatial_id_ is used to identify the spatial element
   // that we are currently computing the working set for.
-  base_index *= cur->descriptor.end;
+  base_index *= end;
 
   if (level == 0)
   {
-    // std::uint64_t body_iterations = (cur->descriptor.end - cur->descriptor.start) * num_epochs_;
+    // std::uint64_t body_iterations = (end - cur->descriptor.start) * num_epochs_;
     // macs_ += body_iterations;
     // to avoid double counting of compute_cycles_
     if (base_index == 0 && spatial_id_ == 0)
@@ -1060,7 +1067,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
     // No more recursive calls, directly update spatial_deltas.
     for (indices_[level] = cur->descriptor.start;
-         indices_[level] < cur->descriptor.end;
+         indices_[level] < end;
          indices_[level] += cur->descriptor.stride)
     {
       std::uint64_t spatial_delta_index = base_index + indices_[level];
@@ -1088,7 +1095,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       // extrapolate the entire *vector* of spatial_deltas returned by the
       // recursive FillSpatialDeltas() call. TODO.
       for (indices_[level] = cur->descriptor.start;
-           indices_[level] < cur->descriptor.end;
+           indices_[level] < end;
            indices_[level] += cur->descriptor.stride)
       {
         ++cur;
@@ -1102,9 +1109,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
     }
     else // Next-inner loop level is temporal.
     {
-      unsigned num_iterations = 1 +
-        ((cur->descriptor.end - 1 - cur->descriptor.start) /
-         cur->descriptor.stride);
+      unsigned num_iterations = 1 + ((end - 1 - cur->descriptor.start) /
+                                     cur->descriptor.stride);
 
       unsigned iterations_run = 0;
       indices_[level] = cur->descriptor.start;
@@ -1113,7 +1119,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
       // Run iterations #0, #1, ... #iterations_to_run-1
       for (indices_[level] = cur->descriptor.start;
-           indices_[level] < cur->descriptor.end && iterations_run < iterations_to_run;
+           indices_[level] < end && iterations_run < iterations_to_run;
            indices_[level] += cur->descriptor.stride, iterations_run++)
       {
         ++cur;
@@ -1148,7 +1154,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
         // Iterations #num_iterations_to_run through #last.
         problem::OperationSpace* prev_temporal_delta = &opspace_lastrun;
         for (;
-             indices_[level] < cur->descriptor.end;
+             indices_[level] < end;
              indices_[level] += cur->descriptor.stride, iterations_run++)
         {
           std::uint64_t spatial_delta_index = base_index + indices_[level];
@@ -1658,6 +1664,30 @@ problem::OperationPoint NestAnalysis::IndexToOperationPoint_(
   return point;
 }
 
+// For a specific dimension, detemine if we are at the last iteration of a loop at
+// every loop level from the root of the tree down to this level.
+bool NestAnalysis::IsLastGlobalIteration_(int level, problem::Shape::DimensionID dim) const
+{
+  // We need to look at all loops between root and the given level
+  // and return true if they are all at their last iteration.
+  // Note that we only need to look at the residual ends, because the
+  // definition of global last iteration means that we are at the residuals
+  // at each loop.
+  bool is_last = true;
+  for (int l = level; l < int(nest_state_.size()); l++)
+  {
+    if (nest_state_[l].descriptor.dimension != dim)
+      continue;
+
+    if ((indices_[l] + nest_state_[l].descriptor.stride) < nest_state_[l].descriptor.residual_end)
+    {
+      is_last = false;
+      break;
+    }
+  }
+  return is_last;
+}
+
 // A heuristic way to infer multicast opportunities.
 // Will correctly identify multicasts when data type
 // indices don't depend on multiple problem indices.
@@ -1670,6 +1700,10 @@ void NestAnalysis::ComputeApproxMulticastedAccesses(
     std::vector<analysis::LoopState>::reverse_iterator cur,
     const std::vector<problem::OperationSpace>& spatial_deltas)
 {
+  std::cerr << "ERROR: ComputeApproxMulticastedAccesses has not been updated to "
+            << "work with imperfect factorization." << std::endl;
+  exit(1);
+
   // Find number of spatial levels that correspond to this master spatial level.
   int master_level = cur->level;
   uint64_t num_spatial_levels;

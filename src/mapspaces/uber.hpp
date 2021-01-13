@@ -654,6 +654,7 @@ class Uber : public MapSpace
         loop.dimension = problem::Shape::DimensionID(idim); // Placeholder.
         loop.start = 0;
         loop.end = 0;                              // Placeholder.
+        loop.residual_end = 0;                     // Placeholder.
         loop.stride = 1;                           // FIXME.
         loop.spacetime_dimension = spacetime_dim;
         
@@ -703,6 +704,7 @@ class Uber : public MapSpace
                          mapping_index_factorization_id,
                          loop.dimension,
                          level));
+        loop.residual_end = loop.end; // Perfect factorization.
       }
     }
   }
