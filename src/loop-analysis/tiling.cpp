@@ -466,6 +466,12 @@ void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest
       // assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
 
       tile_nest[cur].reads = tile_nest[cur].content_accesses - tile_nest[cur].partition_size + tile_nest[cur].peer_accesses;
+      // std::cout << "TILING LEVEL = " << cur << std::endl;
+      // std::cout << "  content = " << tile_nest[cur].content_accesses << std::endl;
+      // std::cout << "  partition size = " << tile_nest[cur].partition_size << std::endl;
+      // std::cout << "  peer accesses = " << tile_nest[cur].peer_accesses << std::endl;
+      // std::cout << "  reads = " << tile_nest[cur].reads << std::endl << std::endl;
+
       tile_nest[cur].updates = tile_nest[cur].content_accesses;
       tile_nest[cur].fills = tile_nest[cur].fills + tile_nest[cur].peer_fills;
       //tile.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
