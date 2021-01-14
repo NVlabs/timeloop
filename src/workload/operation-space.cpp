@@ -31,6 +31,16 @@ namespace problem
 {
 
 // ======================================= //
+//              OperationPoint             //
+// ======================================= //
+
+std::ostream& operator << (std::ostream& out, const OperationPoint& p)
+{
+  p.Print(out);
+  return out;
+}
+
+// ======================================= //
 //              OperationSpace             //
 // ======================================= //
 

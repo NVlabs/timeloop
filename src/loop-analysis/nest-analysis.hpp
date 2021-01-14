@@ -59,12 +59,8 @@ class NestAnalysis
   CompoundComputeNest compute_info_sets_;
 
   // Memoization structures to accelerate IndexToOperationPoint()
-  std::vector<problem::PerProblemDimension<std::uint64_t>>
-      per_level_dim_scales_;  // level * dim
+  std::vector<problem::OperationPoint> vector_strides_;
   problem::OperationPoint cur_transform_;
-  std::vector<problem::OperationPoint> mold_low_;
-  std::vector<problem::OperationPoint> mold_high_;
-  std::vector<problem::OperationPoint> mold_high_residual_;
 
   // per-level properties.
   std::vector<uint64_t> num_spatial_elems_;
@@ -133,10 +129,6 @@ class NestAnalysis
       problem::PerDataSpace<std::vector<std::uint64_t>>& scatter_factors,
       problem::PerDataSpace<std::vector<double>>& cumulative_hops
     );
-
-  void ComputeApproxMulticastedAccesses(
-      std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::OperationSpace>& spatial_deltas);
 
   void ComputeNetworkLinkTransfers(
       std::vector<analysis::LoopState>::reverse_iterator cur,

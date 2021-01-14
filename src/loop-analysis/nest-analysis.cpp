@@ -111,11 +111,8 @@ void NestAnalysis::Reset()
     tile_nest.clear();
   }
 
-  per_level_dim_scales_.clear();
+  vector_strides_.clear();
   cur_transform_ = problem::OperationPoint();
-  mold_low_.clear();
-  mold_high_.clear();
-  mold_high_residual_.clear();
 
   num_spatial_elems_.clear();
   spatial_fanouts_.clear();
@@ -467,18 +464,24 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   problem::OperationPoint low_problem_point;
   problem::OperationPoint high_problem_point;
 
-  // We use the pre-computed molds within this level range.
-  // Above this level range, we use the transform problem-point to
-  // translate, rotate or otherwise transform the mold.
+  // Compute an AAHR mold, then use the cur_transform_ vector to
+  // translate the mold.
 
   auto loop_dim = cur->descriptor.dimension;
-  auto& mold_high = IsLastGlobalIteration_(level+1, loop_dim) ?
-    mold_high_residual_[level] : mold_high_[level];
+
+  problem::OperationPoint mold_low;
+  mold_low[loop_dim] = vector_strides_[level][loop_dim] * cur->descriptor.start;
+
+  problem::OperationPoint mold_high = vector_strides_[level];
+  mold_high[loop_dim] = vector_strides_[level][loop_dim] * 
+    (IsLastGlobalIteration_(level+1, loop_dim) ?
+     cur->descriptor.residual_end - cur->descriptor.start :
+     cur->descriptor.end - cur->descriptor.start);
 
   for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumDimensions); dim++)
   {
-    low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
-    high_problem_point[dim] = cur_transform_[dim] + mold_high[dim];
+    low_problem_point[dim] = cur_transform_[dim] + mold_low[dim];
+    high_problem_point[dim] = cur_transform_[dim] + mold_high[dim] - 1;
   }
 
   // Compute the polyhedron between the low and high problem
@@ -607,7 +610,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       // expression).
 
       int dim = int(cur->descriptor.dimension);
-      int scale = per_level_dim_scales_[level][dim];
+      int scale = vector_strides_[level][dim];
       auto saved_transform = cur_transform_[dim];
 
       // Iteration #0.
@@ -683,7 +686,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     else // not gExtrapolateUniformTemporal
     {
       int dim = int(cur->descriptor.dimension);
-      int scale = per_level_dim_scales_[level][dim];
+      int scale = vector_strides_[level][dim];
 
       auto saved_transform = cur_transform_[dim];
 
@@ -1060,7 +1063,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
   {
     auto next = cur + 1;
     int dim = int(cur->descriptor.dimension);
-    int scale = per_level_dim_scales_[level][dim];
+    int scale = vector_strides_[level][dim];
 
     // Save state.
     auto orig_spatial_id = spatial_id_;
@@ -1588,15 +1591,7 @@ void NestAnalysis::InitPerLevelDimScales()
 
   std::uint64_t num_levels = nest_state_.size();
 
-  per_level_dim_scales_.resize(num_levels);
-
-  mold_low_.resize(num_levels);
-  mold_high_.resize(num_levels);
-
-  // Handle residual volumes created due to imperfect factorization.
-  // The proper way to do this is to have a mold tree. We are trying
-  // an approximation with the implemented approach.
-  mold_high_residual_.resize(num_levels);
+  vector_strides_.resize(num_levels);
 
   // running scale maintained for each dimension.
   problem::PerProblemDimension<std::uint64_t> cur_scale;
@@ -1609,30 +1604,12 @@ void NestAnalysis::InitPerLevelDimScales()
 
     for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
     {
-      per_level_dim_scales_[level][dim] = cur_scale[dim];
+      vector_strides_[level][dim] = cur_scale[dim];
     }
 
     auto residual_scale = cur_scale;
     residual_scale[dim] *= (desc.residual_end - desc.start);  // FIXME: assuming stride = 1
     cur_scale[dim] *= (desc.end - desc.start); // FIXME: assuming stride = 1
-
-    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
-    {
-      mold_low_[level][dim] = desc.start;
-      mold_high_[level][dim] = cur_scale[dim] - 1; // FIXME: this is wrong.
-      mold_high_residual_[level][dim] = residual_scale[dim] - 1;
-    }
-
-    // std::cout << "LEVEL = " << level << " low = (";
-    // for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
-    //   std::cout << mold_low_[level][dim] << ",";
-    // std::cout << ") high = (";
-    // for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
-    //   std::cout << mold_high_[level][dim] << ",";
-    // std::cout << ") res_high = (";
-    // for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
-    //   std::cout << mold_high_residual_[level][dim] << ",";
-    // std::cout << ")\n";
   }
 }
 
@@ -1656,7 +1633,7 @@ problem::OperationPoint NestAnalysis::IndexToOperationPoint_(
   {
     auto desc = nest_state_[level].descriptor;
     int dim = int(desc.dimension);
-    point[dim] += (per_level_dim_scales_[level][dim] * indices[level]);
+    point[dim] += (vector_strides_[level][dim] * indices[level]);
   }
 
   return point;
@@ -1691,133 +1668,5 @@ bool NestAnalysis::IsLastGlobalIteration_(int level, problem::Shape::DimensionID
   return is_last;
 }
 
-// A heuristic way to infer multicast opportunities.
-// Will correctly identify multicasts when data type
-// indices don't depend on multiple problem indices.
-// (Ex. Weights and Outputs)
-// When data type indices depend on multiple problem indices
-// (Ex. Inputs), we break the assumption that multicast
-// inference can be done at a per-level basis.
-
-void NestAnalysis::ComputeApproxMulticastedAccesses(
-    std::vector<analysis::LoopState>::reverse_iterator cur,
-    const std::vector<problem::OperationSpace>& spatial_deltas)
-{
-  std::cerr << "ERROR: ComputeApproxMulticastedAccesses has not been updated to "
-            << "work with imperfect factorization." << std::endl;
-  exit(1);
-
-  // Find number of spatial levels that correspond to this master spatial level.
-  int master_level = cur->level;
-  uint64_t num_spatial_levels;
-  {
-    int next_temporal_level = master_level;
-    while (loop::IsSpatial(nest_state_[next_temporal_level].descriptor.spacetime_dimension) &&
-           next_temporal_level > 0)
-    {
-      next_temporal_level--;
-    }
-    if (next_temporal_level == 0 && loop::IsSpatial(nest_state_[0].descriptor.spacetime_dimension))
-    {
-      next_temporal_level--;
-    }
-    num_spatial_levels = cur->level - next_temporal_level;
-  }
-
-  // for each level, stores if the tiling at that level results in multicasting
-  // for any of the problem variables.
-  problem::PerDataSpace<std::vector<bool>>
-      is_multicast_level;  // per-pv, per-level
-  for (auto& it : is_multicast_level)
-  {
-    it.resize(num_spatial_levels, false);
-  }
-
-  std::vector<uint64_t> max_vals(num_spatial_levels);
-  std::vector<uint64_t> cur_vals(num_spatial_levels, 0);
-  for (uint64_t i = 0; i < num_spatial_levels; i++)
-  {
-    max_vals[i] = nest_state_[master_level - i].descriptor.end;
-  }
-
-  auto GetSpatialIndex = [&max_vals, &cur_vals]() {
-    uint64_t final_index = 0;
-    uint64_t scale = 1;
-    for (int i = max_vals.size() - 1; i >= 0; i--)
-    {
-      final_index += scale * cur_vals[i];
-      scale *= max_vals[i];
-    }
-    return final_index;
-  };
-
-  for (uint64_t level = 0; level < num_spatial_levels; level++)
-  {
-    std::vector<uint64_t> indices_to_compare;
-    for (uint64_t j = 0; j < max_vals[level]; j++)
-    {
-      cur_vals[level] = j;
-      indices_to_compare.push_back(GetSpatialIndex());
-    }
-    cur_vals[level] = 0;  // reset
-
-    problem::PerDataSpace<bool> is_multicast;
-    is_multicast.fill(true);
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-    {
-      for (uint64_t i = 1; i < indices_to_compare.size(); i++)
-      {
-        auto lhs_index = indices_to_compare[i];
-        auto rhs_index = indices_to_compare[i - 1];
-        if (!spatial_deltas[lhs_index]
-                 .CheckEquality(spatial_deltas[rhs_index], pv))
-        {
-          is_multicast[pv] = false;
-          break;
-        }
-      }
-    }
-
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-    {
-      is_multicast_level[pv][level] = is_multicast[pv];
-    }
-  }
-
-  problem::PerDataSpace<std::size_t> summed_deltas;
-  summed_deltas.fill(0);
-  for (uint64_t i = 0; i < spatial_deltas.size(); i++)
-  {
-    auto delta_sizes = spatial_deltas[i].GetSizes();
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-    {
-      summed_deltas[pv] += delta_sizes[pv];
-    }
-  }
-
-  problem::PerDataSpace<std::size_t> multicast_factors;
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-  {
-    uint64_t product_of_multicast_levels = 1;
-    for (uint64_t level = 0; level < num_spatial_levels; level++)
-    {
-      if (is_multicast_level[pv][level])
-      {
-        product_of_multicast_levels *= max_vals[level];
-      }
-    }
-    multicast_factors[pv] = product_of_multicast_levels;
-  }
-
-  // compute and update the number of accesses at various multicast factors.
-  auto& accesses = nest_state_[master_level].live_state[spatial_id_].accesses;
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-  {
-    ASSERT(accesses[pv].size() == spatial_deltas.size());
-    ASSERT(summed_deltas[pv] % multicast_factors[pv] == 0);
-    accesses[pv][multicast_factors[pv] - 1] +=
-        (summed_deltas[pv] / multicast_factors[pv] * num_epochs_);
-  }
-}
 
 } // namespace analysis
