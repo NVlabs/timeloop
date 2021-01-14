@@ -110,8 +110,7 @@ class NestAnalysis
   problem::OperationPoint IndexToOperationPoint_(const std::vector<int>& indices) const;
   bool IsLastGlobalIteration_(int level, problem::Shape::DimensionID dim) const;
   
-  problem::OperationSpace ComputeDeltas(
-    std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta = false);
+  problem::OperationSpace ComputeDeltas(std::vector<analysis::LoopState>::reverse_iterator cur);
 
   void ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
                                  //problem::OperationSpace& point_set,

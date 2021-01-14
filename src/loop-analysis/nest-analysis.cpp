@@ -424,10 +424,9 @@ void NestAnalysis::CollectWorkingSets()
 }
 
 // Delta computation (recursive call).
-// Unless skip_delta is true, returns the delta between the working set of the
+// Returns the delta between the working set of the
 // previous iteration and the current iteration of the current level.
-problem::OperationSpace NestAnalysis::ComputeDeltas(
-    std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta)
+problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopState>::reverse_iterator cur)
 {
   ASSERT(cur != nest_state_.rend());
   ASSERT(spatial_id_ < cur->live_state.size());
@@ -441,16 +440,29 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(
   
   int level = cur->level;
 
+  //
+  // Step II: Compute Accesses.
+  //
+
+  if (loop::IsSpatial(cur->descriptor.spacetime_dimension))
+  {
+    ComputeSpatialWorkingSet(cur);
+  }
+  else
+  {
+    ComputeTemporalWorkingSet(cur, cur_state);
+  }
+
+  //
+  // Step I - Compute Working Set.
+  //
+
   // The point set for this invocation. Note that we do *not* initialize this to
   // the last-seen state at the end of the prior invocation. Doing so causes the
   // state at this level to grow indefinitely, which isn't what we're trying to
   // model. The responsibility of this level is to supply all the deltas
   // demanded by the next-inner level for this invocation.
   problem::OperationSpace point_set(workload_);
-
-  //
-  // Step I - Compute Working Set.
-  //
 
   problem::OperationPoint low_problem_point;
   problem::OperationPoint high_problem_point;
@@ -467,19 +479,6 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(
   {
     low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
     high_problem_point[dim] = cur_transform_[dim] + mold_high[dim];
-  }
-
-  //
-  // Step II: Compute Accesses.
-  //
-
-  if (loop::IsSpatial(cur->descriptor.spacetime_dimension))
-  {
-    ComputeSpatialWorkingSet(cur);
-  }
-  else
-  {
-    ComputeTemporalWorkingSet(cur, cur_state);
   }
 
   // Compute the polyhedron between the low and high problem
@@ -505,10 +504,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(
 
   // Calculate delta to send up to caller.
   problem::OperationSpace delta(workload_);
-  if (!skip_delta)
-  {
-    delta = point_set - cur_state.last_point_set;
-  }
+  delta = point_set - cur_state.last_point_set;
 
   // Update last-seen point set for this level.
   cur_state.last_point_set = point_set;
@@ -620,7 +616,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       {
         // Invoke next (inner) loop level.
         ++cur;
-        auto temporal_delta = ComputeDeltas(cur, false);
+        auto temporal_delta = ComputeDeltas(cur);
         --cur;
 
         temporal_delta_sizes.push_back(temporal_delta.GetSizes());
@@ -643,7 +639,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         num_epochs_ *= virtual_iterations;
 
         ++cur;
-        auto temporal_delta = ComputeDeltas(cur, false);
+        auto temporal_delta = ComputeDeltas(cur);
         --cur;
 
         num_epochs_ = saved_epochs;
@@ -661,7 +657,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       {
         // Invoke next (inner) loop level.
         ++cur;
-        auto temporal_delta = ComputeDeltas(cur, false);
+        auto temporal_delta = ComputeDeltas(cur);
         --cur;
 
         // If we ran the virtual-iteration logic above, we shouldn't actually
