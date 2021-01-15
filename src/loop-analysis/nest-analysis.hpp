@@ -60,6 +60,9 @@ class NestAnalysis
 
   // Memoization structures to accelerate IndexToOperationPoint()
   std::vector<problem::OperationPoint> vector_strides_;
+  std::vector<problem::OperationPoint> mold_low_;
+  std::vector<problem::OperationPoint> mold_high_;
+  std::vector<problem::OperationPoint> mold_high_residual_;
   problem::OperationPoint cur_transform_;
 
   // per-level properties.

@@ -464,24 +464,18 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   problem::OperationPoint low_problem_point;
   problem::OperationPoint high_problem_point;
 
-  // Compute an AAHR mold, then use the cur_transform_ vector to
-  // translate the mold.
+  // We use the pre-computed molds within this level range.
+  // Above this level range, we use the transform problem-point to
+  // translate, rotate or otherwise transform the mold.
 
   auto loop_dim = cur->descriptor.dimension;
-
-  problem::OperationPoint mold_low;
-  mold_low[loop_dim] = vector_strides_[level][loop_dim] * cur->descriptor.start;
-
-  problem::OperationPoint mold_high = vector_strides_[level];
-  mold_high[loop_dim] = vector_strides_[level][loop_dim] * 
-    (IsLastGlobalIteration_(level+1, loop_dim) ?
-     cur->descriptor.residual_end - cur->descriptor.start :
-     cur->descriptor.end - cur->descriptor.start);
+  auto& mold_high = IsLastGlobalIteration_(level+1, loop_dim) ?
+    mold_high_residual_[level] : mold_high_[level];
 
   for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumDimensions); dim++)
   {
-    low_problem_point[dim] = cur_transform_[dim] + mold_low[dim];
-    high_problem_point[dim] = cur_transform_[dim] + mold_high[dim] - 1;
+    low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
+    high_problem_point[dim] = cur_transform_[dim] + mold_high[dim];
   }
 
   // Compute the polyhedron between the low and high problem
@@ -1593,9 +1587,20 @@ void NestAnalysis::InitPerLevelDimScales()
 
   vector_strides_.resize(num_levels);
 
+  mold_low_.resize(num_levels);
+  mold_high_.resize(num_levels);
+
+  // Handle residual volumes created due to imperfect factorization.
+  // The proper way to do this is to have a mold tree. We are trying
+  // an approximation with the implemented approach.
+  mold_high_residual_.resize(num_levels);
+
   // running scale maintained for each dimension.
   problem::PerProblemDimension<std::uint64_t> cur_scale;
   cur_scale.fill(1);
+
+  problem::PerProblemDimension<std::uint64_t> cur_scale_residual;
+  cur_scale_residual.fill(1);
 
   for (std::uint64_t level = 0; level < num_levels; level++)
   {
@@ -1607,9 +1612,15 @@ void NestAnalysis::InitPerLevelDimScales()
       vector_strides_[level][dim] = cur_scale[dim];
     }
 
-    auto residual_scale = cur_scale;
-    residual_scale[dim] *= (desc.residual_end - desc.start);  // FIXME: assuming stride = 1
+    cur_scale_residual[dim] += (cur_scale[dim]*(desc.residual_end - desc.start - 1)); // FIXME: assuming stride = 1
     cur_scale[dim] *= (desc.end - desc.start); // FIXME: assuming stride = 1
+    
+    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+    {
+      //mold_low_[level][dim] = desc.start; Should be 0. FIXME: verify.
+      mold_high_[level][dim] = cur_scale[dim] - 1;
+      mold_high_residual_[level][dim] = cur_scale_residual[dim] - 1;
+    }
   }
 }
 
