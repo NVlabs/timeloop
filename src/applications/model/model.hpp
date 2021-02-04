@@ -53,6 +53,10 @@ class Application
 {
  public:
   std::string name_;
+  double energy_;
+  double area_;
+  double cycle_;
+  double utilization_;
 
  protected:
   // Critical state.
@@ -95,7 +99,11 @@ class Application
   Application(config::CompoundConfig* config,
               std::string output_dir = ".",
               std::string name = "timeloop-model") :
-      name_(name)
+      name_(name),
+      energy_(0.0),
+      area_(0.0),
+      cycle_(0.0),
+      utilization_(0.0)
   {    
     auto rootNode = config->getRoot();
 
@@ -174,7 +182,6 @@ class Application
     }
 
     arch_props_ = new ArchProperties(arch_specs_);
-
     // Architecture constraints.
     config::CompoundConfigNode arch_constraints;
 
@@ -282,7 +289,6 @@ class Application
       std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
                 << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
           engine.GetTopology().MACCs() << std::endl;
-    
       std::ofstream map_txt_file(map_txt_file_name);
       mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().TileSizes());
       map_txt_file.close();
@@ -299,6 +305,11 @@ class Application
     ar << BOOST_SERIALIZATION_NVP(mapping);
     const Application* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
+
+    this->area_ = engine.Area();
+    this->cycle_ = engine.Cycles();
+    this->energy_ = engine.Energy();
+    this->utilization_ = engine.Utilization();
   }
 };
 
