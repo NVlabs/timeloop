@@ -56,7 +56,9 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
                           model::Engine::Specs& arch_specs,
                           problem::Workload workload)
 {
+  arch_props_ = ArchProperties();
   arch_props_.Construct(arch_specs);
+
   workload_ = workload;
   
   std::map<unsigned, std::map<problem::Shape::DimensionID, int>> user_factors;
@@ -129,7 +131,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   // Construct the mapping from the parsed sub-structures.
   // A set of subnests, one for each tiling level.
   loop::NestConfig subnests(arch_props_.TilingLevels());
-
+  
   // Construct num_storage_levels loop-nest partitions and assign factors, dimensions
   // and spatial split points.
   for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
