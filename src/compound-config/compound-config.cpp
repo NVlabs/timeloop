@@ -532,7 +532,6 @@ bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) {
 
 
 
-
 /* CompoundConfig */
 
 CompoundConfig::CompoundConfig(const char* inputFile) {
@@ -548,7 +547,6 @@ CompoundConfig::CompoundConfig(const char* inputFile) {
     root = CompoundConfigNode(nullptr, YConfig, this);
     useLConfig = false;
     f.close();
-    std::cout << "file closed" << std::endl;
     // std::cout << YConfig << std::endl;
   } else {
     std::cerr << "ERROR: Input configuration file does not end with .cfg, .yml, or .yaml" << std::endl;

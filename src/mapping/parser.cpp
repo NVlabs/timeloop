@@ -139,7 +139,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   // Construct the mapping from the parsed sub-structures.
   // A set of subnests, one for each tiling level.
   loop::NestConfig subnests(arch_props_.TilingLevels());
-  
+
   // Construct num_storage_levels loop-nest partitions and assign factors, dimensions
   // and spatial split points.
   for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
