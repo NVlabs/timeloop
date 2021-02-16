@@ -72,9 +72,9 @@ void Nest::AddLoop(Descriptor descriptor)
 }
 
 void Nest::AddLoop(problem::Shape::DimensionID dimension, int start, int end, int stride,
-                   spacetime::Dimension spacetime_dimension)
+                   spacetime::Dimension spacetime_dimension, int residual_end)
 {
-  AddLoop(loop::Descriptor(dimension, start, end, stride, spacetime_dimension));
+  AddLoop(loop::Descriptor(dimension, start, end, stride, spacetime_dimension, residual_end));
 }
 
 bool Nest::AddStorageTilingBoundary()
@@ -244,6 +244,11 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
     dimids.push_back(loop.dimension);
     dimnames.push_back(dimname);
     dimbounds.push_back(loop.end);
+    if (loop.residual_end != loop.end)
+    {
+      std::cerr << "ERROR: residual ends are not supported for Whoop output." << std::endl;
+      exit(1);
+    }
     varnames.push_back(varname);
     dimname_to_bound[dimname] = loop.end;
 

@@ -47,6 +47,8 @@ class OperationPoint : public Point
   }
 };
 
+std::ostream& operator << (std::ostream& out, const OperationPoint& p);
+
 // ======================================== //
 //              OperationSpace              //
 // ======================================== //

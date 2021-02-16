@@ -111,10 +111,8 @@ void NestAnalysis::Reset()
     tile_nest.clear();
   }
 
-  per_level_dim_scales_.clear();
+  vector_strides_.clear();
   cur_transform_ = problem::OperationPoint();
-  mold_low_.clear();
-  mold_high_.clear();
 
   num_spatial_elems_.clear();
   spatial_fanouts_.clear();
@@ -127,6 +125,7 @@ void NestAnalysis::Reset()
   linked_spatial_level_.clear();
 
   working_sets_computed_ = false;
+  imperfectly_factorized_ = false;
 
   compute_info_.Reset();
 
@@ -230,6 +229,7 @@ void NestAnalysis::ComputeWorkingSets()
   {
     InitializeNestProperties();
     InitializeLiveState();
+    DetectImperfectFactorization();
 
     // Recursive call starting from the last element of the list.
     num_epochs_ = 1;
@@ -242,6 +242,18 @@ void NestAnalysis::ComputeWorkingSets()
 }
 
 // Internal helper methods
+
+void NestAnalysis::DetectImperfectFactorization()
+{
+  for (auto cur = nest_state_.rbegin(); cur != nest_state_.rend(); cur++)
+  {
+    if (cur->descriptor.end != cur->descriptor.residual_end)
+    {
+      imperfectly_factorized_ = true;
+      break;
+    }
+  }  
+}
 
 void NestAnalysis::InitializeNestProperties()
 {
@@ -367,6 +379,7 @@ void NestAnalysis::CollectWorkingSets()
         tile.size                   = condensed_state.max_size[pv];
         // tile.partition_size         = 0; // will be set later.
         tile.accesses               = condensed_state.accesses[pv]; // network accesses
+//        if (pv == 2) { std::cout << "TILE SIZE = " << tile.size << " ACCESSES = " << tile.accesses[0] << std::endl; }
         // tile.fills                  = 0; // will be set later
         tile.scatter_factors        = condensed_state.scatter_factors[pv];
         tile.cumulative_hops        = condensed_state.cumulative_hops[pv];
@@ -408,10 +421,9 @@ void NestAnalysis::CollectWorkingSets()
 }
 
 // Delta computation (recursive call).
-// Unless skip_delta is true, returns the delta between the working set of the
+// Returns the delta between the working set of the
 // previous iteration and the current iteration of the current level.
-problem::OperationSpace NestAnalysis::ComputeDeltas(
-    std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta)
+problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopState>::reverse_iterator cur)
 {
   ASSERT(cur != nest_state_.rend());
   ASSERT(spatial_id_ < cur->live_state.size());
@@ -423,6 +435,25 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(
 
   auto& cur_state = cur->live_state[spatial_id_];
   
+  int level = cur->level;
+
+  //
+  // Step II: Compute Accesses.
+  //
+
+  if (loop::IsSpatial(cur->descriptor.spacetime_dimension))
+  {
+    ComputeSpatialWorkingSet(cur);
+  }
+  else
+  {
+    ComputeTemporalWorkingSet(cur, cur_state);
+  }
+
+  //
+  // Step I - Compute Working Set.
+  //
+
   // The point set for this invocation. Note that we do *not* initialize this to
   // the last-seen state at the end of the prior invocation. Doing so causes the
   // state at this level to grow indefinitely, which isn't what we're trying to
@@ -430,16 +461,29 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(
   // demanded by the next-inner level for this invocation.
   problem::OperationSpace point_set(workload_);
 
-  if (loop::IsSpatial(cur->descriptor.spacetime_dimension))
+  problem::OperationPoint low_problem_point;
+  problem::OperationPoint high_problem_point;
+
+  // We use the pre-computed molds within this level range.
+  // Above this level range, we use the transform problem-point to
+  // translate, rotate or otherwise transform the mold.
+
+  auto loop_dim = cur->descriptor.dimension;
+  auto& mold_high = IsLastGlobalIteration_(level+1, loop_dim) ?
+    mold_high_residual_[level] : mold_high_[level];
+
+  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumDimensions); dim++)
   {
-    ComputeSpatialWorkingSet(cur, point_set);
-  }
-  else
-  {
-    ComputeTemporalWorkingSet(cur, point_set, cur_state);
+    low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
+    high_problem_point[dim] = cur_transform_[dim] + mold_high[dim];
   }
 
-  int level = cur->level;
+  // Compute the polyhedron between the low and high problem
+  // points (exclusive). Note that this special constructor
+  // is only available for certain point-set implementations.
+  // Note: we aren't using +=. This means we're ignoring subvolumes
+  // returned to us by recursive FillSpatialDeltas calls.
+  point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
 
   // Record the maximum point set size ever seen across all invocations
   // of this level.
@@ -455,36 +499,9 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(
                    [](std::size_t x, std::size_t y) { return std::max(x, y); });
   }
 
-  // Reset indices
-  indices_[level] = cur->descriptor.start;
-
-  bool dump = false; // (level >= 4);
-  if (dump)
-  {
-    std::cout << "--------------------\n";
-    std::cout << "LEVEL " << level << " (DeltaCalc)" << std::endl;
-    std::cout << "--------------------\n";
-
-    std::cout << "    Last:\n";
-    cur_state.last_point_set.Print();
-    std::cout << "    New:\n";
-    point_set.Print();
-  }
-  
   // Calculate delta to send up to caller.
   problem::OperationSpace delta(workload_);
-  if (!skip_delta)
-  {
-    delta = point_set - cur_state.last_point_set;
-  }
-
-  if (dump)
-  {
-    std::cout << "    Delta:\n";
-    delta.Print();
-    //std::cout << "    New after Minus op:\n";
-    //point_set.Print();
-  }    
+  delta = point_set - cur_state.last_point_set;
 
   // Update last-seen point set for this level.
   cur_state.last_point_set = point_set;
@@ -493,8 +510,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(
 }
 
 void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                     problem::OperationSpace& point_set,
-                                     analysis::ElementState& cur_state)
+                                             analysis::ElementState& cur_state)
 {
   // We do two things in this function: (a) calculate the size of the temporal
   // working set for this level, and (b) calculate the number of accesses to
@@ -526,38 +542,13 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   bool dump = false; // (level >= 4);
   
   //
-  // Step I: Compute Temporal Working Set.
-  //
-
-  problem::OperationPoint low_problem_point;
-  problem::OperationPoint high_problem_point;
-
-  // We use the pre-computed molds within this level range.
-  // Above this level range, we use the transform problem-point to
-  // translate, rotate or otherwise transform the mold.
-  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumDimensions); dim++)
-  {
-    low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
-    high_problem_point[dim] = cur_transform_[dim] + mold_high_[level][dim];
-  }
-
-  // Compute the polyhedron between the low and high problem
-  // points (exclusive). Note that this special constructor
-  // is only available for certain point-set implementations.
-  point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
-
-  if (dump)
-  {
-    std::cout << "Final point set:\n    ";
-    point_set.Print();
-  }
-
-  //
   // Step II: Compute Accesses by accumulating deltas returned by inner levels.
   //
-  std::uint64_t num_iterations = 1 +
-    ((cur->descriptor.end - 1 - cur->descriptor.start) /
-     cur->descriptor.stride);
+  int end = IsLastGlobalIteration_(level+1, cur->descriptor.dimension) ?
+    cur->descriptor.residual_end : cur->descriptor.end;
+
+  std::uint64_t num_iterations = 1 + ((end - 1 - cur->descriptor.start) /
+                                      cur->descriptor.stride);
 
   if (level == 0) // base
   {
@@ -596,7 +587,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool run_last_iteration = false;
+    bool run_last_iteration = imperfectly_factorized_;
       
     if (gExtrapolateUniformTemporal)
     {
@@ -613,7 +604,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       // expression).
 
       int dim = int(cur->descriptor.dimension);
-      int scale = per_level_dim_scales_[level][dim];
+      int scale = vector_strides_[level][dim];
       auto saved_transform = cur_transform_[dim];
 
       // Iteration #0.
@@ -622,7 +613,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       {
         // Invoke next (inner) loop level.
         ++cur;
-        auto temporal_delta = ComputeDeltas(cur, false);
+        auto temporal_delta = ComputeDeltas(cur);
         --cur;
 
         temporal_delta_sizes.push_back(temporal_delta.GetSizes());
@@ -645,7 +636,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         num_epochs_ *= virtual_iterations;
 
         ++cur;
-        auto temporal_delta = ComputeDeltas(cur, false);
+        auto temporal_delta = ComputeDeltas(cur);
         --cur;
 
         num_epochs_ = saved_epochs;
@@ -663,7 +654,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       {
         // Invoke next (inner) loop level.
         ++cur;
-        auto temporal_delta = ComputeDeltas(cur, false);
+        auto temporal_delta = ComputeDeltas(cur);
         --cur;
 
         // If we ran the virtual-iteration logic above, we shouldn't actually
@@ -689,12 +680,12 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     else // not gExtrapolateUniformTemporal
     {
       int dim = int(cur->descriptor.dimension);
-      int scale = per_level_dim_scales_[level][dim];
+      int scale = vector_strides_[level][dim];
 
       auto saved_transform = cur_transform_[dim];
 
       for (indices_[level] = cur->descriptor.start;
-           indices_[level] < cur->descriptor.end;
+           indices_[level] < end;
            indices_[level] += cur->descriptor.stride)
       {
         // Invoke next (inner) loop level.
@@ -736,6 +727,17 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
+        // if (pv ==2)
+        // {
+        //   std::cout << "Level " << level << " UPDATING accesses " << cur_state.accesses[pv][0] << " final_delta "
+        //             << final_delta_sizes[pv] << " num_epochs " << num_epochs_ << " num_deltas " << num_deltas 
+        //             << std::endl;
+        //   for (unsigned i = 0; i < num_deltas; i++)
+        //   {
+        //     std::cout << "    size " << temporal_delta_sizes[i][pv] << " scale " << temporal_delta_scale[i] << std::endl;
+        //   }
+        // }
+
         // Write-backs of read-modify-write data types consume 2
         // accesses *except* for the first write.
         if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
@@ -761,36 +763,13 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     } // storage boundary
     
   } // level > 0
+
 }
 
-void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                            problem::OperationSpace& point_set)
+void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur)
 {
   int level = cur->level;
   ASSERT(master_spatial_level_[level]);
-
-  //
-  // Step I - Compute Spatial Working Set.
-  //
-
-  problem::OperationPoint low_problem_point;
-  problem::OperationPoint high_problem_point;
-
-  // We use the pre-computed molds within this level range.
-  // Above this level range, we use the transform problem-point to
-  // translate, rotate or otherwise transform the mold.
-  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumDimensions); dim++)
-  {
-    low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
-    high_problem_point[dim] = cur_transform_[dim] + mold_high_[level][dim];
-  }
-
-  // Compute the polyhedron between the low and high problem
-  // points (exclusive). Note that this special constructor
-  // is only available for certain point-set implementations.
-  // Note: we aren't using +=. This means we're ignoring subvolumes
-  // returned to us by recursive FillSpatialDeltas calls.
-  point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
 
   //
   // Step II: Compute Spatial Deltas, etc.
@@ -1011,23 +990,23 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
     }
   }  
   
-  bool dump = false; // (level >= 4);
-  if (dump)
-  {
-    std::cout << "-------\n";
-    std::cout << "SPATIAL LEVEL " << level << std::endl;
-    std::cout << "-------\n";
+  // bool dump = false; // (level >= 4);
+  // if (dump)
+  // {
+  //   std::cout << "-------\n";
+  //   std::cout << "SPATIAL LEVEL " << level << std::endl;
+  //   std::cout << "-------\n";
 
-    std::cout << "analysis::LoopState:\n";
-    for (int l = level; l < int(nest_state_.size()); l++)
-    {
-      std::cout << "    Level " << l << ": "
-                << nest_state_[l].descriptor.dimension
-                << " = " << indices_[l] << std::endl;
-    }
-    std::cout << "Final Spatial Point Set:\n    ";
-    point_set.Print();
-  }
+  //   std::cout << "analysis::LoopState:\n";
+  //   for (int l = level; l < int(nest_state_.size()); l++)
+  //   {
+  //     std::cout << "    Level " << l << ": "
+  //               << nest_state_[l].descriptor.dimension
+  //               << " = " << indices_[l] << std::endl;
+  //   }
+  //   std::cout << "Final Spatial Point Set:\n    ";
+  //   point_set.Print();
+  // }
 }
 
 // Computes deltas needed by the spatial elements in the next level.
@@ -1040,16 +1019,19 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 {
   int level = cur->level;
 
+  int end = IsLastGlobalIteration_(level+1, cur->descriptor.dimension) ?
+    cur->descriptor.residual_end : cur->descriptor.end;
+
   // base_index determines which element of spatial_deltas
   // is going to be updated at the last recursive call to FillSpatialDeltas.
   // It's value is updated as we recursively call FillSpatialDeltas.
   // Very similar to how spatial_id_ is used to identify the spatial element
   // that we are currently computing the working set for.
-  base_index *= cur->descriptor.end;
+  base_index *= end;
 
   if (level == 0)
   {
-    // std::uint64_t body_iterations = (cur->descriptor.end - cur->descriptor.start) * num_epochs_;
+    // std::uint64_t body_iterations = (end - cur->descriptor.start) * num_epochs_;
     // macs_ += body_iterations;
     // to avoid double counting of compute_cycles_
     if (base_index == 0 && spatial_id_ == 0)
@@ -1060,7 +1042,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
     // No more recursive calls, directly update spatial_deltas.
     for (indices_[level] = cur->descriptor.start;
-         indices_[level] < cur->descriptor.end;
+         indices_[level] < end;
          indices_[level] += cur->descriptor.stride)
     {
       std::uint64_t spatial_delta_index = base_index + indices_[level];
@@ -1075,7 +1057,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
   {
     auto next = cur + 1;
     int dim = int(cur->descriptor.dimension);
-    int scale = per_level_dim_scales_[level][dim];
+    int scale = vector_strides_[level][dim];
 
     // Save state.
     auto orig_spatial_id = spatial_id_;
@@ -1088,7 +1070,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       // extrapolate the entire *vector* of spatial_deltas returned by the
       // recursive FillSpatialDeltas() call. TODO.
       for (indices_[level] = cur->descriptor.start;
-           indices_[level] < cur->descriptor.end;
+           indices_[level] < end;
            indices_[level] += cur->descriptor.stride)
       {
         ++cur;
@@ -1102,9 +1084,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
     }
     else // Next-inner loop level is temporal.
     {
-      unsigned num_iterations = 1 +
-        ((cur->descriptor.end - 1 - cur->descriptor.start) /
-         cur->descriptor.stride);
+      unsigned num_iterations = 1 + ((end - 1 - cur->descriptor.start) /
+                                     cur->descriptor.stride);
 
       unsigned iterations_run = 0;
       indices_[level] = cur->descriptor.start;
@@ -1113,7 +1094,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
       // Run iterations #0, #1, ... #iterations_to_run-1
       for (indices_[level] = cur->descriptor.start;
-           indices_[level] < cur->descriptor.end && iterations_run < iterations_to_run;
+           indices_[level] < end && iterations_run < iterations_to_run;
            indices_[level] += cur->descriptor.stride, iterations_run++)
       {
         ++cur;
@@ -1148,7 +1129,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
         // Iterations #num_iterations_to_run through #last.
         problem::OperationSpace* prev_temporal_delta = &opspace_lastrun;
         for (;
-             indices_[level] < cur->descriptor.end;
+             indices_[level] < end;
              indices_[level] += cur->descriptor.stride, iterations_run++)
         {
           std::uint64_t spatial_delta_index = base_index + indices_[level];
@@ -1604,13 +1585,22 @@ void NestAnalysis::InitPerLevelDimScales()
 
   std::uint64_t num_levels = nest_state_.size();
 
-  per_level_dim_scales_.resize(num_levels);
+  vector_strides_.resize(num_levels);
+
   mold_low_.resize(num_levels);
   mold_high_.resize(num_levels);
+
+  // Handle residual volumes created due to imperfect factorization.
+  // The proper way to do this is to have a mold tree. We are trying
+  // an approximation with the implemented approach.
+  mold_high_residual_.resize(num_levels);
 
   // running scale maintained for each dimension.
   problem::PerProblemDimension<std::uint64_t> cur_scale;
   cur_scale.fill(1);
+
+  problem::PerProblemDimension<std::uint64_t> cur_scale_residual;
+  cur_scale_residual.fill(1);
 
   for (std::uint64_t level = 0; level < num_levels; level++)
   {
@@ -1619,15 +1609,17 @@ void NestAnalysis::InitPerLevelDimScales()
 
     for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
     {
-      per_level_dim_scales_[level][dim] = cur_scale[dim];
+      vector_strides_[level][dim] = cur_scale[dim];
     }
 
-    cur_scale[dim] *= (desc.end - desc.start);  // FIXME: assuming stride = 1
-
+    cur_scale_residual[dim] += (cur_scale[dim]*(desc.residual_end - desc.start - 1)); // FIXME: assuming stride = 1
+    cur_scale[dim] *= (desc.end - desc.start); // FIXME: assuming stride = 1
+    
     for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
     {
-      mold_low_[level][dim] = desc.start;
-      mold_high_[level][dim] = cur_scale[dim] - 1; // FIXME: this is wrong.
+      //mold_low_[level][dim] = desc.start; Should be 0. FIXME: verify.
+      mold_high_[level][dim] = cur_scale[dim] - 1;
+      mold_high_residual_[level][dim] = cur_scale_residual[dim] - 1;
     }
   }
 }
@@ -1652,135 +1644,40 @@ problem::OperationPoint NestAnalysis::IndexToOperationPoint_(
   {
     auto desc = nest_state_[level].descriptor;
     int dim = int(desc.dimension);
-    point[dim] += (per_level_dim_scales_[level][dim] * indices[level]);
+    point[dim] += (vector_strides_[level][dim] * indices[level]);
   }
 
   return point;
 }
 
-// A heuristic way to infer multicast opportunities.
-// Will correctly identify multicasts when data type
-// indices don't depend on multiple problem indices.
-// (Ex. Weights and Outputs)
-// When data type indices depend on multiple problem indices
-// (Ex. Inputs), we break the assumption that multicast
-// inference can be done at a per-level basis.
-
-void NestAnalysis::ComputeApproxMulticastedAccesses(
-    std::vector<analysis::LoopState>::reverse_iterator cur,
-    const std::vector<problem::OperationSpace>& spatial_deltas)
+// For a specific dimension, detemine if we are at the last iteration of a loop at
+// every loop level from the root of the tree down to this level.
+bool NestAnalysis::IsLastGlobalIteration_(int level, problem::Shape::DimensionID dim) const
 {
-  // Find number of spatial levels that correspond to this master spatial level.
-  int master_level = cur->level;
-  uint64_t num_spatial_levels;
+  // We need to look at all loops between root and the given level
+  // and return true if they are all at their last iteration.
+  // Note that we only need to look at the residual ends, because the
+  // definition of global last iteration means that we are at the residuals
+  // at each loop.
+
+  // Note that this logic trivially works if "level" is the outermost
+  // level of the nest, since we are effectively at the "last" iteration
+  // of all theoretical outer loop nests. This means that the outermost
+  // loop nest always uses its residual end and not its regular end.
+  bool is_last = true;
+  for (int l = level; l < int(nest_state_.size()); l++)
   {
-    int next_temporal_level = master_level;
-    while (loop::IsSpatial(nest_state_[next_temporal_level].descriptor.spacetime_dimension) &&
-           next_temporal_level > 0)
-    {
-      next_temporal_level--;
-    }
-    if (next_temporal_level == 0 && loop::IsSpatial(nest_state_[0].descriptor.spacetime_dimension))
-    {
-      next_temporal_level--;
-    }
-    num_spatial_levels = cur->level - next_temporal_level;
-  }
+    if (nest_state_[l].descriptor.dimension != dim)
+      continue;
 
-  // for each level, stores if the tiling at that level results in multicasting
-  // for any of the problem variables.
-  problem::PerDataSpace<std::vector<bool>>
-      is_multicast_level;  // per-pv, per-level
-  for (auto& it : is_multicast_level)
-  {
-    it.resize(num_spatial_levels, false);
-  }
-
-  std::vector<uint64_t> max_vals(num_spatial_levels);
-  std::vector<uint64_t> cur_vals(num_spatial_levels, 0);
-  for (uint64_t i = 0; i < num_spatial_levels; i++)
-  {
-    max_vals[i] = nest_state_[master_level - i].descriptor.end;
-  }
-
-  auto GetSpatialIndex = [&max_vals, &cur_vals]() {
-    uint64_t final_index = 0;
-    uint64_t scale = 1;
-    for (int i = max_vals.size() - 1; i >= 0; i--)
+    if ((indices_[l] + nest_state_[l].descriptor.stride) < nest_state_[l].descriptor.residual_end)
     {
-      final_index += scale * cur_vals[i];
-      scale *= max_vals[i];
-    }
-    return final_index;
-  };
-
-  for (uint64_t level = 0; level < num_spatial_levels; level++)
-  {
-    std::vector<uint64_t> indices_to_compare;
-    for (uint64_t j = 0; j < max_vals[level]; j++)
-    {
-      cur_vals[level] = j;
-      indices_to_compare.push_back(GetSpatialIndex());
-    }
-    cur_vals[level] = 0;  // reset
-
-    problem::PerDataSpace<bool> is_multicast;
-    is_multicast.fill(true);
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-    {
-      for (uint64_t i = 1; i < indices_to_compare.size(); i++)
-      {
-        auto lhs_index = indices_to_compare[i];
-        auto rhs_index = indices_to_compare[i - 1];
-        if (!spatial_deltas[lhs_index]
-                 .CheckEquality(spatial_deltas[rhs_index], pv))
-        {
-          is_multicast[pv] = false;
-          break;
-        }
-      }
-    }
-
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-    {
-      is_multicast_level[pv][level] = is_multicast[pv];
+      is_last = false;
+      break;
     }
   }
-
-  problem::PerDataSpace<std::size_t> summed_deltas;
-  summed_deltas.fill(0);
-  for (uint64_t i = 0; i < spatial_deltas.size(); i++)
-  {
-    auto delta_sizes = spatial_deltas[i].GetSizes();
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-    {
-      summed_deltas[pv] += delta_sizes[pv];
-    }
-  }
-
-  problem::PerDataSpace<std::size_t> multicast_factors;
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-  {
-    uint64_t product_of_multicast_levels = 1;
-    for (uint64_t level = 0; level < num_spatial_levels; level++)
-    {
-      if (is_multicast_level[pv][level])
-      {
-        product_of_multicast_levels *= max_vals[level];
-      }
-    }
-    multicast_factors[pv] = product_of_multicast_levels;
-  }
-
-  // compute and update the number of accesses at various multicast factors.
-  auto& accesses = nest_state_[master_level].live_state[spatial_id_].accesses;
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-  {
-    ASSERT(accesses[pv].size() == spatial_deltas.size());
-    ASSERT(summed_deltas[pv] % multicast_factors[pv] == 0);
-    accesses[pv][multicast_factors[pv] - 1] +=
-        (summed_deltas[pv] / multicast_factors[pv] * num_epochs_);
-  }
+  return is_last;
 }
+
 
 } // namespace analysis
