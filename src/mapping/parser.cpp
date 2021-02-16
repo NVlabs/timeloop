@@ -379,7 +379,7 @@ std::map<problem::Shape::DimensionID, std::pair<int,int>> ParseUserFactors(confi
   std::string buffer;
   if (directive.lookupValue("factors", buffer))
   {
-    std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)(/([0-9]+))?", std::regex::extended);
+    std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)(,([0-9]+))?", std::regex::extended);
     std::smatch sm;
     std::string str = std::string(buffer);
 

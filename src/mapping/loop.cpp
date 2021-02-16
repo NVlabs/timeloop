@@ -87,7 +87,7 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
   {
     out << "for " << problem::GetShape()->DimensionIDToName.at(dimension) << " in [" << start << ":" << end;
     if (residual_end != end)
-      out << "/" << residual_end;
+      out << "," << residual_end;
     out << ")";
     if (IsSpatial(spacetime_dimension))
     {
@@ -101,7 +101,7 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
   {
     out << "(" << dimension << "," << end;
     if (residual_end != end)
-      out << "/" << residual_end;
+      out << "," << residual_end;
     if (loop::IsSpatial(spacetime_dimension))
     {
       if (IsSpatialX(spacetime_dimension))
@@ -166,7 +166,7 @@ std::string Descriptor::PrintCompact() const
   std::ostringstream str;
   str << problem::GetShape()->DimensionIDToName.at(dimension) << end;
   if (residual_end != end)
-    str << "/" << residual_end;
+    str << "," << residual_end;
   if (IsSpatial(spacetime_dimension))
   {
     if (IsSpatialX(spacetime_dimension))
