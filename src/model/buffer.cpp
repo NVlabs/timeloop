@@ -1031,7 +1031,7 @@ void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& 
 
       assert(block_size % 2 == 0);
 
-      double lookup_density_idx = floor(tile_mean_density/0.1)-1; // 0.1 is at idx 0
+      double lookup_density_idx = tile_mean_density >= 0.1 ? floor(tile_mean_density/0.1)-1 : 0; // 0.1 is at idx 0
       double vector_width_threshold = VectorWidthCoefficientTable.at(block_size).at(lookup_density_idx);
 
       if (vector_width_threshold > tile_size/block_size){
@@ -1381,7 +1381,7 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << "-----" << std::endl;
 
 // flag to print verbose sparse stats or dense stats
-// #define PRINT_SPARSE_STATS
+#define PRINT_SPARSE_STATS
 #ifdef PRINT_SPARSE_STATS
   out << indent << indent << "Technology                   : " << specs.technology << std::endl;
   out << indent << indent << "Size                         : " << specs.size << std::endl;
@@ -1477,7 +1477,7 @@ void BufferLevel::Print(std::ostream& out) const
 #ifdef PRINT_SPARSE_STATS
       out << indent + indent << "Partition size                                        : " << stats.partition_size.at(pv) << std::endl;
       out << indent + indent << "Parent level name                                     : " << stats.parent_level_name.at(pv) << std::endl;
-      out << indent + indent << "Overbooked proportion                                 : " << 1.0 - stats.tile_confidence.at(pv) << std::endl;
+      out << indent + indent << "Overbooked proportion                                 : " << 100*(1.0 - stats.tile_confidence.at(pv)) << "%" << std::endl;
       out << indent + indent << "Max tile density                                      : " << stats.tile_max_density.at(pv) << std::endl;
       out << indent + indent << "Tile density distribution                             : " << stats.tile_density_distribution.at(pv) << std::endl;
       out << indent + indent << "Tile size                                             : " << stats.tile_size.at(pv) << std::endl;
@@ -1519,8 +1519,8 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent + indent << "Energy due to current level accesses (per-instance): "  << stats.energy.at(pv) - stats.energy_due_to_overflow.at(pv)<< std::endl;
       out << indent + indent + indent << "Energy due to child level overflow (per-instance): "  << stats.energy_due_to_overflow.at(pv)<< std::endl;
       out << indent + indent << "Energy (total)                                        : " << stats.energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
-      out << indent + indent + indent << "Energy due to current level accesses (total): "  << stats.cluster_access_energy.at(pv) - stats.cluster_access_energy_due_to_overflow.at(pv)<< std::endl;
-      out << indent + indent + indent << "Energy due to child level overflow (total): "  << stats.cluster_access_energy_due_to_overflow.at(pv)<< std::endl;
+      out << indent + indent + indent << "Energy due to current level accesses (total): "  << stats.energy.at(pv) * stats.utilized_instances.at(pv)-stats.energy_due_to_overflow.at(pv) * stats.utilized_instances.at(pv)<< std::endl;
+      out << indent + indent + indent << "Energy due to child level overflow (total): "  << stats.energy_due_to_overflow.at(pv) * stats.utilized_instances.at(pv)<< std::endl;
       out << indent + indent << "Temporal Reduction Energy (per-instance)              : " << stats.temporal_reduction_energy.at(pv) << " pJ" << std::endl;
       out << indent + indent << "Temporal Reduction Energy (total)                     : " << stats.temporal_reduction_energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
 

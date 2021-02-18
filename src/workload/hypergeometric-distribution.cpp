@@ -116,7 +116,8 @@ double HypergeometricDistribution::GetTileConfidenceByAllocatedCapacity(std::uin
     std::uint64_t N = specs_.workload_tensor_size;
     boost::math::hypergeometric_distribution<double> distribution(r, n, N);
     double cdf_val = cdf(distribution, 1.0 * allocated_buffer_size);
-    confidence = cdf_val >= 0.9999 ? 1.0 : cdf_val;
+    // confidence = cdf_val >= 0.9999 ? 1.0 : cdf_val;
+    confidence = cdf_val;
   }
 
   return confidence;
