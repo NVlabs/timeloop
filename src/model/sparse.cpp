@@ -25,6 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cctype>
 #include "sparse.hpp"
 #include "sparse-base.hpp"
 #include "mapping/arch-properties.hpp"
@@ -40,10 +41,14 @@ CompressionInfo compression_info_;
 
 ArchProperties arch_props_;
 
+std::vector<std::string> metadata_formats = {"none", "bitmask", "rle", "cp"};
+
 // forward declaration
 unsigned FindTargetStorageLevel(std::string storage_level_name);
 void ParseActionOptimizationInfo(config::CompoundConfigNode directive, std::string optimization_type);
 void ParseCompressionInfo(config::CompoundConfigNode directive);
+void ParseRankFormat(std::vector<std::string> rank_format_list, PerDataSpaceCompressionInfo* per_data_space_compression_info);
+
 
 // highest level parse function
 SparseOptimizationInfo Parse(config::CompoundConfigNode sparse_config, model::Engine::Specs& arch_specs){
@@ -82,6 +87,69 @@ SparseOptimizationInfo Parse(config::CompoundConfigNode sparse_config, model::En
   return sparse_optimization_info_;
 }
 
+void ParseRankFormat(std::vector<std::string> rank_format_list, PerDataSpaceCompressionInfo* per_data_space_compression_info) {
+  per_data_space_compression_info->tensor_compressed = false;
+  bool rank_compressed;
+  for (unsigned r_id = 0; r_id < rank_format_list.size(); r_id++) {
+    if (rank_format_list[r_id] != "U") {
+      rank_compressed = true;
+      per_data_space_compression_info->tensor_compressed = true;
+    } else {
+      rank_compressed = false;
+    }
+    per_data_space_compression_info->rank_compressed.push_back(rank_compressed);
+  }
+}
+
+unsigned MetadataFormatNameToID(std::string metadata_format_name){
+  auto it = std::find(metadata_formats.begin(), metadata_formats.end(), metadata_format_name);
+  if (it != metadata_formats.end()){
+    return it - metadata_formats.begin();
+  } else {
+    std::cout << "metadata format name not recognized: " << metadata_format_name << std::endl;
+    exit(1);
+  }
+}
+
+std::string MetadataFormatIDToName(unsigned metadata_format_id){
+  return metadata_formats[metadata_format_id];
+}
+
+
+void ParseRankMetadataFormat(std::vector<std::string> rank_metadata_format_list, PerDataSpaceCompressionInfo* per_data_space_compression_info){
+  bool tensor_compressed = per_data_space_compression_info->tensor_compressed;
+  for (unsigned r_id = 0; r_id < rank_metadata_format_list.size(); r_id++) {
+    std::string lc_metadata_format = rank_metadata_format_list[r_id];
+    for (unsigned i = 0; i < lc_metadata_format .length(); i++){
+      lc_metadata_format[i] = tolower(lc_metadata_format[i]);
+    }
+    if (tensor_compressed && lc_metadata_format == "none"){
+       std::cout << "compressed rank cannot have metadata_format: " << lc_metadata_format << std::endl;
+       exit(1);
+    } else if (!tensor_compressed && (lc_metadata_format!="none" && lc_metadata_format!="bitmask")){
+      std::cout << "uncompressed rank cannot have metadata_format: " << lc_metadata_format << std::endl;
+      exit(1);
+    } else {
+      per_data_space_compression_info->rank_metadata.push_back(MetadataFormatNameToID(lc_metadata_format));
+    }
+  }
+}
+
+void ParseRankOrder(config::CompoundConfigNode rank_order_list, PerDataSpaceCompressionInfo* per_data_space_compression_info){
+  for (int r_id = 0; r_id < rank_order_list.getLength(); r_id++){
+    std::vector<problem::Shape::DimensionID> per_rank_dim_id_list = {};
+    std::vector<std::string> per_rank_dim_name_list;
+    rank_order_list[r_id].getArrayValue(per_rank_dim_name_list);
+    for (unsigned d_id = 0; d_id < per_rank_dim_name_list.size(); d_id++){
+      std::string dimension_name = per_rank_dim_name_list[d_id];
+      problem::Shape::DimensionID id = problem::GetShape()->DimensionNameToID.at(dimension_name);
+      per_rank_dim_id_list.push_back(id);
+    }
+    per_data_space_compression_info->rank_order.push_back(per_rank_dim_id_list);
+  }
+}
+
+
 // parse for compression info (storage only) of one directive
 void ParseCompressionInfo(config::CompoundConfigNode directive){
 
@@ -113,38 +181,55 @@ void ParseCompressionInfo(config::CompoundConfigNode directive){
        std::string data_space_name;
        data_space_list[pv].lookupValue("name", data_space_name);
 
-       // tensor representation format must be specified (for compressed data or uncompressed data with special metadata)
-       std::vector<std::string> format_list;
-       assert(data_space_list[pv].exists("format"));
-       data_space_list[pv].lookupArrayValue("format", format_list);
+       // for compressed data or uncompressed data with special metadata
+       // for each rank: compressed (format) or not and metadata format (metadata) must be specified
+       std::vector<std::string> rank_format_list, rank_metadata_format_list;
+       PerDataSpaceCompressionInfo per_data_space_compression_info;
 
-       if ((format_list.size() == 1 && format_list[0] == "uncompressed")
-            || ((format_list.size() == 2 && format_list[0] == "uncompressed" && format_list[1] == "uncompressed"))){
-            // this is either a 1D compressed tensor or a 2D compressed tensor, nothing special needs to be done
-            continue;
+       // sanity check
+       assert(data_space_list[pv].exists("format") && data_space_list[pv].exists("metadata"));
+
+       // parse accordingly
+       data_space_list[pv].lookupArrayValue("format", rank_format_list);
+       ParseRankFormat(rank_format_list, &per_data_space_compression_info);
+
+       data_space_list[pv].lookupArrayValue("metadata", rank_metadata_format_list);
+       ParseRankMetadataFormat(rank_metadata_format_list, &per_data_space_compression_info);
+
+       if (per_data_space_compression_info.tensor_compressed && !data_space_list[pv].exists("ranks")){
+         std::cout << "please provide rank order with for compressed tensor: " << level_name << std::endl;
+         exit(1);
+       } else {
+         if(per_data_space_compression_info.tensor_compressed){
+           config::CompoundConfigNode rank_order_list = data_space_list[pv].lookup("ranks");
+           ParseRankOrder(rank_order_list, &per_data_space_compression_info);
+         } else {
+           std::cout << "Warn: " << level_name << ": ignore rank order specification since tensor "
+           << data_space_name << " is not compressed" << std::endl;
+         }
        }
 
+       double compressed = per_data_space_compression_info.tensor_compressed;
        std::string metadata_format;
-       bool compressed = false;
+       per_storage_level_compression_info[data_space_name] = per_data_space_compression_info;
        double compression_rate;
 
-       if (format_list.size() == 1 && (format_list[0] == "uncompressed-bitmask" || format_list[0] == "UB")) {
+       if (rank_metadata_format_list.size() == 1 && rank_format_list[0] == "U" && rank_metadata_format_list[0] == "bitmask"){
          // rank-1 bitmask uncompressed
          metadata_format = "bitmask";
          compression_rate = 0.0;
          compressed = false;
-       } else if (format_list.size() == 1 && (format_list[0] == "compressed-bitmask" || format_list[0] == "B")) {
+       } else if (rank_metadata_format_list.size() == 1 && rank_format_list[0] == "C" && rank_metadata_format_list[0] == "bitmask") {
          // rank-1 bitmask compressed
          metadata_format = "bitmask";
          compression_rate = 1.0;
          compressed = true;
-       } else if (format_list.size() == 1 && (format_list[0] == "compressed-RLE" || format_list[0] == "R")){
+       } else if (rank_metadata_format_list.size() == 1 && rank_format_list[0] == "C" && rank_metadata_format_list[0] == "RLE"){
          // rank-1 RLE compressed
          metadata_format = "RLE";
          compression_rate = 1.0;
          compressed = true;
-       } else if (format_list.size() == 2 && ( (format_list[0] == "uncompressed" || format_list[0] == "U")
-                                             && (format_list[1] == "compressed-CP" || format_list[1] == "C"))){
+       } else if (rank_metadata_format_list.size() == 2 &&  rank_format_list[0] == "U" && rank_format_list[1] == "C"){
          // rank-2 uncompressed + coordinate list
          metadata_format = "CSR";
          compression_rate = 1.0;

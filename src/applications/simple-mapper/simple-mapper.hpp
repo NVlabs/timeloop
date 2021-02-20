@@ -107,13 +107,13 @@ class Application
     //   exit(1);
     // }
     
-    // Sparse optimzations
+    // Sparse optimizations
     if (rootNode.exists("sparse_optimizations")){
       auto sparse_config = rootNode.lookup("sparse_optimizations");
       sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
     }
 
-
+    // TODO: validate the mapspace_constraint against sparse optimizations (mainly for compressed tensor traversal order)
   }
 
   ~Application()

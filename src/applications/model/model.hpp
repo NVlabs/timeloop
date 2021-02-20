@@ -211,6 +211,8 @@ class Application
       auto sparse_config = rootNode.lookup("sparse_optimizations");
       sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
     }
+
+    // TODO: validate the mapping against sparse optimizations (mainly for compressed tensor traversal order)
   }
 
   // This class does not support being copied

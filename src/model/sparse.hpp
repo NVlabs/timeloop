@@ -66,13 +66,24 @@ namespace sparse{
   //
   // data structures for compression information
   //
+
+
   struct PerDataSpaceCompressionInfo{
-    bool compressed;
-    double compression_rate;
+    bool tensor_compressed; // whether this tensor is a compressed tensor
+    // all of the vectors below should have the same length... which is the fiber tree depth
+    std::vector<bool> rank_compressed={}; // if each rank is compressed
+    std::vector<unsigned> rank_metadata={}; // each rank of the tensor should have metadata format, none for uncompressed
+    std::vector<std::vector<problem::Shape::DimensionID>> rank_order={}; // rank order is only useful if the tensor is compressed, we allow random accesses to uncompressed data
+    double compression_rate; // not very useful yet, placeholder
+
+    // shortcut variables (for partial code integration)
     std::string metadata_format;
-    // specific for CSR
+    bool compressed;
     std::vector<unsigned> rank0_list={};
     std::vector<unsigned> rank1_list={};
+
+
+
   };
   typedef std::map<std::string, PerDataSpaceCompressionInfo> PerStorageLevelCompressionInfo;
   // storage_level_id, per_storage_level_gating_info
@@ -87,6 +98,6 @@ namespace sparse{
     ActionSkippingInfo action_skipping_info;
     CompressionInfo compression_info = {};
   };
-  
+
 
 } // namespace

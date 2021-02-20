@@ -284,7 +284,8 @@ class Application
       auto sparse_config = rootNode.lookup("sparse_optimizations");
       sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
     }
-    
+
+    // TODO: validate the loop_permutation_space in mapspace_ against sparse optimization (mainly for compressed tensor traversal order)
   }
 
 
