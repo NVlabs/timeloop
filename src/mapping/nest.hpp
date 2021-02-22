@@ -63,7 +63,7 @@ class Nest
 
   void AddLoop(Descriptor descriptor);
   void AddLoop(problem::Shape::DimensionID dimension, int start, int end, int stride,
-               spacetime::Dimension spacetime_dimension);
+               spacetime::Dimension spacetime_dimension, int residual_end = 0);
   bool AddStorageTilingBoundary();
 
   friend std::ostream& operator << (std::ostream& out, const Nest& nest);

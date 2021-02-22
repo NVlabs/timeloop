@@ -59,11 +59,11 @@ class NestAnalysis
   CompoundComputeNest compute_info_sets_;
 
   // Memoization structures to accelerate IndexToOperationPoint()
-  std::vector<problem::PerProblemDimension<std::uint64_t>>
-      per_level_dim_scales_;  // level * dim
-  problem::OperationPoint cur_transform_;
+  std::vector<problem::OperationPoint> vector_strides_;
   std::vector<problem::OperationPoint> mold_low_;
   std::vector<problem::OperationPoint> mold_high_;
+  std::vector<problem::OperationPoint> mold_high_residual_;
+  problem::OperationPoint cur_transform_;
 
   // per-level properties.
   std::vector<uint64_t> num_spatial_elems_;
@@ -89,12 +89,14 @@ class NestAnalysis
   std::vector<bool> linked_spatial_level_;
 
   bool working_sets_computed_ = false;
+  bool imperfectly_factorized_ = false;
 
   problem::Workload* workload_ = nullptr;
 
   // Internal helper methods.
   void ComputeWorkingSets();
 
+  void DetectImperfectFactorization();
   void InitializeNestProperties();
   void InitNumSpatialElems();
   void InitStorageBoundaries();
@@ -105,15 +107,15 @@ class NestAnalysis
   void CollectWorkingSets();
 
   problem::OperationPoint IndexToOperationPoint_(const std::vector<int>& indices) const;
+  bool IsLastGlobalIteration_(int level, problem::Shape::DimensionID dim) const;
   
-  problem::OperationSpace ComputeDeltas(
-    std::vector<analysis::LoopState>::reverse_iterator cur, bool skip_delta = false);
+  problem::OperationSpace ComputeDeltas(std::vector<analysis::LoopState>::reverse_iterator cur);
 
   void ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                 problem::OperationSpace& point_set,
+                                 //problem::OperationSpace& point_set,
                                  analysis::ElementState& cur_state);
-  void ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                problem::OperationSpace& point_set);
+  void ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur);
+  //problem::OperationSpace& point_set);
 
   void FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
                          std::vector<problem::OperationSpace>& spatial_deltas,
@@ -130,10 +132,6 @@ class NestAnalysis
       problem::PerDataSpace<std::vector<std::uint64_t>>& scatter_factors,
       problem::PerDataSpace<std::vector<double>>& cumulative_hops
     );
-
-  void ComputeApproxMulticastedAccesses(
-      std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::OperationSpace>& spatial_deltas);
 
   void ComputeNetworkLinkTransfers(
       std::vector<analysis::LoopState>::reverse_iterator cur,

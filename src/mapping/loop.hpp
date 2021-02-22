@@ -48,6 +48,7 @@ class Descriptor
   problem::Shape::DimensionID dimension;
   int start;
   int end;
+  int residual_end;
   int stride;
   spacetime::Dimension spacetime_dimension;
 
@@ -55,11 +56,13 @@ class Descriptor
 
   Descriptor(const problem::Shape::DimensionID _dimension, const int _start,
              const int _end, const int _stride,
-             const spacetime::Dimension _spacetime_dimension);
+             const spacetime::Dimension _spacetime_dimension,
+             const int _residual_end = 0);
 
   Descriptor(const problem::Shape::DimensionID _dimension,
              const int _end,
-             const spacetime::Dimension _spacetime_dimension = spacetime::Dimension::Time);
+             const spacetime::Dimension _spacetime_dimension = spacetime::Dimension::Time,
+             const int _residual_end = 0);
 
   bool operator == (const Descriptor& d) const;
   
