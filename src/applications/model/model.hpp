@@ -54,10 +54,12 @@ class Application
 {
  public:
   std::string name_;
-  double energy_;
-  double area_;
-  double cycle_;
-  double utilization_;
+
+  struct Stats
+  {
+    double energy;
+    double cycles;
+  };
 
  protected:
   // Critical state.
@@ -101,11 +103,7 @@ class Application
   Application(config::CompoundConfig* config,
               std::string output_dir = ".",
               std::string name = "timeloop-model") :
-      name_(name),
-      energy_(0.0),
-      area_(0.0),
-      cycle_(0.0),
-      utilization_(0.0)
+      name_(name)
   {    
     auto rootNode = config->getRoot();
 
@@ -237,7 +235,7 @@ class Application
   }
 
   // Run the evaluation.
-  void Run()
+  Stats Run()
   {
     // Output file names.
     std::string stats_file_name = out_prefix_ + ".stats.txt";
@@ -314,10 +312,10 @@ class Application
     const Application* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
 
-    this->area_ = engine.Area();
-    this->cycle_ = engine.Cycles();
-    this->energy_ = engine.Energy();
-    this->utilization_ = engine.Utilization();
+    Stats stats;
+    stats.cycles = engine.Cycles();
+    stats.energy = engine.Energy();
+    return stats;
   }
 };
 
