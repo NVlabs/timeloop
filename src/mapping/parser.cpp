@@ -56,7 +56,9 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
                           model::Engine::Specs& arch_specs,
                           problem::Workload workload)
 {
+  arch_props_ = ArchProperties();
   arch_props_.Construct(arch_specs);
+
   workload_ = workload;
   
   std::map<unsigned, std::map<problem::Shape::DimensionID, std::pair<int,int>>> user_factors;
