@@ -24,11 +24,28 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include "model/engine.hpp"
+
+
 #include "compound-config/compound-config.hpp"
-#include "sparse.hpp"
+#include "model/sparse-optimization-info.hpp"
+#include "mapping/mapping.hpp"
+#include "model/level.hpp"
+#include "loop-analysis/tiling.hpp"
+#include "model/topology.hpp"
 
 namespace sparse{
-  // return the information related to all types of sparse optimization
-  SparseOptimizationInfo Parse(config::CompoundConfigNode sparse_config, model::Engine::Specs& arch_specs);
+
+  bool DefineFormatModelsViaMapping(const problem::Workload* workload,
+									const Mapping& mapping,
+                                    tiling::CompoundDataMovementNest& compound_data_movement_nest,
+                                    CompressionInfo& sparse_optimization_info,
+									const model::Topology::Specs& topology_specs,
+                                    std::vector<model::EvalStatus>& eval_status,
+                                    const bool break_on_failure);
+
+  bool CheckFormatModelsAndMapping(const tiling::NestOfCompoundMasks& masks,
+                                   const CompressionInfo& compression_info,
+                                   const model::Topology::Specs& topology_specs,
+                                   std::vector<model::EvalStatus>& eval_status,
+                                   const bool break_on_failure);
 }

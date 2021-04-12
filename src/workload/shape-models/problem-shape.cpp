@@ -26,7 +26,7 @@
  */
 
 #include "problem-shape.hpp"
-#include "workload.hpp"
+#include "workload/workload.hpp"
 #include "operation-space.hpp"
 
 namespace problem
@@ -109,10 +109,12 @@ void Shape::Parse(config::CompoundConfigNode shape)
       DataSpaceOrder[NumDataSpaces] = 0;
       std::vector<std::string> dim_names;
       data_space.lookupArrayValue("projection", dim_names);
+      DataSpaceIDToDimensionIDVector.push_back({});
       for (const std::string& dim_name : dim_names)
       {
         auto& dim_id = DimensionNameToID.at(dim_name);
-        projection.push_back({{ NumCoefficients, dim_id }});        
+        projection.push_back({{ NumCoefficients, dim_id }});
+        DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
         DataSpaceOrder[NumDataSpaces]++;
       }
     }
@@ -123,6 +125,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
       {
         // Process one data-space dimension.
         ProjectionExpression expression;
+        DataSpaceIDToDimensionIDVector.push_back({});
         auto dimension = projection_cfg[k];
         // Each expression is a list of terms. Each term can be
         // a libconfig array or list.
@@ -138,6 +141,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
             const std::string& dim_name = nameAndCoeff[0];
             auto& dim_id = DimensionNameToID.at(dim_name);
             expression.push_back({ NumCoefficients, dim_id });
+            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
           }
           else if (term.getLength() == 2)
           {
@@ -146,6 +150,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
             auto& dim_id = DimensionNameToID.at(dim_name);
             auto& coeff_id = CoefficientNameToID.at(coeff_name);
             expression.push_back({ coeff_id, dim_id });
+            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
           }
           else
           {

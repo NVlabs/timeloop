@@ -30,7 +30,7 @@
 #include <string>
 #include <tuple>
 
-#include "workload/problem-shape.hpp"
+#include "workload/shape-models/problem-shape.hpp"
 #include "workload/workload.hpp"
 #include "compound-config/compound-config.hpp"
 

@@ -32,6 +32,7 @@
 #include "model/topology.hpp"
 #include "model/network-legacy.hpp"
 #include "model/network-factory.hpp"
+#include "loop-analysis/sparse-analysis.hpp"
 #include "workload/workload.hpp"
 
 namespace model
@@ -943,8 +944,7 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     sparse::PerStorageLevelCompressionInfo per_level_compression_info = {};
-    if (storage_compression_info.find(storage_level_id) != storage_compression_info.end())
-      { per_level_compression_info = storage_compression_info.at(storage_level_id); }
+    storage_compression_info.GetStorageLevelCompressionInfo(storage_level_id, per_level_compression_info);
     auto level_id = specs_.StorageMap(storage_level_id);
     auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
       working_set_sizes.at(storage_level_id), masks.at(storage_level_id), workload,
@@ -957,30 +957,6 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
 
   return eval_status;
 }
-
-
-//void PopulateCompressedSizeAndConfidence(tiling::NestOfCompoundTiles tiles, problem::Workload* workload){
-//  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++){
-//    auto storage_level = GetStorageLevel(storage_level_id);
-//    auto storage_level_effective_capacity = storage_level->GetSpecs().effective_size.Get();
-//
-//    for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++){
-//      uint64_t tile_shape = tiles[storage_level_id].data_movement_info.at(pv).size;
-//      double confidence = workload->GetDensity(pv).GetTileConfidence(tile_shape, storage_level_effective_capacity);
-//      uint64_t compressed_size;
-//      if (storage_level_effective_capacity >= tile_shape){
-//        compressed_size = tile_shape;
-//      }
-//
-//    }
-//
-//
-//
-//
-//    // set confidence according to
-//  }
-//
-//
 
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            analysis::NestAnalysis* analysis,
@@ -1005,7 +981,20 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool success_accum = true;
-  
+  bool success = true;
+
+
+  // Transpose the datatype bypass nest into level->datatype structure.
+  auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
+  assert(keep_masks.size() >= NumStorageLevels());
+
+  success = sparse::CheckFormatModelsAndMapping(keep_masks,
+                                                sparse_optimizations->compression_info,
+                                                specs_,
+                                                eval_status,
+                                                break_on_failure);
+  if (break_on_failure && !success) { return eval_status; }
+
   // Compute working-set tile hierarchy for the nest.
   analysis::CompoundTileNest tile_info_nest;
   problem::PerDataSpace<std::vector<analysis::DataMovementInfo>> ws_tiles;
@@ -1049,13 +1038,19 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                                distribution_supported,
                                                analysis->GetWorkload());
 
+
+  success = sparse::DefineFormatModelsViaMapping(analysis->GetWorkload(),
+                                                 mapping,
+                                                 collapsed_tiles.compound_data_movement_info_nest,
+                                                 sparse_optimizations->compression_info,
+                                                 specs_,
+                                                 eval_status,
+                                                 break_on_failure);
+  if (break_on_failure && !success) { return eval_status; }
+
   // Transpose the tiles into level->datatype/level->optype structure.
   auto tiles = tiling::TransposeTiles(collapsed_tiles, sparse_optimizations);
   assert(tiles.size() == NumStorageLevels());
-
-  // Transpose the datatype bypass nest into level->datatype structure.
-  auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
-  assert(keep_masks.size() >= NumStorageLevels());
 
 
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++){

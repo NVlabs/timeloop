@@ -1,5 +1,5 @@
-/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -26,40 +26,36 @@
  */
 
 #pragma once
+#include "mapping/loop.hpp"
 
+namespace tiling {
 
-#include "mapspaces/uber.hpp"
-#include "workload/shape-models/problem-shape.hpp"
-#include "compound-config/compound-config.hpp"
+  // interface object between sparse modeling module and density models
+  // tells the density models which set of tiles are we looking at
+  struct CoordinateSpaceTileInfo {
 
-namespace mapspace
-{
+    // TODO: a pointset object for coordinate space representation needed for more precise representation
+    std::vector <loop::Descriptor> subnests_;
+    std::uint64_t shape_;
 
-//--------------------------------------------//
-//       Parser and Mapspace Factory          //
-//--------------------------------------------//
+    void Clear() {
+      shape_ = 0;
+      subnests_ = {};
+    }
 
-MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
-                            config::CompoundConfigNode arch_constraints,
-                            model::Engine::Specs& arch_specs,
-                            const problem::Workload& workload)
-{
-  MapSpace* mapspace = nullptr;
-  
-  std::string mapspace_template = "uber";
-  config.lookupValue("template", mapspace_template);
-    
-  if (mapspace_template == "uber")
-  {
-    mapspace = new Uber(config, arch_constraints, arch_specs, workload);
-  }
-  else
-  {
-    std::cerr << "ERROR: unsupported mapspace template: " << mapspace_template << std::endl;
-    exit(-1);
-  }
+    void Set(std::uint64_t shape) {
+      shape_ = shape;
+    }
 
-  return mapspace;
+    void Set(std::uint64_t shape, std::vector <loop::Descriptor> subnests) {
+      shape_ = shape;
+      subnests_ = subnests;
+    }
+
+    std::uint64_t GetShape() const { return shape_; }
+
+    std::vector <loop::Descriptor> GetSubnests() const { return subnests_; }
+
+  };
+
 }
-
-} // namespace mapspace

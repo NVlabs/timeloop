@@ -37,7 +37,7 @@
 #include "compound-config/compound-config.hpp"
 #include "model/util.hpp"
 #include "model/network.hpp"
-#include "workload/density-distribution.hpp"
+#include "workload/density-models/density-distribution.hpp"
 
 namespace model
 {
@@ -102,6 +102,11 @@ class BufferLevel : public Level
     Attribute<std::uint64_t> num_banks;
 
     //metadata_storage related
+    Attribute<bool> concordant_compressed_tile_traversal;
+    Attribute<bool> tile_partition_supported;
+    Attribute<bool> decompression_supported;
+    Attribute<bool> compression_supported;
+
     Attribute<std::uint64_t> metadata_block_size;
     Attribute<std::uint64_t> metadata_word_bits;
 
@@ -191,8 +196,10 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> energy_due_to_overflow;
 
 
-    problem::PerDataSpace<std::uint64_t> compressed_tile_size;
+    problem::PerDataSpace<std::uint64_t> tile_shape;
+    problem::PerDataSpace<std::uint64_t> data_tile_size;
     problem::PerDataSpace<std::uint64_t> metadata_tile_size;
+    problem::PerDataSpace<std::string> metadata_format;
     problem::PerDataSpace<double> tile_confidence;
     problem::PerDataSpace<double> tile_max_density;
     problem::PerDataSpace<std::string> parent_level_name;
@@ -303,6 +310,7 @@ class BufferLevel : public Level
                                    const bool break_on_failure);
   void ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& tile);
   void ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMovementInfo& tile, const double confidence_threshold);
+  std::uint64_t ComputeMetaDataTileSizeInBit (const tiling::MetaDataTileOccupancy metadata_occupancy) const;
   void ComputePerformance(const std::uint64_t compute_cycles);
   // void ComputeBufferEnergy();
   void ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info);

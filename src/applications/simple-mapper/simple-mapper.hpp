@@ -38,7 +38,7 @@
 #include "util/accelergy_interface.hpp"
 #include "mapspaces/mapspace-factory.hpp"
 #include "compound-config/compound-config.hpp"
-#include "model/sparse-base.hpp"
+#include "model/sparse-optimization-parser.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -51,7 +51,7 @@ class Application
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
-  sparse::SparseOptimizationInfo sparse_optimizations_;
+  sparse::SparseOptimizationInfo* sparse_optimizations_;
 
   std::string out_prefix_ = "timeloop-mapper";
 
@@ -108,12 +108,13 @@ class Application
     // }
     
     // Sparse optimizations
-    if (rootNode.exists("sparse_optimizations")){
-      auto sparse_config = rootNode.lookup("sparse_optimizations");
-      sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
-    }
+    config::CompoundConfigNode sparse_optimizations;
+    if (rootNode.exists("sparse_optimizations"))
+      sparse_optimizations = rootNode.lookup("sparse_optimizations");
+	sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
 
-    // TODO: validate the mapspace_constraint against sparse optimizations (mainly for compressed tensor traversal order)
+    // characterize workload on whether it has metadata
+    workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
   }
 
   ~Application()
@@ -122,6 +123,11 @@ class Application
     {
       delete mapspace_;
     }
+
+    if (sparse_optimizations_)
+	{
+      delete sparse_optimizations_;
+	}
   }
 
   // ---------------

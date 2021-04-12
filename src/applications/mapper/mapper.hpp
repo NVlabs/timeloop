@@ -45,8 +45,7 @@
 #include "search/search-factory.hpp"
 #include "compound-config/compound-config.hpp"
 #include "applications/mapper/mapper-thread.hpp"
-#include "model/sparse.hpp"
-#include "model/sparse-base.hpp"
+#include "model/sparse-optimization-parser.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -65,7 +64,7 @@ class Application
   mapspace::MapSpace* mapspace_;
   std::vector<mapspace::MapSpace*> split_mapspaces_;
   std::vector<search::SearchAlgorithm*> search_;
-  sparse::SparseOptimizationInfo sparse_optimizations_;
+  sparse::SparseOptimizationInfo* sparse_optimizations_;
 
   uint128_t search_size_;
   std::uint32_t num_threads_;
@@ -280,12 +279,13 @@ class Application
     }
 
     // Sparse optimizations
-    if (rootNode.exists("sparse_optimizations")){
-      auto sparse_config = rootNode.lookup("sparse_optimizations");
-      sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
-    }
+    config::CompoundConfigNode sparse_optimizations;
+    if (rootNode.exists("sparse_optimizations"))
+      sparse_optimizations = rootNode.lookup("sparse_optimizations");
+	sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
 
-    // TODO: validate the loop_permutation_space in mapspace_ against sparse optimization (mainly for compressed tensor traversal order)
+    // characterize workload on whether it has metadata
+    workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
   }
 
 
@@ -299,6 +299,11 @@ class Application
     {
       delete mapspace_;
     }
+
+    if (sparse_optimizations_)
+	{
+      delete sparse_optimizations_;
+	}
 
     for (auto& search: search_)
     {

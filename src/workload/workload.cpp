@@ -29,7 +29,7 @@
 #include <cstring>
 #include <fstream>
 
-#include "problem-shape.hpp"
+#include "workload/shape-models/problem-shape.hpp"
 #include "workload.hpp"
 
 namespace problem

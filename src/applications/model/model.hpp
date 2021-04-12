@@ -44,7 +44,7 @@
 #include "mapping/arch-properties.hpp"
 #include "mapping/constraints.hpp"
 #include "compound-config/compound-config.hpp"
-#include "model/sparse-base.hpp"
+#include "model/sparse-optimization-parser.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -59,8 +59,7 @@ class Application
   // Critical state.
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
-  sparse::SparseOptimizationInfo sparse_optimizations_;
-  
+
   // Many of the following submodules are dynamic objects because
   // we can only instantiate them after certain config files have
   // been parsed.
@@ -78,6 +77,9 @@ class Application
   bool verbose_ = false;
   bool auto_bypass_on_failure_ = false;
   std::string out_prefix_;
+
+  // Sparse optimization
+  sparse::SparseOptimizationInfo* sparse_optimizations_;
 
  private:
 
@@ -207,12 +209,14 @@ class Application
     }
 
     // Sparse optimizations
-    if (rootNode.exists("sparse_optimizations")){
-      auto sparse_config = rootNode.lookup("sparse_optimizations");
-      sparse_optimizations_ = sparse::Parse(sparse_config, arch_specs_);
-    }
+    config::CompoundConfigNode sparse_optimizations;
+    if (rootNode.exists("sparse_optimizations"))
+      sparse_optimizations = rootNode.lookup("sparse_optimizations");
+    sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
 
-    // TODO: validate the mapping against sparse optimizations (mainly for compressed tensor traversal order)
+    // characterize workload on whether it has metadata
+    workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
+
   }
 
   // This class does not support being copied
@@ -229,6 +233,9 @@ class Application
 
     if (constraints_)
       delete constraints_;
+
+    if (sparse_optimizations_)
+      delete sparse_optimizations_;
   }
 
   // Run the evaluation.

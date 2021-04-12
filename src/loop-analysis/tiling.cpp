@@ -29,7 +29,6 @@
 #include <sstream>
 
 #include "tiling.hpp"
-#include "workload/workload.hpp"
 
 namespace tiling
 {
@@ -105,21 +104,25 @@ void SetChildLevel(std::vector<DataMovementInfo>& tile_nest){
       continue;
     }
 
-    // Initialize child level to min.
+    // Initialize child level to max.
     tile_nest[cur].child_level = std::numeric_limits<unsigned>::max();
     tile_nest[cur].child_level_tile_size = std::numeric_limits<unsigned>::max();
     // Find next (inner) non-zero level.
-    unsigned inner;
-    for (inner = cur-1; inner > 0 && tile_nest[inner].size == 0; inner--)
+    int inner;
+    for (inner = cur-1; inner >= 0 && tile_nest[inner].size == 0; inner--)
     {
       // Body is empty.
     }
 
-    tile_nest[cur].child_level = inner;
+    if ( inner != -1)
+    {
+      tile_nest[cur].child_level = inner;
+    }
+
     // better checking for child level
-    if (tile_nest[inner].size != 0){
+    if (inner != 0 && inner != -1){
       tile_nest[cur].child_level_tile_size = tile_nest[inner].size;
-    } else {
+    } else if (inner != -1) {
       // child level is compute
       // tile size is basically one fetch from the memory, which is dependent on this level's block size
       tile_nest[cur].child_level_tile_size = 1; //FIXME: add support for vector computes
@@ -241,6 +244,7 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
 
     // Obliterate the buffer stats (*not* the network stats) for the cur tiling level.
     tile_nest[cur].size = 0;
+    tile_nest[cur].shape = 0;
     tile_nest[cur].partition_size = 0;
     tile_nest[cur].content_accesses = 0;
     tile_nest[cur].fills = 0;
@@ -520,17 +524,7 @@ void ComputeWorkloadTensorSizes(std::vector<DataMovementInfo>& tile_nest, proble
 
 }
 
-
-void ComputeDataDensity(std::vector<DataMovementInfo>& tile_nest, problem::Workload* workload, problem::Shape::DataSpaceID pv){
-  int num_tiling_levels = tile_nest.size();
-  for (int cur = num_tiling_levels-1; cur >= 0; cur--){
-    // coordinate independent tile density distribution
-    tile_nest[cur].tile_density = workload->GetDensity(pv);
-  }
-  return;
-}
-
-tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles, 
+tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
                                        int num_tiling_levels,
                                        const CompoundMaskNest& tile_mask,
                                        const CompoundMaskNest& distribution_supported,
@@ -571,7 +565,6 @@ ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_ti
       op_name = tiling::arithmeticOperationTypes[op_id];
       collapsed_tile.fine_grained_accesses[op_name] = 0;
     }
-
     solution.push_back(collapsed_tile);
   }
 
@@ -628,7 +621,12 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       // NOTE! some properties are taken from the innermost loop's tile, while others
       // are taken from the outermost loop's tile.
       collapsed_tile.size = tiles[pv][outermost_loop].size;
-      collapsed_tile.compressed_size = 0; // will be assigned later in postprocessing
+      collapsed_tile.shape = tiles[pv][outermost_loop].size; // shape is the coord space representation
+      collapsed_tile.SetDensityModel(workload->GetDensity(pv));
+      collapsed_tile.metadata_subnest = {}; // only useful if has metadata
+      collapsed_tile.metadata_subtile_shape = {}; // only useful if has metadata
+      collapsed_tile.fiber_shape = {}; // only useful if has metadata
+      collapsed_tile.dataspace_id = (unsigned)pv;
       collapsed_tile.partition_size = 0;
       collapsed_tile.distributed_multicast = false;
       collapsed_tile.accesses = tiles[pv][innermost_loop].accesses;
@@ -645,18 +643,12 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.metadata_reads = 0;
       collapsed_tile.metadata_fills = 0;
       collapsed_tile.metadata_updates = 0;
-      collapsed_tile.metadata_format = "none";
       collapsed_tile.compressed = false;
-      collapsed_tile.rank0_list = {}; // for CSR
-      collapsed_tile.rank1_list = {}; // for CSR
 
       collapsed_tile.parent_level = std::numeric_limits<unsigned>::max();
       collapsed_tile.child_level = std::numeric_limits<unsigned>::max();
       collapsed_tile.child_level_tile_size = 0;
       
-      // initialize data density
-      collapsed_tile.tile_density = NULL;
-
       // initialize the fine-grained access dictionary
       std::string op_name;
       for (int op_id = 0; op_id < tiling::GetNumOpTypes("storage"); op_id++){
@@ -702,9 +694,6 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     // calculate workload tensor size
     ComputeWorkloadTensorSizes(solution[pv], pv, workload);
 
-    // Calculate the data density in this nest of tiles
-    ComputeDataDensity(solution[pv], workload, pv);
-
     // find the parent and child levels for later compression/decompression logic
     SetParentLevel(solution[pv]);
     SetChildLevel(solution[pv]);
@@ -717,16 +706,6 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
   return solution;
 }
 
-// Collapse with default tile mask.
-// CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels)
-// {
-//   std::bitset<MaxTilingLevels> all_ones;
-//   all_ones.set();
-//   CompoundMaskNest all_enabled;
-//   all_enabled.fill(all_ones);
-//   return CollapseTiles(tiles, num_tiling_levels, all_enabled);
-// }
-
 void SetParentChildAndCompressedStatus(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
                                        sparse::CompressionInfo& storage_compression_info){
 
@@ -735,57 +714,30 @@ void SetParentChildAndCompressedStatus(tiling::NestOfCompoundTiles& nest_of_comp
     for (unsigned pv =0; pv < problem::GetShape() -> NumDataSpaces; pv++){
       std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pv);
       tiling::CompoundDataMovementInfo& compound_data_movement = nest_of_compound_tiles.at(level).data_movement_info;
-
-      if (storage_compression_info.find(level) != storage_compression_info.end()
-          && storage_compression_info.at(level).find(data_space_name) != storage_compression_info.at(level).end()){
-
-          // populate the compressed bool and metadata format as they must be specified whenever sparse optimization is provided
-          sparse::PerStorageLevelCompressionInfo per_level_compression_info = storage_compression_info.at(level);
-          compound_data_movement[pv].metadata_format =  per_level_compression_info.at(data_space_name).metadata_format;
-          compound_data_movement[pv].compressed = per_level_compression_info.at(data_space_name).compressed;
-
-          if (per_level_compression_info.at(data_space_name).compressed){ // specified and compressed
-            if (compound_data_movement[pv].metadata_format == "CSR"){
-                compound_data_movement[pv].rank0_list = per_level_compression_info.at(data_space_name).rank0_list;
-                compound_data_movement[pv].rank1_list = per_level_compression_info.at(data_space_name).rank1_list;
-            }
-          }
-
-      } else { // no compression specified in sparse optimization, compressed tile size == tile size
-        compound_data_movement[pv].compressed = false;
-      }
+      compound_data_movement[pv].compressed = storage_compression_info.GetDataSpaceCompressed(level, pv);
 
       //
       // populate parent/child level compression specifications
       //
       problem::Shape::DataSpaceID parent_level = compound_data_movement[pv].parent_level;
       problem::Shape::DataSpaceID child_level = compound_data_movement[pv].child_level;
+      compound_data_movement[pv].parent_level_compressed = false;
+      compound_data_movement[pv].child_level_compressed = false;
 
-      if ( parent_level==std::numeric_limits<unsigned>::max() ){
-          // no parent level
-      }
-
-      if ( parent_level!=std::numeric_limits<unsigned>::max()
-           && (storage_compression_info.find(parent_level) != storage_compression_info.end())
-           && (storage_compression_info.at(parent_level).find(data_space_name) != storage_compression_info.at(parent_level).end())){
-          compound_data_movement[pv].parent_level_compressed = storage_compression_info.at(parent_level).at(data_space_name).compressed;
-      } else {
-         // parent level not specified in sparse optimization -> uncompressed + no metadata
-         compound_data_movement[pv].parent_level_compressed = false;
+      if ( parent_level != std::numeric_limits<unsigned>::max() )
+      {
+        // set parent level pointer
+        compound_data_movement[pv].parent_level_ptr = &nest_of_compound_tiles.at(parent_level).data_movement_info[pv];
+        compound_data_movement[pv].parent_level_compressed = storage_compression_info.GetDataSpaceCompressed(parent_level, pv);
       }
 
-      if ( child_level==std::numeric_limits<unsigned>::max() ){
-          // no child level
+      if ( child_level != std::numeric_limits<unsigned>::max() )
+      {
+        // set child level pointer
+        compound_data_movement[pv].child_level_ptr = &nest_of_compound_tiles.at(child_level).data_movement_info[pv];
+        compound_data_movement[pv].child_level_compressed = storage_compression_info.GetDataSpaceCompressed(child_level, pv);
       }
-      if ( child_level!=std::numeric_limits<unsigned>::max() &&
-         storage_compression_info.find(child_level) != storage_compression_info.end() &&
-         storage_compression_info.at(child_level).find(data_space_name) != storage_compression_info.at(child_level).end()){
-         // child level specified in sparse optimization
-         compound_data_movement[pv].child_level_compressed = storage_compression_info.at(child_level).at(data_space_name).compressed;
-      } else {
-         // child level not specified in sparse optimization -> uncompressed + no metadata
-         compound_data_movement[pv].child_level_compressed = false;
-      }
+
     } // next dataspace
   } // next level
 }
@@ -823,26 +775,42 @@ NestOfCompoundTiles TransposeTiles(const CompoundTileNest & tiles, sparse::Spars
   SetParentChildAndCompressedStatus(retval, storage_compression_info);
 
   // now do post processing for sparsity
-  for (unsigned level = 0; level < num_levels; level++){
-    //
-    //  Datamovement
-    //
-    // (1) compression information
-    // (2) action gating information
-    // (3) action skipping information
 
-    sparse::PerStorageLevelCompressionInfo per_storage_compression_info = {};
-    if (storage_compression_info.find(level) != storage_compression_info.end()){
-      per_storage_compression_info = storage_compression_info.at(level);
+  //
+  //  Datamovement
+  //
+
+  // (1) compression information
+  // (2) action gating information
+  // (3) action skipping information
+  for (unsigned level = 0; level < num_levels; level++)
+  {
+    // setup the metadata and compression related info for each data tile
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+    {
+      sparse::PerDataSpaceCompressionInfo data_space_compression_info;
+      if (storage_compression_info.GetDataSpaceCompressionInfo(level, pv, data_space_compression_info))
+      {
+        retval[level].data_movement_info.at(pv).SetTensorRepresentation(data_space_compression_info); // either compressed, or has special metadata
+      }
+      else
+      {
+        retval[level].data_movement_info.at(pv).SetTensorRepresentation(); // default dense tensor with neither metadata nor compression
+      }
     }
+  }
+
+
+  for (unsigned level = 0; level < num_levels; level++)
+  {
 
     sparse::PerStorageLevelActionOptimizationInfo per_storage_gating_info = {};
-    if (storage_gating_info.find(level) != storage_gating_info.end()){
+    if (storage_gating_info.find(level) != storage_gating_info.end()) {
       per_storage_gating_info = storage_gating_info.at(level);
     }
 
     sparse::PerStorageLevelActionOptimizationInfo per_storage_skipping_info = {};
-    if (storage_skipping_info.find(level) != storage_skipping_info.end()){
+    if (storage_skipping_info.find(level) != storage_skipping_info.end()) {
       per_storage_skipping_info = storage_skipping_info.at(level);
     }
 
@@ -853,7 +821,6 @@ NestOfCompoundTiles TransposeTiles(const CompoundTileNest & tiles, sparse::Spars
 
     ComputeFineGrainMetaDataAccesses(retval,
                                      level,
-                                     per_storage_compression_info,
                                      per_storage_gating_info);
     //
     //  Compute

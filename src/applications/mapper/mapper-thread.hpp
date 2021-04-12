@@ -28,7 +28,7 @@
 #include <random>
 
 #include "model/engine.hpp"
-#include "model/sparse.hpp"
+#include "model/sparse-optimization-info.hpp"
 
 extern bool gTerminate;
 
@@ -266,7 +266,7 @@ class MapperThread
   std::vector<std::string> optimization_metrics_;
   model::Engine::Specs arch_specs_;
   problem::Workload &workload_;
-  sparse::SparseOptimizationInfo sparse_optimizations_;
+  sparse::SparseOptimizationInfo* sparse_optimizations_;
   EvaluationResult* best_;
     
   // Thread-local data (stats etc.).
@@ -292,7 +292,7 @@ class MapperThread
     std::vector<std::string> optimization_metrics,
     model::Engine::Specs arch_specs,
     problem::Workload &workload,
-    sparse::SparseOptimizationInfo sparse_optimizations,
+    sparse::SparseOptimizationInfo* sparse_optimizations,
     EvaluationResult* best
     ) :
       thread_id_(thread_id),

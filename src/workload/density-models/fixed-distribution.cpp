@@ -56,34 +56,18 @@ FixedDistribution::Specs FixedDistribution::ParseSpecs(config::CompoundConfigNod
   return specs;
 }
 
-void FixedDistribution::SetDensity( double density){
+void FixedDistribution::SetDensity(const double density){
   specs_.fixed_density = density;
 }
 
-void FixedDistribution::SetWorkloadTensorSize( std::uint64_t size ){
+void FixedDistribution::SetWorkloadTensorSize(const std::uint64_t size ){
   // setter that allows workload tensor size at a latter stage (topology.cpp, PreEvaluationCheck)
   specs_.workload_tensor_size = size;
 }
 
-double FixedDistribution::GetTileConfidenceByAllocatedCapacity(std::uint64_t tile_shape,
-                                                               std::uint64_t allocated_buffer_size) const{
-
-  double confidence;
-  if (allocated_buffer_size >= tile_shape){
-    confidence = 1.0;
-  } else {
-
-    // binary option -> fit or not fit
-    if (tile_shape * specs_.fixed_density > allocated_buffer_size){
-      confidence = 0.0;
-    } else {
-      confidence = 1.0;
-    }
-  }
-  return confidence;
-}
-
-std::uint64_t FixedDistribution::GetTileOccupancyByConfidence(std::uint64_t tile_shape, double confidence){
+std::uint64_t FixedDistribution::GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
+                                                              const double confidence) const
+{
 
   if (confidence == 0){
     return 0;
@@ -91,6 +75,20 @@ std::uint64_t FixedDistribution::GetTileOccupancyByConfidence(std::uint64_t tile
     return ceil(tile_shape * specs_.fixed_density);
   }
 
+}
+
+std::uint64_t FixedDistribution::GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tile,
+                                                                 const double confidence) const
+{
+  std::uint64_t tile_shape = tile.GetShape();
+  return FixedDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
+}
+
+
+std::uint64_t FixedDistribution::GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
+                                                   const double confidence) const
+{
+  return FixedDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
 
 std::uint64_t FixedDistribution::GetWorkloadTensorSize() const{
@@ -101,8 +99,9 @@ std::string FixedDistribution::GetDistributionType() const{
   return specs_.type;
 }
 
-double FixedDistribution::GetTileDensityByConfidence(std::uint64_t tile_shape,
-                                                     double confidence, uint64_t allocated_capacity) const{
+double FixedDistribution::GetTileDensityByConfidence(const std::uint64_t tile_shape,
+                                                     const double confidence,
+                                                     const uint64_t allocated_capacity) const{
   (void) tile_shape;
   (void) confidence;
   (void) allocated_capacity;
@@ -111,7 +110,16 @@ double FixedDistribution::GetTileDensityByConfidence(std::uint64_t tile_shape,
 
 }
 
-double FixedDistribution::GetTileExpectedDensity( uint64_t tile_shape ) const {
+double FixedDistribution::GetTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
+                                                     const double confidence) const
+{
+  (void) tile;
+  (void) confidence;
+
+  return specs_.fixed_density;
+}
+
+double FixedDistribution::GetTileExpectedDensity( const uint64_t tile_shape ) const {
 
   (void) tile_shape;
   assert(is_specced_);
@@ -119,7 +127,8 @@ double FixedDistribution::GetTileExpectedDensity( uint64_t tile_shape ) const {
 }
 
 
-double FixedDistribution::GetProbability(std::uint64_t tile_shape, std::uint64_t nnz_vals) const {
+double FixedDistribution::GetProbability(const std::uint64_t tile_shape,
+                                         const std::uint64_t nnz_vals) const {
 
   assert(is_specced_);
 
@@ -134,6 +143,13 @@ double FixedDistribution::GetProbability(std::uint64_t tile_shape, std::uint64_t
     // fixed distribution is not stochastic
     return 1.0;
   }
+}
+
+double FixedDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
+                                                      const std::uint64_t occupancy) const
+{
+  std::uint64_t tile_shape = tile.GetShape();
+  return GetProbability(tile_shape, occupancy);
 }
 
 }

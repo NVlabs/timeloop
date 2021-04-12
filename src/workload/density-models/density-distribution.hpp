@@ -34,6 +34,7 @@
 #include <iostream>
 
 #include "compound-config/compound-config.hpp"
+#include "loop-analysis/coordinate-space-tile-info.hpp"
 
 namespace problem
 {
@@ -77,19 +78,22 @@ public:
   // destructor
   virtual ~DensityDistribution(){ }
 
-  virtual void SetDensity( double density) = 0;
-  virtual void SetWorkloadTensorSize( std::uint64_t size ) = 0;
+  virtual void SetDensity(const double density) = 0;
 
-  virtual double GetTileConfidenceByAllocatedCapacity(std::uint64_t tile_shape,
-                                                      std::uint64_t allocated_buffer_size) const = 0;
-  virtual std::uint64_t GetTileOccupancyByConfidence (std::uint64_t tile_shape,
-                                                      double confidence) = 0;
+  virtual void SetWorkloadTensorSize(const std::uint64_t size) = 0;
+
   virtual std::uint64_t GetWorkloadTensorSize() const = 0;
   virtual std::string GetDistributionType() const = 0;
-  virtual double GetTileDensityByConfidence(std::uint64_t tile_shape,
-                                            double confidence, uint64_t allocated_capacity = 0) const = 0;
-  virtual double GetTileExpectedDensity(std::uint64_t tile_shape) const = 0;
-  virtual double GetProbability(std::uint64_t tile_shape, std::uint64_t nnz_vals) const = 0;
+
+  virtual std::uint64_t GetMaxTileOccupancyByConfidence (const tiling::CoordinateSpaceTileInfo& tile,
+                                                         const double confidence = 1.0) const = 0;
+  // for lightweight pre-evaluation check
+  virtual std::uint64_t GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
+                                                             const double confidence = 1.0) const = 0;
+  virtual double GetTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
+                                            const double confidence = 1.0) const = 0;
+  virtual double GetTileOccupancyProbability (const tiling::CoordinateSpaceTileInfo& tile,
+                                              const std::uint64_t occupancy) const = 0;
 
   // Serialization.
   friend class boost::serialization::access;

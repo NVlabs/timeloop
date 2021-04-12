@@ -30,7 +30,7 @@
 #include <math.h>
 
 #include "loop-analysis/tiling-tile-info.hpp"
-#include "model/sparse.hpp"
+#include "model/sparse-optimization-info.hpp"
 
 
 namespace tiling
@@ -65,20 +65,19 @@ static std::string networkOperationTypes[1] = {"random_transfer"};
 int GetNumOpTypes();
 int GetNumOpTypes(std::string component_type);
 
-  void ComputeFineGrainComputeAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
-                                       unsigned level,
-                                       sparse::ComputeActionOptimizationInfo& compute_gating_info,
-                                       sparse::ComputeActionOptimizationInfo& compute_skipping_info);
+void ComputeFineGrainComputeAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                                     const unsigned level,
+                                     const sparse::ComputeActionOptimizationInfo& compute_gating_info,
+                                     const sparse::ComputeActionOptimizationInfo& compute_skipping_info);
 
 void ComputeFineGrainDataMovementAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
-                                          unsigned level,
-                                          sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
-                                          sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_skipping);
+                                          const unsigned level,
+                                          const sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
+                                          const sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_skipping);
 
 void ComputeFineGrainMetaDataAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
-                                      unsigned level,
-                                      sparse::PerStorageLevelCompressionInfo& per_level_compression_info,
-                                      sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating);
+                                      const unsigned level,
+                                      const sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating);
 
 
 } // namespace problem

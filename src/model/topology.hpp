@@ -42,7 +42,7 @@
 #include "compound-config/compound-config.hpp"
 #include "network.hpp"
 #include "network-legacy.hpp"
-#include "sparse.hpp"
+#include "sparse-optimization-info.hpp"
 
 namespace model
 {
@@ -295,6 +295,7 @@ class Topology : public Module
   std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
 
   const Stats& GetStats() const { return stats_; }
+  const Specs& GetSpecs() const {return specs_;}
 
   // FIXME: these stat-specific accessors are deprecated and only exist for
   // backwards-compatibility with some applications.
