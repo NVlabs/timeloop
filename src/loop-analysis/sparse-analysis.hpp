@@ -25,27 +25,63 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
 
-#include "compound-config/compound-config.hpp"
-#include "model/sparse-optimization-info.hpp"
-#include "mapping/mapping.hpp"
 #include "model/level.hpp"
-#include "loop-analysis/tiling.hpp"
+#include "mapping/mapping.hpp"
+#include "tiling-tile-info.hpp"
+#include "model/sparse-optimization-info.hpp"
 #include "model/topology.hpp"
 
-namespace sparse{
+namespace sparse {
 
-  bool DefineFormatModelsViaMapping(const problem::Workload* workload,
-									const Mapping& mapping,
-                                    tiling::CompoundDataMovementNest& compound_data_movement_nest,
-                                    CompressionInfo& sparse_optimization_info,
-									const model::Topology::Specs& topology_specs,
-                                    std::vector<model::EvalStatus>& eval_status,
-                                    const bool break_on_failure);
+struct SparseAnalysisState {
 
-  bool CheckFormatModelsAndMapping(const tiling::NestOfCompoundMasks& masks,
-                                   const CompressionInfo& compression_info,
-                                   const model::Topology::Specs& topology_specs,
-                                   std::vector<model::EvalStatus>& eval_status,
-                                   const bool break_on_failure);
+  // statically defined information
+  sparse::SparseOptimizationInfo *sparse_optimization_info_ = nullptr;
+  problem::Workload *workload_ = nullptr;
+  Mapping mapping_;
+
+  // live state
+  std::vector <std::vector<problem::OperationSpace>> maxtile_point_sets_;
+  std::vector <std::vector<loop::Descriptor>> complete_subnests_;
+  std::vector <std::vector<bool>> trivial_nest_masks_;
+
+  SparseAnalysisState(){}
+
+  void Init(sparse::SparseOptimizationInfo* sparse_optimization_info,
+			problem::Workload* workload,
+			Mapping mapping);
+  void Reset();
+  void CollectCompletePointSetsAndSubnests();
+
+  // Serialization.
+  friend class boost::serialization::access;
+
+  template<class Archive>
+  void serialize(Archive &ar, const unsigned int version = 0) {
+	if (version == 0) {
+	  ar & BOOST_SERIALIZATION_NVP(sparse_optimization_info_);
+	}
+  }
+
+  friend std::ostream &operator<<(std::ostream &out, const SparseAnalysisState &n);
+};
+
+//
+// Sparse Analysis API
+//
+  bool PerformSparseProcessing(problem::Workload *workload,
+							   Mapping &mapping,
+							   tiling::CompoundDataMovementNest &compound_data_movement_nest,
+							   SparseOptimizationInfo* sparse_optimization_info,
+							   const model::Topology::Specs &topology_specs,
+							   std::vector <model::EvalStatus> &eval_status,
+							   const bool break_on_failure);
+
+  bool CheckFormatModelsAndMapping(const tiling::NestOfCompoundMasks &masks,
+								   sparse::CompressionInfo& compression_info,
+								   const model::Topology::Specs &topology_specs,
+								   std::vector <model::EvalStatus> &eval_status,
+								   const bool break_on_failure);
 }

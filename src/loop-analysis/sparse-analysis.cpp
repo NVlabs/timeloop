@@ -25,30 +25,46 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "loop-analysis/sparse-analysis.hpp"
-#include "mapping/arch-properties.hpp"
-#include "model/topology.hpp"
+#include "sparse-analysis.hpp"
 
 namespace sparse {
 
-void CollectCompletePointSetsAndSubnests(const problem::Workload *workload,
-										 const Mapping &mapping,
-										 std::vector <std::vector<problem::OperationSpace>> &maxtile_point_sets,
-										 std::vector <std::vector<loop::Descriptor>> &subnests) {
+//
+// SparseAnalysisState Function Implementations
+//
+void SparseAnalysisState::Init(sparse::SparseOptimizationInfo* sparse_optimization_info,
+							   problem::Workload* workload,
+							   Mapping mapping)
+{
+  sparse_optimization_info_ = sparse_optimization_info;
+  workload_ = workload;
+  mapping_ = mapping;
+  Reset();
+}
 
+void SparseAnalysisState::Reset() {
+  maxtile_point_sets_ = {};
+  complete_subnests_ = {};
+  trivial_nest_masks_ = {};
+}
+
+void SparseAnalysisState::CollectCompletePointSetsAndSubnests()
+{
   problem::OperationPoint origin;
   problem::OperationPoint dimension_sizes;
   dimension_sizes.IncrementAllDimensions(); // initialize to { 1, 1, 1... }
 
-  maxtile_point_sets.push_back({});
-  subnests.push_back({});
+  maxtile_point_sets_.push_back({});
+  complete_subnests_.push_back({});
+  trivial_nest_masks_.push_back({});
 
   unsigned tiling_level = 0;
-  auto &loops = mapping.complete_loop_nest.loops;
+  auto &loops = mapping_.complete_loop_nest.loops;
   for (unsigned loop_level = 0; loop_level < loops.size(); loop_level++)
   {
 	auto &loop = loops[loop_level];
-	dimension_sizes[loop.dimension] *= ceil((loop.end - loop.start) / loop.stride);
+	auto factor = ceil((loop.end - loop.start) / loop.stride);
+	dimension_sizes[loop.dimension] *= factor;
 
 	// origin gives us the low corner (inclusive) of the operation space.
 	// dimension_sizes gives the high corner (exclusive) of the operation space.
@@ -56,34 +72,101 @@ void CollectCompletePointSetsAndSubnests(const problem::Workload *workload,
 	// OperationSpace constructor for details.
 	problem::OperationPoint high = dimension_sizes;
 	high.IncrementAllDimensions(-1);
-	problem::OperationSpace maxtile(workload, origin, high);
-	maxtile_point_sets[tiling_level].push_back(maxtile);
-	subnests[tiling_level].push_back(loop);
+	problem::OperationSpace maxtile(workload_, origin, high);
+	maxtile_point_sets_[tiling_level].push_back(maxtile);
+	complete_subnests_[tiling_level].push_back(loop);
+	trivial_nest_masks_[tiling_level].push_back(factor == 1);
 
-	if (loop_level == mapping.complete_loop_nest.storage_tiling_boundaries.at(tiling_level))
+	if (loop_level == mapping_.complete_loop_nest.storage_tiling_boundaries.at(tiling_level))
 	{
-	  maxtile_point_sets.push_back({});
-	  subnests.push_back({});
+	  maxtile_point_sets_.push_back({});
+	  complete_subnests_.push_back({});
+	  trivial_nest_masks_.push_back({});
 	  tiling_level++;
 	}
   }
-
 }
 
-bool DefineFormatModelsViaMapping(const problem::Workload *workload,
-								  const Mapping &mapping,
+//
+// Sparse Analysis Functions
+//
+
+//forward declarations
+bool DefineFormatModelsViaMapping(SparseAnalysisState& state,
 								  tiling::CompoundDataMovementNest &compound_data_movement_nest,
-								  CompressionInfo &compression_info,
+								  const model::Topology::Specs &topology_specs,
+								  std::vector <model::EvalStatus> &eval_status,
+								  const bool break_on_failure);
+
+bool DefineActionOptimizationViaMapping(SparseAnalysisState& state,
+									   tiling::CompoundDataMovementNest &compound_data_movement_nest,
+									   const model::Topology::Specs &topology_specs,
+									   std::vector <model::EvalStatus> &eval_status,
+									   const bool break_on_failure);
+// Perform all necessary sparse analysis
+//     - compression related
+//     - gating/skipping related
+bool PerformSparseProcessing(problem::Workload *workload,
+							 Mapping &mapping,
+							 tiling::CompoundDataMovementNest &compound_data_movement_nest,
+							 SparseOptimizationInfo* sparse_optimization_info,
+							 const model::Topology::Specs &topology_specs,
+							 std::vector <model::EvalStatus> &eval_status,
+							 const bool break_on_failure)
+{
+
+  SparseAnalysisState state;
+  state.Init(sparse_optimization_info, workload, mapping);
+  state.CollectCompletePointSetsAndSubnests();
+
+  // define the necessary metadata modeling information according to mapping
+  bool success = DefineFormatModelsViaMapping(state, compound_data_movement_nest, topology_specs,
+											  eval_status, break_on_failure);
+  if (!success && break_on_failure) return success;
+
+  // define gating and skipping analysis
+  success = DefineActionOptimizationViaMapping(state, compound_data_movement_nest, topology_specs,
+											  eval_status, break_on_failure);
+  return success;
+}
+
+bool DefineActionOptimizationViaMapping(SparseAnalysisState& state,
+								       tiling::CompoundDataMovementNest &compound_data_movement_nest,
+								       const model::Topology::Specs &topology_specs,
+								       std::vector <model::EvalStatus> &eval_status,
+								       const bool break_on_failure)
+{
+
+  (void) topology_specs;
+  (void) eval_status;
+  (void) compound_data_movement_nest;
+
+  bool success = true;
+  auto action_gating_info = state.sparse_optimization_info_->action_gating_info;
+  auto action_skipping_info = state.sparse_optimization_info_->action_skipping_info;
+
+  if (action_gating_info.storage_info.size() > 0 )
+  {
+    // perform analysis
+  }
+  if ((success || !break_on_failure) && action_skipping_info.storage_info.size() > 0)
+  {
+    // perform analysis
+  }
+
+  return success;
+}
+
+
+
+bool DefineFormatModelsViaMapping(SparseAnalysisState& state,
+								  tiling::CompoundDataMovementNest &compound_data_movement_nest,
 								  const model::Topology::Specs &topology_specs,
 								  std::vector <model::EvalStatus> &eval_status,
 								  const bool break_on_failure) {
 
-  std::vector <std::vector<problem::OperationSpace>> maxtile_point_sets = {};
-  std::vector <std::vector<loop::Descriptor>> subnests = {};
-
-  CollectCompletePointSetsAndSubnests(workload, mapping, maxtile_point_sets, subnests);
-
   bool success = true;
+  auto compression_info = state.sparse_optimization_info_->compression_info;
 
   // nothing needs to be done if no metadata involved
   if (compression_info.all_ranks_default_dense) return success;
@@ -193,19 +276,17 @@ bool DefineFormatModelsViaMapping(const problem::Workload *workload,
 	  // Go through the corresponding storage levels to retrieve info
 	  for (int l = level; l >= int(inner_most_level); l--)
 	  {
-		for (int loop_id = subnests[l].size() - 1; loop_id >= 0; loop_id--)
+		for (int loop_id = state.complete_subnests_[l].size() - 1; loop_id >= 0; loop_id--)
 		{
-		  auto loop = subnests[l][loop_id];
-		  bool trivial_loop = (loop.start + loop.stride) >= loop.end;
+		  auto loop = state.complete_subnests_[l][loop_id];
+		  bool trivial_loop = state.trivial_nest_masks_[l][loop_id];
 
 		  // pick out loops that are relevant (and non-trivial if pre-tiling is required)
 		  if (dim_ids_in_proj.find(loop.dimension) != dim_ids_in_proj.end() &&
 			  (!pre_tiling_required || (pre_tiling_required && !trivial_loop)))
 		  {
-			// pv_data_movement_nest[level].metadata_subnest.insert(pv_data_movement_nest[level].metadata_subnest.begin(), loop);
 			singleton_metadata_subnest.insert(singleton_metadata_subnest.begin(), loop);
-			auto subtile_shape = maxtile_point_sets[l][loop_id].GetSize(pv);
-			// pv_data_movement_nest[level].metadata_subtile_shape.insert(pv_data_movement_nest[level].metadata_subtile_shape.begin(), subtile_shape);
+			auto subtile_shape = state.maxtile_point_sets_[l][loop_id].GetSize(pv);
 			singleton_metadata_subtile_shape.insert(singleton_metadata_subtile_shape.begin(), subtile_shape);
 		  }
 		}
@@ -233,7 +314,7 @@ bool DefineFormatModelsViaMapping(const problem::Workload *workload,
 
 		for (unsigned i = 0; i < inner_most_level; i++)
 		{
-		  auto subnest = subnests[i];
+		  auto subnest = state.complete_subnests_[i];
 		  for (auto loop = subnest.begin(); loop != subnest.end(); loop++)
 		  {
 			dimension_sizes[loop->dimension] *= ceil((loop->end - loop->start) / loop->stride);
@@ -397,7 +478,7 @@ bool DefineFormatModelsViaMapping(const problem::Workload *workload,
 		// project to operation space to get fiber shape
 		problem::OperationPoint high = dimension_sizes;
 		high.IncrementAllDimensions(-1);
-		problem::OperationSpace offset_tile(workload, origin, high);
+		problem::OperationSpace offset_tile(state.workload_, origin, high);
 		compound_data_movement_nest[pv][level].fiber_shape.push_back(offset_tile.GetSize(pv));
 	  }
 
@@ -439,10 +520,11 @@ bool DefineFormatModelsViaMapping(const problem::Workload *workload,
 }
 
 bool CheckFormatModelsAndMapping(const tiling::NestOfCompoundMasks &masks,
-								 const CompressionInfo &compression_info,
+								 sparse::CompressionInfo& compression_info,
 								 const model::Topology::Specs &topology_specs,
 								 std::vector <model::EvalStatus> &eval_status,
-								 const bool break_on_failure) {
+								 const bool break_on_failure)
+ {
 
   bool success = true;
 

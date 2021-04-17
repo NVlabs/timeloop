@@ -1038,14 +1038,13 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                                distribution_supported,
                                                analysis->GetWorkload());
 
-
-  success = sparse::DefineFormatModelsViaMapping(analysis->GetWorkload(),
-                                                 mapping,
-                                                 collapsed_tiles.compound_data_movement_info_nest,
-                                                 sparse_optimizations->compression_info,
-                                                 specs_,
-                                                 eval_status,
-                                                 break_on_failure);
+  success = sparse::PerformSparseProcessing(analysis->GetWorkload(),
+											mapping,
+											collapsed_tiles.compound_data_movement_info_nest,
+											sparse_optimizations,
+											specs_,
+											eval_status,
+											break_on_failure);
   if (break_on_failure && !success) { return eval_status; }
 
   // Transpose the tiles into level->datatype/level->optype structure.
