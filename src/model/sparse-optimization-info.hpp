@@ -46,6 +46,7 @@ namespace sparse{
   };
 
   typedef std::map<ActionName, Condition> PerDataSpaceActionOptimizationInfo;
+  // dataspace_id, per-dataspace-action-optimization-info
   typedef std::map<std::string, PerDataSpaceActionOptimizationInfo> PerStorageLevelActionOptimizationInfo;
 
   // storage_level_id, per_storage_level_gating_info
@@ -53,6 +54,7 @@ namespace sparse{
 
   typedef std::map<ActionName, Condition> ComputeActionOptimizationInfo;
 
+  //TODO: unify the gating and sikipping data structures
   //
   // data structure for action gating information
   //
@@ -77,6 +79,12 @@ namespace sparse{
   struct PerDataSpaceCompressionInfo{
 
     bool tensor_compressed = false; // whether this tensor is a compressed tensor
+
+    // user-defined order for applying ranks to loops
+	// 0: inner to outer, i.e., if fewer non-trivial loops than supported ranks, outer ranks get spared
+	// 1: outer to inner, i.e., if more non-trivial loops than supported ranks, inner ranks get spared
+    bool rank_application_order = 0;
+
     // all of the vectors below should have the same length... which is the fiber tree depth
     std::vector<bool> rank_compressed; // if each rank is compressed
     std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format
@@ -84,7 +92,7 @@ namespace sparse{
     std::vector<std::shared_ptr<problem::MetaDataFormat>> metadata_models; // pointers to metadata format objs
     double compression_rate; // not very useful yet, placeholder
 
-    bool HasMetaData()
+    bool HasMetaData() const
     {
       if (tensor_compressed) return true; // compressed tensor must have metadata
       if (metadata_models.size() > 1) return true; // intermediate levels must have payloads
@@ -93,7 +101,7 @@ namespace sparse{
     }
 
     bool FoundDimensionInFlatteningRule(std::uint64_t rank_id, problem::Shape::DimensionID dim_id,
-										std::set<problem::Shape::DimensionID>& rule_item)
+										std::set<problem::Shape::DimensionID>& rule_item) const
 	{
       for (auto iter = flattened_rankIDs[rank_id].begin(); iter != flattened_rankIDs[rank_id].end(); iter++)
 	  {

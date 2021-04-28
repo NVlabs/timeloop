@@ -103,29 +103,27 @@ struct DataMovementInfo
   bool is_master_spatial;
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
-  // tile density
+  // Tile density
   std::shared_ptr<problem::DensityDistribution> tile_density;  // statistical representation of tile data density
-  // fine grained actions, names defined in operation-type.hpp
+  // Fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
 
-  // compression related
+  // Compression related
   bool compressed;
   bool has_metadata;
-  // parent/child level for inferring decompression/compression overhead
-  unsigned parent_level;
-  std::string parent_level_name;
-  unsigned child_level;
-  bool parent_level_compressed;
-  bool child_level_compressed;
-  uint64_t child_level_tile_size;
-
-  DataMovementInfo* child_level_ptr;
-  DataMovementInfo* parent_level_ptr;
 
   // Only needed when tile has metadata
   std::vector<std::vector<loop::Descriptor>> metadata_subnest;
   std::vector<std::uint64_t> metadata_subtile_shape;
   std::vector<std::uint64_t> fiber_shape;
+  double child_level_metadata_occupancy_ratio;
+
+  // Parent child level records
+  unsigned parent_level;
+  std::string parent_level_name;
+  unsigned child_level;
+  DataMovementInfo* child_level_ptr;
+  DataMovementInfo* parent_level_ptr;
 
   std::uint64_t GetTotalAccesses() const
   {
@@ -165,8 +163,7 @@ struct DataMovementInfo
     child_level = std::numeric_limits<unsigned>::max();
     parent_level_ptr = NULL;
     child_level_ptr = NULL;
-    parent_level_compressed = false;
-    child_level_compressed = false;
+	child_level_metadata_occupancy_ratio = 0;
     fine_grained_accesses.clear();
     metadata_updates = 0;
     metadata_fills = 0;
@@ -255,6 +252,8 @@ struct DataMovementInfo
   // get metadata tile occupancy
   MetaDataTileOccupancy GetMetaDataTileOccupancyByConfidence(const double confidence = 1.0) const;
   MetaDataTileOccupancy GetExpectedMetaDataTileOccupancy() const {return GetMetaDataTileOccupancyByConfidence(0.5);}
+  double GetExpectedAggregatedMetaDataTileOccupancy() const;
+
   // density value related
   double GetTileDensityByConfidence(const double confidence = 1.0) const;
   double GetExpectedTileDensity() const {return GetTileDensityByConfidence(0.5);}

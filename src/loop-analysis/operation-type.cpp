@@ -227,30 +227,30 @@ void ComputeFineGrainMetaDataAccesses(tiling::NestOfCompoundTiles& nest_of_compo
     //
     // infer the counts for compression and decompression
     //
-    compound_data_movement[pv].fine_grained_accesses["decompression_count"] = 0;
-    compound_data_movement[pv].fine_grained_accesses["compression_count"] = 0;
+    //compound_data_movement[pv].fine_grained_accesses["decompression_count"] = 0;
+    //compound_data_movement[pv].fine_grained_accesses["compression_count"] = 0;
 
-    // auto compression/decompression is always performed at the level that's not compressed
-    if (compound_data_movement[pv].compressed == false)
-    {
-      // check parent and child level to determine whether decompression/compression logic is needed
-      if (compound_data_movement[pv].parent_level != std::numeric_limits<unsigned>::max()
-          && compound_data_movement[pv].parent_level_compressed) {
-        // parent compressed, this level uncompressed
-        compound_data_movement[pv].fine_grained_accesses["decompression_count"] = compound_data_movement[pv].fills;
+    //// auto compression/decompression is always performed at the level that's not compressed
+    //if (compound_data_movement[pv].compressed == false)
+    //{
+    //  // check parent and child level to determine whether decompression/compression logic is needed
+    //  if (compound_data_movement[pv].parent_level != std::numeric_limits<unsigned>::max()
+    //      && compound_data_movement[pv].parent_level_compressed) {
+    //    // parent compressed, this level uncompressed
+    //    compound_data_movement[pv].fine_grained_accesses["decompression_count"] = compound_data_movement[pv].fills;
 
-        if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
-          compound_data_movement[pv].fine_grained_accesses["compression_count"] = compound_data_movement[pv].updates;
-        }
-      }
+    //    if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
+    //      compound_data_movement[pv].fine_grained_accesses["compression_count"] = compound_data_movement[pv].updates;
+    //    }
+    //  }
 
-      if (compound_data_movement[pv].child_level != std::numeric_limits<unsigned>::max()
-          && compound_data_movement[pv].child_level_compressed) {
-        // this level uncompressed, child compressed
-        assert(false); // we do not allow on-chip compression for now
-        compound_data_movement[pv].fine_grained_accesses["compression_count"] += compound_data_movement[pv].reads;
-      }
-    }
+    //  if (compound_data_movement[pv].child_level != std::numeric_limits<unsigned>::max()
+    //      && compound_data_movement[pv].child_level_compressed) {
+    //    // this level uncompressed, child compressed
+    //    assert(false); // we do not allow on-chip compression for now
+    //    compound_data_movement[pv].fine_grained_accesses["compression_count"] += compound_data_movement[pv].reads;
+    //  }
+    //}
   }
 }
 

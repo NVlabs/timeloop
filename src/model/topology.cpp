@@ -249,6 +249,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
         // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
         bufferSpec->vector_access_energy = maxEnergy/bufferSpec->cluster_size.Get();
         bufferSpec->ERT_entries = ERT_entries;
+        bufferSpec->UpdateOpEnergyViaERT();
       } else {
         // std::cout << "  Unused component ERT: "  << key << std::endl;
       }
@@ -983,7 +984,9 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   bool success_accum = true;
   bool success = true;
 
-
+  // std::cout <<" ======= eval " << std::endl;
+  // mapping.PrettyPrint(std::cout,
+  //	     		  specs_.StorageLevelNames());
   // Transpose the datatype bypass nest into level->datatype structure.
   auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   assert(keep_masks.size() >= NumStorageLevels());
@@ -993,6 +996,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                                 specs_,
                                                 eval_status,
                                                 break_on_failure);
+  // std::cout << "\tcheck format succeeded: " << success << std::endl;
   if (break_on_failure && !success) { return eval_status; }
 
   // Compute working-set tile hierarchy for the nest.
@@ -1050,13 +1054,6 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   // Transpose the tiles into level->datatype/level->optype structure.
   auto tiles = tiling::TransposeTiles(collapsed_tiles, sparse_optimizations);
   assert(tiles.size() == NumStorageLevels());
-
-
-  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++){
-    auto storage_level = GetStorageLevel(storage_level_id);
-    storage_level->PopulateEnergyPerOp(unsigned(tiling::GetNumOpTypes("storage")));
-  }
-
 
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {

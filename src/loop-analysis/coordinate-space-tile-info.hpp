@@ -34,28 +34,45 @@ namespace tiling {
   // tells the density models which set of tiles are we looking at
   struct CoordinateSpaceTileInfo {
 
-    // TODO: a pointset object for coordinate space representation needed for more precise representation
+    // an operation space mold for coordinate space representation needed for more precise representation
+	// problem::Operation operation_space_mold_;
     std::vector <loop::Descriptor> subnests_;
     std::uint64_t shape_;
+    problem::Shape::DataSpaceID dspace_id_;
+
+    // for compatibility (there are code segments that do not set the mold yet)
+    // TODO: maks all usage of coord space tile include mold and remove the check
+    bool mold_set_ = false;
 
     void Clear() {
       shape_ = 0;
       subnests_ = {};
     }
 
-    void Set(std::uint64_t shape) {
+    void Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id) {
       shape_ = shape;
+      dspace_id_ = data_space_id;
     }
 
-    void Set(std::uint64_t shape, std::vector <loop::Descriptor> subnests) {
+    void Set(std::uint64_t shape, std::vector <loop::Descriptor> subnests, problem::Shape::DataSpaceID data_space_id) {
       shape_ = shape;
       subnests_ = subnests;
+      dspace_id_ = data_space_id;
     }
 
-    std::uint64_t GetShape() const { return shape_; }
+    std::uint64_t GetShape() const {
+       return shape_;
+    }
 
     std::vector <loop::Descriptor> GetSubnests() const { return subnests_; }
 
   };
+
+ // void Set(problem::OperationSpace mold, problem::DataSpaceID dspace_id)
+ // {
+ //   operation_space_mold_ = mold;
+ //   dspace_id_ = dspace_id;
+ //   mold_set_ = true;
+ // }
 
 }

@@ -43,7 +43,7 @@ struct SparseAnalysisState {
   Mapping mapping_;
 
   // live state
-  std::vector <std::vector<problem::OperationSpace>> maxtile_point_sets_;
+  std::vector <std::vector<problem::OperationPoint>> maxtile_molds_high_;
   std::vector <std::vector<loop::Descriptor>> complete_subnests_;
   std::vector <std::vector<bool>> trivial_nest_masks_;
 

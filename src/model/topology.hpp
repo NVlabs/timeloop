@@ -65,12 +65,15 @@ static std::map<std::string, std::vector<std::string>> storageOperationMappings 
                                                                                    { "skipped_read", { "skipped_read", "gated_read", "idle", "read"}},
                                                                                    { "skipped_fill", { "skipped_fill", "skipped_write", "gated_write", "idle", "write"}},
                                                                                    { "skipped_update", { "skipped_update", "skipped_write", "gated_write", "idle", "write"}},
-                                                                                   { "metadata_read", { "metadata_read", "metadata_idle", "idle"}},
+                                                                                   { "random_metadata_read", { "metadata_read", "metadata_idle", "idle"}},
                                                                                    { "gated_metadata_read", { "gated_metadata_read", "metadata_idle", "metadata_read"}},
-                                                                                   { "metadata_fill", { "metadata_write", "metadata_idle", "idle"}},
+																				   { "skipped_metadata_read", { "skipped_metadata_read", "metadata_idle", "metadata_read"}},
+                                                                                   { "random_metadata_fill", { "metadata_write", "metadata_idle", "idle"}},
                                                                                    { "gated_metadata_fill", { "gated_metadata_write", "metadata_idle", "metadata_write"}},
-                                                                                   { "metadata_update", { "metadata_write", "metadata_idle", "idle"}},
+																				   { "skipped_metadata_fill", { "skipped_metadata_write", "metadata_idle", "metadata_write"}},
+                                                                                   { "random_metadata_update", { "metadata_write", "metadata_idle", "idle"}},
                                                                                    { "gated_metadata_update", { "gated_metadata_write", "metadata_idle", "metadata_write"}},
+																				   { "skipped_metadata_update", { "skipped_metadata_write", "metadata_idle", "metadata_write"}},
                                                                                    { "decompression_count", { "decompression_count"}},
                                                                                    { "compression_count", { "compression_count"}}
                                                                                   }; 

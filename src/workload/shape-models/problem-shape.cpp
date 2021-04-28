@@ -25,6 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <algorithm>
 #include "problem-shape.hpp"
 #include "workload/workload.hpp"
 #include "operation-space.hpp"
@@ -171,5 +172,24 @@ void Shape::Parse(config::CompoundConfigNode shape)
     NumDataSpaces++;
   }
 }
+
+
+std::set<Shape::DimensionID> Shape::GetContractedDimensions(const std::vector<Shape::DataSpaceID> dataspace_pair) const
+{
+  std::set<DimensionID> contracted_dims;
+  auto dataspace_a_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[0]];
+  auto dataspae_b_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[1]];
+
+  for (auto iter = dataspace_a_dims.begin(); iter != dataspace_a_dims.end(); iter++)
+  {
+    if (dataspae_b_dims.find(*iter) != dataspae_b_dims.end())
+	{
+      contracted_dims.insert(*iter);
+	}
+  }
+
+  return contracted_dims;
+}
+
 
 }  // namespace problem

@@ -62,6 +62,29 @@ BufferLevel::BufferLevel(const Specs& specs) :
 BufferLevel::~BufferLevel()
 { }
 
+
+void BufferLevel::Specs::UpdateOpEnergyViaERT()
+{
+  for (auto op_id = 0; op_id < tiling::GetNumOpTypes("storage"); op_id++)
+  {
+	// go through all op types
+	std::string op_name = tiling::storageOperationTypes[op_id];
+
+	// go through ERT entries and look for appropriate energy values
+	std::vector<std::string> ert_action_names = model::storageOperationMappings.at(op_name);
+	for (auto it = ert_action_names.begin(); it != ert_action_names.end(); it++)
+	{
+	  if (ERT_entries.find(*it) != ERT_entries.end())
+	  {
+		// populate the op_energy_map data structure for easier future energy search
+		op_energy_map[op_name] = ERT_entries.at(*it);
+		break;
+	  }
+	}
+  }
+}
+
+
 // The hierarchical ParseSpecs functions are static and do not
 // affect the internal specs_ data structure, which is set by
 // the dynamic Spec() call later.
@@ -414,6 +437,23 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   //           << specs.storage_area.Get() * specs.cluster_size.Get()
   //           << " um^2" << std::endl;
 
+  // Initialize the fine-grained access energy
+  // ERT parsing (if any) will update the energy values according to Accelergy estimations
+  for (auto op_id = 0; op_id < tiling::GetNumOpTypes("storage"); op_id++) {
+	// go through all op types
+	std::string op_name = tiling::storageOperationTypes[op_id];
+	// initialize to the pat values or zero in case no mapping is found
+	if (op_name.find("random_read") != std::string::npos
+		|| op_name.find("random_fill") != std::string::npos
+		|| op_name.find("random_update") != std::string::npos) {
+	  // use the max if no mapping is found for regular memory actions
+	  specs.op_energy_map[op_name] = specs.vector_access_energy.Get();
+	} else {
+	  // use zero if no mapping is found for matadata/gated/skipped/decompression/compression actions
+	  specs.op_energy_map[op_name] = 0;
+	}
+  }
+
   specs.level_name = specs.name.Get();
 
   ValidateTopology(specs);
@@ -488,52 +528,6 @@ void BufferLevel::ValidateTopology(BufferLevel::Specs& specs)
     exit(1);        
   }
 }
-
-
-void BufferLevel::PopulateEnergyPerOp(unsigned num_ops){
-
-  if (! populate_energy_per_op){
-
-    double ert_energy_per_op;
-    bool  ert_energy_found;
-    std::vector<std::string> ert_action_names;
-    std::string op_name;
-
-    for (unsigned op_id = 0; op_id < num_ops; op_id++){
-      // go through all op types
-      ert_energy_per_op = 0;
-      ert_energy_found = false;
-      op_name = tiling::storageOperationTypes[op_id];
-
-     // initialize to the pat values or zero in case no mapping is found
-      if (op_name.find("random_read") != std::string::npos
-          || op_name.find("random_fill") != std::string::npos
-          || op_name.find("random_update") != std::string::npos){
-            // use the max if no mapping is found for regular memory actions
-            ert_energy_per_op = specs_.vector_access_energy.Get();
-      } else {
-          // use zero if no mapping is found for matadata/gated/skipped/decompression/compression actions
-          ert_energy_per_op = 0;
-      }
-
-      // go through ERT entries and look for appopriate energy values
-      // std::cout <<"operation name: " << op_name << std::endl;
-      ert_action_names = model::storageOperationMappings.at(op_name);
-      for (auto it = ert_action_names.begin(); it != ert_action_names.end(); it++){
-        if(specs_.ERT_entries.count(*it)>0 && (!ert_energy_found)){
-          ert_energy_per_op = specs_.ERT_entries.at(*it);
-          ert_energy_found = true;
-        }
-      }
-      // populate the op_energy_map data structure for easier future energy search
-      specs_.op_energy_map[op_name] = ert_energy_per_op;
-  }
-  populate_energy_per_op = true;
-
- }
-
-}
-
 
 // PreEvaluationCheck(): allows for a very fast capacity-check
 // based on given working-set sizes that can be trivially derived
@@ -1405,8 +1399,8 @@ void BufferLevel::Print(std::ostream& out) const
 //  out << indent << indent << "Vector gated update energy   : " << specs.op_energy_map.at("gated_update") << " pJ" << std::endl;
 //  out << indent << indent << "Vector skipped update energy : " << specs.op_energy_map.at("skipped_update") << " pJ" << std::endl;
 //  out << indent << indent << "Vector random update energy  : " << specs.op_energy_map.at("random_update") << " pJ" << std::endl;
-  out << indent << indent << "Vector metadata read energy  : " << specs.op_energy_map.at("metadata_read") << " pJ" << std::endl;
-  out << indent << indent << "Vector metadata write energy : " << specs.op_energy_map.at("metadata_fill") << " pJ" << std::endl;
+  out << indent << indent << "Vector metadata read energy  : " << specs.op_energy_map.at("random_metadata_read") << " pJ" << std::endl;
+  out << indent << indent << "Vector metadata write energy : " << specs.op_energy_map.at("random_metadata_fill") << " pJ" << std::endl;
   out << indent << indent << "(De)compression energy       : " << specs.op_energy_map.at("decompression_count") << " pJ" << std::endl;
   out << indent << indent << "Area                         : " << specs.storage_area << " um^2" << std::endl;
 
@@ -1502,14 +1496,17 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent + indent << "Temporal reductions (per-instance)                    : " << stats.temporal_reductions.at(pv) << std::endl;
       out << indent + indent << "Address generations (per-cluster)                     : " << stats.address_generations.at(pv) << std::endl;
       out << indent + indent << "Total scalar metadata reads (per-cluster)             : " << stats.metadata_reads.at(pv) << std::endl;
-      out << indent + indent + indent << "Scalar metadata random reads (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("metadata_read") << std::endl;
+      out << indent + indent + indent << "Scalar metadata random reads (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("random_metadata_read") << std::endl;
       out << indent + indent + indent << "Scalar metadata gated reads (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("gated_metadata_read")<< std::endl;
+	  out << indent + indent + indent << "Scalar metadata skipped reads (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("skipped_metadata_read") << std::endl;
       out << indent + indent << "Total scalar metadata fills (per-cluster)             : " << stats.metadata_fills.at(pv) << std::endl;
-      out << indent + indent + indent << "Scalar metadata random fills (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("metadata_fill") << std::endl;
+      out << indent + indent + indent << "Scalar metadata random fills (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("random_metadata_fill") << std::endl;
       out << indent + indent + indent << "Scalar metadata gated fills (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("gated_metadata_fill") << std::endl;
+	  out << indent + indent + indent << "Scalar metadata skipped fills (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("skipped_metadata_fill") << std::endl;
       out << indent + indent << "Total scalar metadata updates (per-cluster)           : " << stats.metadata_updates.at(pv) << std::endl;
-      out << indent + indent + indent << "Scalar metadata random updates (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("metadata_update") << std::endl;
+      out << indent + indent + indent << "Scalar metadata random updates (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("random_metadata_update") << std::endl;
       out << indent + indent + indent << "Scalar metadata gated updates (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("gated_metadata_update") << std::endl;
+	  out << indent + indent + indent << "Scalar metadata skipped updates (per-cluster): " << stats.fine_grained_scalar_accesses.at(pv).at("skipped_metadata_update") << std::endl;
       out << indent + indent << "Scalar decompression counts (per-cluster)             : " << stats.fine_grained_scalar_accesses.at(pv).at("decompression_count") << std::endl;
       out << indent + indent << "Scalar compression counts (per-cluster)               : " << stats.fine_grained_scalar_accesses.at(pv).at("compression_count") << std::endl;
       out << indent + indent << "Energy (per-scalar-access)                            : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;

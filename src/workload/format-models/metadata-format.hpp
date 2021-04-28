@@ -105,6 +105,8 @@ namespace problem
     double PayloadUnits() const {return payload_units;}
     int MetaDataWidth() const {return metadata_width;}
     int PayloadWidth() const {return payload_width;}
+    double TotalMetDataAndPayloadUnits() const {return metadata_units + payload_units;}
+
 
     friend class boost::serialization::access;
 

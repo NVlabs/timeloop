@@ -37,7 +37,7 @@ namespace tiling{
     rank_compressed = {};
     rank_formats = {};
     metadata_models_ = {};
-    coord_space_info.Set(shape);
+    coord_space_info.Set(shape, dataspace_id);
 
     // for safety, set the quick accessors (should be initialized just right)
     compressed = false;
@@ -57,7 +57,7 @@ namespace tiling{
     rank_compressed = compression_opt_spec.rank_compressed;
     rank_formats = compression_opt_spec.rank_formats;
     metadata_models_ = compression_opt_spec.metadata_models;
-    coord_space_info.Set(shape, subnests);
+    coord_space_info.Set(shape, subnests, dataspace_id);
 
     compressed = compression_opt_spec.tensor_compressed;
     has_metadata= true;
@@ -73,7 +73,7 @@ void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompres
   rank_compressed = compression_opt_spec.rank_compressed;
   rank_formats = compression_opt_spec.rank_formats;
   metadata_models_ = compression_opt_spec.metadata_models;
-  coord_space_info.Set(shape);
+  coord_space_info.Set(shape, dataspace_id);
 
   compressed = compression_opt_spec.tensor_compressed;
   has_metadata= true;
@@ -114,7 +114,7 @@ void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompres
     {
      // lowest level of its data type, next level is compute
      CoordinateSpaceTileInfo singleton_tile;
-     singleton_tile.Set(1);
+     singleton_tile.Set(1, dataspace_id);
      return singleton_tile;
     }
   }
@@ -175,7 +175,7 @@ void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompres
       std::uint64_t max_number_of_fibers_in_rank = 1; // the highest rank will only have one fiber
 
       CoordinateSpaceTileInfo cur_coord_tile;
-      cur_coord_tile.Set(metadata_subtile_shape.back());
+      cur_coord_tile.Set(metadata_subtile_shape.back(), dataspace_id);
 
       //inits related to next rank, will be defined and updated in the loop
       CoordinateSpaceTileInfo next_coord_tile;
@@ -184,7 +184,7 @@ void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompres
       {
 
         std::uint64_t cur_rank_fiber_shape = fiber_shape[r_id];
-        next_coord_tile.Set(metadata_subtile_shape[r_id]);
+        next_coord_tile.Set(metadata_subtile_shape[r_id], dataspace_id);
 
         // construct query
         problem::MetaDataOccupancyQuery query(max_number_of_fibers_in_rank,
@@ -215,9 +215,23 @@ void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompres
     return metadata_tile_occupancy;
   }
 
+  double DataMovementInfo::GetExpectedAggregatedMetaDataTileOccupancy() const
+  {
+	MetaDataTileOccupancy  expected_occupancy = GetExpectedMetaDataTileOccupancy();
+
+	double aggregated_occupancy = 0;
+	for (auto iter = expected_occupancy.begin(); iter != expected_occupancy.end(); iter++)
+	{
+	  aggregated_occupancy += iter->TotalMetDataAndPayloadUnits();
+	}
+	return aggregated_occupancy;
+  }
+
+
   double DataMovementInfo::GetTileDensityByConfidence(const double confidence) const
   {
-    return tile_density->GetTileDensityByConfidence(coord_space_info, confidence);
+    if (density_model_set) return tile_density->GetTileDensityByConfidence(coord_space_info, confidence);
+    else return 1.0;
   }
 
 
@@ -299,9 +313,9 @@ void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompres
        fine_grained_accesses["skipped_metadata_read"] = num_intersection_reads + num_child_level_transfers;
     }
 
-    fine_grained_accesses["metadata_fill"] = metadata_fills - fine_grained_accesses["gated_metadata_fill"] - fine_grained_accesses["skipped_metadata_fill"] ;
-    fine_grained_accesses["metadata_read"] = metadata_reads - fine_grained_accesses["gated_metadata_read"] - fine_grained_accesses["skipped_metadata_read"];
-    fine_grained_accesses["metadata_update"] = metadata_updates - fine_grained_accesses["gated_metadata_update"] - fine_grained_accesses["skipped_metadata_update"];
+    fine_grained_accesses["random_metadata_fill"] = metadata_fills - fine_grained_accesses["gated_metadata_fill"] - fine_grained_accesses["skipped_metadata_fill"] ;
+    fine_grained_accesses["random_metadata_read"] = metadata_reads - fine_grained_accesses["gated_metadata_read"] - fine_grained_accesses["skipped_metadata_read"];
+    fine_grained_accesses["random_metadata_update"] = metadata_updates - fine_grained_accesses["gated_metadata_update"] - fine_grained_accesses["skipped_metadata_update"];
   }
 
 
