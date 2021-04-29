@@ -295,6 +295,6 @@ std::uint64_t SimpleMulticastNetwork::WordBits() const
   return 0;
 }
 
-STAT_ACCESSOR(double, SimpleMulticastNetwork, Energy, stats_.energy.at(pv))
+STAT_ACCESSOR(double, SimpleMulticastNetwork, Energy, stats_.energy.at(pv) * stats_.utilized_instances.at(pv))
 
 } // namespace model
