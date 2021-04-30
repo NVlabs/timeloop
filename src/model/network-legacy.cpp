@@ -514,7 +514,8 @@ void LegacyNetwork::Print(std::ostream& out) const
 
     for (auto& x: stats_.ingresses.at(pv).stats)
     {
-      out << indent + indent + indent << mcast_type << x.first.first << ": "
+      out << indent + indent + indent << mcast_type << x.first.first
+          << " @scatter " << x.first.second << ": "
           << x.second.accesses << std::endl;
     }
 

@@ -822,10 +822,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
       std::uint64_t total_without = access_stats_without_link_transfers[pvi].TotalAccesses();
-      std::uint64_t total_with = access_stats_without_link_transfers[pvi].TotalAccesses();
-
-      std::cout << "without = " << total_without << std::endl;
-      std::cout << "with    = " << total_with << std::endl;
+      std::uint64_t total_with = access_stats_with_link_transfers[pvi].TotalAccesses();
 
       if (total_with < total_without)
       {
