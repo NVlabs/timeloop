@@ -31,6 +31,7 @@
 #include "workload/problem-shape.hpp"
 #include "workload/operation-space.hpp"
 #include "workload/workload.hpp"
+#include "nest-analysis-tile-info.hpp"
 
 namespace analysis
 {
@@ -45,9 +46,7 @@ struct ElementState
 
   // Multicast functionality
   // Stores accesses with various multicast factors for each data type
-  problem::PerDataSpace<std::vector<unsigned long>> accesses;
-  problem::PerDataSpace<std::vector<unsigned long>> scatter_factors;
-  problem::PerDataSpace<std::vector<double>> cumulative_hops;
+  problem::PerDataSpace<AccessStatMatrix> access_stats;
   problem::PerDataSpace<std::map<unsigned long, unsigned long>> delta_histograms;
 
   // PE activity
@@ -69,18 +68,7 @@ struct ElementState
   {
     last_point_set.Reset();
     max_size.fill(0);
-    for (auto& it : accesses)
-    {
-      it.resize(0);
-    }
-    for (auto& it : scatter_factors)
-    {
-      it.resize(0);
-    }
-    for (auto& it : cumulative_hops)
-    {
-      it.resize(0);
-    }
+    access_stats.clear();
     for (auto& it : delta_histograms)
     {
       it.clear();

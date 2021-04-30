@@ -218,24 +218,26 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
         if (sink->HardwareReductionSupported() ||
             (specs_.cType == ConnectionType::ReadFill) )
         {
-          stats_.ingresses[pv] = tile[pvi].accesses;
+          stats_.ingresses[pv] = tile[pvi].access_stats;
         }
         else
         {
-          stats_.ingresses[pv].resize(tile[pvi].accesses.size());
-          for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
+          for (auto& x: tile[pvi].access_stats.stats)
           {
-            if (tile[pvi].accesses[i] > 0)
-            {
-              // The following assertion is *incorrect* for coefficients (e.g. stride, pad) > 1.
-              // FIXME: find a safety check that works with coefficients > 1.
-              // assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
-              stats_.ingresses[pv][i] = 2*tile[pvi].accesses[i] - tile[pvi].partition_size;
-            }
-            else
-            {
-              stats_.ingresses[pv][i] = 0;
-            }
+            auto multicast = x.first.first;
+            auto scatter = x.first.second;
+
+            // The following assertion is *incorrect* for coefficients (e.g. stride, pad) > 1.
+            // FIXME: find a safety check that works with coefficients > 1.
+            // assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
+            
+            // FIXME: the following line will deduct partition size from *each*
+            // access record. We need to figure out the distribution of partition
+            // size across all records and only deduct the fraction that belongs
+            // to this record.
+            auto& target = stats_.ingresses[pv](multicast, scatter);
+            target.accesses = 2*x.second.accesses - tile[pvi].partition_size;
+            target.hops = x.second.hops;
           }
         } // hardware reduction not supported
 
@@ -250,20 +252,19 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
     }
     else // Read-only data space.
     {
-      stats_.ingresses[pv] = tile[pvi].accesses;
+      stats_.ingresses[pv] = tile[pvi].access_stats;
     }
 
     stats_.spatial_reductions[pv] = 0;
     stats_.distributed_multicast[pv] = tile[pvi].distributed_multicast;
-    stats_.avg_hops[pv].resize(tile[pvi].accesses.size());
-    for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
+
+    for (auto& x: tile[pvi].access_stats.stats)
     {
-      if (tile[pvi].accesses[i] > 0)
-      {
-        stats_.avg_hops[pv][i] = tile[pvi].cumulative_hops[i] / double(tile[pvi].scatter_factors[i]);
-      }
+      auto multicast = x.first.first;
+      auto scatter = x.first.second;
+      stats_.ingresses[pv](multicast, scatter).hops = x.second.hops / scatter;
     }
-    
+
     // FIXME: issues with link-transfer modeling:
     // 1. link transfers should result in buffer accesses to a peer.
     // 2. should reductions via link transfers be counted as spatial or temporal?
@@ -284,20 +285,17 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
     // in the stats.
     stats_.multicast_factor[pv] = 0;
 
-    for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
+    for (auto& x: stats_.ingresses[pv].stats)
     {
-      if (stats_.ingresses[pv][i] > 0)
+      auto multicast = x.first.first;
+      if (multicast > stats_.multicast_factor[pv])
       {
-        auto factor = i + 1;
-        if (factor > stats_.multicast_factor[pv])
-        {
-          stats_.multicast_factor[pv] = factor;
-        }
-        if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
-                (specs_.cType & ConnectionType::UpdateDrain) )
-        {
-          stats_.spatial_reductions[pv] += (i * stats_.ingresses[pv][i]);
-        }
+        stats_.multicast_factor[pv] = multicast;
+      }
+      if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
+          (specs_.cType & ConnectionType::UpdateDrain) )
+      {
+        stats_.spatial_reductions[pv] += (multicast-1) * x.second.accesses;
       }
     }
 
@@ -352,14 +350,20 @@ void LegacyNetwork::ComputeNetworkEnergy()
     std::uint64_t total_routers_touched = 0;
     double total_ingresses = 0;
     
-    for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
+    for (auto& x: stats_.ingresses.at(pv).stats)
     {
-      auto ingresses = stats_.ingresses.at(pv).at(i);
+      auto multicast_factor = x.first.first;
+      auto scatter_factor = x.first.second;
+      auto ingresses = x.second.accesses;
+      auto hops = x.second.hops;
+
       total_ingresses += ingresses;
       if (ingresses > 0)
       {
-        auto multicast_factor = i + 1;
 #if MULTICAST_MODEL == PROBABILISTIC_MULTICAST
+
+        (void) scatter_factor;
+        (void) hops;
 
         auto num_hops = NumHops(multicast_factor, fanout);
         total_routers_touched += (1 + num_hops) * ingresses;
@@ -368,17 +372,21 @@ void LegacyNetwork::ComputeNetworkEnergy()
 
         (void)fanout;
         (void)multicast_factor;
+
         if (stats_.distributed_multicast.at(pv))
         {
           std::cerr << "ERROR: precise multicast calculation does not work with distributed multicast." << std::endl;
           exit(1);
         }
-        auto num_hops = stats_.avg_hops.at(pv).at(i);
+        auto num_hops = hops / double(scatter_factor);
         total_routers_touched += (1 + std::uint64_t(std::floor(num_hops))) * ingresses;
 
 #elif MULTICAST_MODEL == EYERISS_HACK_MULTICAST
 
         (void)fanout;
+        (void)scatter_factor;
+        (void)hops;
+
         unsigned num_hops = 0;
         
         // Weights are multicast, and energy is already captured in array access.
@@ -497,19 +505,18 @@ void LegacyNetwork::Print(std::ostream& out) const
       out << indent + indent << "Multicast factor                        : ";
     out << stats_.multicast_factor.at(pv) << std::endl;
       
-    auto total_accesses =
-      std::accumulate(stats_.ingresses.at(pv).begin(),
-                      stats_.ingresses.at(pv).end(),
-                      static_cast<std::uint64_t>(0));
+    auto total_accesses = stats_.ingresses.at(pv).TotalAccesses();
     out << indent + indent << "Ingresses                               : " << total_accesses << std::endl;
     
     std::string mcast_type = "@multicast ";
     if (stats_.distributed_multicast.at(pv))
       mcast_type += "(distributed) ";
-    for (std::uint64_t i = 0; i < stats_.ingresses.at(pv).size(); i++)
-      if (stats_.ingresses.at(pv)[i] != 0)
-        out << indent + indent + indent << mcast_type << i + 1 << ": "
-            << stats_.ingresses.at(pv)[i] << std::endl;
+
+    for (auto& x: stats_.ingresses.at(pv).stats)
+    {
+      out << indent + indent + indent << mcast_type << x.first.first << ": "
+          << x.second.accesses << std::endl;
+    }
 
     out << indent + indent << "Link transfers                          : "
         << stats_.link_transfers.at(pv) << std::endl;

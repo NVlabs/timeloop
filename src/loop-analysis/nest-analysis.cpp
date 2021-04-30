@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <functional>
 #include <stdexcept>
+#include <unordered_map>
 
 // FIXME: num_spatial_elems, spatial_fanouts, replication_factor etc. are
 //        all maintained across datatypes. They should be per-datatype at
@@ -283,18 +284,6 @@ void NestAnalysis::InitializeLiveState()
     for (auto& it : loop->live_state)
     {
       it.Reset();
-      for (auto& acc : it.accesses)  // for each problem variable
-      {
-        acc.resize(spatial_fanouts_[loop->level]);
-      }
-      for (auto& sf : it.scatter_factors)
-      {
-        sf.resize(spatial_fanouts_[loop->level]);
-      }
-      for (auto& ch : it.cumulative_hops)
-      {
-        ch.resize(spatial_fanouts_[loop->level]);
-      }
       if (linked_spatial_level_[loop->level])
       {
         it.prev_point_sets.resize(analysis::ElementState::MAX_TIME_LAPSE);
@@ -329,8 +318,8 @@ void NestAnalysis::CollectWorkingSets()
         {
           for (std::uint64_t i = 1; i < cur.live_state.size(); i++)
           {
-            ASSERT(cur.live_state[i].accesses[pv] ==
-                   cur.live_state[i - 1].accesses[pv]);
+            ASSERT(cur.live_state[i].access_stats[pv] ==
+                   cur.live_state[i - 1].access_stats[pv]);
             ASSERT(cur.live_state[i].max_size[pv] ==
                    cur.live_state[i - 1].max_size[pv]);
             ASSERT(cur.live_state[i].link_transfers[pv] ==
@@ -341,12 +330,8 @@ void NestAnalysis::CollectWorkingSets()
         // Since, all elements have the same properties, use the properties
         // of the first element to build condensed_state
         const uint64_t REPR_ELEM_ID = 0;  // representative element id.
-        condensed_state.accesses[pv] =
-            cur.live_state[REPR_ELEM_ID].accesses[pv];
-        condensed_state.scatter_factors[pv] =
-            cur.live_state[REPR_ELEM_ID].scatter_factors[pv];
-        condensed_state.cumulative_hops[pv] =
-            cur.live_state[REPR_ELEM_ID].cumulative_hops[pv];
+        condensed_state.access_stats[pv] =
+            cur.live_state[REPR_ELEM_ID].access_stats[pv];
         condensed_state.max_size[pv] =
             cur.live_state[REPR_ELEM_ID].max_size[pv];
         condensed_state.link_transfers[pv] =
@@ -378,11 +363,8 @@ void NestAnalysis::CollectWorkingSets()
         DataMovementInfo tile;
         tile.size                   = condensed_state.max_size[pv];
         // tile.partition_size         = 0; // will be set later.
-        tile.accesses               = condensed_state.accesses[pv]; // network accesses
-//        if (pv == 2) { std::cout << "TILE SIZE = " << tile.size << " ACCESSES = " << tile.accesses[0] << std::endl; }
+        tile.access_stats           = condensed_state.access_stats[pv];
         // tile.fills                  = 0; // will be set later
-        tile.scatter_factors        = condensed_state.scatter_factors[pv];
-        tile.cumulative_hops        = condensed_state.cumulative_hops[pv];
         // tile.content_accesses       = tile.GetTotalAccesses();
         tile.link_transfers         = condensed_state.link_transfers[pv];
         tile.subnest                = subnest;
@@ -563,23 +545,15 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      // Write-backs of read-modify-write data types consume 2
-      // accesses *except* for the first write.
-      if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
-          cur_state.accesses[pv][0] != 0)
-      {
-        cur_state.accesses[pv][0] += body_iterations; // (2 * body_iterations); This fixup now happens in model/buffer.cpp.
-      }
-      else
-      {
-        cur_state.accesses[pv][0] += body_iterations;
-      }
-
       // Set scatter factor (otherwise it will stay at 0 for temporal levels).
-      cur_state.scatter_factors[pv][0] = 1;
+      std::uint64_t scatter_factor = 1;
+      std::uint64_t multicast_factor = 1;
+
+      auto& access_stats = cur_state.access_stats[pv](multicast_factor, scatter_factor);
+      access_stats.accesses += body_iterations;
 
       // Set cumulative hops for temporal levels.
-      cur_state.cumulative_hops[pv][0] = 0.0;
+      access_stats.hops = 0.0;
     }
   }
   else // recurse
@@ -727,34 +701,15 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
-        // if (pv ==2)
-        // {
-        //   std::cout << "Level " << level << " UPDATING accesses " << cur_state.accesses[pv][0] << " final_delta "
-        //             << final_delta_sizes[pv] << " num_epochs " << num_epochs_ << " num_deltas " << num_deltas 
-        //             << std::endl;
-        //   for (unsigned i = 0; i < num_deltas; i++)
-        //   {
-        //     std::cout << "    size " << temporal_delta_sizes[i][pv] << " scale " << temporal_delta_scale[i] << std::endl;
-        //   }
-        // }
-
-        // Write-backs of read-modify-write data types consume 2
-        // accesses *except* for the first write.
-        if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
-            cur_state.accesses[pv][0] != 0)
-        {
-          cur_state.accesses[pv][0] += final_delta_sizes[pv] * num_epochs_; // (2 * final_delta_sizes[pv] * num_epochs_); This fixup now happens in model/buffer.cpp.
-        }
-        else
-        {
-          cur_state.accesses[pv][0] += final_delta_sizes[pv] * num_epochs_;
-        }
-
         // Set scatter factor (otherwise it will stay at 0 for temporal levels).
-        cur_state.scatter_factors[pv][0] = 1;
+        std::uint64_t scatter_factor = 1;
+        std::uint64_t multicast_factor = 1;
+
+        auto& access_stats = cur_state.access_stats[pv](multicast_factor, scatter_factor);
+        access_stats.accesses += final_delta_sizes[pv] * num_epochs_;;
 
         // Set cumulative hops for temporal levels.
-        cur_state.cumulative_hops[pv][0] = 0.0;
+        access_stats.hops = 0.0;
 
         // Update delta histogram. Hypothesis is we only need to do this for temporal levels.
         cur_state.delta_histograms[pv][final_delta_sizes[pv]] += num_epochs_;
@@ -823,53 +778,17 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   //  auto& accesses = nest_state_[cur->level].live_state[spatial_id_].accesses;
   auto& cur_state = nest_state_[cur->level].live_state[spatial_id_];
 
-  problem::PerDataSpace<std::vector<std::uint64_t>>
-    accesses_without_link_transfers, accesses_with_link_transfers,
-    scatter_factors_without_link_transfers, scatter_factors_with_link_transfers;
+  problem::PerDataSpace<AccessStatMatrix> access_stats_without_link_transfers, access_stats_with_link_transfers;
+  problem::PerDataSpace<AccessStatMatrix*> access_stats;
 
-   problem::PerDataSpace<std::vector<double>>
-    cumulative_hops_without_link_transfers, cumulative_hops_with_link_transfers;
-
-  problem::PerDataSpace<std::vector<std::uint64_t>*>
-    accesses, scatter_factors;
-
-   problem::PerDataSpace<std::vector<double>*>
-       cumulative_hops;
-
-  
   for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
-    accesses_without_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
-    accesses_with_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
-    
-    scatter_factors_without_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
-    scatter_factors_with_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
-    
-    cumulative_hops_without_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
-    cumulative_hops_with_link_transfers[pvi].resize(cur_state.accesses[pvi].size());
-    
-    for (unsigned i = 0; i < accesses_without_link_transfers[pvi].size(); i++)
-    {
-      accesses_without_link_transfers[pvi][i] = 0;
-      accesses_with_link_transfers[pvi][i] = 0;
-
-      scatter_factors_without_link_transfers[pvi][i] = 0;
-      scatter_factors_with_link_transfers[pvi][i] = 0;
-      
-      cumulative_hops_without_link_transfers[pvi][i] = 0;
-      cumulative_hops_with_link_transfers[pvi][i] = 0;
-    }
-
     // Default: do not use link transfers.
-    accesses[pvi] = &accesses_without_link_transfers[pvi];
-    scatter_factors[pvi] = &scatter_factors_without_link_transfers[pvi];
-    cumulative_hops[pvi] = &cumulative_hops_without_link_transfers[pvi];
+    access_stats[pvi] = &access_stats_without_link_transfers[pvi];
   }
   
   ComputeAccurateMulticastedAccesses(cur, spatial_deltas, unaccounted_delta,
-                                     accesses_without_link_transfers,
-                                     scatter_factors_without_link_transfers,
-                                     cumulative_hops_without_link_transfers);
+                                     access_stats_without_link_transfers);
 
   if (!gEnableLinkTransfers && linked_spatial_level_[level])
   {
@@ -897,69 +816,28 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
     ComputeNetworkLinkTransfers(cur, spatial_deltas, unaccounted_delta, link_transfers);
 
     ComputeAccurateMulticastedAccesses(cur, spatial_deltas, unaccounted_delta,
-                                       accesses_with_link_transfers,
-                                       scatter_factors_with_link_transfers,
-                                       cumulative_hops_with_link_transfers);
+                                       access_stats_with_link_transfers);
 
     // Compare.
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
-      // if (problem::Shape::DataSpaceID(pvi) == problem::Shape::DataSpaceID::Weight)
-      // {
-      //   std::cout << "ACCESSES *WITH* LINK TRANSFERS\n";
-      //   for (unsigned i = 0; i < accesses_with_link_transfers[pvi].size(); i++)
-      //   {
-      //     std::cout << "  " << i << ": " << accesses_with_link_transfers[pvi][i]
-      //               << ", scatter: " << scatter_factors_with_link_transfers[pvi][i] << std::endl;
-      //   }
-      //   std::cout << "ACCESSES *WITHOUT* LINK TRANSFERS\n";
-      //   for (unsigned i = 0; i < accesses_without_link_transfers[pvi].size(); i++)
-      //   {
-      //     std::cout << "  " << i << ": " << accesses_without_link_transfers[pvi][i]
-      //               << ", scatter: " << scatter_factors_without_link_transfers[pvi][i] << std::endl;
-      //   }
-      // }
-      
-      std::uint64_t total_without = std::accumulate(accesses_without_link_transfers[pvi].begin(),
-                                                    accesses_without_link_transfers[pvi].end(),
-                                                    static_cast<std::uint64_t>(0));
-      std::uint64_t total_with = std::accumulate(accesses_with_link_transfers[pvi].begin(),
-                                                 accesses_with_link_transfers[pvi].end(),
-                                                 static_cast<std::uint64_t>(0));
+      std::uint64_t total_without = access_stats_without_link_transfers[pvi].TotalAccesses();
+      std::uint64_t total_with = access_stats_without_link_transfers[pvi].TotalAccesses();
+
+      std::cout << "without = " << total_without << std::endl;
+      std::cout << "with    = " << total_with << std::endl;
+
       if (total_with < total_without)
       {
-        cur_state.link_transfers[pvi] += link_transfers[pvi];
-        
-        accesses[pvi] = &accesses_with_link_transfers[pvi];
-        scatter_factors[pvi] = &scatter_factors_with_link_transfers[pvi];
-        cumulative_hops[pvi] = &cumulative_hops_with_link_transfers[pvi];
+        cur_state.link_transfers[pvi] += link_transfers[pvi];        
+        access_stats[pvi] = &access_stats_with_link_transfers[pvi];
       }
     }
   }
 
   for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
-    for (unsigned i = 0; i < cur_state.accesses[pvi].size(); i++)
-    {
-      cur_state.accesses[pvi][i] += (*accesses[pvi])[i];
-        
-      // Careful: overwriting scatter factor. The multicast/scatter signature must
-      // either be un-initialized, or the accesses must be 0 (special case), or
-      // it must match with the updated signature.
-      if ((*accesses[pvi])[i] > 0)
-      {
-        if (cur_state.scatter_factors[pvi][i] == 0)
-        {
-          cur_state.scatter_factors[pvi][i] = (*scatter_factors[pvi])[i];
-          cur_state.cumulative_hops[pvi][i] = (*cumulative_hops[pvi])[i];
-        }
-        else
-        {
-          // ****** FIXME ****** track multiple multicast/scatter signatures.
-          assert(cur_state.scatter_factors[pvi][i] == (*scatter_factors[pvi])[i]);
-        }
-      }
-    }      
+    cur_state.access_stats[pvi].Accumulate(*access_stats[pvi]);
   }
 
   //  auto& accesses = nest_state_[cur->level].live_state[spatial_id_].accesses;
@@ -974,39 +852,21 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   }
 
   // Consistency check.
-  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-  {
-    std::uint64_t fanout = 0;
-    for (unsigned i = 0; i < cur_state.accesses[pvi].size(); i++)
-    {
-      fanout += (i+1) * cur_state.scatter_factors[pvi][i];
-    }
-    
-    if (fanout != spatial_fanouts_[cur->level])
-    {
-      std::cerr << "FATAL: fanout mismatch, computed = " << fanout
-                << " actual = " << spatial_fanouts_[cur->level] << std::endl;
-      exit(1);
-    }
-  }  
-  
-  // bool dump = false; // (level >= 4);
-  // if (dump)
+  // for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   // {
-  //   std::cout << "-------\n";
-  //   std::cout << "SPATIAL LEVEL " << level << std::endl;
-  //   std::cout << "-------\n";
-
-  //   std::cout << "analysis::LoopState:\n";
-  //   for (int l = level; l < int(nest_state_.size()); l++)
+  //   std::uint64_t fanout = 0;
+  //   for (unsigned i = 0; i < cur_state.accesses[pvi].size(); i++)
   //   {
-  //     std::cout << "    Level " << l << ": "
-  //               << nest_state_[l].descriptor.dimension
-  //               << " = " << indices_[l] << std::endl;
+  //     fanout += (i+1) * cur_state.scatter_factors[pvi][i];
   //   }
-  //   std::cout << "Final Spatial Point Set:\n    ";
-  //   point_set.Print();
-  // }
+    
+  //   if (fanout != spatial_fanouts_[cur->level])
+  //   {
+  //     std::cerr << "FATAL: fanout mismatch, computed = " << fanout
+  //               << " actual = " << spatial_fanouts_[cur->level] << std::endl;
+  //     exit(1);
+  //   }
+  // }    
 }
 
 // Computes deltas needed by the spatial elements in the next level.
@@ -1163,9 +1023,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     std::vector<analysis::LoopState>::reverse_iterator cur,
     const std::vector<problem::OperationSpace>& spatial_deltas,
     std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
-    problem::PerDataSpace<std::vector<std::uint64_t>>& accesses,
-    problem::PerDataSpace<std::vector<std::uint64_t>>& scatter_factors,
-    problem::PerDataSpace<std::vector<double>>& cumulative_hops)
+    problem::PerDataSpace<AccessStatMatrix>& access_stats)
 {
   std::uint64_t num_deltas = spatial_deltas.size();
 
@@ -1175,24 +1033,16 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
   // reused across loop iterations to avoid initialization overheads.
   problem::PerDataSpace<uint64_t> num_matches;
 
-  // For each datatype, records a ve
-  
-  // std::cout << "-----------------------------\n";
-  // std::cout << "       COMPUTE MULTICAST     \n";
-  // std::cout << "-----------------------------\n";
-  // std::cout << "Epochs = " << num_epochs_ << std::endl;
-  // std::cout << "Num deltas = " << num_deltas << std::endl;
+  // Prepare a legacy-style multicast/scatter signature to collect the
+  // delta data, then populate the new access stats.
+  struct TempAccessStats
+  {
+    std::uint64_t accesses = 0;
+    std::uint64_t scatter_factor = 0;
+    double hops = 0.0;
+  };
+  problem::PerDataSpace<std::unordered_map<std::uint64_t, TempAccessStats>> temp_stats;
 
-  // for (std::uint64_t i = 0; i < num_deltas; i++)
-  // {
-  //   auto pv = problem::Shape::DataSpaceID::Weight;
-  //   if (unaccounted_delta[i][int(pv)])
-  //     std::cout << "UNACCOUNTED: ";
-  //   else
-  //     std::cout << "  ACCOUNTED: ";
-  //   spatial_deltas[i].Print(pv);
-  // }
-  
   auto h_size = horizontal_sizes_[cur->level];
   auto v_size = vertical_sizes_[cur->level];
 
@@ -1235,8 +1085,9 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     {
       if (num_matches[pv] > 0)
       {
-        accesses[pv][num_matches[pv] - 1] += (spatial_deltas[i].GetSize(pv) * num_epochs_);
-        scatter_factors[pv][num_matches[pv] - 1]++;
+        auto& temp_struct = temp_stats[pv][num_matches[pv]];
+        temp_struct.accesses += (spatial_deltas[i].GetSize(pv) * num_epochs_);
+        temp_struct.scatter_factor++;
 
         // Compute the average number of hops from the edge of the array
         // (at this level) to the nodes in the match set.
@@ -1264,8 +1115,19 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
 
         // Accumulate this into the running hop count. We'll finally divide this
         // by the scatter factor to get average hop count.
-        cumulative_hops[pv][num_matches[pv] - 1] += hops;
+        temp_struct.hops += hops;
       }
+    }
+  }
+
+  // Populate the actual stats.
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  {
+    for (auto& x: temp_stats[pv])
+    {
+      auto multicast = x.first;
+      auto scatter = x.second.scatter_factor;
+      access_stats[pv](multicast, scatter) = { x.second.accesses, x.second.hops };
     }
   }
 }

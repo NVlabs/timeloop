@@ -26,6 +26,99 @@
  */
 #pragma once
 
+#include <map>
+
+struct AccessStatMatrix
+{
+  struct AccessStats
+  {
+    std::uint64_t accesses = 0;
+    double hops = 0.0;
+  };
+
+  std::map<std::pair<std::uint64_t,std::uint64_t>, AccessStats> stats;
+
+  void clear()
+  {
+    stats.clear();
+  }
+
+  std::uint64_t TotalAccesses() const
+  {
+    std::uint64_t total = 0;
+    for (auto& x: stats)
+    {
+      total += x.second.accesses;
+    }
+    return total;
+  }
+  
+  std::uint64_t WeightedAccesses() const
+  {
+    std::uint64_t total = 0;
+    for (auto& x: stats)
+    {
+      total += x.second.accesses * x.first.first;
+    }
+    return total;
+  }
+
+  void Accumulate(const AccessStatMatrix& other)
+  {
+    for (auto& x: other.stats)
+    {
+      auto multicast = x.first.first;
+      auto scatter = x.first.second;
+
+      auto& mine = stats[std::make_pair(multicast, scatter)];
+      mine.accesses += x.second.accesses; 
+      mine.hops += x.second.hops; 
+    }
+  }
+
+  AccessStats& at(std::uint64_t multicast, std::uint64_t scatter)
+  {
+    return stats.at(std::make_pair(multicast, scatter));
+  }
+
+  AccessStats& operator () (std::uint64_t multicast, std::uint64_t scatter)
+  {
+    return stats[std::make_pair(multicast, scatter)];
+  }
+
+  bool operator == (const AccessStatMatrix& other)
+  {
+    for (auto& x: other.stats)
+    {
+      auto it = stats.find(std::make_pair(x.first.first, x.first.second));
+      if (it == stats.end()) return false;
+      if (it->second.accesses != x.second.accesses) return false;
+      if (it->second.hops != x.second.hops) return false;
+    }
+    for (auto& x: stats)
+    {
+      auto it = other.stats.find(std::make_pair(x.first.first, x.first.second));
+      if (it == other.stats.end()) return false;
+      if (it->second.accesses != x.second.accesses) return false;
+      if (it->second.hops != x.second.hops) return false;
+    }
+    return true;
+  }
+
+  friend std::ostream& operator << (std::ostream& out, const AccessStatMatrix& m)
+  {
+    for (auto& x: m.stats)
+    {
+      auto multicast = x.first.first;
+      auto scatter = x.first.second;
+      out << "    [" << multicast << ", " << scatter << "]: accesses = "
+          << x.second.accesses << " hops = " << x.second.hops << std::endl;
+    }
+    return out;
+  }
+};
+
+
 namespace analysis
 {
 // data structures for nest-analysis to store datamovement and compute info
@@ -40,17 +133,14 @@ struct DataMovementInfo
     if(version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(size);
-      ar& BOOST_SERIALIZATION_NVP(accesses);
+      //ar& BOOST_SERIALIZATION_NVP(accesses);
       ar& BOOST_SERIALIZATION_NVP(subnest);
     }
   }
 
   std::size_t size;
-  // std::size_t partition_size;
   bool distributed_multicast;
-  std::vector<std::uint64_t> accesses;   // accesses at various multicast factors.
-  std::vector<std::uint64_t> scatter_factors;
-  std::vector<double> cumulative_hops;
+  AccessStatMatrix access_stats;
   std::uint64_t link_transfers;
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
@@ -59,27 +149,10 @@ struct DataMovementInfo
   bool is_on_storage_boundary;
   bool is_master_spatial;
   
-  std::uint64_t GetTotalAccesses() const
-  {
-    return std::accumulate(accesses.begin(), accesses.end(), static_cast<std::uint64_t>(0));
-  }
-  
-  std::uint64_t GetWeightedAccesses() const
-  {
-    std::uint64_t total = 0;
-    for (std::uint32_t i = 0; i < accesses.size(); i++)
-    {
-      total += accesses[i] * (i + 1);
-    }
-    return total;
-  }
-
   void Reset()
   {
     size = 0;
-    accesses.resize(0);
-    scatter_factors.resize(0);
-    cumulative_hops.resize(0);
+    access_stats.clear();
     link_transfers = 0;
     subnest.resize(0);
     replication_factor = 0;
@@ -89,34 +162,34 @@ struct DataMovementInfo
 
   void Validate()
   {
-    std::uint64_t f = 0;
-    for (std::uint64_t i = 0; i < fanout; i++)
-    {
-      if (accesses[i] != 0)
-      {
-        auto multicast_factor = i + 1;
-        auto scatter_factor = scatter_factors[i];
-        f += (multicast_factor * scatter_factor);
-      }
-    }
+    // std::uint64_t f = 0;
+    // for (std::uint64_t i = 0; i < fanout; i++)
+    // {
+    //   if (accesses[i] != 0)
+    //   {
+    //     auto multicast_factor = i + 1;
+    //     auto scatter_factor = scatter_factors[i];
+    //     f += (multicast_factor * scatter_factor);
+    //   }
+    // }
 
-    if (f != fanout)
-    {
-      std::cerr << "ERROR: sigma(multicast * scatter) != fanout." << std::endl;
-      std::cerr << "  dumping (multicast, scatter) pairs:" << std::endl;
-      for (std::uint64_t i = 0; i < fanout; i++)
-      {
-        if (accesses[i] != 0)
-        {
-          auto multicast_factor = i + 1;
-          auto scatter_factor = scatter_factors[i];
-          std::cerr << "    " << multicast_factor << ", " << scatter_factor << std::endl;
-        }
-      }
-      std::cerr << "  sigma(multicast, scatter) = " << f << std::endl;
-      std::cerr << "  fanout = " << fanout << std::endl;
-      exit(1);
-    }
+    // if (f != fanout)
+    // {
+    //   std::cerr << "ERROR: sigma(multicast * scatter) != fanout." << std::endl;
+    //   std::cerr << "  dumping (multicast, scatter) pairs:" << std::endl;
+    //   for (std::uint64_t i = 0; i < fanout; i++)
+    //   {
+    //     if (accesses[i] != 0)
+    //     {
+    //       auto multicast_factor = i + 1;
+    //       auto scatter_factor = scatter_factors[i];
+    //       std::cerr << "    " << multicast_factor << ", " << scatter_factor << std::endl;
+    //     }
+    //   }
+    //   std::cerr << "  sigma(multicast, scatter) = " << f << std::endl;
+    //   std::cerr << "  fanout = " << fanout << std::endl;
+    //   exit(1);
+    // }
   }
 };
 

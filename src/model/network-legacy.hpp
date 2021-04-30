@@ -95,13 +95,13 @@ class LegacyNetwork : public Network
     problem::PerDataSpace<std::uint64_t> fanout;
     problem::PerDataSpace<std::uint64_t> distributed_fanout;
     problem::PerDataSpace<std::uint64_t> multicast_factor;
-    problem::PerDataSpace<std::vector<unsigned long>> ingresses;
+    problem::PerDataSpace<AccessStatMatrix> ingresses;
     problem::PerDataSpace<bool> distributed_multicast;
     problem::PerDataSpace<unsigned long> link_transfers;
     problem::PerDataSpace<unsigned long> spatial_reductions;
     problem::PerDataSpace<double> link_transfer_energy;
     problem::PerDataSpace<double> num_hops;
-    problem::PerDataSpace<std::vector<double>> avg_hops;
+    //problem::PerDataSpace<std::vector<double>> avg_hops;
     problem::PerDataSpace<double> energy_per_hop;
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> spatial_reduction_energy;
@@ -120,7 +120,7 @@ class LegacyNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(fanout);
         ar& BOOST_SERIALIZATION_NVP(distributed_fanout);
         ar& BOOST_SERIALIZATION_NVP(multicast_factor);
-        ar& BOOST_SERIALIZATION_NVP(ingresses);
+        //ar& BOOST_SERIALIZATION_NVP(ingresses);
         ar& BOOST_SERIALIZATION_NVP(distributed_multicast);
         ar& BOOST_SERIALIZATION_NVP(link_transfers);
         ar& BOOST_SERIALIZATION_NVP(spatial_reductions);

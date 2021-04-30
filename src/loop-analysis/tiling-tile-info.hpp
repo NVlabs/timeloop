@@ -52,7 +52,7 @@ struct DataMovementInfo
     if(version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(size);
-      ar& BOOST_SERIALIZATION_NVP(accesses);
+      //ar& BOOST_SERIALIZATION_NVP(accesses);
       ar& BOOST_SERIALIZATION_NVP(subnest);
     }
   }
@@ -61,9 +61,7 @@ struct DataMovementInfo
   std::size_t partition_size;
   std::size_t compressed_size;
   bool distributed_multicast;
-  std::vector<std::uint64_t> accesses;   // accesses at various multicast factors.
-  std::vector<std::uint64_t> scatter_factors;
-  std::vector<double> cumulative_hops;
+  AccessStatMatrix access_stats;
   std::uint64_t content_accesses;
   std::uint64_t fills;
   std::uint64_t reads;
@@ -106,29 +104,11 @@ struct DataMovementInfo
   bool child_level_compressed;
   uint64_t child_level_tile_size;
 
-
-  std::uint64_t GetTotalAccesses() const
-  {
-    return std::accumulate(accesses.begin(), accesses.end(), static_cast<std::uint64_t>(0));
-  }
-  
-  std::uint64_t GetWeightedAccesses() const
-  {
-    std::uint64_t total = 0;
-    for (std::uint32_t i = 0; i < accesses.size(); i++)
-    {
-      total += accesses[i] * (i + 1);
-    }
-    return total;
-  }
-
   void Reset()
   {
     size = 0;
     partition_size = 0;
-    accesses.resize(0);
-    scatter_factors.resize(0);
-    cumulative_hops.resize(0);
+    access_stats.clear();
     content_accesses = 0;
     fills = 0;
     link_transfers = 0;
@@ -158,34 +138,34 @@ struct DataMovementInfo
 
   void Validate()
   {
-    std::uint64_t f = 0;
-    for (std::uint64_t i = 0; i < fanout; i++)
-    {
-      if (accesses[i] != 0)
-      {
-        auto multicast_factor = i + 1;
-        auto scatter_factor = scatter_factors[i];
-        f += (multicast_factor * scatter_factor);
-      }
-    }
+    // std::uint64_t f = 0;
+    // for (std::uint64_t i = 0; i < fanout; i++)
+    // {
+    //   if (accesses[i] != 0)
+    //   {
+    //     auto multicast_factor = i + 1;
+    //     auto scatter_factor = scatter_factors[i];
+    //     f += (multicast_factor * scatter_factor);
+    //   }
+    // }
 
-    if (f != fanout)
-    {
-      std::cerr << "ERROR: sigma(multicast * scatter) != fanout." << std::endl;
-      std::cerr << "  dumping (multicast, scatter) pairs:" << std::endl;
-      for (std::uint64_t i = 0; i < fanout; i++)
-      {
-        if (accesses[i] != 0)
-        {
-          auto multicast_factor = i + 1;
-          auto scatter_factor = scatter_factors[i];
-          std::cerr << "    " << multicast_factor << ", " << scatter_factor << std::endl;
-        }
-      }
-      std::cerr << "  sigma(multicast, scatter) = " << f << std::endl;
-      std::cerr << "  fanout = " << fanout << std::endl;
-      exit(1);
-    }
+    // if (f != fanout)
+    // {
+    //   std::cerr << "ERROR: sigma(multicast * scatter) != fanout." << std::endl;
+    //   std::cerr << "  dumping (multicast, scatter) pairs:" << std::endl;
+    //   for (std::uint64_t i = 0; i < fanout; i++)
+    //   {
+    //     if (accesses[i] != 0)
+    //     {
+    //       auto multicast_factor = i + 1;
+    //       auto scatter_factor = scatter_factors[i];
+    //       std::cerr << "    " << multicast_factor << ", " << scatter_factor << std::endl;
+    //     }
+    //   }
+    //   std::cerr << "  sigma(multicast, scatter) = " << f << std::endl;
+    //   std::cerr << "  fanout = " << fanout << std::endl;
+    //   exit(1);
+    // }
   }
 
 };

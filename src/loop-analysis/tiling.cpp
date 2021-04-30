@@ -38,19 +38,15 @@ bool operator < (const DataMovementInfo& a, const DataMovementInfo& b)
 {
   // Logic doesn't matter as long as we provide a way to detect inequality.
   return (a.size < b.size) ||
-         (a.size == b.size && a.GetTotalAccesses() < b.GetTotalAccesses());
+    (a.size == b.size && a.access_stats.TotalAccesses() < b.access_stats.TotalAccesses());
 }
 
 std::ostream& operator << (std::ostream& out, const DataMovementInfo& info)
 {
-  out << "size = " << info.size << " accesses = " << info.GetTotalAccesses()
+  out << "size = " << info.size << " accesses = " << info.access_stats.TotalAccesses()
       << " fanout = " << info.fanout << " repfactor = " << info.replication_factor
       << " linkxfers = " << info.link_transfers << std::endl;
-  for (std::uint32_t i = 0; i < info.accesses.size(); i++)
-  {
-    out << "    [" << i << "] = " << info.accesses[i] << " @scatter = "
-        << info.scatter_factors[i] << " hops = " << info.cumulative_hops[i] << std::endl;
-  }
+  out << info.access_stats;
   return out;
 }
 
@@ -127,23 +123,23 @@ void SetChildLevel(std::vector<DataMovementInfo>& tile_nest){
   }
 }
 
-// Helper function: find the multicast factor.
-uint64_t FindMulticastFactor(const DataMovementInfo& tile)
-{
-  uint64_t multicast_factor = 1;
-  bool multicast_found = false;
-  for (uint64_t i = 0; i < tile.fanout; i++)
-  {
-    if (tile.accesses[i] != 0)
-    {
-      assert(!multicast_found);
-      multicast_found = true;
-      multicast_factor = i + 1;
-    }
-  }
-  assert(multicast_found);
-  return multicast_factor;
-}
+// // Helper function: find the multicast factor.
+// uint64_t FindMulticastFactor(const DataMovementInfo& tile)
+// {
+//   uint64_t multicast_factor = 1;
+//   bool multicast_found = false;
+//   for (uint64_t i = 0; i < tile.fanout; i++)
+//   {
+//     if (tile.accesses[i] != 0)
+//     {
+//       assert(!multicast_found);
+//       multicast_found = true;
+//       multicast_factor = i + 1;
+//     }
+//   }
+//   assert(multicast_found);
+//   return multicast_factor;
+// }
 
 // Mask Tiles.
 void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLevels> mask)
@@ -207,36 +203,24 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     // we won't make that assumption here.
     
     tile_nest[outer].content_accesses = 0;
-    
-    for (uint64_t i = 0; i < tile_nest[outer].fanout; i++)
-    {
-      if (tile_nest[outer].accesses[i] != 0)
-      {
-        // The outer content (buffer) will now be accessed as frequently
-        // as the inner content was. However, if the outer level had a fanout, then
-        // these accesses may be further amplified. Multicasts along the fanout
-        // do not amplify accesses, but scatters do. For non-spatial-sliding-windows
-        // we can compute scatter factor as fanout/multicast. For spatial sliding
-        // windows, the relationship between content accesses, scatter, multicast
-        // and max fanout is complex.
-        // - FIXME 1: spatial sliding windows.
-        // - FIXME 2: outer-cur > 1.
-        auto multicast_factor = i + 1;
-        auto scatter_factor = tile_nest[outer].scatter_factors[i];
-        
-        tile_nest[outer].content_accesses +=
-          tile_nest[cur].content_accesses * scatter_factor;
-      
-        // The outer network will now be energized as frequently as
-        // the inner content was accessed.
-        tile_nest[outer].accesses[i] = 0;
-        tile_nest[outer].scatter_factors[i] = 0;
-        tile_nest[outer].accesses[multicast_factor-1] =
-        tile_nest[cur].content_accesses * scatter_factor;
-        tile_nest[outer].scatter_factors[multicast_factor-1] = scatter_factor;
 
-        // Note: partition size for outer does not change.
-      }
+    for (auto& x: tile_nest[outer].access_stats.stats)
+    {
+      // The outer content (buffer) will now be accessed as frequently
+      // as the inner content was. However, if the outer level had a fanout, then
+      // these accesses may be further amplified. Multicasts along the fanout
+      // do not amplify accesses, but scatters do.
+      // - FIXME: outer - cur > 1.
+      auto scatter_factor = x.first.second;
+
+      tile_nest[outer].content_accesses +=
+        tile_nest[cur].content_accesses * scatter_factor;
+      
+      // The outer network will now be energized as frequently as
+      // the inner content was accessed.
+      x.second.accesses = tile_nest[cur].content_accesses * scatter_factor;
+
+      // Note: partition size for outer does not change.
     }
 
     // Obliterate the buffer stats (*not* the network stats) for the cur tiling level.
@@ -259,6 +243,10 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
 void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
                      const std::bitset<MaxTilingLevels>& distribution_supported)
 {
+  (void) tile_nest;
+  (void) distribution_supported;
+
+#if 0
   int num_tiling_levels = tile_nest.size();
   for (int inner = 0; inner < num_tiling_levels-1; inner++)
   {
@@ -332,7 +320,8 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
       // but for the moment just support doing this once.
       break;
     }
-  }  
+  }
+#endif
 }
 
 // Compute Fills.
@@ -369,25 +358,18 @@ void ComputeFills(std::vector<DataMovementInfo>& tile_nest)
     // std::cerr << "  outer = " << outer << std::endl;
 
     // Found an outer level.
-    for (uint64_t i = 0; i < tile_nest[outer].fanout; i++)
+    for (auto& x: tile_nest[outer].access_stats.stats)
     {
-      if (tile_nest[outer].accesses[i] != 0)
-      {
-        // FIXME: is this correct in the face of spatial sliding windows (e.g. Input halos)?
-        // If scatter factors are calculated on fragments, then this will be correct, because
-        // the halos will be counted as "multicast" data. However, scatter factor calculation
-        // via spatial deltas does not look at fragments of delivered temporal deltas, the
-        // code compares complete temporal deltas delivered to peer spatial instances.
-        // To fix this, we should be able to use the new overlap-fraction based method used to
-        // calculate partition sizes in some way.
-        tile_nest[cur].fills += tile_nest[outer].accesses[i] / tile_nest[outer].scatter_factors[i];
-        // std::cerr << "    mcast = " << i+1 << std::endl;
-        // std::cerr << "      outer accesses = " << tile_nest[outer].accesses[i] << std::endl;
-        // std::cerr << "      outer scatter = " << tile_nest[outer].scatter_factors[i] << std::endl;
-        // std::cerr << "      cur fills incr = " << tile_nest[outer].accesses[i] / tile_nest[outer].scatter_factors[i] << std::endl;
-        // std::cerr << "      cur upd fills = " << tile_nest[cur].fills << std::endl;
-        // std::cerr << "      cur accesses = " << tile_nest[cur].accesses[i] << std::endl;
-      }
+      // FIXME: is this correct in the face of spatial sliding windows (e.g. Input halos)?
+      // If scatter factors are calculated on fragments, then this will be correct, because
+      // the halos will be counted as "multicast" data. However, scatter factor calculation
+      // via spatial deltas does not look at fragments of delivered temporal deltas, the
+      // code compares complete temporal deltas delivered to peer spatial instances.
+      // To fix this, we should be able to use the new overlap-fraction based method used to
+      // calculate partition sizes in some way.
+      auto scatter_factor = x.first.second;
+      auto accesses = x.second.accesses;
+      tile_nest[cur].fills += accesses / scatter_factor;
     }
 
     // assert(tile_nest[cur].fills <= tile_nest[cur].GetTotalAccesses());
@@ -631,10 +613,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.compressed_size = 0; // will be assigned later in postprocessing
       collapsed_tile.partition_size = 0;
       collapsed_tile.distributed_multicast = false;
-      collapsed_tile.accesses = tiles[pv][innermost_loop].accesses;
-      collapsed_tile.scatter_factors = tiles[pv][innermost_loop].scatter_factors;
-      collapsed_tile.cumulative_hops = tiles[pv][innermost_loop].cumulative_hops;
-      collapsed_tile.content_accesses = tiles[pv][innermost_loop].GetTotalAccesses();
+      collapsed_tile.access_stats = tiles[pv][innermost_loop].access_stats;
+      collapsed_tile.content_accesses = tiles[pv][innermost_loop].access_stats.TotalAccesses();
       collapsed_tile.link_transfers = tiles[pv][innermost_loop].link_transfers;
       collapsed_tile.peer_accesses = 0;
       collapsed_tile.peer_fills = 0;
