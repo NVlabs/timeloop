@@ -206,16 +206,24 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
 
     for (auto& x: tile_nest[outer].access_stats.stats)
     {
+      if (x.second.accesses == 0)
+      {
+        // Multicast detection code used to generate records with 0 accesses,
+        // which messes up this logic. We've fixed that, so we technically
+        // don't need this check, but we'll keep it for double safety.
+        continue;
+      }
+
       // The outer content (buffer) will now be accessed as frequently
       // as the inner content was. However, if the outer level had a fanout, then
       // these accesses may be further amplified. Multicasts along the fanout
       // do not amplify accesses, but scatters do.
       // - FIXME: outer - cur > 1.
       auto scatter_factor = x.first.second;
-
+      
       tile_nest[outer].content_accesses +=
         tile_nest[cur].content_accesses * scatter_factor;
-      
+
       // The outer network will now be energized as frequently as
       // the inner content was accessed.
       x.second.accesses = tile_nest[cur].content_accesses * scatter_factor;

@@ -47,6 +47,8 @@ struct ElementState
   // Multicast functionality
   // Stores accesses with various multicast factors for each data type
   problem::PerDataSpace<AccessStatMatrix> access_stats;
+  problem::PerDataSpace<std::vector<unsigned long>> accesses;
+  problem::PerDataSpace<std::vector<unsigned long>> scatter_factors;
   problem::PerDataSpace<std::map<unsigned long, unsigned long>> delta_histograms;
 
   // PE activity

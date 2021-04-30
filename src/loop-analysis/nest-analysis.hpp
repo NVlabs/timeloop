@@ -128,7 +128,9 @@ class NestAnalysis
       const std::vector<problem::OperationSpace>& spatial_deltas,
       std::vector<problem::PerDataSpace<bool>>&
       unaccounted_delta,
-      problem::PerDataSpace<AccessStatMatrix>& access_stats
+      problem::PerDataSpace<AccessStatMatrix>& access_stats,
+      problem::PerDataSpace<std::vector<std::uint64_t>>& accesses,
+      problem::PerDataSpace<std::vector<std::uint64_t>>& scatter_factors
     );
 
   void ComputeNetworkLinkTransfers(
