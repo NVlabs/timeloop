@@ -99,6 +99,7 @@ common_sources = Split("""
 loop-analysis/tiling.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/operation-type.cpp
+loop-analysis/aahr-carve.cpp
 pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp

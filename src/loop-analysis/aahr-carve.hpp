@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,38 +28,12 @@
 #pragma once
 
 #include <vector>
-#include <cassert>
-#include <iostream>
+#include <utility>
 
-#define POINT_SET_GENERIC_SLOW 1
-#define POINT_SET_GENERIC_FAST 2
-#define POINT_SET_4D           3
-#define POINT_SET_AAHR         4
-#define POINT_SET_AAHR_SET     5
+#include "point.hpp"
 
-#define POINT_SET_IMPL POINT_SET_AAHR_SET
+void Increment(Point& point, unsigned rank, const Point& shape);
 
-#if POINT_SET_IMPL == POINT_SET_AAHR_SET
-#include "point-set-aahr-set.hpp"
-typedef AAHRSet PointSet;
+void Decrement(Point& point, unsigned rank, const Point& shape);
 
-#elif POINT_SET_IMPL == POINT_SET_AAHR
-#include "point-set-aahr.hpp"
-typedef AxisAlignedHyperRectangle PointSet;
-
-#elif POINT_SET_IMPL == POINT_SET_GENERIC_SLOW
-#error fix API error with PointSetGenericSlow
-#include "point-set-generic-slow.hpp"
-typedef PointSetGenericSlow PointSet;
-
-#elif POINT_SET_IMPL == POINT_SET_4D
-#error fix API error with PointSet4D
-#include "point-set-4d.hpp"
-
-#elif POINT_SET_IMPL == POINT_SET_GENERIC_FAST
-#error fix API error with PointSetGenericFast
-#include "point-set-generic-fast.hpp"
-
-#else
-#error illegal point set implementation
-#endif
+std::vector<std::pair<Point, Point>> Carve(Point base, Point bound, const Point& shape);

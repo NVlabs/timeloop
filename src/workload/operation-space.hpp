@@ -77,9 +77,9 @@ class OperationSpace
                  const OperationPoint& high);
 
   void Reset();
-  OperationSpace& operator+=(const OperationSpace& s);
+  // OperationSpace& operator+=(const OperationSpace& s);
   OperationSpace& operator+=(const OperationPoint& p);
-  OperationSpace& ExtrudeAdd(const OperationSpace& s);
+  // OperationSpace& ExtrudeAdd(const OperationSpace& s);
   OperationSpace operator-(const OperationSpace& p);
   DataSpace& GetDataSpace(Shape::DataSpaceID pv);
   PerDataSpace<std::size_t> GetSizes() const;
