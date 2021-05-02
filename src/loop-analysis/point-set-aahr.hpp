@@ -29,7 +29,10 @@
 
 #include <iostream>
 
-#include "point-set.hpp"
+#include "point.hpp"
+
+#define ASSERT(args...) assert(args)
+//#define ASSERT(args...)
 
 // ---------------------------------------------
 //                   Gradient
@@ -414,18 +417,18 @@ class AxisAlignedHyperRectangle
     return *this;
   }
 
-  AxisAlignedHyperRectangle& operator += (const AxisAlignedHyperRectangle& s)
-  {
-    Add(s, true); // true => always extrude.
-    return *this;
-  }
+  // AxisAlignedHyperRectangle& operator += (const AxisAlignedHyperRectangle& s)
+  // {
+  //   Add(s, true); // true => always extrude.
+  //   return *this;
+  // }
 
   AxisAlignedHyperRectangle operator - (const AxisAlignedHyperRectangle& s)
   {
     // Calculate the delta.
     AxisAlignedHyperRectangle delta(*this);
 
-#define RESET_ON_GRADIENT_CHANGE
+//#define RESET_ON_GRADIENT_CHANGE
 #ifdef RESET_ON_GRADIENT_CHANGE
     auto g = delta.Subtract(s);
     
