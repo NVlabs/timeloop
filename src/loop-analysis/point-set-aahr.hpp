@@ -477,6 +477,47 @@ class AxisAlignedHyperRectangle
     return delta;
   }
 
+  std::vector<AxisAlignedHyperRectangle> MultiSubtract(const AxisAlignedHyperRectangle& b)
+  {
+    std::vector<AxisAlignedHyperRectangle> retval;
+
+    AxisAlignedHyperRectangle middle(*this);
+
+    for (unsigned rank = 0; rank < order_; rank++)
+    {
+      // If there is no overlap, add middle.
+      if (middle.max_[rank] <= b.min_[rank] || b.max_[rank] <= middle.min_[rank])
+      {
+        retval.push_back(middle);
+      }
+      else
+      {
+        // Left slice.
+        if (middle.min_[rank] < b.min_[rank])
+        {
+          AxisAlignedHyperRectangle left(middle);
+          left.max_[rank] = b.min_[rank];                
+          retval.push_back(left);
+
+          // Advance middle.min_ to discard the slice we just created.
+          middle.min_[rank] = b.min_[rank];
+        }
+
+        // Right slice.
+        if (b.max_[rank] < middle.max_[rank])
+        {
+          AxisAlignedHyperRectangle right(middle);
+          right.min_[rank] = b.max_[rank];                
+          retval.push_back(right);
+
+          // Regress middle.max_ to discard the slice we just created.
+          middle.max_[rank] = b.max_[rank];
+        }
+      }
+    }
+    return retval;    
+  }
+
   bool operator == (const AxisAlignedHyperRectangle& s) const
   {
     ASSERT(order_ == s.order_);
