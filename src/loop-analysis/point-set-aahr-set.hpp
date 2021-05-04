@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include <cmath>
+
 #include "point-set-aahr.hpp"
 #include "aahr-carve.hpp"
 
@@ -45,16 +47,13 @@ class AAHRSet
   AAHRSet() = delete;
 
   AAHRSet(std::uint32_t order) :
-      order_(order)
+      order_(order),
+      aahrs_()
   {
-    // Create a single empty AAHR. **** FIXME **** remove.
-    assert(aahrs_.size() == 0);
-    aahrs_.push_back(AxisAlignedHyperRectangle(order));
   }
 
   AAHRSet(std::uint32_t order, const Point unit) :
       order_(order)
-      //AAHRSet(order)
   {
     // Create a single AAHR.
     assert(aahrs_.size() == 0);
@@ -63,7 +62,6 @@ class AAHRSet
 
   AAHRSet(std::uint32_t order, const Point min, const Point max) :
       order_(order)
-      //AAHRSet(order)
   {
     // Create a single AAHR.
     assert(aahrs_.size() == 0);
@@ -74,13 +72,11 @@ class AAHRSet
       order_(a.order_),
       aahrs_(a.aahrs_)
   {
-    assert(aahrs_.size() == 1);
   }
 
   // Copy-and-swap idiom.
   AAHRSet& operator = (AAHRSet other)
   {
-    assert(other.aahrs_.size() == 1);
     swap(*this, other);
     return *this;
   }
@@ -115,42 +111,61 @@ class AAHRSet
   void Reset()
   {
     aahrs_.clear();
-    // Create a single empty AAHR. **** FIXME **** remove.
-    assert(aahrs_.size() == 0);
-    aahrs_.push_back(AxisAlignedHyperRectangle(order_));
   }
 
   AAHRSet& operator += (const Point& p)
   {
-    // FIXME: this only works with a single AAHR.
-    assert(aahrs_.size() == 1);
+    bool found = false;
+
+    // If this point is already a subset of one of the AAHRs, we are done.
     for (auto& aahr: aahrs_)
     {
-      aahr += p;
+      if (aahr.Contains(p))
+      {
+        found = true;
+        break;
+      }
     }
+
+    if (found)
+      return *this;
+
+    // If this point is adjacent to one of the AAHRs, merge it.
+    for (auto& aahr: aahrs_)
+    {
+      if (aahr.MergeIfAdjacent(p))
+      {
+        found = true;
+        break;
+      }
+    }
+    
+    if (found)
+      return *this;
+
+    // None of the AAHRs could naturally merge the point, so we need to
+    // create a new AAHR for this point.
+    aahrs_.push_back(AxisAlignedHyperRectangle(order_, p));
+
     return *this;
   }
 
   AAHRSet operator - (const AAHRSet& s)
   {
-    // FIXME: this only works with a single AAHR.
-    assert(aahrs_.size() == 1);
-    assert(s.aahrs_.size() == 1);
-
     AAHRSet retval(order_);
-    retval.aahrs_.clear();
-
+    
+    // Cartesian product. Because we guarantee that the AAHRs in each
+    // set are disjoint, we an progressively cut smaller sections
+    // out of each set. However, not doing so will produce a functionally
+    // equivalent result. It's not clear which approach is more efficient.
     for (auto& a: aahrs_)
     {
       for (auto& b: s.aahrs_)
       {
-        retval.aahrs_.push_back(a-b);
-        break;
+        auto diff = a.MultiSubtract(b);
+        retval.aahrs_.insert(retval.aahrs_.end(), diff.begin(), diff.end());
       }
-      break;
     }
-
-    assert(retval.aahrs_.size() == 1);
 
     return retval;
   }
@@ -186,17 +201,71 @@ class AAHRSet
 
   Point GetTranslation(const AAHRSet& s) const
   {
-    // FIXME: placeholder implementation that just looks at the first element
-    // in each set.
-    assert(aahrs_.size() == 1);
-    assert(s.aahrs_.size() == 1);
+    // We're computing translation from (this) -> (s).
 
-    return aahrs_.front().GetTranslation(s.aahrs_.front());
+    // Approximation: compute the weighted center-of-mass of each set and
+    // compute the translation between the centers-of-mass.
+    std::vector<double> weighted_centroid_a(order_, 0.0);
+    std::size_t total_size_a = 0;
+
+    for (auto& x: aahrs_)
+    {      
+      std::vector<double> centroid = x.Centroid();
+      size_t size = x.size();
+      for (unsigned rank = 0; rank < order_; rank++)
+      {
+        weighted_centroid_a[rank] += centroid[rank] * size;
+        total_size_a += size;
+      }
+    }
+
+    if (total_size_a != 0)
+    {
+      for (unsigned rank = 0; rank < order_; rank++)
+      {
+        weighted_centroid_a[rank] /= double(total_size_a);
+      }
+    }
+
+    std::vector<double> weighted_centroid_b(order_, 0.0);
+    std::size_t total_size_b = 0;
+
+    for (auto& x: s.aahrs_)
+    {      
+      std::vector<double> centroid = x.Centroid();
+      size_t size = x.size();
+      for (unsigned rank = 0; rank < order_; rank++)
+      {
+        weighted_centroid_b[rank] += centroid[rank] * size;
+        total_size_b += size;
+      }
+    }
+
+    if (total_size_b != 0)
+    {
+      for (unsigned rank = 0; rank < order_; rank++)
+      {
+        weighted_centroid_b[rank] /= double(total_size_b);
+      }
+    }
+
+    // If either *this or s are null, we return 0 as the translation.
+    Point retval(order_);
+
+    if (total_size_a > 0 && total_size_b > 0)
+    {
+      for (unsigned rank = 0; rank < order_; rank++)
+      {
+        double diff = weighted_centroid_b[rank] - weighted_centroid_a[rank];
+        retval[rank] = static_cast<Coordinate>(round(diff));
+      }
+    }
+
+    return retval;
   }
 
   void Translate(const Point& p)
   {
-    assert(aahrs_.size() == 1);
     // Translate each AAHR.
     for (auto& x: aahrs_)
     {

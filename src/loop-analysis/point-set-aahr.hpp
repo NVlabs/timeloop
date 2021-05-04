@@ -518,6 +518,83 @@ class AxisAlignedHyperRectangle
     return retval;    
   }
 
+  bool Contains(const Point& p) const
+  {
+    ASSERT(p.Order() == order_);
+
+    for (unsigned rank = 0; rank < order_; rank++)
+    {
+      if (p[rank] < min_[rank] || p[rank] >= max_[rank])
+      {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  bool MergeIfAdjacent(const Point& p)
+  {
+    ASSERT(p.Order() == order_);
+
+    if (empty())
+    {
+      min_ = p;
+      max_ = p;
+      max_.IncrementAllDimensions();
+      return true;
+    }
+
+    // This only works for an AAHR that exists only along 1 rank.
+    bool success = true;
+    bool match = false;
+    unsigned matching_rank;
+
+    for (unsigned rank = 0; rank < order_; rank++)
+    {
+      if (p[rank] == min_[rank]-1 || p[rank] == max_[rank])
+      {
+        // Matching rank found.
+        if (match)
+        {
+          // Oops, cannot match twice.
+          success = false;
+          break;
+        }
+        else
+        {
+          match = true;
+          matching_rank = rank;
+        }
+      }
+      else if (p[rank] == min_[rank] && min_[rank]+1 == max_[rank])
+      {
+        // All good, p is aligned with AAHR.
+      }
+      else
+      {
+        success = false;
+        break;
+      }
+    }
+
+    success &= match;
+
+    if (success)
+    {
+      if (p[matching_rank] == min_[matching_rank]-1)
+      {
+        min_[matching_rank]--;
+      }
+      else if (p[matching_rank] == max_[matching_rank])
+      {
+        max_[matching_rank]++;
+      }
+    }
+
+    return success;
+  }
+
   bool operator == (const AxisAlignedHyperRectangle& s) const
   {
     ASSERT(order_ == s.order_);
@@ -530,6 +607,16 @@ class AxisAlignedHyperRectangle
       }
     }
     return true;
+  }
+
+  std::vector<double> Centroid() const
+  {
+    std::vector<double> centroid(order_);
+    for (unsigned rank = 0; rank < order_; rank++)
+    {
+      centroid[rank] = (max_[rank] - 1 - min_[rank]) / 2;
+    }
+    return centroid;
   }
 
   Point GetTranslation(const AxisAlignedHyperRectangle& s) const
