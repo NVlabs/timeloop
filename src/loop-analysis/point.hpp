@@ -61,6 +61,16 @@ class Point
     return *this;
   }
 
+  bool operator == (const Point& other)
+  {
+    for (unsigned rank = 0; rank < order_; rank++)
+    {
+      if (coordinates_.at(rank) != other.coordinates_.at(rank))
+        return false;
+    }
+    return true;
+  }
+
   Point DiscardTopRank() const
   {
     Point p = *this;

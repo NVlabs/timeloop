@@ -479,42 +479,89 @@ class AxisAlignedHyperRectangle
 
   std::vector<AxisAlignedHyperRectangle> MultiSubtract(const AxisAlignedHyperRectangle& b)
   {
+    // Quick check: if there's no overlap in even a single rank, return a.
+    for (unsigned rank = 0; rank < order_; rank++)
+    {
+      if (max_[rank] <= b.min_[rank] || b.max_[rank] <= min_[rank])
+        return { *this };
+    }
+
+    // There's an intersection.
     std::vector<AxisAlignedHyperRectangle> retval;
 
     AxisAlignedHyperRectangle middle(*this);
 
     for (unsigned rank = 0; rank < order_; rank++)
     {
-      // If there is no overlap, add middle.
-      if (middle.max_[rank] <= b.min_[rank] || b.max_[rank] <= middle.min_[rank])
+      // Left slice.
+      if (middle.min_[rank] < b.min_[rank])
       {
-        retval.push_back(middle);
+        AxisAlignedHyperRectangle left(middle);
+        left.max_[rank] = b.min_[rank];                
+        retval.push_back(left);
+
+        // Advance middle.min_ to discard the slice we just created.
+        middle.min_[rank] = b.min_[rank];
       }
-      else
+
+      // Right slice.
+      if (b.max_[rank] < middle.max_[rank])
       {
-        // Left slice.
-        if (middle.min_[rank] < b.min_[rank])
-        {
-          AxisAlignedHyperRectangle left(middle);
-          left.max_[rank] = b.min_[rank];                
-          retval.push_back(left);
+        AxisAlignedHyperRectangle right(middle);
+        right.min_[rank] = b.max_[rank];                
+        retval.push_back(right);
 
-          // Advance middle.min_ to discard the slice we just created.
-          middle.min_[rank] = b.min_[rank];
-        }
-
-        // Right slice.
-        if (b.max_[rank] < middle.max_[rank])
-        {
-          AxisAlignedHyperRectangle right(middle);
-          right.min_[rank] = b.max_[rank];                
-          retval.push_back(right);
-
-          // Regress middle.max_ to discard the slice we just created.
-          middle.max_[rank] = b.max_[rank];
-        }
+        // Regress middle.max_ to discard the slice we just created.
+        middle.max_[rank] = b.max_[rank];
       }
     }
+
+    // if (retval.size() > 1)
+    // {
+    //   std::cout << "a: "; this->Print(); std::cout << std::endl;
+    //   std::cout << "b: "; b.Print(); std::cout << std::endl;
+    //   std::cout << "diffs:\n";
+    //   for (auto& x: retval)
+    //   {
+    //     std::cout << "  "; x.Print(); std::cout << std::endl;
+    //   }
+
+    //   std::cout << "Replaying...\n";
+
+    //   std::vector<AxisAlignedHyperRectangle> retval;
+    //   AxisAlignedHyperRectangle middle(*this);
+
+    //   for (unsigned rank = 0; rank < order_; rank++)
+    //   {
+    //     std::cout << "BEGIN rank " << rank << std::endl;
+    //     // Left slice.
+    //     if (middle.min_[rank] < b.min_[rank])
+    //     {
+    //       AxisAlignedHyperRectangle left(middle);
+    //       left.max_[rank] = b.min_[rank];
+    //       std::cout << "  adding left slice: "; left.Print(); std::cout << std::endl;
+    //       retval.push_back(left);
+
+    //       // Advance middle.min_ to discard the slice we just created.
+    //       std::cout << "  advancing middle min from " << middle.min_[rank] << " to " << b.min_[rank] << std::endl;
+    //       middle.min_[rank] = b.min_[rank];
+    //     }
+
+    //     // Right slice.
+    //     if (b.max_[rank] < middle.max_[rank])
+    //     {
+    //       AxisAlignedHyperRectangle right(middle);
+    //       right.min_[rank] = b.max_[rank];                
+    //       std::cout << "  adding right slice: "; right.Print(); std::cout << std::endl;
+    //       retval.push_back(right);
+
+    //       // Regress middle.max_ to discard the slice we just created.
+    //       std::cout << "  regressing middle max from " << middle.max_[rank] << " to " << b.max_[rank] << std::endl;
+    //       middle.max_[rank] = b.max_[rank];
+    //     }
+    //   }
+    // }
+
     return retval;    
   }
 
@@ -614,7 +661,7 @@ class AxisAlignedHyperRectangle
     std::vector<double> centroid(order_);
     for (unsigned rank = 0; rank < order_; rank++)
     {
-      centroid[rank] = (max_[rank] - 1 - min_[rank]) / 2;
+      centroid[rank] = min_[rank] + double(max_[rank] - 1 - min_[rank]) / 2;
     }
     return centroid;
   }

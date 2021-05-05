@@ -440,13 +440,25 @@ void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
 
 // FIXME: check the if logic for hardware reduction support is still in the loop
 
-void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv){
+void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv)
+{
   // Loop through all levels and update reads, writes, updates.
   //
   int num_tiling_levels = tile_nest.size();
 
-  for (int cur = 0; cur < num_tiling_levels; cur++){
-    
+  for (int cur = 0; cur < num_tiling_levels; cur++)
+  {
+    if (tile_nest[cur].size == 0)
+    {
+      // This level was bypassed.
+      tile_nest[cur].reads = 0;
+      tile_nest[cur].updates = 0;
+      tile_nest[cur].fills = 0;
+      //tile.address_generations = tile.reads + tile.fills0; // scalar
+      tile_nest[cur].temporal_reductions = 0;
+      continue;
+    }
+
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
       // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
@@ -455,7 +467,8 @@ void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest
       // FIXME: find a safety check that works with coefficients > 1.
       // assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
 
-      tile_nest[cur].reads = tile_nest[cur].content_accesses - tile_nest[cur].partition_size + tile_nest[cur].peer_accesses;
+      assert((tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses) >= tile_nest[cur].partition_size);
+      tile_nest[cur].reads = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size ;
       // std::cout << "TILING LEVEL = " << cur << std::endl;
       // std::cout << "  content = " << tile_nest[cur].content_accesses << std::endl;
       // std::cout << "  partition size = " << tile_nest[cur].partition_size << std::endl;
@@ -469,7 +482,7 @@ void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest
       // FIXME: temporal reduction and network costs if hardware reduction isn't
       // supported appears to be wonky - network costs may need to trickle down
       // all the way to the level that has the reduction hardware.
-      tile_nest[cur].temporal_reductions = tile_nest[cur].content_accesses - tile_nest[cur].partition_size;
+      tile_nest[cur].temporal_reductions = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size;
 
       // std::cout << "tile: reads, updates, fills " 
       // << tile.reads << " " <<  tile.updates<< " " << tile.fills <<std::endl;
