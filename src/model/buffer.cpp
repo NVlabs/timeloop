@@ -1473,7 +1473,7 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
 // flag to print verbose sparse stats or dense stats
-#define PRINT_SPARSE_STATS
+//#define PRINT_SPARSE_STATS
 #ifdef PRINT_SPARSE_STATS
       out << indent + indent << "Partition size                                        : " << stats.partition_size.at(pv) << std::endl;
       out << indent + indent << "Parent level name                                     : " << stats.parent_level_name.at(pv) << std::endl;

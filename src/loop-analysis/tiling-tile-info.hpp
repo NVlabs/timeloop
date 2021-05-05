@@ -111,6 +111,8 @@ struct DataMovementInfo
     access_stats.clear();
     content_accesses = 0;
     fills = 0;
+    reads = 0;
+    updates = 0;
     link_transfers = 0;
     peer_accesses = 0;
     peer_fills = 0;

@@ -29,12 +29,15 @@
 
 #include <cmath>
 
+#include "util/misc.hpp"
 #include "point-set-aahr.hpp"
 #include "aahr-carve.hpp"
 
 class AAHRSet
 {
  protected:
+
+  AxisAlignedHyperRectangle ref;
 
   std::uint32_t order_;
 
@@ -47,12 +50,14 @@ class AAHRSet
   AAHRSet() = delete;
 
   AAHRSet(std::uint32_t order) :
+      ref(order),
       order_(order),
       aahrs_()
   {
   }
 
   AAHRSet(std::uint32_t order, const Point unit) :
+      ref(order, unit),
       order_(order)
   {
     // Create a single AAHR.
@@ -61,6 +66,7 @@ class AAHRSet
   }
 
   AAHRSet(std::uint32_t order, const Point min, const Point max) :
+      ref(order, min, max),
       order_(order)
   {
     // Create a single AAHR.
@@ -69,6 +75,7 @@ class AAHRSet
   }
 
   AAHRSet(const AAHRSet& a) :
+      ref(a.ref),
       order_(a.order_),
       aahrs_(a.aahrs_)
   {
@@ -78,12 +85,14 @@ class AAHRSet
   AAHRSet& operator = (AAHRSet other)
   {
     swap(*this, other);
+    //assert(size() == ref.size());
     return *this;
   }
 
   friend void swap(AAHRSet& first, AAHRSet& second)
   {
     using std::swap;
+    swap(first.ref, second.ref);
     swap(first.order_, second.order_);
     swap(first.aahrs_, second.aahrs_);
   }
@@ -95,6 +104,13 @@ class AAHRSet
     {
       size += aahr.size();
     }
+
+    // if (size != ref.size())
+    // {
+    //   std::cout << "me : "; Print(); std::cout << std::endl;
+    //   std::cout << "ref: "; ref.Print(); std::cout << std::endl;
+    // }
+    // assert(size == ref.size());
     return size;
   }
 
@@ -103,18 +119,25 @@ class AAHRSet
     for (auto& aahr: aahrs_)
     {
       if (!aahr.empty())
+      {
+        assert(!ref.empty());
         return false;
+      }
     }
+    assert(ref.empty());
     return true;
   }
 
   void Reset()
   {
+    ref.Reset();
     aahrs_.clear();
   }
 
   AAHRSet& operator += (const Point& p)
   {
+    ref += p;
+
     bool found = false;
 
     // If this point is already a subset of one of the AAHRs, we are done.
@@ -128,7 +151,12 @@ class AAHRSet
     }
 
     if (found)
+    {
+      //std::cout << "me : "; Print(); std::cout << std::endl;
+      //std::cout << "ref: "; ref.Print(); std::cout << std::endl;
+      //assert(size() == ref.size());
       return *this;
+    }
 
     // If this point is adjacent to one of the AAHRs, merge it.
     for (auto& aahr: aahrs_)
@@ -141,12 +169,20 @@ class AAHRSet
     }
     
     if (found)
+    {
+      //std::cout << "me : "; Print(); std::cout << std::endl;
+      //std::cout << "ref: "; ref.Print(); std::cout << std::endl;
+      //assert(size() == ref.size());
       return *this;
+    }
 
     // None of the AAHRs could naturally merge the point, so we need to
     // create a new AAHR for this point.
     aahrs_.push_back(AxisAlignedHyperRectangle(order_, p));
 
+    //std::cout << "me : "; Print(); std::cout << std::endl;
+    //std::cout << "ref: "; ref.Print(); std::cout << std::endl;
+    //assert(size() == ref.size());
     return *this;
   }
 
@@ -154,19 +190,52 @@ class AAHRSet
   {
     AAHRSet retval(order_);
     
-    // Cartesian product. Because we guarantee that the AAHRs in each
-    // set are disjoint, we an progressively cut smaller sections
-    // out of each set. However, not doing so will produce a functionally
-    // equivalent result. It's not clear which approach is more efficient.
-    for (auto& a: aahrs_)
+    retval.ref = ref - s.ref;
+
+    // assert(this->aahrs_.size() == 1);
+
+    // if (s.aahrs_.size() > 1)
+    // {
+    //   std::cout << "more than 1 aahrs: " << s.aahrs_.size() << std::endl;
+    //   s.Print();
+    //   assert(false);
+    // }
+
+    // If s is empty the answer is *this.
+    if (s.aahrs_.size() == 0)
     {
-      for (auto& b: s.aahrs_)
+      retval = *this;
+    }
+    else
+    {
+      // Cartesian product. Because we guarantee that the AAHRs in each
+      // set are disjoint, we an progressively cut smaller sections
+      // out of each set. However, not doing so will produce a functionally
+      // equivalent result. It's not clear which approach is more efficient.
+      for (auto& a: aahrs_)
       {
-        auto diff = a.MultiSubtract(b);
-        retval.aahrs_.insert(retval.aahrs_.end(), diff.begin(), diff.end());
+        for (auto& b: s.aahrs_)
+        {
+          auto diff = a.MultiSubtract(b);
+          if (diff.size() > 1)
+          {
+            // Temporary debug code: if we got a fractured response, override with reference.
+            //diff = { retval.ref };
+          }
+          //assert(diff.size() <= 1);
+          retval.aahrs_.insert(retval.aahrs_.end(), diff.begin(), diff.end());
+        }
       }
     }
 
+    // assert(retval.aahrs_.size() <= 1);
+
+    // if (retval.aahrs_.size() == 1)
+    // {
+    //   assert(retval.ref == retval.aahrs_.at(0));
+    // }
+
+    // assert(size() == ref.size());
     return retval;
   }
 
@@ -193,9 +262,15 @@ class AAHRSet
       }
 
       if (!found)
+      {
+        //assert(!(ref == s.ref));
+        //assert(size() == ref.size());
         return false;
+      }
     }
 
+    //assert(ref == s.ref);
+    //assert(size() == ref.size());
     return true;
   }
 
@@ -215,8 +290,8 @@ class AAHRSet
       for (unsigned rank = 0; rank < order_; rank++)
       {
         weighted_centroid_a[rank] += centroid[rank] * size;
-        total_size_a += size;
       }
+      total_size_a += size;
     }
 
     if (total_size_a != 0)
@@ -237,8 +312,8 @@ class AAHRSet
       for (unsigned rank = 0; rank < order_; rank++)
       {
         weighted_centroid_b[rank] += centroid[rank] * size;
-        total_size_b += size;
       }
+      total_size_b += size;
     }
 
     if (total_size_b != 0)
@@ -261,6 +336,9 @@ class AAHRSet
       }
     }
 
+    //auto ref_trans = ref.GetTranslation(s.ref);
+    //retval = ref.GetTranslation(s.ref);
+
     return retval;
   }
 
@@ -271,6 +349,7 @@ class AAHRSet
     {
       x.Translate(p);
     }
+    ref.Translate(p);
   }
 
   void Print(std::ostream& out = std::cout) const
