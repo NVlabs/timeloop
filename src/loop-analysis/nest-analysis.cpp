@@ -453,7 +453,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   auto& mold_high = IsLastGlobalIteration_(level+1, loop_dim) ?
     mold_high_residual_[level] : mold_high_[level];
 
-  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumDimensions); dim++)
+  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumFlattenedDimensions); dim++)
   {
     low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
     high_problem_point[dim] = cur_transform_[dim] + mold_high[dim];
@@ -1423,7 +1423,7 @@ void NestAnalysis::InitSpatialFanouts()
 
 void NestAnalysis::InitPerLevelDimScales()
 {
-  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+  for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
   {
     cur_transform_[dim] = 0;
   }
@@ -1441,10 +1441,10 @@ void NestAnalysis::InitPerLevelDimScales()
   mold_high_residual_.resize(num_levels);
 
   // running scale maintained for each dimension.
-  problem::PerProblemDimension<std::uint64_t> cur_scale;
+  problem::PerFlattenedDimension<std::uint64_t> cur_scale;
   cur_scale.fill(1);
 
-  problem::PerProblemDimension<std::uint64_t> cur_scale_residual;
+  problem::PerFlattenedDimension<std::uint64_t> cur_scale_residual;
   cur_scale_residual.fill(1);
 
   for (std::uint64_t level = 0; level < num_levels; level++)
@@ -1452,7 +1452,7 @@ void NestAnalysis::InitPerLevelDimScales()
     auto desc = nest_state_[level].descriptor;
     int dim = int(desc.dimension);
 
-    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
     {
       vector_strides_[level][dim] = cur_scale[dim];
     }
@@ -1460,7 +1460,7 @@ void NestAnalysis::InitPerLevelDimScales()
     cur_scale_residual[dim] += (cur_scale[dim]*(desc.residual_end - desc.start - 1)); // FIXME: assuming stride = 1
     cur_scale[dim] *= (desc.end - desc.start); // FIXME: assuming stride = 1
     
-    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+    for (std::uint64_t dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
     {
       //mold_low_[level][dim] = desc.start; Should be 0. FIXME: verify.
       mold_high_[level][dim] = cur_scale[dim] - 1;
@@ -1480,7 +1480,7 @@ problem::OperationPoint NestAnalysis::IndexToOperationPoint_(
   const std::vector<int>& indices) const
 {
   problem::OperationPoint point;
-  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+  for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
   {
     point[dim] = 0;
   }
@@ -1497,7 +1497,7 @@ problem::OperationPoint NestAnalysis::IndexToOperationPoint_(
 
 // For a specific dimension, detemine if we are at the last iteration of a loop at
 // every loop level from the root of the tree down to this level.
-bool NestAnalysis::IsLastGlobalIteration_(int level, problem::Shape::DimensionID dim) const
+bool NestAnalysis::IsLastGlobalIteration_(int level, problem::Shape::FlattenedDimensionID dim) const
 {
   // We need to look at all loops between root and the given level
   // and return true if they are all at their last iteration.

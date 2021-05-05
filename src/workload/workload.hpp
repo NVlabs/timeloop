@@ -48,7 +48,7 @@ namespace problem
 // only be one active shape instance. To fix this, we need to make the shape
 // instance a member of Workload, and pass pointers to the Workload
 // object *everywhere*. The most problematic classes are PerDataSpace and
-// PerProblemDimension. If we can figure out a clean implementation of these
+// PerFlattenedDimension. If we can figure out a clean implementation of these
 // classes that does not require querying Shape::NumDimensions or
 // Shape::NumDataSpaces then most of the problem is possibly solved.
 
@@ -119,7 +119,7 @@ class Workload
     factorized_bounds_ = factorized_bounds;
   }
   
-  void SetFlattenedBounds(const Bounds& flattened_bounds)
+  void SetFlattenedBounds(const FlattenedBounds& flattened_bounds)
   {
     flattened_bounds_ = flattened_bounds;
   }
@@ -152,7 +152,7 @@ class Workload
   {
     if (version == 0)
     {
-      ar& BOOST_SERIALIZATION_NVP(bounds_);
+      ar& BOOST_SERIALIZATION_NVP(factorized_bounds_);
       ar& BOOST_SERIALIZATION_NVP(coefficients_);
       ar& BOOST_SERIALIZATION_NVP(densities_);
     }

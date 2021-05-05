@@ -75,7 +75,7 @@ class MultiAAHR
   }
 
   MultiAAHR(std::uint32_t order, const std::vector<std::pair<Point, Point>> corner_sets) :
-      ref(order, corners.front().first, corners.front().second),
+      ref(order, corner_sets.front().first, corner_sets.front().second), // ugh
       order_(order)
   {
     // Create multiple AAHRs.

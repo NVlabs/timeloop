@@ -108,6 +108,9 @@ void Shape::Parse(config::CompoundConfigNode shape)
         auto& factorized_id = FactorizedDimensionNameToID.at(factorized_name);
         flat_to_factorized.push_back(factorized_id);
 
+        assert(FactorizedToFlattened.find(factorized_id) == FactorizedToFlattened.end());
+        FactorizedToFlattened[factorized_id] = flattened_id;
+
         assert(unused_factorized_dims.find(factorized_id) !=
                unused_factorized_dims.end());
         unused_factorized_dims.erase(factorized_id);

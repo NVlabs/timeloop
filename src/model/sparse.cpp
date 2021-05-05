@@ -172,12 +172,12 @@ void ParseCompressionInfo(config::CompoundConfigNode directive){
              data_space_list[pv].lookupArrayValue("rank1", rank1_list);
 
              for(unsigned i = 0 ; i < rank0_list.size(); i++){
-               problem::Shape::DimensionID id = problem::GetShape()->DimensionNameToID.at(rank0_list[i]);
+               problem::Shape::FlattenedDimensionID id = problem::GetShape()->FlattenedDimensionNameToID.at(rank0_list[i]);
                per_storage_level_compression_info[data_space_name].rank0_list.push_back(id);
              }
 
              for(unsigned i = 0 ; i < rank1_list.size(); i++){
-               problem::Shape::DimensionID id = problem::GetShape()->DimensionNameToID.at(rank1_list[i]);
+               problem::Shape::FlattenedDimensionID id = problem::GetShape()->FlattenedDimensionNameToID.at(rank1_list[i]);
                per_storage_level_compression_info[data_space_name].rank1_list.push_back(id);
              }
          }

@@ -45,7 +45,7 @@ namespace loop
 class Descriptor
 {
  public:
-  problem::Shape::DimensionID dimension;
+  problem::Shape::FlattenedDimensionID dimension;
   int start;
   int end;
   int residual_end;
@@ -54,12 +54,12 @@ class Descriptor
 
   Descriptor();
 
-  Descriptor(const problem::Shape::DimensionID _dimension, const int _start,
+  Descriptor(const problem::Shape::FlattenedDimensionID _dimension, const int _start,
              const int _end, const int _stride,
              const spacetime::Dimension _spacetime_dimension,
              const int _residual_end = 0);
 
-  Descriptor(const problem::Shape::DimensionID _dimension,
+  Descriptor(const problem::Shape::FlattenedDimensionID _dimension,
              const int _end,
              const spacetime::Dimension _spacetime_dimension = spacetime::Dimension::Time,
              const int _residual_end = 0);
@@ -69,7 +69,7 @@ class Descriptor
   void Print(std::ostream& out, bool long_form = true) const;
 
   void PrintWhoop(std::ostream& out, int storage_level,
-                  std::vector<problem::Shape::DimensionID>& dimids,
+                  std::vector<problem::Shape::FlattenedDimensionID>& dimids,
                   std::vector<std::string>& dimnames,
                   std::vector<int>& dimbounds,
                   std::vector<std::string>& varnames) const;
