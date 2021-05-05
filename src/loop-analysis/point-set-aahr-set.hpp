@@ -33,7 +33,7 @@
 #include "point-set-aahr.hpp"
 #include "aahr-carve.hpp"
 
-class AAHRSet
+class MultiAAHR
 {
  protected:
 
@@ -47,16 +47,16 @@ class AAHRSet
 
  public:
 
-  AAHRSet() = delete;
+  MultiAAHR() = delete;
 
-  AAHRSet(std::uint32_t order) :
+  MultiAAHR(std::uint32_t order) :
       ref(order),
       order_(order),
       aahrs_()
   {
   }
 
-  AAHRSet(std::uint32_t order, const Point unit) :
+  MultiAAHR(std::uint32_t order, const Point unit) :
       ref(order, unit),
       order_(order)
   {
@@ -65,7 +65,7 @@ class AAHRSet
     aahrs_.push_back(AxisAlignedHyperRectangle(order, unit));
   }
 
-  AAHRSet(std::uint32_t order, const Point min, const Point max) :
+  MultiAAHR(std::uint32_t order, const Point min, const Point max) :
       ref(order, min, max),
       order_(order)
   {
@@ -74,7 +74,19 @@ class AAHRSet
     aahrs_.push_back(AxisAlignedHyperRectangle(order, min, max));
   }
 
-  AAHRSet(const AAHRSet& a) :
+  MultiAAHR(std::uint32_t order, const std::vector<std::pair<Point, Point>> corner_sets) :
+      ref(order, corners.front().first, corners.front().second),
+      order_(order)
+  {
+    // Create multiple AAHRs.
+    assert(aahrs_.size() == 0);
+    for (auto& corners: corner_sets)
+    {
+      aahrs_.push_back(AxisAlignedHyperRectangle(order, corners.first, corners.second));
+    }
+  }
+
+  MultiAAHR(const MultiAAHR& a) :
       ref(a.ref),
       order_(a.order_),
       aahrs_(a.aahrs_)
@@ -82,14 +94,14 @@ class AAHRSet
   }
 
   // Copy-and-swap idiom.
-  AAHRSet& operator = (AAHRSet other)
+  MultiAAHR& operator = (MultiAAHR other)
   {
     swap(*this, other);
     //assert(size() == ref.size());
     return *this;
   }
 
-  friend void swap(AAHRSet& first, AAHRSet& second)
+  friend void swap(MultiAAHR& first, MultiAAHR& second)
   {
     using std::swap;
     swap(first.ref, second.ref);
@@ -134,7 +146,7 @@ class AAHRSet
     aahrs_.clear();
   }
 
-  AAHRSet& operator += (const Point& p)
+  MultiAAHR& operator += (const Point& p)
   {
     ref += p;
 
@@ -186,9 +198,9 @@ class AAHRSet
     return *this;
   }
 
-  AAHRSet operator - (const AAHRSet& s)
+  MultiAAHR operator - (const MultiAAHR& s)
   {
-    AAHRSet retval(order_);
+    MultiAAHR retval(order_);
     
     retval.ref = ref - s.ref;
 
@@ -239,7 +251,7 @@ class AAHRSet
     return retval;
   }
 
-  bool operator == (const AAHRSet& s) const
+  bool operator == (const MultiAAHR& s) const
   {
     // Do a superficial match: try to find an exact copy of each AAHR
     // in the other set. In reality the points may be re-distributed
@@ -274,7 +286,7 @@ class AAHRSet
     return true;
   }
 
-  Point GetTranslation(const AAHRSet& s) const
+  Point GetTranslation(const MultiAAHR& s) const
   {
     // We're computing translation from (this) -> (s).
 
