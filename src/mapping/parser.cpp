@@ -102,12 +102,26 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       auto level_factors = ParseUserFactors(directive);
       if (level_factors.size() > 0)
       {
+        // Fill in missing factors with default = 1.
+        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+        {
+          auto dim = problem::Shape::DimensionID(idim);
+          if (level_factors.find(dim) == level_factors.end())
+            level_factors[dim] = std::make_pair<>(1, 1);
+        }
         user_factors[level_id] = level_factors;
       }
         
       auto level_permutations = ParseUserPermutations(directive);
       if (level_permutations.size() > 0)
       {
+        // Fill in missing dimensions with an undetermined order.
+        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+        {
+          auto dim = problem::Shape::DimensionID(idim);
+          if (std::find(level_permutations.begin(), level_permutations.end(), dim) == level_permutations.end())
+            level_permutations.push_back(dim);
+        }
         user_permutations[level_id] = level_permutations;
       }
 
