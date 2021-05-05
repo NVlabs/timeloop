@@ -61,12 +61,14 @@ const Shape* GetShape();
 class Workload
 {
  public:
-  typedef std::map<Shape::DimensionID, Coordinate> Bounds;
+  typedef std::map<Shape::FactorizedDimensionID, Coordinate> FactorizedBounds;
+  typedef std::map<Shape::FlattenedDimensionID, Coordinate> FlattenedBounds;
   typedef std::map<Shape::CoefficientID, int> Coefficients;
   typedef std::map<Shape::DataSpaceID, std::shared_ptr<DensityDistribution>> Densities;
   
  protected:
-  Bounds bounds_;
+  FactorizedBounds factorized_bounds_;
+  FlattenedBounds flattened_bounds_;
   Coefficients coefficients_;
   Densities densities_;
   bool workload_tensor_size_set_ = false;
@@ -80,9 +82,26 @@ class Workload
     return problem::GetShape();
   }
 
-  int GetBound(Shape::DimensionID dim) const
+  int GetFactorizedBound(Shape::FactorizedDimensionID dim) const
   {
-    return bounds_.at(dim);
+    return factorized_bounds_.at(dim);
+  }
+
+  int GetFlattenedBound(Shape::FlattenedDimensionID dim) const
+  {
+    return flattened_bounds_.at(dim);
+  }
+
+  Point GetFactorizedBounds() const
+  {
+    // Pack all bounds into a point representation.
+    auto num_dimensions = GetShape()->NumFactorizedDimensions;
+    Point bounds(num_dimensions);
+    for (unsigned dim = 0; dim < num_dimensions; dim++)
+    {
+      bounds[dim] = factorized_bounds_.at(dim);
+    }
+    return bounds;
   }
 
   int GetCoefficient(Shape::CoefficientID p) const
@@ -95,9 +114,14 @@ class Workload
     return densities_.at(pv);
   }
 
-  void SetBounds(const Bounds& bounds)
+  void SetFactorizedBounds(const FactorizedBounds& factorized_bounds)
   {
-    bounds_ = bounds;
+    factorized_bounds_ = factorized_bounds;
+  }
+  
+  void SetFlattenedBounds(const Bounds& flattened_bounds)
+  {
+    flattened_bounds_ = flattened_bounds;
   }
   
   void SetCoefficients(const Coefficients& coefficients)

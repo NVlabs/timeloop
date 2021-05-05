@@ -55,29 +55,79 @@ OperationSpace::OperationSpace() :
     OperationSpace(nullptr)
 { }
 
-OperationSpace::OperationSpace(const Workload* wc, const OperationPoint& low, const OperationPoint& high) :
+OperationSpace::OperationSpace(const Workload* wc,
+                               const OperationPoint& flattened_low,
+                               const OperationPoint& flattened_high) :
     workload_(wc)
 {
-  // Note: high *must* be inclusive. Projecting an exclusive high operation-point into
-  // a data-space may not result in the exclusive high point in that data-space.
-  for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
+  // Note: high *must* be inclusive. Projecting an exclusive high
+  // either into the factorized space, or into a data-space may not result
+  // in the exclusive high point in the projected space.
+
+  // Step 1: un-flatten the provided region.
+  Point factorized_low = Factorize(wc, flattened_low);
+  Point factorized_high = Factorize(wc, flattened_high);
+
+  // Step 2: Carve up the low->high region into problem-space AAHRs. We need to
+  // perform the carving *before* projecting into data spaces because the
+  // carving assumes that the region we're asking for (between low, high) is
+  // a contiguous section within the flattened/factorized space. Once we
+  // project into data-spaces that information is lost, and the carving
+  // algorithm has no way to distinguish between contiguous regions (which may
+  // need to be carved up) and clean AAHR regions. We assume that each AAHR in
+  // factorized problem space will project onto an AAHR in each data-space.
+  auto carved_aahrs = Carve(factorized_low, factorized_high, wc->GetBounds());
+  
+  // Step 3: Project each of the un-flattened AAHRs onto data spaces.
+  for (auto& aahr: carved_aahrs)
   {
-    Point space_low(workload_->GetShape()->DataSpaceOrder.at(space_id));
-    Point space_high(workload_->GetShape()->DataSpaceOrder.at(space_id));
+    OperationPoint low, high;
+    std::tie(low, high) = aahr;
+    
+    std::vector<std::pair<Point, Point>> dataspace_corners;
+    for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
+    {
+      Point space_low(workload_->GetShape()->DataSpaceOrder.at(space_id));
+      Point space_high(workload_->GetShape()->DataSpaceOrder.at(space_id));
 
-    ProjectLowHigh(space_id, workload_, low, high, space_low, space_high);
+      ProjectLowHigh(space_id, workload_, low, high, space_low, space_high);
 
-    // Increment the high points by 1 because the AAHR constructor wants
-    // an exclusive max point.
-    space_high.IncrementAllDimensions();
-    data_spaces_.push_back(DataSpace(wc->GetShape()->DataSpaceOrder.at(space_id), space_low, space_high));
+      // Increment the high points by 1 because the AAHR constructor wants
+      // an exclusive max point.
+      space_high.IncrementAllDimensions();
+
+      dataspace_corners.push_back(std::make_pair(space_low, space_high));
+    }
+    data_spaces_.push_back(DataSpace(wc->GetShape()->DataSpaceOrder.at(space_id), dataspace_corners));
   }
+}
+
+// Project a point from flattened operation space into factorized problem space.
+Point Factorize(const Workload* wc, const OperationPoint& flattened)
+{
+  auto shape = wc->GetShape();
+
+  Point factorized(shape->NumDimensions);
+
+  for (unsigned flattened_dim = 0; flattened_dim < shape->NumFlattenedDimensions; flattened_dim++)
+  {
+    // Assumption: un-flatten list is in low->high order.
+    auto coordinate = flattened[flattened_dim];
+    for (auto& problem_dim: shape->UnFlattenProjections.at(flattened_dim))
+    {
+      auto bound = wc->GetBound(problem_dim);
+      factorized[problem_dim] = coordinate % bound;
+      coordinate = coordinate / bound;
+    }
+  }  
+
+  return factorized;
 }
 
 void OperationSpace::ProjectLowHigh(Shape::DataSpaceID d,
                                     const Workload* wc,
-                                    const OperationPoint& problem_low,
-                                    const OperationPoint& problem_high,
+                                    const Point& factorized_low,
+                                    const Point& factorized_high,
                                     Point& data_space_low,
                                     Point& data_space_high)
 {
@@ -88,8 +138,8 @@ void OperationSpace::ProjectLowHigh(Shape::DataSpaceID d,
 
     for (auto& term : wc->GetShape()->Projections.at(d).at(data_space_dim))
     {
-      Coordinate low = problem_low[term.second];
-      Coordinate high = problem_high[term.second];
+      Coordinate low = factorized_low[term.second];
+      Coordinate high = factorized_high[term.second];
       if (term.first != wc->GetShape()->NumCoefficients)
       {
         // If Coefficient is negative, flip high/low.
@@ -116,7 +166,7 @@ void OperationSpace::ProjectLowHigh(Shape::DataSpaceID d,
 
 Point OperationSpace::Project(Shape::DataSpaceID d,
                               const Workload* wc,
-                              const OperationPoint& problem_point)
+                              const Point& factorized_point)
 {
   Point data_space_point(wc->GetShape()->DataSpaceOrder.at(d));
 
@@ -125,7 +175,7 @@ Point OperationSpace::Project(Shape::DataSpaceID d,
     data_space_point[data_space_dim] = 0;
     for (auto& term : wc->GetShape()->Projections.at(d).at(data_space_dim))
     {
-      Coordinate x = problem_point[term.second];
+      Coordinate x = factorized_point[term.second];
       // FIXME: somehow "compile" the coefficients down for a given
       // workload config so that we avoid the branch and lookup below.
       if (term.first != wc->GetShape()->NumCoefficients)
@@ -160,8 +210,14 @@ DataSpace& OperationSpace::GetDataSpace(Shape::DataSpaceID pv)
 
 OperationSpace& OperationSpace::operator += (const OperationPoint& p)
 {
+  // Step 1: un-flattern the provided point.
+  Point factorized = Factorize(workload_, p);
+
+  // Step 2: project and add into all data-spaces.
   for (unsigned i = 0; i < data_spaces_.size(); i++)
-    data_spaces_.at(i) += Project(i, workload_, p);
+  {
+    data_spaces_.at(i) += Project(i, workload_, factorized);
+  }
 
   return (*this);
 }

@@ -61,20 +61,28 @@ class OperationSpace
   std::vector<DataSpace> data_spaces_;
 
  private:
+  Point Factorize(const Workload* wc, const OperationPoint& flattened);
+
   Point Project(Shape::DataSpaceID d, const Workload* wc,
-                const OperationPoint& problem_point);
+                const OperationPoint& unflattened_point);
+  
   void ProjectLowHigh(Shape::DataSpaceID d,
                       const Workload* wc,
-                      const OperationPoint& problem_low,
-                      const OperationPoint& problem_high,
+                      const Point& factorized_low,
+                      const Point& factorized_high,
                       Point& data_space_low,
                       Point& data_space_high);
   
  public:
+  
+  // API always uses flattened "Operation" points and spaces.
+  // Factorized points and spaces are used internally.
+
   OperationSpace();
   OperationSpace(const Workload* wc);
-  OperationSpace(const Workload* wc, const OperationPoint& low,
-                 const OperationPoint& high);
+  OperationSpace(const Workload* wc,
+                 const OperationPoint& flattened_low,
+                 const OperationPoint& flattened_high);
 
   void Reset();
   // OperationSpace& operator+=(const OperationSpace& s);
