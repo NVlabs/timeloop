@@ -41,7 +41,7 @@
 
 #if POINT_SET_IMPL == POINT_SET_AAHR_SET
 #include "point-set-aahr-set.hpp"
-typedef AAHRSet PointSet;
+typedef MultiAAHR PointSet;
 
 #elif POINT_SET_IMPL == POINT_SET_AAHR
 #include "point-set-aahr.hpp"

@@ -42,7 +42,7 @@ class OperationPoint : public Point
 {
  public:
   OperationPoint() :
-      Point(GetShape()->NumDimensions)
+      Point(GetShape()->NumFlattenedDimensions) // note! flattened, not factorized.
   {
   }
 };

@@ -51,6 +51,7 @@ class Shape
   std::map<FlattenedDimensionID, std::string> FlattenedDimensionIDToName;
   std::map<std::string, FlattenedDimensionID> FlattenedDimensionNameToID;
   std::vector<std::vector<FactorizedDimensionID>> FlattenedToFactorized;
+  std::map<FactorizedDimensionID, FlattenedDimensionID> FactorizedToFlattened;
 
   typedef int Coefficient;
   typedef unsigned CoefficientID;
@@ -77,7 +78,7 @@ class Shape
   typedef std::list<ProjectionTerm> ProjectionExpression;
   typedef std::vector<ProjectionExpression> Projection;
 
-  std::vector<Projection> DataSpaceProjections;
+  std::vector<Projection> Projections;
 
   // Projection from an flattened iteration-space dimension to an un-flattened
   // problem dimension. Because its form is a simple linear expression, we can

@@ -249,8 +249,8 @@ void ComputeFineGrainMetaDataAccesses(tiling::NestOfCompoundTiles& nest_of_compo
         //    rank1 == rows (uncompressed format)
         //    rank0 == cols (compressed coordinate payload)
 
-        std::vector<problem::Shape::DimensionID> rank1_index = compound_data_movement[pv].rank1_list;
-        std::vector<problem::Shape::DimensionID> rank0_index = compound_data_movement[pv].rank0_list;
+        std::vector<problem::Shape::FlattenedDimensionID> rank1_index = compound_data_movement[pv].rank1_list;
+        std::vector<problem::Shape::FlattenedDimensionID> rank0_index = compound_data_movement[pv].rank0_list;
 
         loop::Descriptor descriptor;
         std::uint64_t total_num_rank1_elements = 1;
@@ -269,7 +269,7 @@ void ComputeFineGrainMetaDataAccesses(tiling::NestOfCompoundTiles& nest_of_compo
           std::vector<loop::Descriptor> subnest = nest_of_compound_tiles.at(inner).data_movement_info[pv].subnest;
           for (unsigned loop = 0; loop < subnest.size(); loop++){
           // go through the loops in the subnest to intialize the subnest tile size and the total tile size
-            problem::Shape::DimensionID id = subnest[loop].dimension;
+            problem::Shape::FlattenedDimensionID id = subnest[loop].dimension;
             if (std::find(rank0_index.begin(), rank0_index.end(), id) != rank0_index.end()){
               uint64_t num_rank0_elements =  (subnest[loop].end - subnest[loop].start)/subnest[loop].stride;
               total_num_rank0_elements *= num_rank0_elements;

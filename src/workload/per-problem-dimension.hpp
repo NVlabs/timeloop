@@ -32,28 +32,28 @@
 namespace problem
 {
 
-// Think of this as std::array<T, NumDimensions>, except that the goal is
-// to support dynamic values of NumDimensions determined by reading user input.
+// Think of this as std::array<T, NumFlattenedDimensions>, except that the goal is
+// to support dynamic values of NumFlattenedDimensions determined by reading user input.
 template<class T>
-class PerProblemDimension : public DynamicArray<T>
+class PerFlattenedDimension : public DynamicArray<T>
 {
  public:
-  PerProblemDimension() :
-      DynamicArray<T>(GetShape()->NumDimensions)
+  PerFlattenedDimension() :
+      DynamicArray<T>(GetShape()->NumFlattenedDimensions)
   {
   }
 
-  PerProblemDimension(std::initializer_list<T> l) :
+  PerFlattenedDimension(std::initializer_list<T> l) :
     DynamicArray<T>(l)
   {
-    assert(this->size() == GetShape()->NumDimensions);
+    assert(this->size() == GetShape()->NumFlattenedDimensions);
   }
 
-  friend std::ostream& operator << (std::ostream& out, const PerProblemDimension<T>& x)
+  friend std::ostream& operator << (std::ostream& out, const PerFlattenedDimension<T>& x)
   {
     for (unsigned i = 0; i < x.size(); i++)
     {
-      out << GetShape()->DimensionIDToName.at(i) << ": " << x[i] << std::endl;
+      out << GetShape()->FlattenedDimensionIDToName.at(i) << ": " << x[i] << std::endl;
     }
     return out;
   }
@@ -67,13 +67,13 @@ class PerProblemDimension : public DynamicArray<T>
     if (version == 0)
     {
       ar << boost::serialization::make_nvp(
-        "PerProblemDimension",
+        "PerFlattenedDimension",
         boost::serialization::make_array(this->begin(), this->size()));
     }
   }
 };
 
 // template<class T>
-// std::ostream& operator<<(std::ostream& out, const PerProblemDimension<T>& x);
+// std::ostream& operator<<(std::ostream& out, const PerFlattenedDimension<T>& x);
 
 }

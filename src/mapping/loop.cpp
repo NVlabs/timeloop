@@ -38,7 +38,7 @@ namespace loop
 
 Descriptor::Descriptor() {}
 
-Descriptor::Descriptor(const problem::Shape::DimensionID _dimension, const int _start,
+Descriptor::Descriptor(const problem::Shape::FlattenedDimensionID _dimension, const int _start,
                        const int _end, const int _stride,
                        const spacetime::Dimension _spacetime_dimension,
                        const int _residual_end)
@@ -54,7 +54,7 @@ Descriptor::Descriptor(const problem::Shape::DimensionID _dimension, const int _
   spacetime_dimension = _spacetime_dimension;
 }
 
-Descriptor::Descriptor(const problem::Shape::DimensionID _dimension,
+Descriptor::Descriptor(const problem::Shape::FlattenedDimensionID _dimension,
                        const int _end,
                        const spacetime::Dimension _spacetime_dimension,
                        const int _residual_end)
@@ -85,7 +85,7 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
 {
   if (long_form)
   {
-    out << "for " << problem::GetShape()->DimensionIDToName.at(dimension) << " in [" << start << ":" << end;
+    out << "for " << problem::GetShape()->FlattenedDimensionIDToName.at(dimension) << " in [" << start << ":" << end;
     if (residual_end != end)
       out << "," << residual_end;
     out << ")";
@@ -114,7 +114,7 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
 }
 
 void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
-                            std::vector<problem::Shape::DimensionID>& dimids,
+                            std::vector<problem::Shape::FlattenedDimensionID>& dimids,
                             std::vector<std::string>& dimnames,
                             std::vector<int>& dimbounds,
                             std::vector<std::string>& varnames) const
@@ -126,7 +126,7 @@ void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
   }
 
   // std::locale loc;
-  std::string dimname = problem::GetShape()->DimensionIDToName.at(dimension);
+  std::string dimname = problem::GetShape()->FlattenedDimensionIDToName.at(dimension);
   std::string varname = dimname;
 
   for (unsigned i = 0; i < dimname.length(); i++)
@@ -164,7 +164,7 @@ std::string Descriptor::PrintCompact() const
 {
   assert(start == 0);
   std::ostringstream str;
-  str << problem::GetShape()->DimensionIDToName.at(dimension) << end;
+  str << problem::GetShape()->FlattenedDimensionIDToName.at(dimension) << end;
   if (residual_end != end)
     str << "," << residual_end;
   if (IsSpatial(spacetime_dimension))

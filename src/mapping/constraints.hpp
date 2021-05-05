@@ -50,9 +50,9 @@ class Constraints
   const problem::Workload& workload_;  
  
   // The constraints.
-  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> factors_;
-  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> max_factors_;
-  std::map<unsigned, std::vector<problem::Shape::DimensionID>> permutations_;
+  std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>> factors_;
+  std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>> max_factors_;
+  std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> permutations_;
   std::map<unsigned, std::uint32_t> spatial_splits_;
   std::map<unsigned, double> confidence_thresholds_;
   problem::PerDataSpace<std::string> bypass_strings_;
@@ -92,17 +92,17 @@ class Constraints
     }
   }
 
-  const std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& Factors() const
+  const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>& Factors() const
   {
     return factors_;
   }
 
-  const std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& MaxFactors() const
+  const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>& MaxFactors() const
   {
     return max_factors_;
   }
 
-  const std::map<unsigned, std::vector<problem::Shape::DimensionID>>& Permutations() const
+  const std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>>& Permutations() const
   {
     return permutations_;
   }
@@ -155,8 +155,8 @@ class Constraints
     unsigned loop_level = 0;
     for (unsigned storage_level = 0; storage_level < num_storage_levels; storage_level++)
     {
-      std::map<spacetime::Dimension, std::vector<problem::Shape::DimensionID>> permutations;
-      std::map<spacetime::Dimension, std::map<problem::Shape::DimensionID, int>> factors;
+      std::map<spacetime::Dimension, std::vector<problem::Shape::FlattenedDimensionID>> permutations;
+      std::map<spacetime::Dimension, std::map<problem::Shape::FlattenedDimensionID, int>> factors;
       unsigned spatial_split;
       
       // Collect loop bounds and ordering.
@@ -164,8 +164,8 @@ class Constraints
       {
         auto sd = spacetime::Dimension(sdi);
         permutations[sd] = { };
-        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
-          factors[sd][problem::Shape::DimensionID(idim)] = 1;
+        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+          factors[sd][problem::Shape::FlattenedDimensionID(idim)] = 1;
       }
 
       for (; loop_level <= mapping->loop_nest.storage_tiling_boundaries.at(storage_level); loop_level++)
@@ -182,7 +182,7 @@ class Constraints
       spatial_split = permutations.at(spacetime::Dimension::SpaceX).size();
     
       // Merge spatial X and Y factors and permutations.
-      std::vector<problem::Shape::DimensionID> spatial_permutation;
+      std::vector<problem::Shape::FlattenedDimensionID> spatial_permutation;
       spatial_permutation = permutations.at(spacetime::Dimension::SpaceX);
       spatial_permutation.insert(spatial_permutation.end(),
                                  permutations.at(spacetime::Dimension::SpaceY).begin(),
@@ -191,10 +191,10 @@ class Constraints
       // Only generate spatial constraints if there is a spatial permutation.
       if (spatial_permutation.size() > 0)
       {
-        std::map<problem::Shape::DimensionID, int> spatial_factors;
-        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+        std::map<problem::Shape::FlattenedDimensionID, int> spatial_factors;
+        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
         {
-          auto dim = problem::Shape::DimensionID(idim);
+          auto dim = problem::Shape::FlattenedDimensionID(idim);
           spatial_factors[dim] =
             factors.at(spacetime::Dimension::SpaceX).at(dim) *
             factors.at(spacetime::Dimension::SpaceY).at(dim);
@@ -214,9 +214,9 @@ class Constraints
       auto& temporal_factors = factors.at(spacetime::Dimension::Time);
     
       // Temporal factors: if the factor is 1, concatenate it into the permutation.
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
       {
-        auto dim = problem::Shape::DimensionID(idim);
+        auto dim = problem::Shape::FlattenedDimensionID(idim);
         if (temporal_factors.at(dim) == 1)
           temporal_permutation.push_back(dim);
       }
@@ -577,7 +577,7 @@ class Constraints
         if (factors_[level_id].find(factor.first) != factors_[level_id].end())
         {
           std::cerr << "ERROR: re-specification of factor for dimension "
-                    << problem::GetShape()->DimensionIDToName.at(factor.first)
+                    << problem::GetShape()->FlattenedDimensionIDToName.at(factor.first)
                     << " at level " << arch_props_.TilingLevelName(level_id)
                     << ". This may imply a conflict between architecture and "
                     << "mapspace constraints." << std::endl;
@@ -592,7 +592,7 @@ class Constraints
         if (max_factors_[level_id].find(max_factor.first) != max_factors_[level_id].end())
         {
           std::cerr << "ERROR: re-specification of max factor for dimension "
-                    << problem::GetShape()->DimensionIDToName.at(max_factor.first)
+                    << problem::GetShape()->FlattenedDimensionIDToName.at(max_factor.first)
                     << " at level " << arch_props_.TilingLevelName(level_id)
                     << ". This may imply a conflict between architecture and "
                     << "mapspace constraints." << std::endl;
@@ -759,9 +759,9 @@ class Constraints
   //
   // Parse user factors.
   //
-  std::map<problem::Shape::DimensionID, int> ParseFactors(config::CompoundConfigNode constraint)
+  std::map<problem::Shape::FlattenedDimensionID, int> ParseFactors(config::CompoundConfigNode constraint)
   {
-    std::map<problem::Shape::DimensionID, int> retval;
+    std::map<problem::Shape::FlattenedDimensionID, int> retval;
 
     std::string buffer;
     if (constraint.lookupValue("factors", buffer))
@@ -773,10 +773,10 @@ class Constraints
       while (std::regex_search(str, sm, re))
       {
         std::string dimension_name = sm[1];
-        problem::Shape::DimensionID dimension;
+        problem::Shape::FlattenedDimensionID dimension;
         try
         {
-          dimension = problem::GetShape()->DimensionNameToID.at(dimension_name);
+          dimension = problem::GetShape()->FlattenedDimensionNameToID.at(dimension_name);
         }
         catch (const std::out_of_range& oor)
         {
@@ -789,15 +789,15 @@ class Constraints
         if (end == 0)
         {
           std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-          end = workload_.GetBound(dimension);
+          end = workload_.GetFlattenedBound(dimension);
         }
-        else if (end > workload_.GetBound(dimension))
+        else if (end > workload_.GetFlattenedBound(dimension))
         {
           std::cerr << "WARNING: Constraint " << dimension_name << "=" << end
                     << " exceeds problem dimension " << dimension_name << "="
-                    << workload_.GetBound(dimension) << ". Setting constraint "
-                    << dimension << "=" << workload_.GetBound(dimension) << std::endl;
-          end = workload_.GetBound(dimension);
+                    << workload_.GetFlattenedBound(dimension) << ". Setting constraint "
+                    << dimension << "=" << workload_.GetFlattenedBound(dimension) << std::endl;
+          end = workload_.GetFlattenedBound(dimension);
         }
         else
         {
@@ -817,9 +817,9 @@ class Constraints
   //
   // Parse user max factors.
   //
-  std::map<problem::Shape::DimensionID, int> ParseMaxFactors(config::CompoundConfigNode constraint)
+  std::map<problem::Shape::FlattenedDimensionID, int> ParseMaxFactors(config::CompoundConfigNode constraint)
   {
-    std::map<problem::Shape::DimensionID, int> retval;
+    std::map<problem::Shape::FlattenedDimensionID, int> retval;
 
     std::string buffer;
     if (constraint.lookupValue("factors", buffer))
@@ -831,10 +831,10 @@ class Constraints
       while (std::regex_search(str, sm, re))
       {
         std::string dimension_name = sm[1];
-        problem::Shape::DimensionID dimension;
+        problem::Shape::FlattenedDimensionID dimension;
         try
         {
-          dimension = problem::GetShape()->DimensionNameToID.at(dimension_name);
+          dimension = problem::GetShape()->FlattenedDimensionNameToID.at(dimension_name);
         }
         catch (const std::out_of_range& oor)
         {
@@ -863,9 +863,9 @@ class Constraints
   //
   // Parse user permutations.
   //
-  std::vector<problem::Shape::DimensionID> ParsePermutations(config::CompoundConfigNode constraint)
+  std::vector<problem::Shape::FlattenedDimensionID> ParsePermutations(config::CompoundConfigNode constraint)
   {
-    std::vector<problem::Shape::DimensionID> retval;
+    std::vector<problem::Shape::FlattenedDimensionID> retval;
     
     std::string buffer;
     if (constraint.lookupValue("permutation", buffer))
@@ -874,10 +874,10 @@ class Constraints
       char token;
       while (iss >> token)
       {
-        problem::Shape::DimensionID dimension;
+        problem::Shape::FlattenedDimensionID dimension;
         try
         {
-          dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token));
+          dimension = problem::GetShape()->FlattenedDimensionNameToID.at(std::string(1, token));
         }
         catch (const std::out_of_range& oor)
         {
