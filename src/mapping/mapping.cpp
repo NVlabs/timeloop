@@ -95,15 +95,15 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
   for (unsigned storage_level = 0; storage_level < num_storage_levels; storage_level++)
   {
     std::map<spacetime::Dimension, std::string> permutations;
-    std::map<spacetime::Dimension, std::map<problem::Shape::DimensionID, unsigned>> factors;
+    std::map<spacetime::Dimension, std::map<problem::Shape::FlattenedDimensionID, unsigned>> factors;
     unsigned spatial_split;
 
     for (unsigned sdi = 0; sdi < unsigned(spacetime::Dimension::Num); sdi++)
     {
       auto sd = spacetime::Dimension(sdi);
       permutations[sd] = "";
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
-        factors[sd][problem::Shape::DimensionID(idim)] = 1;
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+        factors[sd][problem::Shape::FlattenedDimensionID(idim)] = 1;
     }
 
     for (; loop_level <= loop_nest.storage_tiling_boundaries.at(storage_level); loop_level++)
@@ -112,7 +112,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
       if (loop.end > 1)
       {
         factors.at(loop.spacetime_dimension).at(loop.dimension) = loop.end;
-        permutations.at(loop.spacetime_dimension) += problem::GetShape()->DimensionIDToName.at(loop.dimension);
+        permutations.at(loop.spacetime_dimension) += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
       }
     }
 
@@ -129,24 +129,24 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     {
       std::string spatial_factor_string = "";
 
-      std::map<problem::Shape::DimensionID, unsigned> spatial_factors;
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+      std::map<problem::Shape::FlattenedDimensionID, unsigned> spatial_factors;
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
       {
-        auto dim = problem::Shape::DimensionID(idim);
+        auto dim = problem::Shape::FlattenedDimensionID(idim);
         spatial_factors[dim] =
           factors.at(spacetime::Dimension::SpaceX).at(dim) *
           factors.at(spacetime::Dimension::SpaceY).at(dim);
 
-        spatial_factor_string += problem::GetShape()->DimensionIDToName.at(dim);
+        spatial_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
         char factor[8];
         sprintf(factor, "%d", spatial_factors.at(dim));
         spatial_factor_string += factor;
-        if (idim != unsigned(problem::GetShape()->NumDimensions)-1)
+        if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
           spatial_factor_string += " ";
         
         // If the factor is 1, concatenate it to the permutation.
         if (spatial_factors.at(dim) == 1)
-          spatial_permutation += problem::GetShape()->DimensionIDToName.at(dim);
+          spatial_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
       }
       
       libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);
@@ -162,19 +162,19 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     std::string temporal_factor_string = "";
     
     // Temporal factors: if the factor is 1, concatenate it into the permutation.
-    for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+    for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
     {
-      auto dim = problem::Shape::DimensionID(idim);
+      auto dim = problem::Shape::FlattenedDimensionID(idim);
 
-      temporal_factor_string += problem::GetShape()->DimensionIDToName.at(dim);
+      temporal_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
       char factor[8];
       sprintf(factor, "%d", temporal_factors.at(dim));
       temporal_factor_string += factor;
-      if (idim != unsigned(problem::GetShape()->NumDimensions)-1)
+      if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
         temporal_factor_string += " ";
       
       if (temporal_factors.at(dim) == 1)
-        temporal_permutation += problem::GetShape()->DimensionIDToName.at(dim);
+        temporal_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
     }
 
     libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);

@@ -64,7 +64,7 @@ class OperationSpace
   Point Factorize(const Workload* wc, const OperationPoint& flattened);
 
   Point Project(Shape::DataSpaceID d, const Workload* wc,
-                const OperationPoint& unflattened_point);
+                const Point& factorized_point);
   
   void ProjectLowHigh(Shape::DataSpaceID d,
                       const Workload* wc,

@@ -76,21 +76,20 @@ OperationSpace::OperationSpace(const Workload* wc,
   // algorithm has no way to distinguish between contiguous regions (which may
   // need to be carved up) and clean AAHR regions. We assume that each AAHR in
   // factorized problem space will project onto an AAHR in each data-space.
-  auto carved_aahrs = Carve(factorized_low, factorized_high, wc->GetBounds());
+  auto carved_aahrs = Carve(factorized_low, factorized_high, wc->GetFactorizedBounds());
   
   // Step 3: Project each of the un-flattened AAHRs onto data spaces.
-  for (auto& aahr: carved_aahrs)
+  for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
   {
-    OperationPoint low, high;
-    std::tie(low, high) = aahr;
-    
-    std::vector<std::pair<Point, Point>> dataspace_corners;
-    for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
-    {
-      Point space_low(workload_->GetShape()->DataSpaceOrder.at(space_id));
-      Point space_high(workload_->GetShape()->DataSpaceOrder.at(space_id));
+    auto dataspace_order = workload_->GetShape()->DataSpaceOrder.at(space_id);
 
-      ProjectLowHigh(space_id, workload_, low, high, space_low, space_high);
+    std::vector<std::pair<Point, Point>> dataspace_corners;
+    for (auto& aahr: carved_aahrs)
+    {
+      Point space_low(dataspace_order);
+      Point space_high(dataspace_order);
+
+      ProjectLowHigh(space_id, workload_, aahr.first, aahr.second, space_low, space_high);
 
       // Increment the high points by 1 because the AAHR constructor wants
       // an exclusive max point.
@@ -98,25 +97,26 @@ OperationSpace::OperationSpace(const Workload* wc,
 
       dataspace_corners.push_back(std::make_pair(space_low, space_high));
     }
-    data_spaces_.push_back(DataSpace(wc->GetShape()->DataSpaceOrder.at(space_id), dataspace_corners));
+
+    data_spaces_.push_back(DataSpace(dataspace_order, dataspace_corners));
   }
 }
 
 // Project a point from flattened operation space into factorized problem space.
-Point Factorize(const Workload* wc, const OperationPoint& flattened)
+Point OperationSpace::Factorize(const Workload* wc, const OperationPoint& flattened)
 {
   auto shape = wc->GetShape();
 
-  Point factorized(shape->NumDimensions);
+  Point factorized(shape->NumFactorizedDimensions);
 
   for (unsigned flattened_dim = 0; flattened_dim < shape->NumFlattenedDimensions; flattened_dim++)
   {
     // Assumption: un-flatten list is in low->high order.
     auto coordinate = flattened[flattened_dim];
-    for (auto& problem_dim: shape->UnFlattenProjections.at(flattened_dim))
+    for (auto& factorized_dim: shape->FlattenedToFactorized.at(flattened_dim))
     {
-      auto bound = wc->GetBound(problem_dim);
-      factorized[problem_dim] = coordinate % bound;
+      auto bound = wc->GetFactorizedBound(factorized_dim);
+      factorized[factorized_dim] = coordinate % bound;
       coordinate = coordinate / bound;
     }
   }  
