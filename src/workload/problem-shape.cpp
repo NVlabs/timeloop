@@ -85,6 +85,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
   }
 
   // Flattening (optional).
+  NumFlattenedDimensions = 0;
   std::set<FactorizedDimensionID> unused_factorized_dims;
   for (unsigned dim = 0; dim < NumFactorizedDimensions; dim++)
     unused_factorized_dims.insert(FactorizedDimensionID(dim));
@@ -102,7 +103,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
 
       std::vector<FactorizedDimensionID> flat_to_factorized;
       std::vector<std::string> factorized_names;
-      data_space.lookupArrayValue("dimensions", factorized_names);
+      flattened.lookupArrayValue("dimensions", factorized_names);
       for (const std::string& factorized_name : factorized_names)
       {
         auto& factorized_id = FactorizedDimensionNameToID.at(factorized_name);

@@ -114,15 +114,27 @@ class Workload
     return densities_.at(pv);
   }
 
+  void DeriveFlattenedBounds()
+  {
+    for (unsigned i = 0; i < GetShape()->NumFlattenedDimensions; i++)
+    {
+      auto& factorized_dimensions = GetShape()->FlattenedToFactorized.at(i);
+      flattened_bounds_[i] = 1;
+      for (auto factorized_dim: factorized_dimensions)
+        flattened_bounds_[i] *= factorized_bounds_.at(factorized_dim);
+    }
+  }
+
   void SetFactorizedBounds(const FactorizedBounds& factorized_bounds)
   {
     factorized_bounds_ = factorized_bounds;
+    DeriveFlattenedBounds();
   }
   
-  void SetFlattenedBounds(const FlattenedBounds& flattened_bounds)
-  {
-    flattened_bounds_ = flattened_bounds;
-  }
+  // void SetFlattenedBounds(const FlattenedBounds& flattened_bounds)
+  // {
+  //   flattened_bounds_ = flattened_bounds;
+  // }
   
   void SetCoefficients(const Coefficients& coefficients)
   {

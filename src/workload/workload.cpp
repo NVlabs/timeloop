@@ -174,15 +174,7 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
   workload.SetFactorizedBounds(factorized_bounds);
 
   // Translate into flattened bounds.
-  Workload::Bounds flattened_bounds;
-  for (unsigned i = 0; i < GetShape()->NumFlattenedDimensions; i++)
-  {
-    auto& problem_dimensions = GetShape()->FlattenedToFactorized.at(i);
-    flattened_bounds[i] = 1;
-    for (auto dim: problem_dimensions)
-      flattened_bounds[i] *= bounds[dim];
-  }
-  workload.SetFlattenedBounds(flattened_bounds);
+  workload.DeriveFlattenedBounds();
 
   Workload::Coefficients coefficients;
   for (unsigned i = 0; i < GetShape()->NumCoefficients; i++)

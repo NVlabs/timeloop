@@ -51,7 +51,7 @@ const unsigned kDataSpaceWeight = 0;
 const unsigned kDataSpaceInput = 1;
 const unsigned kDataSpaceOutput = 2;
 
-std::map<std::string, Workload::Bounds> layers = {
+std::map<std::string, Workload::FactorizedBounds> layers = {
 
   {"TEST", {{kDimensionR, 3},
             {kDimensionS, 3},
@@ -676,7 +676,7 @@ std::map<std::string, Workload::Bounds> layers = {
                         {kDimensionN, 1}}}
 };
 
-std::ostream& operator << (std::ostream& out, Workload::Bounds& bounds)
+std::ostream& operator << (std::ostream& out, Workload::FactorizedBounds& bounds)
 {
   out << kDimensionR << " = " << bounds[kDimensionR] << std::endl;
   out << kDimensionS << " = " << bounds[kDimensionS] << std::endl;
@@ -698,9 +698,9 @@ const std::map<uint32_t, uint32_t> nearest_composite = {
   {11, 12}, {13, 15}, {27, 28}, {55, 56}, {57, 60}};
 
 // Function to get the layer config from a layer name.
-Workload::Bounds GetLayerBounds(std::string layer_name, bool pad_primes)
+Workload::FactorizedBounds GetLayerBounds(std::string layer_name, bool pad_primes)
 {
-  Workload::Bounds prob;
+  Workload::FactorizedBounds prob;
 
   try
   {
@@ -715,12 +715,12 @@ Workload::Bounds GetLayerBounds(std::string layer_name, bool pad_primes)
 
   if (pad_primes)
   {
-    for (int pd = 0; pd < int(problem::GetShape()->NumDimensions); pd++)
+    for (int pd = 0; pd < int(problem::GetShape()->NumFactorizedDimensions); pd++)
     {
-      if (nearest_composite.count(prob[problem::Shape::DimensionID(pd)]) != 0)
+      if (nearest_composite.count(prob[problem::Shape::FactorizedDimensionID(pd)]) != 0)
       {
-        prob[problem::Shape::DimensionID(pd)] =
-            nearest_composite.at(prob[problem::Shape::DimensionID(pd)]);
+        prob[problem::Shape::FactorizedDimensionID(pd)] =
+            nearest_composite.at(prob[problem::Shape::FactorizedDimensionID(pd)]);
       }
     }
   }
@@ -826,7 +826,7 @@ void DumpDensities_CPP(std::string filename)
 // Libconfig Parsers.
 void ParseConfig(config::CompoundConfigNode config, Workload &workload)
 {
-  Workload::Bounds bounds;
+  Workload::FactorizedBounds bounds;
   std::string layer_name = "";
   if (config.lookupValue("layer", layer_name))
   {
@@ -853,7 +853,7 @@ void ParseConfig(config::CompoundConfigNode config, Workload &workload)
     assert(config.lookupValue("K", bounds[kDimensionK]));
     assert(config.lookupValue("N", bounds[kDimensionN]));
   }
-  workload.SetBounds(bounds);
+  workload.SetFactorizedBounds(bounds);
 
   Workload::Coefficients coefficients;
   coefficients[0] = 1;
