@@ -100,13 +100,13 @@ std::vector<std::pair<Point, Point>> Carve(Point base, Point bound, const Point&
     {
       // Recurse and carve the next rank.
       retval = Carve(base.DiscardTopRank(), bound.DiscardTopRank(), shape);
+    }
 
-      // Concatenate this rank to the low,high points in each AAHR.
-      for (auto& aahr: retval)
-      {
-        aahr.first.AddTopRank(base[order-1]);
-        aahr.second.AddTopRank(bound[order-1]);
-      }
+    // Concatenate this rank to the low,high points in each AAHR.
+    for (auto& aahr: retval)
+    {
+      aahr.first.AddTopRank(base[order-1]);
+      aahr.second.AddTopRank(bound[order-1]);
     }
   }     
   else if (base[order-1] <= bound[order-1])
