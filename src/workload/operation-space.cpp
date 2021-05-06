@@ -25,6 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "util/numeric.hpp"
+
 #include "operation-space.hpp"
 
 namespace problem
@@ -64,9 +66,20 @@ OperationSpace::OperationSpace(const Workload* wc,
   // either into the factorized space, or into a data-space may not result
   // in the exclusive high point in the projected space.
 
-  // Step 1: un-flatten the provided region.
-  Point factorized_low = Factorize(wc, flattened_low);
-  Point factorized_high = Factorize(wc, flattened_high);
+  auto shape = wc->GetShape();
+
+  // Step 1: Factorize *each* rank in the flattened point into groups of
+  // coordinates.
+  std::vector<Point> factor_groups_low;
+  std::vector<Point> factor_groups_high;
+  std::vector<Point> factor_groups_bounds;
+  
+  FactorizeGrouped(wc, flattened_low, flattened_high,
+                   factor_groups_low, factor_groups_high, factor_groups_bounds);
+
+  ASSERT(factor_groups_low.size() == shape->NumFlattenedDimensions);
+  ASSERT(factor_groups_high.size() == shape->NumFlattenedDimensions);
+  ASSERT(factor_groups_bounds.size() == shape->NumFlattenedDimensions);
 
   // Step 2: Carve up the low->high region into problem-space AAHRs. We need to
   // perform the carving *before* projecting into data spaces because the
@@ -76,22 +89,92 @@ OperationSpace::OperationSpace(const Workload* wc,
   // algorithm has no way to distinguish between contiguous regions (which may
   // need to be carved up) and clean AAHR regions. We assume that each AAHR in
   // factorized problem space will project onto an AAHR in each data-space.
-  auto carved_aahrs = Carve(factorized_low, factorized_high, wc->GetFactorizedBounds());
+  std::vector<std::vector<std::pair<Point, Point>>> region_aahrs;
+  std::vector<std::size_t> num_region_aahrs;
 
-  if (carved_aahrs.size() > 1)
+  // Walk through each flattened rank.
+  for (unsigned rank = 0; rank < shape->NumFlattenedDimensions; rank++)
   {
-    std::cout << "bounds: " << wc->GetFactorizedBounds() << std::endl;
-    std::cout << "flattened: " << flattened_low << " - " << flattened_high << std::endl;
-    std::cout << "factorized: " << factorized_low << " - " << factorized_high << std::endl;
-
-    std::cout << "carved:\n";
-    for (auto& aahr: carved_aahrs)
-    {
-      std::cout << "  " << aahr.first << " - " << aahr.second << std::endl;
-    }
+    // Carve up the local factorized region for this rank.
+    auto region_carved = Carve(factor_groups_low.at(rank),
+                               factor_groups_high.at(rank),
+                               factor_groups_bounds.at(rank));
+    // std::cout << "flat rank = " << rank << " carved into " << region_carved.size() << " aahrs\n";
+    // for (auto& aahr: region_carved)
+    // {
+    //   std::cout << "  " << aahr.first << " - " << aahr.second << std::endl;
+    // }
+    region_aahrs.push_back(region_carved);
+    num_region_aahrs.push_back(region_carved.size());
   }
+
+
+  // The final set of AAHRs we are putting together.
+  std::vector<std::pair<Point, Point>> carved_aahrs;
+
+  // Walk through the AAHR sets using a Cartesian Counter. This flattens
+  // an exponential space (e.g., that formed from a Cartesian product
+  // into a linear space.
+  // std::cout << "num_region_aahrs: ";
+  // for (auto& n: num_region_aahrs)
+  // {
+  //   std::cout << n << " ";
+  // }
+  // std::cout << std::endl;
+
+  CartesianCounterGeneric<std::size_t> counter(num_region_aahrs);
+  // std::cout << "CC size = " << counter.EndInteger() << std::endl;
+
+  do
+  {
+    // Obtain a per-flattened-rank AAHR id from the counter.
+    std::vector<std::size_t> ids = counter.Read();
+    ASSERT(ids.size() == shape->NumFlattenedDimensions);
+
+    // This is the final AAHR we will be assembling across all ranks.
+    Point final_low(shape->NumFactorizedDimensions);
+    Point final_high(shape->NumFactorizedDimensions);
+
+    // Walk through each flattened rank.
+    for (unsigned flattened_dim = 0; flattened_dim < shape->NumFlattenedDimensions; flattened_dim++)
+    {
+      // std::cout << "flat rank = " << flattened_dim << " extracting aahr# " << ids.at(flattened_dim)
+      //           << " of " << region_aahrs.at(flattened_dim).size() << std::endl;
+      auto& region_aahr = region_aahrs.at(flattened_dim).at(ids.at(flattened_dim));
+      auto& region_low = region_aahr.first;
+      auto& region_high = region_aahr.second;
+      
+      // Walk though the compacted coordinates in the region aahrs, and
+      // re-scatter them into the target flattened_dim in the final factorized AAHR. 
+      for (unsigned i = 0; i < shape->FlattenedToFactorized.at(flattened_dim).size(); i++)
+      {
+        auto factorized_dim = shape->FlattenedToFactorized.at(flattened_dim).at(i);
+
+        ASSERT(final_low[factorized_dim] == 0);
+        ASSERT(final_high[factorized_dim] == 0);
+
+        final_low[factorized_dim] = region_low[i];
+        final_high[factorized_dim] = region_high[i];
+      }
+    }
+
+    carved_aahrs.push_back(std::make_pair(final_low, final_high));
+  }
+  while (counter.Increment());
   
-  // Step 3: Project each of the un-flattened AAHRs onto data spaces.
+  // if (carved_aahrs.size() > 1)
+  // {
+    // std::cout << "bounds: " << wc->GetFactorizedBounds() << std::endl;
+    // std::cout << "flattened: " << flattened_low << " - " << flattened_high << std::endl;
+
+    // std::cout << "carved:\n";
+    // for (auto& aahr: carved_aahrs)
+    // {
+    //   std::cout << "  " << aahr.first << " - " << aahr.second << std::endl;
+    // }
+  // }
+  
+  // Step 3: Project each of the factorized AAHRs onto data spaces.
   for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
   {
     auto dataspace_order = workload_->GetShape()->DataSpaceOrder.at(space_id);
@@ -135,6 +218,59 @@ Point OperationSpace::Factorize(const Workload* wc, const OperationPoint& flatte
   }  
 
   return factorized;
+}
+
+// Factorize each rank and group the results into sub-vectors.
+void OperationSpace::FactorizeGrouped(const Workload* wc,
+                                      const OperationPoint& flattened_low,
+                                      const OperationPoint& flattened_high,
+
+                                      std::vector<Point>& factor_groups_low,
+                                      std::vector<Point>& factor_groups_high,
+                                      std::vector<Point>& factor_groups_bounds)
+{
+  auto shape = wc->GetShape();
+
+  for (unsigned flattened_dim = 0; flattened_dim < shape->NumFlattenedDimensions; flattened_dim++)
+  {
+    // std::cout << "flat rank = " << flattened_dim << std::endl;
+
+    // The "point" for this flattened dim is a group of factorized coordinates
+    // that the flattened rank will project to.
+    Point factors_low(shape->FlattenedToFactorized.at(flattened_dim).size());
+    Point factors_high(shape->FlattenedToFactorized.at(flattened_dim).size());
+    Point factors_bounds(shape->FlattenedToFactorized.at(flattened_dim).size());
+
+    // Assumption: factorized list is in low->high order.
+    auto coordinate_low = flattened_low[flattened_dim];
+    auto coordinate_high = flattened_high[flattened_dim];
+
+    for (unsigned i = 0; i < shape->FlattenedToFactorized.at(flattened_dim).size(); i++)
+    {
+      auto factorized_dim = shape->FlattenedToFactorized.at(flattened_dim).at(i);
+      auto bound = wc->GetFactorizedBound(factorized_dim);
+
+      // Note that we are shoving coordinates into the "point" serially,
+      // ignoring the factorized_dim they came out of. We will perform
+      // carving in this compressed/re-ordered space, and then re-scatter
+      // the dimensions into the right place during re-assembly in a different
+      // function.
+      factors_low[i] = coordinate_low % bound;
+      factors_high[i] = coordinate_high % bound;
+      factors_bounds[i] = bound;
+      // factorized[factorized_dim] = coordinate % bound;
+
+      coordinate_low = coordinate_low / bound;
+      coordinate_high = coordinate_high / bound;
+    }
+
+    // std::cout << "  factors low-high: " << factors_low << " - " << factors_high << std::endl;
+    
+    // Insertion index will be flattened_dim for all these vectors.
+    factor_groups_low.push_back(factors_low);
+    factor_groups_high.push_back(factors_high);
+    factor_groups_bounds.push_back(factors_bounds);
+  }  
 }
 
 void OperationSpace::ProjectLowHigh(Shape::DataSpaceID d,

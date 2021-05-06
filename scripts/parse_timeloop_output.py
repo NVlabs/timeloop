@@ -59,7 +59,7 @@ def parse_timeloop_stats(filename):
     root = tree.getroot()
     
     # Parse out the problem shape
-    problem_dims = root.findall('a')[0].findall('workload_')[0].findall('bounds_')[0].findall('item')
+    problem_dims = root.findall('a')[0].findall('workload_')[0].findall('factorized_bounds_')[0].findall('item')
     problem = [ int(pd.findall('second')[0].text) for pd in problem_dims ] #FIXedME generalize for non-conv problems
 
     macs = np.prod(problem)

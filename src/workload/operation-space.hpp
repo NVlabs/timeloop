@@ -63,6 +63,14 @@ class OperationSpace
  private:
   Point Factorize(const Workload* wc, const OperationPoint& flattened);
 
+  void FactorizeGrouped(const Workload* wc,
+                        const OperationPoint& flattened_low,
+                        const OperationPoint& flattened_high,
+                        
+                        std::vector<Point>& factor_groups_low,
+                        std::vector<Point>& factor_groups_high,
+                        std::vector<Point>& factor_groups_bounds);
+
   Point Project(Shape::DataSpaceID d, const Workload* wc,
                 const Point& factorized_point);
   
