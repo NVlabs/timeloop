@@ -84,6 +84,7 @@ class MultiAAHR
     {
       aahrs_.push_back(AxisAlignedHyperRectangle(order, corners.first, corners.second));
     }
+    assert(aahrs_.size() == 1);
   }
 
   MultiAAHR(const MultiAAHR& a) :
@@ -202,8 +203,6 @@ class MultiAAHR
   {
     MultiAAHR retval(order_);
     
-    retval.ref = ref - s.ref;
-
     // assert(this->aahrs_.size() == 1);
 
     // if (s.aahrs_.size() > 1)
@@ -240,11 +239,22 @@ class MultiAAHR
       }
     }
 
-    // assert(retval.aahrs_.size() <= 1);
-
     // if (retval.aahrs_.size() == 1)
     // {
     //   assert(retval.ref == retval.aahrs_.at(0));
+    // }
+
+    retval.ref = ref - s.ref;
+
+    // if (retval.size() != retval.ref.size())
+    // {
+    //   std::cout << "me (multi) : "; Print(); std::cout << std::endl;
+    //   std::cout << "me (ref)   : { "; ref.Print(); std::cout << " }" << std::endl;
+    //   std::cout << "s  (multi) : "; s.Print(); std::cout << std::endl;
+    //   std::cout << "s  (ref)   : { "; s.ref.Print(); std::cout << " }" << std::endl;
+    //   std::cout << "del (multi): "; retval.Print(); std::cout << std::endl;
+    //   std::cout << "del (ref)  : { "; retval.ref.Print(); std::cout << " }" << std::endl;
+    //   assert(false);
     // }
 
     // assert(size() == ref.size());
@@ -364,14 +374,15 @@ class MultiAAHR
     ref.Translate(p);
   }
 
-  void Print(std::ostream& out = std::cout) const
+  friend std::ostream& operator << (std::ostream& out, const MultiAAHR& m)
   {
     out << "{ ";
-    for (auto& x: aahrs_)
+    for (auto& x: m.aahrs_)
     {
-      x.Print(out); out << ", ";
+      out << x << ", ";
     }
     out << "}";
+    return out;
   }
 };
 

@@ -74,17 +74,18 @@ struct Gradient
     }
   }
   
-  void Print(std::ostream& out = std::cout) const
+  friend std::ostream& operator << (std::ostream& out, const Gradient& g)
   {
     out << "< ";
-    for (unsigned i = 0; i < order; i++)
+    for (unsigned i = 0; i < g.order; i++)
     {
-      if (i == dimension)
-        out << value << " ";
+      if (i == g.dimension)
+        out << g.value << " ";
       else
         out << "0 ";
     }
     out << ">";
+    return out;
   }
 };
 
@@ -246,8 +247,8 @@ class AxisAlignedHyperRectangle
           if (found)
           {
             std::cout << "AAHR Add error: non-HR shape\n";
-            orig.Print(); std::cout << std::endl;
-            s.Print(); std::cout << std::endl;          
+            std::cout << orig << std::endl;
+            std::cout << s << std::endl;          
             assert(false);
           }
           else
@@ -262,8 +263,8 @@ class AxisAlignedHyperRectangle
         if (!extrude_if_discontiguous)
         {
           std::cout << "AAHR Add error: discontiguous volumes (and extrude is disabled)\n";
-          orig.Print(); std::cout << std::endl;
-          s.Print(); std::cout << std::endl;          
+          std::cout << orig << std::endl;
+          std::cout << s << std::endl;          
           assert(false);
         }
         else
@@ -287,8 +288,8 @@ class AxisAlignedHyperRectangle
             if (found)
             {
               std::cout << "AAHR Add error: non-HR shape\n";
-              orig.Print(); std::cout << std::endl;
-              s.Print(); std::cout << std::endl;          
+              std::cout << orig << std::endl;
+              std::cout << s << std::endl;          
               assert(false);
             }
             else
@@ -697,23 +698,24 @@ class AxisAlignedHyperRectangle
     }    
   }
 
-  void Print(std::ostream& out = std::cout) const
+  friend std::ostream& operator << (std::ostream& out, const AxisAlignedHyperRectangle& x)
   {
     out << "["; 
-    for (unsigned dim = 0; dim < order_-1; dim++)
+    for (unsigned dim = 0; dim < x.order_-1; dim++)
     {
-      out << min_[dim] << ",";
+      out << x.min_[dim] << ",";
     }
-    out << min_[order_-1];
+    out << x.min_[x.order_-1];
     out << ":";
-    for (unsigned dim = 0; dim < order_-1; dim++)
+    for (unsigned dim = 0; dim < x.order_-1; dim++)
     {
-      out << max_[dim] << ",";
+      out << x.max_[dim] << ",";
     }
-    out << max_[order_-1];
+    out << x.max_[x.order_-1];
     out << ")";
     // out << " gradient = ";
     // gradient_.Print(out);
+    return out;
   }
   
 };

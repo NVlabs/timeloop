@@ -77,6 +77,19 @@ OperationSpace::OperationSpace(const Workload* wc,
   // need to be carved up) and clean AAHR regions. We assume that each AAHR in
   // factorized problem space will project onto an AAHR in each data-space.
   auto carved_aahrs = Carve(factorized_low, factorized_high, wc->GetFactorizedBounds());
+
+  if (carved_aahrs.size() > 1)
+  {
+    std::cout << "bounds: " << wc->GetFactorizedBounds() << std::endl;
+    std::cout << "flattened: " << flattened_low << " - " << flattened_high << std::endl;
+    std::cout << "factorized: " << factorized_low << " - " << factorized_high << std::endl;
+
+    std::cout << "carved:\n";
+    for (auto& aahr: carved_aahrs)
+    {
+      std::cout << "  " << aahr.first << " - " << aahr.second << std::endl;
+    }
+  }
   
   // Step 3: Project each of the un-flattened AAHRs onto data spaces.
   for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
@@ -279,7 +292,7 @@ void OperationSpace::Print(std::ostream& out) const
   for (unsigned i = 0; i < data_spaces_.size(); i++)
   {
     out << workload_->GetShape()->DataSpaceIDToName.at(i) << ": ";
-    data_spaces_.at(i).Print(out);
+    out << data_spaces_.at(i);
     out << " ";
   }
   // for (auto& d : data_spaces_)
@@ -292,7 +305,7 @@ void OperationSpace::Print(std::ostream& out) const
 void OperationSpace::Print(Shape::DataSpaceID pv, std::ostream& out) const
 {
   auto& d = data_spaces_.at(unsigned(pv));
-  d.Print(out);
+  out << d;
 }
 
 std::ostream& operator << (std::ostream& out, const OperationSpace& os)
