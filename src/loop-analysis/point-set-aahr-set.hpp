@@ -61,7 +61,7 @@ class MultiAAHR
       order_(order)
   {
     // Create a single AAHR.
-    assert(aahrs_.size() == 0);
+    ASSERT(aahrs_.size() == 0);
     aahrs_.push_back(AxisAlignedHyperRectangle(order, unit));
   }
 
@@ -70,7 +70,7 @@ class MultiAAHR
       order_(order)
   {
     // Create a single AAHR.
-    assert(aahrs_.size() == 0);
+    ASSERT(aahrs_.size() == 0);
     aahrs_.push_back(AxisAlignedHyperRectangle(order, min, max));
   }
 
@@ -79,12 +79,11 @@ class MultiAAHR
       order_(order)
   {
     // Create multiple AAHRs.
-    assert(aahrs_.size() == 0);
+    ASSERT(aahrs_.size() == 0);
     for (auto& corners: corner_sets)
     {
       aahrs_.push_back(AxisAlignedHyperRectangle(order, corners.first, corners.second));
     }
-    assert(aahrs_.size() == 1);
   }
 
   MultiAAHR(const MultiAAHR& a) :
@@ -133,11 +132,11 @@ class MultiAAHR
     {
       if (!aahr.empty())
       {
-        assert(!ref.empty());
+        // assert(!ref.empty());
         return false;
       }
     }
-    assert(ref.empty());
+    // assert(ref.empty());
     return true;
   }
 

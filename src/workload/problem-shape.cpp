@@ -99,7 +99,6 @@ void Shape::Parse(config::CompoundConfigNode shape)
       auto flattened = flattened_list[f];
       std::string flattened_name;
       assert(flattened.lookupValue("name", flattened_name));
-      auto flattened_id = FlattenedDimensionNameToID.at(flattened_name);
 
       std::vector<FactorizedDimensionID> flat_to_factorized;
       std::vector<std::string> factorized_names;
@@ -110,7 +109,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
         flat_to_factorized.push_back(factorized_id);
 
         assert(FactorizedToFlattened.find(factorized_id) == FactorizedToFlattened.end());
-        FactorizedToFlattened[factorized_id] = flattened_id;
+        FactorizedToFlattened[factorized_id] = NumFlattenedDimensions;
 
         assert(unused_factorized_dims.find(factorized_id) !=
                unused_factorized_dims.end());
