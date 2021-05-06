@@ -137,4 +137,12 @@ class Point
       out << c << " ";
     return out;
   }
+
+  friend std::ostream& operator << (std::ostream& out, const Point& p)
+  {
+    out << "[" << p.order_ << "]: ";
+    for (auto& c : p.coordinates_)
+      out << c << " ";
+    return out;
+  }
 };
