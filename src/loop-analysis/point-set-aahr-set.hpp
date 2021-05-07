@@ -80,9 +80,17 @@ class MultiAAHR
   {
     // Create multiple AAHRs.
     ASSERT(aahrs_.size() == 0);
+
     for (auto& corners: corner_sets)
     {
-      aahrs_.push_back(AxisAlignedHyperRectangle(order, corners.first, corners.second));
+      // Don't trust the user to give us non-overlapping AAHRs: perform a
+      // union-insertion just to be sure.
+
+      // FIXME: performance optimization: perform this on a single AAHR
+      // candidate instead of a multiAAHR.
+      MultiAAHR candidate(order, corners.first, corners.second);
+      (*this) += candidate;
+      //aahrs_.push_back(AxisAlignedHyperRectangle(order, corners.first, corners.second));
     }
   }
 
@@ -198,8 +206,51 @@ class MultiAAHR
     return *this;
   }
 
+  void Subtract(const MultiAAHR& s)
+  {
+    // If s is empty the answer is *this.
+    if (s.aahrs_.size() == 0)
+    {
+      // Do nothing.
+    }
+    else
+    {
+      // Cartesian product. Because we guarantee that the AAHRs in each
+      // set are disjoint, we an progressively cut smaller sections
+      // out of each set. However, not doing so will produce a functionally
+      // equivalent result. It's not clear which approach is more efficient.
+      std::vector<AxisAlignedHyperRectangle> deltas;
+
+      for (auto& a: aahrs_)
+      {
+        for (auto& b: s.aahrs_)
+        {
+          auto diff = a.MultiSubtract(b);
+          deltas.insert(deltas.end(), diff.begin(), diff.end());
+        }
+      }
+      std::swap(deltas, aahrs_);
+    }
+
+    ref.Subtract(s.ref);
+  }
+
+  MultiAAHR& operator += (const MultiAAHR& s)
+  {
+    Subtract(s);
+    for (auto& aahr: s.aahrs_)
+    {
+      if (!aahr.empty())
+        aahrs_.push_back(aahr);
+    }
+    ref += s.ref;
+    return *this;
+  }
+
   MultiAAHR operator - (const MultiAAHR& s)
   {
+    // FIXME: implement using Subtract.
+
     MultiAAHR retval(order_);
     
     // assert(this->aahrs_.size() == 1);

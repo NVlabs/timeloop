@@ -466,6 +466,8 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // returned to us by recursive FillSpatialDeltas calls.
   point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
 
+  // std::cout << "NA: new os: " << point_set << std::endl;
+
   // Record the maximum point set size ever seen across all invocations
   // of this level.
   // Need to be done only for levels which will map to physical storage levels

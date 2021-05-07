@@ -164,14 +164,14 @@ OperationSpace::OperationSpace(const Workload* wc,
   
   // if (carved_aahrs.size() > 1)
   // {
-    // std::cout << "bounds: " << wc->GetFactorizedBounds() << std::endl;
-    // std::cout << "flattened: " << flattened_low << " - " << flattened_high << std::endl;
+  //   std::cout << "bounds: " << wc->GetFactorizedBounds() << std::endl;
+  //   std::cout << "flattened: " << flattened_low << " - " << flattened_high << std::endl;
 
-    // std::cout << "carved:\n";
-    // for (auto& aahr: carved_aahrs)
-    // {
-    //   std::cout << "  " << aahr.first << " - " << aahr.second << std::endl;
-    // }
+  //   std::cout << "carved:\n";
+  //   for (auto& aahr: carved_aahrs)
+  //   {
+  //     std::cout << "  " << aahr.first << " - " << aahr.second << std::endl;
+  //   }
   // }
   
   // Step 3: Project each of the factorized AAHRs onto data spaces.
@@ -185,13 +185,17 @@ OperationSpace::OperationSpace(const Workload* wc,
       Point space_low(dataspace_order);
       Point space_high(dataspace_order);
 
+      // std::cout << "projecting ispace aahr  : " << aahr.first << " - " << aahr.second << std::endl;
       ProjectLowHigh(space_id, workload_, aahr.first, aahr.second, space_low, space_high);
+      // std::cout << "projected to dspace aahr: " << space_low << " - " << space_high << std::endl;
 
       // Increment the high points by 1 because the AAHR constructor wants
       // an exclusive max point.
       space_high.IncrementAllDimensions();
 
       dataspace_corners.push_back(std::make_pair(space_low, space_high));
+
+      // std::cout << "dataspace: " << space_low << " - " << space_high << ")" << std::endl;
     }
 
     data_spaces_.push_back(DataSpace(dataspace_order, dataspace_corners));
@@ -366,6 +370,7 @@ OperationSpace& OperationSpace::operator += (const OperationPoint& p)
   for (unsigned i = 0; i < data_spaces_.size(); i++)
   {
     data_spaces_.at(i) += Project(i, workload_, factorized);
+    std::cout << "dataspace after add: " << data_spaces_.at(i) << std::endl;
   }
 
   return (*this);

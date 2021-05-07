@@ -418,11 +418,11 @@ class AxisAlignedHyperRectangle
     return *this;
   }
 
-  // AxisAlignedHyperRectangle& operator += (const AxisAlignedHyperRectangle& s)
-  // {
-  //   Add(s, true); // true => always extrude.
-  //   return *this;
-  // }
+  AxisAlignedHyperRectangle& operator += (const AxisAlignedHyperRectangle& s)
+  {
+    Add(s, true); // true => always extrude.
+    return *this;
+  }
 
   AxisAlignedHyperRectangle operator - (const AxisAlignedHyperRectangle& s)
   {
