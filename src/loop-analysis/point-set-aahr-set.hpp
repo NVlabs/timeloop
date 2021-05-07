@@ -37,8 +37,6 @@ class MultiAAHR
 {
  protected:
 
-  AxisAlignedHyperRectangle ref;
-
   std::uint32_t order_;
 
   // All AAHRs in the set are guaranteed to be disjoint.
@@ -50,14 +48,12 @@ class MultiAAHR
   MultiAAHR() = delete;
 
   MultiAAHR(std::uint32_t order) :
-      ref(order),
       order_(order),
       aahrs_()
   {
   }
 
   MultiAAHR(std::uint32_t order, const Point unit) :
-      ref(order, unit),
       order_(order)
   {
     // Create a single AAHR.
@@ -66,7 +62,6 @@ class MultiAAHR
   }
 
   MultiAAHR(std::uint32_t order, const Point min, const Point max) :
-      ref(order, min, max),
       order_(order)
   {
     // Create a single AAHR.
@@ -75,7 +70,6 @@ class MultiAAHR
   }
 
   MultiAAHR(std::uint32_t order, const std::vector<std::pair<Point, Point>> corner_sets) :
-      ref(order, corner_sets.front().first, corner_sets.front().second), // ugh
       order_(order)
   {
     // Create multiple AAHRs.
@@ -95,7 +89,6 @@ class MultiAAHR
   }
 
   MultiAAHR(const MultiAAHR& a) :
-      ref(a.ref),
       order_(a.order_),
       aahrs_(a.aahrs_)
   {
@@ -105,14 +98,12 @@ class MultiAAHR
   MultiAAHR& operator = (MultiAAHR other)
   {
     swap(*this, other);
-    //assert(size() == ref.size());
     return *this;
   }
 
   friend void swap(MultiAAHR& first, MultiAAHR& second)
   {
     using std::swap;
-    swap(first.ref, second.ref);
     swap(first.order_, second.order_);
     swap(first.aahrs_, second.aahrs_);
   }
@@ -125,12 +116,6 @@ class MultiAAHR
       size += aahr.size();
     }
 
-    // if (size != ref.size())
-    // {
-    //   std::cout << "me : "; Print(); std::cout << std::endl;
-    //   std::cout << "ref: "; ref.Print(); std::cout << std::endl;
-    // }
-    // assert(size == ref.size());
     return size;
   }
 
@@ -140,24 +125,19 @@ class MultiAAHR
     {
       if (!aahr.empty())
       {
-        // assert(!ref.empty());
         return false;
       }
     }
-    // assert(ref.empty());
     return true;
   }
 
   void Reset()
   {
-    ref.Reset();
     aahrs_.clear();
   }
 
   MultiAAHR& operator += (const Point& p)
   {
-    ref += p;
-
     bool found = false;
 
     // If this point is already a subset of one of the AAHRs, we are done.
@@ -172,9 +152,6 @@ class MultiAAHR
 
     if (found)
     {
-      //std::cout << "me : "; Print(); std::cout << std::endl;
-      //std::cout << "ref: "; ref.Print(); std::cout << std::endl;
-      //assert(size() == ref.size());
       return *this;
     }
 
@@ -190,9 +167,6 @@ class MultiAAHR
     
     if (found)
     {
-      //std::cout << "me : "; Print(); std::cout << std::endl;
-      //std::cout << "ref: "; ref.Print(); std::cout << std::endl;
-      //assert(size() == ref.size());
       return *this;
     }
 
@@ -200,9 +174,6 @@ class MultiAAHR
     // create a new AAHR for this point.
     aahrs_.push_back(AxisAlignedHyperRectangle(order_, p));
 
-    //std::cout << "me : "; Print(); std::cout << std::endl;
-    //std::cout << "ref: "; ref.Print(); std::cout << std::endl;
-    //assert(size() == ref.size());
     return *this;
   }
 
@@ -231,8 +202,6 @@ class MultiAAHR
       }
       std::swap(deltas, aahrs_);
     }
-
-    ref.Subtract(s.ref);
   }
 
   MultiAAHR& operator += (const MultiAAHR& s)
@@ -243,7 +212,6 @@ class MultiAAHR
       if (!aahr.empty())
         aahrs_.push_back(aahr);
     }
-    ref += s.ref;
     return *this;
   }
 
@@ -278,36 +246,11 @@ class MultiAAHR
         for (auto& b: s.aahrs_)
         {
           auto diff = a.MultiSubtract(b);
-          if (diff.size() > 1)
-          {
-            // Temporary debug code: if we got a fractured response, override with reference.
-            //diff = { retval.ref };
-          }
-          //assert(diff.size() <= 1);
           retval.aahrs_.insert(retval.aahrs_.end(), diff.begin(), diff.end());
         }
       }
     }
 
-    // if (retval.aahrs_.size() == 1)
-    // {
-    //   assert(retval.ref == retval.aahrs_.at(0));
-    // }
-
-    retval.ref = ref - s.ref;
-
-    // if (retval.size() != retval.ref.size())
-    // {
-    //   std::cout << "me (multi) : "; Print(); std::cout << std::endl;
-    //   std::cout << "me (ref)   : { "; ref.Print(); std::cout << " }" << std::endl;
-    //   std::cout << "s  (multi) : "; s.Print(); std::cout << std::endl;
-    //   std::cout << "s  (ref)   : { "; s.ref.Print(); std::cout << " }" << std::endl;
-    //   std::cout << "del (multi): "; retval.Print(); std::cout << std::endl;
-    //   std::cout << "del (ref)  : { "; retval.ref.Print(); std::cout << " }" << std::endl;
-    //   assert(false);
-    // }
-
-    // assert(size() == ref.size());
     return retval;
   }
 
@@ -335,14 +278,10 @@ class MultiAAHR
 
       if (!found)
       {
-        //assert(!(ref == s.ref));
-        //assert(size() == ref.size());
         return false;
       }
     }
 
-    //assert(ref == s.ref);
-    //assert(size() == ref.size());
     return true;
   }
 
@@ -408,9 +347,6 @@ class MultiAAHR
       }
     }
 
-    //auto ref_trans = ref.GetTranslation(s.ref);
-    //retval = ref.GetTranslation(s.ref);
-
     return retval;
   }
 
@@ -421,7 +357,6 @@ class MultiAAHR
     {
       x.Translate(p);
     }
-    ref.Translate(p);
   }
 
   friend std::ostream& operator << (std::ostream& out, const MultiAAHR& m)
