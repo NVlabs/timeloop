@@ -35,12 +35,12 @@
 #define POINT_SET_GENERIC_FAST 2
 #define POINT_SET_4D           3
 #define POINT_SET_AAHR         4
-#define POINT_SET_AAHR_SET     5
+#define POINT_SET_MULTI_AAHR   5
 
-#define POINT_SET_IMPL POINT_SET_AAHR_SET
+#define POINT_SET_IMPL POINT_SET_MULTI_AAHR
 
-#if POINT_SET_IMPL == POINT_SET_AAHR_SET
-#include "point-set-aahr-set.hpp"
+#if POINT_SET_IMPL == POINT_SET_MULTI_AAHR
+#include "point-set-multi-aahr.hpp"
 typedef MultiAAHR PointSet;
 
 #elif POINT_SET_IMPL == POINT_SET_AAHR
