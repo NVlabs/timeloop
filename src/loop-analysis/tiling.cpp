@@ -375,9 +375,15 @@ void ComputeFills(std::vector<DataMovementInfo>& tile_nest)
       // code compares complete temporal deltas delivered to peer spatial instances.
       // To fix this, we should be able to use the new overlap-fraction based method used to
       // calculate partition sizes in some way.
-      auto scatter_factor = x.first.second;
+      auto multicast_factor = x.first.first;
       auto accesses = x.second.accesses;
-      tile_nest[cur].fills += accesses / scatter_factor;
+
+      // We were using an older formula of fills = (accesses / scatter). However,
+      // Link transfers and irregular sets result in fanout != (multicast * scatter)
+      // so we use a new formula: fills = (accesses * multicast) / fanout. This calculates
+      // an *average* number of fills per child instance (the reality is that some child
+      // instances, such as edge instances, will receive more parent fills).      
+      tile_nest[cur].fills += (accesses * multicast_factor) / tile_nest[outer].fanout;
     }
 
     // assert(tile_nest[cur].fills <= tile_nest[cur].GetTotalAccesses());
