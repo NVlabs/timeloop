@@ -88,6 +88,20 @@ class NestAnalysis
   // level are connected by on-chip links.
   std::vector<bool> linked_spatial_level_;
 
+  // The following maps are used for skew calculation. We can possibly
+  // optimize the implementation by holding the data in a few
+  // OperationPoints instead of these maps. At each storage tiling
+  // boundary, we initiate a new loop gist that captures the information
+  // for all the loops in that block (i.e., before the next-inner
+  // storage tiling boundary).
+  struct LoopGist
+  {
+    int index = 0;
+    int bound = 1;
+  };
+  std::unordered_map<problem::Dimension, LoopGist> loop_gists_;
+  std::unordered_map<problem::Dimension, LoopGist> loop_gists_;
+
   bool working_sets_computed_ = false;
   bool imperfectly_factorized_ = false;
 
