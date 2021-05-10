@@ -1,0 +1,154 @@
+
+spatial_fanouts[loop_level]:
+  !master_spatial_level ? 0
+  else:
+    accumulate horiz_sizes and vert_sizes over inner levels until you reach a temporal level
+
+  if innermost level (0) is spatial
+    scale_factor *= descriptor.end
+
+  spatial_fanouts = (num_spatial_elems[next temporal_leve] / num_spatial_elems[this level]) * scale_factor
+
+  spatial_fanouts == (horizontal sizes * vertical sizes)
+  
+
+master_spatial_level
+linked_spatial_level
+are vectors of size nest_state.
+
+
+
+
+nest_state[loop_level].live_state is only there for each master spatial level.
+
+live state's size is num_spatial_elems[loop_level]
+
+each live state elem (i.e., one per spatial elem) has a prev_point_sets vector of size MAX_TIME_LAPSE == 1 (time * element_id)
+  each element in this prev_point_sets vector is itself a vector of size spatial_fanouts[loop_level]
+  i.e., one for each spatial element in the next level.
+
+
+replication_factor = num_spatial_elems_[level] * spatial_fanouts_[level]
+
+
+
+
+ComputeSpatialWorkingSet(iterator cur)
+{
+  num_spatial_elems = spatial_fanouts[level]
+  spatial_id_ *= num_spatial_elems
+
+  spatial_deltas: vector of size (num_spatial_elems)
+
+  FillSpatialDeltas(spatial_deltas, base_index = 0)
+
+  spatial_id /= num_spatial_elems
+
+  ...
+}
+
+FillSpatialDeltas(deltas, base_index)
+{
+    // base_index determines which element of spatial_deltas
+  // is going to be updated at the last recursive call to FillSpatialDeltas.
+  // It's value is updated as we recursively call FillSpatialDeltas.
+  // Very similar to how spatial_id_ is used to identify the spatial element
+  // that we are currently computing the working set for.
+  base_index *= descriptor.end;
+
+  save spatial_id_
+
+  if (next loop is spatial)
+    for (current loop over indices_[level])
+      spatial_delta_index = base_index + indices_[level]
+      FillSpatialDeltas(base_index = spatial_delta_index);
+  else
+    for (current_loop over indices_[level]
+      spatial_delta_index = base_index + indices_[level]
+      spatial_id = saved_spatial_id + spatial_delta_index
+      Recurse.
+      valid[spatial_delta_index] = true
+
+  restore spatial_id
+
+}
+
+normally:
+  spatial_id = 5 (let's say I'm at virtual idx 5)
+  t_for p = [0:14)
+    s_for m=[0:2) -> Will fill 2*3*5 deltas in total. spatial_id = 10? FSD(0+0), FSD(0+1)
+      s_for k=[0:3) -> base=0; FSD(0+0), FSD(0+1), FSD(0+2); base=3; FSD(3+0), FSD(3+1), FSD(3+2)
+        s_for n=[0:5) -> base={0,1,2,3,4,5}: sid = 10+base; recurse ComputeDeltas().
+          effectively, sid = 10 + m*K*N + k*N + n.
+instead, I want        sid = 10 + (p + k - m*N - n) % (M*N) -> Note that skew is relative to 10.
+  ** skew may also be dependent on a *temporal* loop idx (e.g., P) **
+  ** modulus is probably the product of all s_for dim.end **
+
+After popping back up the stack, ComputeMulticast() and ComputeLinkXfers() is called from the s_for(m) loop (master spatial level) after the 2*3*5 deltas have been filled. 
+
+Assumption: skew only matters in the ComputeMulticast and ComputeLinkXfers functions. Everywhere else, we use the "logical" spatial ID. It's only when we try to establish physical relationships (num_hops), prev_point_set that we do a JIT lookup of the Skew function. This may not be *optimal* but it is the cleanest path that does the least violence to the codebase.
+
+How to translate logical to physical?
+- Need to separate base (10 in this example) from offset. This is easy because we are back in the s_for(m) loop (i.e., master spatial level), which is what applied the offset.
+- Actually ComputeMulticast and ComputeLinkXfers looks like it already works only within a subtree.
+- Given a flattened offset, compute a skewed offset.
+- Need: bounds for all spatial loops in this block (M,N,K). Need a lookup table from rank to value.
+- Then use mod/divide chain to derive m/n/k from linear offset.
+- Present temporal coords will be visible in indices_[], but need to figure out how to index into that array when Skew() is called. Need a lookup table from dim_name in skew spec to index.
+- M*N (basically the divider in the modulus) is the spatial_fanout, which we always have.
+
+Alternatively, should we just have FillSpatialDeltas fill in the right physical slot?
+- FSD just keeps recursively partitioning the deltas[spatial_fanouts_] vector until we get to a temporal level, at which point it calls temporal ComputeDeltas.
+- Instead of partitioning (with all the base_index nonsense, which is just premature optimization to minimize the index calculation arithmetic), we do nothing during recursion but keep track of which index_ I'm at. Then in the innermost spatial loop, calculate the *physical* (i.e, skewed) spatial_id in one shot using the Skew function.
+ What inputs do we need for this approach? Note that we don't need to back-calculate m,n,k.
+ We have an equation like k_t - m_s*N_s - n_s
+ - At each storage_tiling_boundary [verify], create 2 (1 spatial, 1 temporal) new std::map<problem::Dimension> -> { cur_idx, bound }.
+ - As we walk through the CTWS/FSDs, keep populating these maps.
+ - At the innermost FSD, which calls ComputeDeltas, compute the physical spatial_id by walking through the user-defined skew expression at this storage level and looking up the maps for the values.
+ - I believe at this point spatial_id can become stateless. Get rid of the state variable.
+ - Need an example to figure out where t.f. storage_tiling_boundary is relative to master_spatial_level.
+
+
+
+
+t_for k = [0:K)
+  s_for m = [0:M)
+    s_for n = [0:N)
+    {
+      t = k; // implicit since k is the only temporal loop.
+      s = (k - m*N - n) % (M*N); // user-specifiable. Note that the s
+                                 // coordinate can be a function of
+                                 // both temporal (k) and spatial (m,n)
+                                 // loop variables.
+    }
+
+mapping:
+ - target: GlobalBuffer
+   type: temporal
+   factors: K=256     # M=1 N=1 by default.
+
+ - target: GlobalBuffer
+   type: spatial
+   factors: M=8 N=8   # K=1 by default.
+   permutation: NM
+
+ - target: GlobalBuffer
+   type: skew
+   terms:             # we have 3 total terms: k, -m*N, -n
+   - variable:
+       dimension: K   
+       type: temporal # because we want to take the temporal k,
+                      # not the spatial k which does exist in the
+                      # canonical loop nest but with bound=1.
+   - variable:
+       dimension: M
+       type: spatial  # because we want to take the spatial m
+     bound:
+       dimension: N
+       type: spatial
+     constant: -1     # because of the - sign.
+   - variable:       
+       dimension: N
+       type: spatial
+     constant: -1
+   modulus: 64        # = M*N = 8*8
