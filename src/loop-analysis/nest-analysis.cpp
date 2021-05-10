@@ -418,8 +418,22 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   
   int level = cur->level;
 
+  // Before we begin -- if this is a storage tiling boundary, save the loop
+  // gists and create a new gist set.
+  std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> saved_loop_gists_temporal;
+  std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> saved_loop_gists_spatial;
+
+  if (storage_boundary_level_[level])
+  {
+    saved_loop_gists_temporal = loop_gists_temporal_;
+    saved_loop_gists_spatial = loop_gists_spatial_;
+    
+    loop_gists_temporal_.clear();
+    loop_gists_spatial_.clear();
+  }
+
   //
-  // Step II: Compute Accesses.
+  // Step I: Compute Accesses.
   //
 
   if (loop::IsSpatial(cur->descriptor.spacetime_dimension))
@@ -432,7 +446,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   }
 
   //
-  // Step I - Compute Working Set.
+  // Step II - Compute Working Set.
   //
 
   // The point set for this invocation. Note that we do *not* initialize this to
@@ -487,6 +501,13 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // Update last-seen point set for this level.
   cur_state.last_point_set = point_set;
 
+  // Restore loop gist sets.
+  if (storage_boundary_level_[level])
+  {
+    loop_gists_temporal_ = saved_loop_gists_temporal;
+    loop_gists_spatial_ = saved_loop_gists_spatial;
+  }
+
   return delta;
 }
 
@@ -521,6 +542,11 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   int level = cur->level;
 
   bool dump = false; // (level >= 4);
+
+  // First, update loop gist. FIXME: handle base!=0, stride!=1.
+  ASSERT(cur->descriptor.start == 0);
+  ASSERT(cur->descriptor.stride == 1);
+  loop_gists_temporal_[cur->descriptor.dimension] = { 0, cur->descriptor.end };
   
   //
   // Step II: Compute Accesses by accumulating deltas returned by inner levels.
@@ -582,6 +608,8 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
       // Iteration #0.
       indices_[level] = cur->descriptor.start;
+      loop_gists_temporal_.at(dim).index = indices_[level];
+        
       if (num_iterations >= 1)
       {
         // Invoke next (inner) loop level.
@@ -594,6 +622,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         cur_transform_[dim] += scale;
 
         indices_[level] += cur->descriptor.stride;
+        loop_gists_temporal_.at(dim).index = indices_[level];
       }
 
       // Iterations #1 through #last-1/last.
@@ -620,6 +649,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         cur_transform_[dim] += (scale * virtual_iterations);
 
         indices_[level] += (cur->descriptor.stride * virtual_iterations);
+        loop_gists_temporal_.at(dim).index = indices_[level];
       }
 
       // Iteration #last.
@@ -646,6 +676,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         }
       
         indices_[level] += cur->descriptor.stride;        
+        loop_gists_temporal_.at(dim).index = indices_[level];
       }
 
       cur_transform_[dim] = saved_transform;
@@ -661,6 +692,8 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
            indices_[level] < end;
            indices_[level] += cur->descriptor.stride)
       {
+        loop_gists_temporal_.at(dim).index = indices_[level];
+        
         // Invoke next (inner) loop level.
         ++cur;
         auto temporal_delta = ComputeDeltas(cur);
@@ -861,7 +894,13 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
                                      int depth)
 {
   int level = cur->level;
+  auto dim = cur->descriptor.dimension;
 
+  // First, update loop gist. FIXME: handle base!=0, stride!=1.
+  ASSERT(cur->descriptor.start == 0);
+  ASSERT(cur->descriptor.stride == 1);
+  loop_gists_spatial_[cur->descriptor.dimension] = { 0, cur->descriptor.end };
+  
   int end = IsLastGlobalIteration_(level+1, cur->descriptor.dimension) ?
     cur->descriptor.residual_end : cur->descriptor.end;
 
@@ -888,6 +927,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
          indices_[level] < end;
          indices_[level] += cur->descriptor.stride)
     {
+      loop_gists_spatial_.at(dim).index = indices_[level];
+      
       std::uint64_t spatial_delta_index = base_index + indices_[level];
       ASSERT(spatial_delta_index < spatial_deltas.size());
       ASSERT(!valid_delta[spatial_delta_index]);
@@ -916,6 +957,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
            indices_[level] < end;
            indices_[level] += cur->descriptor.stride)
       {
+        loop_gists_spatial_.at(dim).index = indices_[level];
+        
         ++cur;
 
         FillSpatialDeltas(cur, spatial_deltas, valid_delta,
@@ -932,6 +975,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
       unsigned iterations_run = 0;
       indices_[level] = cur->descriptor.start;
+      loop_gists_spatial_.at(dim).index = indices_[level];
 
       unsigned iterations_to_run = gExtrapolateUniformSpatial ? 3 : num_iterations;
 
@@ -940,6 +984,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
            indices_[level] < end && iterations_run < iterations_to_run;
            indices_[level] += cur->descriptor.stride, iterations_run++)
       {
+        loop_gists_spatial_.at(dim).index = indices_[level];
+        
         ++cur;
 
         std::uint64_t spatial_delta_index = base_index + indices_[level];
@@ -975,6 +1021,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
              indices_[level] < end;
              indices_[level] += cur->descriptor.stride, iterations_run++)
         {
+          loop_gists_spatial_.at(dim).index = indices_[level];
+          
           std::uint64_t spatial_delta_index = base_index + indices_[level];
           ASSERT(spatial_delta_index < spatial_deltas.size());
           ASSERT(!valid_delta[spatial_delta_index]);
