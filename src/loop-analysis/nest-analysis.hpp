@@ -27,10 +27,11 @@
 
 #pragma once
 
+#include <unordered_map>
+
 #include "mapping/nest.hpp"
 #include "workload/per-problem-dimension.hpp"
 #include "nest-analysis-tile-info.hpp"
-
 
 namespace analysis
 {
@@ -99,8 +100,8 @@ class NestAnalysis
     int index = 0;
     int bound = 1;
   };
-  std::unordered_map<problem::Dimension, LoopGist> loop_gists_;
-  std::unordered_map<problem::Dimension, LoopGist> loop_gists_;
+  std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_temporal_;
+  std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_spatial_;
 
   bool working_sets_computed_ = false;
   bool imperfectly_factorized_ = false;
