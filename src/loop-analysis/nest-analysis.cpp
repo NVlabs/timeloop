@@ -466,8 +466,6 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // returned to us by recursive FillSpatialDeltas calls.
   point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
 
-  // std::cout << "NA: new os: " << point_set << std::endl;
-
   // Record the maximum point set size ever seen across all invocations
   // of this level.
   // Need to be done only for levels which will map to physical storage levels
@@ -1328,16 +1326,17 @@ void NestAnalysis::InitNumSpatialElems()
     cur_index--;
   }
 
+  std::cout << "master/linked spatial levels:\n";
   linked_spatial_level_.resize(nest_state_.size(), false);
   for (std::uint64_t cur_level = 0; cur_level < nest_state_.size(); cur_level++)
   {
     if (master_spatial_level_[cur_level])
     {
       linked_spatial_level_[cur_level] = true;
+      std::cout << "  level = " << cur_level << " desc: " << nest_state_.at(cur_level).descriptor << std::endl;
     }
   }
 
-#if 0
   std::cout << "Number of spatial elements at each level" << std::endl;
   for (int i = num_spatial_elems_.size() - 1; i >= 0; i--)
   {
@@ -1347,16 +1346,18 @@ void NestAnalysis::InitNumSpatialElems()
     std::cout << ", ";
   }
   std::cout << std::endl;
-#endif
 }
 
 void NestAnalysis::InitStorageBoundaries()
 {
+  std::cout << "nest state size = " << nest_state_.size() << std::endl;
+  std::cout << "storage boundaries:\n";
   storage_boundary_level_.resize(nest_state_.size(), false);
   for (auto& i : storage_tiling_boundaries_)
   {
     ASSERT(i < storage_boundary_level_.size());
     storage_boundary_level_[i] = true;
+    std::cout << "  level " << i << " desc: " << nest_state_.at(i).descriptor << std::endl;
   }
 }
 
