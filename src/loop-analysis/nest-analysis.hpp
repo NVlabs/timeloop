@@ -89,8 +89,8 @@ class NestAnalysis
   // level are connected by on-chip links.
   std::vector<bool> linked_spatial_level_;
 
-  // The following maps are used for skew calculation. We can possibly
-  // optimize the implementation by holding the data in a few
+  // The following data structures are used for skew calculation. We can
+  // possibly optimize the implementation by holding the data in a few
   // OperationPoints instead of these maps. At each storage tiling
   // boundary, we initiate a new loop gist that captures the information
   // for all the loops in that block (i.e., before the next-inner
@@ -100,8 +100,16 @@ class NestAnalysis
     int index = 0;
     int bound = 1;
   };
-  std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_temporal_;
-  std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_spatial_;
+  // Hold the gists in a vector instead of a map. This is because trivial
+  // unit-loops are omitted from the loop nest, which means the gist may
+  // not be complete by the time we arrive at the innermost
+  // FillSpatialDeltas in a loop block. Using a vector (along with the
+  // default values in the struct above) allows us to pre-initialize all
+  // loops. Just be careful to expand them in the Reset() call.
+  std::vector<LoopGist> loop_gists_temporal_;
+  std::vector<LoopGist> loop_gists_spatial_;
+  // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_temporal_;
+  // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_spatial_;
 
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skew_descriptors_;
   loop::Nest::SkewDescriptor* cur_skew_descriptor_ = nullptr;
