@@ -29,6 +29,7 @@
 
 #include <list>
 #include <vector>
+#include <unordered_map>
 
 #include "loop-analysis/loop-state.hpp"
 #include "loop-analysis/tiling.hpp"
@@ -52,9 +53,29 @@ std::ostream& operator << (std::ostream& out, const NestConfig& nest);
 class Nest
 {
  public:
+  // Skew specs.
+  struct SkewDescriptor
+  {
+    struct Term
+    {
+      struct DimSpec
+      {
+        problem::Shape::FlattenedDimensionID dimension = problem::GetShape()->NumFlattenedDimensions;
+        bool is_spatial;
+      };
+      // Each skew term can have a constant, a loop bound, and a loop variable
+      int constant = 1;
+      DimSpec variable;
+      DimSpec bound;
+    };
+    std::vector<Term> terms;
+    int modulus;
+  };
+
   // Nest structure.
   std::vector<Descriptor> loops;
   std::vector<uint64_t> storage_tiling_boundaries;
+  std::unordered_map<unsigned, SkewDescriptor> skew_descriptors;
 
  public:
   Nest();
