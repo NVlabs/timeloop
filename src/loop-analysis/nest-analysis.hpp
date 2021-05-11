@@ -143,6 +143,8 @@ class NestAnalysis
                          std::uint64_t base_index,
                          int depth = 0);
 
+  std::uint64_t ApplySkew(std::uint64_t unskewed_index);
+
   void ComputeAccurateMulticastedAccesses(
       std::vector<analysis::LoopState>::reverse_iterator cur,
       const std::vector<problem::OperationSpace>& spatial_deltas,

@@ -897,6 +897,47 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   // }    
 }
 
+
+// Apply skew (if required).
+std::uint64_t NestAnalysis::ApplySkew(std::uint64_t unskewed_index)
+{
+  if (cur_skew_descriptor_ != nullptr)
+  {
+    // apply skew.
+    std::int64_t numerator = 0;
+    for (auto& term: cur_skew_descriptor_->terms)
+    {
+      std::int64_t prod = term.constant;
+      if (term.variable.dimension != problem::GetShape()->NumFlattenedDimensions)
+      {
+        if (term.variable.is_spatial)
+          prod *= loop_gists_spatial_.at(term.variable.dimension).index;
+        else
+          prod *= loop_gists_temporal_.at(term.variable.dimension).index;
+      }
+      if (term.bound.dimension != problem::GetShape()->NumFlattenedDimensions)
+      {
+        if (term.bound.is_spatial)
+          prod *= loop_gists_spatial_.at(term.bound.dimension).index;
+        else
+          prod *= loop_gists_temporal_.at(term.bound.dimension).index;
+      }
+      numerator += prod;
+    }
+    
+    std::int64_t skewed_index = numerator % cur_skew_descriptor_->modulo;
+    if (skewed_index < 0)
+      skewed_index += cur_skew_descriptor_->modulo;
+
+    ASSERT(skewed_index >= 0);
+
+    return static_cast<std::uint64_t>(skewed_index);
+  }
+  else
+    return unskewed_index;
+}
+
+
 // Computes deltas needed by the spatial elements in the next level.
 // Will update a subset of the elements of spatial_deltas
 void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
@@ -1006,10 +1047,9 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
         spatial_id_ = orig_spatial_id + spatial_delta_index;
 
-        std::cout << "innermost FSD at level " << level << ": sdi = " << spatial_delta_index
-                  << " spatial_id_ = " << spatial_id_ << " sdsize = " << spatial_deltas.size() << std::endl;
-        if (cur_skew_descriptor_ != nullptr)
-          std::cout << "  SKEW FOUND!\n";
+        std::cout << "innermost FSD at level " << level
+                  << " spatial_id_ = " << spatial_id_ << " sdsize = " << spatial_deltas.size()
+                  << " sdi = " << spatial_delta_index << " skewed = " << ApplySkew(spatial_delta_index) << std::endl;
 
         // std::cout << "  temporal gist: ";
         // for (auto& gist: loop_gists_temporal_)
