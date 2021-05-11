@@ -534,68 +534,71 @@ loop::Nest::SkewDescriptor ParseUserSkew(config::CompoundConfigNode directive)
 {
   loop::Nest::SkewDescriptor skew_descriptor;
 
-  if (!directive.lookupValue("modulus", skew_descriptor.modulus))
+  if (!directive.lookupValue("modulo", skew_descriptor.modulo))
   {
-    std::cerr << "ERROR: parsing skew directive: no modulus specified." << std::endl;
+    std::cerr << "ERROR: parsing skew directive: no modulo specified." << std::endl;
     std::exit(1);
   }
 
-  if (directive.exists("terms"))
+  if (!directive.exists("terms"))
   {
-    auto expr_cfg = directive.lookup("terms");
-    assert(expr_cfg.isList());
+    std::cerr << "ERROR: parsing skew directive: no terms specified." << std::endl;
+    std::exit(1);
+  }
+
+  auto expr_cfg = directive.lookup("terms");
+  assert(expr_cfg.isList());
   
-    int len = expr_cfg.getLength();
-    for (int i = 0; i < len; i ++)
+  int len = expr_cfg.getLength();
+  for (int i = 0; i < len; i ++)
+  {
+    loop::Nest::SkewDescriptor::Term term;
+    auto term_cfg = expr_cfg[i];
+
+    if (term_cfg.exists("constant"))
     {
-      loop::Nest::SkewDescriptor::Term term;
-      auto term_cfg = expr_cfg[i];
-
-      if (term_cfg.exists("constant"))
-      {
-        term_cfg.lookupValue("constant", term.constant);
-      }
-
-      if (term_cfg.exists("variable"))
-      {
-        auto variable = term_cfg.lookup("variable");
-        std::string buffer;
-        variable.lookupValue("dimension", buffer);
-        term.variable.dimension = problem::GetShape()->FlattenedDimensionNameToID.at(buffer);
-
-        variable.lookupValue("type", buffer);
-        if (buffer == "spatial")
-          term.variable.is_spatial = true;
-        else if (buffer == "temporal")
-          term.variable.is_spatial = false;
-        else
-        {
-          std::cerr << "ERROR: skew variable type must be spatial or temporal." << std::endl;
-          std::exit(1);
-        }
-      }
-
-      if (term_cfg.exists("bound"))
-      {
-        auto bound = term_cfg.lookup("bound");
-        std::string buffer;
-        bound.lookupValue("dimension", buffer);
-        term.bound.dimension = problem::GetShape()->FlattenedDimensionNameToID.at(buffer);
-
-        bound.lookupValue("type", buffer);
-        if (buffer == "spatial")
-          term.bound.is_spatial = true;
-        else if (buffer == "temporal")
-          term.bound.is_spatial = false;
-        else
-        {
-          std::cerr << "ERROR: skew bound type must be spatial or temporal." << std::endl;
-          std::exit(1);
-        }
-      }
-
-      skew_descriptor.terms.push_back(term);
+      term_cfg.lookupValue("constant", term.constant);
     }
+
+    if (term_cfg.exists("variable"))
+    {
+      auto variable = term_cfg.lookup("variable");
+      std::string buffer;
+      variable.lookupValue("dimension", buffer);
+      term.variable.dimension = problem::GetShape()->FlattenedDimensionNameToID.at(buffer);
+
+      variable.lookupValue("type", buffer);
+      if (buffer == "spatial")
+        term.variable.is_spatial = true;
+      else if (buffer == "temporal")
+        term.variable.is_spatial = false;
+      else
+      {
+        std::cerr << "ERROR: skew variable type must be spatial or temporal." << std::endl;
+        std::exit(1);
+      }
+    }
+
+    if (term_cfg.exists("bound"))
+    {
+      auto bound = term_cfg.lookup("bound");
+      std::string buffer;
+      bound.lookupValue("dimension", buffer);
+      term.bound.dimension = problem::GetShape()->FlattenedDimensionNameToID.at(buffer);
+
+      bound.lookupValue("type", buffer);
+      if (buffer == "spatial")
+        term.bound.is_spatial = true;
+      else if (buffer == "temporal")
+        term.bound.is_spatial = false;
+      else
+      {
+        std::cerr << "ERROR: skew bound type must be spatial or temporal." << std::endl;
+        std::exit(1);
+      }
+    }
+
+    skew_descriptor.terms.push_back(term);
   }
 
   return skew_descriptor;
