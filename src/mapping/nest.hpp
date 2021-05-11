@@ -69,7 +69,7 @@ class Nest
       DimSpec bound;
     };
     std::vector<Term> terms;
-    int modulus;
+    int modulo;
   };
 
   // Nest structure.
