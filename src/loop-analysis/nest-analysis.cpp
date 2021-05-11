@@ -991,13 +991,13 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       loop_gists_spatial_.at(dim).index = indices_[level];
       
       std::uint64_t spatial_delta_index = base_index + indices_[level];
-      spatial_delta_index = ApplySkew(spatial_delta_index);
+      std::uint64_t skewed_delta_index = ApplySkew(spatial_delta_index);
 
-      ASSERT(spatial_delta_index < spatial_deltas.size());
-      ASSERT(!valid_delta[spatial_delta_index]);
+      ASSERT(skewed_delta_index < spatial_deltas.size());
+      ASSERT(!valid_delta[skewed_delta_index]);
 
-      spatial_deltas[spatial_delta_index] += IndexToOperationPoint_(indices_);
-      valid_delta[spatial_delta_index] = true;
+      spatial_deltas[skewed_delta_index] += IndexToOperationPoint_(indices_);
+      valid_delta[skewed_delta_index] = true;
     }
   }
   else // level > 0
@@ -1055,40 +1055,26 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
         ++cur;
 
         std::uint64_t spatial_delta_index = base_index + indices_[level];
+        std::uint64_t skewed_delta_index = ApplySkew(spatial_delta_index);
+
+        ASSERT(skewed_delta_index < spatial_deltas.size());
+        ASSERT(!valid_delta[skewed_delta_index]);
+
+        spatial_id_ = orig_spatial_id + spatial_delta_index; // note: unskewed
+
         std::cout << "innermost FSD at level " << level
                   << " spatial_id_ = " << spatial_id_ << " sdsize = " << spatial_deltas.size()
                   << " unskewed = " << spatial_delta_index << " skewed = "
-                  << ApplySkew(spatial_delta_index) << std::endl;
+                  << skewed_delta_index << std::endl;
 
-        spatial_delta_index = ApplySkew(spatial_delta_index);
-
-        ASSERT(spatial_delta_index < spatial_deltas.size());
-        ASSERT(!valid_delta[spatial_delta_index]);
-
-        spatial_id_ = orig_spatial_id + spatial_delta_index;
-
-        // std::cout << "  temporal gist: ";
-        // for (auto& gist: loop_gists_temporal_)
-        // {
-        //   std::cout << problem::GetShape()->FlattenedDimensionIDToName.at(gist.first) << ","
-        //             << gist.second.index << "," << gist.second.bound << " ";
-        // }
-        // std::cout << "\n  spatial gist: ";
-        // for (auto& gist: loop_gists_spatial_)
-        // {
-        //   std::cout << problem::GetShape()->FlattenedDimensionIDToName.at(gist.first) << ","
-        //             << gist.second.index << "," << gist.second.bound << " ";
-        // }
-        // std::cout << std::endl;
-
-        spatial_deltas[spatial_delta_index] = ComputeDeltas(cur);
-        valid_delta[spatial_delta_index] = true;
+        spatial_deltas[skewed_delta_index] = ComputeDeltas(cur);
+        valid_delta[skewed_delta_index] = true;
 
         --cur;
         cur_transform_[dim] += scale;
 
         spatial_delta_secondlast = spatial_delta_last;
-        spatial_delta_last = &spatial_deltas[spatial_delta_index];
+        spatial_delta_last = &spatial_deltas[skewed_delta_index];
       }
 
       // Extrapolate all other iterations.
@@ -1117,20 +1103,20 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
           loop_gists_spatial_.at(dim).index = indices_[level];
           
           std::uint64_t spatial_delta_index = base_index + indices_[level];
-          spatial_delta_index = ApplySkew(spatial_delta_index);
+          std::uint64_t skewed_delta_index = ApplySkew(spatial_delta_index);
 
-          ASSERT(spatial_delta_index < spatial_deltas.size());
-          ASSERT(!valid_delta[spatial_delta_index]);
+          ASSERT(skewed_delta_index < spatial_deltas.size());
+          ASSERT(!valid_delta[skewed_delta_index]);
 
-          spatial_id_ = orig_spatial_id + spatial_delta_index;
+          spatial_id_ = orig_spatial_id + spatial_delta_index; // note: unskewed.
 
-          auto& temporal_delta = spatial_deltas[spatial_delta_index];
+          auto& temporal_delta = spatial_deltas[skewed_delta_index];
           for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
           {
             temporal_delta.GetDataSpace(pv) = prev_temporal_delta->GetDataSpace(pv);
             temporal_delta.GetDataSpace(pv).Translate(translation_vectors.at(pv));
           }
-          valid_delta[spatial_delta_index] = true;
+          valid_delta[skewed_delta_index] = true;
 
           prev_temporal_delta = &temporal_delta;
         } // extrapolated iterations
