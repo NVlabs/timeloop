@@ -103,6 +103,8 @@ class NestAnalysis
   std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_temporal_;
   std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_spatial_;
 
+  // Other state.
+
   bool working_sets_computed_ = false;
   bool imperfectly_factorized_ = false;
 

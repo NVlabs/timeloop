@@ -993,6 +993,24 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
         ASSERT(!valid_delta[spatial_delta_index]);
 
         spatial_id_ = orig_spatial_id + spatial_delta_index;
+
+        // std::cout << "innermost FSD at level " << level << ": sdi = " << spatial_delta_index
+        //           << " spatial_id_ = " << spatial_id_ << " sdsize = " << spatial_deltas.size() << std::endl;
+
+        // std::cout << "  temporal gist: ";
+        // for (auto& gist: loop_gists_temporal_)
+        // {
+        //   std::cout << problem::GetShape()->FlattenedDimensionIDToName.at(gist.first) << ","
+        //             << gist.second.index << "," << gist.second.bound << " ";
+        // }
+        // std::cout << "\n  spatial gist: ";
+        // for (auto& gist: loop_gists_spatial_)
+        // {
+        //   std::cout << problem::GetShape()->FlattenedDimensionIDToName.at(gist.first) << ","
+        //             << gist.second.index << "," << gist.second.bound << " ";
+        // }
+        // std::cout << std::endl;
+
         spatial_deltas[spatial_delta_index] = ComputeDeltas(cur);
         valid_delta[spatial_delta_index] = true;
 
