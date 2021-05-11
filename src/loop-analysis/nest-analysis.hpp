@@ -103,6 +103,9 @@ class NestAnalysis
   std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_temporal_;
   std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_spatial_;
 
+  std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skew_descriptors_;
+  loop::Nest::SkewDescriptor* cur_skew_descriptor_ = nullptr;
+
   // Other state.
 
   bool working_sets_computed_ = false;

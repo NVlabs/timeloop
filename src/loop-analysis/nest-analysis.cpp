@@ -128,8 +128,12 @@ void NestAnalysis::Reset()
   imperfectly_factorized_ = false;
 
   compute_info_.Reset();
-
   compute_info_sets_.clear();
+
+  loop_gists_temporal_.clear();
+  loop_gists_spatial_.clear();
+  skew_descriptors_.clear();
+  cur_skew_descriptor_ = nullptr;
 }
 
 // Ugly function for pre-checking capacity fits before running the heavyweight
@@ -422,6 +426,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // gists and create a new gist set.
   std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> saved_loop_gists_temporal;
   std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> saved_loop_gists_spatial;
+  loop::Nest::SkewDescriptor* saved_skew_descriptor;
 
   if (storage_boundary_level_[level])
   {
@@ -430,6 +435,12 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
     
     loop_gists_temporal_.clear();
     loop_gists_spatial_.clear();
+
+    saved_skew_descriptor = cur_skew_descriptor_;
+    cur_skew_descriptor_ = nullptr;
+    auto skew_it = skew_descriptors_.find(level);
+    if (skew_it != skew_descriptors_.end())
+      cur_skew_descriptor_ = &skew_it->second;
   }
 
   //
@@ -506,6 +517,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   {
     loop_gists_temporal_ = saved_loop_gists_temporal;
     loop_gists_spatial_ = saved_loop_gists_spatial;
+    cur_skew_descriptor_ = saved_skew_descriptor;
   }
 
   return delta;
@@ -994,8 +1006,10 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
         spatial_id_ = orig_spatial_id + spatial_delta_index;
 
-        // std::cout << "innermost FSD at level " << level << ": sdi = " << spatial_delta_index
-        //           << " spatial_id_ = " << spatial_id_ << " sdsize = " << spatial_deltas.size() << std::endl;
+        std::cout << "innermost FSD at level " << level << ": sdi = " << spatial_delta_index
+                  << " spatial_id_ = " << spatial_id_ << " sdsize = " << spatial_deltas.size() << std::endl;
+        if (cur_skew_descriptor_ != nullptr)
+          std::cout << "  SKEW FOUND!\n";
 
         // std::cout << "  temporal gist: ";
         // for (auto& gist: loop_gists_temporal_)
@@ -1419,11 +1433,21 @@ void NestAnalysis::InitStorageBoundaries()
   std::cout << "nest state size = " << nest_state_.size() << std::endl;
   std::cout << "storage boundaries:\n";
   storage_boundary_level_.resize(nest_state_.size(), false);
+  unsigned storage_level = 0;
   for (auto& i : storage_tiling_boundaries_)
   {
     ASSERT(i < storage_boundary_level_.size());
     storage_boundary_level_[i] = true;
-    std::cout << "  level " << i << " desc: " << nest_state_.at(i).descriptor << std::endl;
+    std::cout << "  stb for storage level " << storage_level << " is at loop level " << i << " desc: " << nest_state_.at(i).descriptor << std::endl;
+
+    auto skew_it = cached_nest.skew_descriptors.find(storage_level);
+    if (skew_it != cached_nest.skew_descriptors.end())
+    {
+      std::cout << "    found skew descriptor\n";
+      skew_descriptors_[i] = skew_it->second;
+    }
+
+    storage_level++;
   }
 }
 
