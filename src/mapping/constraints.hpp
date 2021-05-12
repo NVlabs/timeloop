@@ -58,6 +58,7 @@ class Constraints
   problem::PerDataSpace<std::string> bypass_strings_;
   double min_parallelism_;
   bool min_parallelism_isset_;  
+  std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skews_;
 
  public:
   Constraints() = delete;
@@ -75,6 +76,7 @@ class Constraints
     bypass_strings_.clear();
     min_parallelism_ = 0.0;
     min_parallelism_isset_ = false;
+    skews_.clear();
 
     // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
@@ -125,6 +127,11 @@ class Constraints
   const std::map<unsigned, double>& ConfidenceThresholds() const
   {
     return confidence_thresholds_;
+  }
+
+  const std::unordered_map<unsigned, loop::Nest::SkewDescriptor> Skews() const
+  {
+    return skews_;
   }
 
   //
@@ -225,6 +232,8 @@ class Constraints
       factors_[tiling_level] = temporal_factors;
       permutations_[tiling_level] = temporal_permutation;
     }
+
+    // **** FIXME: add skew ****
   }
   
   //
@@ -462,6 +471,8 @@ class Constraints
       }
     }
 
+    // **** FIXME: add skew ****
+
     return true;
   }
 
@@ -567,10 +578,10 @@ class Constraints
     std::string type;
     assert(constraint.lookupValue("type", type));
 
-    auto level_id = FindTargetTilingLevel(target, type);
-
     if (type == "temporal" || type == "spatial")
     {
+      auto level_id = FindTargetTilingLevel(target, type);
+
       auto level_factors = ParseFactors(attributes);
       for (auto& factor: level_factors)
       {
@@ -634,17 +645,20 @@ class Constraints
     }
     else if (type == "max_overbooked_proportion")
     {
+      auto level_id = FindTargetTilingLevel(target, type);
       double max_overbooked_proportion;
       assert(constraint.lookupValue("proportion", max_overbooked_proportion));
       confidence_thresholds_[level_id] =  1 - max_overbooked_proportion;
     }
     else if (type == "datatype" || type == "bypass" || type == "bypassing")
     {
+      auto level_id = FindTargetTilingLevel(target, type);
       // Error handling for re-spec conflicts are inside the parse function.
       ParseDatatypeBypassSettings(attributes, arch_props_.TilingToStorage(level_id));
     }
     else if (type == "utilization" || type == "parallelism")
     {
+      auto level_id = FindTargetTilingLevel(target, type);
       if (min_parallelism_isset_)
       {
         std::cerr << "ERROR: re-specification of min parallelism/utilization at level "
@@ -656,16 +670,23 @@ class Constraints
       assert(attributes.lookupValue("min", min_parallelism_));
       min_parallelism_isset_ = true;
     }
+    else if (type == "skew")
+    {
+      // Note: skews are stored by storage level id, not tiling level id.
+      auto storage_level_id = FindTargetStorageLevel(target);
+      skews_[storage_level_id] = ParseSkew(attributes);
+    }
     else
     {
-      assert(false);
+      std::cerr << "ERROR: illegal constraint type: " << type << std::endl;
+      std::exit(1);
     }
   }
 
   //
-  // FindTargetTilingLevel()
+  // FindTargetStorageLevel()
   //
-  unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type)
+  unsigned FindTargetStorageLevel(config::CompoundConfigNode constraint)
   {
     auto num_storage_levels = arch_props_.StorageLevels();
     
@@ -699,7 +720,21 @@ class Constraints
     }
     
     assert(storage_level_id < num_storage_levels);    
+    return storage_level_id;
+  }
 
+  //
+  // FindTargetTilingLevel()
+  //
+  unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type)
+  {
+    unsigned storage_level_id = FindTargetStorageLevel(constraint);
+
+    // Have to repeat the following lines from FindTargetStorageLevel().
+    std::string storage_level_name;
+    constraint.lookupValue("target", storage_level_name);
+    constraint.lookupValue("name", storage_level_name);
+    
     //
     // Translate this storage ID to a tiling ID.
     //
@@ -960,6 +995,84 @@ class Constraints
       }
     }
   }
+
+  //
+  // Parse skew.
+  //
+  loop::Nest::SkewDescriptor ParseSkew(config::CompoundConfigNode directive)
+  {
+    loop::Nest::SkewDescriptor skew_descriptor;
+
+    if (!directive.lookupValue("modulo", skew_descriptor.modulo))
+    {
+      std::cerr << "ERROR: parsing skew directive: no modulo specified." << std::endl;
+      std::exit(1);
+    }
+
+    if (!directive.exists("terms"))
+    {
+      std::cerr << "ERROR: parsing skew directive: no terms specified." << std::endl;
+      std::exit(1);
+    }
+
+    auto expr_cfg = directive.lookup("terms");
+    assert(expr_cfg.isList());
+  
+    int len = expr_cfg.getLength();
+    for (int i = 0; i < len; i ++)
+    {
+      loop::Nest::SkewDescriptor::Term term;
+      auto term_cfg = expr_cfg[i];
+
+      if (term_cfg.exists("constant"))
+      {
+        term_cfg.lookupValue("constant", term.constant);
+      }
+
+      if (term_cfg.exists("variable"))
+      {
+        auto variable = term_cfg.lookup("variable");
+        std::string buffer;
+        variable.lookupValue("dimension", buffer);
+        term.variable.dimension = problem::GetShape()->FlattenedDimensionNameToID.at(buffer);
+
+        variable.lookupValue("type", buffer);
+        if (buffer == "spatial")
+          term.variable.is_spatial = true;
+        else if (buffer == "temporal")
+          term.variable.is_spatial = false;
+        else
+        {
+          std::cerr << "ERROR: skew variable type must be spatial or temporal." << std::endl;
+          std::exit(1);
+        }
+      }
+
+      if (term_cfg.exists("bound"))
+      {
+        auto bound = term_cfg.lookup("bound");
+        std::string buffer;
+        bound.lookupValue("dimension", buffer);
+        term.bound.dimension = problem::GetShape()->FlattenedDimensionNameToID.at(buffer);
+
+        bound.lookupValue("type", buffer);
+        if (buffer == "spatial")
+          term.bound.is_spatial = true;
+        else if (buffer == "temporal")
+          term.bound.is_spatial = false;
+        else
+        {
+          std::cerr << "ERROR: skew bound type must be spatial or temporal." << std::endl;
+          std::exit(1);
+        }
+      }
+
+      skew_descriptor.terms.push_back(term);
+    }
+
+    return skew_descriptor;
+  }
+
 };
 
 } // namespace mapping

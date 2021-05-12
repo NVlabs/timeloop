@@ -628,6 +628,7 @@ class Uber : public MapSpace
     mapping->id = mapping_id.Integer();
     mapping->fanoutX_map = arch_props_.FanoutX();
     mapping->fanoutY_map = arch_props_.FanoutY();
+    mapping->loop_nest.skew_descriptors = constraints_.Skews();
     
     return status;
   }
