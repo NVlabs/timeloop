@@ -185,8 +185,17 @@ class NestAnalysis
       //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
       problem::PerDataSpace<std::uint64_t>& link_transfers);
  
- void ComputeDataDensity();
-
+  void CompareSpatioTemporalDeltas(
+    const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
+    const std::unordered_map<std::uint64_t, problem::OperationSpace>& prev_spatial_deltas,
+    //const std::vector<problem::OperationSpace>& cur_spatial_deltas,
+    //const std::vector<problem::OperationSpace>& prev_spatial_deltas,
+    const std::uint64_t cur_spatial_index,
+    const std::uint64_t prev_spatial_index,
+    std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse);
+  
+  void ComputeDataDensity();
+  void PrintSpaceTimeStamp();
 
  public:  
   // API
