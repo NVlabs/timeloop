@@ -29,7 +29,7 @@
 
 #include <boost/serialization/export.hpp>
 
-#include "loop-analysis/nest-analysis.hpp"
+//#include "loop-analysis/nest-analysis.hpp"
 #include "model/level.hpp"
 #include "model/network.hpp"
 #include "mapping/mapping.hpp"

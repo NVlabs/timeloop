@@ -28,6 +28,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <map>
 
 #include "mapping/nest.hpp"
 #include "workload/per-problem-dimension.hpp"
@@ -79,6 +80,9 @@ class NestAnalysis
   // point of a new storage tile.
   std::vector<bool> storage_boundary_level_;
   
+  // architectural storage level corresponding to a given loop level.
+  std::vector<unsigned> arch_storage_level_;
+
   // any level which is at the transition point from temporal to
   // spatial nests is a master spatial level.
   // there should be one such level between each set of
@@ -110,6 +114,10 @@ class NestAnalysis
   std::vector<LoopGist> loop_gists_spatial_;
   // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_temporal_;
   // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_spatial_;
+
+  // Storage level to fanout map.
+  std::map<unsigned, std::uint64_t> fanoutX_map_; 
+  std::map<unsigned, std::uint64_t> fanoutY_map_; 
 
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skew_descriptors_;
   loop::Nest::SkewDescriptor* cur_skew_descriptor_ = nullptr;
@@ -176,7 +184,9 @@ class NestAnalysis
  public:  
   // API
   NestAnalysis();
-  void Init(problem::Workload* wc, const loop::Nest* nest);
+  void Init(problem::Workload* wc, const loop::Nest* nest,
+            std::map<unsigned, std::uint64_t> fanoutX_map,
+            std::map<unsigned, std::uint64_t> fanoutY_map);
   void Reset();
  
   std::vector<problem::PerDataSpace<std::size_t>> GetWorkingSetSizes_LTW() const;

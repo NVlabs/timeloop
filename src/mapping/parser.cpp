@@ -313,11 +313,10 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   } // for (pvi)
 
   mapping.confidence_thresholds = confidence_thresholds;
-
   mapping.loop_nest.skew_descriptors = user_skews;
-
-    // Finalize mapping.
   mapping.id = 0;
+  mapping.fanoutX_map = arch_props_.FanoutX();
+  mapping.fanoutY_map = arch_props_.FanoutY();
 
   return mapping;
 }
