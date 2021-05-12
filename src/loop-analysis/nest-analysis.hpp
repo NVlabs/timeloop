@@ -146,8 +146,9 @@ class NestAnalysis
   //problem::OperationSpace& point_set);
 
   void FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
-                         std::vector<problem::OperationSpace>& spatial_deltas,
-                         std::vector<bool>& valid_delta,
+                         std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
+                         //std::vector<problem::OperationSpace>& spatial_deltas,
+                         //std::vector<bool>& valid_delta,
                          std::uint64_t base_index,
                          int depth = 0);
 
@@ -155,16 +156,18 @@ class NestAnalysis
 
   void ComputeAccurateMulticastedAccesses(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::OperationSpace>& spatial_deltas,
-      std::vector<problem::PerDataSpace<bool>>&
-      unaccounted_delta,
+      const std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
+      std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>>& unaccounted_delta,
+      //const std::vector<problem::OperationSpace>& spatial_deltas,
+      //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
       problem::PerDataSpace<AccessStatMatrix>& access_stats);
 
   void ComputeNetworkLinkTransfers(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::OperationSpace>& cur_spatial_deltas,
-      std::vector<problem::PerDataSpace<bool>>&
-      unaccounted_delta,
+      const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
+      std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>>& unaccounted_delta,
+      //const std::vector<problem::OperationSpace>& cur_spatial_deltas,
+      //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
       problem::PerDataSpace<std::uint64_t>& link_transfers);
  
  void ComputeDataDensity();
