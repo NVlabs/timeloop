@@ -110,13 +110,13 @@ class Engine : public Module
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo sparse_optimizations, bool break_on_failure = true)
   {
-    nest_analysis_.Init(&workload, &mapping.loop_nest);
+    nest_analysis_.Init(&workload, &mapping.loop_nest, mapping.fanoutX_map, mapping.fanoutY_map);
     return topology_.PreEvaluationCheck(mapping, &nest_analysis_, &sparse_optimizations, break_on_failure);
   }
 
   std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo sparse_optimizations, bool break_on_failure = true)
   {
-    nest_analysis_.Init(&workload, &mapping.loop_nest);
+    nest_analysis_.Init(&workload, &mapping.loop_nest, mapping.fanoutX_map, mapping.fanoutY_map);
     
     auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, &sparse_optimizations, break_on_failure);
 

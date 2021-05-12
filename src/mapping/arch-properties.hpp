@@ -180,7 +180,17 @@ class ArchProperties
   {
     return fanoutX_map_.at(storage_level_id) * fanoutY_map_.at(storage_level_id);
   }
+
+  const std::map<unsigned, std::uint64_t>& FanoutX() const
+  {
+    return fanoutX_map_;
+  }
   
+  const std::map<unsigned, std::uint64_t>& FanoutY() const
+  {
+    return fanoutY_map_;
+  }
+    
   const unsigned& TemporalToTiling(const unsigned l) const
   {
     return temporal_to_tiling_map_.at(l);

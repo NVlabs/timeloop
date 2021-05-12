@@ -45,6 +45,8 @@ struct Mapping
   loop::Nest loop_nest;
   tiling::CompoundMaskNest datatype_bypass_nest;
   std::map<unsigned, double> confidence_thresholds;
+  std::map<unsigned, std::uint64_t> fanoutX_map;
+  std::map<unsigned, std::uint64_t> fanoutY_map;  
   
   // Serialization
   friend class boost::serialization::access;
