@@ -1003,7 +1003,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       std::uint64_t spatial_delta_index = base_index + indices_[level];
       std::uint64_t skewed_delta_index = ApplySkew(spatial_delta_index);
 
-      ASSERT(spatial_delta_index < spatial_deltas.size()); // unskewed.
+      //ASSERT(spatial_delta_index < spatial_deltas.size()); // unskewed.
       //ASSERT(!valid_delta[skewed_delta_index]);
       ASSERT(spatial_deltas.find(skewed_delta_index) == spatial_deltas.end());
       // If the above assertion fails, it means there's a collision in the
@@ -1071,7 +1071,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
         std::uint64_t spatial_delta_index = base_index + indices_[level];
         std::uint64_t skewed_delta_index = ApplySkew(spatial_delta_index);
 
-        ASSERT(spatial_delta_index < spatial_deltas.size()); // unskewed.
+        //ASSERT(spatial_delta_index < spatial_deltas.size()); // unskewed.
         //ASSERT(!valid_delta[skewed_delta_index]);
         ASSERT(spatial_deltas.find(skewed_delta_index) == spatial_deltas.end());
         // If the above assertion fails, it means there's a collision in the
@@ -1122,7 +1122,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
           std::uint64_t spatial_delta_index = base_index + indices_[level];
           std::uint64_t skewed_delta_index = ApplySkew(spatial_delta_index);
 
-          ASSERT(spatial_delta_index < spatial_deltas.size()); // unskewed.
+          //ASSERT(spatial_delta_index < spatial_deltas.size()); // unskewed.
           //ASSERT(!valid_delta[skewed_delta_index]);
           ASSERT(spatial_deltas.find(skewed_delta_index) == spatial_deltas.end());
           // If the above assertion fails, it means there's a collision in the
@@ -1316,7 +1316,7 @@ void CompareSpatioTemporalDeltas(
       if (cur_delta.CheckEquality(prev_delta, pv))
       {
         // ASSERT(!inter_elem_reuse[cur_spatial_index][pv]);
-        inter_elem_reuse[cur_spatial_index][pv] = true;
+        inter_elem_reuse.at(cur_spatial_index)[pv] = true;
       }
     }
   }
@@ -1363,7 +1363,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // physical (i.e., skewed) space.
   auto& cur_state = cur->live_state[spatial_id_];
   auto& prev_spatial_deltas = cur_state.prev_point_sets[0];
-  ASSERT(cur_spatial_deltas.size() == prev_spatial_deltas.size());
+  //ASSERT(cur_spatial_deltas.size() == prev_spatial_deltas.size());
 
   int num_spatial_elems = h_size * v_size; // need *physical* hardware elems. spatial_fanouts_[cur->level];
 
@@ -1380,7 +1380,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   inter_elem_reuse.resize(num_spatial_elems);
   for (int i = 0; i < num_spatial_elems; i++)
   {
-    inter_elem_reuse[i].fill(false);
+    inter_elem_reuse.at(i).fill(false);
   }
 
   // FIXME: The loops below can be codified in some way to avoid redundant LOC.
@@ -1449,7 +1449,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
     auto& cur_skewed_spatial_index = delta.first;
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      if (inter_elem_reuse[cur_skewed_spatial_index][pv])
+      if (inter_elem_reuse.at(cur_skewed_spatial_index)[pv])
       {
         link_transfers[pv] += (delta.second.GetSize(pv) * num_epochs_);
         auto unaccounted_it = unaccounted_delta.find(std::make_pair(cur_skewed_spatial_index, pv));
