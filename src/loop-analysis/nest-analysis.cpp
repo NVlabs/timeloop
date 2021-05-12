@@ -293,25 +293,26 @@ void NestAnalysis::InitializeLiveState()
 
   for (auto loop = nest_state_.rbegin(); loop != nest_state_.rend(); loop++)
   {
-    if (!loop::IsSpatial(loop->descriptor.spacetime_dimension) ||
-        master_spatial_level_[loop->level])
-    {
-      // we don't need live state for non-master spatial levels
-      loop->live_state.resize(num_spatial_elems_[loop->level]);
-    }
+    // if (!loop::IsSpatial(loop->descriptor.spacetime_dimension) ||
+    //     master_spatial_level_[loop->level])
+    // {
+    //   // we don't need live state for non-master spatial levels
+    //   loop->live_state.resize(num_spatial_elems_[loop->level]);
+    // }
 
-    for (auto& it : loop->live_state)
-    {
-      it.Reset();
-      if (linked_spatial_level_[loop->level])
-      {
-        // it.prev_spatial_deltas.resize(analysis::ElementState::MAX_TIME_LAPSE);
-        // // for (auto& elem : it.prev_spatial_deltas)
-        // // {
-        // //   elem.resize(spatial_fanouts_[loop->level]);
-        // // }
-      }
-    }
+    // for (auto& it : loop->live_state)
+    // {
+    //   it.Reset();
+    //   if (linked_spatial_level_[loop->level])
+    //   {
+    //     // Restore this line if MAX_TIME_LAPSE > 1. it.prev_spatial_deltas.resize(analysis::ElementState::MAX_TIME_LAPSE);
+    //     // // for (auto& elem : it.prev_spatial_deltas)
+    //     // // {
+    //     // //   elem.resize(spatial_fanouts_[loop->level]);
+    //     // // }
+    //   }
+    // }
+    loop->live_state.clear();
   }
 }
 
@@ -335,28 +336,38 @@ void NestAnalysis::CollectWorkingSets()
         // by only simulating one spatial element per level?
         if (!gExtrapolateUniformSpatial)
         {
-          for (std::uint64_t i = 1; i < cur.live_state.size(); i++)
-          {
-            ASSERT(cur.live_state[i].access_stats[pv] ==
-                   cur.live_state[i - 1].access_stats[pv]);
-            ASSERT(cur.live_state[i].max_size[pv] ==
-                   cur.live_state[i - 1].max_size[pv]);
-            ASSERT(cur.live_state[i].link_transfers[pv] ==
-                   cur.live_state[i - 1].link_transfers[pv]);
-          }
+          // FIXME: aggregate stats.
+          // for (std::uint64_t i = 1; i < cur.live_state.size(); i++)
+          // {
+          //   ASSERT(cur.live_state[i].access_stats[pv] ==
+          //          cur.live_state[i - 1].access_stats[pv]);
+          //   ASSERT(cur.live_state[i].max_size[pv] ==
+          //          cur.live_state[i - 1].max_size[pv]);
+          //   ASSERT(cur.live_state[i].link_transfers[pv] ==
+          //          cur.live_state[i - 1].link_transfers[pv]);
+          // }
         }
 
-        // Since, all elements have the same properties, use the properties
-        // of the first element to build condensed_state
-        const uint64_t REPR_ELEM_ID = 0;  // representative element id.
-        condensed_state.access_stats[pv] =
-            cur.live_state[REPR_ELEM_ID].access_stats[pv];
-        condensed_state.max_size[pv] =
-            cur.live_state[REPR_ELEM_ID].max_size[pv];
-        condensed_state.link_transfers[pv] =
-            cur.live_state[REPR_ELEM_ID].link_transfers[pv];
-        // condensed_state.data_densities[pv] =
-        //     cur.live_state[REPR_ELEM_ID].data_densities[pv];  
+        // // Since, all elements have the same properties, use the properties
+        // // of the first element to build condensed_state
+        // const uint64_t REPR_ELEM_ID = 0;  // representative element id.
+        // condensed_state.access_stats[pv] =
+        //     cur.live_state[REPR_ELEM_ID].access_stats[pv];
+        // condensed_state.max_size[pv] =
+        //     cur.live_state[REPR_ELEM_ID].max_size[pv];
+        // condensed_state.link_transfers[pv] =
+        //     cur.live_state[REPR_ELEM_ID].link_transfers[pv];
+        // // condensed_state.data_densities[pv] =
+        // //     cur.live_state[REPR_ELEM_ID].data_densities[pv];
+
+        // *** FIXME ***: aggregate stats.
+        for (auto& state: cur.live_state)
+        {
+          condensed_state.access_stats[pv] = state.second.access_stats[pv];
+          condensed_state.max_size[pv] = state.second.max_size[pv];
+          condensed_state.link_transfers[pv] = state.second.link_transfers[pv];
+          break;
+        }
       }
 
       // Build the subnest corresponding to this level.
@@ -421,6 +432,16 @@ void NestAnalysis::CollectWorkingSets()
   }
 }
 
+// All but last vector.
+std::vector<unsigned> AllButLast(const std::vector<unsigned>& v)
+{
+  ASSERT(v.size() >= 1);
+  std::vector<unsigned> retval;
+  for (auto it = v.begin(); it != v.end()-1; it++)
+    retval.push_back(*it);
+  return retval;
+}
+
 // Print space-time-stamp
 void NestAnalysis::PrintSpaceTimeStamp()
 {
@@ -442,14 +463,15 @@ void NestAnalysis::PrintSpaceTimeStamp()
 problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopState>::reverse_iterator cur)
 {
   ASSERT(cur != nest_state_.rend());
-  ASSERT(spatial_id_ < cur->live_state.size());
+  //ASSERT(spatial_id_ < cur->live_state.size());
 
   if (gTerminateEval)
   {
     throw std::runtime_error("terminated");
   }
 
-  auto& cur_state = cur->live_state[spatial_id_];
+  auto& cur_state = cur->live_state[space_stamp_];
+  // auto& cur_state = cur->live_state[spatial_id_];
   
   int level = cur->level;
 
@@ -654,7 +676,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool run_last_iteration = imperfectly_factorized_;
+    bool run_last_iteration = true; // imperfectly_factorized_;
       
     if (gExtrapolateUniformTemporal && !disable_temporal_extrapolation_.at(level))
     {
@@ -892,7 +914,8 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 
   // auto& cur_state = cur->live_state[spatial_id_];
   //  auto& accesses = nest_state_[cur->level].live_state[spatial_id_].accesses;
-  auto& cur_state = nest_state_[cur->level].live_state[spatial_id_];
+  auto& cur_state = nest_state_[cur->level].live_state[AllButLast(space_stamp_)];
+  //auto& cur_state = nest_state_[cur->level].live_state[spatial_id_];
 
   problem::PerDataSpace<AccessStatMatrix> access_stats_without_link_transfers, access_stats_with_link_transfers;
   problem::PerDataSpace<AccessStatMatrix*> access_stats;
@@ -1432,7 +1455,8 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // because we are only using it to find the current live state at the parent.
   // The child nodes (over which we will compute link transfers) are in
   // physical (i.e., skewed) space.
-  auto& cur_state = cur->live_state[spatial_id_];
+  auto& cur_state = cur->live_state[AllButLast(space_stamp_)];
+  //auto& cur_state = cur->live_state[spatial_id_];
   auto& prev_spatial_deltas = cur_state.prev_spatial_deltas;
   //auto& prev_spatial_deltas = cur_state.prev_spatial_deltas[0];
   //ASSERT(cur_spatial_deltas.size() == prev_spatial_deltas.size());
