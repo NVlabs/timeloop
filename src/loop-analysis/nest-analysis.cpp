@@ -293,10 +293,10 @@ void NestAnalysis::InitializeLiveState()
       if (linked_spatial_level_[loop->level])
       {
         it.prev_point_sets.resize(analysis::ElementState::MAX_TIME_LAPSE);
-        for (auto& elem : it.prev_point_sets)
-        {
-          elem.resize(spatial_fanouts_[loop->level]);
-        }
+        // for (auto& elem : it.prev_point_sets)
+        // {
+        //   elem.resize(spatial_fanouts_[loop->level]);
+        // }
       }
     }
   }
@@ -787,20 +787,17 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 
   // Deltas needed by each of the spatial elements.
   // This array will be filled by recursive calls.
-  std::vector<problem::OperationSpace> spatial_deltas(num_spatial_elems,
-                                                    problem::OperationSpace(workload_));
+  // This used to be a dense array but is now a map
+  // because spatial skews may end up filling it in a discontiguous manner.
+  std::unordered_map<std::uint64_t, problem::OperationSpace> spatial_deltas;
+  //std::vector<problem::OperationSpace> spatial_deltas(num_spatial_elems,
+  //                                                    problem::OperationSpace(workload_));
 
-  // Indicates if each of the elements of the array above, was ever updated
-  // by a recursive call. Only needed to ensure correctness.
-  std::vector<bool> valid_delta(num_spatial_elems, false);
-
-  FillSpatialDeltas(cur, spatial_deltas, valid_delta, 0 /* base_index */);
+  FillSpatialDeltas(cur, spatial_deltas, 0 /* base_index */);
   
-  // Check if each element of spatial_deltas was updated by recursive calls.
-  for (auto it : valid_delta)
-  {
-    ASSERT(it);
-  }
+  // Check if the expected number of spatial_deltas was updated by
+  // recursive calls.
+  ASSERT(spatial_deltas.size() == num_spatial_elems);
 
   // Restore spatial_id_ to original value.
   spatial_id_ /= num_spatial_elems;
@@ -819,12 +816,19 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   // transfers completely obliterates access to a producer level,
   // use those link transfers only.
 
-  std::vector<problem::PerDataSpace<bool>> unaccounted_delta;
-  unaccounted_delta.resize(num_spatial_elems);
-  for (uint64_t i = 0; i < num_spatial_elems; i++)
+  std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>> unaccounted_delta;
+  for (auto& delta: spatial_deltas)
   {
-    unaccounted_delta[i].fill(true);
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+      unaccounted_delta.insert(std::make_pair(delta.first, pv));
   }
+
+  // std::vector<problem::PerDataSpace<bool>> unaccounted_delta;
+  // unaccounted_delta.resize(num_spatial_elems);
+  // for (uint64_t i = 0; i < num_spatial_elems; i++)
+  // {
+  //   unaccounted_delta[i].fill(true);
+  // }
 
   // auto& cur_state = cur->live_state[spatial_id_];
   //  auto& accesses = nest_state_[cur->level].live_state[spatial_id_].accesses;
@@ -845,10 +849,15 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   if (gEnableLinkTransfers && linked_spatial_level_[level])
   {
     // Reset unaccounted delta, and now count with link transfers.
-    for (uint64_t i = 0; i < num_spatial_elems; i++)
+    for (auto& delta: spatial_deltas)
     {
-      unaccounted_delta[i].fill(true);
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+        unaccounted_delta.insert(std::make_pair(delta.first, pv));
     }
+    // for (uint64_t i = 0; i < num_spatial_elems; i++)
+    // {
+    //   unaccounted_delta[i].fill(true);
+    // }
 
     problem::PerDataSpace<std::uint64_t> link_transfers;
 
@@ -879,13 +888,14 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   //  auto& accesses = nest_state_[cur->level].live_state[spatial_id_].accesses;
 
   // Check that all deltas were accounted for correctly.
-  for (uint64_t i = 0; i < num_spatial_elems; i++)
-  {
-    for (auto& it : unaccounted_delta[i])
-    {
-      ASSERT(!it);
-    }
-  }
+  ASSERT(unaccounted_delta.empty());
+  // for (uint64_t i = 0; i < num_spatial_elems; i++)
+  // {
+  //   for (auto& it : unaccounted_delta[i])
+  //   {
+  //     ASSERT(!it);
+  //   }
+  // }
 
   // Consistency check.
   // for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
@@ -949,8 +959,8 @@ std::uint64_t NestAnalysis::ApplySkew(std::uint64_t unskewed_index)
 // Computes deltas needed by the spatial elements in the next level.
 // Will update a subset of the elements of spatial_deltas
 void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                     std::vector<problem::OperationSpace>& spatial_deltas,
-                                     std::vector<bool>& valid_delta,
+                                     std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
+                                     //std::vector<bool>& valid_delta,
                                      std::uint64_t base_index,
                                      int depth)
 {
@@ -993,11 +1003,15 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       std::uint64_t spatial_delta_index = base_index + indices_[level];
       std::uint64_t skewed_delta_index = ApplySkew(spatial_delta_index);
 
-      ASSERT(skewed_delta_index < spatial_deltas.size());
-      ASSERT(!valid_delta[skewed_delta_index]);
+      ASSERT(spatial_delta_index < spatial_deltas.size()); // unskewed.
+      //ASSERT(!valid_delta[skewed_delta_index]);
+      ASSERT(spatial_deltas.find(skewed_delta_index) == spatial_deltas.end());
+      // If the above assertion fails, it means there's a collision in the
+      // skew function.
 
+      spatial_deltas[skewed_delta_index] = problem::OperationSpace(workload_);
       spatial_deltas[skewed_delta_index] += IndexToOperationPoint_(indices_);
-      valid_delta[skewed_delta_index] = true;
+      //valid_delta[skewed_delta_index] = true;
     }
   }
   else // level > 0
@@ -1024,7 +1038,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
         
         ++cur;
 
-        FillSpatialDeltas(cur, spatial_deltas, valid_delta,
+        FillSpatialDeltas(cur, spatial_deltas, //valid_delta,
                           base_index + indices_[level], depth+1);
 
         --cur;
@@ -1057,8 +1071,11 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
         std::uint64_t spatial_delta_index = base_index + indices_[level];
         std::uint64_t skewed_delta_index = ApplySkew(spatial_delta_index);
 
-        ASSERT(skewed_delta_index < spatial_deltas.size());
-        ASSERT(!valid_delta[skewed_delta_index]);
+        ASSERT(spatial_delta_index < spatial_deltas.size()); // unskewed.
+        //ASSERT(!valid_delta[skewed_delta_index]);
+        ASSERT(spatial_deltas.find(skewed_delta_index) == spatial_deltas.end());
+        // If the above assertion fails, it means there's a collision in the
+        // skew function.
 
         spatial_id_ = orig_spatial_id + spatial_delta_index; // note: unskewed
 
@@ -1068,7 +1085,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
                   << skewed_delta_index << std::endl;
 
         spatial_deltas[skewed_delta_index] = ComputeDeltas(cur);
-        valid_delta[skewed_delta_index] = true;
+        //valid_delta[skewed_delta_index] = true;
 
         --cur;
         cur_transform_[dim] += scale;
@@ -1105,18 +1122,25 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
           std::uint64_t spatial_delta_index = base_index + indices_[level];
           std::uint64_t skewed_delta_index = ApplySkew(spatial_delta_index);
 
-          ASSERT(skewed_delta_index < spatial_deltas.size());
-          ASSERT(!valid_delta[skewed_delta_index]);
+          ASSERT(spatial_delta_index < spatial_deltas.size()); // unskewed.
+          //ASSERT(!valid_delta[skewed_delta_index]);
+          ASSERT(spatial_deltas.find(skewed_delta_index) == spatial_deltas.end());
+          // If the above assertion fails, it means there's a collision in the
+          // skew function.
 
           spatial_id_ = orig_spatial_id + spatial_delta_index; // note: unskewed.
 
-          auto& temporal_delta = spatial_deltas[skewed_delta_index];
+          ASSERT(prev_temporal_delta != nullptr);
+
+          spatial_deltas[skewed_delta_index] = *prev_temporal_delta;
+          auto& temporal_delta = spatial_deltas.at(skewed_delta_index);
+
           for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
           {
-            temporal_delta.GetDataSpace(pv) = prev_temporal_delta->GetDataSpace(pv);
+            //temporal_delta.GetDataSpace(pv) = prev_temporal_delta->GetDataSpace(pv);
             temporal_delta.GetDataSpace(pv).Translate(translation_vectors.at(pv));
           }
-          valid_delta[skewed_delta_index] = true;
+          //valid_delta[skewed_delta_index] = true;
 
           prev_temporal_delta = &temporal_delta;
         } // extrapolated iterations
@@ -1133,11 +1157,12 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 // Exhaustively compare all pairs of deltas and infer multicast opportunities.
 void NestAnalysis::ComputeAccurateMulticastedAccesses(
     std::vector<analysis::LoopState>::reverse_iterator cur,
-    const std::vector<problem::OperationSpace>& spatial_deltas,
-    std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
+    const std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
+    std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>>& unaccounted_delta,
+    //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
     problem::PerDataSpace<AccessStatMatrix>& access_stats)
 {
-  std::uint64_t num_deltas = spatial_deltas.size();
+  //std::uint64_t num_deltas = spatial_deltas.size();
 
   // For each data type, records the number of unaccounted deltas
   // that the current delta matches with. This will be used
@@ -1158,35 +1183,50 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
   auto h_size = horizontal_sizes_[cur->level];
   auto v_size = vertical_sizes_[cur->level];
 
-  for (std::uint64_t i = 0; i < num_deltas; i++)
+  for (auto delta_it = spatial_deltas.begin(); delta_it != spatial_deltas.end(); delta_it++)
+    //for (std::uint64_t i = 0; i < num_deltas; i++)
   {
+    auto& skewed_spatial_index = delta_it->first;
+    auto& delta = delta_it->second;
+
     num_matches.fill(0);
     
     problem::PerDataSpace<std::vector<std::uint64_t>> match_set;
 
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      if (!unaccounted_delta[i][pv])
+      auto unaccounted_it = unaccounted_delta.find(std::make_pair(skewed_spatial_index, pv));
+      if (unaccounted_it == unaccounted_delta.end())
+        //if (!unaccounted_delta[i][pv])
       {
         // this delta was already accounted for,
         // skip the comparisons.
         continue;
       }
 
-      unaccounted_delta[i][pv] = false;
+      unaccounted_delta.erase(unaccounted_it);
+      //unaccounted_delta[i][pv] = false;
       num_matches[pv] = 1;  // we match with ourselves.
-      match_set[pv].push_back(i);
+      match_set[pv].push_back(skewed_spatial_index);
 
-      for (std::uint64_t j = i + 1; j < num_deltas; j++)
+      for (auto delta_other_it = std::next(delta_it); delta_other_it != spatial_deltas.end(); delta_other_it++)
+        //for (std::uint64_t j = i + 1; j < num_deltas; j++)
       {
-        if (unaccounted_delta[j][pv])
+        auto& skewed_other_spatial_index = delta_other_it->first;
+        auto& delta_other = delta_other_it->second;
+
+        auto unaccounted_other_it = unaccounted_delta.find(std::make_pair(skewed_other_spatial_index, pv));
+        if (unaccounted_other_it != unaccounted_delta.end())
+          //if (unaccounted_delta[j][pv])
         {
-          if (spatial_deltas[i].CheckEquality(spatial_deltas[j], pv))
+          if (delta.CheckEquality(delta_other, pv))
+            //if (spatial_deltas[i].CheckEquality(spatial_deltas[j], pv))
           {
             // We have a match, record it
-            unaccounted_delta[j][pv] = false;
+            unaccounted_delta.erase(unaccounted_other_it);
+            //unaccounted_delta[j][pv] = false;
             num_matches[pv]++;
-            match_set[pv].push_back(j);
+            match_set[pv].push_back(skewed_other_spatial_index);
           }
         }
       }
@@ -1195,10 +1235,10 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     // update the number of accesses at different multicast factors.
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      if (num_matches[pv] > 0 && spatial_deltas[i].GetSize(pv) > 0)
+      if (num_matches[pv] > 0 && delta.GetSize(pv) > 0)
       {
         auto& temp_struct = temp_stats[pv][num_matches[pv]];
-        temp_struct.accesses += (spatial_deltas[i].GetSize(pv) * num_epochs_);
+        temp_struct.accesses += (delta.GetSize(pv) * num_epochs_);
         temp_struct.scatter_factor++;
 
         // Compute the average number of hops from the edge of the array
@@ -1244,17 +1284,30 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
   }
 }
 
-// Compares two deltas, and if they are equal,
-// records the opportunity for inter-PE link transfers.
+// Compares two deltas, and if they are equal, records the opportunity for
+// inter-PE link transfers. Note that we only track transfers at each
+// destination (i.e., recipient), we do not track who sent the data. This is
+// because senders and receivers are at the same storage level, and we only
+// track aggregate stats per level. 
 void CompareSpatioTemporalDeltas(
-    const std::vector<problem::OperationSpace>& cur_spatial_deltas,
-    const std::vector<problem::OperationSpace>& prev_spatial_deltas,
+    const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
+    const std::unordered_map<std::uint64_t, problem::OperationSpace>& prev_spatial_deltas,
+    //const std::vector<problem::OperationSpace>& cur_spatial_deltas,
+    //const std::vector<problem::OperationSpace>& prev_spatial_deltas,
     const std::uint64_t cur_spatial_index,
     const std::uint64_t prev_spatial_index,
     std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse)
 {
-  auto& cur_delta = cur_spatial_deltas[cur_spatial_index];
-  auto& prev_delta = prev_spatial_deltas[prev_spatial_index];
+  auto cur_delta_it = cur_spatial_deltas.find(cur_spatial_index);
+  if (cur_delta_it == cur_spatial_deltas.end())
+    return;
+
+  auto prev_delta_it = prev_spatial_deltas.find(prev_spatial_index);
+  if (prev_delta_it == prev_spatial_deltas.end())
+    return;
+
+  auto& cur_delta = cur_delta_it->second;
+  auto& prev_delta = prev_delta_it->second;
 
   for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
@@ -1271,9 +1324,9 @@ void CompareSpatioTemporalDeltas(
 
 void NestAnalysis::ComputeNetworkLinkTransfers(
     std::vector<analysis::LoopState>::reverse_iterator cur,
-    const std::vector<problem::OperationSpace>& cur_spatial_deltas,
-    std::vector<problem::PerDataSpace<bool>>&
-    unaccounted_delta,
+    const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
+    std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>>& unaccounted_delta,
+    //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
     problem::PerDataSpace<std::uint64_t>& link_transfers)
 {
   // std::cout << "-----------------------------\n";
@@ -1304,10 +1357,15 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
       return linearIndex;
     };
 
+  // Note that spatial_id_ is in logical (i.e., unskewed) space. This is fine
+  // because we are only using it to find the current live state at the parent.
+  // The child nodes (over which we will compute link transfers) are in
+  // physical (i.e., skewed) space.
   auto& cur_state = cur->live_state[spatial_id_];
   auto& prev_spatial_deltas = cur_state.prev_point_sets[0];
   ASSERT(cur_spatial_deltas.size() == prev_spatial_deltas.size());
-  int num_spatial_elems = spatial_fanouts_[cur->level];
+
+  int num_spatial_elems = h_size * v_size; // need *physical* hardware elems. spatial_fanouts_[cur->level];
 
   // std::cout << "PREV:" << std::endl;
   // for (std::uint64_t i = 0; i < prev_spatial_deltas.size(); i++)
@@ -1325,20 +1383,21 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
     inter_elem_reuse[i].fill(false);
   }
 
-  // FIXME The loops below can be codified in some way to avoid redundant LOC.
+  // FIXME: The loops below can be codified in some way to avoid redundant LOC.
 
   // Test for a few hard-coded transfer patterns in horizontal and vertical
   // dimensions.
+  // FIXME: the connectivity graph should be derived from the arch spec.
 
   // downward vertical transfers in each column
   for (std::uint64_t h_id = 0; h_id < h_size; h_id++)
   {
     for (std::uint64_t v_id = 1; v_id < v_size; v_id++)
     {
-      auto cur_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_spatial_index = GetLinearIndex(h_id, v_id - 1);
+      auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
+      auto prev_skewed_spatial_index = GetLinearIndex(h_id, v_id - 1);
       CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
-                                  cur_spatial_index, prev_spatial_index,
+                                  cur_skewed_spatial_index, prev_skewed_spatial_index,
                                   inter_elem_reuse);
     }
   }
@@ -1348,10 +1407,10 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   {
     for (std::uint64_t v_id = 0; v_id < v_size - 1; v_id++)
     {
-      auto cur_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_spatial_index = GetLinearIndex(h_id, v_id + 1);
+      auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
+      auto prev_skewed_spatial_index = GetLinearIndex(h_id, v_id + 1);
       CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
-                                  cur_spatial_index, prev_spatial_index,
+                                  cur_skewed_spatial_index, prev_skewed_spatial_index,
                                   inter_elem_reuse);
     }
   }
@@ -1361,10 +1420,10 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   {
     for (std::uint64_t h_id = 1; h_id < h_size; h_id++)
     {
-      auto cur_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_spatial_index = GetLinearIndex(h_id - 1, v_id);
+      auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
+      auto prev_skewed_spatial_index = GetLinearIndex(h_id - 1, v_id);
       CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
-                                  cur_spatial_index, prev_spatial_index,
+                                  cur_skewed_spatial_index, prev_skewed_spatial_index,
                                   inter_elem_reuse);
     }
   }
@@ -1374,25 +1433,28 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   {
     for (std::uint64_t h_id = 0; h_id < h_size - 1; h_id++)
     {
-      auto cur_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_spatial_index = GetLinearIndex(h_id + 1, v_id);
+      auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
+      auto prev_skewed_spatial_index = GetLinearIndex(h_id + 1, v_id);
       CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
-                                  cur_spatial_index, prev_spatial_index,
+                                  cur_skewed_spatial_index, prev_skewed_spatial_index,
                                   inter_elem_reuse);
     }
   }
 
   // Compute the total number of accesses that can be bypassed
   // by using link transfers
-  for (int i = 0; i < num_spatial_elems; i++)
+  for (auto& delta: cur_spatial_deltas)
+//  for (int i = 0; i < num_spatial_elems; i++)
   {
+    auto& cur_skewed_spatial_index = delta.first;
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      if (inter_elem_reuse[i][pv])
+      if (inter_elem_reuse[cur_skewed_spatial_index][pv])
       {
-        link_transfers[pv] += (cur_spatial_deltas[i].GetSize(pv) * num_epochs_);
-        ASSERT(unaccounted_delta[i][pv]);
-        unaccounted_delta[i][pv] = false;
+        link_transfers[pv] += (delta.second.GetSize(pv) * num_epochs_);
+        auto unaccounted_it = unaccounted_delta.find(std::make_pair(cur_skewed_spatial_index, pv));
+        ASSERT(unaccounted_it != unaccounted_delta.end());
+        unaccounted_delta.erase(unaccounted_it);
       }
     }
   }
@@ -1400,17 +1462,19 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // Time-shift the data in prev_point_sets array
   for (std::uint64_t i = 1; i < analysis::ElementState::MAX_TIME_LAPSE; i++)
   {
-    for (int j = 0; j < num_spatial_elems; j++)
-    {
-      cur_state.prev_point_sets[i - 1][j] = cur_state.prev_point_sets[i][j];
-    }
+    cur_state.prev_point_sets[i - 1] = cur_state.prev_point_sets[i];
+    // for (int j = 0; j < num_spatial_elems; j++)
+    // {
+    //   cur_state.prev_point_sets[i - 1][j] = cur_state.prev_point_sets[i][j];
+    // }
   }
 
-  for (int j = 0; j < num_spatial_elems; j++)
-  {
-    cur_state.prev_point_sets[analysis::ElementState::MAX_TIME_LAPSE - 1][j] =
-        cur_spatial_deltas[j];
-  }
+  cur_state.prev_point_sets[analysis::ElementState::MAX_TIME_LAPSE - 1] = cur_spatial_deltas;
+  // for (int j = 0; j < num_spatial_elems; j++)
+  // {
+  //   cur_state.prev_point_sets[analysis::ElementState::MAX_TIME_LAPSE - 1][j] =
+  //       cur_spatial_deltas[j];
+  // }
 
   // std::cout << "AFTER:" << std::endl;
   // for (std::uint64_t i = 0; i < cur_spatial_deltas.size(); i++)
