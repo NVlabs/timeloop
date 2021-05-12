@@ -52,6 +52,9 @@ bool gEnableToroidalLinks =
   (strcmp(getenv("TIMELOOP_ENABLE_TOROIDAL_LINKS"), "0") != 0);
 bool gExtrapolateUniformTemporal = true;
 bool gExtrapolateUniformSpatial = (getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION") == NULL);
+bool gEnableTracing =
+  (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
+  (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
 
 namespace analysis
 {
@@ -459,6 +462,9 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
     auto skew_it = skew_descriptors_.find(level);
     if (skew_it != skew_descriptors_.end())
       cur_skew_descriptor_ = &skew_it->second;
+
+    space_stamp_.push_back(0);
+    time_stamp_.push_back(0);
   }
 
   //
@@ -523,6 +529,30 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
                    [](std::size_t x, std::size_t y) { return std::max(x, y); });
   }
 
+  // Trace.
+  if (gEnableTracing && storage_boundary_level_[level])
+  {
+    assert(time_stamp_.size() == space_stamp_.size());
+    assert(storage_tiling_boundaries_.size() - arch_storage_level_.at(level) == time_stamp_.size());
+    std::string indent = "";
+    for (unsigned i = 0; i < storage_tiling_boundaries_.size() - arch_storage_level_.at(level); i++)
+    {
+      indent += "  ";
+    }
+    std::cout << indent;
+    std::cout << "s/";
+    for (auto space_it = space_stamp_.begin(); space_it != space_stamp_.end()-1; space_it++)
+    {
+      std::cout <<  *space_it << "/";
+    }
+    std::cout << " t/";
+    for (auto time_it = time_stamp_.begin(); time_it != time_stamp_.end()-1; time_it++)
+    {
+      std::cout <<  *time_it << "/";
+    }
+    std::cout << " " << point_set << std::endl;
+  }
+
   // Calculate delta to send up to caller.
   problem::OperationSpace delta(workload_);
   delta = point_set - cur_state.last_point_set;
@@ -533,6 +563,8 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // Restore loop gist sets.
   if (storage_boundary_level_[level])
   {
+    space_stamp_.pop_back();
+    time_stamp_.pop_back();
     loop_gists_temporal_ = saved_loop_gists_temporal;
     loop_gists_spatial_ = saved_loop_gists_spatial;
     cur_skew_descriptor_ = saved_skew_descriptor;
@@ -653,6 +685,9 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
         indices_[level] += cur->descriptor.stride;
         loop_gists_temporal_.at(dim).index = indices_[level];
+
+        if (storage_boundary_level_[level-1] || master_spatial_level_[level-1])
+          (time_stamp_.back())++;
       }
 
       // Iterations #1 through #last-1/last.
@@ -680,6 +715,9 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
         indices_[level] += (cur->descriptor.stride * virtual_iterations);
         loop_gists_temporal_.at(dim).index = indices_[level];
+
+        if (storage_boundary_level_[level-1] || master_spatial_level_[level-1])
+          time_stamp_.back() += virtual_iterations;
       }
 
       // Iteration #last.
@@ -707,6 +745,9 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       
         indices_[level] += cur->descriptor.stride;        
         loop_gists_temporal_.at(dim).index = indices_[level];
+
+        if (storage_boundary_level_[level-1] || master_spatial_level_[level-1])
+          (time_stamp_.back())++;
       }
 
       cur_transform_[dim] = saved_transform;
@@ -733,6 +774,9 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         temporal_delta_scale.push_back(1);
 
         cur_transform_[dim] += scale;
+
+        if (storage_boundary_level_[level-1] || master_spatial_level_[level-1])
+          (time_stamp_.back())++;
       }
 
       cur_transform_[dim] = saved_transform;
@@ -1022,6 +1066,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       spatial_deltas[skewed_delta_index] = problem::OperationSpace(workload_);
       spatial_deltas[skewed_delta_index] += IndexToOperationPoint_(indices_);
       //valid_delta[skewed_delta_index] = true;
+
+      // FIXME: add log.
     }
   }
   else // level > 0
@@ -1088,6 +1134,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
         // skew function.
 
         spatial_id_ = orig_spatial_id + spatial_delta_index; // note: unskewed
+
+        space_stamp_.back() = skewed_delta_index;
 
         // std::cout << "innermost FSD at level " << level
         //           << " spatial_id_ = " << spatial_id_ << " sdsize = " << spatial_deltas.size()

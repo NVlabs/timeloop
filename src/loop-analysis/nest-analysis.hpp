@@ -133,6 +133,9 @@ class NestAnalysis
 
   problem::Workload* workload_ = nullptr;
 
+  std::vector<unsigned> time_stamp_;
+  std::vector<unsigned> space_stamp_;
+
   // Internal helper methods.
   void ComputeWorkingSets();
 
