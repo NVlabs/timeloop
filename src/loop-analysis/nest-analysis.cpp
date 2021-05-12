@@ -305,11 +305,11 @@ void NestAnalysis::InitializeLiveState()
       it.Reset();
       if (linked_spatial_level_[loop->level])
       {
-        it.prev_point_sets.resize(analysis::ElementState::MAX_TIME_LAPSE);
-        // for (auto& elem : it.prev_point_sets)
-        // {
-        //   elem.resize(spatial_fanouts_[loop->level]);
-        // }
+        // it.prev_spatial_deltas.resize(analysis::ElementState::MAX_TIME_LAPSE);
+        // // for (auto& elem : it.prev_spatial_deltas)
+        // // {
+        // //   elem.resize(spatial_fanouts_[loop->level]);
+        // // }
       }
     }
   }
@@ -1362,8 +1362,8 @@ void NestAnalysis::CompareSpatioTemporalDeltas(
     const std::uint64_t prev_spatial_index,
     std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse)
 {
-  PrintSpaceTimeStamp();
-  std::cout << "comparing " << cur_spatial_index << " vs " << prev_spatial_index << std::endl;
+  //PrintSpaceTimeStamp();
+  //std::cout << "comparing " << cur_spatial_index << " vs " << prev_spatial_index << std::endl;
   
   auto cur_delta_it = cur_spatial_deltas.find(cur_spatial_index);
   if (cur_delta_it == cur_spatial_deltas.end())
@@ -1376,8 +1376,8 @@ void NestAnalysis::CompareSpatioTemporalDeltas(
   auto& cur_delta = cur_delta_it->second;
   auto& prev_delta = prev_delta_it->second;
 
-  std::cout << "  cur : " << cur_delta << std::endl;
-  std::cout << "  prev: " << prev_delta << std::endl;
+  //std::cout << "  cur : " << cur_delta << std::endl;
+  //std::cout << "  prev: " << prev_delta << std::endl;
 
   for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
@@ -1387,7 +1387,7 @@ void NestAnalysis::CompareSpatioTemporalDeltas(
       {
         // ASSERT(!inter_elem_reuse[cur_spatial_index][pv]);
         inter_elem_reuse.at(cur_spatial_index)[pv] = true;
-        std::cout << "  match for pv " << pv << std::endl;
+        //std::cout << "  match for pv " << pv << std::endl;
       }
     }
   }
@@ -1433,7 +1433,8 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // The child nodes (over which we will compute link transfers) are in
   // physical (i.e., skewed) space.
   auto& cur_state = cur->live_state[spatial_id_];
-  auto& prev_spatial_deltas = cur_state.prev_point_sets[0];
+  auto& prev_spatial_deltas = cur_state.prev_spatial_deltas;
+  //auto& prev_spatial_deltas = cur_state.prev_spatial_deltas[0];
   //ASSERT(cur_spatial_deltas.size() == prev_spatial_deltas.size());
 
   int num_spatial_elems = h_size * v_size; // need *physical* hardware elems. spatial_fanouts_[cur->level];
@@ -1530,33 +1531,15 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
     }
   }
 
-  // Time-shift the data in prev_point_sets array
-  for (std::uint64_t i = 1; i < analysis::ElementState::MAX_TIME_LAPSE; i++)
-  {
-    cur_state.prev_point_sets[i - 1] = cur_state.prev_point_sets[i];
-    // for (int j = 0; j < num_spatial_elems; j++)
-    // {
-    //   cur_state.prev_point_sets[i - 1][j] = cur_state.prev_point_sets[i][j];
-    // }
-  }
+  // Time-shift the data in prev_spatial_deltas array
+  cur_state.prev_spatial_deltas = cur_spatial_deltas;
 
-  cur_state.prev_point_sets[analysis::ElementState::MAX_TIME_LAPSE - 1] = cur_spatial_deltas;
-  // for (int j = 0; j < num_spatial_elems; j++)
+  // for (std::uint64_t i = 1; i < analysis::ElementState::MAX_TIME_LAPSE; i++)
   // {
-  //   cur_state.prev_point_sets[analysis::ElementState::MAX_TIME_LAPSE - 1][j] =
-  //       cur_spatial_deltas[j];
+  //   cur_state.prev_spatial_deltas[i - 1] = cur_state.prev_spatial_deltas[i];
   // }
 
-  // std::cout << "AFTER:" << std::endl;
-  // for (std::uint64_t i = 0; i < cur_spatial_deltas.size(); i++)
-  // {
-  //   auto pv = problem::Shape::DataSpaceID::Weight;
-  //   if (unaccounted_delta[i][int(pv)])
-  //     std::cout << "  UNACCOUNTED: ";
-  //   else
-  //     std::cout << "    ACCOUNTED: ";
-  //   cur_spatial_deltas[i].Print(pv);
-  // }
+  // cur_state.prev_spatial_deltas[analysis::ElementState::MAX_TIME_LAPSE - 1] = cur_spatial_deltas;
 }
 
 // computes the number of spatial elements at each level

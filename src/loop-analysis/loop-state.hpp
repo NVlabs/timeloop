@@ -56,8 +56,9 @@ struct ElementState
   // One for each spatial element in next level
 
   // time * element_id
-  std::vector<std::unordered_map<std::uint64_t, problem::OperationSpace>> prev_point_sets;
-  // std::vector<std::vector<problem::OperationSpace>> prev_point_sets;
+  std::unordered_map<std::uint64_t, problem::OperationSpace> prev_spatial_deltas;
+  //std::vector<std::unordered_map<std::uint64_t, problem::OperationSpace>> prev_spatial_deltas;
+  // std::vector<std::vector<problem::OperationSpace>> prev_spatial_deltas;
 
   // Number of transfers using links between spatial elements
   problem::PerDataSpace<unsigned long> link_transfers;
@@ -75,13 +76,7 @@ struct ElementState
       it.clear();
     }
     link_transfers.fill(0);
-
-    // for (uint64_t i = 0; i < prev_point_sets.size(); i++)
-    // {
-    //   prev_point_sets[i].resize(0);
-    // }
-    // prev_point_sets.resize(0);
-    prev_point_sets.clear();
+    prev_spatial_deltas.clear();
   }
 
   ElementState()
