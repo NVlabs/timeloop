@@ -1184,8 +1184,8 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
   };
   problem::PerDataSpace<std::unordered_map<std::uint64_t, TempAccessStats>> temp_stats;
 
-  auto h_size = horizontal_sizes_[cur->level];
-  auto v_size = vertical_sizes_[cur->level];
+  auto h_size = fanoutX_map_.at(arch_storage_level_.at(cur->level)); // horizontal_sizes_[cur->level];
+  auto v_size = fanoutY_map_.at(arch_storage_level_.at(cur->level)); // vertical_sizes_[cur->level];
 
   for (auto delta_it = spatial_deltas.begin(); delta_it != spatial_deltas.end(); delta_it++)
     //for (std::uint64_t i = 0; i < num_deltas; i++)
@@ -1348,8 +1348,8 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   //   cur_spatial_deltas[i].Print(pv);
   // }
   
-  auto h_size = horizontal_sizes_[cur->level];
-  auto v_size = vertical_sizes_[cur->level];
+  auto h_size = fanoutX_map_.at(arch_storage_level_.at(cur->level)); // horizontal_sizes_[cur->level];
+  auto v_size = fanoutY_map_.at(arch_storage_level_.at(cur->level)); // vertical_sizes_[cur->level];
 
   // Imagine origin (0,0) at the top-left corner of a 2D spatial array.
   // Horizontal ids grow from left to right.
