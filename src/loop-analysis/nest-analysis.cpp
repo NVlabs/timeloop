@@ -57,7 +57,9 @@ NestAnalysis::NestAnalysis()
 {
 }
 
-void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest)
+void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
+                        std::map<unsigned, std::uint64_t> fanoutX_map,
+                        std::map<unsigned, std::uint64_t> fanoutY_map)
 {
   ASSERT(nest != NULL);
   ASSERT(wc != NULL);
@@ -72,6 +74,8 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest)
   {
     Reset();
     cached_nest = *nest;
+    fanoutX_map_ = fanoutX_map;
+    fanoutY_map_ = fanoutY_map;
 
     // Copy over everything we need from the nest.
     storage_tiling_boundaries_ = nest->storage_tiling_boundaries;
@@ -432,7 +436,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> saved_loop_gists_temporal;
   // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> saved_loop_gists_spatial;
 
-  loop::Nest::SkewDescriptor* saved_skew_descriptor;
+  loop::Nest::SkewDescriptor* saved_skew_descriptor = nullptr;
 
   if (storage_boundary_level_[level])
   {
@@ -1079,10 +1083,10 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
         spatial_id_ = orig_spatial_id + spatial_delta_index; // note: unskewed
 
-        std::cout << "innermost FSD at level " << level
-                  << " spatial_id_ = " << spatial_id_ << " sdsize = " << spatial_deltas.size()
-                  << " unskewed = " << spatial_delta_index << " skewed = "
-                  << skewed_delta_index << std::endl;
+        // std::cout << "innermost FSD at level " << level
+        //           << " spatial_id_ = " << spatial_id_ << " sdsize = " << spatial_deltas.size()
+        //           << " unskewed = " << spatial_delta_index << " skewed = "
+        //           << skewed_delta_index << std::endl;
 
         spatial_deltas[skewed_delta_index] = ComputeDeltas(cur);
         //valid_delta[skewed_delta_index] = true;
@@ -1546,11 +1550,21 @@ void NestAnalysis::InitStorageBoundaries()
   std::cout << "nest state size = " << nest_state_.size() << std::endl;
   std::cout << "storage boundaries:\n";
   storage_boundary_level_.resize(nest_state_.size(), false);
+  arch_storage_level_.resize(nest_state_.size());
+
   unsigned storage_level = 0;
+  unsigned loop_level = 0;
   for (auto& i : storage_tiling_boundaries_)
   {
     ASSERT(i < storage_boundary_level_.size());
     storage_boundary_level_[i] = true;
+
+    for (; loop_level <= i; loop_level++)
+    {
+      std::cout << "loop = " << loop_level << " storage = " << storage_level << std::endl;
+      arch_storage_level_[loop_level] = storage_level;
+    }
+
     std::cout << "  stb for storage level " << storage_level << " is at loop level " << i << " desc: " << nest_state_.at(i).descriptor << std::endl;
 
     auto skew_it = cached_nest.skew_descriptors.find(storage_level);
@@ -1562,6 +1576,7 @@ void NestAnalysis::InitStorageBoundaries()
 
     storage_level++;
   }
+
 }
 
 void NestAnalysis::InitSpatialFanouts()
