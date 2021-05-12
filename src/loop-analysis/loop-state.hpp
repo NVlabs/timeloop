@@ -93,7 +93,8 @@ class LoopState
  public:
   int level;
   loop::Descriptor descriptor;
-  std::vector<ElementState> live_state; // one for each spatial element
+  // std::vector<ElementState> live_state; // one for each spatial element
+  std::map<std::vector<unsigned>, ElementState> live_state;
 
   LoopState() {}
 
