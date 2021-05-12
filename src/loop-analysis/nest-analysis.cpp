@@ -421,6 +421,21 @@ void NestAnalysis::CollectWorkingSets()
   }
 }
 
+// Print space-time-stamp
+void NestAnalysis::PrintSpaceTimeStamp()
+{
+  std::cout << "s/";
+  for (auto space_it = space_stamp_.begin(); space_it != space_stamp_.end()-1; space_it++)
+  {
+    std::cout <<  *space_it << "/";
+  }
+  std::cout << " t/";
+  for (auto time_it = time_stamp_.begin(); time_it != time_stamp_.end()-1; time_it++)
+  {
+    std::cout <<  *time_it << "/";
+  }
+}
+
 // Delta computation (recursive call).
 // Returns the delta between the working set of the
 // previous iteration and the current iteration of the current level.
@@ -540,16 +555,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
       indent += "  ";
     }
     std::cout << indent;
-    std::cout << "s/";
-    for (auto space_it = space_stamp_.begin(); space_it != space_stamp_.end()-1; space_it++)
-    {
-      std::cout <<  *space_it << "/";
-    }
-    std::cout << " t/";
-    for (auto time_it = time_stamp_.begin(); time_it != time_stamp_.end()-1; time_it++)
-    {
-      std::cout <<  *time_it << "/";
-    }
+    PrintSpaceTimeStamp();
     std::cout << " " << point_set << std::endl;
   }
 
@@ -1347,7 +1353,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
 // destination (i.e., recipient), we do not track who sent the data. This is
 // because senders and receivers are at the same storage level, and we only
 // track aggregate stats per level. 
-void CompareSpatioTemporalDeltas(
+void NestAnalysis::CompareSpatioTemporalDeltas(
     const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
     const std::unordered_map<std::uint64_t, problem::OperationSpace>& prev_spatial_deltas,
     //const std::vector<problem::OperationSpace>& cur_spatial_deltas,
@@ -1356,6 +1362,9 @@ void CompareSpatioTemporalDeltas(
     const std::uint64_t prev_spatial_index,
     std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse)
 {
+  PrintSpaceTimeStamp();
+  std::cout << "comparing " << cur_spatial_index << " vs " << prev_spatial_index << std::endl;
+  
   auto cur_delta_it = cur_spatial_deltas.find(cur_spatial_index);
   if (cur_delta_it == cur_spatial_deltas.end())
     return;
@@ -1367,6 +1376,9 @@ void CompareSpatioTemporalDeltas(
   auto& cur_delta = cur_delta_it->second;
   auto& prev_delta = prev_delta_it->second;
 
+  std::cout << "  cur : " << cur_delta << std::endl;
+  std::cout << "  prev: " << prev_delta << std::endl;
+
   for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
     if (!cur_delta.IsEmpty(pv))
@@ -1375,6 +1387,7 @@ void CompareSpatioTemporalDeltas(
       {
         // ASSERT(!inter_elem_reuse[cur_spatial_index][pv]);
         inter_elem_reuse.at(cur_spatial_index)[pv] = true;
+        std::cout << "  match for pv " << pv << std::endl;
       }
     }
   }
