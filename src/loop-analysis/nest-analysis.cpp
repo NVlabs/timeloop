@@ -47,6 +47,9 @@
 extern bool gTerminateEval;
 
 bool gEnableLinkTransfers = (getenv("TIMELOOP_DISABLE_LINK_TRANSFERS") == NULL);
+bool gEnableToroidalLinks =
+  (getenv("TIMELOOP_ENABLE_TOROIDAL_LINKS") != NULL) &&
+  (strcmp(getenv("TIMELOOP_ENABLE_TOROIDAL_LINKS"), "0") != 0);
 bool gExtrapolateUniformTemporal = true;
 bool gExtrapolateUniformSpatial = (getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION") == NULL);
 
@@ -1396,10 +1399,10 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // downward vertical transfers in each column
   for (std::uint64_t h_id = 0; h_id < h_size; h_id++)
   {
-    for (std::uint64_t v_id = 1; v_id < v_size; v_id++)
+    for (std::uint64_t v_id = (gEnableToroidalLinks ? 0 : 1); v_id < v_size; v_id++)
     {
       auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_skewed_spatial_index = GetLinearIndex(h_id, v_id - 1);
+      auto prev_skewed_spatial_index = GetLinearIndex(h_id, (v_id - 1 + v_size) % v_size);
       CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
                                   cur_skewed_spatial_index, prev_skewed_spatial_index,
                                   inter_elem_reuse);
@@ -1409,10 +1412,10 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // upward vertical transfers in each column
   for (std::uint64_t h_id = 0; h_id < h_size; h_id++)
   {
-    for (std::uint64_t v_id = 0; v_id < v_size - 1; v_id++)
+    for (std::uint64_t v_id = 0; v_id < (gEnableToroidalLinks ? v_size : (v_size-1)); v_id++)
     {
       auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_skewed_spatial_index = GetLinearIndex(h_id, v_id + 1);
+      auto prev_skewed_spatial_index = GetLinearIndex(h_id, (v_id + 1) % v_size);
       CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
                                   cur_skewed_spatial_index, prev_skewed_spatial_index,
                                   inter_elem_reuse);
@@ -1422,10 +1425,10 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // horizontal transfers in each row from left to right
   for (std::uint64_t v_id = 0; v_id < v_size; v_id++)
   {
-    for (std::uint64_t h_id = 1; h_id < h_size; h_id++)
+    for (std::uint64_t h_id = (gEnableToroidalLinks ? 0 : 1); h_id < h_size; h_id++)
     {
       auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_skewed_spatial_index = GetLinearIndex(h_id - 1, v_id);
+      auto prev_skewed_spatial_index = GetLinearIndex((h_id - 1 + h_size) % h_size, v_id);
       CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
                                   cur_skewed_spatial_index, prev_skewed_spatial_index,
                                   inter_elem_reuse);
@@ -1435,10 +1438,10 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // horizontal transfers in each row from right to left
   for (std::uint64_t v_id = 0; v_id < v_size; v_id++)
   {
-    for (std::uint64_t h_id = 0; h_id < h_size - 1; h_id++)
+    for (std::uint64_t h_id = 0; h_id < (gEnableToroidalLinks ? h_size : (h_size-1)); h_id++)
     {
       auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_skewed_spatial_index = GetLinearIndex(h_id + 1, v_id);
+      auto prev_skewed_spatial_index = GetLinearIndex((h_id + 1) % h_size, v_id);
       CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
                                   cur_skewed_spatial_index, prev_skewed_spatial_index,
                                   inter_elem_reuse);
