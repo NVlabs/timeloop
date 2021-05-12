@@ -79,11 +79,12 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
   {
     Reset();
     cached_nest = *nest;
-    fanoutX_map_ = fanoutX_map;
-    fanoutY_map_ = fanoutY_map;
 
     // Copy over everything we need from the nest.
     storage_tiling_boundaries_ = nest->storage_tiling_boundaries;
+    packed_skew_descriptors_ = nest->skew_descriptors;
+    fanoutX_map_ = fanoutX_map;
+    fanoutY_map_ = fanoutY_map;
 
     // Construct nest_state_.
     for (auto descriptor: nest->loops)
@@ -617,7 +618,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
     bool run_last_iteration = imperfectly_factorized_;
       
-    if (gExtrapolateUniformTemporal)
+    if (gExtrapolateUniformTemporal && !disable_temporal_extrapolation_.at(level))
     {
       // What we would like to do is to *NOT* iterate through the entire loop
       // for this level, but instead fire iterations #0, #1 and #last, and
@@ -1552,6 +1553,7 @@ void NestAnalysis::InitStorageBoundaries()
 {
   storage_boundary_level_.resize(nest_state_.size(), false);
   arch_storage_level_.resize(nest_state_.size());
+  disable_temporal_extrapolation_.resize(nest_state_.size(), false);
 
   unsigned storage_level = 0;
   unsigned loop_level = 0;
@@ -1560,15 +1562,37 @@ void NestAnalysis::InitStorageBoundaries()
     ASSERT(i < storage_boundary_level_.size());
     storage_boundary_level_[i] = true;
 
+    auto skew_it = packed_skew_descriptors_.find(storage_level);
+    if (skew_it != packed_skew_descriptors_.end())
+    {
+      skew_descriptors_[i] = skew_it->second;
+
+      // Walk through the skew descriptor and poison all temporal loop
+      // variables it touches.
+      for (auto& term: skew_it->second.terms)
+      {
+        if (term.variable.dimension != problem::GetShape()->NumFlattenedDimensions && !term.variable.is_spatial)
+        {
+          auto dim = term.variable.dimension;
+          // Walk through the loops in this loop block and poison the loop
+          // corresponding to this problem dimension.
+          for (unsigned level = loop_level; level <= i; level++)
+          {
+            if (nest_state_.at(level).descriptor.dimension == dim)
+            {
+              disable_temporal_extrapolation_.at(level) = true;
+              // There can only be 1 such loop in each block.
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Establish loop level -> storage level map.
     for (; loop_level <= i; loop_level++)
     {
       arch_storage_level_[loop_level] = storage_level;
-    }
-
-    auto skew_it = cached_nest.skew_descriptors.find(storage_level);
-    if (skew_it != cached_nest.skew_descriptors.end())
-    {
-      skew_descriptors_[i] = skew_it->second;
     }
 
     storage_level++;

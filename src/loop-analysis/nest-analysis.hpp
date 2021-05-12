@@ -83,6 +83,9 @@ class NestAnalysis
   // architectural storage level corresponding to a given loop level.
   std::vector<unsigned> arch_storage_level_;
 
+  // extrapolation may be disabled at certain levels.
+  std::vector<bool> disable_temporal_extrapolation_;
+
   // any level which is at the transition point from temporal to
   // spatial nests is a master spatial level.
   // there should be one such level between each set of
@@ -119,7 +122,8 @@ class NestAnalysis
   std::map<unsigned, std::uint64_t> fanoutX_map_; 
   std::map<unsigned, std::uint64_t> fanoutY_map_; 
 
-  std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skew_descriptors_;
+  std::unordered_map<unsigned, loop::Nest::SkewDescriptor> packed_skew_descriptors_; // per storage level.
+  std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skew_descriptors_; // per loop level.
   loop::Nest::SkewDescriptor* cur_skew_descriptor_ = nullptr;
 
   // Other state.
