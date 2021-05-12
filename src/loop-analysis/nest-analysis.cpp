@@ -66,6 +66,8 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
 {
   ASSERT(nest != NULL);
   ASSERT(wc != NULL);
+  ASSERT(fanoutX_map.size() == nest->storage_tiling_boundaries.size());
+  ASSERT(fanoutY_map.size() == nest->storage_tiling_boundaries.size());
 
   workload_ = wc;
 
@@ -1526,32 +1528,28 @@ void NestAnalysis::InitNumSpatialElems()
     cur_index--;
   }
 
-  std::cout << "master/linked spatial levels:\n";
   linked_spatial_level_.resize(nest_state_.size(), false);
   for (std::uint64_t cur_level = 0; cur_level < nest_state_.size(); cur_level++)
   {
     if (master_spatial_level_[cur_level])
     {
       linked_spatial_level_[cur_level] = true;
-      std::cout << "  level = " << cur_level << " desc: " << nest_state_.at(cur_level).descriptor << std::endl;
     }
   }
 
-  std::cout << "Number of spatial elements at each level" << std::endl;
-  for (int i = num_spatial_elems_.size() - 1; i >= 0; i--)
-  {
-    std::cout << num_spatial_elems_[i];
-    if (master_spatial_level_[i]) std::cout << "(master)";
-    if (linked_spatial_level_[i]) std::cout << "(linked)";
-    std::cout << ", ";
-  }
-  std::cout << std::endl;
+  // std::cout << "Number of spatial elements at each level" << std::endl;
+  // for (int i = num_spatial_elems_.size() - 1; i >= 0; i--)
+  // {
+  //   std::cout << num_spatial_elems_[i];
+  //   if (master_spatial_level_[i]) std::cout << "(master)";
+  //   if (linked_spatial_level_[i]) std::cout << "(linked)";
+  //   std::cout << ", ";
+  // }
+  // std::cout << std::endl;
 }
 
 void NestAnalysis::InitStorageBoundaries()
 {
-  std::cout << "nest state size = " << nest_state_.size() << std::endl;
-  std::cout << "storage boundaries:\n";
   storage_boundary_level_.resize(nest_state_.size(), false);
   arch_storage_level_.resize(nest_state_.size());
 
@@ -1564,16 +1562,12 @@ void NestAnalysis::InitStorageBoundaries()
 
     for (; loop_level <= i; loop_level++)
     {
-      std::cout << "loop = " << loop_level << " storage = " << storage_level << std::endl;
       arch_storage_level_[loop_level] = storage_level;
     }
-
-    std::cout << "  stb for storage level " << storage_level << " is at loop level " << i << " desc: " << nest_state_.at(i).descriptor << std::endl;
 
     auto skew_it = cached_nest.skew_descriptors.find(storage_level);
     if (skew_it != cached_nest.skew_descriptors.end())
     {
-      std::cout << "    found skew descriptor\n";
       skew_descriptors_[i] = skew_it->second;
     }
 
