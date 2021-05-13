@@ -478,15 +478,15 @@ std::vector<unsigned> AllButLast(const std::vector<unsigned>& v)
 // Print space-time-stamp
 void NestAnalysis::PrintSpaceTimeStamp()
 {
-  std::cout << "s/";
-  for (auto space_it = space_stamp_.begin(); space_it != space_stamp_.end()-1; space_it++)
-  {
-    std::cout <<  *space_it << "/";
-  }
-  std::cout << " t/";
+  std::cout << "t/";
   for (auto time_it = time_stamp_.begin(); time_it != time_stamp_.end()-1; time_it++)
   {
     std::cout <<  *time_it << "/";
+  }
+  std::cout << " s/";
+  for (auto space_it = space_stamp_.begin(); space_it != space_stamp_.end()-1; space_it++)
+  {
+    std::cout <<  *space_it << "/";
   }
 }
 
@@ -1556,54 +1556,60 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // FIXME: the connectivity graph should be derived from the arch spec.
 
   // downward vertical transfers in each column
-  for (std::uint64_t h_id = 0; h_id < h_size; h_id++)
+  if (v_size > 1)
   {
-    for (std::uint64_t v_id = (gEnableToroidalLinks ? 0 : 1); v_id < v_size; v_id++)
+    for (std::uint64_t h_id = 0; h_id < h_size; h_id++)
     {
-      auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_skewed_spatial_index = GetLinearIndex(h_id, (v_id - 1 + v_size) % v_size);
-      CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
-                                  cur_skewed_spatial_index, prev_skewed_spatial_index,
-                                  inter_elem_reuse);
+      for (std::uint64_t v_id = (gEnableToroidalLinks ? 0 : 1); v_id < v_size; v_id++)
+      {
+        auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
+        auto prev_skewed_spatial_index = GetLinearIndex(h_id, (v_id - 1 + v_size) % v_size);
+        CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
+                                    cur_skewed_spatial_index, prev_skewed_spatial_index,
+                                    inter_elem_reuse);
+      }
     }
-  }
 
-  // upward vertical transfers in each column
-  for (std::uint64_t h_id = 0; h_id < h_size; h_id++)
-  {
-    for (std::uint64_t v_id = 0; v_id < (gEnableToroidalLinks ? v_size : (v_size-1)); v_id++)
+    // upward vertical transfers in each column
+    for (std::uint64_t h_id = 0; h_id < h_size; h_id++)
     {
-      auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_skewed_spatial_index = GetLinearIndex(h_id, (v_id + 1) % v_size);
-      CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
-                                  cur_skewed_spatial_index, prev_skewed_spatial_index,
-                                  inter_elem_reuse);
+      for (std::uint64_t v_id = 0; v_id < (gEnableToroidalLinks ? v_size : (v_size-1)); v_id++)
+      {
+        auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
+        auto prev_skewed_spatial_index = GetLinearIndex(h_id, (v_id + 1) % v_size);
+        CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
+                                    cur_skewed_spatial_index, prev_skewed_spatial_index,
+                                    inter_elem_reuse);
+      }
     }
   }
 
   // horizontal transfers in each row from left to right
-  for (std::uint64_t v_id = 0; v_id < v_size; v_id++)
+  if (h_size > 1)
   {
-    for (std::uint64_t h_id = (gEnableToroidalLinks ? 0 : 1); h_id < h_size; h_id++)
+    for (std::uint64_t v_id = 0; v_id < v_size; v_id++)
     {
-      auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_skewed_spatial_index = GetLinearIndex((h_id - 1 + h_size) % h_size, v_id);
-      CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
-                                  cur_skewed_spatial_index, prev_skewed_spatial_index,
-                                  inter_elem_reuse);
+      for (std::uint64_t h_id = (gEnableToroidalLinks ? 0 : 1); h_id < h_size; h_id++)
+      {
+        auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
+        auto prev_skewed_spatial_index = GetLinearIndex((h_id - 1 + h_size) % h_size, v_id);
+        CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
+                                    cur_skewed_spatial_index, prev_skewed_spatial_index,
+                                    inter_elem_reuse);
+      }
     }
-  }
 
-  // horizontal transfers in each row from right to left
-  for (std::uint64_t v_id = 0; v_id < v_size; v_id++)
-  {
-    for (std::uint64_t h_id = 0; h_id < (gEnableToroidalLinks ? h_size : (h_size-1)); h_id++)
+    // horizontal transfers in each row from right to left
+    for (std::uint64_t v_id = 0; v_id < v_size; v_id++)
     {
-      auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
-      auto prev_skewed_spatial_index = GetLinearIndex((h_id + 1) % h_size, v_id);
-      CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
-                                  cur_skewed_spatial_index, prev_skewed_spatial_index,
-                                  inter_elem_reuse);
+      for (std::uint64_t h_id = 0; h_id < (gEnableToroidalLinks ? h_size : (h_size-1)); h_id++)
+      {
+        auto cur_skewed_spatial_index = GetLinearIndex(h_id, v_id);
+        auto prev_skewed_spatial_index = GetLinearIndex((h_id + 1) % h_size, v_id);
+        CompareSpatioTemporalDeltas(cur_spatial_deltas, prev_spatial_deltas,
+                                    cur_skewed_spatial_index, prev_skewed_spatial_index,
+                                    inter_elem_reuse);
+      }
     }
   }
 
