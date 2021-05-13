@@ -99,19 +99,19 @@ std::string FixedDistribution::GetDistributionType() const{
   return specs_.type;
 }
 
-double FixedDistribution::GetTileDensityByConfidence(const std::uint64_t tile_shape,
-                                                     const double confidence,
-                                                     const uint64_t allocated_capacity) const{
-  (void) tile_shape;
-  (void) confidence;
-  (void) allocated_capacity;
+// double FixedDistribution::GetTileDensityByConfidence(const std::uint64_t tile_shape,
+//                                                      const double confidence,
+//                                                      const uint64_t allocated_capacity) const{
+//   (void) tile_shape;
+//   (void) confidence;
+//   (void) allocated_capacity;
+//
+//   return specs_.fixed_density;
+//
+// }
 
-  return specs_.fixed_density;
-
-}
-
-double FixedDistribution::GetTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                                     const double confidence) const
+double FixedDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
+                                                        const double confidence) const
 {
   (void) tile;
   (void) confidence;
@@ -150,6 +150,12 @@ double FixedDistribution::GetTileOccupancyProbability(const tiling::CoordinateSp
 {
   std::uint64_t tile_shape = tile.GetShape();
   return GetProbability(tile_shape, occupancy);
+}
+
+
+double FixedDistribution::GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) const
+{
+  return tile.GetShape() * specs_.fixed_density;
 }
 
 }

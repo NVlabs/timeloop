@@ -46,6 +46,28 @@ ArithmeticUnits::ArithmeticUnits(const Specs& specs) :
   area_ = specs_.area.Get();
 }
 
+void ArithmeticUnits::Specs::UpdateOpEnergyViaERT()
+{
+  for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++)
+  {
+    // go through all op types
+    std::string op_name = tiling::arithmeticOperationTypes[op_id];
+
+    // go through ERT entries and look for appropriate energy values
+    std::vector <std::string> ert_action_names = model::arithmeticOperationMappings.at(op_name);
+    for (auto it = ert_action_names.begin(); it != ert_action_names.end(); it++)
+    {
+      if (ERT_entries.find(*it) != ERT_entries.end())
+      {
+        // populate the op_energy_map data structure for easier future energy search
+        op_energy_map[op_name] = ERT_entries.at(*it);
+        break;
+      }
+    }
+  }
+}
+
+
 ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements)
 {
   Specs specs;
@@ -148,6 +170,24 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
       pat::MultiplierArea(specs.word_bits.Get(), specs.word_bits.Get());
   }
 
+  // Initialize the fine-grained access energy
+  // ERT parsing (if any) will update the energy values according to Accelergy estimations
+  for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++)
+  {
+    // go through all op types
+    std::string op_name = tiling::arithmeticOperationTypes[op_id];
+    // initialize to the pat values or zero in case no mapping is found
+    if (op_name.find("random_compute") != std::string::npos)
+    {
+      // use the max if no mapping is found for regular compute actions
+      specs.op_energy_map[op_name] = specs.energy_per_op.Get();
+    } else
+    {
+      // use zero if no mapping is found for gated and skipped computes
+      specs.op_energy_map[op_name] = 0;
+    }
+  }
+
   // Validation.
   ValidateTopology(specs);
 
@@ -217,38 +257,6 @@ void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
               << std::endl;
     exit(1);        
   }
-}
-
-void ArithmeticUnits::PopulateEnergyPerOp(unsigned num_ops){
- 
-  double ert_energy_per_op;
-  bool  ert_energy_found;
-  std::vector<std::string> ert_action_names;
-
-  for (unsigned op_id = 0; op_id < num_ops; op_id++){
-    // go through all op types 
-    ert_energy_per_op = 0;
-    ert_energy_found = false;
-    std::string op_name = tiling::arithmeticOperationTypes[op_id];
-    // initialize to the pat values or zero in case no mapping is found
-    if (op_name.find("random_compute") != std::string::npos){
-      ert_energy_per_op = specs_.energy_per_op.Get();
-    } else {
-      ert_energy_per_op = 0;
-    }
-
-    // go through ERT entries and look for appopriate energy values
-    ert_action_names = model::arithmeticOperationMappings.at(op_name);
-    for (auto it = ert_action_names.begin(); it != ert_action_names.end(); ++it){
-      if(specs_.ERT_entries.count(*it)>0 && !ert_energy_found){
-        ert_energy_per_op = specs_.ERT_entries.at(*it);
-        ert_energy_found = true;
-      }
-    }
-    // populate the op_energy_map data structure for easier future energy search
-    specs_.op_energy_map[op_name] = ert_energy_per_op;
-  }
-  populate_energy_per_op = true;
 }
 
 
@@ -341,7 +349,7 @@ void ArithmeticUnits::Print(std::ostream& out) const
   out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
   out << indent << "Cycles                  : " << Cycles() << std::endl;
   out << indent << "Random Computes (total) : " << compute_random << std::endl;
-  out << indent << "Gated Computes (total): " << compute_gated << std::endl;
+  out << indent << "Gated Computes (total)  : " << compute_gated << std::endl;
   out << indent << "Skipped Computes (total): " << compute_skipped << std::endl;
   out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
   out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;

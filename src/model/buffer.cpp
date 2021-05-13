@@ -62,25 +62,24 @@ BufferLevel::BufferLevel(const Specs& specs) :
 BufferLevel::~BufferLevel()
 { }
 
-
 void BufferLevel::Specs::UpdateOpEnergyViaERT()
 {
-  for (auto op_id = 0; op_id < tiling::GetNumOpTypes("storage"); op_id++)
+  for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++)
   {
-	// go through all op types
-	std::string op_name = tiling::storageOperationTypes[op_id];
+    // go through all op types
+    std::string op_name = tiling::storageOperationTypes[op_id];
 
-	// go through ERT entries and look for appropriate energy values
-	std::vector<std::string> ert_action_names = model::storageOperationMappings.at(op_name);
-	for (auto it = ert_action_names.begin(); it != ert_action_names.end(); it++)
-	{
-	  if (ERT_entries.find(*it) != ERT_entries.end())
-	  {
-		// populate the op_energy_map data structure for easier future energy search
-		op_energy_map[op_name] = ERT_entries.at(*it);
-		break;
-	  }
-	}
+    // go through ERT entries and look for appropriate energy values
+    std::vector <std::string> ert_action_names = model::storageOperationMappings.at(op_name);
+    for (auto it = ert_action_names.begin(); it != ert_action_names.end(); it++)
+    {
+      if (ERT_entries.find(*it) != ERT_entries.end())
+      {
+        // populate the op_energy_map data structure for easier future energy search
+        op_energy_map[op_name] = ERT_entries.at(*it);
+        break;
+      }
+    }
   }
 }
 
@@ -439,19 +438,22 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
 
   // Initialize the fine-grained access energy
   // ERT parsing (if any) will update the energy values according to Accelergy estimations
-  for (auto op_id = 0; op_id < tiling::GetNumOpTypes("storage"); op_id++) {
-	// go through all op types
-	std::string op_name = tiling::storageOperationTypes[op_id];
-	// initialize to the pat values or zero in case no mapping is found
-	if (op_name.find("random_read") != std::string::npos
-		|| op_name.find("random_fill") != std::string::npos
-		|| op_name.find("random_update") != std::string::npos) {
-	  // use the max if no mapping is found for regular memory actions
-	  specs.op_energy_map[op_name] = specs.vector_access_energy.Get();
-	} else {
-	  // use zero if no mapping is found for matadata/gated/skipped/decompression/compression actions
-	  specs.op_energy_map[op_name] = 0;
-	}
+  for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++)
+  {
+    // go through all op types
+    std::string op_name = tiling::storageOperationTypes[op_id];
+    // initialize to the pat values or zero in case no mapping is found
+    if (op_name.find("random_read") != std::string::npos
+      || op_name.find("random_fill") != std::string::npos
+      || op_name.find("random_update") != std::string::npos)
+    {
+      // use the max if no mapping is found for regular memory actions
+      specs.op_energy_map[op_name] = specs.vector_access_energy.Get();
+    } else
+    {
+      // use zero if no mapping is found for matadata/gated/skipped/decompression/compression actions
+      specs.op_energy_map[op_name] = 0;
+    }
   }
 
   specs.level_name = specs.name.Get();
@@ -682,8 +684,8 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
     std::uint64_t expected_total_tile_size;
     if (tile[pvi].compressed)
     {
-      expected_total_tile_size =  tile[pvi].GetExpectedDataTileOccupancy()
-                                  + ComputeMetaDataTileSizeInBit(tile[pvi].GetExpectedMetaDataTileOccupancy())
+      expected_total_tile_size =  tile[pvi].expected_data_occupancy
+                                  + ComputeMetaDataTileSizeInBit(tile[pvi].expected_metadata_occupancy)
                                     /specs_.word_bits.Get();
     }
     else
@@ -691,7 +693,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
       expected_total_tile_size = tile[pvi].shape;
       if (tile[pvi].has_metadata)
       {
-        expected_total_tile_size +=  ComputeMetaDataTileSizeInBit(tile[pvi].GetExpectedMetaDataTileOccupancy())
+        expected_total_tile_size +=  ComputeMetaDataTileSizeInBit(tile[pvi].expected_metadata_occupancy)
                                      /specs_.word_bits.Get();
       }
     }
@@ -733,8 +735,8 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
         tile_confidence = confidence_constraint;
 
         // get the most aggressive estimation
-        data_tile_size = tile[pvi].GetDataTileOccupancyByConfidence(confidence_constraint);
-        metadata_tile_occupancy = tile[pvi].GetMetaDataTileOccupancyByConfidence(confidence_constraint);
+        data_tile_size = tile[pvi].GetMaxDataTileOccupancyByConfidence(confidence_constraint);
+        metadata_tile_occupancy = tile[pvi].GetMaxMetaDataTileOccupancyByConfidence(confidence_constraint);
         equivalent_metadata_tile_size = ceil((double)ComputeMetaDataTileSizeInBit(metadata_tile_occupancy)/specs_.word_bits.Get());
         total_tile_size = data_tile_size + equivalent_metadata_tile_size;
 
@@ -752,8 +754,8 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
                 confidence_upper_bound - confidence_lower_bound > 0.01) // stop when converging within one percent
           {
             tmp_confidence = 0.5 * (confidence_lower_bound + confidence_upper_bound);
-            tmp_data_tile_size = tile[pvi].GetDataTileOccupancyByConfidence(tmp_confidence);
-            tmp_metadata_tile_occupancy = tile[pvi].GetMetaDataTileOccupancyByConfidence(tmp_confidence);
+            tmp_data_tile_size = tile[pvi].GetMaxDataTileOccupancyByConfidence(tmp_confidence);
+            tmp_metadata_tile_occupancy = tile[pvi].GetMaxMetaDataTileOccupancyByConfidence(tmp_confidence);
             tmp_equivalent_metadata_tile_size = ceil(ComputeMetaDataTileSizeInBit(tmp_metadata_tile_occupancy)/specs_.word_bits.Get());
             tmp_total_tile_size = data_tile_size + equivalent_metadata_tile_size;
 
@@ -780,8 +782,8 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
       {
         // infinite memory size, e.g., DRAM, can fit for sure, use the most conservative setting
         tile_confidence = 1.0;
-        data_tile_size = tile[pvi].GetDataTileOccupancyByConfidence();
-        metadata_tile_occupancy = tile[pvi].GetMetaDataTileOccupancyByConfidence();
+        data_tile_size = tile[pvi].GetMaxDataTileOccupancyByConfidence();
+        metadata_tile_occupancy = tile[pvi].GetMaxMetaDataTileOccupancyByConfidence();
         equivalent_metadata_tile_size = ceil((double)ComputeMetaDataTileSizeInBit(metadata_tile_occupancy)/specs_.word_bits.Get());
       }
 
@@ -1097,7 +1099,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     // compute in terms of fine-grained action types
     std::string op_name;
     double cluster_access_energy = 0;
-    for (unsigned op_id = 0; op_id < unsigned(tiling::GetNumOpTypes("storage")); op_id++) {
+    for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++) {
       op_name = tiling::storageOperationTypes[op_id];
       // directly fetch the populated vector access numbers instead of using explicit action names
       cluster_access_energy += stats_.fine_grained_vector_accesses[pv].at(op_name) * specs_.op_energy_map.at(op_name)
@@ -1113,7 +1115,7 @@ void BufferLevel::ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, 
 
   double cluster_access_energy_due_to_overflow = 0;
 
-  for (unsigned op_id = 0; op_id < unsigned( tiling::GetNumOpTypes("storage")); op_id++) {
+  for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++) {
     std::string op_name = tiling::storageOperationTypes[op_id];
 
     // random reads (of data and metadata) can be read from parent level dependent on confidence

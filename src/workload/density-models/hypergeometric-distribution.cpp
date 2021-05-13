@@ -35,31 +35,40 @@
 
 BOOST_CLASS_EXPORT(problem::HypergeometricDistribution)
 
-namespace problem {
+namespace problem
+{
 
-HypergeometricDistribution::HypergeometricDistribution() {}
+HypergeometricDistribution::HypergeometricDistribution()
+{}
 
-HypergeometricDistribution::HypergeometricDistribution(const Specs &specs) : specs_(specs) {
+HypergeometricDistribution::HypergeometricDistribution(const Specs& specs)
+  : specs_(specs)
+{
   is_specced_ = true;
-  if (specs.workload_tensor_size != 0) {
+  if (specs.workload_tensor_size != 0)
+  {
     workload_tensor_size_set_ = true;
   }
 }
 
-HypergeometricDistribution::~HypergeometricDistribution() {}
+HypergeometricDistribution::~HypergeometricDistribution()
+{}
 
-HypergeometricDistribution::Specs HypergeometricDistribution::ParseSpecs(config::CompoundConfigNode density_config) {
+HypergeometricDistribution::Specs HypergeometricDistribution::ParseSpecs(config::CompoundConfigNode density_config)
+{
 
   Specs specs;
   assert(density_config.lookupValue("distribution", specs.type));
   assert(density_config.lookupValue("density", specs.average_density));
 
   long long workload_tensor_size;
-  if (density_config.lookupValue("workload_tensor_size", workload_tensor_size)) {
+  if (density_config.lookupValue("workload_tensor_size", workload_tensor_size))
+  {
     specs.total_nnzs = ceil(specs.average_density * workload_tensor_size);
     specs.workload_tensor_size = workload_tensor_size;
 
-  } else {
+  } else
+  {
     specs.total_nnzs = 0;
     specs.workload_tensor_size = 0;
   }
@@ -67,11 +76,13 @@ HypergeometricDistribution::Specs HypergeometricDistribution::ParseSpecs(config:
   return specs;
 }
 
-void HypergeometricDistribution::SetDensity(const double density) {
+void HypergeometricDistribution::SetDensity(const double density)
+{
   specs_.average_density = density;
 }
 
-void HypergeometricDistribution::SetWorkloadTensorSize(const std::uint64_t size) {
+void HypergeometricDistribution::SetWorkloadTensorSize(const std::uint64_t size)
+{
   // setter that allows workload tensor size at a latter stage (topology.cpp, PreEvaluationCheck)
   assert(is_specced_);
   specs_.workload_tensor_size = size;
@@ -79,20 +90,23 @@ void HypergeometricDistribution::SetWorkloadTensorSize(const std::uint64_t size)
   workload_tensor_size_set_ = true;
 }
 
-
 std::uint64_t HypergeometricDistribution::GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
                                                                        const double confidence) const
 {
 
   std::uint64_t tile_occupancy;
 
-  if (confidence == 1.0) {
-    if (tile_shape >= specs_.total_nnzs) {
+  if (confidence == 1.0)
+  {
+    if (tile_shape >= specs_.total_nnzs)
+    {
       tile_occupancy = specs_.total_nnzs;
-    } else {
+    } else
+    {
       tile_occupancy = tile_shape;
     }
-  } else {
+  } else
+  {
     std::uint64_t r = specs_.total_nnzs;
     std::uint64_t n = tile_shape;
     std::uint64_t N = specs_.workload_tensor_size;
@@ -103,11 +117,10 @@ std::uint64_t HypergeometricDistribution::GetTileOccupancyByConfidence(const std
   return tile_occupancy;
 }
 
-
 std::uint64_t HypergeometricDistribution::GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tile,
                                                                           const double confidence) const
 {
-  std::uint64_t  tile_shape = tile.GetShape();
+  std::uint64_t tile_shape = tile.GetShape();
   return HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
 
@@ -117,78 +130,80 @@ std::uint64_t HypergeometricDistribution::GetMaxTileOccupancyByConfidence_LTW(co
   return HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
 
-
-std::uint64_t HypergeometricDistribution::GetWorkloadTensorSize() const {
+std::uint64_t HypergeometricDistribution::GetWorkloadTensorSize() const
+{
   assert(workload_tensor_size_set_);
   return specs_.workload_tensor_size;
 };
 
-std::string HypergeometricDistribution::GetDistributionType() const {
+std::string HypergeometricDistribution::GetDistributionType() const
+{
   return specs_.type;
 }
 
-double HypergeometricDistribution::GetTileDensityByConfidence(const std::uint64_t tile_shape,
-                                                              const double confidence, uint64_t allocated_capacity) const {
-  double tile_density;
+// double HypergeometricDistribution::GetTileDensityByConfidence(const std::uint64_t tile_shape,
+//                                                               const double confidence, uint64_t allocated_capacity) const {
+//   double tile_density;
+//
+//   if (specs_.average_density == 1.0) {
+//     // dense data does not need distribution
+//     tile_density = 1.0;
+//
+//   } else if (tile_shape == 0) {
+//     // simply assign the average density for nonexistent tiles
+//     tile_density = specs_.average_density;
+//
+//   } else if (confidence == 1.0) {
+//
+//     if (allocated_capacity <= tile_shape && allocated_capacity > specs_.total_nnzs){
+//       tile_density = specs_.total_nnzs/tile_shape;
+//     } else if (allocated_capacity <= tile_shape) {
+//       tile_density = double(allocated_capacity)/tile_shape;
+//     } else if (allocated_capacity > tile_shape && tile_shape > specs_.total_nnzs){
+//       tile_density = specs_.total_nnzs/tile_shape;
+//     } else if (allocated_capacity > tile_shape){
+//       tile_density = 1.0;
+//     } else {
+//       assert(false);
+//     }
+//
+//   } else {
+//     // we don't need to re-derive the percentile
+//     // for this case, we know that we are not confident that the entire tile will fit
+//     // even if we give the entire allocated_capacity to the tile
+//     // so the max density supported is just allocated_capacity/tile shape
+//     tile_density = 1.0 * allocated_capacity / tile_shape;
+//   }
+//
+//   return tile_density;
+//
+// }
 
-  if (specs_.average_density == 1.0) {
-    // dense data does not need distribution
-    tile_density = 1.0;
 
-  } else if (tile_shape == 0) {
-    // simply assign the average density for nonexistent tiles
-    tile_density = specs_.average_density;
-
-  } else if (confidence == 1.0) {
-
-    if (allocated_capacity <= tile_shape && allocated_capacity > specs_.total_nnzs){
-      tile_density = specs_.total_nnzs/tile_shape;
-    } else if (allocated_capacity <= tile_shape) {
-      tile_density = double(allocated_capacity)/tile_shape;
-    } else if (allocated_capacity > tile_shape && tile_shape > specs_.total_nnzs){
-      tile_density = specs_.total_nnzs/tile_shape;
-    } else if (allocated_capacity > tile_shape){
-      tile_density = 1.0;
-    } else {
-      assert(false);
-    }
-
-  } else {
-    // we don't need to re-derive the percentile
-    // for this case, we know that we are not confident that the entire tile will fit
-    // even if we give the entire allocated_capacity to the tile
-    // so the max density supported is just allocated_capacity/tile shape
-    tile_density = 1.0 * allocated_capacity / tile_shape;
-  }
-
-  return tile_density;
-
-}
-
-
-double HypergeometricDistribution::GetTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                                              const double confidence) const
+double HypergeometricDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
+                                                                 const double confidence) const
 {
 
-  if (confidence == 0.5){ return specs_.average_density; } //shortcut for faster calculations
+  if (confidence == 0.5)
+  { return specs_.average_density; } //shortcut for faster calculations
 
-  std::uint64_t  tile_shape = tile.GetShape();
-  std::uint64_t  percentile_occupancy = HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
-  return (double) percentile_occupancy/ tile_shape;
+  std::uint64_t tile_shape = tile.GetShape();
+  std::uint64_t percentile_occupancy = HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
+  return (double)percentile_occupancy / tile_shape;
 
 }
 
+double HypergeometricDistribution::GetTileExpectedDensity(const uint64_t tile_shape) const
+{
 
-double HypergeometricDistribution::GetTileExpectedDensity(const uint64_t tile_shape) const {
-
-  (void) tile_shape;
+  (void)tile_shape;
   assert(is_specced_);
   return specs_.average_density;
 }
 
-
 double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape,
-                                                  const std::uint64_t nnz_vals) const {
+                                                  const std::uint64_t nnz_vals) const
+{
 
   assert(is_specced_);
   assert(workload_tensor_size_set_);
@@ -197,7 +212,8 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
   std::uint64_t n = tile_shape;
   std::uint64_t N = specs_.workload_tensor_size;
 
-  if (((n + r > N) && (nnz_vals < n + r - N)) | (nnz_vals > r)) { return 0; }
+  if (((n + r > N) && (nnz_vals < n + r - N)) | (nnz_vals > r))
+  { return 0; }
 
   boost::math::hypergeometric_distribution<double> distribution(r, n, N);
   double prob = pdf(distribution, nnz_vals);
@@ -206,12 +222,71 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
 
 }
 
-double HypergeometricDistribution::GetTileOccupancyProbability (const tiling::CoordinateSpaceTileInfo& tile,
-                                                                const std::uint64_t occupancy) const
+double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape, const std::uint64_t nnz_vals,
+                                                  const std::uint64_t constraint_tensor_shape,
+                                                  const std::uint64_t constraint_tensor_occupancy) const
+{
+
+  std::uint64_t r = constraint_tensor_occupancy;
+  std::uint64_t n = tile_shape;
+  std::uint64_t N = constraint_tensor_shape;
+
+  if (((n + r > N) && (nnz_vals < n + r - N)) | (nnz_vals > r))
+  { return 0; }
+
+  boost::math::hypergeometric_distribution<double> distribution(r, n, N);
+  double prob = pdf(distribution, nnz_vals);
+
+  return prob;
+}
+
+double HypergeometricDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
+                                                               const std::uint64_t occupancy) const
 {
   std::uint64_t tile_shape = tile.GetShape();
-  double prob = GetProbability(tile_shape, occupancy);
+  double prob;
+
+  if (tile.HasExtraConstraintInfo())
+  {
+    auto extra_constraint_info = tile.GetExtraConstraintInfo();
+    auto occupancy_constraint = extra_constraint_info.GetOccupancy();
+    auto shape_constraint = extra_constraint_info.GetShape();
+    prob = GetProbability(tile_shape, occupancy, shape_constraint, occupancy_constraint);
+  } else
+  {
+    prob = GetProbability(tile_shape, occupancy);
+  }
+
   return prob;
+}
+
+double HypergeometricDistribution::GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile) const
+{
+
+  std::uint64_t tile_shape = tile.GetShape();
+  double expected_occupancy = 0.0;
+
+  if (tile.HasExtraConstraintInfo())
+  {
+    auto extra_constraint_info = tile.GetExtraConstraintInfo();
+    auto occupancy_constraint = extra_constraint_info.GetOccupancy();
+    auto shape_constraint = extra_constraint_info.GetShape();
+    std::uint64_t max_occupancy = (tile_shape <= occupancy_constraint) ? tile_shape : occupancy_constraint;
+    for (std::uint64_t occupancy = 0; occupancy <= max_occupancy; occupancy++)
+    {
+      double prob = GetProbability(tile_shape, occupancy, shape_constraint, occupancy_constraint);
+      expected_occupancy += prob * occupancy;
+    }
+  } else
+  {
+    std::uint64_t max_occupancy = (tile_shape <= specs_.total_nnzs) ? tile_shape : specs_.total_nnzs;
+    for (std::uint64_t occupancy = 0; occupancy <= max_occupancy; occupancy++)
+    {
+      double prob = GetProbability(tile_shape, occupancy);
+      expected_occupancy += prob * occupancy;
+    }
+  }
+  return expected_occupancy;
 }
 
 }

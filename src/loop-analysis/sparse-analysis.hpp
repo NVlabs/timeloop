@@ -33,25 +33,60 @@
 #include "model/sparse-optimization-info.hpp"
 #include "model/topology.hpp"
 
-namespace sparse {
+namespace sparse
+{
 
-struct SparseAnalysisState {
+typedef problem::Shape::DataSpaceID DataSpaceID;
+typedef std::vector<problem::PerDataSpace<bool>> ListOfPerDataSpaceMask;
+typedef std::map<DataSpaceID, std::shared_ptr<problem::DensityDistribution>> PerDataSpaceDensityModel;
+
+
+struct SetOfOperationSpaces
+{
+  std::vector<loop::Descriptor> upper_level_loops;
+  problem::OperationPoint op_space_mold_high;
+  problem::Workload *workload;
+};
+
+
+enum CopmuterOperandState
+{
+  EXIST_NOT_ZERO,
+  EXIST_ZERO,
+  NOT_EXIST
+};
+typedef std::map<CopmuterOperandState, double> PerStateProb;
+
+struct SparseAnalysisState
+{
 
   // statically defined information
   sparse::SparseOptimizationInfo *sparse_optimization_info_ = nullptr;
   problem::Workload *workload_ = nullptr;
-  Mapping mapping_;
+  std::uint64_t num_storage_levels_;
 
   // live state
-  std::vector <std::vector<problem::OperationPoint>> maxtile_molds_high_;
-  std::vector <std::vector<loop::Descriptor>> complete_subnests_;
-  std::vector <std::vector<bool>> trivial_nest_masks_;
+  Mapping mapping_;
+  std::vector<std::vector<problem::OperationPoint>> maxtile_molds_high_;
+  std::vector<std::vector<loop::Descriptor>> complete_subnests_;
+  std::vector<std::vector<bool>> trivial_nest_masks_;
 
-  SparseAnalysisState(){}
+  // storage related
+  std::map<unsigned, std::map<DataSpaceID, double>> prob_explicitly_optimized_read_;
+  std::map<std::string, ListOfPerDataSpaceMask> dspace_optimization_masks_;
 
-  void Init(sparse::SparseOptimizationInfo* sparse_optimization_info,
-			problem::Workload* workload,
-			Mapping mapping);
+  // compute related
+  std::vector<problem::Shape::DimensionID> c_intersection_dims_;
+  std::map<DataSpaceID, double> c_operand_densities_;
+  std::map<DataSpaceID, double> c_operand_prop_impact_;
+
+  SparseAnalysisState()
+  {}
+
+  void Init(sparse::SparseOptimizationInfo *sparse_optimization_info,
+            problem::Workload *workload,
+            Mapping mapping,
+            std::uint64_t num_storage_levels);
   void Reset();
   void CollectCompletePointSetsAndSubnests();
 
@@ -59,10 +94,12 @@ struct SparseAnalysisState {
   friend class boost::serialization::access;
 
   template<class Archive>
-  void serialize(Archive &ar, const unsigned int version = 0) {
-	if (version == 0) {
-	  ar & BOOST_SERIALIZATION_NVP(sparse_optimization_info_);
-	}
+  void serialize(Archive &ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar & BOOST_SERIALIZATION_NVP(sparse_optimization_info_);
+    }
   }
 
   friend std::ostream &operator<<(std::ostream &out, const SparseAnalysisState &n);
@@ -71,17 +108,17 @@ struct SparseAnalysisState {
 //
 // Sparse Analysis API
 //
-  bool PerformSparseProcessing(problem::Workload *workload,
-							   Mapping &mapping,
-							   tiling::CompoundDataMovementNest &compound_data_movement_nest,
-							   SparseOptimizationInfo* sparse_optimization_info,
-							   const model::Topology::Specs &topology_specs,
-							   std::vector <model::EvalStatus> &eval_status,
-							   const bool break_on_failure);
+bool PerformSparseProcessing(problem::Workload *workload,
+                             Mapping &mapping,
+                             tiling::CompoundTileNest &compound_tile_nest,
+                             SparseOptimizationInfo *sparse_optimization_info,
+                             const model::Topology::Specs &topology_specs,
+                             std::vector <model::EvalStatus> &eval_status,
+                             const bool break_on_failure);
 
-  bool CheckFormatModelsAndMapping(const tiling::NestOfCompoundMasks &masks,
-								   sparse::CompressionInfo& compression_info,
-								   const model::Topology::Specs &topology_specs,
-								   std::vector <model::EvalStatus> &eval_status,
-								   const bool break_on_failure);
+bool CheckFormatModelsAndMapping(const tiling::NestOfCompoundMasks &masks,
+                                 sparse::CompressionInfo &compression_info,
+                                 const model::Topology::Specs &topology_specs,
+                                 std::vector <model::EvalStatus> &eval_status,
+                                 const bool break_on_failure);
 }

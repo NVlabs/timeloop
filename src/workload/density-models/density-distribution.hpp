@@ -90,10 +90,11 @@ public:
   // for lightweight pre-evaluation check
   virtual std::uint64_t GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
                                                              const double confidence = 1.0) const = 0;
-  virtual double GetTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                            const double confidence = 1.0) const = 0;
+  virtual double GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
+                                               const double confidence = 1.0) const = 0;
   virtual double GetTileOccupancyProbability (const tiling::CoordinateSpaceTileInfo& tile,
                                               const std::uint64_t occupancy) const = 0;
+  virtual double GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) const = 0;
 
   // Serialization.
   friend class boost::serialization::access;

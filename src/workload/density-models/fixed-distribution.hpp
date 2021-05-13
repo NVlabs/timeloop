@@ -30,72 +30,80 @@
 #include "density-distribution.hpp"
 #include <boost/serialization/export.hpp>
 
-namespace problem {
+namespace problem
+{
 
-class FixedDistribution : public DensityDistribution {
+class FixedDistribution : public DensityDistribution
+{
 
-public:
+ public:
 
   //
   // Specs
   //
 
-  struct Specs : public DensityDistributionSpecs {
+  struct Specs : public DensityDistributionSpecs
+  {
 
     std::string type;
     double fixed_density;
     std::uint64_t workload_tensor_size;
 
-
-    const std::string Type() const override { return type; }
+    const std::string Type() const override
+    { return type; }
 
     // Serialization
     friend class boost::serialization::access;
 
     template<class Archive>
-    void serialize(Archive &ar, const unsigned int version = 0) {
+    void serialize(Archive& ar, const unsigned int version = 0)
+    {
 
-      ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(DensityDistributionSpecs);
-      if (version == 0) {
-        ar& BOOST_SERIALIZATION_NVP(type);
-        ar& BOOST_SERIALIZATION_NVP(fixed_density);
+      ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(DensityDistributionSpecs);
+      if (version == 0)
+      {
+        ar & BOOST_SERIALIZATION_NVP(type);
+        ar & BOOST_SERIALIZATION_NVP(fixed_density);
       }
     }
 
-  public:
-    std::shared_ptr<DensityDistributionSpecs> Clone() const override
+   public:
+    std::shared_ptr <DensityDistributionSpecs> Clone() const override
     {
       return std::static_pointer_cast<DensityDistributionSpecs>(std::make_shared<Specs>(*this));
     }
 
   }; // struct Specs
 
-//
-// Data
-//
+  //
+  // Data
+  //
 
-private:
+ private:
   Specs specs_;
   bool is_specced_;
 
   // private functions
   double GetProbability(const std::uint64_t tile_shape,
                         const std::uint64_t nnz_vals) const;
-  double GetTileDensityByConfidence(const std::uint64_t tile_shape,
-                                    const double confidence,
-                                    const uint64_t allocated_capacity = 0) const;
+
+  // double GetTileDensityByConfidence(const std::uint64_t tile_shape,
+  //                                   const double confidence,
+  //                                   const uint64_t allocated_capacity = 0) const;
   std::uint64_t GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
                                              const double confidence) const;
   double GetTileExpectedDensity(const uint64_t tile_shape) const;
 
-public:
+ public:
   // Serialization
   friend class boost::serialization::access;
 
   template<class Archive>
-  void serialize(Archive &ar, const unsigned int version = 0) {
-    ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(DensityDistribution);
-    if (version == 0) {
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(DensityDistribution);
+    if (version == 0)
+    {
       ar & BOOST_SERIALIZATION_NVP(specs_);
     }
   }
@@ -107,28 +115,28 @@ public:
   // constructor and destructors
   FixedDistribution();
 
-  FixedDistribution(const Specs &specs);
+  FixedDistribution(const Specs& specs);
 
   ~FixedDistribution();
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
-
-  void SetDensity(const double density) ;
+  void SetDensity(const double density);
   void SetWorkloadTensorSize(const std::uint64_t size);
 
   std::uint64_t GetWorkloadTensorSize() const;
   std::string GetDistributionType() const;
-  std::uint64_t GetMaxTileOccupancyByConfidence (const tiling::CoordinateSpaceTileInfo& tensor,
-                                                 const double confidence) const;
-  std::uint64_t GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
-                                                     const double confidence) const;
-  double GetTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                    const double confidence = 1.0) const;
-  double GetTileOccupancyProbability (const tiling::CoordinateSpaceTileInfo& tile,
-                                      const std::uint64_t occupancy) const;
+  std::uint64_t GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tensor,
+                                                const double confidence) const;
+  std::uint64_t GetMaxTileOccupancyByConfidence_LTW(const std::uint64_t tile_shape,
+                                                    const double confidence) const;
+  double GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
+                                       const double confidence = 1.0) const;
+  double GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
+                                     const std::uint64_t occupancy) const;
+  double GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile) const;
 
-private:
+ private:
 
 }; // class FixedDistribution
 

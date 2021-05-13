@@ -76,7 +76,8 @@ class Shape
 
  public: 
   void Parse(config::CompoundConfigNode config);
-  std::set<Shape::DimensionID> GetContractedDimensions(const std::vector<Shape::DataSpaceID> dataspace_pair) const;
+  std::set<DimensionID> GetCoIteratedDimensions(const std::vector<DataSpaceID> dataspace_pair) const;
+  std::set<DimensionID> GetFullyContractedDimensions() const;
 };
 
 } // namespace problem

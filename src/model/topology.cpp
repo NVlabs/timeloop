@@ -244,6 +244,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
         auto arithmeticSpec = GetArithmeticLevel();
         arithmeticSpec->energy_per_op = maxEnergy;
         arithmeticSpec->ERT_entries = ERT_entries;
+        arithmeticSpec->UpdateOpEnergyViaERT();
       } else if (isBuffer) {
         auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
         // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
@@ -1043,16 +1044,16 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                                analysis->GetWorkload());
 
   success = sparse::PerformSparseProcessing(analysis->GetWorkload(),
-											mapping,
-											collapsed_tiles.compound_data_movement_info_nest,
-											sparse_optimizations,
-											specs_,
-											eval_status,
-											break_on_failure);
+                                            mapping,
+                                            collapsed_tiles,
+                                            sparse_optimizations,
+                                            specs_,
+                                            eval_status,
+                                            break_on_failure);
   if (break_on_failure && !success) { return eval_status; }
 
   // Transpose the tiles into level->datatype/level->optype structure.
-  auto tiles = tiling::TransposeTiles(collapsed_tiles, sparse_optimizations);
+  auto tiles = tiling::TransposeTiles(collapsed_tiles);
   assert(tiles.size() == NumStorageLevels());
 
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
@@ -1064,11 +1065,13 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     auto level_id = specs_.StorageMap(storage_level_id);
 
     // populate parent level for each dataspace
-    for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++){
+    for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++)
+    {
       unsigned parent_level_id = tiles[storage_level_id].data_movement_info.at(pv).parent_level;
-      if (parent_level_id != std::numeric_limits<unsigned>::max()){
-         tiles[storage_level_id].data_movement_info.at(pv).parent_level_name =
-                                            GetStorageLevel(parent_level_id)->GetSpecs().name.Get();
+      if (parent_level_id != std::numeric_limits<unsigned>::max())
+      {
+        tiles[storage_level_id].data_movement_info.at(pv).parent_level_name =
+          GetStorageLevel(parent_level_id)->GetSpecs().name.Get();
       }
     }
 
@@ -1082,24 +1085,29 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
       break;
   }
 
-  if (!break_on_failure || success_accum) {
-    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++) {
+  if (!break_on_failure || success_accum)
+  {
+    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+    {
       auto storage_level = GetStorageLevel(storage_level_id);
       auto child_level_stats = storage_level->GetStats();
 
       // each dataspace can have a different parent level
-      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) {
+      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+      {
         unsigned parent_storage_level_id = tiles[storage_level_id].data_movement_info.at(pvi).parent_level;
         // if there is any overbooking, add the energy cost to parent level
         if (child_level_stats.tile_confidence[pvi] != 1.0
-            && parent_storage_level_id != std::numeric_limits<unsigned>::max()) {
+          && parent_storage_level_id != std::numeric_limits<unsigned>::max())
+        {
           auto parent_storage_level = GetStorageLevel(parent_storage_level_id);
           parent_storage_level->ComputeEnergyDueToChildLevelOverflow(child_level_stats, pvi);
         }
       }
     }
     // finalized energy data
-    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++) {
+    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+    {
       auto storage_level = GetStorageLevel(storage_level_id);
       storage_level->FinalizeBufferEnergy();
     }

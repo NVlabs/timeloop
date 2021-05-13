@@ -34,6 +34,7 @@
 #include "model/network.hpp"
 #include "mapping/mapping.hpp"
 #include "compound-config/compound-config.hpp"
+#include "loop-analysis/operation-type.hpp"
 
 namespace model
 {
@@ -78,6 +79,9 @@ class ArithmeticUnits : public Level
     }
 
    public:
+
+    void UpdateOpEnergyViaERT();
+
     std::shared_ptr<LevelSpecs> Clone() const override
     {
       return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
@@ -139,8 +143,7 @@ class ArithmeticUnits : public Level
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
   static void ValidateTopology(ArithmeticUnits::Specs& specs);
-  void PopulateEnergyPerOp(unsigned num_ops);
-  
+
   Specs& GetSpecs() { return specs_; }
 
   // Connect to networks.
@@ -242,12 +245,8 @@ class ArithmeticUnits : public Level
       int op_accesses;
       std::string op_name;
 
-      // find the static correspondence between timeloop action name and ERT action names
-      if (! populate_energy_per_op)
-        PopulateEnergyPerOp(tiling::GetNumOpTypes("arithmetic"));
-
       // go through the fine grained actions and reflect the special impacts
-      for (int op_id = 0; op_id < tiling::GetNumOpTypes("arithmetic"); op_id++){
+      for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++){
         op_name = tiling::arithmeticOperationTypes[op_id];
         op_accesses = tile.compute_info.fine_grained_accesses.at(op_name);
         energy_ += op_accesses * specs_.op_energy_map.at(op_name);

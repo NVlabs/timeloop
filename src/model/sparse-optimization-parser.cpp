@@ -30,7 +30,8 @@
 #include "sparse-optimization-parser.hpp"
 #include "mapping/arch-properties.hpp"
 
-namespace sparse {
+namespace sparse
+{
 
 //
 // Shared state.
@@ -40,23 +41,26 @@ ArchProperties arch_props_;
 //
 // Forward declarations
 //
-void Parse(config::CompoundConfigNode sparse_config, SparseOptimizationInfo& sparse_optimization_info);
-void InitializeCompressionInfo(SparseOptimizationInfo& sparse_optimization_info);
-void InitializeActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_info);
-void ParseCompressionInfo(SparseOptimizationInfo& sparse_optimization_info,
-						  const config::CompoundConfigNode &directive);
+void Parse(config::CompoundConfigNode sparse_config, SparseOptimizationInfo &sparse_optimization_info);
+void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info);
+void InitializeActionOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info);
+void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
+                          const config::CompoundConfigNode &directive);
 void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
-					  PerDataSpaceCompressionInfo& per_data_space_compression_info);
+                      PerDataSpaceCompressionInfo &per_data_space_compression_info);
 unsigned FindTargetStorageLevel(std::string storage_level_name);
-void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_info,
-								 const config::CompoundConfigNode directive,
-								 const std::string optimization_type);
+void ParseActionOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info,
+                                 const config::CompoundConfigNode& directive);
+void ParseComputeOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info,
+                                  const config::CompoundConfigNode& directive);
+
 
 //
 // Parsing
 //
 SparseOptimizationInfo ParseAndConstruct(config::CompoundConfigNode sparse_config,
-										  model::Engine::Specs& arch_specs) {
+                                         model::Engine::Specs &arch_specs)
+{
   arch_props_.Construct(arch_specs);
   SparseOptimizationInfo sparse_optimization_info;
 
@@ -68,34 +72,43 @@ SparseOptimizationInfo ParseAndConstruct(config::CompoundConfigNode sparse_confi
 
 // highest level parse function
 void Parse(config::CompoundConfigNode sparse_config,
-		   SparseOptimizationInfo& sparse_optimization_info) {
+           SparseOptimizationInfo &sparse_optimization_info)
+{
 
   config::CompoundConfigNode opt_target_list;
 
-  if (sparse_config.exists("targets")) {
-	opt_target_list = sparse_config.lookup("targets");
-	assert(opt_target_list.isList());
-	for (int i = 0; i < opt_target_list.getLength(); i++) {
-	  // each element in the list represent a storage level's information
-	  auto directive = opt_target_list[i];
-	  if (directive.exists("action-gating")) {
-		ParseActionOptimizationInfo(sparse_optimization_info, directive, "action-gating");
-	  }
-	  if (directive.exists("action-skipping")) {
-		ParseActionOptimizationInfo(sparse_optimization_info, directive, "action-skipping");
-	  }
-	  // parse for compression
-	  if (directive.exists("compression")) {
-		ParseCompressionInfo(sparse_optimization_info, directive);
-		sparse_optimization_info.compression_info.all_ranks_default_dense = false;
-	  }
-	}
-  }
+  if (sparse_config.exists("targets"))
+  {
+    opt_target_list = sparse_config.lookup("targets");
+    assert(opt_target_list.isList());
+    for (int i = 0; i < opt_target_list.getLength(); i++)
+    {
+      // each element in the list represent a storage level's information
+      auto directive = opt_target_list[i];
+      if (directive.exists("action-optimization"))
+      {
+        ParseActionOptimizationInfo(sparse_optimization_info, directive);
+      }
 
+      // parse for compression
+      if (directive.exists("compression"))
+      {
+        ParseCompressionInfo(sparse_optimization_info, directive);
+        sparse_optimization_info.compression_info.all_ranks_default_dense = false;
+      }
+
+      if (directive.exists("compute_optimization"))
+      {
+        ParseComputeOptimizationInfo(sparse_optimization_info, directive);
+      }
+
+    }
+  }
   std::cout << "Sparse optimization configuration complete." << std::endl;
 }
 
-void InitializeCompressionInfo(SparseOptimizationInfo& sparse_optimization_info) {
+void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info)
+{
 
   CompressionInfo compression_info;
 
@@ -109,47 +122,49 @@ void InitializeCompressionInfo(SparseOptimizationInfo& sparse_optimization_info)
   compression_info.tile_partition_supported_masks = {};
 
   // set all storage levels to uncompressed
-  for (unsigned storage_level_id = 0; storage_level_id < arch_props_.StorageLevels(); storage_level_id++) {
-	auto storage_level_specs = arch_props_.Specs().topology.GetStorageLevel(storage_level_id);
+  for (unsigned storage_level_id = 0; storage_level_id < arch_props_.StorageLevels(); storage_level_id++)
+  {
+    auto storage_level_specs = arch_props_.Specs().topology.GetStorageLevel(storage_level_id);
 
-	// get arch related info
-	bool tile_partition_supported = storage_level_specs->tile_partition_supported.Get();
-	assert(tile_partition_supported == false); //TODO: implement online tile partition related logic
-	bool decompression_supported = storage_level_specs->decompression_supported.Get();
-	bool compression_supported = storage_level_specs->compression_supported.Get();
+    // get arch related info
+    bool tile_partition_supported = storage_level_specs->tile_partition_supported.Get();
+    assert(tile_partition_supported == false); //TODO: implement online tile partition related logic
+    bool decompression_supported = storage_level_specs->decompression_supported.Get();
+    bool compression_supported = storage_level_specs->compression_supported.Get();
 
-	// initial/populate masks
-	problem::PerDataSpace<bool> temp;
-	compression_info.has_metadata_masks.push_back(temp);
-	compression_info.compressed_masks.push_back(temp);
-	compression_info.decompression_supported_masks.push_back(decompression_supported);
-	compression_info.compression_supported_masks.push_back(compression_supported);
-	compression_info.tile_partition_supported_masks.push_back(tile_partition_supported);
-	for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++) {
-	  compression_info.has_metadata_masks[storage_level_id][pv] = false;
-	  compression_info.compressed_masks[storage_level_id][pv] = false;
-	}
+    // initial/populate masks
+    problem::PerDataSpace<bool> temp;
+    compression_info.has_metadata_masks.push_back(temp);
+    compression_info.compressed_masks.push_back(temp);
+    compression_info.decompression_supported_masks.push_back(decompression_supported);
+    compression_info.compression_supported_masks.push_back(compression_supported);
+    compression_info.tile_partition_supported_masks.push_back(tile_partition_supported);
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+    {
+      compression_info.has_metadata_masks[storage_level_id][pv] = false;
+      compression_info.compressed_masks[storage_level_id][pv] = false;
+    }
   }
   compression_info.per_level_info_map = {};
   sparse_optimization_info.compression_info = compression_info;
 }
 
-void InitializeActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_info) {
-
-  sparse_optimization_info.action_skipping_info.compute_info = {};
-  sparse_optimization_info.action_skipping_info.storage_info = {};
-
-  sparse_optimization_info.action_gating_info.compute_info = {};
-  sparse_optimization_info.action_gating_info.storage_info = {};
+void InitializeActionOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info)
+{
+  sparse_optimization_info.action_skipping_info = {};
+  sparse_optimization_info.action_skipping_info = {};
+  sparse_optimization_info.compute_optimization_info = {};
 }
 
 void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
-					  PerDataSpaceCompressionInfo& per_data_space_compression_info) {
+                      PerDataSpaceCompressionInfo &per_data_space_compression_info)
+{
 
   // 0) keyword check
-  if (!rank_specs.exists("format")) {
-	std::cout << "compression specification: keyword \"format\" missing in compression spec" << std::endl;
-	exit(1);
+  if (!rank_specs.exists("format"))
+  {
+    std::cout << "compression specification: keyword \"format\" missing in compression spec" << std::endl;
+    exit(1);
   }
 
   // 1) construct metadata model objects
@@ -162,215 +177,327 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
   bool rank_compressed = metadata_specs->RankCompressed();
 
   std::vector <std::set<problem::Shape::DimensionID>> per_level_flattened_rankIDs = {};
-  if (rank_specs.exists("flattened_rankIDs")) {
-	auto list_of_rankID_list = rank_specs.lookup("flattened_rankIDs");
-	for (auto id = 0; id < list_of_rankID_list.getLength(); id++) {
-	  std::vector <std::string> dim_name_list;
-	  list_of_rankID_list[id].getArrayValue(dim_name_list);
-	  std::set <problem::Shape::DimensionID> dim_id_set;
+  if (rank_specs.exists("flattened_rankIDs"))
+  {
+    auto list_of_rankID_list = rank_specs.lookup("flattened_rankIDs");
+    for (auto id = 0; id < list_of_rankID_list.getLength(); id++)
+    {
+      std::vector <std::string> dim_name_list;
+      list_of_rankID_list[id].getArrayValue(dim_name_list);
+      std::set <problem::Shape::DimensionID> dim_id_set;
 
-	  for (auto iter = dim_name_list.begin(); iter != dim_name_list.end(); iter++) {
-		auto id = problem::GetShape()->DimensionNameToID.at(*iter);
-		dim_id_set.insert(id);
-	  }
-	  per_level_flattened_rankIDs.push_back(dim_id_set);
-	}
+      for (auto iter = dim_name_list.begin(); iter != dim_name_list.end(); iter++)
+      {
+        auto id = problem::GetShape()->DimensionNameToID.at(*iter);
+        dim_id_set.insert(id);
+      }
+      per_level_flattened_rankIDs.push_back(dim_id_set);
+    }
   }
 
   per_data_space_compression_info.flattened_rankIDs.push_back(per_level_flattened_rankIDs);
   per_data_space_compression_info.rank_formats.push_back(lc_format);
   per_data_space_compression_info.rank_compressed.push_back(rank_compressed);
-  if (rank_compressed) { per_data_space_compression_info.tensor_compressed = true; }
+  if (rank_compressed)
+  { per_data_space_compression_info.tensor_compressed = true; }
 
 }
 
 // parse for compression info (storage only) of one directive
-void ParseCompressionInfo(SparseOptimizationInfo& sparse_optimization_info,
-						  const config::CompoundConfigNode &directive) {
+void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
+                          const config::CompoundConfigNode& directive)
+{
 
   std::string level_name;
   assert(directive.exists("name"));
   directive.lookupValue("name", level_name);
 
-  auto& compression_info = sparse_optimization_info.compression_info;
+  auto &compression_info = sparse_optimization_info.compression_info;
 
   auto compression_directive = directive.lookup("compression");
   unsigned storage_level_id = FindTargetStorageLevel(level_name);
 
-  if (compression_directive.exists("data-spaces")) {
-	auto data_space_list = compression_directive.lookup("data-spaces");
-	assert(data_space_list.isList());
-	PerStorageLevelCompressionInfo per_storage_level_compression_info;
+  if (compression_directive.exists("data-spaces"))
+  {
+    auto data_space_list = compression_directive.lookup("data-spaces");
+    assert(data_space_list.isList());
+    PerStorageLevelCompressionInfo per_storage_level_compression_info;
 
-	// check if there is any compressed data types
-	for (unsigned pv = 0; pv < unsigned(data_space_list.getLength()); pv++) {
-	  std::string data_space_name;
-	  data_space_list[pv].lookupValue("name", data_space_name);
-	  auto data_space_id = problem::GetShape()->DataSpaceNameToID.at(data_space_name);
+    // check if there is any compressed data types
+    for (unsigned pv = 0; pv < unsigned(data_space_list.getLength()); pv++)
+    {
+      std::string data_space_name;
+      data_space_list[pv].lookupValue("name", data_space_name);
+      auto data_space_id = problem::GetShape()->DataSpaceNameToID.at(data_space_name);
 
-	  // for compressed data or uncompressed data with special metadata
-	  // for each rank: format and dimensions must be specified
-	  PerDataSpaceCompressionInfo per_data_space_compression_info;
-	  if (!data_space_list[pv].exists("ranks")) {
-		std::cout << "keyword \"ranks\" missing in compression specification: " << level_name << std::endl;
-		exit(1);
-	  }
+      // for compressed data or uncompressed data with special metadata
+      // for each rank: format and dimensions must be specified
+      PerDataSpaceCompressionInfo per_data_space_compression_info;
+      if (!data_space_list[pv].exists("ranks"))
+      {
+        std::cout << "keyword \"ranks\" missing in compression specification: " << level_name << std::endl;
+        exit(1);
+      }
 
-	  // parse accordingly
-	  auto rank_spec_list = data_space_list[pv].lookup("ranks");
-	  for (auto r_id = 0; r_id < rank_spec_list.getLength(); r_id++) {
-		ParsePerRankSpec(rank_spec_list[r_id], per_data_space_compression_info);
-	  }
+      // parse accordingly
+      auto rank_spec_list = data_space_list[pv].lookup("ranks");
+      for (auto r_id = 0; r_id < rank_spec_list.getLength(); r_id++)
+      {
+        ParsePerRankSpec(rank_spec_list[r_id], per_data_space_compression_info);
+      }
 
-	  // sanity check: all the info are pushed correctly
-	  assert(per_data_space_compression_info.rank_formats.size() ==
-		  per_data_space_compression_info.rank_compressed.size() &&
-		  per_data_space_compression_info.rank_formats.size() ==
-			  per_data_space_compression_info.metadata_models.size());
+      // sanity check: all the info are pushed correctly
+      assert(per_data_space_compression_info.rank_formats.size() ==
+        per_data_space_compression_info.rank_compressed.size() &&
+        per_data_space_compression_info.rank_formats.size() ==
+          per_data_space_compression_info.metadata_models.size());
 
-	  //check for compression rate, default to fully compressed if the data is supposed to be compressed (according to metadata format)
-	  if (per_data_space_compression_info.tensor_compressed) {
-		if (data_space_list[pv].exists("compression_rate")) {
-		  data_space_list[pv].lookupValue("compression_rate", per_data_space_compression_info.compression_rate);
-		}
-	  } else { // uncompressed
-		if (data_space_list[pv].exists("compression_rate")) {
-		  std::cout << " cannot have compression rate for uncompressed data" << std::endl;
-		  exit(1);
-		}
-	  }
-	  // update masks
-	  compression_info.has_metadata_masks[storage_level_id][data_space_id] =
-		  per_data_space_compression_info.HasMetaData();
-	  compression_info.compressed_masks[storage_level_id][data_space_id] =
-		  per_data_space_compression_info.tensor_compressed;
+      //check for compression rate, default to fully compressed if the data is supposed to be compressed (according to metadata format)
+      if (per_data_space_compression_info.tensor_compressed)
+      {
+        if (data_space_list[pv].exists("compression_rate"))
+        {
+          data_space_list[pv].lookupValue("compression_rate", per_data_space_compression_info.compression_rate);
+        }
+      } else
+      { // uncompressed
+        if (data_space_list[pv].exists("compression_rate"))
+        {
+          std::cout << " cannot have compression rate for uncompressed data" << std::endl;
+          exit(1);
+        }
+      }
+      // update masks
+      compression_info.has_metadata_masks[storage_level_id][data_space_id] =
+        per_data_space_compression_info.HasMetaData();
+      compression_info.compressed_masks[storage_level_id][data_space_id] =
+        per_data_space_compression_info.tensor_compressed;
 
-	  per_storage_level_compression_info[data_space_id] = per_data_space_compression_info;
-	}
-	compression_info.per_level_info_map[storage_level_id] = per_storage_level_compression_info;
+      per_storage_level_compression_info[data_space_id] = per_data_space_compression_info;
+    }
+    compression_info.per_level_info_map[storage_level_id] = per_storage_level_compression_info;
   } // if there is compression specification in terms of data spaces
 }
 
+void ParseComputeOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info,
+                                 const config::CompoundConfigNode& directive)
+{
+  std::string level_name;
+  assert(directive.exists("name"));
+  directive.lookupValue("name", level_name);
+  assert(arch_props_.Specs().topology.GetArithmeticLevel()->name.Get() == level_name);
+  ComputeOptimizationInfo compute_optimization_info = {};
+  auto compute_opt_list = directive.lookup("compute_optimization");
+  for (int i = 0; i < compute_opt_list.getLength(); i++)
+  {
+    if (compute_opt_list[i].exists("zero_gating"))
+    {
+      bool b;
+      compute_opt_list[i].lookupValue("zero_gating", b);
+      compute_optimization_info["zero_gating"] = b;
+    }
+    else
+    {
+      std::cout << "ERROR: compute optimization not recognized..." << std::endl;
+      assert(false);
+    }
+  }
+  sparse_optimization_info.compute_optimization_info = compute_optimization_info;
+}
 
-// parse for action gating info (storage and compute) of one directive
+
+// parse for storage action optimization of one directive
 void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_info,
-	                             const config::CompoundConfigNode directive,
-								 const std::string optimization_type) {
+                                 const config::CompoundConfigNode& directive)
+{
 
   std::string level_name;
   assert(directive.exists("name"));
   directive.lookupValue("name", level_name);
+  auto optimization_list = directive.lookup("action-optimization");
 
-  config::CompoundConfigNode action_optimization_directive;
-  if (optimization_type == "action-gating") {
-	action_optimization_directive = directive.lookup("action-gating");
-  } else {
-	action_optimization_directive = directive.lookup("action-skipping");
+  std::string optimization_type;
+  PerStorageActionOptimization per_storage_action_optimization_skipping = {};
+  PerStorageActionOptimization per_storage_action_optimization_gating = {};
+  for (int id = 0; id < optimization_list.getLength(); id++)
+  {
+    optimization_list[id].lookupValue("type", optimization_type);
+
+    auto options_list = optimization_list[id].lookup("options");
+    GroupOfActionOptimization group = {};
+    for (int choice = 0; choice < options_list.getLength(); choice++)
+    {
+      ActionOptimization opt;
+      if (options_list[choice].exists("target") && options_list[choice].exists("condition_on"))
+      {
+        // optimize conditioned on type
+        std::string target_dspace, condition_dspace;
+        options_list[choice].lookupValue("target", target_dspace);
+        options_list[choice].lookupValue("condition_on", condition_dspace);
+        auto target_dspace_id = problem::GetShape()->DataSpaceNameToID.at(target_dspace);
+        auto condition_dspace_id = problem::GetShape()->DataSpaceNameToID.at(condition_dspace);
+
+        opt.type = CONDITIONED_ON;
+        opt.cond_on_opt = {target_dspace_id, condition_dspace_id};
+      }
+      else
+      {
+        std::cout << "ERROR: " << level_name << ": storage action optimization choice not recognized..." << std::endl;
+        assert(false);
+      }
+      group.push_back(opt);
+    } // end of group
+
+    if (optimization_type == "gating")
+    {
+      per_storage_action_optimization_gating.push_back(group);
+    } else if (optimization_type == "skipping")
+    {
+      per_storage_action_optimization_skipping.push_back(group);
+    } else
+    {
+      std::cout << "ERROR: " << level_name << ": storage action optimization type not recognized..." << std::endl;
+      assert(false);
+    } // end of type
   }
 
-  if (arch_props_.Specs().topology.GetArithmeticLevel()->name.Get() == level_name) {
-	// compute level gating optimization
-	auto action_list = action_optimization_directive.lookup("actions");
-	assert(action_list.isList());
-	PerDataSpaceActionOptimizationInfo compute_optimization_info;
+  unsigned cur_storage_level_id = FindTargetStorageLevel(level_name);
+  sparse_optimization_info.action_skipping_info[cur_storage_level_id] = per_storage_action_optimization_skipping;
+  sparse_optimization_info.action_gating_info[cur_storage_level_id] = per_storage_action_optimization_gating;
 
-	for (int action_id = 0; action_id < action_list.getLength(); action_id++) {
 
-	  std::string action_name;
-	  action_list[action_id].lookupValue("name", action_name);
-	  assert(action_name == "compute"); // we only recognize compute for MACs
+ //  config::CompoundConfigNode action_optimization_directive;
+ //  if (optimization_type == "action-gating")
+ //  {
+ //    action_optimization_directive = directive.lookup("action-gating");
+ //  } else
+ //  {
+ //    action_optimization_directive = directive.lookup("action-skipping");
+ //  }
 
-	  Condition condition;
-	  if (action_list[action_id].exists("type")) { action_list[action_id].lookupValue("type", condition.type); }
-	  else { condition.type = "OR"; }
-	  auto conditions_list = action_list[action_id].lookup("conditions");
-	  for (unsigned pv_storage_pair_id = 0; pv_storage_pair_id < unsigned(conditions_list.getLength());
-		   pv_storage_pair_id++) {
-		// go through the dataspace-storage pair that the action should gate/skip on
-		std::string pv_name;
-		std::string storage_name;
-		unsigned storage_id;
-		if (!conditions_list[pv_storage_pair_id].lookupValue("data-space", pv_name)) exit(1);
-		if (!conditions_list[pv_storage_pair_id].lookupValue("storage", storage_name)) exit(1);
-		storage_id = FindTargetStorageLevel(storage_name);
-		condition.conditions[pv_name] = storage_id;
-	  }
-	  compute_optimization_info[action_name] = condition;
-	}
-	if (optimization_type == "action-gating") {
-	  sparse_optimization_info.action_gating_info.compute_info = compute_optimization_info;
-	} else {
-	  sparse_optimization_info.action_skipping_info.compute_info = compute_optimization_info;
-	}
+ //  if (arch_props_.Specs().topology.GetArithmeticLevel()->name.Get() == level_name)
+ //  {
+ //    // compute level gating optimization
+ //    auto action_list = action_optimization_directive.lookup("actions");
+ //    assert(action_list.isList());
+ //    PerDataSpaceActionOptimizationInfo compute_optimization_info;
 
-  } else {
-	// storage level action optimization (gating/skipping)
-	unsigned cur_storage_level_id = FindTargetStorageLevel(level_name);
+ //    for (int action_id = 0; action_id < action_list.getLength(); action_id++)
+ //    {
 
-	// parse for action optimization (gating/skipping)
-	if (action_optimization_directive.exists("data-spaces")) {
+ //      std::string action_name;
+ //      action_list[action_id].lookupValue("name", action_name);
+ //      assert(action_name == "compute"); // we only recognize compute for MACs
 
-	  PerStorageLevelActionOptimizationInfo per_storage_level_optimization_info;
-	  auto data_space_list = action_optimization_directive.lookup("data-spaces");
-	  assert(data_space_list.isList());
+ //      Condition condition;
+ //      if (action_list[action_id].exists("type"))
+ //      { action_list[action_id].lookupValue("type", condition.type); }
+ //      else
+ //      { condition.type = "OR"; }
+ //      auto conditions_list = action_list[action_id].lookup("conditions");
+ //      for (unsigned pv_storage_pair_id = 0; pv_storage_pair_id < unsigned(conditions_list.getLength());
+ //           pv_storage_pair_id++)
+ //      {
+ //        // go through the dataspace-storage pair that the action should gate/skip on
+ //        std::string pv_name;
+ //        std::string storage_name;
+ //        unsigned storage_id;
+ //        if (!conditions_list[pv_storage_pair_id].lookupValue("data-space", pv_name)) exit(1);
+ //        if (!conditions_list[pv_storage_pair_id].lookupValue("storage", storage_name)) exit(1);
+ //        storage_id = FindTargetStorageLevel(storage_name);
+ //        condition.conditions[pv_name] = storage_id;
+ //      }
+ //      compute_optimization_info[action_name] = condition;
+ //    }
+ //    if (optimization_type == "action-gating")
+ //    {
+ //      sparse_optimization_info.action_gating_info.compute_info = compute_optimization_info;
+ //    } else
+ //    {
+ //      sparse_optimization_info.action_skipping_info.compute_info = compute_optimization_info;
+ //    }
 
-	  for (unsigned pv = 0; pv < unsigned(data_space_list.getLength()); pv++) {
-		// go through the data spaces that have action optimizations specified
-		if (data_space_list[pv].exists("actions")) {
-		  PerDataSpaceActionOptimizationInfo data_space_optimization_info;
-		  std::string cur_data_space_name;
-		  assert(data_space_list[pv].lookupValue("name", cur_data_space_name));
+ //  } else
+ //  {
+ //    // storage level action optimization (gating/skipping)
+ //    unsigned cur_storage_level_id = FindTargetStorageLevel(level_name);
 
-		  auto action_list = data_space_list[pv].lookup("actions");
-		  assert(action_list.isList());
+ //    // parse for action optimization (gating/skipping)
+ //    if (action_optimization_directive.exists("data-spaces"))
+ //    {
 
-		  for (unsigned action_id = 0; action_id < unsigned(action_list.getLength()); action_id++) {
-			// go through the  action optimizations specified for that specific data type
-			std::string action_name;
-			action_list[action_id].lookupValue("name", action_name);
+ //      PerStorageLevelActionOptimizationInfo per_storage_level_optimization_info;
+ //      auto data_space_list = action_optimization_directive.lookup("data-spaces");
+ //      assert(data_space_list.isList());
 
-			Condition condition;
-			if (action_list[action_id].exists("type")) { action_list[action_id].lookupValue("type", condition.type); }
-			else { condition.type = "OR"; }
-			auto conditions_list = action_list[action_id].lookup("conditions");
-			for (unsigned pv_storage_pair_id = 0; pv_storage_pair_id < unsigned(conditions_list.getLength());
-				 pv_storage_pair_id++) {
-			  // go through the dataspace-storage pair that the action should gate/skip on
-			  std::string pv_name;
-			  std::string storage_name;
-			  unsigned storage_id;
-			  if (!conditions_list[pv_storage_pair_id].lookupValue("data-space", pv_name)) {
-				std::cout << " missing \"data-space\" spec for skipping/gating optimization specification" << std::endl;
-				exit(1);
-			  }
-			  if (!conditions_list[pv_storage_pair_id].lookupValue("storage", storage_name)) {
-				std::cout << "  missing \"storage\" spec for skipping/gating optimization specification" << std::endl;
-				exit(1);
-			  }
-			  storage_id = FindTargetStorageLevel(storage_name);
-			  condition.conditions[pv_name] = storage_id;
+ //      for (unsigned pv = 0; pv < unsigned(data_space_list.getLength()); pv++)
+ //      {
+ //        // go through the data spaces that have action optimizations specified
+ //        if (data_space_list[pv].exists("actions"))
+ //        {
+ //          PerDataSpaceActionOptimizationInfo data_space_optimization_info;
+ //          std::string cur_data_space_name;
+ //          assert(data_space_list[pv].lookupValue("name", cur_data_space_name));
 
-			}
-			data_space_optimization_info[action_name] = condition;
-		  } // go through action list
-		  per_storage_level_optimization_info[cur_data_space_name] = data_space_optimization_info;
-		} // if exists action optimizations
-	  } // go through data-space list
-	  if (optimization_type == "action-gating") {
-		sparse_optimization_info.action_gating_info.storage_info[cur_storage_level_id] =
-			                                                              per_storage_level_optimization_info;
-	  } else { // action-skipping
-		sparse_optimization_info.action_skipping_info.storage_info[cur_storage_level_id] =
-			                                                                per_storage_level_optimization_info;
-	  }
-	}
-  }
+ //          auto action_list = data_space_list[pv].lookup("actions");
+ //          assert(action_list.isList());
+
+ //          for (unsigned action_id = 0; action_id < unsigned(action_list.getLength()); action_id++)
+ //          {
+ //            // go through the  action optimizations specified for that specific data type
+ //            std::string action_name;
+ //            action_list[action_id].lookupValue("name", action_name);
+
+ //            Condition condition;
+ //            if (action_list[action_id].exists("type"))
+ //            { action_list[action_id].lookupValue("type", condition.type); }
+ //            else
+ //            { condition.type = "OR"; }
+ //            auto conditions_list = action_list[action_id].lookup("conditions");
+ //            for (unsigned pv_storage_pair_id = 0; pv_storage_pair_id < unsigned(conditions_list.getLength());
+ //                 pv_storage_pair_id++)
+ //            {
+ //              // go through the dataspace-storage pair that the action should gate/skip on
+ //              std::string pv_name;
+ //              std::string storage_name;
+ //              unsigned storage_id;
+ //              if (!conditions_list[pv_storage_pair_id].lookupValue("data-space", pv_name))
+ //              {
+ //                std::cout << " missing \"data-space\" spec for skipping/gating optimization specification" << std::endl;
+ //                exit(1);
+ //              }
+ //              if (!conditions_list[pv_storage_pair_id].lookupValue("storage", storage_name))
+ //              {
+ //                std::cout << "  missing \"storage\" spec for skipping/gating optimization specification" << std::endl;
+ //                exit(1);
+ //              }
+ //              storage_id = FindTargetStorageLevel(storage_name);
+ //              condition.conditions[pv_name] = storage_id;
+
+ //            }
+ //            data_space_optimization_info[action_name] = condition;
+ //          } // go through action list
+ //          per_storage_level_optimization_info[cur_data_space_name] = data_space_optimization_info;
+ //        } // if exists action optimizations
+ //      } // go through data-space list
+ //      if (optimization_type == "action-gating")
+ //      {
+ //        sparse_optimization_info.action_gating_info.storage_info[cur_storage_level_id] =
+ //          per_storage_level_optimization_info;
+ //      } else
+ //      { // action-skipping
+ //        sparse_optimization_info.action_skipping_info.storage_info[cur_storage_level_id] =
+ //          per_storage_level_optimization_info;
+ //      }
+ //    }
+ //  }
 }
 
 //
 // FindTargetTilingLevel()
 //
-unsigned FindTargetStorageLevel(std::string storage_level_name) {
+unsigned FindTargetStorageLevel(std::string storage_level_name)
+{
 
   auto num_storage_levels = arch_props_.StorageLevels();
 
@@ -380,14 +507,16 @@ unsigned FindTargetStorageLevel(std::string storage_level_name) {
 
   unsigned storage_level_id;
   // Find this name within the storage hierarchy in the arch specs.
-  for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++) {
-	if (arch_props_.Specs().topology.GetStorageLevel(storage_level_id)->level_name == storage_level_name)
-	  break;
+  for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++)
+  {
+    if (arch_props_.Specs().topology.GetStorageLevel(storage_level_id)->level_name == storage_level_name)
+      break;
   }
 
-  if (storage_level_id == num_storage_levels) {
-	std::cerr << "ERROR: target storage level not found: " << storage_level_name << std::endl;
-	exit(1);
+  if (storage_level_id == num_storage_levels)
+  {
+    std::cerr << "ERROR: target storage level not found: " << storage_level_name << std::endl;
+    exit(1);
   }
 
   return storage_level_id;

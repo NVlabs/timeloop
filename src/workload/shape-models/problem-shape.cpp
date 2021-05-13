@@ -173,19 +173,53 @@ void Shape::Parse(config::CompoundConfigNode shape)
   }
 }
 
-
-std::set<Shape::DimensionID> Shape::GetContractedDimensions(const std::vector<Shape::DataSpaceID> dataspace_pair) const
+std::set <Shape::DimensionID> Shape::GetFullyContractedDimensions() const
 {
-  std::set<DimensionID> contracted_dims;
+  // criteria for contracted dimensions: in read dataspace but not in read-write dataspace
+
+  std::set <DimensionID> contracted_dims;
+  DataSpaceID pv;
+
+  // find the read write dataspace
+  for (pv = 0; pv < NumDataSpaces; pv++)
+  {
+    if (IsReadWriteDataSpace.at(pv))
+    {
+      break;
+    }
+  }
+  auto& dims_in_rw_dspace = DataSpaceIDToDimensionIDVector[pv];
+
+  for (DataSpaceID pv = 0; pv < NumDataSpaces; pv++)
+  {
+    if (!IsReadWriteDataSpace.at(pv))
+    {
+      auto& dims = DataSpaceIDToDimensionIDVector.at(pv);
+      for (auto iter = dims.begin(); iter != dims.end(); iter++)
+      {
+        if (dims_in_rw_dspace.find(*iter) == dims_in_rw_dspace.end())
+        {
+          contracted_dims.insert(*iter);
+        }
+      }
+    }
+  }
+
+  return contracted_dims;
+}
+
+std::set <Shape::DimensionID> Shape::GetCoIteratedDimensions(const std::vector <Shape::DataSpaceID> dataspace_pair) const
+{
+  std::set <DimensionID> contracted_dims;
   auto dataspace_a_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[0]];
   auto dataspae_b_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[1]];
 
   for (auto iter = dataspace_a_dims.begin(); iter != dataspace_a_dims.end(); iter++)
   {
     if (dataspae_b_dims.find(*iter) != dataspae_b_dims.end())
-	{
+    {
       contracted_dims.insert(*iter);
-	}
+    }
   }
 
   return contracted_dims;

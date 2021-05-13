@@ -49,14 +49,17 @@ namespace model
   // once the tile shape exceeds vec_width * threshold, no statistical modeling is needed for number of vector accesses
   // in that case, number of vector accesses = ceil(number of scalar access / block size)
 
-  //                                                                                           threshold ratio for densities
-  //                                                                            vec_width 0.1, 0.2, 0.3, ...,                1.0)
-  static std::map<unsigned, std::vector<double>>  VectorWidthCoefficientTable =  { { 2, { 251, 125, 84, 63, 51, 42, 36, 32, 28, 1}},
-                                                                                   { 4, { 375, 188, 125, 94, 75, 63, 54, 47, 42, 1}},
-                                                                                   { 8, { 438, 219, 146, 110, 88, 73, 63, 55, 49, 1}},
-                                                                                   { 16, { 469, 235, 157, 118, 94, 79, 67, 59, 52, 1}},
-                                                                                   { 32, { 485, 243, 162, 122, 97, 81, 70, 61, 52, 1}}
-                                                                                  };
+  static std::map<unsigned, std::vector<double>>  VectorWidthCoefficientTable
+
+    //                 threshold ratio for densities
+    //vec_width    0.1, 0.2, 0.3, ...,                1.0)
+
+    = {{2,        {251, 125, 84, 63, 51, 42, 36, 32, 28, 1}},
+       {4,        {375, 188, 125, 94, 75, 63, 54, 47, 42, 1}},
+       {8,        {438, 219, 146, 110, 88, 73, 63, 55, 49, 1}},
+       {16,       {469, 235, 157, 118, 94, 79, 67, 59, 52, 1}},
+       {32,       {485, 243, 162, 122, 97, 81, 70, 61, 52, 1}}
+     };
 
 //--------------------------------------------//
 //                 BufferLevel                //

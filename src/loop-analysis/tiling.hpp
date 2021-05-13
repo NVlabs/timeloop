@@ -34,7 +34,6 @@
 #include "workload/shape-models/problem-shape.hpp"
 #include "workload/util/per-data-space.hpp"
 #include "workload/workload.hpp"
-#include "operation-type.hpp"
 #include "nest-analysis-tile-info.hpp"
 #include "tiling-tile-info.hpp"
 #include "model/sparse-optimization-info.hpp"
@@ -58,7 +57,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels);
 
 
-NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles, sparse::SparseOptimizationInfo* sparse_optimizations);
+NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles);
 NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks);
 
 }  // namespace tiling

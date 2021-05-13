@@ -84,6 +84,7 @@ namespace problem
      tiling::CoordinateSpaceTileInfo CurRankCoordTile() const {return cur_rank_coord_tile;}
      tiling::CoordinateSpaceTileInfo NextRankCoordTile() const {return next_rank_coord_tile;}
      std::shared_ptr<problem::DensityDistribution> TileDensityPtr() const {return tile_density_ptr;}
+     std::shared_ptr<problem::DensityDistribution> NextRankTileDensityPtr() const {return tile_density_ptr;}
      std::uint64_t CurRankFiberShape() const {return cur_rank_fiber_shape;}
 
    };
@@ -93,12 +94,23 @@ namespace problem
   {
     double metadata_units;
     double payload_units;
-    // if any of the datawidth is -1, it means unspecified by needed, will thus use the hardware attribute later
+    // if any of the datawidth is -1, it means unspecified but needed, will thus use the hardware attribute later
     int metadata_width;  // user-specified metadata payload width ( e.g., runlength width for RLE)
     int payload_width;   // user-specified payload width (memory pointers)
 
     // Setters
-    void SetPayloadUnits(const std::uint64_t units) {payload_units = units;}
+    void SetEmpty()
+    {
+      metadata_units = 0;
+      payload_units = 0;
+      metadata_width = -1;
+      payload_width = -1;
+    }
+
+    void SetPayloadUnits(const std::uint64_t units)
+    {
+      payload_units = units;
+    }
 
     // API
     double MetaDataUnits() const {return metadata_units;}
@@ -107,6 +119,17 @@ namespace problem
     int PayloadWidth() const {return payload_width;}
     double TotalMetDataAndPayloadUnits() const {return metadata_units + payload_units;}
 
+    void Scale( double s)
+    {
+      metadata_units *= s;
+      payload_units *= s;
+    }
+
+    void Add ( PerRankMetaDataTileOccupancy m)
+    {
+      metadata_units += m.MetaDataUnits();
+      payload_units += m.PayloadUnits();
+    }
 
     friend class boost::serialization::access;
 

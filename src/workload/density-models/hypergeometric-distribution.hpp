@@ -92,9 +92,13 @@ private:
     // private functions
   double GetProbability(const std::uint64_t tile_shape,
                         const std::uint64_t nnz_vals) const;
-  double GetTileDensityByConfidence(const std::uint64_t tile_shape,
-                                    const double confidence,
-                                    const uint64_t allocated_capacity = 0) const;
+
+  double GetProbability(const std::uint64_t tile_shape, const std::uint64_t nnz_vals,
+                        const std::uint64_t constraint_tensor_shape,
+                        const std::uint64_t constraint_tensor_occupancy) const;
+  // double GetTileDensityByConfidence(const std::uint64_t tile_shape,
+  //                                   const double confidence,
+  //                                   const uint64_t allocated_capacity = 0) const;
   std::uint64_t GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
                                              const double confidence) const;
   double GetTileExpectedDensity(const uint64_t tile_shape) const;
@@ -134,10 +138,11 @@ public:
                                                  const double confidence) const;
   std::uint64_t GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
                                                      const double confidence) const;
-  double GetTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
+  double GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
                                     const double confidence = 1.0) const;
   double GetTileOccupancyProbability (const tiling::CoordinateSpaceTileInfo& tile,
                                         const std::uint64_t occupancy) const;
+  double GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) const;
 
 }; // class HypergeometricDistribution
 

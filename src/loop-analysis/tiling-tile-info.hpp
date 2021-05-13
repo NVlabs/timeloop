@@ -78,6 +78,8 @@ struct DataMovementInfo
   std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format, none for uncompressed
   std::size_t size;
   std::size_t shape;
+  double expected_data_occupancy;
+  MetaDataTileOccupancy expected_metadata_occupancy;
   problem::Shape::DataSpaceID dataspace_id ; // which dataspace does this tile belong to
   std::size_t partition_size;
   bool distributed_multicast;
@@ -144,6 +146,8 @@ struct DataMovementInfo
   {
     size = 0;
     shape = 0;
+    expected_data_occupancy = std::numeric_limits<unsigned>::max();
+    expected_metadata_occupancy = {};
     partition_size = 0;
     accesses.resize(0);
     scatter_factors.resize(0);
@@ -163,7 +167,7 @@ struct DataMovementInfo
     child_level = std::numeric_limits<unsigned>::max();
     parent_level_ptr = NULL;
     child_level_ptr = NULL;
-	child_level_metadata_occupancy_ratio = 0;
+    child_level_metadata_occupancy_ratio = 0;
     fine_grained_accesses.clear();
     metadata_updates = 0;
     metadata_fills = 0;
@@ -171,9 +175,7 @@ struct DataMovementInfo
     metadata_subnest.clear();
     metadata_subtile_shape.clear();
     fiber_shape.clear();
-
     coord_space_info.Clear();
-    density_model_set = false;
     tile_density = NULL;
   }
 
@@ -212,7 +214,6 @@ struct DataMovementInfo
   void SetDensityModel(std::shared_ptr<problem::DensityDistribution> tile_density_ptr)
   {
     tile_density = tile_density_ptr;
-    density_model_set = true;
   }
 
   //void SetSubTileShapes(std::vector<std::size_t> subtile_shapes){subtile_shapes_ = subtile_shapes;}
@@ -242,24 +243,22 @@ struct DataMovementInfo
   std::shared_ptr<problem::DensityDistribution> GetTileDensityModel() const { return tile_density;}
 
 
+
+
   // More involved getter functions
   // get data tile occupancy
-  std::uint64_t GetDataTileOccupancyByConfidence(const double confidence = 1.0) const;
-  std::uint64_t GetExpectedDataTileOccupancy() const {return GetDataTileOccupancyByConfidence(0.5);}
+  std::uint64_t GetMaxDataTileOccupancyByConfidence(const double confidence = 1.0) const;
   double GetDataTileOccupancyProbability(const std::uint64_t occupancy) const;
   double GetChildLevelDataTileOccupancyProbability(const std::uint64_t occupancy) const;
 
   // get metadata tile occupancy
-  MetaDataTileOccupancy GetMetaDataTileOccupancyByConfidence(const double confidence = 1.0) const;
-  MetaDataTileOccupancy GetExpectedMetaDataTileOccupancy() const {return GetMetaDataTileOccupancyByConfidence(0.5);}
+  MetaDataTileOccupancy GetMetaDataTileOccupancyGivenDataTile(const CoordinateSpaceTileInfo& cur_coord_tile) const;
+  MetaDataTileOccupancy GetMaxMetaDataTileOccupancyByConfidence(const double confidence = 1.0) const;
   double GetExpectedAggregatedMetaDataTileOccupancy() const;
 
   // density value related
-  double GetTileDensityByConfidence(const double confidence = 1.0) const;
-  double GetExpectedTileDensity() const {return GetTileDensityByConfidence(0.5);}
-
-  void ComputeExpectedDataAccesses(std::map<std::string, double>& avg_non_empty_intersection_probs);
-  void ComputeExpectedMetaDataAccesses(std::map<std::string, double>& avg_non_empty_intersection_probs);
+  double GetMaxTileDensityByConfidence(const double confidence = 1.0) const;
+  double GetExpectedTileDensity() const;
 };
 
 //
