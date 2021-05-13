@@ -405,9 +405,10 @@ void ComputePartitionSizes(std::vector<DataMovementInfo>& tile_nest)
   {
     if (tile_nest[cur].partition_fraction_denominator != 0)
     {
-    partition_size = (partition_size * tile_nest[cur].size) /
-      tile_nest[cur].partition_fraction_denominator;
+      partition_size = (partition_size * tile_nest[cur].size) /
+        tile_nest[cur].partition_fraction_denominator;
     }
+    //std::cout << "level: " << cur << " pfd: " << tile_nest[cur].partition_fraction_denominator << " tile nest: " << tile_nest[cur] << std::endl;
     tile_nest[cur].partition_size = partition_size;
   }  
 }
@@ -679,6 +680,16 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
           tiles[pv][innermost_loop].is_master_spatial ?
           tiles[pv][innermost_loop].size :
           inner_tile.size;
+
+        // if (pv == 0)
+        // {
+        //   std::cout << "cur_tiling_level = " << cur_tiling_level << std::endl;
+        //   std::cout << "inner_tile level = " << solution[pv].size()-1 << std::endl;
+        //   std::cout << "innermost loop is_master_spatial = " << tiles[pv][innermost_loop].is_master_spatial << std::endl;
+        //   std::cout << "innermost loop size = " << tiles[pv][innermost_loop].size << std::endl;
+        //   std::cout << "inner_tile size = " << inner_tile.size << std::endl;
+        //   std::cout << std::endl;
+        // }
       }
 
       solution[pv].push_back(collapsed_tile);
