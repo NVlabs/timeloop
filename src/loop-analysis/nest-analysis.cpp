@@ -316,6 +316,15 @@ void NestAnalysis::InitializeLiveState()
   }
 }
 
+void PrintStamp(const std::vector<unsigned>& v)
+{
+  std::cout << "/";
+  for (auto it = v.begin(); it != v.end(); it++)
+  {
+    std::cout << *it << "/";
+  }
+}
+
 void NestAnalysis::CollectWorkingSets()
 {
   // Collect the data we want to return. Transpose the max_size_ and accesses_
@@ -361,12 +370,31 @@ void NestAnalysis::CollectWorkingSets()
         // //     cur.live_state[REPR_ELEM_ID].data_densities[pv];
 
         // *** FIXME ***: aggregate stats.
+        // std::cout << "Condensing level = " << cur.level << " pv = " << pv << std::endl;
+
+        bool first = true;
         for (auto& state: cur.live_state)
         {
-          condensed_state.access_stats[pv] = state.second.access_stats[pv];
-          condensed_state.max_size[pv] = state.second.max_size[pv];
-          condensed_state.link_transfers[pv] = state.second.link_transfers[pv];
-          break;
+          if (first)
+          {
+            condensed_state.access_stats[pv] = state.second.access_stats[pv];
+            condensed_state.max_size[pv] = state.second.max_size[pv];
+            condensed_state.link_transfers[pv] = state.second.link_transfers[pv];
+            first = false;
+            // std::cout << "s";
+            // PrintStamp(state.first);
+            // std::cout << " store size " << condensed_state.max_size[pv] << std::endl;
+            break;
+          }
+          // else
+          // {
+          //   if (condensed_state.max_size[pv] != state.second.max_size[pv])
+          //   {
+          //     std::cout << "s";
+          //     PrintStamp(state.first);
+          //     std::cout << " mismatch size " << state.second.max_size[pv] << std::endl;
+          //   }
+          // }
         }
       }
 
@@ -404,6 +432,11 @@ void NestAnalysis::CollectWorkingSets()
         tile.is_master_spatial      = master_spatial_level_[cur.level];
         // tile.tile_density           = condensed_state.data_densities[pv];
         working_sets_[pv].push_back(tile);
+
+        // std::cout << "LEVEL " << cur.level << " pv " << pv
+        //           << " size "  << tile.size << " link_transfers "
+        //           << tile.link_transfers
+        //           << std::endl << std::endl;
       }
     } // if (valid_level)
   } // for (nest)
@@ -470,9 +503,6 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
     throw std::runtime_error("terminated");
   }
 
-  auto& cur_state = cur->live_state[space_stamp_];
-  // auto& cur_state = cur->live_state[spatial_id_];
-  
   int level = cur->level;
 
   // Before we begin -- if this is a storage tiling boundary, save the loop
@@ -503,6 +533,28 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
     space_stamp_.push_back(0);
     time_stamp_.push_back(0);
   }
+
+  // Get access to/allocate state. Be careful! We must do this after the
+  // space_stamp has been potentially advanced.
+
+  // std::cout << "CD level " << cur->level << " about to access live state with stamp: ";
+  // PrintStamp(AllButLast(space_stamp_));
+  // std::cout << std::endl;
+
+  auto& cur_state = cur->live_state[AllButLast(space_stamp_)];
+
+  // std::cout << "CD level " << cur->level << " potentially created live state entry. Full state:\n";
+  // for (auto& state: cur->live_state)
+  // {
+  //   std::cout << "  ";
+  //   PrintStamp(state.first);
+  //   std::cout << "->" << state.second.max_size.at(0) << std::endl;
+  // }
+
+  // auto& cur_state = cur->live_state[spatial_id_];
+  
+
+
 
   //
   // Step I: Compute Accesses.
@@ -564,6 +616,11 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
     std::transform(sizes.begin(), sizes.end(), cur_state.max_size.begin(),
                    cur_state.max_size.begin(),
                    [](std::size_t x, std::size_t y) { return std::max(x, y); });
+    // if (level == 1)
+    // {
+    //   std::cout << "sizes: " << sizes.at(0) << " " << sizes.at(1) << " " << sizes.at(2) << std::endl;
+    //   std::cout << "max sizes: " << cur_state.max_size.at(0) << " " << cur_state.max_size.at(1) << " " << cur_state.max_size.at(2) << std::endl;
+    // }
   }
 
   // Trace.
@@ -914,8 +971,21 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 
   // auto& cur_state = cur->live_state[spatial_id_];
   //  auto& accesses = nest_state_[cur->level].live_state[spatial_id_].accesses;
+
+  // std::cout << "CSWS level " << level << " about to access live state with space_stamp: ";
+  // PrintStamp(AllButLast(space_stamp_));
+  // std::cout << std::endl;
+
   auto& cur_state = nest_state_[cur->level].live_state[AllButLast(space_stamp_)];
   //auto& cur_state = nest_state_[cur->level].live_state[spatial_id_];
+
+  // std::cout << "CSWS level " << level << " potentially created live state entry. Full state:\n";
+  // for (auto& state: nest_state_[cur->level].live_state)
+  // {
+  //   std::cout << "  ";
+  //   PrintStamp(state.first);
+  //   std::cout << "->" << state.second.max_size.at(0) << std::endl;
+  // }
 
   problem::PerDataSpace<AccessStatMatrix> access_stats_without_link_transfers, access_stats_with_link_transfers;
   problem::PerDataSpace<AccessStatMatrix*> access_stats;
@@ -1455,7 +1525,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   // because we are only using it to find the current live state at the parent.
   // The child nodes (over which we will compute link transfers) are in
   // physical (i.e., skewed) space.
-  auto& cur_state = cur->live_state[AllButLast(space_stamp_)];
+  auto& cur_state = cur->live_state.at(AllButLast(space_stamp_));
   //auto& cur_state = cur->live_state[spatial_id_];
   auto& prev_spatial_deltas = cur_state.prev_spatial_deltas;
   //auto& prev_spatial_deltas = cur_state.prev_spatial_deltas[0];
