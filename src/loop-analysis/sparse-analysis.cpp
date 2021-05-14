@@ -918,6 +918,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState &state,
           // found the inner most storage for dspace pv
           operand_compressed[pv] = pv_data_movement_nest[l].compressed;
           operand_density_models[pv] = pv_data_movement_nest[l].tile_density;
+          break;
         }
       }
     }
@@ -944,16 +945,21 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState &state,
   {
     problem::Shape::DimensionID pv = iter->first;
     double pv_density = iter->second;
-    per_operand_states[pv][EXIST_NOT_ZERO] = pv_density;
+    per_operand_states[pv][EXIST_NOT_ZERO] = pv_density * (1 - state.c_operand_prop_impact_.at(pv));
     if (operand_compressed.at(pv))
     {
       per_operand_states[pv][EXIST_ZERO] = 0;
-      per_operand_states[pv][NOT_EXIST] = 1.0 - pv_density;
+      per_operand_states[pv][NOT_EXIST] = 1.0 - per_operand_states[pv][EXIST_NOT_ZERO];
     } else
     {
-      per_operand_states[pv][EXIST_ZERO] = 1.0 - pv_density;
-      per_operand_states[pv][NOT_EXIST] = 0;
+      per_operand_states[pv][EXIST_ZERO] =  (1 - pv_density) * (1 - state.c_operand_prop_impact_.at(pv));
+      per_operand_states[pv][NOT_EXIST] = pv_density * state.c_operand_prop_impact_.at(pv) + (1 - pv_density) * state.c_operand_prop_impact_.at(pv);
     }
+
+    // std::cout << "  EZ: " << per_operand_states[pv][EXIST_ZERO] << std::endl;
+    // std::cout << "  NE: " << per_operand_states[pv][NOT_EXIST] << std::endl;
+    // std::cout << "  ENZ: " << per_operand_states[pv][EXIST_NOT_ZERO] << std::endl;
+
   }
 
   // Extract the operand dataspace ids
@@ -977,21 +983,36 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState &state,
   double random_compute = 0.0, skipped_compute = 0.0, gated_compute = 0.0, tmp_delta = 0.0;
   double prob_a, prob_b;
 
+  // std::cout << "impact: (" << problem::GetShape()->DataSpaceIDToName.at(op_a_id)
+  // << "  " << problem::GetShape()->DataSpaceIDToName.at(op_b_id) << ") "
+  // << state.c_operand_prop_impact_.at(op_a_id) << "  "
+  // << state.c_operand_prop_impact_.at(op_b_id) << std::endl;
   // Analyze case by case
   // 1) A: ENZ, B: ENZ                  | random compute
   prob_a = per_operand_states.at(op_a_id).at(EXIST_NOT_ZERO);
   prob_b = per_operand_states.at(op_b_id).at(EXIST_NOT_ZERO);
   random_compute += prob_a * prob_b * total_compute;
-  // std::cout << "(1) skipped: " << skipped_compute << " gated: " << gated_compute << "  random: " << random_compute << std::endl;
+  //std::cout << "(1) skipped: " << skipped_compute << " gated: " << gated_compute << "  random: " << random_compute << std::endl;
 
   // 2) A: ENZ, B: EZ, 4) A: EZ, B: ENZ | random/gated compute (w/o vs. w/ zero operand detection)
   prob_a = per_operand_states.at(op_a_id).at(EXIST_NOT_ZERO);
   prob_b = per_operand_states.at(op_b_id).at(EXIST_ZERO);
+
   tmp_delta = total_compute * prob_a * prob_b;
+
+  if (compute_recognize_zero_operands)
+  {
+    gated_compute += tmp_delta;
+  }
+  else
+  {
+    random_compute += tmp_delta;
+  }
 
   prob_a = per_operand_states.at(op_a_id).at(EXIST_ZERO);
   prob_b = per_operand_states.at(op_b_id).at(EXIST_NOT_ZERO);
-  tmp_delta += total_compute * prob_a * prob_b;
+
+  tmp_delta = total_compute * prob_a * prob_b;
 
   if (compute_recognize_zero_operands)
   {
@@ -1011,8 +1032,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState &state,
   tmp_delta = prob_a * prob_b * total_compute;
   if (state.c_intersection_dims_.size() > 0)
   {
-    skipped_compute += tmp_delta * state.c_operand_prop_impact_.at(op_a_id);
-    gated_compute += tmp_delta * (1 - state.c_operand_prop_impact_.at(op_a_id));
+    gated_compute += tmp_delta;
   }
   else
   {
@@ -1024,8 +1044,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState &state,
   tmp_delta = prob_a * prob_b * total_compute;
   if (state.c_intersection_dims_.size() > 0)
   {
-    skipped_compute += tmp_delta * state.c_operand_prop_impact_.at(op_b_id);
-    gated_compute += tmp_delta * (1 - state.c_operand_prop_impact_.at(op_b_id));
+    gated_compute += tmp_delta;
   }
   else
   {
@@ -1059,8 +1078,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState &state,
   tmp_delta = prob_a * prob_b * total_compute;
   if (state.c_intersection_dims_.size() > 0)
   {
-    skipped_compute += tmp_delta * state.c_operand_prop_impact_.at(op_a_id);
-    gated_compute += tmp_delta * (1 - state.c_operand_prop_impact_.at(op_a_id));
+    gated_compute += tmp_delta;
   }
   else
   {
@@ -1072,8 +1090,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState &state,
   tmp_delta = prob_a * prob_b * total_compute;
   if (state.c_intersection_dims_.size() > 0)
   {
-    skipped_compute += tmp_delta * state.c_operand_prop_impact_.at(op_b_id);
-    gated_compute += tmp_delta * (1 - state.c_operand_prop_impact_.at(op_b_id));
+    gated_compute += tmp_delta;
   }
   else
   {
