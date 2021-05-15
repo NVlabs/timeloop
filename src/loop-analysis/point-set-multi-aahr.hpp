@@ -177,30 +177,21 @@ class MultiAAHR
     return *this;
   }
 
-  void Subtract(const MultiAAHR& s)
+  void Subtract(const MultiAAHR& other)
   {
-    // If s is empty the answer is *this.
-    if (s.aahrs_.size() == 0)
+    // For each AAHR in other, subtract that AAHR from each one of our AAHRs
+    // and place all the splinters in a new vector. Swap that vector with our
+    // AAHR vector and continue until we run out of other's AAHRs.
+    std::vector<AxisAlignedHyperRectangle> deltas;
+    for (auto& b: other.aahrs_)
     {
-      // Do nothing.
-    }
-    else
-    {
-      // Cartesian product. Because we guarantee that the AAHRs in each
-      // set are disjoint, we an progressively cut smaller sections
-      // out of each set. However, not doing so will produce a functionally
-      // equivalent result. It's not clear which approach is more efficient.
-      std::vector<AxisAlignedHyperRectangle> deltas;
-
       for (auto& a: aahrs_)
       {
-        for (auto& b: s.aahrs_)
-        {
-          auto diff = a.MultiSubtract(b);
-          deltas.insert(deltas.end(), diff.begin(), diff.end());
-        }
+        auto diff = a.MultiSubtract(b);
+        deltas.insert(deltas.end(), diff.begin(), diff.end());
       }
       std::swap(deltas, aahrs_);
+      deltas.clear();
     }
   }
 
@@ -215,43 +206,11 @@ class MultiAAHR
     return *this;
   }
 
-  MultiAAHR operator - (const MultiAAHR& s)
+  MultiAAHR operator - (const MultiAAHR& other)
   {
-    // FIXME: implement using Subtract.
-
-    MultiAAHR retval(order_);
-    
-    // assert(this->aahrs_.size() == 1);
-
-    // if (s.aahrs_.size() > 1)
-    // {
-    //   std::cout << "more than 1 aahrs: " << s.aahrs_.size() << std::endl;
-    //   s.Print();
-    //   assert(false);
-    // }
-
-    // If s is empty the answer is *this.
-    if (s.aahrs_.size() == 0)
-    {
-      retval = *this;
-    }
-    else
-    {
-      // Cartesian product. Because we guarantee that the AAHRs in each
-      // set are disjoint, we an progressively cut smaller sections
-      // out of each set. However, not doing so will produce a functionally
-      // equivalent result. It's not clear which approach is more efficient.
-      for (auto& a: aahrs_)
-      {
-        for (auto& b: s.aahrs_)
-        {
-          auto diff = a.MultiSubtract(b);
-          retval.aahrs_.insert(retval.aahrs_.end(), diff.begin(), diff.end());
-        }
-      }
-    }
-
-    return retval;
+    MultiAAHR delta(*this);
+    delta.Subtract(other);
+    return delta;
   }
 
   bool operator == (const MultiAAHR& s) const

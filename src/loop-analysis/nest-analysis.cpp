@@ -50,8 +50,8 @@ bool gEnableLinkTransfers = (getenv("TIMELOOP_DISABLE_LINK_TRANSFERS") == NULL);
 bool gEnableToroidalLinks =
   (getenv("TIMELOOP_ENABLE_TOROIDAL_LINKS") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TOROIDAL_LINKS"), "0") != 0);
-bool gExtrapolateUniformTemporal = true;
-bool gExtrapolateUniformSpatial = (getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION") == NULL);
+bool gExtrapolateUniformTemporal = (getenv("TIMELOOP_DISABLE_TEMPORAL_EXTRAPOLATION") == NULL);
+bool gExtrapolateUniformSpatial = false; // (getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION") == NULL);
 bool gEnableTracing =
   (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
@@ -385,32 +385,32 @@ void NestAnalysis::CollectWorkingSets()
         // (3) is probably the best approach but will require significant
         // reworking of the post-processing and microarchitecture code.
 
-        bool first = true;
-        for (auto& state: cur.live_state)
-        {
-          if (first)
-          {
-            condensed_state.access_stats[pv] = state.second.access_stats[pv];
-            condensed_state.max_size[pv] = state.second.max_size[pv];
-            condensed_state.link_transfers[pv] = state.second.link_transfers[pv];
-            first = false;
-            // std::cout << "s";
-            // PrintStamp(state.first);
-            // std::cout << " store size " << condensed_state.max_size[pv] << std::endl;
-            break;
-          }
-        }
-
+        // bool first = true;
         // for (auto& state: cur.live_state)
         // {
-        //   condensed_state.access_stats[pv].Accumulate(state.second.access_stats[pv]);
-        //   condensed_state.max_size[pv] += state.second.max_size[pv];
-        //   condensed_state.link_transfers[pv] += state.second.link_transfers[pv];
+        //   if (first)
+        //   {
+        //     condensed_state.access_stats[pv] = state.second.access_stats[pv];
+        //     condensed_state.max_size[pv] = state.second.max_size[pv];
+        //     condensed_state.link_transfers[pv] = state.second.link_transfers[pv];
+        //     first = false;
+        //     // std::cout << "s";
+        //     // PrintStamp(state.first);
+        //     // std::cout << " store size " << condensed_state.max_size[pv] << std::endl;
+        //     break;
+        //   }
         // }
-        // std::uint64_t num_sampled_instances = cur.live_state.size();
-        // condensed_state.access_stats[pv].Divide(num_sampled_instances);
-        // condensed_state.max_size[pv] /= num_sampled_instances;
-        // condensed_state.link_transfers[pv] /= num_sampled_instances;
+
+        for (auto& state: cur.live_state)
+        {
+          condensed_state.access_stats[pv].Accumulate(state.second.access_stats[pv]);
+          condensed_state.max_size[pv] += state.second.max_size[pv];
+          condensed_state.link_transfers[pv] += state.second.link_transfers[pv];
+        }
+        std::uint64_t num_sampled_instances = cur.live_state.size();
+        condensed_state.access_stats[pv].Divide(num_sampled_instances);
+        condensed_state.max_size[pv] /= num_sampled_instances;
+        condensed_state.link_transfers[pv] /= num_sampled_instances;
       }
 
       // Build the subnest corresponding to this level.

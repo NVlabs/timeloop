@@ -81,7 +81,6 @@ struct AccessStatMatrix
     ASSERT(divisor > 0);
     for (auto& x: stats)
     {
-      std::cout << "Divide " << x.second.accesses << "/" << divisor << std::endl;
       x.second.accesses /= divisor;
       x.second.hops /= divisor;
     }
