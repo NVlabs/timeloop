@@ -76,6 +76,17 @@ struct AccessStatMatrix
     }
   }
 
+  void Divide(const std::uint64_t divisor)
+  {
+    ASSERT(divisor > 0);
+    for (auto& x: stats)
+    {
+      std::cout << "Divide " << x.second.accesses << "/" << divisor << std::endl;
+      x.second.accesses /= divisor;
+      x.second.hops /= divisor;
+    }
+  }
+
   AccessStats& at(std::uint64_t multicast, std::uint64_t scatter)
   {
     return stats.at(std::make_pair(multicast, scatter));

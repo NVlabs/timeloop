@@ -369,8 +369,21 @@ void NestAnalysis::CollectWorkingSets()
         // // condensed_state.data_densities[pv] =
         // //     cur.live_state[REPR_ELEM_ID].data_densities[pv];
 
-        // *** FIXME ***: aggregate stats.
-        // std::cout << "Condensing level = " << cur.level << " pv = " << pv << std::endl;
+        // We have 3 choices:
+        // (1) Sample the stats from one spatial instance and report that as the
+        //     per-instance stats.
+        // (2) Aggregate stats from all spatial instances.
+        // (3) Report all stats to the microarchitecture model.
+        //
+        // Per-instance stats will be amplified back into all-instances stats
+        // later by the microarchitecture model. Each approach has a challenge.
+        // (1) is simply inaccurate. Quantization artifacts from (2) due to
+        // non-uniform stats across spatial instances will lead to under-
+        // counting of overall stats when the model multiplies the stats
+        // with the number of spatial instances. Using floating-point will
+        // address this, but will require changes to the post-processing code.
+        // (3) is probably the best approach but will require significant
+        // reworking of the post-processing and microarchitecture code.
 
         bool first = true;
         for (auto& state: cur.live_state)
@@ -386,16 +399,18 @@ void NestAnalysis::CollectWorkingSets()
             // std::cout << " store size " << condensed_state.max_size[pv] << std::endl;
             break;
           }
-          // else
-          // {
-          //   if (condensed_state.max_size[pv] != state.second.max_size[pv])
-          //   {
-          //     std::cout << "s";
-          //     PrintStamp(state.first);
-          //     std::cout << " mismatch size " << state.second.max_size[pv] << std::endl;
-          //   }
-          // }
         }
+
+        // for (auto& state: cur.live_state)
+        // {
+        //   condensed_state.access_stats[pv].Accumulate(state.second.access_stats[pv]);
+        //   condensed_state.max_size[pv] += state.second.max_size[pv];
+        //   condensed_state.link_transfers[pv] += state.second.link_transfers[pv];
+        // }
+        // std::uint64_t num_sampled_instances = cur.live_state.size();
+        // condensed_state.access_stats[pv].Divide(num_sampled_instances);
+        // condensed_state.max_size[pv] /= num_sampled_instances;
+        // condensed_state.link_transfers[pv] /= num_sampled_instances;
       }
 
       // Build the subnest corresponding to this level.
