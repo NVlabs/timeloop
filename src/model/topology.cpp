@@ -373,7 +373,7 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   out << "----------------------------" << std::endl;
 
   int level_id = 0;
-  for (auto & level : topology.levels_)
+  for (auto& level : topology.levels_)
   {
     out << "Level " << level_id << std::endl;
     out << "-------" << std::endl;
@@ -384,7 +384,7 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   out << "Networks" << std::endl;
   out << "--------" << std::endl;
 
-//#define PRINT_NETWORKS_IN_LEGACY_ORDER
+  //#define PRINT_NETWORKS_IN_LEGACY_ORDER
 #ifdef PRINT_NETWORKS_IN_LEGACY_ORDER
   for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
   {
@@ -396,13 +396,13 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   }
 #else
   int network_id = 0;
-  for (auto & network : topology.networks_)
+  for (auto& network : topology.networks_)
   {
     out << "Network " << network_id << std::endl;
     out << "---------" << std::endl;
     out << *(network.second);
     network_id++;
-  }  
+  }
 #endif
 
   if (topology.is_evaluated_)
@@ -419,7 +419,7 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   //
   out << "Summary Stats" << std::endl;
   out << "-------------" << std::endl;
-    
+
   if (topology.is_evaluated_)
   {
     out << "Utilization: " << topology.stats_.utilization << std::endl;
@@ -427,13 +427,10 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
     out << "Energy: " << topology.stats_.energy / 1000000 << " uJ" << std::endl;
   }
   out << "Area: " << topology.stats_.area / 1000000 << " mm^2" << std::endl;
-  out << std::endl;
+
 
   if (topology.is_evaluated_)
   {
-    auto num_maccs = topology.stats_.maccs;
-    out << "MACCs = " << num_maccs << std::endl;
-    out << "pJ/MACC" << std::endl;
 
     std::size_t max_name_length = 0;
     for (unsigned i = 0; i < topology.NumLevels(); i++)
@@ -449,37 +446,51 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
     std::string indent = "    ";
     int align = max_name_length + 1;
 
-    for (unsigned i = 0; i < topology.NumLevels(); i++)
+    std::vector<std::string> all_titles = {"Total Computes", "Effectual Computes"};
+    std::vector<std::uint64_t> all_num_computes = {topology.stats_.total_computes, topology.stats_.effectual_computes};
+    std::vector<std::string> all_units = {"pJ/Compute", "pJ/Effectual-Compute"};
+
+    for (unsigned i = 0; i < all_titles.size(); i++)
     {
-      auto level = topology.GetLevel(i);
-      out << indent << std::setw(align) << std::left << level->Name() << "= "
-          << level->Energy() / num_maccs << std::endl;
-    }
+      out << std::endl;
+
+      auto num_computes = all_num_computes.at(i);
+      out << all_titles.at(i) << " = " << num_computes << std::endl;
+      out << all_units.at(i) << std::endl;
+      for (unsigned i = 0; i < topology.NumLevels(); i++)
+      {
+        auto level = topology.GetLevel(i);
+        out << indent << std::setw(align) << std::left << level->Name() << "= "
+            << level->Energy() / num_computes << std::endl;
+      }
 
 #ifdef PRINT_NETWORKS_IN_LEGACY_ORDER
-    for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
-    {
-      auto network = topology.GetStorageLevel(storage_level_id)->GetReadNetwork();
-      out << indent << std::setw(align) << std::left << network->Name() << "= "
-          << network->Energy() / num_maccs << std::endl;
-    }
+      for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
+      {
+        auto network = topology.GetStorageLevel(storage_level_id)->GetReadNetwork();
+        out << indent << std::setw(align) << std::left << network->Name() << "= "
+            << network->Energy() / num_computes << std::endl;
+      }
 #else
-    for (auto& network: topology.networks_)
-    {
-      out << indent << std::setw(align) << std::left << network.second->Name() << "= "
-          << network.second->Energy() / num_maccs << std::endl;
-    }
+      for (auto& network: topology.networks_)
+      {
+        out << indent << std::setw(align) << std::left << network.second->Name() << "= "
+            << network.second->Energy() / num_computes << std::endl;
+      }
 #endif
 
-    out << indent << std::setw(align) << std::left << "Total" << "= "
-        << topology.Energy() / num_maccs << std::endl;
+      out << indent << std::setw(align) << std::left << "Total" << "= "
+          << topology.Energy() / num_computes << std::endl;
+    }
   }
-
   // Restore ios format state.
   out.copyfmt(state);
 
   return out;
 }
+
+
+
 
 void Topology::Spec(const Topology::Specs& specs)
 {
@@ -985,9 +996,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   bool success_accum = true;
   bool success = true;
 
-  // std::cout <<" ======= eval " << std::endl;
-  // mapping.PrettyPrint(std::cout,
-  //	     		  specs_.StorageLevelNames());
+
   // Transpose the datatype bypass nest into level->datatype structure.
   auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   assert(keep_masks.size() >= NumStorageLevels());
@@ -997,7 +1006,6 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                                 specs_,
                                                 eval_status,
                                                 break_on_failure);
-  // std::cout << "\tcheck format succeeded: " << success << std::endl;
   if (break_on_failure && !success) { return eval_status; }
 
   // Compute working-set tile hierarchy for the nest.
@@ -1056,6 +1064,18 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   auto tiles = tiling::TransposeTiles(collapsed_tiles);
   assert(tiles.size() == NumStorageLevels());
 
+  if (!break_on_failure || success_accum)
+  {
+    auto level_id = specs_.ArithmeticMap();
+    auto s = GetArithmeticLevel()->Evaluate(tiles[0], keep_masks[0], 0,
+                                            compute_cycles, break_on_failure);
+    eval_status.at(level_id) = s;
+    success_accum &= s.success;
+  }
+
+  // update the dense compute cycles to be effectual compute cycles
+  compute_cycles = GetArithmeticLevel()->Cycles();
+
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     auto storage_level = GetStorageLevel(storage_level_id);
@@ -1064,7 +1084,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     // primary statistics.
     auto level_id = specs_.StorageMap(storage_level_id);
 
-    // populate parent level for each dataspace
+    // populate parent level name for each dataspace
     for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++)
     {
       unsigned parent_level_id = tiles[storage_level_id].data_movement_info.at(pv).parent_level;
@@ -1143,14 +1163,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
       break;
   }
 
-  if (!break_on_failure || success_accum)
-  {
-    auto level_id = specs_.ArithmeticMap();
-    auto s = GetArithmeticLevel()->Evaluate(tiles[0], keep_masks[0], 0,
-                                            compute_cycles, break_on_failure);
-    eval_status.at(level_id) = s;
-    success_accum &= s.success;
-  }
+
 
   if (!break_on_failure || success_accum)
   {
@@ -1205,9 +1218,10 @@ void Topology::ComputeStats(bool eval_success)
       stats_.utilization = GetArithmeticLevel()->IdealCycles() / stats_.cycles;
     }
     
-    // MACCs.
-    stats_.maccs = GetArithmeticLevel()->MACCs();
-    
+    // Computes.
+    stats_.total_computes = GetArithmeticLevel()->TotalComputes();
+    stats_.effectual_computes = GetArithmeticLevel() -> EffectualComputes();
+
     // Last-level accesses.
     stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses();
     

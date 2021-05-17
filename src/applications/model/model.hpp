@@ -296,9 +296,11 @@ class Application
 
     if (engine.IsEvaluated())
     {
-      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
-                << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-          engine.GetTopology().MACCs() << std::endl;
+      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
+                << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+        engine.GetTopology().TotalComputes()
+                << " | pJ/Effectual-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+        engine.GetTopology().EffectualComputes() << std::endl;
     
       std::ofstream map_txt_file(map_txt_file_name);
       mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());

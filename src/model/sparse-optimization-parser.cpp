@@ -85,7 +85,7 @@ void Parse(config::CompoundConfigNode sparse_config,
     {
       // each element in the list represent a storage level's information
       auto directive = opt_target_list[i];
-      if (directive.exists("action-optimization"))
+      if (directive.exists("action_optimization"))
       {
         ParseActionOptimizationInfo(sparse_optimization_info, directive);
       }
@@ -314,7 +314,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
   std::string level_name;
   assert(directive.exists("name"));
   directive.lookupValue("name", level_name);
-  auto optimization_list = directive.lookup("action-optimization");
+  auto optimization_list = directive.lookup("action_optimization");
 
   std::string optimization_type;
   PerStorageActionOptimization per_storage_action_optimization_skipping = {};

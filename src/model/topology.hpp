@@ -194,7 +194,8 @@ class Topology : public Module
     std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
     std::vector<problem::PerDataSpace<std::uint64_t>> utilized_capacities;
     std::vector<problem::PerDataSpace<std::uint64_t>> utilized_instances;
-    std::uint64_t maccs;
+    std::uint64_t total_computes;
+    std::uint64_t effectual_computes;
     std::uint64_t last_level_accesses;
   };
     
@@ -313,7 +314,8 @@ class Topology : public Module
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const { return stats_.tile_sizes; }
   std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedCapacities() const { return stats_.utilized_capacities; }
   std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const { return stats_.utilized_instances; }
-  std::uint64_t MACCs() const { return stats_.maccs; }
+  std::uint64_t TotalComputes() const { return stats_.total_computes; }
+std::uint64_t EffectualComputes() const { return stats_.effectual_computes; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);

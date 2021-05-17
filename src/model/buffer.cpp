@@ -1214,8 +1214,14 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    auto total_read_accesses    =   stats_.reads.at(pv);
-    auto total_write_accesses   =   stats_.updates.at(pv) + stats_.fills.at(pv);
+
+    auto total_read_accesses  = stats_.fine_grained_scalar_accesses.at(pv).at("random_read")
+      + stats_.fine_grained_scalar_accesses.at(pv).at("gated_read");
+    auto total_write_accesses  = stats_.fine_grained_scalar_accesses.at(pv).at("random_fill")
+      + stats_.fine_grained_scalar_accesses.at(pv).at("gated_fill")
+      + stats_.fine_grained_scalar_accesses.at(pv).at("random_update")
+      + stats_.fine_grained_scalar_accesses.at(pv).at("gated_update");
+
     unconstrained_read_bandwidth[pv]  = (double(total_read_accesses)  / compute_cycles);
     unconstrained_write_bandwidth[pv] = (double(total_write_accesses) / compute_cycles);
   }

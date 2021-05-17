@@ -368,7 +368,7 @@ class MapperThread
         {
           msg << std::setw(10) << std::fixed << std::setprecision(2) << (stats_.thread_best.stats.utilization * 100) << "%"
               << std::setw(11) << std::fixed << std::setprecision(3) << stats_.thread_best.stats.energy /
-            stats_.thread_best.stats.maccs;
+            stats_.thread_best.stats.total_computes;
         }
 
         mutex_->lock();
@@ -598,7 +598,8 @@ class MapperThread
         mutex_->lock();
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                     << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                    << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
+                    << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.total_computes
+                    << " | pJ/Effectual-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.effectual_computes
                     << " | " << mapping.PrintCompact()
                     << std::endl;
         mutex_->unlock();
@@ -622,9 +623,12 @@ class MapperThread
         if (!log_suboptimal_)
         {
           mutex_->lock();
-          log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                      << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                      << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
+          log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
+                      << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization
+                      << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3)
+                      << stats.energy / stats.total_computes
+                      << " | pJ/Effectual-Compute = " << std::setw(8) << std::fixed << std::setprecision(3)
+                      << stats.energy / stats.effectual_computes
                       << " | " << mapping.PrintCompact()
                       << std::endl;
           mutex_->unlock();

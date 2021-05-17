@@ -328,7 +328,6 @@ void ArithmeticUnits::Print(std::ostream& out) const
   out << indent << "Word bits             : " << specs_.word_bits << std::endl;
   out << indent << "Instances             : " << specs_.instances << " ("
       << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
-  out << indent << "Max energy-per-op     : " << specs_.energy_per_op << " pJ" << std::endl;
   out << indent << "Random compute energy : " << specs_.op_energy_map.at("random_compute") << " pJ" << std::endl;
   out << indent << "Gated compute energy  : " << specs_.op_energy_map.at("gated_compute") << " pJ" << std::endl;
   out << indent << "Skipped compute energy: " << specs_.op_energy_map.at("skipped_compute") << " pJ" << std::endl;
@@ -348,9 +347,9 @@ void ArithmeticUnits::Print(std::ostream& out) const
 #ifdef PRINT_SPARSE_STATS
   out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
   out << indent << "Cycles                  : " << Cycles() << std::endl;
-  out << indent << "Random Computes (total) : " << compute_random << std::endl;
-  out << indent << "Gated Computes (total)  : " << compute_gated << std::endl;
-  out << indent << "Skipped Computes (total): " << compute_skipped << std::endl;
+  out << indent << "Random Computes (total) : " << random_computes_ << std::endl;
+  out << indent << "Gated Computes (total)  : " << gated_computes_ << std::endl;
+  out << indent << "Skipped Computes (total): " << skipped_computes_ << std::endl;
   out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
   out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
   out << std::endl;

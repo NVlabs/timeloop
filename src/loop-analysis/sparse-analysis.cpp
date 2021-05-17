@@ -132,7 +132,6 @@ struct ExplicitReadOptimizationImpact
   double expected_target_tile_occupancy;
 };
 
-// forward declarations
 
 bool CheckComputeAlignmentUnitRequirement(SparseAnalysisState &state,
                                           tiling::CompoundDataMovementNest &compound_data_movement_nest,
@@ -301,9 +300,8 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState &state,
 
   //step 2)
   int child_level = compound_data_movement_nest[target_dspace_id][target_dspace_level].child_level
-                      == std::numeric_limits<unsigned>::max() ?
-                    -1
-                                                              : compound_data_movement_nest[target_dspace_id][target_dspace_level].child_level; // -1 is compute level...
+                    == std::numeric_limits<unsigned>::max() ?
+                    -1 : compound_data_movement_nest[target_dspace_id][target_dspace_level].child_level; // -1 is compute level...
 
   bool found_dspace_a_loop = false;
   problem::Shape::DimensionID a_loop_dim = std::numeric_limits<unsigned>::max();
