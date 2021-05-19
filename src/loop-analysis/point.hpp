@@ -29,6 +29,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <vector>
 
 typedef std::int32_t Coordinate;
 
