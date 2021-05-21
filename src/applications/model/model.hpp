@@ -55,6 +55,12 @@ class Application
  public:
   std::string name_;
 
+  struct Stats
+  {
+    double energy;
+    double cycles;
+  };
+
  protected:
   // Critical state.
   problem::Workload workload_;
@@ -178,7 +184,6 @@ class Application
     }
 
     arch_props_ = new ArchProperties(arch_specs_);
-
     // Architecture constraints.
     config::CompoundConfigNode arch_constraints;
 
@@ -239,7 +244,7 @@ class Application
   }
 
   // Run the evaluation.
-  void Run()
+  Stats Run()
   {
     // Output file names.
     std::string stats_file_name = out_prefix_ + ".stats.txt";
@@ -301,7 +306,7 @@ class Application
         engine.GetTopology().TotalComputes()
                 << " | pJ/Effectual-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
         engine.GetTopology().EffectualComputes() << std::endl;
-    
+
       std::ofstream map_txt_file(map_txt_file_name);
       mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());
       map_txt_file.close();
@@ -318,6 +323,11 @@ class Application
     ar << BOOST_SERIALIZATION_NVP(mapping);
     const Application* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
+
+    Stats stats;
+    stats.cycles = engine.Cycles();
+    stats.energy = engine.Energy();
+    return stats;
   }
 };
 

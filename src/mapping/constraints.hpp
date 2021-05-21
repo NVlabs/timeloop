@@ -445,17 +445,22 @@ class Constraints
     }
 
     // --- Bypass strings ---
-    // for (auto& level_entry: bypass_strings_)
-    // {
-    //   unsigned level = level_entry.first;
-    //   auto strings = level_entry.second;
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    {
+      auto& my_str = bypass_strings_.at(problem::Shape::DataSpaceID(pvi));
+      auto& other_str = other.bypass_strings_.at(problem::Shape::DataSpaceID(pvi));
 
-    //   auto other_level_it = other.bypass_strings_.find(level);
-    //   assert(other_level_it != other.bypass_strings_.end());
+      for (unsigned level = 0; level < arch_props_.StorageLevels(); level++)
+      {
+        auto& my_char = my_str.at(level);
+        auto& other_char = other_str.at(level);
 
-      
-
-    // }
+        if (my_char != 'X' && my_char != other_char)
+        {
+          return false;
+        }        
+      }
+    }
 
     return true;
   }
