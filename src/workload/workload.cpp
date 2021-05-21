@@ -203,6 +203,8 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
     // assign all dataspaces the same density value
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
       densities[i]= DensityDistributionFactory::Construct(density_specs);
+      // make sure the density model is correctly set
+      assert (densities[i] != NULL);
     }
   }
 
@@ -226,6 +228,9 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
       }
       auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
       densities[i]= DensityDistributionFactory::Construct(density_specs);
+
+      // make sure the density model is correctly set
+      assert (densities[i] != NULL);
     }
 
     // 3) no density specification -> dense workload tensors
@@ -237,7 +242,12 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
       density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
       auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
       densities[i]= DensityDistributionFactory::Construct(density_specs);
+
+      // make sure the density model is correctly set
+      assert (densities[i] != NULL);
     }
+
+
   }
   workload.SetDensities(densities);
 }

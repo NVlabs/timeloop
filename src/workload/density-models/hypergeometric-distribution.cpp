@@ -230,6 +230,8 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
   std::uint64_t r = constraint_tensor_occupancy;
   std::uint64_t n = tile_shape;
   std::uint64_t N = constraint_tensor_shape;
+  // std::cout << "more involved get prob: nnz: " << nnz_vals << "  tile shape: " << tile_shape
+  // << "   constr shape: " << constraint_tensor_shape << std::endl;
 
   if (((n + r > N) && (nnz_vals < n + r - N)) | (nnz_vals > r))
   { return 0; }

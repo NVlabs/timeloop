@@ -28,7 +28,7 @@
 #pragma once
 
 #include "density-distribution.hpp"
-#include "fixed-distribution.hpp"
+#include "fixed-structured-distribution.hpp"
 #include "hypergeometric-distribution.hpp"
 #include "compound-config/compound-config.hpp"
 

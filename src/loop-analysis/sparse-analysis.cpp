@@ -34,16 +34,24 @@ namespace sparse
 //
 // SparseAnalysisState Function Implementations
 //
-void SparseAnalysisState::Init(sparse::SparseOptimizationInfo *sparse_optimization_info,
+bool SparseAnalysisState::Init(sparse::SparseOptimizationInfo *sparse_optimization_info,
                                problem::Workload *workload,
                                Mapping mapping,
                                std::uint64_t num_storage_levels)
 {
+
+  bool sparse_analysis_needed = false;
+
+  if (sparse_optimization_info->compression_info.all_ranks_default_dense) return sparse_analysis_needed;
+  else sparse_analysis_needed = true;
+
   sparse_optimization_info_ = sparse_optimization_info;
   workload_ = workload;
   mapping_ = mapping;
   num_storage_levels_ = num_storage_levels;
   Reset();
+
+  return sparse_analysis_needed;
 }
 
 void SparseAnalysisState::Reset()
@@ -125,8 +133,8 @@ void SparseAnalysisState::CollectCompletePointSetsAndSubnests()
 // necessary data structures
 struct ExplicitReadOptimizationImpact
 {
-  std::vector <DataSpaceID> dspaces; // the two data spaces that the optimization is performed on
-  // (conditioned opt: first: target, second: conditioned)
+  DataSpaceID target_dspace_id;
+  std::vector<DataSpaceID> condition_on_dspace_ids;
   unsigned target_dspace_level;
   double optimization_prob;
   double expected_target_tile_occupancy;
@@ -203,8 +211,8 @@ bool CheckComputeAlignmentUnitRequirement(SparseAnalysisState &state,
   return success;
 }
 
-void InitializeFineGrainedRandomAccesses(tiling::CompoundTileNest &compound_tile_nest,
-                                         const model::Topology::Specs &topology_specs)
+void InitializeFineGrainedAccesses(tiling::CompoundTileNest &compound_tile_nest,
+                                   const model::Topology::Specs &topology_specs)
 {
 
   auto &compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
@@ -215,6 +223,12 @@ void InitializeFineGrainedRandomAccesses(tiling::CompoundTileNest &compound_tile
     for (unsigned l = 0; l < topology_specs.NumStorageLevels(); l++)
     {
       auto &fine_grained_accesses = compound_data_movement_nest[pv][l].fine_grained_accesses;
+
+      for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++){
+        auto op_name = tiling::storageOperationTypes[op_id];
+        fine_grained_accesses[op_name] = 0;
+      }
+
       // default to uncompressed without metadata
       fine_grained_accesses["random_read"] = compound_data_movement_nest[pv][l].reads;
       fine_grained_accesses["random_fill"] = compound_data_movement_nest[pv][l].fills;
@@ -223,6 +237,11 @@ void InitializeFineGrainedRandomAccesses(tiling::CompoundTileNest &compound_tile
   }
 
   auto &compute_info = compute_info_nest[0];
+
+  for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++){
+    auto op_name = tiling::arithmeticOperationTypes[op_id];
+    compute_info.fine_grained_accesses[op_name] = 0;
+  }
   compute_info.fine_grained_accesses["random_compute"] = compute_info.accesses * compute_info.replication_factor;
 }
 
@@ -237,29 +256,26 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState &state,
   bool success = true;
   std::ostringstream fail_reason;
 
-  // the first item in tuple is the dataspace that needs to be gated/skipped
-  // the second item in the tuple is the dataspace that is conditioned on
+  // resulted impact stores the target data space id and the list of conditioned on dataspace id
 
   //
   // rule for finding the (set of) tiles for each dataspace
   //
 
-  // dataspace a tile is skipped if the corresponding dataspace b is empty,
+  // target dataspace tile is skipped if the corresponding conditioned on dataspace(s) is(are) empty,
   // logic to find the point sets for target dspace and conditioned dspace by looking at the mapping
 
   // 1) find the closest storage level >= storage level id that stores dataspace a, named target_dspace_level
   // 2) go through loop nests above its child level in a bottom up fashion, locate the first loop that projects to target, named target-loop
-  // 3) find the operation space that defines the dataspace b tile that is conditioned on
-  //    note that the block size of the storage that dataspace a is stored in affects the dataspace b tile that we look at
+  // 3) find the operation space that defines the dataspace tiles that is conditioned on
+  //    note that the block size of the storage that target dataspace is stored in affects the dataspace b tile that we look at
 
   //    Specifically, if target_dspace_level has a block size > 1, then finest skipping/gating granularity is  block-size-a
-  //    if a-loop is a coiteration loop (dimension of this loop projects to both dataspace a and dataspace b),
-  //    then in order to find the corresponding dataspace b tile,
-  //    we should look at the operation space defined by *block-size-a iterations* of a-loop
+  //    if target-loop is a coiteration loop (dimension of this loop projects to both target dataspace and conditioned on dataspace),
+  //    then in order to find the corresponding conditioned on dspace tile,
+  //    we should look at the operation space defined by *block-size-a iterations* of target-loop
 
-  DataSpaceID target_dspace_id = resulted_impact.dspaces[0];
-  DataSpaceID conditioned_dspace_id = resulted_impact.dspaces[1];
-
+  DataSpaceID target_dspace_id = resulted_impact.target_dspace_id;
   auto target_dspace_dimensions = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(target_dspace_id);
 
   // for (auto iter = target_dspace_dimensions.begin(); iter != target_dspace_dimensions.end(); iter++)
@@ -284,7 +300,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState &state,
 
     if (l == topology_specs.NumStorageLevels())
     {
-      // there is no source storage to have the dataspace a stored
+      // there is no source storage to have the target dataspace stored
       // illegal gating/skipping specification
       auto overall_level_id = topology_specs.StorageMap(storage_level_id);
       fail_reason << "skipping/gating for " << problem::GetShape()->DataSpaceIDToName.at(target_dspace_id)
@@ -298,33 +314,39 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState &state,
     }
   }
 
+  //
   //step 2)
+  //
+
   int child_level = compound_data_movement_nest[target_dspace_id][target_dspace_level].child_level
                     == std::numeric_limits<unsigned>::max() ?
                     -1 : compound_data_movement_nest[target_dspace_id][target_dspace_level].child_level; // -1 is compute level...
 
-  bool found_dspace_a_loop = false;
-  problem::Shape::DimensionID a_loop_dim = std::numeric_limits<unsigned>::max();
+  bool found_target_dspace_loop = false;
+  problem::Shape::DimensionID target_loop_dim = std::numeric_limits<unsigned>::max();
   problem::OperationPoint mold_high;
 
-  for (unsigned l = child_level + 1; l <= storage_level_id && !found_dspace_a_loop; l++)
+  for (unsigned l = child_level + 1; l <= storage_level_id && !found_target_dspace_loop; l++)
   {
-    for (unsigned loop_id = 0; loop_id < state.complete_subnests_[l].size() && !found_dspace_a_loop; loop_id++)
+    for (unsigned loop_id = 0; loop_id < state.complete_subnests_[l].size() && !found_target_dspace_loop; loop_id++)
     {
       if (!state.trivial_nest_masks_[l][loop_id])
       {
-        a_loop_dim = state.complete_subnests_[l][loop_id].dimension;
-        if (target_dspace_dimensions.find(a_loop_dim) != target_dspace_dimensions.end())
+        target_loop_dim = state.complete_subnests_[l][loop_id].dimension;
+        if (target_dspace_dimensions.find(target_loop_dim) != target_dspace_dimensions.end())
         {
-          // found loop related to dataspace a
-          found_dspace_a_loop = true;
+          // found loop related to target dataspace
+          found_target_dspace_loop = true;
           // std::cout << "found the loop that defines the operation space at level:  "
           //           << topology_specs.GetStorageLevel(l)->level_name << std::endl;
           // std::cout << state.complete_subnests_[l][loop_id] << std::endl;
 
+          //
           // step 3)
+          //
+
           // innermost storage loop: a singleton tile (compute unit operands)
-          if (loop_id == 0 && l == unsigned(child_level + 1) && child_level == -1)
+          if (child_level == -1 && loop_id == 0 && l == unsigned(child_level + 1))
           {
             // singleton operation space, pass
           }
@@ -343,60 +365,83 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState &state,
     }
   }
 
-  // a-loop is trivial and topmost
-  if (!found_dspace_a_loop)
+  // target-loop is trivial and topmost
+  if (!found_target_dspace_loop)
   {
-    a_loop_dim = state.complete_subnests_[target_dspace_level].back().dimension;
+    target_loop_dim = state.complete_subnests_[target_dspace_level].back().dimension;
     mold_high = state.maxtile_molds_high_[target_dspace_level].back();
-    found_dspace_a_loop = true;
+    found_target_dspace_loop = true;
     // std::cout << " top most loop at storage level: "
     // << topology_specs.GetStorageLevel(target_dspace_level)->level_name << std::endl;
   }
 
-  // sanity check: a_loop_dim must be assigned, i.e., a loop that describes the operation space must be found
-  assert(a_loop_dim != std::numeric_limits<unsigned>::max());
+  // sanity check: target_loop_dim must be assigned, i.e., a loop that describes the operation space must be found
+  assert(target_loop_dim != std::numeric_limits<unsigned>::max());
 
-  // test if loop-a involves a co-iterated dimension, if so block size of a storage needs to be factored in
-  auto coiterated_dimensions = problem::GetShape()->GetCoIteratedDimensions({target_dspace_id, conditioned_dspace_id});
+  // factor in the block size of the target dataspace storage
+  //   if the conditioned on dataspace co-iteration on this dimension, the corresponding tile shape will be impacted
+  //   else, it makes no different on the condition on dataspace tile shape
   auto target_dspace_level_block_size = topology_specs.GetStorageLevel(target_dspace_level)->block_size.Get();
-  if ((coiterated_dimensions.find(a_loop_dim) != coiterated_dimensions.end()) && (target_dspace_level_block_size > 1))
-  {
-    // std::cout << "co-iterated dimension detected.. scale by block size: " << target_dspace_level_block_size << std::endl;
-    mold_high[a_loop_dim] = mold_high[a_loop_dim] == 0 ? target_dspace_level_block_size
-                                                       : mold_high[a_loop_dim] * target_dspace_level_block_size;
-  }
+  mold_high.IncrementAllDimensions();
+  unsigned scaled_dim_bound = mold_high[target_loop_dim] * target_dspace_level_block_size;
+  mold_high[target_loop_dim] = scaled_dim_bound;
+  mold_high.IncrementAllDimensions(-1);
+  //
+  // Ineffectual read probability calculations
+  //
 
   // construct the corresponding operation space mold
   problem::OperationPoint origin;
   problem::OperationSpace operation_space_mold(state.workload_, origin, mold_high);
 
-
-  // construct the corresponding coordinate space tile for dataspace b and calculate the prob of the tile being empty
-  tiling::CoordinateSpaceTileInfo cspace_tile;
-  cspace_tile.Set(operation_space_mold.GetSize(conditioned_dspace_id), conditioned_dspace_id);
-
-  double prob_dspace_a_optimized = state.workload_->GetDensity(conditioned_dspace_id)->GetTileOccupancyProbability(cspace_tile, 0);
-  double expected_target_tile_occupancy = compound_data_movement_nest[target_dspace_id][target_dspace_level].expected_data_occupancy;
-  if (child_level != -1)
+  // go through each conditioned on dataspace id to get the probability of optimized away reads
+  double prob_target_dspace_effectual = 1.0;
+  for (unsigned i = 0; i < resulted_impact.condition_on_dspace_ids.size(); i++)
   {
-    auto level_specs = topology_specs.GetStorageLevel(target_dspace_level);
-    auto ratio = level_specs->metadata_word_bits.Get() / level_specs->word_bits.Get();
-    double equivalent_metadata_occupancy =
-      compound_data_movement_nest[target_dspace_id][child_level].GetExpectedAggregatedMetaDataTileOccupancy()
-        * ratio;
-    expected_target_tile_occupancy += equivalent_metadata_occupancy;
-  }
+    DataSpaceID condition_on_dspace_id = resulted_impact.condition_on_dspace_ids[i];
+    // construct the corresponding coordinate space tile for dataspace b and calculate the prob of the tile being empty
+    tiling::CoordinateSpaceTileInfo cspace_tile;
+    cspace_tile.Set(operation_space_mold.GetSize(condition_on_dspace_id), condition_on_dspace_id);
 
-  resulted_impact.optimization_prob = prob_dspace_a_optimized;
+    double prob_condition_on_dspace_empty = state.workload_->GetDensity(condition_on_dspace_id)
+      ->GetTileOccupancyProbability(cspace_tile, 0);
+    prob_target_dspace_effectual *= (1 - prob_condition_on_dspace_empty);
+
+    //std::cout << " target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
+    //          << " condition on dspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
+    //          << "\n operation space mold derived dataspace sizes (target, conditioned): "
+    //          << operation_space_mold.GetSize(target_dspace_id) << "  "
+    //          << operation_space_mold.GetSize(condition_on_dspace_id)
+    //          << "\n condtion on tile empty probability(target skip prob): " << prob_condition_on_dspace_empty
+    //          << std::endl;
+  }
+  double prob_target_dspace_ineffectual = 1 - prob_target_dspace_effectual;
+  // std::cout << " (after aggregation) target skip prob: " << prob_target_dspace_ineffectual << std::endl;
+
+  //
+  // Occupancy calculations
+  //
+  double expected_target_tile_occupancy = compound_data_movement_nest[target_dspace_id][target_dspace_level].expected_data_occupancy;
+
+  // Calculate equivalence metadata occupancy
+  //  if the storage level has a child level, only the ranks associated with the child level need to be sent out
+  //  if the storage level is the innermost (of its dataspace), then all metadata ranks need to be read out for
+  //     operand alignment
+  unsigned l = child_level == -1 ? target_dspace_level : child_level;
+  auto level_specs = topology_specs.GetStorageLevel(target_dspace_level);
+  auto ratio = level_specs->metadata_word_bits.Get() / level_specs->word_bits.Get();
+  double equivalent_metadata_occupancy =
+    compound_data_movement_nest[target_dspace_id][l].GetExpectedAggregatedMetaDataTileOccupancy() * ratio;
+  expected_target_tile_occupancy += equivalent_metadata_occupancy;
+
+  //
+  // Populate the impact
+  //
+  resulted_impact.optimization_prob = prob_target_dspace_ineffectual;
   resulted_impact.target_dspace_level = target_dspace_level;
   resulted_impact.expected_target_tile_occupancy = expected_target_tile_occupancy;
 
-  // std::cout << " target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.dspaces[0])
-  //           << " operation space mold derived dataspace sizes (target, conditioned): " <<
-  //           operation_space_mold.GetSize(target_dspace_id) << "  "
-  //           << operation_space_mold.GetSize(conditioned_dspace_id)
-  //           << "\nbtile empty probability(a skip prob): " << resulted_impact.optimization_prob
-  //           << std::endl;
+
 
   return success;
 }
@@ -419,7 +464,8 @@ bool DefineIneffectualReadImpact(SparseAnalysisState& state,
     // compute the optimization impact of the various choices
     //
     assert(group_of_action_optimization[i].type == CONDITIONED_ON);
-    possible_impact[i].dspaces = group_of_action_optimization[i].cond_on_opt;
+    possible_impact[i].target_dspace_id = group_of_action_optimization[i].cond_on_opt.target_dspace_id;
+    possible_impact[i].condition_on_dspace_ids = group_of_action_optimization[i].cond_on_opt.condition_on_dspace_ids;
     success = ComputeIneffectualReadImpact(state, compound_data_movement_nest, storage_level_id,
                                            topology_specs, possible_impact[0], eval_status);
     if (!success) return success;
@@ -454,7 +500,7 @@ bool DefineIneffectualReadImpact(SparseAnalysisState& state,
   //
   auto target_dspace_level = possible_impact[option_id].target_dspace_level;
   auto optimization_prob = possible_impact[option_id].optimization_prob;
-  auto target_dspace_id = possible_impact[option_id].dspaces[0];
+  auto target_dspace_id = possible_impact[option_id].target_dspace_id;
 
    // std::cout << "\t=== Final: target dspace: " << problem::GetShape()->DataSpaceIDToName.at(target_dspace_id)
    // << "  optimization prob: " << optimization_prob
@@ -569,8 +615,8 @@ void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest &compoun
         num_child_metadata_ranks = data_movement_info.GetNumMetaDataRanks();
       }
 
-      double total_metadata_payload_units_per_tile = 0;
-      double child_metadata_payload_units_per_tile = 0;
+      double total_metadata_payload_units_per_tile = 0.0;
+      double child_metadata_payload_units_per_tile = 0.0;
 
       for (unsigned r_id = 0; r_id < expected_metadata_tile_occupancy.size(); r_id++)
       {
@@ -588,23 +634,28 @@ void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest &compoun
       double read_ratio = (double)data_movement_info.reads / data_movement_info.shape;
       double fill_ratio = (double)data_movement_info.fills / data_movement_info.shape;
       double update_ratio = (double)data_movement_info.updates / data_movement_info.shape;
-      data_movement_info.metadata_fills = floor(total_metadata_payload_units_per_tile * fill_ratio);
-      data_movement_info.metadata_reads = floor(total_metadata_payload_units_per_tile * read_ratio);
-      data_movement_info.metadata_updates = floor(total_metadata_payload_units_per_tile * update_ratio);
+      data_movement_info.metadata_fills = ceil(total_metadata_payload_units_per_tile * fill_ratio);
+      data_movement_info.metadata_reads = ceil(total_metadata_payload_units_per_tile * read_ratio);
+      data_movement_info.metadata_updates = ceil(total_metadata_payload_units_per_tile * update_ratio);
 
-      data_movement_info.child_level_metadata_occupancy_ratio =
-        child_metadata_payload_units_per_tile / total_metadata_payload_units_per_tile;
-
+      if (total_metadata_payload_units_per_tile == 0)
+      {
+        data_movement_info.child_level_metadata_occupancy_ratio = 0;
+      } else
+      {
+        data_movement_info.child_level_metadata_occupancy_ratio =
+          child_metadata_payload_units_per_tile / total_metadata_payload_units_per_tile;
+      }
     }
   }
 }
 
-void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState &state,
-                                              tiling::CompoundTileNest &compound_tile_nest,
-                                              const model::Topology::Specs &topology_specs)
+void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
+                                              tiling::CompoundTileNest& compound_tile_nest,
+                                              const model::Topology::Specs& topology_specs)
 {
 
-  auto &compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
+  auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
   // auto& compute_info_nest =  compound_tile_nest.compute_info_nest;
 
   std::vector <problem::PerDataSpace<double>> max_reads = {};
@@ -722,11 +773,8 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState &state,
 {
   for (int l = state.num_storage_levels_ - 1; l >= 0; l--)
   {
-    // std::cout << "calculate final counts: " << topology_specs.GetStorageLevel(l)->level_name << std::endl;
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      // std::cout << "\tdataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
-
       if (compound_data_movement_nest[pv][l].compressed ||
         state.dspace_optimization_masks_.at("gate").at(l).at(pv)
         || state.dspace_optimization_masks_.at("skip").at(l).at(pv))
@@ -748,7 +796,6 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState &state,
         // apply compression impact (compression impact on metadata already applied)
         if (compound_data_movement_nest[pv][l].compressed)
         {
-          //std::cout << "\t compressed..." << std::endl;
           double expected_sparsity = (1 - compound_data_movement_nest[pv][l].GetExpectedTileDensity());
           data_movement_record.fine_grained_accesses["skipped_read"] += floor(max_reads * expected_sparsity);
           data_movement_record.fine_grained_accesses["skipped_fill"] += floor(max_fills * expected_sparsity);
@@ -756,8 +803,8 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState &state,
           max_fills -= floor(max_fills * expected_sparsity);
           if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
           {
-            data_movement_record.fine_grained_accesses["skipped_updates"] += floor(max_updates * expected_sparsity);
-            max_updates = floor(max_updates * expected_sparsity);
+            data_movement_record.fine_grained_accesses["skipped_update"] += floor(max_updates * expected_sparsity);
+            max_updates -= floor(max_updates * expected_sparsity);
           }
         }
 
@@ -782,10 +829,9 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState &state,
           data_movement_record.fine_grained_accesses["skipped_read"] +=
             floor(max_reads * state.prob_explicitly_optimized_read_.at(l).at(pv));
           // we can only skip the portion of the metadata transferred to child level
-          data_movement_record.fine_grained_accesses["skipped_metadata_read"] += floor(max_metadata_reads
-                                                                                         * data_movement_record.child_level_metadata_occupancy_ratio
-                                                                                         * state.prob_explicitly_optimized_read_.at(
-                                                                                           l).at(pv));
+          data_movement_record.fine_grained_accesses["skipped_metadata_read"] += floor(
+            max_metadata_reads * data_movement_record.child_level_metadata_occupancy_ratio *
+            state.prob_explicitly_optimized_read_.at(l).at(pv));
           // the optimized away reads will not lead to any updates to this level
           data_movement_record.fine_grained_accesses["skipped_update"] +=  floor(max_updates * state.prob_explicitly_optimized_read_.at(l).at(pv));
           data_movement_record.fine_grained_accesses["skipped_metadata_update"]
@@ -811,7 +857,6 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState &state,
           - data_movement_record.fine_grained_accesses["gated_metadata_update"]
           - data_movement_record.fine_grained_accesses["skipped_metadata_update"];
       }
-
 
       // for (auto iter = compound_data_movement_nest[pv][l].fine_grained_accesses.begin();
       //           iter != compound_data_movement_nest[pv][l].fine_grained_accesses.end(); iter++)
@@ -1106,8 +1151,13 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState &state,
 
   // std::cout << "(9) skipped: " << skipped_compute << " gated: " << gated_compute << "  random: " << random_compute << std::endl;
 
+  // std::cout << "total: " << total_compute << "  sum: " <<  skipped_compute + random_compute + gated_compute
+  // << " diff: " << total_compute - skipped_compute - random_compute - gated_compute  << std::endl;
+
   // sanity check
-  assert(skipped_compute + random_compute + gated_compute == total_compute);
+  // as long as different is smaller than 0.001% of the total compute, pass
+  // there could be tiny discrepencies due to lack of precision...
+  assert(abs(skipped_compute + random_compute + gated_compute - total_compute) < total_compute * 0.00001);
 
 
   // now round the action counts into integers (pessimistic rounding)
@@ -1138,6 +1188,10 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
   // if there are extra inner ranks supported, all of the these ranks will cost no overhead
   int loop_id = singleton_metadata_subnest.size() - 1;
   int r_id = cur_level_num_ranks;
+  std::uint64_t corresponding_tile_shape = 1;
+  // std::cout << "total number of ranks: " << cur_level_num_ranks
+  // << "  inner rank id: " << inner_rank_id
+  // << " total loops: " << singleton_metadata_subnest.size() << std::endl;
 
   while(r_id > (int)inner_rank_id && loop_id >= 0)
   {
@@ -1156,28 +1210,65 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
     if (loop_id >= 0)
     {
       auto loop = singleton_metadata_subnest[loop_id];
+      //std::cout << "mapping loop below to rank " << r_id << std::endl;
+      //std::cout << loop << std::endl;
 
-      if (!trivial_loop) flattened_rank_nest.push_back(loop);
-      loop_id--;
-      if (!pv_has_metadata // if default uncompressed, then all loops must be falttened into 1 rank
-          || pv_compression_info.FoundDimensionInFlatteningRule(r_id, loop.dimension, flattening_rule))
+      if (!trivial_loop)
       {
-        while (loop_id >= 0 && (!pv_has_metadata
-                               || (flattening_rule.find(singleton_metadata_subnest[loop_id].dimension) != flattening_rule.end())))
+        flattened_rank_nest.push_back(loop);
+        corresponding_tile_shape = singleton_metadata_subtile_shape[loop_id + 1];
+      }
+      loop_id--;
+
+      bool in_flattened_list;
+      if (loop_id >= 0)
+      {
+        in_flattened_list = !pv_has_metadata ?
+                            true : pv_compression_info.FoundDimensionInFlatteningRule(r_id, loop.dimension,
+                                                                                      flattening_rule);
+
+        // std::cout << "in flattening list: " << in_flattened_list << std::endl;
+        //  if (pv_has_metadata)
+        //  {
+        //    for (auto dim = flattening_rule.begin(); dim != flattening_rule.end(); dim++)
+        //    {
+        //      std::cout << problem::GetShape()->DimensionIDToName.at(*dim) << "  ";
+        //    }
+        //    std::cout << std::endl;
+        //  }
+
+
+        if (!pv_has_metadata // if default uncompressed, then all loops must be flattened into 1 rank
+            || in_flattened_list)
         {
+
           auto loop = singleton_metadata_subnest[loop_id];
           trivial_loop = (loop.start + loop.stride) >= loop.end;
-          if (!trivial_loop)
+
+          while (loop_id >= 0 && (!pv_has_metadata
+                                  || (flattening_rule.find(singleton_metadata_subnest[loop_id].dimension) !=
+                                      flattening_rule.end())
+                                  || trivial_loop))
           {
-            flattened_rank_nest.push_back(loop);
+            auto loop = singleton_metadata_subnest[loop_id];
+            trivial_loop = (loop.start + loop.stride) >= loop.end;
+            if (!trivial_loop)
+            {
+              //std::cout << "mapping loop below to rank " << r_id << std::endl;
+              //std::cout << loop << std::endl;
+              flattened_rank_nest.push_back(loop);
+              corresponding_tile_shape = singleton_metadata_subtile_shape[loop_id + 1];
+            }
+            loop_id--;
           }
-          loop_id--;
         }
       }
     }
     pv_data_movement_info.metadata_subnest.insert(pv_data_movement_info.metadata_subnest.begin(), flattened_rank_nest);
-    pv_data_movement_info.metadata_subtile_shape.insert(pv_data_movement_info.metadata_subtile_shape.begin(),
-                                                        singleton_metadata_subtile_shape[loop_id + 1]);
+    pv_data_movement_info.metadata_subtile_shape.insert(pv_data_movement_info.metadata_subtile_shape.begin(), corresponding_tile_shape);
+
+    // reset to 1
+    corresponding_tile_shape = 1;
 
   }
 
@@ -1189,9 +1280,9 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
     pv_data_movement_info.metadata_subnest.insert(pv_data_movement_info.metadata_subnest.begin(), tmp_loop);
     pv_data_movement_info.metadata_subtile_shape.insert(pv_data_movement_info.metadata_subtile_shape.begin(),
                                                         singleton_metadata_subtile_shape[0]);
-    std::cout << "Warning: more supported ranks then non-trivial loops, "
-                 "the extra inner rank is turned into a dummy rank: "
-              << pv_compression_info.rank_formats[r_id] << std::endl;
+    // std::cout << "Warning: more supported ranks then non-trivial loops, "
+    //              "the extra inner rank is turned into a dummy rank: "
+    //           << pv_compression_info.rank_formats[r_id] << std::endl;
     r_id--;
   }
 
@@ -1233,6 +1324,12 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
                             const sparse::PerDataSpaceCompressionInfo &pv_compression_info,
                             tiling::DataMovementInfo &pv_data_movement_info)
 {
+
+  //FIXME: this function needs to be updated to perfor correctly, use outer to inner mapping instead
+  //  1) skip trivial loops logic
+  //  2) subtile shape insertion logic
+  assert(false);
+
   std::vector <loop::Descriptor> flattened_rank_nest;
   std::set <problem::Shape::DimensionID> flattening_rule;
 
@@ -1316,8 +1413,6 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
 	loop_id++;
   }
 
-
-
   return more_compression_ranks_needed;
 }
 
@@ -1398,8 +1493,10 @@ bool DefineCompressionFormatModels(SparseAnalysisState &state,
       }
 
       // Pretiling checks
-      // only if current level is compressed && current level is not inner most level
+      // only if current level is compressed && current level is not inner most level && inner level has metadata
       // && no online tile partition supported, do we need pre-tiling
+      // by pretiling, we specifically mean that this level needs to consider inner level nontrivial loops
+
       if (cur_level_compressed && child_level_id != std::numeric_limits<unsigned>::max()
         && !compression_info.tile_partition_supported_masks[level])
       {
@@ -1625,6 +1722,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState &state,
       //     std::cout << "   rank format: " << compression_info.per_level_info_map.at(level).at(pv).rank_formats[i]
       //               << std::endl;
       //   std::cout << "   rank tile shape: " << pv_data_movement_nest[level].metadata_subtile_shape[i + 1] << std::endl;
+      //   std::cout << "   rank subtile shape: " << pv_data_movement_nest[level].metadata_subtile_shape[i] << std::endl;
       //   std::cout << "   fiber shape: " << pv_data_movement_nest[level].fiber_shape[i] << std::endl;
       //   std::cout << "   flattened nests: " << pv_data_movement_nest[level].metadata_subnest[i].size() << std::endl;
 
@@ -1634,6 +1732,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState &state,
       //     std::cout << "\t" << *iter << std::endl;
       //   }
       // }
+
       // look at parent directly in the next round, as we know the levels in the middle are bypassed
       auto parent_level = pv_data_movement_nest[level].parent_level;
       level = parent_level;
@@ -1774,7 +1873,7 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
           if (p != 0)
           {
             // update expected occupancy accordingly
-            if (pv_data_movement_info.compressed) expected_data_occupancy += p * possible_occupancy;
+            if (pv_data_movement_info.compressed) expected_data_occupancy += p * (double) possible_occupancy;
 
             // Calculate the resulted metadata occupancy for this specific potential data tile size
             // the exact possible occupancy serves as additional information about the tile
@@ -1802,6 +1901,31 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
   }
 }
 
+void InitializeSparsityRelatedEntries(const problem::Workload* workload,
+                                      tiling::CompoundTileNest& compound_tile_nest)
+{
+  // initialize all tile density models and metadata representation related entries in tile info
+  //    if default dense, then the tile has a fixed density of 1.0 and empty other entries
+  auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
+  // all datatypes must have same number of tiling levels, take that of the first dataspace
+  unsigned num_levels = compound_data_movement_nest[0].size();
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  {
+    for (unsigned level = 0; level < num_levels; level++)
+    {
+      // the commented out lines are initialized in tile info initialization
+      // TODO: might want to have a new data structure for post processed sparse traffic,
+      //       now we are carrying both dense and sparse in tile info
+      compound_data_movement_nest[pv][level].SetDensityModel(workload->GetDensity(pv));
+      //compound_data_movement_nest[pv][level].metadata_subnest = {}; // only useful if has metadata
+      //compound_data_movement_nest[pv][level].metadata_subtile_shape = {}; // only useful if has metadata
+      //compound_data_movement_nest[pv][level].fiber_shape = {}; // only useful if has metadata
+      compound_data_movement_nest[pv][level].expected_data_occupancy = compound_data_movement_nest[pv][level].shape;
+      // compound_data_movement_nest[pv][level].expected_metadata_occupancy = {};
+    }
+  }
+}
+
 // Perform all necessary sparse analysis
 //     - compression related
 //     - gating/skipping related
@@ -1814,8 +1938,25 @@ bool PerformSparseProcessing(problem::Workload* workload,
                              const bool break_on_failure)
 {
 
+  bool success = true;
+
+
+
+  //
+  // Initialize necessary tile info
+  //
+
+  // Initialize tile density models
+  InitializeSparsityRelatedEntries(workload, compound_tile_nest);
+
+  // Initialize fine grained access counts
+  InitializeFineGrainedAccesses(compound_tile_nest, topology_specs);
+
   SparseAnalysisState state;
-  state.Init(sparse_optimization_info, workload, mapping, topology_specs.NumStorageLevels());
+  bool sparse_analysis_needed;
+  sparse_analysis_needed = state.Init(sparse_optimization_info, workload, mapping, topology_specs.NumStorageLevels());
+  if (!sparse_analysis_needed) return success;
+
   state.CollectCompletePointSetsAndSubnests();
 
   //
@@ -1825,15 +1966,12 @@ bool PerformSparseProcessing(problem::Workload* workload,
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
 
   // Define the necessary metadata modeling information according to mapping
-  bool success = DefineCompressionFormatModels(state, compound_data_movement_nest, topology_specs,
-                                               eval_status, break_on_failure);
+  success = DefineCompressionFormatModels(state, compound_data_movement_nest, topology_specs,
+                                          eval_status, break_on_failure);
   if (!success && break_on_failure) return success;
 
   // Once the compression models are defined, the expected data and metadata occupancy are also defined
   CalculateExpectedOccupancy(compound_data_movement_nest, topology_specs);
-
-  // Initialize the access counts
-  InitializeFineGrainedRandomAccesses(compound_tile_nest, topology_specs);
   CalculateExpectedMetaDataAccesses(compound_data_movement_nest, topology_specs);
 
   // Check the mapping-dependent alignment unit requirement above the compute level

@@ -40,13 +40,18 @@ namespace sparse
 // data structures shared by action-gating and action-skipping optimization info
 //
 
-typedef std::vector<problem::Shape::DataSpaceID> ConditionedOnOptimization; // first item: target, second item: condition
-
 enum ActionOptimizationType
 {
   CONDITIONED_ON
   // Prepare for more types, e.g.,INTERSECTION
 };
+
+struct ConditionedOnOptimization
+{
+  problem::Shape::DataSpaceID target_dspace_id;
+  std::vector<problem::Shape::DataSpaceID> condition_on_dspace_ids;
+};
+
 
 struct ActionOptimization
 {

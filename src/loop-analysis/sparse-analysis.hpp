@@ -83,7 +83,7 @@ struct SparseAnalysisState
   SparseAnalysisState()
   {}
 
-  void Init(sparse::SparseOptimizationInfo *sparse_optimization_info,
+  bool Init(sparse::SparseOptimizationInfo *sparse_optimization_info,
             problem::Workload *workload,
             Mapping mapping,
             std::uint64_t num_storage_levels);

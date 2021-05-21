@@ -557,13 +557,6 @@ ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_ti
       collapsed_tile.replication_factor = 0;
       collapsed_tile.accesses = 0;
     }
-
-    // initialize the fine-grained access dictionary
-    std::string op_name;
-    for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++){
-      op_name = tiling::arithmeticOperationTypes[op_id];
-      collapsed_tile.fine_grained_accesses[op_name] = 0;
-    }
     solution.push_back(collapsed_tile);
   }
 
@@ -621,10 +614,6 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       // are taken from the outermost loop's tile.
       collapsed_tile.size = tiles[pv][outermost_loop].size;
       collapsed_tile.shape = tiles[pv][outermost_loop].size; // shape is the coord space representation
-      collapsed_tile.SetDensityModel(workload->GetDensity(pv));
-      collapsed_tile.metadata_subnest = {}; // only useful if has metadata
-      collapsed_tile.metadata_subtile_shape = {}; // only useful if has metadata
-      collapsed_tile.fiber_shape = {}; // only useful if has metadata
       collapsed_tile.dataspace_id = (unsigned)pv;
       collapsed_tile.partition_size = 0;
       collapsed_tile.distributed_multicast = false;
@@ -646,13 +635,6 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 
       collapsed_tile.parent_level = std::numeric_limits<unsigned>::max();
       collapsed_tile.child_level = std::numeric_limits<unsigned>::max();
-
-      // initialize the fine-grained access dictionary
-      std::string op_name;
-      for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++){
-        op_name = tiling::storageOperationTypes[op_id];
-        collapsed_tile.fine_grained_accesses[op_name] = 0;
-      }
 
       if (!solution[pv].empty())
       {
@@ -740,8 +722,8 @@ NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles)
 {
   NestOfCompoundTiles retval;
 
-  CompoundDataMovementNest data_movement_nest =  tiles.compound_data_movement_info_nest;
-  ComputeNest compute_nest = tiles.compute_info_nest;
+  const CompoundDataMovementNest& data_movement_nest =  tiles.compound_data_movement_info_nest;
+  const ComputeNest& compute_nest = tiles.compute_info_nest;
 
   unsigned num_levels = data_movement_nest[0].size();
   CompoundTile tile_level;

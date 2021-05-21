@@ -67,12 +67,11 @@ struct DataMovementInfo
       ar& BOOST_SERIALIZATION_NVP(subnest);
     }
   }
-  bool density_model_set;
   CoordinateSpaceTileInfo coord_space_info;  // carries information such as the shape of the tile, and eventually the point set
   // Information particularly useful for tensors with metadata
   // all of the vectors below should have the same length... which is the fiber tree depth
   // note that, if a tensor is uncompressed and have no associated metadata (e.g., for eyeriss-style data gating),
-  //      the tensor representation can be empty, as the occupancy == shape, which is pre-analyzed in dense modeling
+  //      the tensor representation is just a dense tensor, which is already pre-analyzed in dense modeling
   std::vector<std::shared_ptr<problem::MetaDataFormat>> metadata_models_; // metadata models (if any) for each rank of the tile
   std::vector<bool> rank_compressed; // if each rank is compressed
   std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format, none for uncompressed
@@ -226,8 +225,7 @@ struct DataMovementInfo
   bool GetHasMetaData() const { return has_metadata;}
   std::string GetDensityType() const
   {
-    if (density_model_set){ return tile_density->GetDistributionType();}
-    return "none";
+    return tile_density->GetDistributionType();
   }
   std::string GetMetaDataFormatName() const;
   std::uint64_t GetNumMetaDataRanks() const
@@ -240,9 +238,7 @@ struct DataMovementInfo
 
   // do not use this unless super necessary,
   // as density model interface change will break the logic external to sparse modeling step
-  std::shared_ptr<problem::DensityDistribution> GetTileDensityModel() const { return tile_density;}
-
-
+  std::shared_ptr<problem::DensityDistribution> GetTileDensityModel() const { return tile_density; }
 
 
   // More involved getter functions

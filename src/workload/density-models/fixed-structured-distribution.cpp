@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "fixed-distribution.hpp"
+#include "fixed-structured-distribution.hpp"
 
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
@@ -69,12 +69,17 @@ std::uint64_t FixedDistribution::GetTileOccupancyByConfidence(const std::uint64_
                                                               const double confidence) const
 {
 
-  if (confidence == 0){
-    return 0;
-  } else {
-    return ceil(tile_shape * specs_.fixed_density);
-  }
+  double exact_nnzs = tile_shape * specs_.fixed_density;
+  // now we need to decide how to assign the prob of ceil and floor so that the expected nnzs == exact_nnzs
 
+  // assume prob of ceil is pc, then the prob of floor is pf = 1 - pc
+  //  => pc*ceil + (1-pc)*floor = exact_nnzs
+  //  => pc = exact_nnzs-floor
+
+  double prob_ceil = exact_nnzs - floor(exact_nnzs);
+  double prob_floor = 1 - prob_ceil;
+
+  return confidence <= prob_floor ? floor(exact_nnzs) : ceil(exact_nnzs);
 }
 
 std::uint64_t FixedDistribution::GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tile,
@@ -126,22 +131,33 @@ double FixedDistribution::GetTileExpectedDensity( const uint64_t tile_shape ) co
   return specs_.fixed_density;
 }
 
-
 double FixedDistribution::GetProbability(const std::uint64_t tile_shape,
-                                         const std::uint64_t nnz_vals) const {
+                                         const std::uint64_t nnz_vals) const
+{
 
   assert(is_specced_);
 
-  if (tile_shape == 1){
-    // tile shape 1 is a special case, where we use a binomial representation to reflect the probability
-    return nnz_vals == 0 ? 1 - specs_.fixed_density : specs_.fixed_density;
+  double exact_nnzs = tile_shape * specs_.fixed_density;
+  // now we need to decide how to assign the prob of ceil and floor so that the expected nnzs == exact_nnzs
 
-  } else if (ceil(tile_shape * specs_.fixed_density) != nnz_vals){
+  // assume prob of ceil is pc, then the prob of floor is pf = 1 - pc
+  //  => pc*ceil + (1-pc)*floor = exact_nnzs
+  //  => pc = exact_nnzs-floor
+
+  double prob_ceil = exact_nnzs - floor(exact_nnzs);
+  double prob_floor = 1 - prob_ceil;
+
+  if (floor(exact_nnzs) == nnz_vals)
+  {
+    return prob_floor;
+
+  } else if (ceil(exact_nnzs) == nnz_vals)
+  {
+    return prob_ceil;
+
+  } else
+  {
     return 0.0;
-
-  } else {
-    // fixed distribution is not stochastic
-    return 1.0;
   }
 }
 

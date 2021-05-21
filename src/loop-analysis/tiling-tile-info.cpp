@@ -189,7 +189,7 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
         // trivial rank (rank related to trivial loop)
         // a good compression setup eliminate a trivial rank and it is reasonble to assume that
         // the underlying hardware is also programmable to skip the traversal of trivial loops as well
-        // FIXME: check  if this is a good assumption of common practice
+        // FIXME: check  if this is a good approximation of common practice
         per_rank_metadata_occupancy.SetEmpty();
      }
      else
@@ -212,8 +212,9 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
       if (r_id == 0)
       { per_rank_metadata_occupancy.SetPayloadUnits(0); } // last rank's payload is not metadata
     }
-
-    metadata_tile_occupancy.push_back(per_rank_metadata_occupancy);
+    // std::cout << "Results: payload units:  " << per_rank_metadata_occupancy.PayloadUnits()
+    // << "metadata units: " << per_rank_metadata_occupancy.MetaDataUnits() << std::endl;
+    metadata_tile_occupancy.insert(metadata_tile_occupancy.begin(), per_rank_metadata_occupancy);
 
     // prepare for next round
     max_number_of_fibers_in_rank *= cur_rank_fiber_shape;
@@ -235,12 +236,12 @@ MetaDataTileOccupancy DataMovementInfo::GetMaxMetaDataTileOccupancyByConfidence(
   {
 
     CoordinateSpaceTileInfo cur_coord_tile;
-    cur_coord_tile.Set(metadata_subtile_shape.back(), dataspace_id);
+    cur_coord_tile.Set(shape, dataspace_id);
 
     std::uint64_t max_tile_occupancy = tile_density->GetMaxTileOccupancyByConfidence(cur_coord_tile, confidence);
     ExtraTileConstraintInfo extra_tile_constraint_info;
-    extra_tile_constraint_info.Set(metadata_subtile_shape.back(), max_tile_occupancy);
-    cur_coord_tile.Set(metadata_subtile_shape.back(), dataspace_id, extra_tile_constraint_info);
+    extra_tile_constraint_info.Set(shape, max_tile_occupancy);
+    cur_coord_tile.Set(shape, dataspace_id, extra_tile_constraint_info);
 
     metadata_tile_occupancy = GetMetaDataTileOccupancyGivenDataTile(cur_coord_tile);
 

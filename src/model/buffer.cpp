@@ -579,12 +579,15 @@ EvalStatus BufferLevel::PreEvaluationCheck(
 
         std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
 
-        if (per_level_compression_info.find(pvi) != per_level_compression_info.end()
-            && per_level_compression_info.at(pvi).tensor_compressed){
-            working_set_size = workload->GetDensity(pvi)->GetMaxTileOccupancyByConfidence_LTW(dense_working_set_size, confidence_constraint);
-        } else {
+        (void) workload;
+        (void) per_level_compression_info;
+
+        // if (per_level_compression_info.find(pvi) != per_level_compression_info.end()
+        //     && per_level_compression_info.at(pvi).tensor_compressed){
+        //     working_set_size = workload->GetDensity(pvi)->GetMaxTileOccupancyByConfidence_LTW(dense_working_set_size, confidence_constraint);
+        // } else {
             working_set_size = ceil(dense_working_set_size * confidence_constraint);
-        }
+        //}
         required_capacity += working_set_size;
       }
     }
@@ -663,14 +666,16 @@ void BufferLevel::ConnectDrain(std::shared_ptr<Network> network)
 std::uint64_t BufferLevel::ComputeMetaDataTileSizeInBit(const tiling::MetaDataTileOccupancy metadata_occupancy) const
 {
 
-  std::uint64_t size = 0;
+  double size = 0;
   for (unsigned r_id = 0; r_id < metadata_occupancy.size(); r_id++)
   {
     auto per_rank_metadata_occupancy = metadata_occupancy[r_id];
-    size += (per_rank_metadata_occupancy.MetaDataUnits() +  per_rank_metadata_occupancy.PayloadUnits())
+    // each rank must in the end has a integer number of metadata and payload bits
+    // to be conservative, we round up
+    size += per_rank_metadata_occupancy.MetaDataUnits() +  per_rank_metadata_occupancy.PayloadUnits()
             * specs_.metadata_word_bits.Get();
   }
-  return size;
+  return ceil(size);
 }
 
 void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMovementInfo& tile,
@@ -678,10 +683,18 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
 
   // collect tile sizes (data + metadata) for all dataspaces stored at the storage level
   // used for better distribution storage capacity to different dataspaces stored at this level
-  double total_tile_size = 0;
-  problem::PerDataSpace<std::uint64_t> expected_total_tile_sizes;
+  double all_dataspace_total_tile_size = 0;
+  problem::PerDataSpace<double> expected_total_tile_sizes;
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++){
-    std::uint64_t expected_total_tile_size;
+
+    double expected_total_tile_size;
+
+    if (tile[pvi].shape == 0)
+    {
+      expected_total_tile_sizes[pvi] = 0;
+      continue;
+    }
+
     if (tile[pvi].compressed)
     {
       expected_total_tile_size =  tile[pvi].expected_data_occupancy
@@ -697,7 +710,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
                                      /specs_.word_bits.Get();
       }
     }
-    total_tile_size += expected_total_tile_size;
+    all_dataspace_total_tile_size += expected_total_tile_size;
     expected_total_tile_sizes[pvi] = expected_total_tile_size;
   }
 
@@ -722,8 +735,8 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
         uint64_t allocated_effective_buffer_size;
 
         // assign the dataspace storage capacity according to its tile size
-        if (total_tile_size != 0){
-          double ratio = expected_total_tile_sizes[pvi]/total_tile_size;
+        if (all_dataspace_total_tile_size != 0){
+          double ratio = expected_total_tile_sizes[pvi]/all_dataspace_total_tile_size;
           allocated_effective_buffer_size = ceil(specs_.effective_size.Get() * ratio);
         } else {
           allocated_effective_buffer_size = specs_.effective_size.Get() ;
@@ -744,7 +757,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
         {
           // if it is compressed tile and we can fit more data in (i.e., smaller overbooking proportion)
           // perform binary search to get the smallest possible overbooking proportion
-          std::uint64_t tmp_total_tile_size, tmp_data_tile_size, tmp_equivalent_metadata_tile_size;
+          double tmp_total_tile_size, tmp_data_tile_size, tmp_equivalent_metadata_tile_size;
           tiling::MetaDataTileOccupancy tmp_metadata_tile_occupancy;
           double tmp_confidence;
           double confidence_lower_bound = confidence_constraint;

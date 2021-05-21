@@ -980,6 +980,10 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   Reset();
   assert(!is_evaluated_);
 
+  //std::cout << "\n ==================================================== " << std::endl;
+  //std::cout << mapping.PrintCompact() << std::endl;
+  //std::cout << " ====================================================  " << std::endl;
+
   // ==================================================================
   // TODO: connect buffers to networks based on bypass mask in mapping.
   // ==================================================================

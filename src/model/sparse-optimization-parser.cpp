@@ -85,7 +85,7 @@ void Parse(config::CompoundConfigNode sparse_config,
     {
       // each element in the list represent a storage level's information
       auto directive = opt_target_list[i];
-      if (directive.exists("action_optimization"))
+      if (directive.exists("action-optimization"))
       {
         ParseActionOptimizationInfo(sparse_optimization_info, directive);
       }
@@ -97,7 +97,7 @@ void Parse(config::CompoundConfigNode sparse_config,
         sparse_optimization_info.compression_info.all_ranks_default_dense = false;
       }
 
-      if (directive.exists("compute_optimization"))
+      if (directive.exists("compute-optimization"))
       {
         ParseComputeOptimizationInfo(sparse_optimization_info, directive);
       }
@@ -177,9 +177,12 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
   bool rank_compressed = metadata_specs->RankCompressed();
 
   std::vector <std::set<problem::Shape::DimensionID>> per_level_flattened_rankIDs = {};
-  if (rank_specs.exists("flattened_rankIDs"))
+
+  if (rank_specs.exists("flattened-rankIDs"))
   {
-    auto list_of_rankID_list = rank_specs.lookup("flattened_rankIDs");
+    config::CompoundConfigNode list_of_rankID_list;
+    list_of_rankID_list = rank_specs.lookup("flattened-rankIDs");
+
     for (auto id = 0; id < list_of_rankID_list.getLength(); id++)
     {
       std::vector <std::string> dim_name_list;
@@ -255,13 +258,13 @@ void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
       //check for compression rate, default to fully compressed if the data is supposed to be compressed (according to metadata format)
       if (per_data_space_compression_info.tensor_compressed)
       {
-        if (data_space_list[pv].exists("compression_rate"))
+        if (data_space_list[pv].exists("compression-rate"))
         {
-          data_space_list[pv].lookupValue("compression_rate", per_data_space_compression_info.compression_rate);
+          data_space_list[pv].lookupValue("compression-rate", per_data_space_compression_info.compression_rate);
         }
       } else
       { // uncompressed
-        if (data_space_list[pv].exists("compression_rate"))
+        if (data_space_list[pv].exists("compression-rate"))
         {
           std::cout << " cannot have compression rate for uncompressed data" << std::endl;
           exit(1);
@@ -287,14 +290,14 @@ void ParseComputeOptimizationInfo(SparseOptimizationInfo &sparse_optimization_in
   directive.lookupValue("name", level_name);
   assert(arch_props_.Specs().topology.GetArithmeticLevel()->name.Get() == level_name);
   ComputeOptimizationInfo compute_optimization_info = {};
-  auto compute_opt_list = directive.lookup("compute_optimization");
+  auto compute_opt_list = directive.lookup("compute-optimization");
   for (int i = 0; i < compute_opt_list.getLength(); i++)
   {
-    if (compute_opt_list[i].exists("zero_gating"))
+    if (compute_opt_list[i].exists("zero-gating"))
     {
       bool b;
-      compute_opt_list[i].lookupValue("zero_gating", b);
-      compute_optimization_info["zero_gating"] = b;
+      compute_opt_list[i].lookupValue("zero-gating", b);
+      compute_optimization_info["zero-gating"] = b;
     }
     else
     {
@@ -314,7 +317,9 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
   std::string level_name;
   assert(directive.exists("name"));
   directive.lookupValue("name", level_name);
-  auto optimization_list = directive.lookup("action_optimization");
+  config::CompoundConfigNode optimization_list;
+  optimization_list = directive.lookup("action-optimization");
+
 
   std::string optimization_type;
   PerStorageActionOptimization per_storage_action_optimization_skipping = {};
@@ -328,17 +333,32 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
     for (int choice = 0; choice < options_list.getLength(); choice++)
     {
       ActionOptimization opt;
-      if (options_list[choice].exists("target") && options_list[choice].exists("condition_on"))
+      if (options_list[choice].exists("target") && options_list[choice].exists("condition-on"))
       {
         // optimize conditioned on type
-        std::string target_dspace, condition_dspace;
+        // parse for target dspace
+        std::string target_dspace;
         options_list[choice].lookupValue("target", target_dspace);
-        options_list[choice].lookupValue("condition_on", condition_dspace);
         auto target_dspace_id = problem::GetShape()->DataSpaceNameToID.at(target_dspace);
-        auto condition_dspace_id = problem::GetShape()->DataSpaceNameToID.at(condition_dspace);
+        opt.cond_on_opt.target_dspace_id = target_dspace_id;
+
+        // parse for condition on dspace
+        auto condition_on_dspace_list = options_list[choice].lookup("condition-on");
+        if (!condition_on_dspace_list.isArray())
+        {
+          std::cout << "ERROR: sparse optimization spec invalid --"
+                       " conditioned on dataspace(s) need to be specified as a list" << std::endl;
+          exit(1);
+        }
+        std::vector<std::string> condition_on_dspaces;
+        condition_on_dspace_list.getArrayValue(condition_on_dspaces);
+        for (unsigned i = 0; i < condition_on_dspaces.size(); i++)
+        {
+          auto condition_dspace_id = problem::GetShape()->DataSpaceNameToID.at(condition_on_dspaces[i]);
+          opt.cond_on_opt.condition_on_dspace_ids.push_back(condition_dspace_id);
+        }
 
         opt.type = CONDITIONED_ON;
-        opt.cond_on_opt = {target_dspace_id, condition_dspace_id};
       }
       else
       {
