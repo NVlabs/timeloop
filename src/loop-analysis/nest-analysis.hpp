@@ -29,6 +29,7 @@
 
 #include <unordered_map>
 #include <map>
+#include <unordered_set>
 
 #include "mapping/nest.hpp"
 #include "workload/per-problem-dimension.hpp"
@@ -172,7 +173,7 @@ class NestAnalysis
   void ComputeAccurateMulticastedAccesses(
       std::vector<analysis::LoopState>::reverse_iterator cur,
       const std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
-      std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>>& unaccounted_delta,
+      problem::PerDataSpace<std::unordered_set<std::uint64_t>>& unaccounted_delta,
       //const std::vector<problem::OperationSpace>& spatial_deltas,
       //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
       problem::PerDataSpace<AccessStatMatrix>& access_stats);
@@ -180,7 +181,8 @@ class NestAnalysis
   void ComputeNetworkLinkTransfers(
       std::vector<analysis::LoopState>::reverse_iterator cur,
       const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
-      std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>>& unaccounted_delta,
+      problem::PerDataSpace<std::unordered_set<std::uint64_t>>& unaccounted_delta,
+      //std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>>& unaccounted_delta,
       //const std::vector<problem::OperationSpace>& cur_spatial_deltas,
       //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
       problem::PerDataSpace<std::uint64_t>& link_transfers);
