@@ -118,22 +118,9 @@ CoordinateSpaceTileInfo DataMovementInfo::GetChildTileCoordinateSpaceInfo() cons
 
 std::uint64_t DataMovementInfo::GetMaxDataTileOccupancyByConfidence(const double confidence) const
 {
-  std::uint64_t data_tile_occupancy = !compressed ? coord_space_info.GetShape() :
-                                      tile_density->GetMaxTileOccupancyByConfidence(coord_space_info, confidence);
+  std::uint64_t data_tile_occupancy = tile_density->GetMaxTileOccupancyByConfidence(coord_space_info, confidence);
   return data_tile_occupancy;
 }
-
-// Move to sparse-analysis.cpp
-// double DataMovementInfo::GetExpectedDataTileOccupancy()
-// {
-//   if (!compressed) return (double)shape;
-//   else if (expected_data_occupancy != std::numeric_limits<unsigned>::max()) return expected_data_occupancy;
-//   else
-//   {
-//     expected_data_occupancy = tile_density->GetExpectedTileOccupancy(coord_space_info);
-//     return expected_data_occupancy;
-//   }
-// }
 
 double DataMovementInfo::GetDataTileOccupancyProbability(const std::uint64_t occupancy) const
 {
@@ -209,8 +196,7 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
       //           << std::endl;
 
       per_rank_metadata_occupancy = metadata_models_[r_id]->GetOccupancy(query);
-      if (r_id == 0)
-      { per_rank_metadata_occupancy.SetPayloadUnits(0); } // last rank's payload is not metadata
+
     }
     // std::cout << "Results: payload units:  " << per_rank_metadata_occupancy.PayloadUnits()
     // << "metadata units: " << per_rank_metadata_occupancy.MetaDataUnits() << std::endl;
@@ -222,6 +208,17 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
 
     // std::cout << " payloads: " << per_rank_metadata_occupancy.PayloadUnits()
     // << " metadata: " << per_rank_metadata_occupancy.MetaDataUnits() << std::endl;
+  }
+
+  for (unsigned r_id = 0; r_id < metadata_tile_occupancy.size(); r_id++)
+  {
+    if (!metadata_tile_occupancy[r_id].IsEmpty())
+    {
+      // find the inner most metadata rank that's not trivial, and set the payload to 0, as the payload is the data tile itself
+      // TODO: a cleaner way to is to not distinguish data tile from metadata payload
+      metadata_tile_occupancy[r_id].SetPayloadUnits(0); // last rank's payload is not metadata
+      break;
+    }
   }
 
   return metadata_tile_occupancy;
@@ -249,52 +246,6 @@ MetaDataTileOccupancy DataMovementInfo::GetMaxMetaDataTileOccupancyByConfidence(
   return metadata_tile_occupancy;
 }
 
-// Move to sparse-analysis.cpp
-// MetaDataTileOccupancy DataMovementInfo::GetExpectedMetaDataTileOccupancy()
-// {
-//   MetaDataTileOccupancy metadata_tile_occupancy = {}; //empty means no metadata
-//   if (!compressed) expected_data_occupancy = (double) shape;
-//   else expected_data_occupancy = 0;
-//
-//   if (has_metadata)
-//   {
-//
-//     CoordinateSpaceTileInfo cur_coord_tile;
-//     cur_coord_tile.Set(metadata_subtile_shape.back(), dataspace_id);
-//
-//     std::uint64_t abs_max_tile_occupancy = tile_density->GetMaxTileOccupancyByConfidence(cur_coord_tile, 1.0);
-//     for (std::uint64_t possible_occupancy = 0; possible_occupancy <= abs_max_tile_occupancy; possible_occupancy++)
-//     {
-//       double p = tile_density->GetTileOccupancyProbability(coord_space_info, possible_occupancy);
-//       if ( p != 0)
-//       {
-//         ExtraTileConstraintInfo extra_tile_constraint_info;
-//         extra_tile_constraint_info.Set(metadata_subtile_shape.back(), possible_occupancy);
-//         cur_coord_tile.Set(metadata_subtile_shape.back(), dataspace_id, extra_tile_constraint_info);
-//         auto occupancy = GetMetaDataTileOccupancyGivenDataTile(cur_coord_tile);
-//
-//         if (compressed) expected_data_occupancy += p * possible_occupancy; // update the data tile occupancy as well
-//
-//         for (unsigned r = 0; r < occupancy.size(); r++)
-//         {
-//           auto per_rank_occupancy = occupancy[r];
-//           per_rank_occupancy.Scale(p);
-//           if (metadata_tile_occupancy.size() == r)
-//           {
-//             metadata_tile_occupancy.push_back(per_rank_occupancy);
-//           } else
-//           {
-//             metadata_tile_occupancy[r].Add(per_rank_occupancy);
-//           }
-//         }
-//       }
-//     }
-//     expected_metadata_occupancy = metadata_tile_occupancy;
-//   }
-//
-//   return metadata_tile_occupancy;
-// }
-
 
  double DataMovementInfo::GetExpectedAggregatedMetaDataTileOccupancy() const
  {
@@ -316,9 +267,16 @@ double DataMovementInfo::GetMaxTileDensityByConfidence(const double confidence) 
 }
 
 
+std::uint64_t DataMovementInfo::GetMinDataTileOccupancy() const
+{
+  double min_density =  tile_density->GetMinTileDensity(coord_space_info);
+  return floor(min_density * shape);
+}
+
+
 double DataMovementInfo::GetExpectedTileDensity() const
 {
-  return expected_data_occupancy/shape;
+  return expected_density;
 }
 
 }

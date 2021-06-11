@@ -89,9 +89,9 @@ struct PerDataSpaceCompressionInfo
 
   // all of the vectors below should have the same length... which is the fiber tree depth
   std::vector<bool> rank_compressed; // if each rank is compressed
-  std::vector <std::string> rank_formats; // each rank of the tensor should have metadata format
-  std::vector <std::vector<std::set < problem::Shape::DimensionID>>>
-  flattened_rankIDs; // rankIDs that can be flattened together
+  std::vector<bool> coordinates_implicit;
+  std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format
+  std::vector<std::vector<std::vector< problem::Shape::DimensionID>>> flattened_rankIDs; // rankIDs that can be flattened together
   std::vector <std::shared_ptr<problem::MetaDataFormat>> metadata_models; // pointers to metadata format objs
   double compression_rate; // not very useful yet, placeholder
 
@@ -99,17 +99,17 @@ struct PerDataSpaceCompressionInfo
   {
     if (tensor_compressed) return true; // compressed tensor must have metadata
     if (metadata_models.size() > 1) return true; // intermediate levels must have payloads
-    if (metadata_models.size() == 1 && !metadata_models[0]->ImplicitMetadata())
+    if (metadata_models.size() == 1 && !metadata_models[0]->MetaDataImplicitAsLowestRank())
       return true; // single level with metadata
     return false; // single level default dense
   }
 
   bool FoundDimensionInFlatteningRule(std::uint64_t rank_id, problem::Shape::DimensionID dim_id,
-                                      std::set <problem::Shape::DimensionID> &rule_item) const
+                                      std::vector<problem::Shape::DimensionID> &rule_item) const
   {
     for (auto iter = flattened_rankIDs[rank_id].begin(); iter != flattened_rankIDs[rank_id].end(); iter++)
     {
-      if (iter->find(dim_id) != iter->end())
+      if (std::find(iter->begin(), iter->end(), dim_id) != iter->end())
       {
         rule_item = *iter;
         return true;
@@ -173,6 +173,7 @@ struct SparseOptimizationInfo
   StorageActionOptimizationInfo action_skipping_info;
   ComputeOptimizationInfo compute_optimization_info;
   CompressionInfo compression_info;
+  bool no_optimization_applied;
 };
 
 } // namespace

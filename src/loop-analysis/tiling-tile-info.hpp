@@ -108,6 +108,7 @@ struct DataMovementInfo
   std::shared_ptr<problem::DensityDistribution> tile_density;  // statistical representation of tile data density
   // Fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
+  double expected_density;
 
   // Compression related
   bool compressed;
@@ -176,6 +177,7 @@ struct DataMovementInfo
     fiber_shape.clear();
     coord_space_info.Clear();
     tile_density = NULL;
+    expected_density = 0;
   }
 
   void Validate()
@@ -246,6 +248,7 @@ struct DataMovementInfo
   std::uint64_t GetMaxDataTileOccupancyByConfidence(const double confidence = 1.0) const;
   double GetDataTileOccupancyProbability(const std::uint64_t occupancy) const;
   double GetChildLevelDataTileOccupancyProbability(const std::uint64_t occupancy) const;
+  std::uint64_t GetMinDataTileOccupancy() const;
 
   // get metadata tile occupancy
   MetaDataTileOccupancy GetMetaDataTileOccupancyGivenDataTile(const CoordinateSpaceTileInfo& cur_coord_tile) const;

@@ -141,45 +141,6 @@ std::string HypergeometricDistribution::GetDistributionType() const
   return specs_.type;
 }
 
-// double HypergeometricDistribution::GetTileDensityByConfidence(const std::uint64_t tile_shape,
-//                                                               const double confidence, uint64_t allocated_capacity) const {
-//   double tile_density;
-//
-//   if (specs_.average_density == 1.0) {
-//     // dense data does not need distribution
-//     tile_density = 1.0;
-//
-//   } else if (tile_shape == 0) {
-//     // simply assign the average density for nonexistent tiles
-//     tile_density = specs_.average_density;
-//
-//   } else if (confidence == 1.0) {
-//
-//     if (allocated_capacity <= tile_shape && allocated_capacity > specs_.total_nnzs){
-//       tile_density = specs_.total_nnzs/tile_shape;
-//     } else if (allocated_capacity <= tile_shape) {
-//       tile_density = double(allocated_capacity)/tile_shape;
-//     } else if (allocated_capacity > tile_shape && tile_shape > specs_.total_nnzs){
-//       tile_density = specs_.total_nnzs/tile_shape;
-//     } else if (allocated_capacity > tile_shape){
-//       tile_density = 1.0;
-//     } else {
-//       assert(false);
-//     }
-//
-//   } else {
-//     // we don't need to re-derive the percentile
-//     // for this case, we know that we are not confident that the entire tile will fit
-//     // even if we give the entire allocated_capacity to the tile
-//     // so the max density supported is just allocated_capacity/tile shape
-//     tile_density = 1.0 * allocated_capacity / tile_shape;
-//   }
-//
-//   return tile_density;
-//
-// }
-
-
 double HypergeometricDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
                                                                  const double confidence) const
 {
@@ -191,6 +152,18 @@ double HypergeometricDistribution::GetMaxTileDensityByConfidence(const tiling::C
   std::uint64_t percentile_occupancy = HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
   return (double)percentile_occupancy / tile_shape;
 
+}
+
+double HypergeometricDistribution::GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) const
+{
+  if (tile.GetShape() <= specs_.workload_tensor_size - specs_.total_nnzs)
+  {
+    return 0;
+  }
+  else
+  {
+    return (tile.GetShape() - specs_.workload_tensor_size + specs_.total_nnzs)/tile.GetShape();
+  }
 }
 
 double HypergeometricDistribution::GetTileExpectedDensity(const uint64_t tile_shape) const

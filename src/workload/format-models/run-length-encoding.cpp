@@ -62,10 +62,16 @@ PerRankMetaDataTileOccupancy RunLengthEncoding::GetOccupancy(const MetaDataOccup
   return occupancy;
 }
 
-bool RunLengthEncoding::GetRankCompressed() const
+bool RunLengthEncoding::RankCompressed() const
 {
   assert(is_specced_);
   return specs_.rank_compressed;
+}
+
+bool RunLengthEncoding::CoordinatesImplicit() const
+{
+  assert(is_specced_);
+  return specs_.coordinates_implicit;
 }
 
 std::vector<problem::Shape::DimensionID> RunLengthEncoding::GetDimensionIDs() const
@@ -77,7 +83,7 @@ std::vector<problem::Shape::DimensionID> RunLengthEncoding::GetDimensionIDs() co
 std::string RunLengthEncoding::GetFormatName() const
 {
   assert(is_specced_);
-  return specs_.Name();
+  return specs_.name;
 }
 
 } // namespace problem

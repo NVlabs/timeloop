@@ -140,6 +140,7 @@ public:
                                                      const double confidence) const;
   double GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
                                     const double confidence = 1.0) const;
+  double GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) const;
   double GetTileOccupancyProbability (const tiling::CoordinateSpaceTileInfo& tile,
                                         const std::uint64_t occupancy) const;
   double GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) const;

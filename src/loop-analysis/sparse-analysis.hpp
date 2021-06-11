@@ -66,19 +66,18 @@ struct SparseAnalysisState
   std::uint64_t num_storage_levels_;
 
   // live state
+  // general
   Mapping mapping_;
   std::vector<std::vector<problem::OperationPoint>> maxtile_molds_high_;
   std::vector<std::vector<loop::Descriptor>> complete_subnests_;
   std::vector<std::vector<bool>> trivial_nest_masks_;
-
-  // storage related
   std::map<unsigned, std::map<DataSpaceID, double>> prob_explicitly_optimized_read_;
   std::map<std::string, ListOfPerDataSpaceMask> dspace_optimization_masks_;
 
-  // compute related
+  // info that impact compute analysis
   std::vector<problem::Shape::DimensionID> c_intersection_dims_;
   std::map<DataSpaceID, double> c_operand_densities_;
-  std::map<DataSpaceID, double> c_operand_prop_impact_;
+  std::map<DataSpaceID, bool> scalar_storage_optimization_;
 
   SparseAnalysisState()
   {}

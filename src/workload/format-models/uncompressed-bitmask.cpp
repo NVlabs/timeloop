@@ -59,11 +59,18 @@ PerRankMetaDataTileOccupancy UncompressedBitmask::GetOccupancy(const MetaDataOcc
   return occupancy;
 }
 
-bool UncompressedBitmask::GetRankCompressed() const
+bool UncompressedBitmask::RankCompressed() const
 {
   assert(is_specced_);
   return specs_.rank_compressed;
 }
+
+bool UncompressedBitmask::CoordinatesImplicit() const
+{
+  assert(is_specced_);
+  return specs_.coordinates_implicit;
+}
+
 
 std::vector<problem::Shape::DimensionID> UncompressedBitmask::GetDimensionIDs() const
 {
@@ -74,7 +81,7 @@ std::vector<problem::Shape::DimensionID> UncompressedBitmask::GetDimensionIDs() 
 std::string UncompressedBitmask::GetFormatName() const
 {
   assert(is_specced_);
-  return specs_.Name();
+  return specs_.name;
 }
 
 } // namespace problem

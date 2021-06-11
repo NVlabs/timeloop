@@ -156,7 +156,8 @@ class Application
       arch_specs_.topology.ParseAccelergyERT(ert);
       if (rootNode.exists("ART")){ // Nellie: well, if the users have the version of Accelergy that generates ART
           auto art = rootNode.lookup("ART");
-          std::cout << "Found Accelergy ART (area reference table), replacing internal area model." << std::endl;
+          if (verbose_)
+            std::cout << "Found Accelergy ART (area reference table), replacing internal area model." << std::endl;
           arch_specs_.topology.ParseAccelergyART(art);  
       }
     }
@@ -177,7 +178,8 @@ class Application
         std::string artPath = out_prefix_ + ".ART.yaml";
         auto artConfig = new config::CompoundConfig(artPath.c_str());
         auto art = artConfig->getRoot().lookup("ART");
-        std::cout << "Generate Accelergy ART (area reference table) to replace internal area model." << std::endl;
+        if (verbose_)
+          std::cout << "Generate Accelergy ART (area reference table) to replace internal area model." << std::endl;
         arch_specs_.topology.ParseAccelergyART(art);
       }
 #endif
@@ -302,10 +304,10 @@ class Application
     if (engine.IsEvaluated())
     {
       std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
+                << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+        engine.GetTopology().AlgorithmicComputes()
                 << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-        engine.GetTopology().TotalComputes()
-                << " | pJ/Effectual-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-        engine.GetTopology().EffectualComputes() << std::endl;
+        engine.GetTopology().ActualComputes() << std::endl;
 
       std::ofstream map_txt_file(map_txt_file_name);
       mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());

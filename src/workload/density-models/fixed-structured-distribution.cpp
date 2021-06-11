@@ -30,19 +30,19 @@
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
 
-BOOST_CLASS_EXPORT(problem::FixedDistribution)
+BOOST_CLASS_EXPORT(problem::FixedStructuredDistribution)
 
 namespace problem{
 
-FixedDistribution::FixedDistribution(){ }
+FixedStructuredDistribution::FixedStructuredDistribution(){ }
 
-FixedDistribution::FixedDistribution(const Specs& specs) : specs_(specs){
+FixedStructuredDistribution::FixedStructuredDistribution(const Specs& specs) : specs_(specs){
   is_specced_ = true;
 }
 
-FixedDistribution::~FixedDistribution() { }
+FixedStructuredDistribution::~FixedStructuredDistribution() { }
 
-FixedDistribution::Specs FixedDistribution::ParseSpecs(config::CompoundConfigNode density_config){
+FixedStructuredDistribution::Specs FixedStructuredDistribution::ParseSpecs(config::CompoundConfigNode density_config){
 
   Specs specs;
   std::string type;
@@ -50,22 +50,22 @@ FixedDistribution::Specs FixedDistribution::ParseSpecs(config::CompoundConfigNod
   density_config.lookupValue("distribution", type);
   density_config.lookupValue("density", fixed_density);
 
-  specs.type = type;
+  specs.type = "fixed-structured";
   specs.fixed_density = fixed_density;
 
   return specs;
 }
 
-void FixedDistribution::SetDensity(const double density){
+void FixedStructuredDistribution::SetDensity(const double density){
   specs_.fixed_density = density;
 }
 
-void FixedDistribution::SetWorkloadTensorSize(const std::uint64_t size ){
+void FixedStructuredDistribution::SetWorkloadTensorSize(const std::uint64_t size ){
   // setter that allows workload tensor size at a latter stage (topology.cpp, PreEvaluationCheck)
   specs_.workload_tensor_size = size;
 }
 
-std::uint64_t FixedDistribution::GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
+std::uint64_t FixedStructuredDistribution::GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
                                                               const double confidence) const
 {
 
@@ -82,40 +82,30 @@ std::uint64_t FixedDistribution::GetTileOccupancyByConfidence(const std::uint64_
   return confidence <= prob_floor ? floor(exact_nnzs) : ceil(exact_nnzs);
 }
 
-std::uint64_t FixedDistribution::GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tile,
+std::uint64_t FixedStructuredDistribution::GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tile,
                                                                  const double confidence) const
 {
   std::uint64_t tile_shape = tile.GetShape();
-  return FixedDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
+  return FixedStructuredDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
 
 
-std::uint64_t FixedDistribution::GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
+std::uint64_t FixedStructuredDistribution::GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
                                                    const double confidence) const
 {
-  return FixedDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
+  return FixedStructuredDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
 
-std::uint64_t FixedDistribution::GetWorkloadTensorSize() const{
+std::uint64_t FixedStructuredDistribution::GetWorkloadTensorSize() const{
   return specs_.workload_tensor_size;
 };
 
-std::string FixedDistribution::GetDistributionType() const{
+std::string FixedStructuredDistribution::GetDistributionType() const{
   return specs_.type;
 }
 
-// double FixedDistribution::GetTileDensityByConfidence(const std::uint64_t tile_shape,
-//                                                      const double confidence,
-//                                                      const uint64_t allocated_capacity) const{
-//   (void) tile_shape;
-//   (void) confidence;
-//   (void) allocated_capacity;
-//
-//   return specs_.fixed_density;
-//
-// }
 
-double FixedDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
+double FixedStructuredDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
                                                         const double confidence) const
 {
   (void) tile;
@@ -124,14 +114,25 @@ double FixedDistribution::GetMaxTileDensityByConfidence(const tiling::Coordinate
   return specs_.fixed_density;
 }
 
-double FixedDistribution::GetTileExpectedDensity( const uint64_t tile_shape ) const {
+
+double FixedStructuredDistribution::GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) const
+{
+  if (tile.GetShape() == 0)
+  {
+    return 0;
+  }
+  std::uint64_t floor_nnzs =  floor(tile.GetShape() * specs_.fixed_density);
+  return floor_nnzs/tile.GetShape();
+}
+
+double FixedStructuredDistribution::GetTileExpectedDensity( const uint64_t tile_shape ) const {
 
   (void) tile_shape;
   assert(is_specced_);
   return specs_.fixed_density;
 }
 
-double FixedDistribution::GetProbability(const std::uint64_t tile_shape,
+double FixedStructuredDistribution::GetProbability(const std::uint64_t tile_shape,
                                          const std::uint64_t nnz_vals) const
 {
 
@@ -161,15 +162,57 @@ double FixedDistribution::GetProbability(const std::uint64_t tile_shape,
   }
 }
 
-double FixedDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
-                                                      const std::uint64_t occupancy) const
+double FixedStructuredDistribution::GetProbability(const std::uint64_t tile_shape,
+                                                   const std::uint64_t nnz_vals,
+                                                   const std::uint64_t constraint_tensor_shape,
+                                                   const std::uint64_t constraint_tensor_occupancy) const
 {
-  std::uint64_t tile_shape = tile.GetShape();
-  return GetProbability(tile_shape, occupancy);
+  double constrained_density = (double)constraint_tensor_occupancy/constraint_tensor_shape;
+
+  double exact_nnzs = tile_shape * constrained_density;
+
+  double prob_ceil = exact_nnzs - floor(exact_nnzs);
+  double prob_floor = 1 - prob_ceil;
+
+  if (floor(exact_nnzs) == nnz_vals)
+  {
+    return prob_floor;
+
+  } else if (ceil(exact_nnzs) == nnz_vals)
+  {
+    return prob_ceil;
+
+  } else
+  {
+    return 0.0;
+  }
+
 }
 
 
-double FixedDistribution::GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) const
+double FixedStructuredDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
+                                                      const std::uint64_t occupancy) const
+{
+  double prob;
+  std::uint64_t tile_shape = tile.GetShape();
+
+  if (tile.HasExtraConstraintInfo())
+  {
+    auto extra_constraint_info = tile.GetExtraConstraintInfo();
+    auto occupancy_constraint = extra_constraint_info.GetOccupancy();
+    auto shape_constraint = extra_constraint_info.GetShape();
+    prob = GetProbability(tile_shape, occupancy, shape_constraint, occupancy_constraint);
+  }
+  else
+  {
+    prob = GetProbability(tile_shape, occupancy);
+  }
+
+  return prob;
+}
+
+
+double FixedStructuredDistribution::GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) const
 {
   return tile.GetShape() * specs_.fixed_density;
 }

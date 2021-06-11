@@ -61,11 +61,18 @@ PerRankMetaDataTileOccupancy UncompressedOffsetPair::GetOccupancy(const MetaData
   return occupancy;
 }
 
-bool UncompressedOffsetPair::GetRankCompressed() const
+bool UncompressedOffsetPair::RankCompressed() const
 {
   assert(is_specced_);
   return specs_.rank_compressed;
 }
+
+bool UncompressedOffsetPair::CoordinatesImplicit() const
+{
+  assert(is_specced_);
+  return specs_.coordinates_implicit;
+}
+
 
 std::vector<problem::Shape::DimensionID> UncompressedOffsetPair::GetDimensionIDs() const
 {
@@ -76,7 +83,7 @@ std::vector<problem::Shape::DimensionID> UncompressedOffsetPair::GetDimensionIDs
 std::string UncompressedOffsetPair::GetFormatName() const
 {
   assert(is_specced_);
-  return specs_.Name();
+  return specs_.name;
 }
 
 } // namespace problem

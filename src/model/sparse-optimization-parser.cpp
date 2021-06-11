@@ -63,6 +63,7 @@ SparseOptimizationInfo ParseAndConstruct(config::CompoundConfigNode sparse_confi
 {
   arch_props_.Construct(arch_specs);
   SparseOptimizationInfo sparse_optimization_info;
+  sparse_optimization_info.no_optimization_applied = true;
 
   InitializeCompressionInfo(sparse_optimization_info);
   InitializeActionOptimizationInfo(sparse_optimization_info);
@@ -85,23 +86,36 @@ void Parse(config::CompoundConfigNode sparse_config,
     {
       // each element in the list represent a storage level's information
       auto directive = opt_target_list[i];
-      if (directive.exists("action-optimization"))
+      if (directive.exists("action-optimization")
+          || directive.exists("representation-format")
+          || directive.exists("compute-optimization"))
       {
-        ParseActionOptimizationInfo(sparse_optimization_info, directive);
-      }
+        if (directive.exists("action-optimization"))
+        {
+          ParseActionOptimizationInfo(sparse_optimization_info, directive);
+          sparse_optimization_info.no_optimization_applied = false;
+        }
 
-      // parse for compression
-      if (directive.exists("compression"))
+        // parse for representation format
+        if (directive.exists("representation-format"))
+        {
+          ParseCompressionInfo(sparse_optimization_info, directive);
+          sparse_optimization_info.compression_info.all_ranks_default_dense = false;
+          sparse_optimization_info.no_optimization_applied = false;
+        }
+
+        if (directive.exists("compute-optimization"))
+        {
+          ParseComputeOptimizationInfo(sparse_optimization_info, directive);
+          sparse_optimization_info.no_optimization_applied = false;
+        }
+      }
+      else
       {
-        ParseCompressionInfo(sparse_optimization_info, directive);
-        sparse_optimization_info.compression_info.all_ranks_default_dense = false;
+        std::string level_name;
+        directive.lookupValue("name", level_name);
+        std::cout << "Warning: unrecognized sparse optimization optimization specification: " << level_name << std::endl;
       }
-
-      if (directive.exists("compute-optimization"))
-      {
-        ParseComputeOptimizationInfo(sparse_optimization_info, directive);
-      }
-
     }
   }
   std::cout << "Sparse optimization configuration complete." << std::endl;
@@ -163,7 +177,7 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
   // 0) keyword check
   if (!rank_specs.exists("format"))
   {
-    std::cout << "compression specification: keyword \"format\" missing in compression spec" << std::endl;
+    std::cout << "ERROR: data representation format specification: keyword \"format\" missing" << std::endl;
     exit(1);
   }
 
@@ -174,9 +188,10 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
 
   // 2) record the per-rank formats, whether each dimension is compressed, and user-defined flattening rules
   std::string lc_format = metadata_specs->Name();
-  bool rank_compressed = metadata_specs->RankCompressed();
+  bool rank_compressed = metadata_model->RankCompressed();
+  bool coordinates_implicit = metadata_model->CoordinatesImplicit();
 
-  std::vector <std::set<problem::Shape::DimensionID>> per_level_flattened_rankIDs = {};
+  std::vector<std::vector<problem::Shape::DimensionID>> per_level_flattened_rankIDs = {};
 
   if (rank_specs.exists("flattened-rankIDs"))
   {
@@ -187,23 +202,25 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
     {
       std::vector <std::string> dim_name_list;
       list_of_rankID_list[id].getArrayValue(dim_name_list);
-      std::set <problem::Shape::DimensionID> dim_id_set;
+      std::vector<problem::Shape::DimensionID> dim_id_list;
 
       for (auto iter = dim_name_list.begin(); iter != dim_name_list.end(); iter++)
       {
         auto id = problem::GetShape()->DimensionNameToID.at(*iter);
-        dim_id_set.insert(id);
+        dim_id_list.push_back(id);
       }
-      per_level_flattened_rankIDs.push_back(dim_id_set);
+      per_level_flattened_rankIDs.push_back(dim_id_list);
     }
   }
 
   per_data_space_compression_info.flattened_rankIDs.push_back(per_level_flattened_rankIDs);
   per_data_space_compression_info.rank_formats.push_back(lc_format);
   per_data_space_compression_info.rank_compressed.push_back(rank_compressed);
+  per_data_space_compression_info.coordinates_implicit.push_back(coordinates_implicit);
   if (rank_compressed)
-  { per_data_space_compression_info.tensor_compressed = true; }
-
+  {
+    per_data_space_compression_info.tensor_compressed = true;
+  }
 }
 
 // parse for compression info (storage only) of one directive
@@ -217,7 +234,7 @@ void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
 
   auto &compression_info = sparse_optimization_info.compression_info;
 
-  auto compression_directive = directive.lookup("compression");
+  auto compression_directive = directive.lookup("representation-format");
   unsigned storage_level_id = FindTargetStorageLevel(level_name);
 
   if (compression_directive.exists("data-spaces"))
@@ -238,15 +255,35 @@ void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
       PerDataSpaceCompressionInfo per_data_space_compression_info;
       if (!data_space_list[pv].exists("ranks"))
       {
-        std::cout << "keyword \"ranks\" missing in compression specification: " << level_name << std::endl;
+        std::cout << "keyword \"ranks\" missing in data representation specification: " << level_name << std::endl;
         exit(1);
       }
 
       // parse accordingly
       auto rank_spec_list = data_space_list[pv].lookup("ranks");
-      for (auto r_id = 0; r_id < rank_spec_list.getLength(); r_id++)
+      // user spec has top rank on the top of the list (top rank has index 0 in list)
+      // we reverse the order here to be little endian during parsing
+      for (int r_id = rank_spec_list.getLength()-1; r_id >= 0; r_id--)
       {
         ParsePerRankSpec(rank_spec_list[r_id], per_data_space_compression_info);
+      }
+
+      // check whether data representation format supported
+      // upper level compresssed lower level uncompressed will lead to partially compressed (sub) tensors
+      // we currently just have a bool stating whether a tensor is fully compressed
+      // TODO: per-rank bool to specify if a subtensor is compressed, or double in 0-1.0 stating how much is compressed
+      bool lower_rank_uncompressed = per_data_space_compression_info.rank_compressed[0];
+      for (int r_id = 1; r_id < rank_spec_list.getLength(); r_id++)
+      {
+        bool rank_compressed = per_data_space_compression_info.rank_compressed[r_id];
+        if (lower_rank_uncompressed && rank_compressed)
+        {
+          std::cerr << "ERROR: data representation format not supported,"
+                       "currently do not support lower rank uncompressed, upper rank compressed formats: "
+                    << per_data_space_compression_info.rank_formats[r_id]
+                    << std::endl;
+          exit(1);
+        }
       }
 
       // sanity check: all the info are pushed correctly
@@ -293,16 +330,20 @@ void ParseComputeOptimizationInfo(SparseOptimizationInfo &sparse_optimization_in
   auto compute_opt_list = directive.lookup("compute-optimization");
   for (int i = 0; i < compute_opt_list.getLength(); i++)
   {
-    if (compute_opt_list[i].exists("zero-gating"))
+    std::string optimization_type;
+    if (compute_opt_list[i].lookupValue("type", optimization_type))
     {
-      bool b;
-      compute_opt_list[i].lookupValue("zero-gating", b);
-      compute_optimization_info["zero-gating"] = b;
-    }
-    else
-    {
-      std::cout << "ERROR: compute optimization not recognized..." << std::endl;
-      assert(false);
+      if (optimization_type == "gate-on-zero-operand" || optimization_type == "gating")
+      {
+        compute_optimization_info["gate_on_zero_operand"] = true;
+      } else if (optimization_type == "skip_on_not_aligned_operands" || optimization_type == "skipping")
+      {
+        compute_optimization_info["skip_on_not_aligned_operands"] = true;
+      } else
+      {
+        std::cerr << "ERROR: compute optimization type not recognized: " << optimization_type << std::endl;
+        assert(false);
+      }
     }
   }
   sparse_optimization_info.compute_optimization_info = compute_optimization_info;
@@ -328,29 +369,70 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
   {
     optimization_list[id].lookupValue("type", optimization_type);
 
-    auto options_list = optimization_list[id].lookup("options");
     GroupOfActionOptimization group = {};
-    for (int choice = 0; choice < options_list.getLength(); choice++)
+    if (optimization_list[id].exists("options"))
     {
+      // options are provided for sparse-analysis to choose from
+      auto options_list = optimization_list[id].lookup("options");
+      for (int choice = 0; choice < options_list.getLength(); choice++)
+      {
+        ActionOptimization opt;
+        if (options_list[choice].exists("target") && options_list[choice].exists("condition-on"))
+        {
+          // optimize conditioned on type
+          // parse for target dspace
+          std::string target_dspace;
+          options_list[choice].lookupValue("target", target_dspace);
+          auto target_dspace_id = problem::GetShape()->DataSpaceNameToID.at(target_dspace);
+          opt.cond_on_opt.target_dspace_id = target_dspace_id;
+
+          // parse for condition on dspace
+          auto condition_on_dspace_list = options_list[choice].lookup("condition-on");
+          if (!condition_on_dspace_list.isArray())
+          {
+            std::cerr << "ERROR: sparse optimization spec invalid --"
+                         " conditioned on dataspace(s) need to be specified as a list" << std::endl;
+            exit(1);
+          }
+          std::vector <std::string> condition_on_dspaces;
+          condition_on_dspace_list.getArrayValue(condition_on_dspaces);
+          for (unsigned i = 0; i < condition_on_dspaces.size(); i++)
+          {
+            auto condition_dspace_id = problem::GetShape()->DataSpaceNameToID.at(condition_on_dspaces[i]);
+            opt.cond_on_opt.condition_on_dspace_ids.push_back(condition_dspace_id);
+          }
+
+          opt.type = CONDITIONED_ON;
+        } else
+        {
+          std::cerr << "ERROR: " << level_name << ": storage action optimization choice not recognized..." << std::endl;
+          assert(false);
+        }
+        group.push_back(opt);
+      } // end of group
+    }
+    else
+    {
+      // fixed optimization setup
       ActionOptimization opt;
-      if (options_list[choice].exists("target") && options_list[choice].exists("condition-on"))
+      if (optimization_list[id].exists("target") && optimization_list[id].exists("condition-on"))
       {
         // optimize conditioned on type
         // parse for target dspace
         std::string target_dspace;
-        options_list[choice].lookupValue("target", target_dspace);
+        optimization_list[id].lookupValue("target", target_dspace);
         auto target_dspace_id = problem::GetShape()->DataSpaceNameToID.at(target_dspace);
         opt.cond_on_opt.target_dspace_id = target_dspace_id;
 
         // parse for condition on dspace
-        auto condition_on_dspace_list = options_list[choice].lookup("condition-on");
+        auto condition_on_dspace_list = optimization_list[id].lookup("condition-on");
         if (!condition_on_dspace_list.isArray())
         {
-          std::cout << "ERROR: sparse optimization spec invalid --"
+          std::cerr << "ERROR: sparse optimization spec invalid --"
                        " conditioned on dataspace(s) need to be specified as a list" << std::endl;
           exit(1);
         }
-        std::vector<std::string> condition_on_dspaces;
+        std::vector <std::string> condition_on_dspaces;
         condition_on_dspace_list.getArrayValue(condition_on_dspaces);
         for (unsigned i = 0; i < condition_on_dspaces.size(); i++)
         {
@@ -359,14 +441,13 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
         }
 
         opt.type = CONDITIONED_ON;
-      }
-      else
+      } else
       {
-        std::cout << "ERROR: " << level_name << ": storage action optimization choice not recognized..." << std::endl;
+        std::cerr << "ERROR: " << level_name << ": storage action optimization choice not recognized..." << std::endl;
         assert(false);
       }
       group.push_back(opt);
-    } // end of group
+    }
 
     if (optimization_type == "gating")
     {
@@ -376,7 +457,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
       per_storage_action_optimization_skipping.push_back(group);
     } else
     {
-      std::cout << "ERROR: " << level_name << ": storage action optimization type not recognized..." << std::endl;
+      std::cerr << "ERROR: " << level_name << ": storage action optimization type not recognized..." << std::endl;
       assert(false);
     } // end of type
   }

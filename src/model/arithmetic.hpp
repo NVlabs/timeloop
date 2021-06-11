@@ -103,13 +103,12 @@ class ArithmeticUnits : public Level
   double area_ = 0;
   std::uint64_t cycles_ = 0;
   std::size_t utilized_instances_ = 0;
-  std::uint64_t total_computes_ = 0;
-  std::uint64_t effectual_computes_ = 0;
-
+  std::uint64_t algorithmic_computes_ = 0; // number of computes defined by the algorithm (loop nests)
+  std::uint64_t actual_computes_ = 0; // computes that actually happened, right now, consists of random computes only
   // Fine-grained actions
   // A fine grained action is either effectual and ineffectual
-  //     effectual: random compute
-  //     ineffectual: skipped compute, gated compute
+  //     effectual: actual computes: random compute
+  //     ineffectual: computes that did not happen: nonexistent compute, skipped compute, gated compute,
   std::uint64_t random_computes_ = 0;
   std::uint64_t skipped_computes_ = 0;
   std::uint64_t gated_computes_ = 0;
@@ -127,8 +126,10 @@ class ArithmeticUnits : public Level
       ar& BOOST_SERIALIZATION_NVP(area_);
       ar& BOOST_SERIALIZATION_NVP(cycles_);
       ar& BOOST_SERIALIZATION_NVP(utilized_instances_);
-      ar& BOOST_SERIALIZATION_NVP(total_computes_);
-      ar& BOOST_SERIALIZATION_NVP(effectual_computes_);
+      ar& BOOST_SERIALIZATION_NVP(algorithmic_computes_);
+      ar& BOOST_SERIALIZATION_NVP(random_computes_);
+      ar& BOOST_SERIALIZATION_NVP(gated_computes_);
+      ar& BOOST_SERIALIZATION_NVP(skipped_computes_);
     }
   }
   
@@ -243,18 +244,22 @@ class ArithmeticUnits : public Level
         energy_ += op_accesses * specs_.op_energy_map.at(op_name);
 
         // collect stats...
-        if (op_name == "random_compute"){
+        if (op_name == "random_compute")
+        {
           random_computes_ = op_accesses;
-        } else if (op_name == "gated_compute"){
+        } else if (op_name == "gated_compute")
+        {
           gated_computes_ = op_accesses;
-        } else if (op_name == "skipped_compute"){
+        } else if (op_name == "skipped_compute")
+        {
           skipped_computes_ = op_accesses;
         }
+
+        actual_computes_ = random_computes_;
       }
 
       cycles_ = double(random_computes_ + gated_computes_)/utilized_instances_;
-      effectual_computes_ = random_computes_;
-      total_computes_ = random_computes_ + gated_computes_ + skipped_computes_;
+      algorithmic_computes_ = tile.compute_info.replication_factor * tile.compute_info.accesses;
       is_evaluated_ = true;
     }
     else
@@ -269,23 +274,23 @@ class ArithmeticUnits : public Level
     return eval_status;
   }
   
-  std::uint64_t TotalComputes() const
+  std::uint64_t AlgorithmicComputes() const
   {
     assert(is_evaluated_);
-    return total_computes_;
+    return algorithmic_computes_;
   }
 
-  std::uint64_t EffectualComputes() const
+  std::uint64_t ActualComputes() const
   {
     assert(is_evaluated_);
-    return effectual_computes_;
+    return random_computes_;
   }
 
   double IdealCycles() const
   {
     // FIXME: why would this be different from Cycles()?
     assert(is_evaluated_);
-    return double(random_computes_ + gated_computes_)/specs_.instances.Get();
+    return double(actual_computes_ + gated_computes_)/specs_.instances.Get();
   }
 };
 

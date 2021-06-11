@@ -33,7 +33,7 @@
 namespace problem
 {
 
-class FixedDistribution : public DensityDistribution
+class FixedStructuredDistribution : public DensityDistribution
 {
 
  public:
@@ -87,6 +87,10 @@ class FixedDistribution : public DensityDistribution
   double GetProbability(const std::uint64_t tile_shape,
                         const std::uint64_t nnz_vals) const;
 
+  double GetProbability(const std::uint64_t tile_shape,
+                        const std::uint64_t nnz_vals,
+                        const std::uint64_t constraint_tensor_shape,
+                        const std::uint64_t constraint_tensor_occupancy) const;
   // double GetTileDensityByConfidence(const std::uint64_t tile_shape,
   //                                   const double confidence,
   //                                   const uint64_t allocated_capacity = 0) const;
@@ -113,11 +117,11 @@ class FixedDistribution : public DensityDistribution
   //
 
   // constructor and destructors
-  FixedDistribution();
+  FixedStructuredDistribution();
 
-  FixedDistribution(const Specs& specs);
+  FixedStructuredDistribution(const Specs& specs);
 
-  ~FixedDistribution();
+  ~FixedStructuredDistribution();
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
@@ -132,12 +136,13 @@ class FixedDistribution : public DensityDistribution
                                                     const double confidence) const;
   double GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
                                        const double confidence = 1.0) const;
+  double GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) const;
   double GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
                                      const std::uint64_t occupancy) const;
   double GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile) const;
 
  private:
 
-}; // class FixedDistribution
+}; // class FixedStructuredDistribution
 
 } // namespace problem

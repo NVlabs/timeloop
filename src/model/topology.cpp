@@ -446,9 +446,9 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
     std::string indent = "    ";
     int align = max_name_length + 1;
 
-    std::vector<std::string> all_titles = {"Total Computes", "Effectual Computes"};
-    std::vector<std::uint64_t> all_num_computes = {topology.stats_.total_computes, topology.stats_.effectual_computes};
-    std::vector<std::string> all_units = {"pJ/Compute", "pJ/Effectual-Compute"};
+    std::vector<std::string> all_titles = {"Algorithmic Computes", "Actual Computes"};
+    std::vector<std::uint64_t> all_num_computes = {topology.stats_.algorithmic_computes, topology.stats_.actual_computes};
+    std::vector<std::string> all_units = {"pJ/Algorithmic-Compute", "pJ/Compute"};
 
     for (unsigned i = 0; i < all_titles.size(); i++)
     {
@@ -1077,7 +1077,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     success_accum &= s.success;
   }
 
-  // update the dense compute cycles to be effectual compute cycles
+  // update the dense compute cycles to be sparse compute cycles (actual compute cycles + gated compute cycles)
   compute_cycles = GetArithmeticLevel()->Cycles();
 
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
@@ -1223,8 +1223,8 @@ void Topology::ComputeStats(bool eval_success)
     }
     
     // Computes.
-    stats_.total_computes = GetArithmeticLevel()->TotalComputes();
-    stats_.effectual_computes = GetArithmeticLevel() -> EffectualComputes();
+    stats_.algorithmic_computes = GetArithmeticLevel()->AlgorithmicComputes();
+    stats_.actual_computes = GetArithmeticLevel() -> ActualComputes();
 
     // Last-level accesses.
     stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses();

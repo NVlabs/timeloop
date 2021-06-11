@@ -34,6 +34,7 @@ CoordinatePayload::~CoordinatePayload() {}
 CoordinatePayload::CoordinatePayload() {}
 CoordinatePayload::CoordinatePayload(const Specs& specs) : specs_(specs){ is_specced_ = true;}
 
+
 CoordinatePayload::Specs CoordinatePayload::ParseSpecs(config::CompoundConfigNode metadata_specs)
 {
 
@@ -62,10 +63,16 @@ PerRankMetaDataTileOccupancy CoordinatePayload::GetOccupancy(const MetaDataOccup
   return occupancy;
 }
 
-bool CoordinatePayload::GetRankCompressed() const
+bool CoordinatePayload::RankCompressed() const
 {
   assert(is_specced_);
   return specs_.rank_compressed;
+}
+
+bool CoordinatePayload::CoordinatesImplicit() const
+{
+  assert(is_specced_);
+  return specs_.coordinates_implicit;
 }
 
 std::vector<problem::Shape::DimensionID> CoordinatePayload::GetDimensionIDs() const
@@ -77,7 +84,7 @@ std::vector<problem::Shape::DimensionID> CoordinatePayload::GetDimensionIDs() co
 std::string CoordinatePayload::GetFormatName() const
 {
   assert(is_specced_);
-  return specs_.Name();
+  return specs_.name;
 }
 
 } // namespace problem

@@ -77,7 +77,7 @@ public:
       }
       else
       {
-        std::cerr << "ERROR: unrecognized metadata format name: " << metadata_format_name<< std::endl;
+        std::cerr << "ERROR: parsing specs... unrecognized metadata format name: " << metadata_format_name<< std::endl;
         exit(1);
       }
     }
@@ -115,7 +115,7 @@ public:
     }
     else
     {
-      std::cerr << "ERROR: unrecognized metadata format name: " << specs->Name() << std::endl;
+      std::cerr << "ERROR: constructing model... unrecognized metadata format name: " << specs->name << std::endl;
       exit(1);
     }
 

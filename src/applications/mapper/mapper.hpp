@@ -563,12 +563,12 @@ class Application
 
       std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
       std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
-                << global_best_.stats.utilization << " | pJ/Compute = " << std::setw(8)
+                << global_best_.stats.utilization << " | pJ/Algorithmic-Compute = " << std::setw(8)
                 << std::fixed << std::setprecision(3) << global_best_.stats.energy /
-        global_best_.stats.total_computes
-                << " | pJ/Effectual-Compute = " << std::setw(8)
+        global_best_.stats.algorithmic_computes
+                << " | pJ/Compute = " << std::setw(8)
                 << std::fixed << std::setprecision(3) << global_best_.stats.energy /
-        global_best_.stats.effectual_computes << std::endl;
+        global_best_.stats.actual_computes << std::endl;
 
       // Print the engine stats and mapping to an XML file
       std::ofstream ofs(xml_file_name);

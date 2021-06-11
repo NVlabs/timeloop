@@ -42,8 +42,9 @@ public:
 
   struct Specs : public MetaDataFormatSpecs {
 
-    std::string name = "cp";  // run-length-encoding
+    std::string name = "cp";  // coordinate payload
     bool rank_compressed = true;
+    bool coordinates_implicit = false;
     std::vector<problem::Shape::DimensionID> dimension_ids;
     int metadata_width;
     int payload_width;
@@ -108,10 +109,11 @@ public:
   static Specs ParseSpecs(config::CompoundConfigNode metadata_config);
 
   PerRankMetaDataTileOccupancy GetOccupancy(const MetaDataOccupancyQuery& query) const;
-  bool GetRankCompressed () const;
+  bool RankCompressed () const;
+  bool CoordinatesImplicit() const;
   std::vector<problem::Shape::DimensionID> GetDimensionIDs() const;
   std::string GetFormatName() const;
-  bool ImplicitMetadata() const { return false; }
+  bool MetaDataImplicitAsLowestRank() const {return false;}
 }; // class CoordinatePayload
 
 } // namespace problem

@@ -131,6 +131,18 @@ namespace problem
       payload_units += m.PayloadUnits();
     }
 
+    bool IsEmpty()
+    {
+      if (MetaDataUnits() == 0 && PayloadUnits() == 0)
+      {
+        return true;
+      }
+      else
+      {
+        return false;
+      }
+    }
+
     friend class boost::serialization::access;
 
     // Serialization.
@@ -190,10 +202,11 @@ public:
 
   // API
   virtual PerRankMetaDataTileOccupancy GetOccupancy(const MetaDataOccupancyQuery& query) const = 0;
-  virtual bool GetRankCompressed() const = 0;
+  virtual bool RankCompressed() const = 0;
+  virtual bool CoordinatesImplicit() const = 0;
   virtual std::vector<problem::Shape::DimensionID> GetDimensionIDs() const = 0;
   virtual std::string GetFormatName() const = 0;
-  virtual bool ImplicitMetadata() const = 0;
+  virtual bool MetaDataImplicitAsLowestRank() const = 0;
 
   // Serialization.
   friend class boost::serialization::access;
