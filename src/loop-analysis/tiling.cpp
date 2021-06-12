@@ -523,6 +523,26 @@ void ComputeWorkloadTensorSizes(std::vector<DataMovementInfo>& tile_nest, proble
 
 }
 
+// place holder function that performs post processing of the # of fills for
+// the backing storage of each data space.
+// theoretically, we should reorder ComputeFills and MaskTiles to achieve this
+// and the logic for cascaded multicast calculation with bypassed storage level
+// in the middle needs to be updated
+void ResetBackingStorageFillsPlaceHolder(std::vector<DataMovementInfo>& tile_nest)
+{
+  unsigned num_tiling_levels = tile_nest.size();
+
+  for (int cur = num_tiling_levels - 1; cur >=0 ; cur--)
+  {
+    if (tile_nest[cur].size > 0)
+    {
+      tile_nest[cur].fills = 0;
+      break;
+    }
+  }
+}
+
+
 tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
                                        int num_tiling_levels,
                                        const CompoundMaskNest& tile_mask,
@@ -661,6 +681,10 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 
     // Mask each solution according to the provided bit mask.
     MaskTiles(solution[pv], tile_mask[pv]);
+
+    // Set backing storage fill to zero
+    // place holder
+    ResetBackingStorageFillsPlaceHolder(solution[pv]);
 
     // Perform distributed-multicast if supported.
     DistributeTiles(solution[pv], distribution_supported[pv]);
