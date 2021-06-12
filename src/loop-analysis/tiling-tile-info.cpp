@@ -36,7 +36,7 @@ void DataMovementInfo::SetTensorRepresentation()
   // set all fields to empty for default dense tensors with no metadata as these info will not be useful
   rank_compressed = {};
   rank_formats = {};
-  metadata_models_ = {};
+  metadata_models = {};
   coord_space_info.Set(shape, dataspace_id);
 
   // for safety, set the quick accessors (should be initialized just right)
@@ -55,7 +55,7 @@ void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompres
   // 2) subnests[0] is the inner most loop, subnests.size()-1 is the outer most loop in this level
   rank_compressed = compression_opt_spec.rank_compressed;
   rank_formats = compression_opt_spec.rank_formats;
-  metadata_models_ = compression_opt_spec.metadata_models;
+  metadata_models = compression_opt_spec.metadata_models;
   coord_space_info.Set(shape, subnests, dataspace_id);
 
   compressed = compression_opt_spec.tensor_compressed;
@@ -71,7 +71,7 @@ void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompres
   //     the rank order in the compression opt must fully specify all necessary compression format info
   rank_compressed = compression_opt_spec.rank_compressed;
   rank_formats = compression_opt_spec.rank_formats;
-  metadata_models_ = compression_opt_spec.metadata_models;
+  metadata_models = compression_opt_spec.metadata_models;
   coord_space_info.Set(shape, dataspace_id);
 
   compressed = compression_opt_spec.tensor_compressed;
@@ -84,9 +84,9 @@ std::string DataMovementInfo::GetMetaDataFormatName() const
   if (has_metadata)
   {
     std::string format;
-    for (int i = metadata_models_.size() - 1; i >= 0; i--)
+    for (int i = metadata_models.size() - 1; i >= 0; i--)
     {
-      format += metadata_models_[i]->GetFormatName();
+      format += metadata_models[i]->GetFormatName();
       format += " ";
     }
     return format;
@@ -165,15 +165,15 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
   CoordinateSpaceTileInfo cur_coord_tile = coord_tile;
   CoordinateSpaceTileInfo next_coord_tile;
 
-  for (int r_id = metadata_models_.size() - 1; r_id >= 0; r_id--)
+  for (int r_id = metadata_models.size() - 1; r_id >= 0; r_id--)
   {
 
     std::uint64_t cur_rank_fiber_shape = fiber_shape[r_id];
     next_coord_tile.Set(metadata_subtile_shape[r_id], dataspace_id, cur_coord_tile.GetExtraConstraintInfo());
     problem::PerRankMetaDataTileOccupancy per_rank_metadata_occupancy;
-     if (cur_rank_fiber_shape == 1)
+     if (cur_rank_fiber_shape == 1 && r_id != int(metadata_models.size()) - 1)
      {
-        // trivial rank (rank related to trivial loop)
+        // trivial rank (rank related to trivial loop) and it is not top rank
         // a good compression setup eliminate a trivial rank and it is reasonble to assume that
         // the underlying hardware is also programmable to skip the traversal of trivial loops as well
         // FIXME: check  if this is a good approximation of common practice
@@ -190,12 +190,12 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
                                             tile_density,
                                             1.0);
 
-      // std::cout << problem::GetShape()->DataSpaceIDToName.at(dataspace_id) << "  rid: " << r_id << " format: " << metadata_models_[r_id]->GetFormatName()
+      // std::cout << problem::GetShape()->DataSpaceIDToName.at(dataspace_id) << "  rid: " << r_id << " format: " << metadata_models[r_id]->GetFormatName()
       //           << " cur_rank_fiber_shape: " << cur_rank_fiber_shape << " max_num_fibers: " << max_number_of_fibers_in_rank
       //           << " next coord tile shape: "  <<metadata_subtile_shape[r_id]
       //           << std::endl;
 
-      per_rank_metadata_occupancy = metadata_models_[r_id]->GetOccupancy(query);
+      per_rank_metadata_occupancy = metadata_models[r_id]->GetOccupancy(query);
 
     }
     // std::cout << "Results: payload units:  " << per_rank_metadata_occupancy.PayloadUnits()

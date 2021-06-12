@@ -968,18 +968,22 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     stats_.fills[pv] = tile[pvi].fills;
     stats_.temporal_reductions[pv] = tile[pvi].temporal_reductions;
 
+    // address generations take gated accesses into account but not skipped accesses
+    //    for gated accesses, an address to gate is necessary, so one address generation is counted for each gate
+    //    for skipped access, only an address to skip to is necessary, and this address corresponds to an actual access address generation
+    //      thus zero address generation is necessary
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
       //stats_.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // FIXME? we want address generation be accounted for in energy/compound action?
       stats_.address_generations[pv] = stats_.fine_grained_scalar_accesses[pv]["random_update"]
-        + stats_.fine_grained_scalar_accesses[pv]["gated_update"] + stats_.fine_grained_scalar_accesses[pv]["skipped_update"]
+        + stats_.fine_grained_scalar_accesses[pv]["gated_update"]
         + stats_.fine_grained_scalar_accesses[pv]["random_fill"]
-        + stats_.fine_grained_scalar_accesses[pv]["gated_fill"] + stats_.fine_grained_scalar_accesses[pv]["skipped_fill"];
+        + stats_.fine_grained_scalar_accesses[pv]["gated_fill"];
     else
       //stats_.address_generations[pv] = stats_.reads[pv] + stats_.fills[pv]; // FIXME? we want address generation be accounted for in energy/compound action?
       stats_.address_generations[pv] = stats_.fine_grained_scalar_accesses[pv]["random_read"]
-        + stats_.fine_grained_scalar_accesses[pv]["gated_read"] + stats_.fine_grained_scalar_accesses[pv]["skipped_read"]
+        + stats_.fine_grained_scalar_accesses[pv]["gated_read"]
         + stats_.fine_grained_scalar_accesses[pv]["random_fill"]
-        + stats_.fine_grained_scalar_accesses[pv]["gated_fill"] + stats_.fine_grained_scalar_accesses[pv]["skipped_fill"];
+        + stats_.fine_grained_scalar_accesses[pv]["gated_fill"];
 
     stats_.metadata_reads[pv] = tile[pvi].metadata_reads;
     stats_.metadata_fills[pv] = tile[pvi].metadata_fills;

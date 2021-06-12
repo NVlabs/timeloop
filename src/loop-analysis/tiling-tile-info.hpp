@@ -72,10 +72,10 @@ struct DataMovementInfo
   // all of the vectors below should have the same length... which is the fiber tree depth
   // note that, if a tensor is uncompressed and have no associated metadata (e.g., for eyeriss-style data gating),
   //      the tensor representation is just a dense tensor, which is already pre-analyzed in dense modeling
-  std::vector<std::shared_ptr<problem::MetaDataFormat>> metadata_models_; // metadata models (if any) for each rank of the tile
+  std::vector<std::shared_ptr<problem::MetaDataFormat>> metadata_models; // metadata models (if any) for each rank of the tile
   std::vector<bool> rank_compressed; // if each rank is compressed
   std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format, none for uncompressed
-  std::size_t size;
+  std::size_t size; // for backward compatibility TODO: eventually we should use shape
   std::size_t shape;
   double expected_data_occupancy;
   MetaDataTileOccupancy expected_metadata_occupancy;
@@ -233,7 +233,7 @@ struct DataMovementInfo
   std::uint64_t GetNumMetaDataRanks() const
   {
     if (! has_metadata) return 0;
-    else return metadata_models_.size();
+    else return metadata_models.size();
   }
   CoordinateSpaceTileInfo GetCoordinateSpaceInfo() const;
   CoordinateSpaceTileInfo GetChildTileCoordinateSpaceInfo() const;

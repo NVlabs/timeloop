@@ -49,9 +49,10 @@ PerRankMetaDataTileOccupancy UncompressedOffsetPair::GetOccupancy(const MetaData
 {
 
   std::uint64_t number_of_fibers = query.MaxNumFibers();
-  // simple hardware ticks can be played to get rid of the need to include one extra offset needed in the end
+  // follow the most conventional definition to of CSR-upper rank
+  // TODO: should we assume we can play simple hardware ticks to get rid of the need to include one extra offset needed in the end
   //    e.g., PGEN always start from the value saved in a register
-  std::uint64_t number_of_payloads_per_fiber =  query.CurRankFiberShape();
+  std::uint64_t number_of_payloads_per_fiber =  query.CurRankFiberShape() + 1;
   PerRankMetaDataTileOccupancy occupancy;
   occupancy.payload_width = specs_.payload_width;
   occupancy.metadata_width = specs_.metadata_width;

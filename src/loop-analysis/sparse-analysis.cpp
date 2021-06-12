@@ -339,7 +339,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
       {
         target_loop_dim = state.complete_subnests_[l][loop_id].dimension;
         if (target_dspace_dimensions.find(target_loop_dim) != target_dspace_dimensions.end()
-            || child_level == -1 )
+          || child_level == -1)
         {
           // found loop related to target dataspace
           found_target_dspace_loop = true;
@@ -661,7 +661,7 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
 {
 
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
-  auto& compute_info_nest =  compound_tile_nest.compute_info_nest;
+  auto& compute_info_nest = compound_tile_nest.compute_info_nest;
 
   std::vector <problem::PerDataSpace<double>> max_reads = {};
   std::vector <problem::PerDataSpace<double>> max_updates = {};
@@ -697,7 +697,6 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
       max_metadata_updates[l][pv] = compound_data_movement_nest[pv][l].metadata_updates;
     }
   }
-
 
   max_computes.push_back({}); // there is only one level of compute
   max_computes[0] = compute_info_nest[0].replication_factor * (double)compute_info_nest[0].accesses;
@@ -760,11 +759,10 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
         // optimization on operand tensors propagate to compute level as well
         if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
         {
-          if(compound_data_movement_nest[pv][l].child_level != std::numeric_limits<unsigned>::max())
+          if (compound_data_movement_nest[pv][l].child_level != std::numeric_limits<unsigned>::max())
           {
             max_computes[0] -= floor(max_computes[0] * p);
-          }
-          else
+          } else
           {
             auto target_dspace_level_block_size = topology_specs.GetStorageLevel(l)->block_size.Get();
             if (target_dspace_level_block_size > 1)
@@ -838,10 +836,15 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState& state,
   {
     for (int l = state.num_storage_levels_ - 1; l >= 0; l--)
     {
+      auto& data_movement_record = compound_data_movement_nest[pv][l];
+
+      //
+      // Fine grained read/fill/update
+      //
+
       if (state.dspace_optimization_masks_.at("gate").at(l).at(pv)
         || state.dspace_optimization_masks_.at("skip").at(l).at(pv))
       {
-        auto& data_movement_record = compound_data_movement_nest[pv][l];
         auto max_reads = data_movement_record.fine_grained_accesses["random_read"];
         auto max_fills = data_movement_record.fine_grained_accesses["random_fill"];
         auto max_updates = data_movement_record.fine_grained_accesses["random_update"];
@@ -855,26 +858,12 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState& state,
         //{
         //  std::cout << "\t" << iter->first << ": " << iter->second << std::endl;
         //}
-        // apply compression impact (compression impact on metadata already applied)
-        // if (compound_data_movement_nest[pv][l].compressed)
-        // {
-        //   double expected_sparsity = (1 - compound_data_movement_nest[pv][l].GetExpectedTileDensity());
-        //   data_movement_record.fine_grained_accesses["skipped_read"] += floor(max_reads * expected_sparsity);
-        //   data_movement_record.fine_grained_accesses["skipped_fill"] += floor(max_fills * expected_sparsity);
-        //   max_reads -= floor(max_reads * expected_sparsity);
-        //   max_fills -= floor(max_fills * expected_sparsity);
-        //   if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
-        //   {
-        //     data_movement_record.fine_grained_accesses["skipped_update"] += floor(max_updates * expected_sparsity);
-        //     max_updates -= floor(max_updates * expected_sparsity);
-        //   }
-        // }
 
         // apply per level explicit read optimization impact
         if (state.dspace_optimization_masks_.at("gate").at(l).at(pv) || state.dspace_optimization_masks_.at("skip").at(l).at(pv))
         {
 
-          std::string type = state.dspace_optimization_masks_.at("gate").at(l).at(pv) ? "gated" :"skipped";
+          std::string type = state.dspace_optimization_masks_.at("gate").at(l).at(pv) ? "gated" : "skipped";
           //std::cout << "\t " << type << " read..." << std::endl;
 
           auto delta_reads = floor(max_reads * state.prob_explicitly_optimized_read_.at(l).at(pv));
@@ -908,7 +897,6 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState& state,
         data_movement_record.fine_grained_accesses["random_metadata_read"] = max_metadata_reads;
         data_movement_record.fine_grained_accesses["random_metadata_update"] = max_metadata_updates;
 
-
         // Sanity chceks
         //   if the no metadata, the total algorithmic accesses == sum of all fine grained accesses
         //   otherwise, the total algorithmic accesses >= sum all of the fine grained accesses
@@ -938,12 +926,17 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState& state,
         }
       }
 
-      // for (auto iter = compound_data_movement_nest[pv][l].fine_grained_accesses.begin();
-      //           iter != compound_data_movement_nest[pv][l].fine_grained_accesses.end(); iter++)
-      // {
-      //    std::cout << iter->first << ": " << iter->second << std::endl;
-      // }
+      //
+      // Temporal Reduction
+      //
 
+      // only the updates that actually happened lead to actual temporal reductions
+      if (data_movement_record.size != 0 && problem::GetShape()->IsReadWriteDataSpace.at(pv))
+      {
+        data_movement_record.temporal_reductions = ceil(
+          data_movement_record.temporal_reductions * (double)data_movement_record.fine_grained_accesses["random_update"]
+            / data_movement_record.updates);
+      }
     }
   }
 
@@ -1044,10 +1037,10 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
           operand_compressed[pv] = pv_data_movement_nest[l].compressed;
           operand_density_models[pv] = pv_data_movement_nest[l].tile_density;
           operand_has_metadata[pv] = pv_data_movement_nest[l].has_metadata;
-         // if (pv_data_movement_nest[l].has_metadata)
-         // {
-         //   implicit_coordinates[pv] = compression_info.per_level_info_map.at(l).at(pv).coordinates_implicit[0];
-         // }
+          // if (pv_data_movement_nest[l].has_metadata)
+          // {
+          //   implicit_coordinates[pv] = compression_info.per_level_info_map.at(l).at(pv).coordinates_implicit[0];
+          // }
           break;
         }
       }
@@ -1075,15 +1068,15 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   {
     problem::Shape::DimensionID pv = iter->first;
     double pv_density = iter->second;
-    per_operand_states[pv][EXIST_NOT_ZERO] = pv_density ;
+    per_operand_states[pv][EXIST_NOT_ZERO] = pv_density;
     if (operand_has_metadata.at(pv))
     {
       per_operand_states[pv][EXIST_ZERO] = 0;
       per_operand_states[pv][NOT_EXIST] = 1.0 - pv_density;
     } else
     {
-      per_operand_states[pv][EXIST_ZERO] =  1.0 - pv_density;
-      per_operand_states[pv][NOT_EXIST] =  0;
+      per_operand_states[pv][EXIST_ZERO] = 1.0 - pv_density;
+      per_operand_states[pv][NOT_EXIST] = 0;
     }
 
     // std::cout << "  EZ: " << per_operand_states[pv][EXIST_ZERO] << std::endl;
@@ -1110,7 +1103,6 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   {
     gate_on_zero_operand = state.sparse_optimization_info_->compute_optimization_info.at("gate_on_zero_operand");
   }
-
 
   if (state.sparse_optimization_info_->compute_optimization_info.find("skip_on_not_aligned_operands") !=
     state.sparse_optimization_info_->compute_optimization_info.end())
@@ -1147,14 +1139,12 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
     prob_a = 0;
   }
 
-
   tmp_delta = total_compute * prob_a * prob_b;
 
   if (gate_on_zero_operand)
   {
     gated_compute += tmp_delta;
-  }
-  else
+  } else
   {
     random_compute += tmp_delta;
   }
@@ -1172,8 +1162,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   if (gate_on_zero_operand)
   {
     gated_compute += tmp_delta;
-  }
-  else
+  } else
   {
     random_compute += tmp_delta;
   }
@@ -1200,14 +1189,12 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
       if (gate_on_zero_operand)
       {
         gated_compute += tmp_delta;
-      }
-      else
+      } else
       {
         random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
       }
     }
-  }
-  else
+  } else
   {
     // skipped_compute += tmp_delta;
     // because no alignment is needed, the compute unit directly fetches the next existing value that reaches it and performs the valid compute
@@ -1231,14 +1218,12 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
       if (gate_on_zero_operand)
       {
         gated_compute += tmp_delta;
-      }
-      else
+      } else
       {
         random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
       }
     }
-  }
-  else
+  } else
   {
     // skipped_compute += tmp_delta;
     // because no alignment is needed, the compute unit directly fetches the next existing value that reaches it and performs the valid compute
@@ -1258,20 +1243,16 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   if (state.scalar_storage_optimization_.at(op_b_id))
   {
     prob_b = 0;
-  }
-  else if (state.scalar_storage_optimization_.at(op_a_id))
+  } else if (state.scalar_storage_optimization_.at(op_a_id))
   {
     prob_a = 0;
   }
   tmp_delta = total_compute * prob_a * prob_b;
 
-
-
   if (gate_on_zero_operand)
   {
     gated_compute += tmp_delta;
-  }
-  else
+  } else
   {
     random_compute += tmp_delta;
   }
@@ -1284,7 +1265,6 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   prob_a = per_operand_states.at(op_a_id).at(EXIST_ZERO);
   prob_b = per_operand_states.at(op_b_id).at(NOT_EXIST);
 
-
   if (state.scalar_storage_optimization_.at(op_b_id))
   {
     // b is optimized based on a, so when a is zero, b must not exist
@@ -1293,8 +1273,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
     prob_b = 1;
     nonexistent_compute += prob_b * prob_a * total_compute;
     prob_b = 0;
-  }
-  else if (state.scalar_storage_optimization_.at(op_a_id))
+  } else if (state.scalar_storage_optimization_.at(op_a_id))
   {
     prob_a = 0;
   }
@@ -1311,14 +1290,12 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
       if (gate_on_zero_operand)
       {
         gated_compute += tmp_delta;
-      }
-      else
+      } else
       {
         random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
       }
     }
-  }
-  else
+  } else
   {
     // skipped_compute += tmp_delta;
     // because no alignment is needed, the compute unit directly fetches the next existing value that reaches it and performs the valid compute
@@ -1326,15 +1303,13 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
     nonexistent_compute += tmp_delta;
   }
 
-
   prob_a = per_operand_states.at(op_a_id).at(NOT_EXIST);
   prob_b = per_operand_states.at(op_b_id).at(EXIST_ZERO);
 
   if (state.scalar_storage_optimization_.at(op_b_id))
   {
     prob_b = 0;  // optimize on b, b must not exist when A is does not exist
-  }
-  else if (state.scalar_storage_optimization_.at(op_a_id))
+  } else if (state.scalar_storage_optimization_.at(op_a_id))
   {
     // a is optimized based on B, so when B is zero, a must not exist
     // but since B did not have metadata, B exists as zero
@@ -1354,14 +1329,12 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
       if (gate_on_zero_operand)
       {
         gated_compute += tmp_delta;
-      }
-      else
+      } else
       {
         random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
       }
     }
-  }
-  else
+  } else
   {
     // skipped_compute += tmp_delta;
     // because no alignment is needed, the compute unit directly fetches the next existing value that reaches it and performs the valid compute
@@ -1380,8 +1353,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   if (state.scalar_storage_optimization_.at(op_b_id))
   {
     prob_b = 1;  // optimize on b, b must not exist when A is does not exist
-  }
-  else if (state.scalar_storage_optimization_.at(op_a_id))
+  } else if (state.scalar_storage_optimization_.at(op_a_id))
   {
     prob_a = 1;
   }
@@ -1403,7 +1375,8 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   // now round the action counts into integers (pessimistic rounding)
   compute_info.fine_grained_accesses["skipped_compute"] = floor(skipped_compute);
   compute_info.fine_grained_accesses["gated_compute"] = floor(gated_compute);
-  compute_info.fine_grained_accesses["random_compute"] = total_compute - floor(skipped_compute) - floor(gated_compute) - floor(nonexistent_compute);
+  compute_info.fine_grained_accesses["random_compute"] =
+    total_compute - floor(skipped_compute) - floor(gated_compute) - floor(nonexistent_compute);
 
   // std::cout << "(final) skipped compute: " << compute_info.fine_grained_accesses["skipped_compute"]
   //   << " gated compute: " << compute_info.fine_grained_accesses["gated_compute"]
@@ -1418,8 +1391,8 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
                             const sparse::PerDataSpaceCompressionInfo& pv_compression_info,
                             tiling::DataMovementInfo& pv_data_movement_info)
 {
-  std::vector<loop::Descriptor> flattened_rank_nest;
-  std::vector<problem::Shape::DimensionID> flattening_rule;
+  std::vector <loop::Descriptor> flattened_rank_nest;
+  std::vector <problem::Shape::DimensionID> flattening_rule;
 
   bool pv_has_metadata = pv_compression_info.HasMetaData();
   std::uint64_t cur_level_num_ranks = pv_has_metadata ? pv_compression_info.rank_formats.size() : 1;
@@ -1472,28 +1445,26 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
         if (!pv_has_metadata)
         {
           in_flattened_list = true;
-        }
-        else if (pv_compression_info.FoundDimensionInFlatteningRule(r_id, loop.dimension,
-                                                                     flattening_rule))
+        } else if (pv_compression_info.FoundDimensionInFlatteningRule(r_id, loop.dimension,
+                                                                      flattening_rule))
         {
           flatten_iter = std::find(flattening_rule.begin(), flattening_rule.end(), loop.dimension);
           //flattening_rule.erase(flatten_iter);
           in_flattened_list = true;
-        }
-        else
+        } else
         {
           in_flattened_list = false;
         }
 
-         // std::cout << "rest of dims in the flattening rule: " << in_flattened_list << std::endl;
-         // if (pv_has_metadata)
-         // {
-         //   for (auto dim = flattening_rule.begin(); dim != flattening_rule.end(); dim++)
-         //   {
-         //     std::cout << problem::GetShape()->DimensionIDToName.at(*dim) << "  ";
-         //   }
-         //   std::cout << std::endl;
-         // }
+        // std::cout << "rest of dims in the flattening rule: " << in_flattened_list << std::endl;
+        // if (pv_has_metadata)
+        // {
+        //   for (auto dim = flattening_rule.begin(); dim != flattening_rule.end(); dim++)
+        //   {
+        //     std::cout << problem::GetShape()->DimensionIDToName.at(*dim) << "  ";
+        //   }
+        //   std::cout << std::endl;
+        // }
 
         // if default uncompressed, then all dimensions in a list as well
         if (!pv_has_metadata || in_flattened_list)
@@ -1526,8 +1497,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
                                        singleton_metadata_subnest[loop_id].dimension);
               trivial_loop = (loop.start + loop.stride) >= loop.end;
               // std::cout << "next loop: " << singleton_metadata_subnest[loop_id] << std::endl;
-            }
-            else
+            } else
               break;
           }
         }
@@ -1595,7 +1565,7 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
                             tiling::DataMovementInfo& pv_data_movement_info)
 {
 
-  //FIXME: this function needs to be updated to perfor correctly, use outer to inner mapping instead
+  //FIXME: this function needs to be updated to perform correctly, use outer to inner mapping instead
   //  1) skip trivial loops logic
   //  2) subtile shape insertion logic
   assert(false);
@@ -1638,7 +1608,8 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
       {
         while (loop_id < singleton_metadata_subnest.size()
           && (!pv_has_metadata
-              ||( std::find(flattening_rule.begin(), flattening_rule.end(), singleton_metadata_subnest[loop_id].dimension) != flattening_rule.end())))
+            || (std::find(flattening_rule.begin(), flattening_rule.end(), singleton_metadata_subnest[loop_id].dimension)
+              != flattening_rule.end())))
         {
           auto loop = singleton_metadata_subnest[loop_id];
           trivial_loop = (loop.start + loop.stride) >= loop.end;
@@ -1764,10 +1735,12 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
       // Pretiling checks
       // only if current level is compressed && current level is not inner most level && inner level has metadata
       // && no online tile partition supported, do we need pre-tiling
+      // && child level is not payload
+      // if child level has a tile shape of 1, then it is just looking at a value payload, no need to pre-tile for the payload
       // by pretiling, we specifically mean that this level needs to consider inner level nontrivial loops
 
       if (cur_level_compressed && child_level_id != std::numeric_limits<unsigned>::max()
-        && !compression_info.tile_partition_supported_masks[level])
+        && !compression_info.tile_partition_supported_masks[level] && pv_data_movement_nest[child_level_id].shape > 1 )
       {
 
         pre_tiling_required = true;
