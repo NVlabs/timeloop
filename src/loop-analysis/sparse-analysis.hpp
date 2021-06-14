@@ -49,13 +49,14 @@ struct SetOfOperationSpaces
 };
 
 
-enum CopmuterOperandState
+enum ComputeOperandState
 {
   EXIST_NOT_ZERO,
   EXIST_ZERO,
   NOT_EXIST
 };
-typedef std::map<CopmuterOperandState, double> PerStateProb;
+typedef std::map<ComputeOperandState, double> PerStateProb;
+typedef std::vector<ComputeOperandState> ComputeOperandStatePair;
 
 struct SparseAnalysisState
 {
@@ -73,6 +74,7 @@ struct SparseAnalysisState
   std::vector<std::vector<bool>> trivial_nest_masks_;
   std::map<unsigned, std::map<DataSpaceID, double>> prob_explicitly_optimized_read_;
   std::map<std::string, ListOfPerDataSpaceMask> dspace_optimization_masks_;
+  std::map<std::string, ListOfPerDataSpaceMask> scalar_scalar_opt_masks_;
 
   // info that impact compute analysis
   std::vector<problem::Shape::DimensionID> c_intersection_dims_;

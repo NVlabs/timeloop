@@ -74,14 +74,20 @@ void SparseAnalysisState::Reset()
 
   // by default, no explicit optimization applied
   dspace_optimization_masks_ = {{"gate", {}}, {"skip", {}}};
+  scalar_scalar_opt_masks_ = {{"gate", {}}, {"skip", {}}};
   for (unsigned l = 0; l < num_storage_levels_; l++)
   {
     dspace_optimization_masks_["gate"].push_back({});
     dspace_optimization_masks_["skip"].push_back({});
+    scalar_scalar_opt_masks_["gate"].push_back({});
+    scalar_scalar_opt_masks_["skip"].push_back({});
+
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
       dspace_optimization_masks_["gate"][l][pv] = false;
       dspace_optimization_masks_["skip"][l][pv] = false;
+      scalar_scalar_opt_masks_["gate"][l][pv] = false;
+      scalar_scalar_opt_masks_["skip"][l][pv] = false;
     }
   }
 
@@ -137,6 +143,7 @@ struct ExplicitReadOptimizationImpact
   unsigned target_dspace_level;
   double optimization_prob;
   double expected_target_tile_occupancy;
+  double scalar_scalar_opt;
 };
 
 bool CheckComputeAlignmentUnitRequirement(SparseAnalysisState& state,
@@ -330,6 +337,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   bool found_target_dspace_loop = false;
   problem::Shape::DimensionID target_loop_dim = std::numeric_limits<unsigned>::max();
   problem::OperationPoint mold_high;
+  bool target_loop_trivial;
 
   for (unsigned l = child_level + 1; l <= storage_level_id && !found_target_dspace_loop; l++)
   {
@@ -355,16 +363,19 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
           if (child_level == -1 && loop_id == 0 && l == unsigned(child_level + 1))
           {
             // singleton operation space, pass
+            target_loop_trivial = true;
           }
             // innermost loop of level l: next level top most operation point
           else if (loop_id == 0)
           {
             mold_high = state.maxtile_molds_high_[l - 1].back();
+            target_loop_trivial = false;
           }
             // intermediate loop of a level l: next loop in level l
           else
           {
             mold_high = state.maxtile_molds_high_[l][loop_id - 1];
+            target_loop_trivial = false;
           }
         }
       }
@@ -374,6 +385,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   // target-loop is trivial and topmost
   if (!found_target_dspace_loop)
   {
+    target_loop_trivial = true;
     target_loop_dim = state.complete_subnests_[target_dspace_level].back().dimension;
     mold_high = state.maxtile_molds_high_[target_dspace_level].back();
     found_target_dspace_loop = true;
@@ -401,10 +413,30 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   problem::OperationSpace operation_space_mold(state.workload_, origin, mold_high);
 
   // go through each conditioned on dataspace id to get the probability of optimized away reads
+  bool scalar_opt_cond_on_scalar = false;
   double prob_target_dspace_effectual = 1.0;
   for (unsigned i = 0; i < resulted_impact.condition_on_dspace_ids.size(); i++)
   {
     DataSpaceID condition_on_dspace_id = resulted_impact.condition_on_dspace_ids[i];
+    auto co_iterated_dimensions = problem::GetShape()->GetCoIteratedDimensions({target_dspace_id, condition_on_dspace_id});
+    bool is_co_iterated_dim = co_iterated_dimensions.find(target_loop_dim) != co_iterated_dimensions.end();
+    auto optimization_granularity = operation_space_mold.GetSize(target_dspace_id);
+    auto condition_on_granularity = operation_space_mold.GetSize(condition_on_dspace_id);
+    // std::cout << "\n target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
+    //           << "  target loop dim: " << problem::GetShape()->DimensionIDToName.at(target_loop_dim)
+    //           << "  co-iterated: " << is_co_iterated_dim
+    //           << "  trivial loop: " << target_loop_trivial
+    //           << "  optimization granularity: " << optimization_granularity
+    //           << "  condition on granularity: " << condition_on_granularity
+    //           << std::endl;
+
+    if (condition_on_granularity == 1 && ((optimization_granularity == 1 && target_loop_trivial)
+      || (is_co_iterated_dim && optimization_granularity == 1)))
+    {
+      scalar_opt_cond_on_scalar = true;
+      // std::cout << "---> scalar optimization of the target space based on a scalar conditioned on dspace" << std::endl;
+    }
+
     // construct the corresponding coordinate space tile for dataspace b and calculate the prob of the tile being empty
     tiling::CoordinateSpaceTileInfo cspace_tile;
     cspace_tile.Set(operation_space_mold.GetSize(condition_on_dspace_id), condition_on_dspace_id);
@@ -447,6 +479,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   resulted_impact.optimization_prob = prob_target_dspace_ineffectual;
   resulted_impact.target_dspace_level = target_dspace_level;
   resulted_impact.expected_target_tile_occupancy = expected_target_tile_occupancy;
+  resulted_impact.scalar_scalar_opt = scalar_opt_cond_on_scalar;
 
   return success;
 }
@@ -488,6 +521,7 @@ bool DefineIneffectualReadImpact(SparseAnalysisState& state,
   double access_cost;
   double max_savings = 0;
   unsigned option_id = 0;
+  bool scalar_scalar_opt = false;
 
   for (unsigned i = 0; i < possible_impact.size(); i++)
   {
@@ -498,6 +532,7 @@ bool DefineIneffectualReadImpact(SparseAnalysisState& state,
     double savings = (access_cost / block_size) * impact.expected_target_tile_occupancy * impact.optimization_prob;
     max_savings = savings >= max_savings ? savings : max_savings;
     option_id = savings >= max_savings ? i : option_id;
+    scalar_scalar_opt = savings >= max_savings ? impact.scalar_scalar_opt : scalar_scalar_opt;
   }
 
   //
@@ -509,6 +544,7 @@ bool DefineIneffectualReadImpact(SparseAnalysisState& state,
 
   // std::cout << "\t=== Final: target dspace: " << problem::GetShape()->DataSpaceIDToName.at(target_dspace_id)
   // << "  optimization prob: " << optimization_prob
+  // << "  scalar to scalar opt: " << scalar_scalar_opt
   // << std::endl;
 
   if (state.dspace_optimization_masks_["gate"][target_dspace_level][target_dspace_id]
@@ -522,11 +558,13 @@ bool DefineIneffectualReadImpact(SparseAnalysisState& state,
 
       state.prob_explicitly_optimized_read_[target_dspace_level][target_dspace_id] = optimization_prob;
       state.dspace_optimization_masks_[optimization_type][target_dspace_level][target_dspace_id] = true;
+      state.scalar_scalar_opt_masks_[optimization_type][target_dspace_level][target_dspace_id] = scalar_scalar_opt;
     }
   } else
   {
     state.dspace_optimization_masks_[optimization_type][target_dspace_level][target_dspace_id] = true;
     state.prob_explicitly_optimized_read_[target_dspace_level][target_dspace_id] = optimization_prob;
+    state.scalar_scalar_opt_masks_[optimization_type][target_dspace_level][target_dspace_id] = scalar_scalar_opt;
   }
 
   return success;
@@ -764,8 +802,9 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
             max_computes[0] -= floor(max_computes[0] * p);
           } else
           {
-            auto target_dspace_level_block_size = topology_specs.GetStorageLevel(l)->block_size.Get();
-            if (target_dspace_level_block_size > 1)
+            if (!state.scalar_scalar_opt_masks_.at("gate").at(l).at(pv) &&
+                !state.scalar_scalar_opt_masks_.at("skip").at(l).at(pv)
+               )
             {
               max_computes[0] -= floor(max_computes[0] * p);
             } else
@@ -866,7 +905,17 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState& state,
           std::string type = state.dspace_optimization_masks_.at("gate").at(l).at(pv) ? "gated" : "skipped";
           //std::cout << "\t " << type << " read..." << std::endl;
 
-          auto delta_reads = floor(max_reads * state.prob_explicitly_optimized_read_.at(l).at(pv));
+          std::uint64_t delta_reads;
+          if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+          {
+            // use ceil to account for the potential rounding differences due to the RMW setup
+            delta_reads = ceil(max_reads * state.prob_explicitly_optimized_read_.at(l).at(pv));
+          }
+          else
+          {
+            delta_reads = floor(max_reads * state.prob_explicitly_optimized_read_.at(l).at(pv));
+          }
+
           data_movement_record.fine_grained_accesses[type + "_read"] += delta_reads;
           max_reads -= delta_reads;
 
@@ -1008,9 +1057,9 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   // -----------------------------------------------------------------
   // 1) A: ENZ, B: ENZ                  | random compute
   // 2) A: ENZ, B: EZ, 4) A: EZ, B: ENZ | random, gated compute (depends on optimization) not we cannot skip here as both operands exist
-  // 3) A: ENZ, B: NE, 7) A: NE, B: ENZ | nonexistent/(random, gated, skipped) compute (w/o vs w/ alignment (when alignment needed depends on optimization))
+  // 3) A: ENZ, B: NE, 7) A: NE, B: ENZ | random, gated, skipped compute  depends on optimization
   // 5) A: EZ, B: EZ                    | random, gated compute (depends on optimization) note that we cannot skip here as both operands exist
-  // 6) A: EZ, B: NE,  8) A: NE, B: EZ  | nonexistent/(random, gated, skipped) compute (w/o vs. w/ alignment (when alignment needed depends on optimization))
+  // 6) A: EZ, B: NE,  8) A: NE, B: EZ  | random, gated, skipped compute  depends on optimization
   // 9) A: NE, B: NE                    | nonexistent compute (the compute unit will not see this case happening as nothing actually exists)
   // -----------------------------------------------------------------
   // NE: not exist; EZ: exist, is zero; ENZ: exist, not zero
@@ -1091,6 +1140,102 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   iter++;
   DataSpaceID op_b_id = iter->first;
 
+  // Calculate dependent probabilities
+  std::map<ComputeOperandStatePair, double> flattened_probs = {};
+  flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}] = 0.0;
+  flattened_probs[{EXIST_NOT_ZERO, EXIST_ZERO}] = 0.0;
+  flattened_probs[{EXIST_NOT_ZERO, NOT_EXIST}] = 0.0;
+  flattened_probs[{EXIST_ZERO, EXIST_NOT_ZERO}] = 0.0;
+  flattened_probs[{EXIST_ZERO, EXIST_ZERO}] = 0.0;
+  flattened_probs[{EXIST_ZERO, NOT_EXIST}] = 0.0;
+  flattened_probs[{NOT_EXIST, EXIST_NOT_ZERO}] = 0.0;
+  flattened_probs[{NOT_EXIST, EXIST_ZERO}] = 0.0;
+  flattened_probs[{NOT_EXIST, NOT_EXIST}] = 0.0;
+
+
+  // Extract if both operands are scalar-scalar optimization
+  bool scalar_scalar_opt = state.scalar_storage_optimization_.at(op_a_id) && state.scalar_storage_optimization_.at(op_b_id);
+
+  if (scalar_scalar_opt)
+  {
+    // essentially intersection at scalar scale
+    flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
+      * per_operand_states[op_b_id][EXIST_NOT_ZERO];
+    flattened_probs[{NOT_EXIST, NOT_EXIST}] = 1 - flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}];
+  }
+  else if (state.scalar_storage_optimization_.at(op_a_id))
+  {
+    flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
+      * per_operand_states[op_b_id][EXIST_NOT_ZERO];
+
+    // since a is optimized on b, if b exist and zero != 0, that means b is read out of the storage to perform optimization on a
+    // once b is read out and identified as zero, b here should not be sent to compute anymore
+    flattened_probs[{EXIST_NOT_ZERO, EXIST_ZERO}] = 0.0;
+
+    // since a optimized on b, if b not exist, it is not possible for a to exist anymore
+    flattened_probs[{EXIST_NOT_ZERO, NOT_EXIST}] = 0.0;
+
+    flattened_probs[{EXIST_ZERO, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][EXIST_ZERO]
+      * per_operand_states[op_b_id][EXIST_NOT_ZERO];
+
+    // since a is optimized on b, if b exist and zero != 0, that means b is read out of the storage to perform optimization on a
+    // once b is read out and identified as zero, b here should not be sent to compute anymore
+    flattened_probs[{EXIST_ZERO, EXIST_ZERO}] = 0.0;
+
+    // since a optimized on b, if b not exist, it is not possible for a to exist anymore
+    flattened_probs[{EXIST_ZERO, NOT_EXIST}] = 0.0;
+
+    flattened_probs[{NOT_EXIST, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][NOT_EXIST]
+      * per_operand_states[op_b_id][EXIST_NOT_ZERO];
+
+    // since a is optimized on b, if b exist and zero != 0, that means b is read out of the storage to perform optimization on a
+    // once b is read out and identified as zero, b here should not be sent to compute anymore
+    flattened_probs[{NOT_EXIST, EXIST_ZERO}] = 0.0;
+
+    // when b does not exist or b exist is zero, a must be optimized away
+    // we add exist zero to here because when a is optimized, it is not possible for b to be sent to the compute
+    // but since b can be of uncompressed format, we need to account for the probability
+    flattened_probs[{NOT_EXIST, NOT_EXIST}] =
+      1.0 * (per_operand_states[op_b_id][NOT_EXIST] + per_operand_states[op_b_id][EXIST_ZERO]);
+  }
+  else if (state.scalar_storage_optimization_.at(op_b_id))
+  {
+    flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
+      * per_operand_states[op_b_id][EXIST_NOT_ZERO];
+    flattened_probs[{EXIST_NOT_ZERO, EXIST_ZERO}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
+      * per_operand_states[op_b_id][EXIST_ZERO];
+    flattened_probs[{EXIST_NOT_ZERO, NOT_EXIST}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
+      * per_operand_states[op_b_id][NOT_EXIST];
+    flattened_probs[{EXIST_ZERO, EXIST_NOT_ZERO}] = 0.0;
+    flattened_probs[{EXIST_ZERO, EXIST_ZERO}] = 0.0;
+    flattened_probs[{EXIST_ZERO, NOT_EXIST}] = 0.0;
+    flattened_probs[{NOT_EXIST, EXIST_NOT_ZERO}] = 0.0;
+    flattened_probs[{NOT_EXIST, EXIST_ZERO}] = 0.0;
+    flattened_probs[{NOT_EXIST, NOT_EXIST}] =
+      1.0 * (per_operand_states[op_a_id][NOT_EXIST] + per_operand_states[op_a_id][EXIST_ZERO]);
+  }
+  else
+  {
+    flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
+      * per_operand_states[op_b_id][EXIST_NOT_ZERO];
+    flattened_probs[{EXIST_NOT_ZERO, EXIST_ZERO}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
+      * per_operand_states[op_b_id][EXIST_ZERO];
+    flattened_probs[{EXIST_NOT_ZERO, NOT_EXIST}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
+      * per_operand_states[op_b_id][NOT_EXIST];
+    flattened_probs[{EXIST_ZERO, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][EXIST_ZERO]
+      * per_operand_states[op_b_id][EXIST_NOT_ZERO];
+    flattened_probs[{EXIST_ZERO, EXIST_ZERO}] = per_operand_states[op_a_id][EXIST_ZERO]
+      * per_operand_states[op_b_id][EXIST_ZERO];
+    flattened_probs[{EXIST_ZERO, NOT_EXIST}] = per_operand_states[op_a_id][EXIST_ZERO]
+      * per_operand_states[op_b_id][NOT_EXIST];
+    flattened_probs[{NOT_EXIST, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][NOT_EXIST]
+      * per_operand_states[op_b_id][EXIST_NOT_ZERO];
+    flattened_probs[{NOT_EXIST, EXIST_ZERO}] = per_operand_states[op_a_id][NOT_EXIST]
+      * per_operand_states[op_b_id][EXIST_ZERO];
+    flattened_probs[{NOT_EXIST, NOT_EXIST}] = per_operand_states[op_a_id][NOT_EXIST]
+      * per_operand_states[op_b_id][NOT_EXIST];
+  }
+
   // Initialize fine grained access counts
   // double total_compute = compute_info.replication_factor * (double)compute_info.accesses;
   double total_compute = compute_info.fine_grained_accesses["random_compute"];
@@ -1117,138 +1262,45 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   //   however, if alignment is needed, unless the hardware can lookup corresponding pairs with the "skipping" optimization
   //   the cycle needs to be spent when one of the operands is empty
   double random_compute = 0.0, skipped_compute = 0.0, gated_compute = 0.0, tmp_delta = 0.0, nonexistent_compute = 0.0;
-  double prob_a, prob_b;
 
-  // std::cout << "impact: (" << problem::GetShape()->DataSpaceIDToName.at(op_a_id)
-  // << "  " << problem::GetShape()->DataSpaceIDToName.at(op_b_id) << ") "
-  // << state.c_operand_prop_impact_.at(op_a_id) << "  "
-  // << state.c_operand_prop_impact_.at(op_b_id) << std::endl;
   // Analyze case by case
   // 1) A: ENZ, B: ENZ                  | random compute
-  prob_a = per_operand_states.at(op_a_id).at(EXIST_NOT_ZERO);
-  prob_b = per_operand_states.at(op_b_id).at(EXIST_NOT_ZERO);
-  random_compute += prob_a * prob_b * total_compute;
+  random_compute += total_compute * flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}];
   //std::cout << "(1) skipped: " << skipped_compute << " gated: " << gated_compute << "  random: " << random_compute << std::endl;
 
   // 2) A: ENZ, B: EZ, 4) A: EZ, B: ENZ | random, gated compute (depends on optimization) not we cannot skip here as both operands exist
-  prob_a = per_operand_states.at(op_a_id).at(EXIST_NOT_ZERO);
-  prob_b = per_operand_states.at(op_b_id).at(EXIST_ZERO);
-
-  if (state.scalar_storage_optimization_.at(op_a_id))
-  {
-    prob_a = 0;
-  }
-
-  tmp_delta = total_compute * prob_a * prob_b;
-
+  tmp_delta = total_compute * (flattened_probs[{EXIST_NOT_ZERO, EXIST_ZERO}] + flattened_probs[{EXIST_ZERO, EXIST_NOT_ZERO}]);
   if (gate_on_zero_operand)
   {
     gated_compute += tmp_delta;
-  } else
+  }
+  else
   {
     random_compute += tmp_delta;
   }
-
-  prob_a = per_operand_states.at(op_a_id).at(EXIST_ZERO);
-  prob_b = per_operand_states.at(op_b_id).at(EXIST_NOT_ZERO);
-
-  if (state.scalar_storage_optimization_.at(op_b_id))
-  {
-    prob_b = 0;
-  }
-
-  tmp_delta = total_compute * prob_a * prob_b;
-
-  if (gate_on_zero_operand)
-  {
-    gated_compute += tmp_delta;
-  } else
-  {
-    random_compute += tmp_delta;
-  }
-
   // std::cout << "(2)(4) skipped: " << skipped_compute << " gated: " << gated_compute << "  random: " << random_compute <<
   // << " nonexistent: " << nonexistent_compute << std::endl;
 
   // 3) A: ENZ, B: NE, 7) A: NE, B: ENZ | nonexistent/(random, gated, skipped) compute (w/o vs w/ alignment (when alignment needed depends on optimization))
-  prob_a = per_operand_states.at(op_a_id).at(EXIST_NOT_ZERO);
-  prob_b = per_operand_states.at(op_b_id).at(NOT_EXIST);
-
-  if (state.scalar_storage_optimization_.at(op_a_id))
+  tmp_delta = total_compute * (flattened_probs[{EXIST_NOT_ZERO, NOT_EXIST}] + flattened_probs[{NOT_EXIST, EXIST_NOT_ZERO}]);
+  if (skip_on_not_aligned_operands)
+    skipped_compute += tmp_delta; // operand alignment unit jumps to look for pair of ENZ ENZ operands
+  else
   {
-    prob_a = 0;
-  }
-
-  tmp_delta = prob_a * prob_b * total_compute;
-  if (state.c_intersection_dims_.size() > 0)
-  {
-    if (skip_on_not_aligned_operands)
-      skipped_compute += tmp_delta; // operand alignment unit jumps to look for pair of ENZ ENZ operands
-    else
+    if (gate_on_zero_operand)
     {
-      if (gate_on_zero_operand)
-      {
-        gated_compute += tmp_delta;
-      } else
-      {
-        random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
-      }
-    }
-  } else
-  {
-    // skipped_compute += tmp_delta;
-    // because no alignment is needed, the compute unit directly fetches the next existing value that reaches it and performs the valid compute
-    // this particular algorithmic compute is essentially not seen by the compute unit at all
-    nonexistent_compute += tmp_delta;
-  }
-
-  prob_a = per_operand_states.at(op_a_id).at(NOT_EXIST);
-  prob_b = per_operand_states.at(op_b_id).at(EXIST_NOT_ZERO);
-  if (state.scalar_storage_optimization_.at(op_b_id))
-  {
-    prob_b = 0;
-  }
-  tmp_delta = prob_a * prob_b * total_compute;
-  if (state.c_intersection_dims_.size() > 0)
-  {
-    if (skip_on_not_aligned_operands)
-      skipped_compute += tmp_delta; // operand alignment unit jumps to look for pair of ENZ ENZ operands
-    else
+      gated_compute += tmp_delta;
+    } else
     {
-      if (gate_on_zero_operand)
-      {
-        gated_compute += tmp_delta;
-      } else
-      {
-        random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
-      }
+      random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
     }
-  } else
-  {
-    // skipped_compute += tmp_delta;
-    // because no alignment is needed, the compute unit directly fetches the next existing value that reaches it and performs the valid compute
-    // this particular algorithmic compute is essentially not seen by the compute unit at all
-    nonexistent_compute += tmp_delta;
   }
   // std::cout << "(3)(7) skipped: " << skipped_compute << " gated: " << gated_compute << "  random: " << random_compute <<
   // << " nonexistent: " << nonexistent_compute << std::endl;
 
 
   // 5) A: EZ, B: EZ                    | random, gated compute (depends on optimization) note that we cannot skip here as both operands exist
-  prob_a = per_operand_states.at(op_a_id).at(EXIST_ZERO);
-  prob_b = per_operand_states.at(op_b_id).at(EXIST_ZERO);
-
-  // it is possible that the exact data is read to determine the storage action optimization
-  // so no metadata will be present and thus the zeros exist and causes the action optimization to happen
-  if (state.scalar_storage_optimization_.at(op_b_id))
-  {
-    prob_b = 0;
-  } else if (state.scalar_storage_optimization_.at(op_a_id))
-  {
-    prob_a = 0;
-  }
-  tmp_delta = total_compute * prob_a * prob_b;
-
+  tmp_delta = total_compute * flattened_probs[{EXIST_ZERO, EXIST_ZERO}] ;
   if (gate_on_zero_operand)
   {
     gated_compute += tmp_delta;
@@ -1261,85 +1313,22 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   // << " nonexistent: " << nonexistent_compute << std::endl;
 
 
-  // 6) A: EZ, B: NE,  8) A: NE, B: EZ  | nonexistent/(random, gated, skipped) compute (w/o vs. w/ alignment (when alignment needed depends on optimization))
-  prob_a = per_operand_states.at(op_a_id).at(EXIST_ZERO);
-  prob_b = per_operand_states.at(op_b_id).at(NOT_EXIST);
-
-  if (state.scalar_storage_optimization_.at(op_b_id))
+  // 6) A: EZ, B: NE,  8) A: NE, B: EZ  | (random, gated, skipped) compute depends on optimization
+  tmp_delta = total_compute * (flattened_probs[{EXIST_ZERO, NOT_EXIST}] + flattened_probs[{NOT_EXIST, EXIST_ZERO}]);
+  if (skip_on_not_aligned_operands)
   {
-    // b is optimized based on a, so when a is zero, b must not exist
-    // but since a did not have metadata, a exists as zero
-    // we should not charge for any compute here
-    prob_b = 1;
-    nonexistent_compute += prob_b * prob_a * total_compute;
-    prob_b = 0;
-  } else if (state.scalar_storage_optimization_.at(op_a_id))
-  {
-    prob_a = 0;
+    skipped_compute += tmp_delta; // operand alignment unit jumps to look for pair of ENZ ENZ operands
   }
-
-  tmp_delta = total_compute * prob_a * prob_b;
-
-  tmp_delta = prob_a * prob_b * total_compute;
-  if (state.c_intersection_dims_.size() > 0)
+  else
   {
-    if (skip_on_not_aligned_operands)
-      skipped_compute += tmp_delta; // operand alignment unit jumps to look for pair of ENZ ENZ operands
+    if (gate_on_zero_operand)
+    {
+      gated_compute += tmp_delta;
+    }
     else
     {
-      if (gate_on_zero_operand)
-      {
-        gated_compute += tmp_delta;
-      } else
-      {
-        random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
-      }
+      random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
     }
-  } else
-  {
-    // skipped_compute += tmp_delta;
-    // because no alignment is needed, the compute unit directly fetches the next existing value that reaches it and performs the valid compute
-    // this particular algorithmic compute is essentially not seen by the compute unit at all
-    nonexistent_compute += tmp_delta;
-  }
-
-  prob_a = per_operand_states.at(op_a_id).at(NOT_EXIST);
-  prob_b = per_operand_states.at(op_b_id).at(EXIST_ZERO);
-
-  if (state.scalar_storage_optimization_.at(op_b_id))
-  {
-    prob_b = 0;  // optimize on b, b must not exist when A is does not exist
-  } else if (state.scalar_storage_optimization_.at(op_a_id))
-  {
-    // a is optimized based on B, so when B is zero, a must not exist
-    // but since B did not have metadata, B exists as zero
-    // we should not charge for any compute here
-    prob_a = 1;
-    nonexistent_compute += prob_b * prob_a * total_compute;
-    prob_a = 0;
-  }
-
-  tmp_delta = prob_a * prob_b * total_compute;
-  if (state.c_intersection_dims_.size() > 0)
-  {
-    if (skip_on_not_aligned_operands)
-      skipped_compute += tmp_delta; // operand alignment unit jumps to look for pair of ENZ ENZ operands
-    else
-    {
-      if (gate_on_zero_operand)
-      {
-        gated_compute += tmp_delta;
-      } else
-      {
-        random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
-      }
-    }
-  } else
-  {
-    // skipped_compute += tmp_delta;
-    // because no alignment is needed, the compute unit directly fetches the next existing value that reaches it and performs the valid compute
-    // this particular algorithmic compute is essentially not seen by the compute unit at all
-    nonexistent_compute += tmp_delta;
   }
 
   // std::cout << "(6)(8) skipped: " << skipped_compute << " gated: " << gated_compute << "  random: " << random_compute <<
@@ -1347,24 +1336,14 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
 
 
   // 9) A: NE, B: NE                    | nonexistent compute (the compute unit will not see this case happening as nothing actually exists)
-  prob_a = per_operand_states.at(op_a_id).at(NOT_EXIST);
-  prob_b = per_operand_states.at(op_b_id).at(NOT_EXIST);
+  tmp_delta = total_compute * flattened_probs[{NOT_EXIST, NOT_EXIST}] ;
+  nonexistent_compute += tmp_delta;
 
-  if (state.scalar_storage_optimization_.at(op_b_id))
-  {
-    prob_b = 1;  // optimize on b, b must not exist when A is does not exist
-  } else if (state.scalar_storage_optimization_.at(op_a_id))
-  {
-    prob_a = 1;
-  }
+  //std::cout << "(9) skipped: " << skipped_compute << " gated: " << gated_compute << "  random: " << random_compute
+  //<< " nonexistent: " << nonexistent_compute << std::endl;
 
-  nonexistent_compute += prob_a * prob_b * total_compute;
-
-  // std::cout << "(9) skipped: " << skipped_compute << " gated: " << gated_compute << "  random: " << random_compute
-  // << " nonexistent: " << nonexistent_compute << std::endl;
-
-  // std::cout << "total: " << total_compute << "  sum: " <<  skipped_compute + random_compute + gated_compute + nonexistent_compute
-  // << " diff: " << total_compute - skipped_compute - random_compute - gated_compute  - nonexistent_compute << std::endl;
+ //std::cout << "total: " << total_compute << "  sum: " <<  skipped_compute + random_compute + gated_compute + nonexistent_compute
+ //<< " diff: " << total_compute - skipped_compute - random_compute - gated_compute  - nonexistent_compute << std::endl;
 
   // sanity check
   // as long as different is smaller than 0.001% of the total compute, pass
@@ -1740,7 +1719,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
       // by pretiling, we specifically mean that this level needs to consider inner level nontrivial loops
 
       if (cur_level_compressed && child_level_id != std::numeric_limits<unsigned>::max()
-        && !compression_info.tile_partition_supported_masks[level] && pv_data_movement_nest[child_level_id].shape > 1 )
+        && !compression_info.tile_partition_supported_masks[level] && pv_data_movement_nest[child_level_id].shape > 1)
       {
 
         pre_tiling_required = true;
@@ -2218,8 +2197,8 @@ bool PerformSparseProcessing(problem::Workload* workload,
   CalculateExpectedMetaDataAccesses(compound_data_movement_nest, topology_specs);
 
   // Check the mapping-dependent alignment unit requirement above the compute level
-  success = CheckComputeAlignmentUnitRequirement(state, compound_data_movement_nest, topology_specs, eval_status);
-  if (!success && break_on_failure) return success;
+  // success = CheckComputeAlignmentUnitRequirement(state, compound_data_movement_nest, topology_specs, eval_status);
+  // if (!success && break_on_failure) return success;
 
   // Define the impact of storage optimizations at each level
   success = DefineStorageOptimizationImpact(state, compound_data_movement_nest, topology_specs,
