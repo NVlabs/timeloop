@@ -86,12 +86,14 @@ void Shape::Parse(config::CompoundConfigNode shape)
 
   // Flattening (optional).
   NumFlattenedDimensions = 0;
+  UsesFlattening = false;
   std::set<FactorizedDimensionID> unused_factorized_dims;
   for (unsigned dim = 0; dim < NumFactorizedDimensions; dim++)
     unused_factorized_dims.insert(FactorizedDimensionID(dim));
 
   if (shape.exists("flatten"))
   {
+    UsesFlattening = true;
     config::CompoundConfigNode flattened_list = shape.lookup("flatten");
     assert(flattened_list.isList());
     for (int f = 0; f < flattened_list.getLength(); f++)
@@ -135,8 +137,16 @@ void Shape::Parse(config::CompoundConfigNode shape)
   }
 
   // Sanity checks.
-  if (!shape.exists("flatten"))
+  if (!UsesFlattening)
+  {
     assert(NumFactorizedDimensions == NumFlattenedDimensions);
+    for (unsigned dim = 0; dim < NumFactorizedDimensions; dim++)
+    {
+      auto& factorized_name = FactorizedDimensionIDToName.at(dim);
+      auto& flattened_name = FlattenedDimensionIDToName.at(dim);
+      assert(factorized_name == flattened_name);
+    }
+  }
 
   // Data Spaces.
   config::CompoundConfigNode data_spaces = shape.lookup("data-spaces");

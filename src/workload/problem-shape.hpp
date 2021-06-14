@@ -47,6 +47,7 @@ class Shape
 
   typedef unsigned FlattenedDimensionID;
 
+  bool UsesFlattening;
   unsigned NumFlattenedDimensions;
   std::map<FlattenedDimensionID, std::string> FlattenedDimensionIDToName;
   std::map<std::string, FlattenedDimensionID> FlattenedDimensionNameToID;

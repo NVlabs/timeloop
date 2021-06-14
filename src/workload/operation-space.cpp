@@ -66,6 +66,56 @@ OperationSpace::OperationSpace(const Workload* wc,
   // either into the factorized space, or into a data-space may not result
   // in the exclusive high point in the projected space.
 
+  // The final set of AAHRs we are putting together.
+  std::vector<std::pair<Point, Point>> carved_aahrs;
+
+  // Bypass some steps for problem shapes that do not use any flattening.
+  if (wc->GetShape()->UsesFlattening)
+  {
+    FactorizeCarveMultiply(wc, flattened_low, flattened_high, carved_aahrs);
+  }
+  else
+  {
+    // If the problem does not use flattening, we are guaranteed that each
+    // "flattened" dimension ID projects to the exact same integer factorized
+    // dimension ID. This means a flattened point can be used trivially as a
+    // factorized point in the following statement.
+    carved_aahrs.push_back(std::make_pair(flattened_low, flattened_high));
+  }
+
+  // Project each of the factorized AAHRs onto data spaces.
+  for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
+  {
+    auto dataspace_order = workload_->GetShape()->DataSpaceOrder.at(space_id);
+
+    std::vector<std::pair<Point, Point>> dataspace_corners;
+    for (auto& aahr: carved_aahrs)
+    {
+      Point space_low(dataspace_order);
+      Point space_high(dataspace_order);
+
+      // std::cout << "projecting ispace aahr  : " << aahr.first << " - " << aahr.second << std::endl;
+      ProjectLowHigh(space_id, workload_, aahr.first, aahr.second, space_low, space_high);
+      // std::cout << "projected to dspace aahr: " << space_low << " - " << space_high << std::endl;
+
+      // Increment the high points by 1 because the AAHR constructor wants
+      // an exclusive max point.
+      space_high.IncrementAllDimensions();
+
+      dataspace_corners.push_back(std::make_pair(space_low, space_high));
+
+      // std::cout << "dataspace: " << space_low << " - " << space_high << ")" << std::endl;
+    }
+
+    data_spaces_.push_back(DataSpace(dataspace_order, dataspace_corners));
+  }
+}
+
+void OperationSpace::FactorizeCarveMultiply(const Workload* wc,
+                                            const OperationPoint& flattened_low,
+                                            const OperationPoint& flattened_high,
+                                            std::vector<std::pair<Point, Point>>& carved_aahrs)
+{
   auto shape = wc->GetShape();
 
   // Step 1: Factorize *each* rank in the flattened point into groups of
@@ -99,32 +149,16 @@ OperationSpace::OperationSpace(const Workload* wc,
     auto region_carved = Carve(factor_groups_low.at(rank),
                                factor_groups_high.at(rank),
                                factor_groups_bounds.at(rank));
-    // std::cout << "flat rank = " << rank << " carved into " << region_carved.size() << " aahrs\n";
-    // for (auto& aahr: region_carved)
-    // {
-    //   std::cout << "  " << aahr.first << " - " << aahr.second << std::endl;
-    // }
     region_aahrs.push_back(region_carved);
     num_region_aahrs.push_back(region_carved.size());
   }
 
-
-  // The final set of AAHRs we are putting together.
-  std::vector<std::pair<Point, Point>> carved_aahrs;
-
-  // Walk through the AAHR sets using a Cartesian Counter. This flattens
-  // an exponential space (e.g., that formed from a Cartesian product
-  // into a linear space.
-  // std::cout << "num_region_aahrs: ";
-  // for (auto& n: num_region_aahrs)
-  // {
-  //   std::cout << n << " ";
-  // }
-  // std::cout << std::endl;
-
+  // Step 3: "Multiply" the AAHR sets (i.e., create a Cartesian product) and
+  // merge the ranks in each resultant set to create one full (higher-order)
+  // AAHR per set. Do this by walking through the AAHR sets using a Cartesian
+  // Counter. This flattens the exponential space into a linear space that we
+  // can walk through using a single loop.
   CartesianCounterGeneric<std::size_t> counter(num_region_aahrs);
-  // std::cout << "CC size = " << counter.EndInteger() << std::endl;
-
   do
   {
     // Obtain a per-flattened-rank AAHR id from the counter.
@@ -138,8 +172,6 @@ OperationSpace::OperationSpace(const Workload* wc,
     // Walk through each flattened rank.
     for (unsigned flattened_dim = 0; flattened_dim < shape->NumFlattenedDimensions; flattened_dim++)
     {
-      // std::cout << "flat rank = " << flattened_dim << " extracting aahr# " << ids.at(flattened_dim)
-      //           << " of " << region_aahrs.at(flattened_dim).size() << std::endl;
       auto& region_aahr = region_aahrs.at(flattened_dim).at(ids.at(flattened_dim));
       auto& region_low = region_aahr.first;
       auto& region_high = region_aahr.second;
@@ -160,46 +192,7 @@ OperationSpace::OperationSpace(const Workload* wc,
 
     carved_aahrs.push_back(std::make_pair(final_low, final_high));
   }
-  while (counter.Increment());
-  
-  // if (carved_aahrs.size() > 1)
-  // {
-  //   std::cout << "bounds: " << wc->GetFactorizedBounds() << std::endl;
-  //   std::cout << "flattened: " << flattened_low << " - " << flattened_high << std::endl;
-
-  //   std::cout << "carved:\n";
-  //   for (auto& aahr: carved_aahrs)
-  //   {
-  //     std::cout << "  " << aahr.first << " - " << aahr.second << std::endl;
-  //   }
-  // }
-  
-  // Step 3: Project each of the factorized AAHRs onto data spaces.
-  for (unsigned space_id = 0; space_id < wc->GetShape()->NumDataSpaces; space_id++)
-  {
-    auto dataspace_order = workload_->GetShape()->DataSpaceOrder.at(space_id);
-
-    std::vector<std::pair<Point, Point>> dataspace_corners;
-    for (auto& aahr: carved_aahrs)
-    {
-      Point space_low(dataspace_order);
-      Point space_high(dataspace_order);
-
-      // std::cout << "projecting ispace aahr  : " << aahr.first << " - " << aahr.second << std::endl;
-      ProjectLowHigh(space_id, workload_, aahr.first, aahr.second, space_low, space_high);
-      // std::cout << "projected to dspace aahr: " << space_low << " - " << space_high << std::endl;
-
-      // Increment the high points by 1 because the AAHR constructor wants
-      // an exclusive max point.
-      space_high.IncrementAllDimensions();
-
-      dataspace_corners.push_back(std::make_pair(space_low, space_high));
-
-      // std::cout << "dataspace: " << space_low << " - " << space_high << ")" << std::endl;
-    }
-
-    data_spaces_.push_back(DataSpace(dataspace_order, dataspace_corners));
-  }
+  while (counter.Increment());  
 }
 
 // Project a point from flattened operation space into factorized problem space.

@@ -61,6 +61,11 @@ class OperationSpace
   std::vector<DataSpace> data_spaces_;
 
  private:
+  void FactorizeCarveMultiply(const Workload* wc,
+                              const OperationPoint& flattened_low,
+                              const OperationPoint& flattened_high,
+                              std::vector<std::pair<Point, Point>>& carved_aahrs);
+
   Point Factorize(const Workload* wc, const OperationPoint& flattened);
 
   void FactorizeGrouped(const Workload* wc,
