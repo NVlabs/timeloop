@@ -28,8 +28,8 @@
 #pragma once
 
 #include "mapping/loop.hpp"
-#include "workload/problem-shape.hpp"
-#include "workload/operation-space.hpp"
+#include "workload/shape-models/problem-shape.hpp"
+#include "workload/shape-models/operation-space.hpp"
 #include "workload/workload.hpp"
 
 namespace analysis
@@ -63,7 +63,7 @@ struct ElementState
   problem::PerDataSpace<unsigned long> link_transfers;
   
   // Data density in each spatial element
-  problem::PerDataSpace<problem::DataDensity> data_densities;
+  // problem::PerDataSpace<problem::DataDensity> data_densities;
 
   void Reset()
   {

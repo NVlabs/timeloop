@@ -456,6 +456,16 @@ bool CompoundConfigNode::isArray() const {
   }
 }
 
+bool CompoundConfigNode::isMap() const {
+  if(LNode) return LNode->isGroup();
+  else if (YNode) return YNode.IsMap();
+  else {
+    assert(false);
+    return false;
+  }
+}
+
+
 int CompoundConfigNode::getLength() const {
   if(LNode) return LNode->getLength();
   else if (YNode) return YNode.size();
@@ -519,6 +529,9 @@ bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) {
     return false;
   }
 }
+
+
+
 /* CompoundConfig */
 
 CompoundConfig::CompoundConfig(const char* inputFile) {
@@ -533,10 +546,35 @@ CompoundConfig::CompoundConfig(const char* inputFile) {
     YConfig = YAML::Load(f);
     root = CompoundConfigNode(nullptr, YConfig, this);
     useLConfig = false;
+    f.close();
     // std::cout << YConfig << std::endl;
   } else {
     std::cerr << "ERROR: Input configuration file does not end with .cfg, .yml, or .yaml" << std::endl;
     exit(1);
+  }
+}
+
+CompoundConfig::CompoundConfig(std::string input, std::string format) {
+  // we only accept yaml version as a string input
+  if (format.compare("cfg") == 0) {
+    LConfig.readString(input);
+    auto& lroot = LConfig.getRoot();
+    useLConfig = true;
+    root = CompoundConfigNode(&lroot, YAML::Node(), this);
+  } else if (format.compare("yml") == 0 || format.compare("yaml") == 0) {
+    std::istringstream combinedStream(input);
+    YConfig = YAML::Load(combinedStream);
+    root = CompoundConfigNode(nullptr, YConfig, this);
+    useLConfig = false;
+  } else {
+    std::cerr << "ERROR: format should be one of the followings: cfg, yml, yaml." << std::endl;
+    exit(1);
+  }
+
+  if (root.exists("variables")) {
+    variableRoot = root.lookup("variables");
+  } else {
+    variableRoot = CompoundConfigNode(nullptr, YAML::Node()); // null node
   }
 }
 
@@ -552,8 +590,9 @@ CompoundConfig::CompoundConfig(std::vector<std::string> inputFiles) {
                    std::istreambuf_iterator<char>());
     combinedString += f;
     combinedString+= "\n"; // just to avoid files end with no newline
+    fin.close();
   }
-
+  
   if (std::strstr(inputFiles[0].c_str(), ".cfg")) {
     LConfig.readString(combinedString);
     auto& lroot = LConfig.getRoot();
@@ -575,7 +614,6 @@ CompoundConfig::CompoundConfig(std::vector<std::string> inputFiles) {
   } else {
     variableRoot = CompoundConfigNode(nullptr, YAML::Node()); // null node
   }
-
 }
 
 libconfig::Config& CompoundConfig::getLConfig() {

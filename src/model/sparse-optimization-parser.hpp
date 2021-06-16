@@ -1,5 +1,5 @@
-/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -27,53 +27,13 @@
 
 #pragma once
 
-#include <map>
-#include <vector>
-#include <list>
-
+#include "sparse-optimization-info.hpp"
+#include "model/engine.hpp"
 #include "compound-config/compound-config.hpp"
 
-namespace problem
-{
+namespace sparse {
 
-class Shape
-{
- public:
-  typedef unsigned DimensionID;
-  
-  unsigned NumDimensions;
-  std::map<DimensionID, std::string> DimensionIDToName;
-  std::map<std::string, DimensionID> DimensionNameToID;
+SparseOptimizationInfo  ParseAndConstruct(config::CompoundConfigNode sparse_config,
+										  model::Engine::Specs& arch_specs);
 
-  typedef int Coefficient;
-  typedef unsigned CoefficientID;
-  typedef std::map<CoefficientID, int> Coefficients;
-
-  unsigned NumCoefficients;
-  std::map<std::string, CoefficientID> CoefficientNameToID;
-  std::map<CoefficientID, std::string> CoefficientIDToName;
-  std::map<CoefficientID, int> DefaultCoefficients;
-
-  typedef unsigned DataSpaceID;
-
-  unsigned NumDataSpaces;
-  std::map<std::string, DataSpaceID> DataSpaceNameToID;
-  std::map<DataSpaceID, std::string> DataSpaceIDToName;
-  std::map<DataSpaceID, unsigned> DataSpaceOrder;
-  std::map<DataSpaceID, bool> IsReadWriteDataSpace;
-
-  // Projection AST: the projection function for each dataspace dimension is a
-  //                 Sum-Of-Products where each Product is the product of a
-  //                 Coefficient and a Dimension. This is fairly restrictive
-  //                 but efficient. We can generalize later if needed.
-  typedef std::pair<CoefficientID, DimensionID> ProjectionTerm;
-  typedef std::list<ProjectionTerm> ProjectionExpression;
-  typedef std::vector<ProjectionExpression> Projection;
-
-  std::vector<Projection> Projections;
-
- public: 
-  void Parse(config::CompoundConfigNode config); 
-};
-
-} // namespace problem
+}

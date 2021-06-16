@@ -27,9 +27,9 @@
 
 #pragma once
 
-#include "workload.hpp"
+#include "workload/workload.hpp"
 #include "data-space.hpp"
-#include "per-data-space.hpp"
+#include "workload/util/per-data-space.hpp"
 
 namespace problem
 {
@@ -46,6 +46,8 @@ class OperationPoint : public Point
   {
   }
 };
+
+std::ostream& operator << (std::ostream& out, const OperationPoint& p);
 
 // ======================================== //
 //              OperationSpace              //

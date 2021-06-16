@@ -106,6 +106,15 @@ class Point
       c += m;
   }
 
+  // Translation operator.
+  Point operator + (Point& other)
+  {
+    Point retval(order_);
+    for (unsigned i = 0; i < order_; i++)
+      retval.coordinates_.at(i) = coordinates_.at(i) += other.coordinates_.at(i);
+    return retval;
+  }
+
   void Scale(unsigned factor)
   {
     for (auto& c : coordinates_)

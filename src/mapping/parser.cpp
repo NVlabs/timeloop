@@ -44,7 +44,7 @@ problem::Workload workload_;
 // Forward declarations.
 //
 unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type);
-std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConfigNode constraint);
+std::map<problem::Shape::DimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode constraint);
 std::vector<problem::Shape::DimensionID> ParseUserPermutations(config::CompoundConfigNode constraint);
 void ParseUserDatatypeBypassSettings(config::CompoundConfigNode constraint,
                                      unsigned level,
@@ -56,13 +56,16 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
                           model::Engine::Specs& arch_specs,
                           problem::Workload workload)
 {
+  arch_props_ = ArchProperties();
   arch_props_.Construct(arch_specs);
+
   workload_ = workload;
   
-  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> user_factors;
+  std::map<unsigned, std::map<problem::Shape::DimensionID, std::pair<int,int>>> user_factors;
   std::map<unsigned, std::vector<problem::Shape::DimensionID>> user_permutations;
   std::map<unsigned, std::uint32_t> user_spatial_splits;
   problem::PerDataSpace<std::string> user_bypass_strings;
+  std::map<unsigned, double> confidence_thresholds;
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
@@ -71,6 +74,13 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     std::string xxx(arch_props_.StorageLevels(), 'X');
     xxx.back() = '1';
     user_bypass_strings[problem::Shape::DataSpaceID(pvi)] = xxx;
+  }
+
+  // Initialize confidence thresholds to be 0.0
+  // We want to allow the model to be able model any mapping as long as memory levels allow overflow
+  for (unsigned storage_level_id = 0; storage_level_id < arch_props_.StorageLevels(); storage_level_id++)
+  {
+    confidence_thresholds[storage_level_id] = 0.0;
   }
 
   // Parse user-provided mapping.
@@ -121,11 +131,6 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     }
   }
 
-  // Validity checks.
-  std::map<problem::Shape::DimensionID, int> dimension_factor_products;
-  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
-    dimension_factor_products[dim] = 1;
-
   // Construct the mapping from the parsed sub-structures.
   // A set of subnests, one for each tiling level.
   loop::NestConfig subnests(arch_props_.TilingLevels());
@@ -168,26 +173,41 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       loop::Descriptor loop;
       loop.dimension = permutation->second.at(idim);
       loop.start = 0;
-      loop.end = factors->second.at(loop.dimension);
+      loop.end = factors->second.at(loop.dimension).first;
+      loop.residual_end = factors->second.at(loop.dimension).second;
       loop.stride = 1; // FIXME.
       loop.spacetime_dimension = arch_props_.IsSpatial(level)
         ? (idim < user_spatial_splits.at(level) ? spacetime::Dimension::SpaceX : spacetime::Dimension::SpaceY)
         : spacetime::Dimension::Time;
       subnests.at(level).push_back(loop);
-
-      dimension_factor_products[loop.dimension] *= loop.end;
     }
+
   }
+
+  // Validity checks.
+  std::map<problem::Shape::DimensionID, int> prod;
+  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+    prod[dim] = 0;
+
+  // (((resP3-1)*P2 + (resP2-1))*P1 + (resP1-1))*P0 + resP0  
+  for (uint64_t level = arch_props_.TilingLevels(); level-- > 0; )
+  {
+    for (auto& loop: subnests.at(level))
+      prod[loop.dimension] = prod[loop.dimension]*loop.end + loop.residual_end-1;
+  }
+
+  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+    prod[dim]++;
 
   // All user-provided factors must multiply-up to the dimension size.
   bool fault = false;
   for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
   {
-    if (dimension_factor_products[dim] != workload_.GetBound(dim))
+    if (prod[dim] != workload_.GetBound(dim))
     {
       std::cerr << "ERROR: parsing mapping: product of all factors of dimension "
                 << problem::GetShape()->DimensionIDToName.at(dim) << " is "
-                << dimension_factor_products[dim] << ", which is not equal to "
+                << prod[dim] << ", which is not equal to "
                 << "the dimension size of the workload " << workload_.GetBound(dim)
                 << "." << std::endl;
       fault = true;
@@ -214,6 +234,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
         mapping.loop_nest.AddLoop(subnests[i][dim]);
         num_subnests_added++;
       }
+      mapping.complete_loop_nest.AddLoop(subnests[i][dim]);
     }
     if (!arch_props_.IsSpatial(i))
     {
@@ -225,6 +246,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
                                    0, 1, 1, spacetime::Dimension::Time);
       }
       mapping.loop_nest.AddStorageTilingBoundary();
+      mapping.complete_loop_nest.AddStorageTilingBoundary();
       storage_level++;
     }
   }
@@ -265,6 +287,8 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       }
     }
   } // for (pvi)
+
+  mapping.confidence_thresholds = confidence_thresholds;
 
     // Finalize mapping.
   mapping.id = 0;
@@ -352,14 +376,14 @@ unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string
 //
 // Parse user factors.
 //
-std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConfigNode directive)
+std::map<problem::Shape::DimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode directive)
 {
-  std::map<problem::Shape::DimensionID, int> retval;
+  std::map<problem::Shape::DimensionID, std::pair<int,int>> retval;
     
   std::string buffer;
   if (directive.lookupValue("factors", buffer))
   {
-    std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)", std::regex::extended);
+    std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)(,([0-9]+))?", std::regex::extended);
     std::smatch sm;
     std::string str = std::string(buffer);
 
@@ -397,8 +421,14 @@ std::map<problem::Shape::DimensionID, int> ParseUserFactors(config::CompoundConf
         assert(end > 0);
       }
 
+      int residual_end = end;
+      if (sm[4] != "")
+      {
+        residual_end = std::stoi(sm[4]);
+      }
+
       // Found all the information we need to setup a factor!
-      retval[dimension] = end;
+      retval[dimension] = std::make_pair<>(end, residual_end);
 
       str = sm.suffix().str();
     }

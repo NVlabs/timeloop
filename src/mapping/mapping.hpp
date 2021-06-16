@@ -43,7 +43,9 @@ struct Mapping
 {
   uint128_t id;
   loop::Nest loop_nest;
+  loop::Nest complete_loop_nest; // loop nest that includes all trivial loops
   tiling::CompoundMaskNest datatype_bypass_nest;
+  std::map<unsigned, double> confidence_thresholds;
   
   // Serialization
   friend class boost::serialization::access;
@@ -66,6 +68,7 @@ struct Mapping
   void PrintAsConstraints(std::string filename);
 
   void PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
+                   const std::vector<problem::PerDataSpace<std::uint64_t>>& utlized_capacities = {},
                    const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes = {},
                    const std::string _indent = "");
 

@@ -72,9 +72,9 @@ void Nest::AddLoop(Descriptor descriptor)
 }
 
 void Nest::AddLoop(problem::Shape::DimensionID dimension, int start, int end, int stride,
-                   spacetime::Dimension spacetime_dimension)
+                   spacetime::Dimension spacetime_dimension, int residual_end)
 {
-  AddLoop(loop::Descriptor(dimension, start, end, stride, spacetime_dimension));
+  AddLoop(loop::Descriptor(dimension, start, end, stride, spacetime_dimension, residual_end));
 }
 
 bool Nest::AddStorageTilingBoundary()
@@ -119,8 +119,10 @@ std::ostream& operator << (std::ostream& out, const Nest& nest)
 
 void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
                        const tiling::NestOfCompoundMasks& mask_nest,
+                       const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_capacities,
                        const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
                        const std::string _indent)
+
 {
   unsigned num_loops = loops.size();
   unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
@@ -144,6 +146,11 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
           if (tile_sizes.size() > 0)
           {
             str << ":" << tile_sizes.at(inv_storage_level).at(pvi);
+          }
+          str << " ";
+          if (utilized_capacities.size() > 0)
+          {
+            str << "(" << utilized_capacities.at(inv_storage_level).at(pvi) << ")";
           }
           str << " ";
         }
@@ -237,6 +244,11 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
     dimids.push_back(loop.dimension);
     dimnames.push_back(dimname);
     dimbounds.push_back(loop.end);
+    if (loop.residual_end != loop.end)
+    {
+      std::cerr << "ERROR: residual ends are not supported for Whoop output." << std::endl;
+      exit(1);
+    }
     varnames.push_back(varname);
     dimname_to_bound[dimname] = loop.end;
 

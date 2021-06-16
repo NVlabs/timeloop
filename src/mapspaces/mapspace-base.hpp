@@ -31,7 +31,7 @@
 
 #include "mapping/mapping.hpp"
 #include "model/engine.hpp"
-#include "workload/problem-shape.hpp"
+#include "workload/shape-models/problem-shape.hpp"
 
 using namespace boost::multiprecision;
 

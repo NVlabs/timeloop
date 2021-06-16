@@ -29,18 +29,20 @@
 #include <sstream>
 
 #include "tiling.hpp"
+#include "operation-type.hpp"
+
 
 namespace tiling
 {
 
-bool operator < (const TileInfo& a, const TileInfo& b)
+bool operator < (const DataMovementInfo& a, const DataMovementInfo& b)
 {
   // Logic doesn't matter as long as we provide a way to detect inequality.
   return (a.size < b.size) ||
          (a.size == b.size && a.GetTotalAccesses() < b.GetTotalAccesses());
 }
 
-std::ostream& operator << (std::ostream& out, const TileInfo& info)
+std::ostream& operator << (std::ostream& out, const DataMovementInfo& info)
 {
   out << "size = " << info.size << " accesses = " << info.GetTotalAccesses()
       << " fanout = " << info.fanout << " repfactor = " << info.replication_factor
@@ -58,8 +60,77 @@ std::ostream& operator << (std::ostream& out, const TileInfo& info)
 namespace tiling
 {
 
+void SetParentLevel(std::vector<DataMovementInfo>& tile_nest){
+  unsigned num_tiling_levels = tile_nest.size();
+
+  for (unsigned cur = 0; cur < num_tiling_levels; cur++)
+  {
+
+    // Skip if this tile level has 0 size or 0 accesses.
+    if (tile_nest[cur].size == 0)
+    {
+      continue;
+    }
+
+    // Initialize parent level to max.
+    tile_nest[cur].parent_level = std::numeric_limits<unsigned>::max();
+
+    // Find next (outer) non-zero level.
+    problem::Shape::DataSpaceID outer;
+    for (outer = cur + 1; outer < num_tiling_levels && tile_nest[outer].size == 0; outer++)
+    {
+      // Body is empty.
+    }
+
+    if (outer == num_tiling_levels)
+    {
+      // No outer tiling level.
+      continue;
+    }
+
+    tile_nest[cur].parent_level = outer;
+  }
+
+}
+
+void SetChildLevel(std::vector<DataMovementInfo>& tile_nest){
+  unsigned num_tiling_levels = tile_nest.size();
+
+  for (unsigned cur = 0; cur < num_tiling_levels; cur++)
+  {
+    // Skip
+    //     if this tile level has 0 size or 0 accesses.
+    //     if this tile level is the inner most level
+    if (cur == 0 || tile_nest[cur].size == 0)
+    {
+      continue;
+    }
+
+    // Initialize child level to max.
+    tile_nest[cur].child_level = std::numeric_limits<unsigned>::max();
+    // Find next (inner) non-zero level.
+    int inner;
+    for (inner = cur-1; inner >= 0 && tile_nest[inner].size == 0; inner--)
+    {
+      // Body is empty.
+    }
+
+    if ( inner != -1)
+    {
+      tile_nest[cur].child_level = inner;
+    }
+
+    // better checking for child level
+    if (inner != 0 && inner != -1){
+    } else if (inner != -1) {
+      // child level is compute
+      // tile size is basically one fetch from the memory, which is dependent on this level's block size
+    }
+  }
+}
+
 // Helper function: find the multicast factor.
-uint64_t FindMulticastFactor(const TileInfo& tile)
+uint64_t FindMulticastFactor(const DataMovementInfo& tile)
 {
   uint64_t multicast_factor = 1;
   bool multicast_found = false;
@@ -77,7 +148,7 @@ uint64_t FindMulticastFactor(const TileInfo& tile)
 }
 
 // Mask Tiles.
-void MaskTiles(std::vector<TileInfo>& tile_nest, std::bitset<MaxTilingLevels> mask)
+void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLevels> mask)
 {
   // std::cout << "***** BEFORE *****" << std::endl;
   // std::cout << "Tile nest = " << std::endl;
@@ -163,7 +234,7 @@ void MaskTiles(std::vector<TileInfo>& tile_nest, std::bitset<MaxTilingLevels> ma
         tile_nest[outer].accesses[i] = 0;
         tile_nest[outer].scatter_factors[i] = 0;
         tile_nest[outer].accesses[multicast_factor-1] =
-          tile_nest[cur].content_accesses * scatter_factor;
+        tile_nest[cur].content_accesses * scatter_factor;
         tile_nest[outer].scatter_factors[multicast_factor-1] = scatter_factor;
 
         // Note: partition size for outer does not change.
@@ -172,6 +243,7 @@ void MaskTiles(std::vector<TileInfo>& tile_nest, std::bitset<MaxTilingLevels> ma
 
     // Obliterate the buffer stats (*not* the network stats) for the cur tiling level.
     tile_nest[cur].size = 0;
+    tile_nest[cur].shape = 0;
     tile_nest[cur].partition_size = 0;
     tile_nest[cur].content_accesses = 0;
     tile_nest[cur].fills = 0;
@@ -187,7 +259,7 @@ void MaskTiles(std::vector<TileInfo>& tile_nest, std::bitset<MaxTilingLevels> ma
 
 // Convert multicasts into scatter->distributed-multicasts if certain conditions
 // are met.
-void DistributeTiles(std::vector<TileInfo>& tile_nest,
+void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
                      const std::bitset<MaxTilingLevels>& distribution_supported)
 {
   int num_tiling_levels = tile_nest.size();
@@ -267,7 +339,7 @@ void DistributeTiles(std::vector<TileInfo>& tile_nest,
 }
 
 // Compute Fills.
-void ComputeFills(std::vector<TileInfo>& tile_nest)
+void ComputeFills(std::vector<DataMovementInfo>& tile_nest)
 {
   int num_tiling_levels = tile_nest.size();
 
@@ -327,7 +399,7 @@ void ComputeFills(std::vector<TileInfo>& tile_nest)
 }
 
 // Compute partition sizes.
-void ComputePartitionSizes(std::vector<TileInfo>& tile_nest)
+void ComputePartitionSizes(std::vector<DataMovementInfo>& tile_nest)
 {
   int num_tiling_levels = tile_nest.size();
 
@@ -350,7 +422,7 @@ void ComputePartitionSizes(std::vector<TileInfo>& tile_nest)
 // Compute the extra fills and accesses due to link transfers in the previous
 // level. Link transfers are handled at the network model, and the extra buffer
 // accesses should charge the buffer model.
-void ComputePeerAccesses(std::vector<TileInfo>& tile_nest)
+void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
 {
   // Loop through all levels and update peer_{accesses, fills}.
   //
@@ -378,18 +450,154 @@ void ComputePeerAccesses(std::vector<TileInfo>& tile_nest)
 
   return;
 }
+
+// FIXME: check the if logic for hardware reduction support is still in the loop
+
+void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv){
+  // Loop through all levels and update reads, writes, updates.
+  //
+  int num_tiling_levels = tile_nest.size();
+
+  for (int cur = 0; cur < num_tiling_levels; cur++){
+    
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    {
+      // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
+
+      // The following assertion is *incorrect* for coefficients (e.g. stride, pad) > 1.
+      // FIXME: find a safety check that works with coefficients > 1.
+      // assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
+
+      tile_nest[cur].reads = tile_nest[cur].content_accesses - tile_nest[cur].partition_size + tile_nest[cur].peer_accesses;
+      // std::cout << "TILING LEVEL = " << cur << std::endl;
+      // std::cout << "  content = " << tile_nest[cur].content_accesses << std::endl;
+      // std::cout << "  partition size = " << tile_nest[cur].partition_size << std::endl;
+      // std::cout << "  peer accesses = " << tile_nest[cur].peer_accesses << std::endl;
+      // std::cout << "  reads = " << tile_nest[cur].reads << std::endl << std::endl;
+
+      tile_nest[cur].updates = tile_nest[cur].content_accesses;
+      tile_nest[cur].fills = tile_nest[cur].fills + tile_nest[cur].peer_fills;
+      //tile.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
+
+      // FIXME: temporal reduction and network costs if hardware reduction isn't
+      // supported appears to be wonky - network costs may need to trickle down
+      // all the way to the level that has the reduction hardware.
+      tile_nest[cur].temporal_reductions = tile_nest[cur].content_accesses - tile_nest[cur].partition_size;
+
+      // std::cout << "tile: reads, updates, fills " 
+      // << tile.reads << " " <<  tile.updates<< " " << tile.fills <<std::endl;
+    }
+    else // Read-only data type.
+    {
+      tile_nest[cur].reads = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses;
+      tile_nest[cur].updates = 0;
+      tile_nest[cur].fills = tile_nest[cur].fills + tile_nest[cur].peer_fills;
+      //tile.address_generations = tile.reads + tile.fills; // scalar
+      tile_nest[cur].temporal_reductions = 0;
+    }
+  }
+
+  return;
+}
+
+
+void ComputeWorkloadTensorSizes(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv, problem::Workload* workload){
+   if (! workload->IsWorkloadTensorSizesSet()){
+      unsigned num_tiling_levels = tile_nest.size();
+
+      uint64_t max_tensor_size = 0;
+
+      for (unsigned cur = 0; cur < num_tiling_levels; cur++)
+      {
+
+        // Skip if this tile level has 0 size or 0 accesses.
+        if (tile_nest[cur].size >= max_tensor_size)
+        {
+          max_tensor_size = tile_nest[cur].size;
+        }
+      }
+
+      assert(max_tensor_size != 0); //workload tensor size cannot be zero
+      workload->SetWorkloadTensorSize(pv, max_tensor_size);
+   }
+
+}
+
+// place holder function that performs post processing of the # of fills for
+// the backing storage of each data space.
+// theoretically, we should reorder ComputeFills and MaskTiles to achieve this
+// and the logic for cascaded multicast calculation with bypassed storage level
+// in the middle needs to be updated
+void ResetBackingStorageFillsPlaceHolder(std::vector<DataMovementInfo>& tile_nest)
+{
+  unsigned num_tiling_levels = tile_nest.size();
+
+  for (int cur = num_tiling_levels - 1; cur >=0 ; cur--)
+  {
+    if (tile_nest[cur].size > 0)
+    {
+      tile_nest[cur].fills = 0;
+      break;
+    }
+  }
+}
+
+
+tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
+                                       int num_tiling_levels,
+                                       const CompoundMaskNest& tile_mask,
+                                       const CompoundMaskNest& distribution_supported,
+                                       problem::Workload* workload){
+
+  CompoundDataMovementNest collapsed_compound_data_nest = CollapseDataMovementNest(tiles.compound_data_movement_info_nest,
+                                                                                   num_tiling_levels,
+                                                                                   tile_mask,
+                                                                                   distribution_supported, 
+                                                                                   workload);
+  ComputeNest collapsed_compound_compute_nest = CollapseComputeNest(tiles.compound_compute_info_nest, num_tiling_levels); 
+  tiling::CompoundTileNest solution;
+  solution.compound_data_movement_info_nest = collapsed_compound_data_nest;
+  solution.compute_info_nest = collapsed_compound_compute_nest;
+  solution.compute_info_nest[0].compute_cycles = solution.compute_info_nest[0].accesses;
+  return solution;
+}
+
+
+ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels){
+  ComputeNest solution;
+  
+  for (int level=0; level < num_tiling_levels; level++){
+    
+    ComputeInfo collapsed_tile;
+    if (level == 0 ){
+      // compute info is only valid for the inner most level
+      collapsed_tile.replication_factor = tiles[0].replication_factor;
+      collapsed_tile.accesses = tiles[0].accesses;
+    } else {
+      collapsed_tile.replication_factor = 0;
+      collapsed_tile.accesses = 0;
+    }
+    solution.push_back(collapsed_tile);
+  }
+
+  return solution;
+}
+
+
 // Collapse tiles into a given number of levels.
 // Input and output are both arrays of tile nests,
 // with one nest per problem::Shape::DataSpaceID.
-CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
-                               const CompoundMaskNest& tile_mask,
-                               const CompoundMaskNest& distribution_supported)
+CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovementNest& tiles, 
+                                                  int num_tiling_levels,
+                                                  const CompoundMaskNest& tile_mask,
+                                                  const CompoundMaskNest& distribution_supported,
+                                                  problem::Workload* workload)
 {
   // Constructing an array of tile nests, one for each problem::Shape::DataSpaceID.
   // From the tile data, select the size and accesses at the boundaries of each
   // storage level. Size comes from the outermost tile within the storage level,
   // and accesses comes from the innermost tile within the storage level.
-  CompoundTileNest solution;
+  CompoundDataMovementNest solution;
   for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
   {
     int processed_loop_count = 0;  // number of loops that have been collapsed
@@ -399,7 +607,7 @@ CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
     while (processed_loop_count < total_loops)
     {
       // Form a new physical tiling level.
-      TileInfo collapsed_tile;
+      DataMovementInfo collapsed_tile;
 
       // Find the last loop that belongs to the current tile.
       int boundary_loop_id = processed_loop_count;
@@ -425,17 +633,28 @@ CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
       // NOTE! some properties are taken from the innermost loop's tile, while others
       // are taken from the outermost loop's tile.
       collapsed_tile.size = tiles[pv][outermost_loop].size;
-      collapsed_tile.partition_size = tiles[pv][outermost_loop].partition_size;
+      collapsed_tile.shape = tiles[pv][outermost_loop].size; // shape is the coord space representation
+      collapsed_tile.dataspace_id = (unsigned)pv;
+      collapsed_tile.partition_size = 0;
       collapsed_tile.distributed_multicast = false;
       collapsed_tile.accesses = tiles[pv][innermost_loop].accesses;
       collapsed_tile.scatter_factors = tiles[pv][innermost_loop].scatter_factors;
       collapsed_tile.cumulative_hops = tiles[pv][innermost_loop].cumulative_hops;
-      collapsed_tile.content_accesses = tiles[pv][innermost_loop].content_accesses;
+      collapsed_tile.content_accesses = tiles[pv][innermost_loop].GetTotalAccesses();
       collapsed_tile.link_transfers = tiles[pv][innermost_loop].link_transfers;
       collapsed_tile.peer_accesses = 0;
       collapsed_tile.peer_fills = 0;
       collapsed_tile.replication_factor = tiles[pv][outermost_loop].replication_factor;
       collapsed_tile.fanout = tiles[pv][innermost_loop].fanout;
+
+      //place holder initializations
+      collapsed_tile.metadata_reads = 0;
+      collapsed_tile.metadata_fills = 0;
+      collapsed_tile.metadata_updates = 0;
+      collapsed_tile.SetTensorRepresentation(); // default to uncompressed
+
+      collapsed_tile.parent_level = std::numeric_limits<unsigned>::max();
+      collapsed_tile.child_level = std::numeric_limits<unsigned>::max();
 
       if (!solution[pv].empty())
       {
@@ -463,40 +682,90 @@ CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels,
     // Mask each solution according to the provided bit mask.
     MaskTiles(solution[pv], tile_mask[pv]);
 
+    // Set backing storage fill to zero
+    // place holder
+    ResetBackingStorageFillsPlaceHolder(solution[pv]);
+
     // Perform distributed-multicast if supported.
     DistributeTiles(solution[pv], distribution_supported[pv]);
 
     // Calculate the extra accesses and fills due to link transfers
     ComputePeerAccesses(solution[pv]);
 
+    // split the accesses to read and update and generate reduction
+    ComputeReadUpdateReductionAccesses(solution[pv], pv);
+
+    // calculate workload tensor size
+    ComputeWorkloadTensorSizes(solution[pv], pv, workload);
+
+    // find the parent and child levels for later compression/decompression logic
+    SetParentLevel(solution[pv]);
+    SetChildLevel(solution[pv]);
+
   }
+
+  // flip the workload tensor set flag if necessary
+  if (! workload->IsWorkloadTensorSizesSet()) {workload->AllTensorsSet();}
+
   return solution;
 }
 
-// Collapse with default tile mask.
-// CompoundTileNest CollapseTiles(CompoundTileNest& tiles, int num_tiling_levels)
-// {
-//   std::bitset<MaxTilingLevels> all_ones;
-//   all_ones.set();
-//   CompoundMaskNest all_enabled;
-//   all_enabled.fill(all_ones);
-//   return CollapseTiles(tiles, num_tiling_levels, all_enabled);
-// }
+void SetParentChildPointers(tiling::NestOfCompoundTiles& nest_of_compound_tiles)
+{
+  unsigned num_levels = nest_of_compound_tiles.size();
+  for (unsigned level = 0; level < num_levels; level++)
+  {
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+    {
+      tiling::CompoundDataMovementInfo& compound_data_movement = nest_of_compound_tiles.at(level).data_movement_info;
 
-NestOfCompoundTiles TransposeTiles(const CompoundTileNest & tiles)
+      //
+      // populate parent/child level compression specifications
+      //
+      problem::Shape::DataSpaceID parent_level = compound_data_movement[pv].parent_level;
+      problem::Shape::DataSpaceID child_level = compound_data_movement[pv].child_level;
+
+      if (parent_level != std::numeric_limits<unsigned>::max())
+      {
+        // set parent level pointer
+        compound_data_movement[pv].parent_level_ptr = &nest_of_compound_tiles.at(parent_level).data_movement_info[pv];
+      }
+
+      if (child_level != std::numeric_limits<unsigned>::max())
+      {
+        // set child level pointer
+        compound_data_movement[pv].child_level_ptr = &nest_of_compound_tiles.at(child_level).data_movement_info[pv];
+      }
+
+    } // next dataspace
+  } // next level
+}
+
+
+NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles)
 {
   NestOfCompoundTiles retval;
-  
-  std::size_t num_levels = tiles[0].size();
-  for (std::size_t level = 0; level < num_levels; level++)
-  {
-    CompoundTile tile_level;
-    for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
-    {
-      tile_level[pv] = tiles[pv][level];
+
+  const CompoundDataMovementNest& data_movement_nest =  tiles.compound_data_movement_info_nest;
+  const ComputeNest& compute_nest = tiles.compute_info_nest;
+
+  unsigned num_levels = data_movement_nest[0].size();
+  CompoundTile tile_level;
+  ComputeInfo compute_info = compute_nest[0];
+
+  // transpose all the tiles
+  for (unsigned level = 0; level < num_levels; level++){
+    //  Datamovement
+    for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++){
+      tile_level.data_movement_info[pv] = data_movement_nest[pv][level];
     }
+    //  Compute
+    tile_level.compute_info = compute_nest[level];
     retval.push_back(tile_level);
   }
+
+  // set pointers inside each tile object, so that it is more convenient to perform overbooking analysis in model
+  SetParentChildPointers(retval);
 
   return retval;
 }

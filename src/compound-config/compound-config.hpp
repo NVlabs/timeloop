@@ -105,6 +105,7 @@ class CompoundConfigNode
 
   bool isList() const;
   bool isArray() const;
+  bool isMap() const;
   int getLength() const;
 
   CompoundConfigNode operator [](int idx) const;
@@ -112,7 +113,6 @@ class CompoundConfigNode
   bool getArrayValue(std::vector<std::string> &vectorValue);
   // iterate through all maps and get the keys within a node
   bool getMapKeys(std::vector<std::string> &mapKeys);
-
 };
 
 class CompoundConfig
@@ -129,6 +129,7 @@ class CompoundConfig
   CompoundConfig(const char* inputFile);
   CompoundConfig(char* inputFile) : CompoundConfig((const char*) inputFile) {}
   CompoundConfig(std::vector<std::string> inputFiles);
+  CompoundConfig(std::string input, std::string format); // yaml file given as string
 
   ~CompoundConfig(){}
 

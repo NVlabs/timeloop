@@ -34,7 +34,7 @@
 
 #include "util/numeric.hpp"
 #include "util/misc.hpp"
-#include "workload/problem-shape.hpp"
+#include "workload/shape-models/problem-shape.hpp"
 #include "mapspaces/mapspace-base.hpp"
 #include "mapspaces/subspaces.hpp"
 #include "compound-config/compound-config.hpp"
@@ -609,6 +609,7 @@ class Uber : public MapSpace
           mapping->loop_nest.AddLoop(subnests[i][dim]);
           num_subnests_added++;
         }
+        mapping->complete_loop_nest.AddLoop(subnests[i][dim]);
       }
       if (!arch_props_.IsSpatial(i))
       {
@@ -620,9 +621,12 @@ class Uber : public MapSpace
                                      0, 1, 1, spacetime::Dimension::Time);
         }
         mapping->loop_nest.AddStorageTilingBoundary();
+        mapping->complete_loop_nest.AddStorageTilingBoundary();
         storage_level++;
       }
     }
+
+    mapping->confidence_thresholds = constraints_.ConfidenceThresholds();
 
     // Finalize mapping.
     mapping->id = mapping_id.Integer();
@@ -652,6 +656,7 @@ class Uber : public MapSpace
         loop.dimension = problem::Shape::DimensionID(idim); // Placeholder.
         loop.start = 0;
         loop.end = 0;                              // Placeholder.
+        loop.residual_end = 0;                     // Placeholder.
         loop.stride = 1;                           // FIXME.
         loop.spacetime_dimension = spacetime_dim;
         
@@ -701,6 +706,7 @@ class Uber : public MapSpace
                          mapping_index_factorization_id,
                          loop.dimension,
                          level));
+        loop.residual_end = loop.end; // Perfect factorization.
       }
     }
   }

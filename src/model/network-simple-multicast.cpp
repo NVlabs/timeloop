@@ -209,21 +209,23 @@ EvalStatus SimpleMulticastNetwork::Evaluate(const tiling::CompoundTile& tile,
   (void) tile;
   (void) break_on_failure;
 
+  tiling::CompoundDataMovementInfo data_movement = tile.data_movement_info;
+  
   // Get stats from the CompoundTile
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    stats_.utilized_instances[pv] = tile[pvi].replication_factor;
-    stats_.fanout = tile[pvi].fanout;
+    stats_.utilized_instances[pv] = data_movement[pvi].replication_factor;
+    stats_.fanout = data_movement[pvi].fanout;
     stats_.multicast_factor[pv] = 0;
 
     std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
     // don't care what type of connection this is
     // only need to count the number of transfers
-    stats_.ingresses[pv].resize(tile[pvi].accesses.size());
-    for (unsigned i = 0; i < tile[pvi].accesses.size(); i++)
+    stats_.ingresses[pv].resize(data_movement[pvi].accesses.size());
+    for (unsigned i = 0; i < data_movement[pvi].accesses.size(); i++)
     {
-      stats_.ingresses[pv][i] = tile[pvi].accesses[i];
+      stats_.ingresses[pv][i] = data_movement[pvi].accesses[i];
     }
     for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
     {

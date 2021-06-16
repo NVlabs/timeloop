@@ -191,7 +191,7 @@ class LegacyNetwork : public Network
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
                       const bool break_on_failure);
 
-  EvalStatus ComputeAccesses(const tiling::CompoundTile& tile, const bool break_on_failure);
+  EvalStatus ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const bool break_on_failure);
   void ComputeNetworkEnergy();
   void ComputeSpatialReductionEnergy();
   void ComputePerformance();

@@ -40,7 +40,8 @@ Descriptor::Descriptor() {}
 
 Descriptor::Descriptor(const problem::Shape::DimensionID _dimension, const int _start,
                        const int _end, const int _stride,
-                       const spacetime::Dimension _spacetime_dimension)
+                       const spacetime::Dimension _spacetime_dimension,
+                       const int _residual_end)
 {
   assert(_stride >= 0);
   assert((_start + _stride) <= _end);
@@ -48,13 +49,15 @@ Descriptor::Descriptor(const problem::Shape::DimensionID _dimension, const int _
   dimension = _dimension;
   start = _start;
   end = _end;
+  residual_end = _residual_end == 0 ? _end : _residual_end;
   stride = _stride;
   spacetime_dimension = _spacetime_dimension;
 }
 
 Descriptor::Descriptor(const problem::Shape::DimensionID _dimension,
                        const int _end,
-                       const spacetime::Dimension _spacetime_dimension)
+                       const spacetime::Dimension _spacetime_dimension,
+                       const int _residual_end)
 {
   // Compact constructor: assume start = 0, stride = 1 and spacetime_dim
   // defaults to Time.
@@ -63,6 +66,7 @@ Descriptor::Descriptor(const problem::Shape::DimensionID _dimension,
   dimension = _dimension;
   start = 0;
   end = _end;
+  residual_end = _residual_end == 0 ? _end : _residual_end;
   stride = 1;
   spacetime_dimension = _spacetime_dimension;
 }
@@ -72,6 +76,7 @@ bool Descriptor::operator == (const Descriptor& d) const
   return (dimension == d.dimension &&
           start == d.start &&
           end == d.end &&
+          residual_end == d.residual_end &&
           stride == d.stride &&
           spacetime_dimension == d.spacetime_dimension);
 }
@@ -80,7 +85,10 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
 {
   if (long_form)
   {
-    out << "for " << problem::GetShape()->DimensionIDToName.at(dimension) << " in [" << start << ":" << end << ")";
+    out << "for " << problem::GetShape()->DimensionIDToName.at(dimension) << " in [" << start << ":" << end;
+    if (residual_end != end)
+      out << "," << residual_end;
+    out << ")";
     if (IsSpatial(spacetime_dimension))
     {
       if (IsSpatialX(spacetime_dimension))
@@ -92,6 +100,8 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
   else
   {
     out << "(" << dimension << "," << end;
+    if (residual_end != end)
+      out << "," << residual_end;
     if (loop::IsSpatial(spacetime_dimension))
     {
       if (IsSpatialX(spacetime_dimension))
@@ -109,6 +119,12 @@ void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
                             std::vector<int>& dimbounds,
                             std::vector<std::string>& varnames) const
 {
+  if (residual_end != end)
+  {
+    std::cerr << "ERROR: residuals cannot be printed in Whoop format." << std::endl;
+    exit(1);
+  }
+
   // std::locale loc;
   std::string dimname = problem::GetShape()->DimensionIDToName.at(dimension);
   std::string varname = dimname;
@@ -149,6 +165,8 @@ std::string Descriptor::PrintCompact() const
   assert(start == 0);
   std::ostringstream str;
   str << problem::GetShape()->DimensionIDToName.at(dimension) << end;
+  if (residual_end != end)
+    str << "," << residual_end;
   if (IsSpatial(spacetime_dimension))
   {
     if (IsSpatialX(spacetime_dimension))

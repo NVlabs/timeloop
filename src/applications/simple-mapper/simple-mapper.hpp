@@ -38,6 +38,7 @@
 #include "util/accelergy_interface.hpp"
 #include "mapspaces/mapspace-factory.hpp"
 #include "compound-config/compound-config.hpp"
+#include "model/sparse-optimization-parser.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -50,6 +51,7 @@ class Application
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
+  sparse::SparseOptimizationInfo* sparse_optimizations_;
 
   std::string out_prefix_ = "timeloop-mapper";
 
@@ -104,6 +106,15 @@ class Application
     //             << "mapspace_constraints as an empty list []." << std::endl;
     //   exit(1);
     // }
+    
+    // Sparse optimizations
+    config::CompoundConfigNode sparse_optimizations;
+    if (rootNode.exists("sparse_optimizations"))
+      sparse_optimizations = rootNode.lookup("sparse_optimizations");
+	sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
+
+    // characterize workload on whether it has metadata
+    workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
   }
 
   ~Application()
@@ -112,6 +123,11 @@ class Application
     {
       delete mapspace_;
     }
+
+    if (sparse_optimizations_)
+	{
+      delete sparse_optimizations_;
+	}
   }
 
   // ---------------
@@ -165,7 +181,7 @@ class Application
 
             // Configure the model and evaluate the mapping.
             //engine.Spec(arch_specs_);
-            auto status_per_level = engine.Evaluate(mapping, workload_);
+            auto status_per_level = engine.Evaluate(mapping, workload_, sparse_optimizations_);
             success = std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                       [](bool cur, const model::EvalStatus& status)
                                       { return cur && status.success; });
@@ -188,6 +204,7 @@ class Application
     {
       std::ofstream map_txt_file(map_txt_file_name);
       best_mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
+                               best_engine.GetTopology().UtilizedCapacities(),
                                best_engine.GetTopology().TileSizes());
       map_txt_file.close();
 
@@ -196,11 +213,13 @@ class Application
       stats_file.close();
 
       std::cout << std::endl;
-      std::cout << "Summary stats for best mapping found by mapper:" << std::endl; 
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
       std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
-                << best_engine.Utilization() << " | pJ/MACC = " << std::setw(8)
+                << best_engine.Utilization() << " | pJ/Algorithmic-Compute = " << std::setw(8)
                 << std::fixed << std::setprecision(3) << best_engine.Energy() /
-        best_engine.GetTopology().MACCs() << std::endl;
+        best_engine.GetTopology().AlgorithmicComputes() << " | pJ/Compute = " << std::setw(8)
+                << std::fixed << std::setprecision(3) << best_engine.Energy() /
+        best_engine.GetTopology().ActualComputes() << std::endl;
     }
     else
     {

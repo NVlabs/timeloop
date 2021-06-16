@@ -9,7 +9,7 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
- *    contributors may be used to endorse or promote products derived
+algorithmic contributors may be used tactual or promote products derived
  *    from this software without specific prior written permission.
  * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
@@ -32,6 +32,7 @@
 #include <algorithm>
 
 #include "loop-analysis/tiling.hpp"
+#include "loop-analysis/tiling-tile-info.hpp"
 #include "loop-analysis/nest-analysis.hpp"
 #include "mapping/nest.hpp"
 #include "mapping/mapping.hpp"
@@ -41,9 +42,45 @@
 #include "compound-config/compound-config.hpp"
 #include "network.hpp"
 #include "network-legacy.hpp"
+#include "sparse-optimization-info.hpp"
 
 namespace model
 {
+
+// mapping between architectural action names and accelergy's ERT name
+// this mapping can be moved out as a separate yaml file that can be read in by timeloop to allow more flexibility
+// NOTE: the keys in each map MUST MATCH the operation type names in loop-analysis/operation-type.hpp
+// FIXME: regarding the note above: cleanup the setup more so that a unified set of names are used
+
+// format {timeloop_action_name: [priority list of ERT action names]}
+static std::map <std::string, std::vector<std::string>> arithmeticOperationMappings
+  = {{"random_compute", {"mac_random", "mult_random", "mac", "mult"}},
+     {"skipped_compute", {"mac_skipped", "mult_skipped", "mac_gated", "mult_gated", "mac", "mult"}},
+     {"gated_compute", {"mac_gated", "mult_gated", "mac", "mult"}}
+  };
+
+static std::map <std::string, std::vector<std::string>> storageOperationMappings
+  = {{"random_read", {"random_read", "read"}},
+     {"random_fill", {"random_fill", "write"}},
+     {"random_update", {"random_fill", "write"}},
+     {"gated_read", {"gated_read", "idle", "read"}},
+     {"gated_fill", {"gated_write", "gated_write", "idle", "write"}},
+     {"gated_update", {"gated_write", "gated_write", "idle", "write"}},
+     {"skipped_read", {"skipped_read", "gated_read", "idle", "read"}},
+     {"skipped_fill", {"skipped_fill", "skipped_write", "gated_write", "idle", "write"}},
+     {"skipped_update", {"skipped_update", "skipped_write", "gated_write", "idle", "write"}},
+     {"random_metadata_read", {"metadata_read", "metadata_idle", "idle"}},
+     {"gated_metadata_read", {"gated_metadata_read", "metadata_idle", "metadata_read"}},
+     {"skipped_metadata_read", {"skipped_metadata_read", "metadata_idle", "metadata_read"}},
+     {"random_metadata_fill", {"metadata_write", "metadata_idle", "idle"}},
+     {"gated_metadata_fill", {"gated_metadata_write", "metadata_idle", "metadata_write"}},
+     {"skipped_metadata_fill", {"skipped_metadata_write", "metadata_idle", "metadata_write"}},
+     {"random_metadata_update", {"metadata_write", "metadata_idle", "idle"}},
+     {"gated_metadata_update", {"gated_metadata_write", "metadata_idle", "metadata_write"}},
+     {"skipped_metadata_update", {"skipped_metadata_write", "metadata_idle", "metadata_write"}},
+     {"decompression_count", {"decompression_count"}},
+     {"compression_count", {"compression_count"}}
+  };
 
 static std::string bufferClasses[5] = { "DRAM",
                                         "SRAM",
@@ -155,8 +192,10 @@ class Topology : public Module
     std::uint64_t cycles;
     double utilization;
     std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
+    std::vector<problem::PerDataSpace<std::uint64_t>> utilized_capacities;
     std::vector<problem::PerDataSpace<std::uint64_t>> utilized_instances;
-    std::uint64_t maccs;
+    std::uint64_t algorithmic_computes;
+    std::uint64_t actual_computes;
     std::uint64_t last_level_accesses;
   };
     
@@ -260,10 +299,11 @@ class Topology : public Module
   unsigned NumStorageLevels() const;
   unsigned NumNetworks() const;
 
-  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, bool break_on_failure);
+  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
 
   const Stats& GetStats() const { return stats_; }
+  const Specs& GetSpecs() const {return specs_;}
 
   // FIXME: these stat-specific accessors are deprecated and only exist for
   // backwards-compatibility with some applications.
@@ -272,8 +312,10 @@ class Topology : public Module
   std::uint64_t Cycles() const { return stats_.cycles; }
   double Utilization() const { return stats_.utilization; }
   std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const { return stats_.tile_sizes; }
+  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedCapacities() const { return stats_.utilized_capacities; }
   std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const { return stats_.utilized_instances; }
-  std::uint64_t MACCs() const { return stats_.maccs; }
+  std::uint64_t AlgorithmicComputes() const { return stats_.algorithmic_computes; }
+  std::uint64_t ActualComputes() const { return stats_.actual_computes; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);

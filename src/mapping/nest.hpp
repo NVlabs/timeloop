@@ -32,7 +32,7 @@
 
 #include "loop-analysis/loop-state.hpp"
 #include "loop-analysis/tiling.hpp"
-#include "workload/problem-shape.hpp"
+#include "workload/shape-models/problem-shape.hpp"
 
 namespace loop {
 
@@ -63,13 +63,14 @@ class Nest
 
   void AddLoop(Descriptor descriptor);
   void AddLoop(problem::Shape::DimensionID dimension, int start, int end, int stride,
-               spacetime::Dimension spacetime_dimension);
+               spacetime::Dimension spacetime_dimension, int residual_end = 0);
   bool AddStorageTilingBoundary();
 
   friend std::ostream& operator << (std::ostream& out, const Nest& nest);
 
   void PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
                    const tiling::NestOfCompoundMasks& mask_nest,
+                   const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_capacities,
                    const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
                    const std::string _indent = "");
 

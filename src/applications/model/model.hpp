@@ -44,6 +44,7 @@
 #include "mapping/arch-properties.hpp"
 #include "mapping/constraints.hpp"
 #include "compound-config/compound-config.hpp"
+#include "model/sparse-optimization-parser.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -54,11 +55,17 @@ class Application
  public:
   std::string name_;
 
+  struct Stats
+  {
+    double energy;
+    double cycles;
+  };
+
  protected:
   // Critical state.
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
-  
+
   // Many of the following submodules are dynamic objects because
   // we can only instantiate them after certain config files have
   // been parsed.
@@ -76,6 +83,9 @@ class Application
   bool verbose_ = false;
   bool auto_bypass_on_failure_ = false;
   std::string out_prefix_;
+
+  // Sparse optimization
+  sparse::SparseOptimizationInfo* sparse_optimizations_;
 
  private:
 
@@ -146,7 +156,8 @@ class Application
       arch_specs_.topology.ParseAccelergyERT(ert);
       if (rootNode.exists("ART")){ // Nellie: well, if the users have the version of Accelergy that generates ART
           auto art = rootNode.lookup("ART");
-          std::cout << "Found Accelergy ART (area reference table), replacing internal area model." << std::endl;
+          if (verbose_)
+            std::cout << "Found Accelergy ART (area reference table), replacing internal area model." << std::endl;
           arch_specs_.topology.ParseAccelergyART(art);  
       }
     }
@@ -167,14 +178,14 @@ class Application
         std::string artPath = out_prefix_ + ".ART.yaml";
         auto artConfig = new config::CompoundConfig(artPath.c_str());
         auto art = artConfig->getRoot().lookup("ART");
-        std::cout << "Generate Accelergy ART (area reference table) to replace internal area model." << std::endl;
+        if (verbose_)
+          std::cout << "Generate Accelergy ART (area reference table) to replace internal area model." << std::endl;
         arch_specs_.topology.ParseAccelergyART(art);
       }
 #endif
     }
 
     arch_props_ = new ArchProperties(arch_specs_);
-
     // Architecture constraints.
     config::CompoundConfigNode arch_constraints;
 
@@ -203,6 +214,16 @@ class Application
       std::cerr << "ERROR: mapping violates architecture constraints." << std::endl;
       exit(1);
     }
+
+    // Sparse optimizations
+    config::CompoundConfigNode sparse_optimizations;
+    if (rootNode.exists("sparse_optimizations"))
+      sparse_optimizations = rootNode.lookup("sparse_optimizations");
+    sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
+
+    // characterize workload on whether it has metadata
+    workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
+
   }
 
   // This class does not support being copied
@@ -219,10 +240,13 @@ class Application
 
     if (constraints_)
       delete constraints_;
+
+    if (sparse_optimizations_)
+      delete sparse_optimizations_;
   }
 
   // Run the evaluation.
-  void Run()
+  Stats Run()
   {
     // Output file names.
     std::string stats_file_name = out_prefix_ + ".stats.txt";
@@ -247,7 +271,7 @@ class Application
     // caused the mapping to fit.
     if (auto_bypass_on_failure_)
     {
-      auto pre_eval_status = engine.PreEvaluationCheck(mapping, workload_, false);
+      auto pre_eval_status = engine.PreEvaluationCheck(mapping, workload_, sparse_optimizations_, false);
       for (unsigned level = 0; level < pre_eval_status.size(); level++)
         if (!pre_eval_status[level].success)
         {
@@ -261,7 +285,7 @@ class Application
         }
     }
     
-    auto eval_status = engine.Evaluate(mapping, workload_);    
+    auto eval_status = engine.Evaluate(mapping, workload_, sparse_optimizations_);    
     for (unsigned level = 0; level < eval_status.size(); level++)
     {
       if (!eval_status[level].success)
@@ -279,12 +303,14 @@ class Application
 
     if (engine.IsEvaluated())
     {
-      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization() 
-                << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
-          engine.GetTopology().MACCs() << std::endl;
-    
+      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
+                << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+        engine.GetTopology().AlgorithmicComputes()
+                << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+        engine.GetTopology().ActualComputes() << std::endl;
+
       std::ofstream map_txt_file(map_txt_file_name);
-      mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().TileSizes());
+      mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());
       map_txt_file.close();
 
       std::ofstream stats_file(stats_file_name);
@@ -299,6 +325,11 @@ class Application
     ar << BOOST_SERIALIZATION_NVP(mapping);
     const Application* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
+
+    Stats stats;
+    stats.cycles = engine.Cycles();
+    stats.energy = engine.Energy();
+    return stats;
   }
 };
 

@@ -45,6 +45,7 @@
 #include "search/search-factory.hpp"
 #include "compound-config/compound-config.hpp"
 #include "applications/mapper/mapper-thread.hpp"
+#include "model/sparse-optimization-parser.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -63,6 +64,7 @@ class Application
   mapspace::MapSpace* mapspace_;
   std::vector<mapspace::MapSpace*> split_mapspaces_;
   std::vector<search::SearchAlgorithm*> search_;
+  sparse::SparseOptimizationInfo* sparse_optimizations_;
 
   uint128_t search_size_;
   std::uint32_t num_threads_;
@@ -275,6 +277,15 @@ class Application
     } else {
       cfg_string_ = nullptr;
     }
+
+    // Sparse optimizations
+    config::CompoundConfigNode sparse_optimizations;
+    if (rootNode.exists("sparse_optimizations"))
+      sparse_optimizations = rootNode.lookup("sparse_optimizations");
+	sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
+
+    // characterize workload on whether it has metadata
+    workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
   }
 
 
@@ -288,6 +299,11 @@ class Application
     {
       delete mapspace_;
     }
+
+    if (sparse_optimizations_)
+	{
+      delete sparse_optimizations_;
+	}
 
     for (auto& search: search_)
     {
@@ -314,6 +330,7 @@ class Application
     std::string stats_file_name = out_prefix_ + ".stats.txt";
     std::string xml_file_name = out_prefix_ + ".map+stats.xml";
     std::string map_txt_file_name = out_prefix_ + ".map.txt";
+    // std::string map_yaml_file_name = out_prefix_ + ".constraints.yaml";
     std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
     std::string map_cpp_file_name = out_prefix_ + ".map.cpp";
     
@@ -374,6 +391,7 @@ class Application
                                           optimization_metrics_,
                                           arch_specs_,
                                           workload_,
+                                          sparse_optimizations_,
                                           &best_));
     }
 
@@ -474,8 +492,11 @@ class Application
 //          {
             model::Engine engine;
             engine.Spec(arch_specs_);
-            engine.Evaluate(mapping, workload_, false);
+            engine.Evaluate(mapping, workload_, sparse_optimizations_, false);
+            // mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
+            //                     engine.GetTopology().GetStats().tile_sizes, "      ");
             mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
+                                engine.GetTopology().GetStats().utilized_capacities,
                                 engine.GetTopology().GetStats().tile_sizes, "      ");
 //          }
 //          else
@@ -513,14 +534,19 @@ class Application
     {
       std::ofstream map_txt_file(map_txt_file_name);
       global_best_.mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
+                                      global_best_.stats.utilized_capacities,
                                       global_best_.stats.tile_sizes);
       map_txt_file.close();
+
+      // std::ofstream map_yaml_file(map_yaml_file_name);
+      // global_best_.mapping.PrintAsConstraints(map_yaml_file_name);
+      // map_yaml_file.close();
 
       // Re-evaluate the mapping so that we get a live engine with complete specs and stats
       // that can be printed out hierarchically.
       model::Engine engine;
       engine.Spec(arch_specs_);
-      engine.Evaluate(global_best_.mapping, workload_);
+      engine.Evaluate(global_best_.mapping, workload_, sparse_optimizations_);
 
       std::ofstream stats_file(stats_file_name);
       stats_file << engine << std::endl;
@@ -535,11 +561,14 @@ class Application
         map_cpp_file.close();
       }
 
-      std::cout << "Summary stats for best mapping found by mapper:" << std::endl; 
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
       std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
-                << global_best_.stats.utilization << " | pJ/MACC = " << std::setw(8)
+                << global_best_.stats.utilization << " | pJ/Algorithmic-Compute = " << std::setw(8)
                 << std::fixed << std::setprecision(3) << global_best_.stats.energy /
-        global_best_.stats.maccs << std::endl;
+        global_best_.stats.algorithmic_computes
+                << " | pJ/Compute = " << std::setw(8)
+                << std::fixed << std::setprecision(3) << global_best_.stats.energy /
+        global_best_.stats.actual_computes << std::endl;
 
       // Print the engine stats and mapping to an XML file
       std::ofstream ofs(xml_file_name);

@@ -28,6 +28,7 @@
 #include <random>
 
 #include "model/engine.hpp"
+#include "model/sparse-optimization-info.hpp"
 
 extern bool gTerminate;
 
@@ -265,6 +266,7 @@ class MapperThread
   std::vector<std::string> optimization_metrics_;
   model::Engine::Specs arch_specs_;
   problem::Workload &workload_;
+  sparse::SparseOptimizationInfo* sparse_optimizations_;
   EvaluationResult* best_;
     
   // Thread-local data (stats etc.).
@@ -290,6 +292,7 @@ class MapperThread
     std::vector<std::string> optimization_metrics,
     model::Engine::Specs arch_specs,
     problem::Workload &workload,
+    sparse::SparseOptimizationInfo* sparse_optimizations,
     EvaluationResult* best
     ) :
       thread_id_(thread_id),
@@ -309,6 +312,7 @@ class MapperThread
       optimization_metrics_(optimization_metrics),
       arch_specs_(arch_specs),
       workload_(workload),
+      sparse_optimizations_(sparse_optimizations),
       best_(best),
       thread_(),
       stats_()
@@ -364,7 +368,7 @@ class MapperThread
         {
           msg << std::setw(10) << std::fixed << std::setprecision(2) << (stats_.thread_best.stats.utilization * 100) << "%"
               << std::setw(11) << std::fixed << std::setprecision(3) << stats_.thread_best.stats.energy /
-            stats_.thread_best.stats.maccs;
+            stats_.thread_best.stats.algorithmic_computes;
         }
 
         mutex_->lock();
@@ -521,7 +525,7 @@ class MapperThread
       //          on, and run some lightweight pre-checks that the
       //          model can use to quickly reject a nest.
       //engine.Spec(arch_specs_);
-      auto status_per_level = engine.PreEvaluationCheck(mapping, workload_, !diagnostics_on_);
+      auto status_per_level = engine.PreEvaluationCheck(mapping, workload_, sparse_optimizations_, !diagnostics_on_);
       success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                  [](bool cur, const model::EvalStatus& status)
                                  { return cur && status.success; });
@@ -548,7 +552,7 @@ class MapperThread
       }
 
       // Stage 3: Heavyweight evaluation.
-      status_per_level = engine.Evaluate(mapping, workload_, !diagnostics_on_);
+      status_per_level = engine.Evaluate(mapping, workload_, sparse_optimizations_, !diagnostics_on_);
       success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                  [](bool cur, const model::EvalStatus& status)
                                  { return cur && status.success; });
@@ -594,7 +598,8 @@ class MapperThread
         mutex_->lock();
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                     << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                    << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
+                    << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.algorithmic_computes
+                    << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
                     << std::endl;
         mutex_->unlock();
@@ -618,9 +623,12 @@ class MapperThread
         if (!log_suboptimal_)
         {
           mutex_->lock();
-          log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                      << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                      << " | pJ/MACC = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.maccs
+          log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
+                      << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization
+                      << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3)
+                      << stats.energy / stats.algorithmic_computes
+                      << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3)
+                      << stats.energy / stats.actual_computes
                       << " | " << mapping.PrintCompact()
                       << std::endl;
           mutex_->unlock();
