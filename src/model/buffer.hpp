@@ -37,7 +37,7 @@
 #include "compound-config/compound-config.hpp"
 #include "model/util.hpp"
 #include "model/network.hpp"
-#include "workload/density-distribution.hpp"
+#include "workload/density-models/density-distribution.hpp"
 
 namespace model
 {
@@ -49,14 +49,17 @@ namespace model
   // once the tile shape exceeds vec_width * threshold, no statistical modeling is needed for number of vector accesses
   // in that case, number of vector accesses = ceil(number of scalar access / block size)
 
-  //                                                                                           threshold ratio for densities
-  //                                                                            vec_width 0.1, 0.2, 0.3, ...,                1.0)
-  static std::map<unsigned, std::vector<double>>  VectorWidthCoefficientTable =  { { 2, { 251, 125, 84, 63, 51, 42, 36, 32, 28, 1}},
-                                                                                   { 4, { 375, 188, 125, 94, 75, 63, 54, 47, 42, 1}},
-                                                                                   { 8, { 438, 219, 146, 110, 88, 73, 63, 55, 49, 1}},
-                                                                                   { 16, { 469, 235, 157, 118, 94, 79, 67, 59, 52, 1}},
-                                                                                   { 32, { 485, 243, 162, 122, 97, 81, 70, 61, 52, 1}}
-                                                                                  };
+  static std::map<unsigned, std::vector<double>>  VectorWidthCoefficientTable
+
+    //                 threshold ratio for densities
+    //vec_width    0.1, 0.2, 0.3, ...,                1.0)
+
+    = {{2,        {251, 125, 84, 63, 51, 42, 36, 32, 28, 1}},
+       {4,        {375, 188, 125, 94, 75, 63, 54, 47, 42, 1}},
+       {8,        {438, 219, 146, 110, 88, 73, 63, 55, 49, 1}},
+       {16,       {469, 235, 157, 118, 94, 79, 67, 59, 52, 1}},
+       {32,       {485, 243, 162, 122, 97, 81, 70, 61, 52, 1}}
+     };
 
 //--------------------------------------------//
 //                 BufferLevel                //
@@ -86,6 +89,7 @@ class BufferLevel : public Level
     Attribute<std::string> name;
     Attribute<Technology> technology;
     Attribute<std::uint64_t> size;
+    Attribute<std::uint64_t> md_size;
     Attribute<std::uint64_t> word_bits;
     Attribute<std::uint64_t> addr_gen_bits;
     Attribute<std::uint64_t> block_size;
@@ -97,13 +101,24 @@ class BufferLevel : public Level
     Attribute<double> write_bandwidth;
     Attribute<double> multiple_buffering;
     Attribute<std::uint64_t> effective_size;
+    Attribute<std::uint64_t> effective_md_size;
     Attribute<double> min_utilization;
     Attribute<std::uint64_t> num_ports;
     Attribute<std::uint64_t> num_banks;
 
-    //metadata_storage related
+    // compression related
+    Attribute<bool> concordant_compressed_tile_traversal;
+    Attribute<bool> tile_partition_supported;
+    Attribute<bool> decompression_supported;
+    Attribute<bool> compression_supported;
+
+    // metadata storage related
+    // we treat each buffer as having a pair of storages, one for data and one for metadata
+    // TODO: we should allow specification of metadata buffers, each store (a set of) rank(s)
     Attribute<std::uint64_t> metadata_block_size;
     Attribute<std::uint64_t> metadata_word_bits;
+    Attribute<std::uint64_t> metadata_storage_width;
+    Attribute<std::uint64_t> metadata_storage_depth;
 
     Attribute<std::string> read_network_name;
     Attribute<std::string> fill_network_name;
@@ -162,6 +177,8 @@ class BufferLevel : public Level
       return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
     }
 
+    void UpdateOpEnergyViaERT();
+
   };
   
   //
@@ -172,6 +189,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<bool> keep;
     problem::PerDataSpace<std::uint64_t> partition_size;
     problem::PerDataSpace<std::uint64_t> utilized_capacity;
+    problem::PerDataSpace<std::uint64_t> utilized_md_capacity;
     problem::PerDataSpace<std::uint64_t> tile_size;
     problem::PerDataSpace<std::uint64_t> utilized_instances;
     problem::PerDataSpace<std::uint64_t> utilized_clusters;
@@ -182,6 +200,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<unsigned long> temporal_reductions;
     problem::PerDataSpace<double> read_bandwidth;
     problem::PerDataSpace<double> write_bandwidth;
+    problem::PerDataSpace<double> energy_per_algorithmic_access;
     problem::PerDataSpace<double> energy_per_access;
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> temporal_reduction_energy;
@@ -190,9 +209,11 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> cluster_access_energy_due_to_overflow;
     problem::PerDataSpace<double> energy_due_to_overflow;
 
-
-    problem::PerDataSpace<std::uint64_t> compressed_tile_size;
+    problem::PerDataSpace<std::uint64_t> tile_shape;
+    problem::PerDataSpace<std::uint64_t> data_tile_size;
+    problem::PerDataSpace<bool> compressed;
     problem::PerDataSpace<std::uint64_t> metadata_tile_size;
+    problem::PerDataSpace<std::string> metadata_format;
     problem::PerDataSpace<double> tile_confidence;
     problem::PerDataSpace<double> tile_max_density;
     problem::PerDataSpace<std::string> parent_level_name;
@@ -218,12 +239,15 @@ class BufferLevel : public Level
     problem::PerDataSpace<unsigned long> metadata_reads;
     problem::PerDataSpace<unsigned long> random_metadata_reads;
     problem::PerDataSpace<unsigned long> gated_metadata_reads;
+    problem::PerDataSpace<unsigned long> skipped_metadata_reads;
     problem::PerDataSpace<unsigned long> metadata_fills;
     problem::PerDataSpace<unsigned long> random_metadata_fills;
     problem::PerDataSpace<unsigned long> gated_metadata_fills;
+    problem::PerDataSpace<unsigned long> skipped_metadata_fills;
     problem::PerDataSpace<unsigned long> metadata_updates;
     problem::PerDataSpace<unsigned long> random_metadata_updates;
     problem::PerDataSpace<unsigned long> gated_metadata_updates;
+    problem::PerDataSpace<unsigned long> skipped_metadata_updates;
 
     problem::PerDataSpace<unsigned long> decompression_counts;
     problem::PerDataSpace<unsigned long> compression_counts;
@@ -247,10 +271,44 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(reads);
         ar& BOOST_SERIALIZATION_NVP(updates);
         ar& BOOST_SERIALIZATION_NVP(fills);
+        ar& BOOST_SERIALIZATION_NVP(metadata_reads);
+        ar& BOOST_SERIALIZATION_NVP(metadata_fills);
+        ar& BOOST_SERIALIZATION_NVP(metadata_updates);
+
+        // fine grained accesses
+        ar& BOOST_SERIALIZATION_NVP(gated_reads);
+        ar& BOOST_SERIALIZATION_NVP(skipped_reads);
+        ar& BOOST_SERIALIZATION_NVP(random_reads);
+
+        ar& BOOST_SERIALIZATION_NVP(gated_fills);
+        ar& BOOST_SERIALIZATION_NVP(skipped_fills);
+        ar& BOOST_SERIALIZATION_NVP(random_fills);
+
+        ar& BOOST_SERIALIZATION_NVP(gated_updates);
+        ar& BOOST_SERIALIZATION_NVP(skipped_updates);
+        ar& BOOST_SERIALIZATION_NVP(random_updates);
+
+
+        ar& BOOST_SERIALIZATION_NVP(random_metadata_reads);
+        ar& BOOST_SERIALIZATION_NVP(gated_metadata_reads);
+        ar& BOOST_SERIALIZATION_NVP(skipped_metadata_reads);
+
+        ar& BOOST_SERIALIZATION_NVP(random_metadata_fills);
+        ar& BOOST_SERIALIZATION_NVP(gated_metadata_fills);
+        ar& BOOST_SERIALIZATION_NVP(skipped_metadata_fills);
+
+        ar& BOOST_SERIALIZATION_NVP(random_metadata_updates);
+        ar& BOOST_SERIALIZATION_NVP(gated_metadata_updates);
+        ar& BOOST_SERIALIZATION_NVP(skipped_metadata_updates);
+
+        ar& BOOST_SERIALIZATION_NVP(decompression_counts);
+        ar& BOOST_SERIALIZATION_NVP(compression_counts);
+
         ar& BOOST_SERIALIZATION_NVP(address_generations);
         ar& BOOST_SERIALIZATION_NVP(temporal_reductions);
         ar& BOOST_SERIALIZATION_NVP(read_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(write_bandwidth);
+        ar& BOOST_SERIALIZATION_NVP(energy_per_algorithmic_access);
         ar& BOOST_SERIALIZATION_NVP(energy_per_access);
         ar& BOOST_SERIALIZATION_NVP(energy);
         ar& BOOST_SERIALIZATION_NVP(temporal_reduction_energy);
@@ -270,8 +328,6 @@ class BufferLevel : public Level
   std::vector<loop::Descriptor> subnest_;
   Stats stats_;
   Specs specs_;
-
-  bool populate_energy_per_op = false;
 
   // Network endpoints.
   std::shared_ptr<Network> network_read_;
@@ -303,6 +359,8 @@ class BufferLevel : public Level
                                    const bool break_on_failure);
   void ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& tile);
   void ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMovementInfo& tile, const double confidence_threshold);
+  std::uint64_t ComputeMetaDataTileSizeInBit (const tiling::MetaDataTileOccupancy metadata_occupancy) const;
+  std::uint64_t ComputeMetaDataTileSize(const tiling::MetaDataTileOccupancy metadata_occupancy) const;
   void ComputePerformance(const std::uint64_t compute_cycles);
   // void ComputeBufferEnergy();
   void ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info);
@@ -334,8 +392,6 @@ class BufferLevel : public Level
   static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n_elements,
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
-
-  void PopulateEnergyPerOp(unsigned num_ops);
 
   Specs& GetSpecs() { return specs_; }
   Stats& GetStats() { return stats_;}

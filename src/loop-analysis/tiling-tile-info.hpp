@@ -31,15 +31,26 @@
 
 #include "mapping/loop.hpp"
 #include "util/numeric.hpp"
-#include "workload/problem-shape.hpp"
-#include "workload/per-data-space.hpp"
+#include "workload/shape-models/problem-shape.hpp"
+#include "workload/util/per-data-space.hpp"
 #include "workload/workload.hpp"
+#include "workload/format-models/metadata-format.hpp"
 #include "nest-analysis-tile-info.hpp"
+#include "coordinate-space-tile-info.hpp"
+#include "model/sparse-optimization-info.hpp"
 
 namespace tiling
 {
 
 const int MaxTilingLevels = 16;
+
+// each item stands for a rank, each rank as associated metadata occupancy
+typedef std::vector<problem::PerRankMetaDataTileOccupancy> MetaDataTileOccupancy;
+
+
+//
+// DataMovementInfo
+//
 
 struct DataMovementInfo
 {
@@ -56,12 +67,22 @@ struct DataMovementInfo
       ar& BOOST_SERIALIZATION_NVP(subnest);
     }
   }
-
-  std::size_t size;
+  CoordinateSpaceTileInfo coord_space_info;  // carries information such as the shape of the tile, and eventually the point set
+  // Information particularly useful for tensors with metadata
+  // all of the vectors below should have the same length... which is the fiber tree depth
+  // note that, if a tensor is uncompressed and have no associated metadata (e.g., for eyeriss-style data gating),
+  //      the tensor representation is just a dense tensor, which is already pre-analyzed in dense modeling
+  std::vector<std::shared_ptr<problem::MetaDataFormat>> metadata_models; // metadata models (if any) for each rank of the tile
+  std::vector<bool> rank_compressed; // if each rank is compressed
+  std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format, none for uncompressed
+  std::size_t size; // for backward compatibility TODO: eventually we should use shape
+  std::size_t shape;
+  double expected_data_occupancy;
+  MetaDataTileOccupancy expected_metadata_occupancy;
+  problem::Shape::DataSpaceID dataspace_id ; // which dataspace does this tile belong to
   std::size_t partition_size;
-  std::size_t compressed_size;
   bool distributed_multicast;
-  std::vector<std::uint64_t> accesses;   // accesses at various multicast factors.
+  std::vector<std::uint64_t> accesses;       // accesses at various multicast factors.
   std::vector<std::uint64_t> scatter_factors;
   std::vector<double> cumulative_hops;
   std::uint64_t content_accesses;
@@ -83,29 +104,28 @@ struct DataMovementInfo
   bool is_master_spatial;
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
-  // tile density
+  // Tile density
   std::shared_ptr<problem::DensityDistribution> tile_density;  // statistical representation of tile data density
-  // fine grained actions, names defined in operation-type.hpp
+  // Fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses;
+  double expected_density;
 
-  // compression related
+  // Compression related
   bool compressed;
-  std::string metadata_format;
-  // std::uint64_t metadata_tile_size; // move population to buffer.cpp due to confidence
-  // for CSR only
-  std::vector<problem::Shape::DimensionID> rank0_list;
-  std::vector<problem::Shape::DimensionID> rank1_list;
-  std::uint64_t dense_rank1_fills;
-  std::uint64_t dense_rank0_fills;
+  bool has_metadata;
 
-  // parent/child level for inferring decompression/compression overhead
+  // Only needed when tile has metadata
+  std::vector<std::vector<loop::Descriptor>> metadata_subnest;
+  std::vector<std::uint64_t> metadata_subtile_shape;
+  std::vector<std::uint64_t> fiber_shape;
+  double child_level_metadata_occupancy_ratio;
+
+  // Parent child level records
   unsigned parent_level;
   std::string parent_level_name;
   unsigned child_level;
-  bool parent_level_compressed;
-  bool child_level_compressed;
-  uint64_t child_level_tile_size;
-
+  DataMovementInfo* child_level_ptr;
+  DataMovementInfo* parent_level_ptr;
 
   std::uint64_t GetTotalAccesses() const
   {
@@ -125,6 +145,9 @@ struct DataMovementInfo
   void Reset()
   {
     size = 0;
+    shape = 0;
+    expected_data_occupancy = std::numeric_limits<unsigned>::max();
+    expected_metadata_occupancy = {};
     partition_size = 0;
     accesses.resize(0);
     scatter_factors.resize(0);
@@ -139,21 +162,22 @@ struct DataMovementInfo
     fanout = 0;
     distributed_fanout = 0;
     compressed = false;
-    compressed_size = 0;
-    tile_density = NULL;
-    metadata_format.resize(0);
-    parent_level=std::numeric_limits<unsigned>::max();
-    child_level=std::numeric_limits<unsigned>::max();
-    parent_level_compressed = false;
-    child_level_compressed = false;
+    has_metadata = false;
+    parent_level = std::numeric_limits<unsigned>::max();
+    child_level = std::numeric_limits<unsigned>::max();
+    parent_level_ptr = NULL;
+    child_level_ptr = NULL;
+    child_level_metadata_occupancy_ratio = 0;
     fine_grained_accesses.clear();
-    rank1_list.resize(0);
-    rank0_list.resize(0);
-    dense_rank1_fills = 0;
-    dense_rank0_fills = 0;
     metadata_updates = 0;
     metadata_fills = 0;
     metadata_reads = 0;
+    metadata_subnest.clear();
+    metadata_subtile_shape.clear();
+    fiber_shape.clear();
+    coord_space_info.Clear();
+    tile_density = NULL;
+    expected_density = 0;
   }
 
   void Validate()
@@ -188,7 +212,57 @@ struct DataMovementInfo
     }
   }
 
+  void SetDensityModel(std::shared_ptr<problem::DensityDistribution> tile_density_ptr)
+  {
+    tile_density = tile_density_ptr;
+  }
+
+  //void SetSubTileShapes(std::vector<std::size_t> subtile_shapes){subtile_shapes_ = subtile_shapes;}
+  void SetTensorRepresentation(const sparse::PerDataSpaceCompressionInfo& compression_opt_spec,
+                               const std::vector<loop::Descriptor> subnests);
+  void SetTensorRepresentation(const sparse::PerDataSpaceCompressionInfo& compression_opt_spec);
+  void SetTensorRepresentation(); // for default dense tensors
+
+  std::string GetDataSpaceName() const { return problem::GetShape()->DataSpaceIDToName.at(dataspace_id);}
+  bool GetHasMetaData() const { return has_metadata;}
+  std::string GetDensityType() const
+  {
+    return tile_density->GetDistributionType();
+  }
+  std::string GetMetaDataFormatName() const;
+  std::uint64_t GetNumMetaDataRanks() const
+  {
+    if (! has_metadata) return 0;
+    else return metadata_models.size();
+  }
+  CoordinateSpaceTileInfo GetCoordinateSpaceInfo() const;
+  CoordinateSpaceTileInfo GetChildTileCoordinateSpaceInfo() const;
+
+  // do not use this unless super necessary,
+  // as density model interface change will break the logic external to sparse modeling step
+  std::shared_ptr<problem::DensityDistribution> GetTileDensityModel() const { return tile_density; }
+
+
+  // More involved getter functions
+  // get data tile occupancy
+  std::uint64_t GetMaxDataTileOccupancyByConfidence(const double confidence = 1.0) const;
+  double GetDataTileOccupancyProbability(const std::uint64_t occupancy) const;
+  double GetChildLevelDataTileOccupancyProbability(const std::uint64_t occupancy) const;
+  std::uint64_t GetMinDataTileOccupancy() const;
+
+  // get metadata tile occupancy
+  MetaDataTileOccupancy GetMetaDataTileOccupancyGivenDataTile(const CoordinateSpaceTileInfo& cur_coord_tile) const;
+  MetaDataTileOccupancy GetMaxMetaDataTileOccupancyByConfidence(const double confidence = 1.0) const;
+  double GetExpectedAggregatedMetaDataTileOccupancy() const;
+
+  // density value related
+  double GetMaxTileDensityByConfidence(const double confidence = 1.0) const;
+  double GetExpectedTileDensity() const;
 };
+
+//
+// Compute info
+//
 
 struct ComputeInfo
 {

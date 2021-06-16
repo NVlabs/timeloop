@@ -29,7 +29,7 @@
 
 
 #include "mapspaces/uber.hpp"
-#include "workload/problem-shape.hpp"
+#include "workload/shape-models/problem-shape.hpp"
 #include "compound-config/compound-config.hpp"
 
 namespace mapspace

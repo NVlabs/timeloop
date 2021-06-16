@@ -43,6 +43,7 @@ struct Mapping
 {
   uint128_t id;
   loop::Nest loop_nest;
+  loop::Nest complete_loop_nest; // loop nest that includes all trivial loops
   tiling::CompoundMaskNest datatype_bypass_nest;
   std::map<unsigned, double> confidence_thresholds;
   

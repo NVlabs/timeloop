@@ -28,8 +28,8 @@
 #pragma once
 
 #include "mapping/loop.hpp"
-#include "workload/problem-shape.hpp"
-#include "workload/operation-space.hpp"
+#include "workload/shape-models/problem-shape.hpp"
+#include "workload/shape-models/operation-space.hpp"
 #include "workload/workload.hpp"
 
 namespace analysis

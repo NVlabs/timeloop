@@ -28,7 +28,7 @@
 #pragma once
 
 #include "mapping/nest.hpp"
-#include "workload/per-problem-dimension.hpp"
+#include "workload/util/per-problem-dimension.hpp"
 #include "nest-analysis-tile-info.hpp"
 
 

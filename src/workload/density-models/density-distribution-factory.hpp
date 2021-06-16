@@ -27,9 +27,9 @@
 
 #pragma once
 
-#include "workload/density-distribution.hpp"
-#include "workload/fixed-distribution.hpp"
-#include "workload/hypergeometric-distribution.hpp"
+#include "density-distribution.hpp"
+#include "fixed-structured-distribution.hpp"
+#include "hypergeometric-distribution.hpp"
 #include "compound-config/compound-config.hpp"
 
 
@@ -51,9 +51,9 @@ public:
     std::string distribution_type = "None";
 
     if (density_config.lookupValue("distribution", distribution_type)) {
-      if (distribution_type == "fixed") {
-        auto fixed_specs = FixedDistribution::ParseSpecs(density_config);
-        specs = std::make_shared<FixedDistribution::Specs>(fixed_specs);
+      if (distribution_type == "fixed" || distribution_type == "fixed-structured") {
+        auto fixed__structured_specs = FixedStructuredDistribution::ParseSpecs(density_config);
+        specs = std::make_shared<FixedStructuredDistribution::Specs>(fixed__structured_specs);
 
       } else if (distribution_type == "hypergeometric"){
         auto hypergeo_specs = HypergeometricDistribution::ParseSpecs(density_config);
@@ -74,9 +74,9 @@ public:
 
     std::shared_ptr<DensityDistribution> density_distribution;
 
-    if (specs->Type() == "fixed"){
-      auto fixed_specs = *std::static_pointer_cast<FixedDistribution::Specs>(specs);
-      auto fixed_density_distribution = std::make_shared<FixedDistribution>(fixed_specs);
+    if (specs->Type() == "fixed" || specs->Type() == "fixed-structured"){
+      auto fixed_specs = *std::static_pointer_cast<FixedStructuredDistribution::Specs>(specs);
+      auto fixed_density_distribution = std::make_shared<FixedStructuredDistribution>(fixed_specs);
       density_distribution = std::static_pointer_cast<DensityDistribution>(fixed_density_distribution);
 
     } else if (specs->Type() == "hypergeometric"){
