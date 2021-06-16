@@ -64,11 +64,15 @@ class Point
 
   bool operator == (const Point& other)
   {
+    if (order_ != other.order_)
+      return false;
+
     for (unsigned rank = 0; rank < order_; rank++)
     {
       if (coordinates_.at(rank) != other.coordinates_.at(rank))
         return false;
     }
+
     return true;
   }
 

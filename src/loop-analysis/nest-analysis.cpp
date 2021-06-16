@@ -55,6 +55,9 @@ bool gExtrapolateUniformSpatial = false; // (getenv("TIMELOOP_DISABLE_SPATIAL_EX
 bool gEnableTracing =
   (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
+bool gResetOnStrideChange = false;
+//(getenv("TIMELOOP_DISABLE_RESET_ON_STRIDE_CHANGE") == NULL) ||
+//  (strcmp(getenv("TIMELOOP_DISABLE_RESET_ON_STRIDE_CHANGE"), "1") == 0);
 
 namespace analysis
 {
@@ -654,11 +657,26 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   }
 
   // Calculate delta to send up to caller.
-  problem::OperationSpace delta(workload_);
-  delta = point_set - cur_state.last_point_set;
+
+  // Hardware pattern generators may be unable to generate complicated patterns
+  // arising from residuals left over from ancestor (grandparent-upwards) loop
+  // iterations. With the specific exception of an entire tile staying resident
+  // across ancestor iterations, we apply a simple heuristic to detect this
+  // behavior and simply discard any residual state if the tile shape changes
+  // the magnitude or direction of its stride.
+  if (gResetOnStrideChange)
+    point_set.SaveAndSubtractIfSameStride(cur_state.last_point_set, cur_state.last_translations);
+  else
+    point_set.SaveAndSubtract(cur_state.last_point_set);
+  auto& delta = point_set;
+
+  // -- Old approach begin --
+  // problem::OperationSpace delta(workload_);
+  // delta = point_set - cur_state.last_point_set;
 
   // Update last-seen point set for this level.
-  cur_state.last_point_set = point_set;
+  // cur_state.last_point_set = point_set;
+  // -- Old approach end --
 
   // Restore loop gist sets.
   if (storage_boundary_level_[level])

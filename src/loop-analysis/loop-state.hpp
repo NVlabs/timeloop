@@ -42,6 +42,7 @@ namespace analysis
 struct ElementState
 {
   problem::OperationSpace last_point_set;
+  problem::PerDataSpace<problem::OperationPoint> last_translations;
   problem::PerDataSpace<std::size_t> max_size;
 
   // Multicast functionality
@@ -69,6 +70,7 @@ struct ElementState
   void Reset()
   {
     last_point_set.Reset();
+    last_translations.fill(problem::OperationPoint());
     max_size.fill(0);
     access_stats.clear();
     for (auto& it : delta_histograms)

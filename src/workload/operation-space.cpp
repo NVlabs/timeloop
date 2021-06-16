@@ -387,6 +387,37 @@ OperationSpace OperationSpace::operator - (const OperationSpace& p)
   return retval;
 }
 
+void OperationSpace::SaveAndSubtract(OperationSpace& prev)
+{
+  for (unsigned i = 0; i < data_spaces_.size(); i++)
+  {
+    auto saved = data_spaces_.at(i);
+    data_spaces_.at(i).Subtract(prev.data_spaces_.at(i));
+    std::swap(saved, prev.data_spaces_.at(i));
+  }
+}
+
+void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<OperationPoint>& prev_translation)
+{
+  for (unsigned i = 0; i < data_spaces_.size(); i++)
+  {
+    auto translation = data_spaces_.at(i).GetTranslation(prev.data_spaces_.at(i));
+    if (translation == prev_translation.at(i))
+    {
+      // Stride is the same as previous stride, so perform a real subtraction.
+      auto saved = data_spaces_.at(i);
+      data_spaces_.at(i).Subtract(prev.data_spaces_.at(i));
+      std::swap(saved, prev.data_spaces_.at(i));
+    }
+    else
+    {
+      // Stride has changed; discard the subtrahend and update the stride.
+      prev_translation.at(i) = static_cast<OperationPoint>(translation);
+      prev.data_spaces_.at(i) = data_spaces_.at(i);
+    }
+  }
+}
+
 PerDataSpace<std::size_t> OperationSpace::GetSizes() const
 {
   PerDataSpace<std::size_t> retval;

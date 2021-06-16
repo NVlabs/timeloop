@@ -45,6 +45,12 @@ class OperationPoint : public Point
       Point(GetShape()->NumFlattenedDimensions) // note! flattened, not factorized.
   {
   }
+
+  OperationPoint(const Point& p) :
+      Point(p)
+  {
+    assert(p.Order() == GetShape()->NumFlattenedDimensions);
+  }
 };
 
 std::ostream& operator << (std::ostream& out, const OperationPoint& p);
@@ -98,10 +104,15 @@ class OperationSpace
                  const OperationPoint& flattened_high);
 
   void Reset();
+
   // OperationSpace& operator+=(const OperationSpace& s);
   OperationSpace& operator+=(const OperationPoint& p);
   // OperationSpace& ExtrudeAdd(const OperationSpace& s);
   OperationSpace operator-(const OperationSpace& p);
+
+  void SaveAndSubtract(OperationSpace& prev);
+  void SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<OperationPoint>& prev_translation);
+
   DataSpace& GetDataSpace(Shape::DataSpaceID pv);
   PerDataSpace<std::size_t> GetSizes() const;
   std::size_t GetSize(const int t) const;
