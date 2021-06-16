@@ -45,12 +45,6 @@ class OperationPoint : public Point
       Point(GetShape()->NumFlattenedDimensions) // note! flattened, not factorized.
   {
   }
-
-  OperationPoint(const Point& p) :
-      Point(p)
-  {
-    assert(p.Order() == GetShape()->NumFlattenedDimensions);
-  }
 };
 
 std::ostream& operator << (std::ostream& out, const OperationPoint& p);
@@ -111,7 +105,7 @@ class OperationSpace
   OperationSpace operator-(const OperationSpace& p);
 
   void SaveAndSubtract(OperationSpace& prev);
-  void SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<OperationPoint>& prev_translation);
+  void SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<Point>& prev_translation);
 
   DataSpace& GetDataSpace(Shape::DataSpaceID pv);
   PerDataSpace<std::size_t> GetSizes() const;

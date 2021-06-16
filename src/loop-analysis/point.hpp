@@ -40,7 +40,12 @@ class Point
   std::vector<Coordinate> coordinates_;
 
  public:
-  Point() = delete;
+  // We really wanted to delete this constructor, but that would mean we can't
+  // use DynamicArray<Point> (and consequently PerDataSpace<Point>).
+  Point() :
+      order_(0)
+  {
+  }
 
   Point(const Point& p) :
       order_(p.order_),

@@ -47,12 +47,6 @@ class PerDataSpace : public DynamicArray<T>
   {
   }
 
-  PerDataSpace(const T & val) :
-      DynamicArray<T>(GetShape()->NumDataSpaces)
-  {
-    this->fill(val);
-  }
-
   PerDataSpace(std::initializer_list<T> l) :
     DynamicArray<T>(l)
   {

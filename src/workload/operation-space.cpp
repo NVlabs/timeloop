@@ -397,7 +397,7 @@ void OperationSpace::SaveAndSubtract(OperationSpace& prev)
   }
 }
 
-void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<OperationPoint>& prev_translation)
+void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<Point>& prev_translation)
 {
   for (unsigned i = 0; i < data_spaces_.size(); i++)
   {
@@ -412,7 +412,7 @@ void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::
     else
     {
       // Stride has changed; discard the subtrahend and update the stride.
-      prev_translation.at(i) = static_cast<OperationPoint>(translation);
+      prev_translation.at(i) = translation;
       prev.data_spaces_.at(i) = data_spaces_.at(i);
     }
   }

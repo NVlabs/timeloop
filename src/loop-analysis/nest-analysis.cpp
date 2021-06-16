@@ -56,7 +56,7 @@ bool gEnableTracing =
   (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
 bool gResetOnStrideChange = false;
-//(getenv("TIMELOOP_DISABLE_RESET_ON_STRIDE_CHANGE") == NULL) ||
+// (getenv("TIMELOOP_DISABLE_RESET_ON_STRIDE_CHANGE") == NULL) ||
 //  (strcmp(getenv("TIMELOOP_DISABLE_RESET_ON_STRIDE_CHANGE"), "1") == 0);
 
 namespace analysis
