@@ -35,6 +35,8 @@
 #define ASSERT(args...) assert(args)
 //#define ASSERT(args...)
 
+extern bool gResetOnStrideChange;
+
 // ---------------------------------------------
 //                   Gradient
 // ---------------------------------------------
@@ -430,48 +432,47 @@ class AxisAlignedHyperRectangle
     // Calculate the delta.
     AxisAlignedHyperRectangle delta(*this);
 
-//#define RESET_ON_GRADIENT_CHANGE
-#ifdef RESET_ON_GRADIENT_CHANGE
-    auto g = delta.Subtract(s);
+    if (gResetOnStrideChange)
+    {
+      auto g = delta.Subtract(s);
     
-    // Now check if the newly-calculated gradient is different from the gradient
-    // of the operand. UGH, this is ugly. This code shouldn't be in the math
-    // library, it should be outside.
-    if (s.gradient_.value == 0)
-    {
-      // Gradient was zero. Use newly-computed gradient.
-      gradient_ = g;
-    }
-    else if (g.value == 0 && delta.size() == 0)
-    {
-      // Note the delta size check. We need that because the gradient can
-      // be zero in two cases:
-      // - The set difference really yielded a 0 (the case we're capturing here).
-      // - There was no intersection and therefore gradient was invalid (we'll
-      //   default to the final else.
-      // FIXME: UGH UGH UGH.
-      gradient_ = g;
-    }
-    else if (s.gradient_.dimension == g.dimension &&
-             s.gradient_.Sign() == g.Sign())
-    {
-      // New gradient is in the same direction as current gradient.
-      gradient_ = g;
+      // Now check if the newly-calculated gradient is different from the gradient
+      // of the operand. UGH, this is ugly. This code shouldn't be in the math
+      // library, it should be outside.
+      if (s.gradient_.value == 0)
+      {
+        // Gradient was zero. Use newly-computed gradient.
+        gradient_ = g;
+      }
+      else if (g.value == 0 && delta.size() == 0)
+      {
+        // Note the delta size check. We need that because the gradient can
+        // be zero in two cases:
+        // - The set difference really yielded a 0 (the case we're capturing here).
+        // - There was no intersection and therefore gradient was invalid (we'll
+        //   default to the final else.
+        // FIXME: UGH UGH UGH.
+        gradient_ = g;
+      }
+      else if (s.gradient_.dimension == g.dimension &&
+               s.gradient_.Sign() == g.Sign())
+      {
+        // New gradient is in the same direction as current gradient.
+        gradient_ = g;
+      }
+      else
+      {
+        // New gradient is either in a different dimension, or a different
+        // direction (+/-) in the same dimension. Discard my residual state,
+        // and re-initialize gradient.
+        delta = *this;
+        gradient_ = Gradient(order_);
+      }
     }
     else
     {
-      // New gradient is either in a different dimension, or a different
-      // direction (+/-) in the same dimension. Discard my residual state,
-      // and re-initialize gradient.
-      delta = *this;
-      gradient_ = Gradient(order_);
+      delta.Subtract(s);
     }
-
-#else
-
-    delta.Subtract(s);
-    
-#endif
     
     // The delta itself doesn't carry a gradient.
     delta.gradient_ = Gradient(order_);

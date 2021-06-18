@@ -399,6 +399,15 @@ void OperationSpace::SaveAndSubtract(OperationSpace& prev)
 
 void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<Point>& prev_translation)
 {
+  // The logic to detect a change in stride/gradient is broken. We can't just
+  // compare the raw stride vector because we may jump from iteration 0 to 1 to
+  // last. We should only check for the direction, which we can do by
+  // normalizing the vector (which the old AAHR code was doing by just storing
+  // the stride as a gradient along a single dimension and comparing signs).
+  // However, this is a costly operation. We need to find a way to use a
+  // simpler computation to accelerate the common/simple cases.
+  assert(false);
+
   for (unsigned i = 0; i < data_spaces_.size(); i++)
   {
     auto translation = data_spaces_.at(i).GetTranslation(prev.data_spaces_.at(i));

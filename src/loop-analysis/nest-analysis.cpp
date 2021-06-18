@@ -55,9 +55,12 @@ bool gExtrapolateUniformSpatial = false; // (getenv("TIMELOOP_DISABLE_SPATIAL_EX
 bool gEnableTracing =
   (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
+
+// Flattening => Multi-AAHRs
+// => Can't use per-AAHR reset-on-stride-change logic
+// => Have to run last temporal iteration (because tile residual that carries
+//    over from iteration 1 back to iteration 0 is incorrect).
 bool gResetOnStrideChange = false;
-// (getenv("TIMELOOP_DISABLE_RESET_ON_STRIDE_CHANGE") == NULL) ||
-//  (strcmp(getenv("TIMELOOP_DISABLE_RESET_ON_STRIDE_CHANGE"), "1") == 0);
 
 namespace analysis
 {
@@ -108,6 +111,9 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
       nest_state_.push_back(cur);    
     }
   }
+
+  gResetOnStrideChange = !problem::GetShape()->UsesFlattening;
+  
 }
 
 //
@@ -527,8 +533,6 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // gists and create a new gist set.
   std::vector<LoopGist> saved_loop_gists_temporal;
   std::vector<LoopGist> saved_loop_gists_spatial;
-  // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> saved_loop_gists_temporal;
-  // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> saved_loop_gists_spatial;
 
   loop::Nest::SkewDescriptor* saved_skew_descriptor = nullptr;
 
@@ -568,11 +572,6 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   //   PrintStamp(state.first);
   //   std::cout << "->" << state.second.max_size.at(0) << std::endl;
   // }
-
-  // auto& cur_state = cur->live_state[spatial_id_];
-  
-
-
 
   //
   // Step I: Compute Accesses.
@@ -658,6 +657,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
 
   // Calculate delta to send up to caller.
 
+#ifdef NEW_RESET_ON_STRIDE_CHANGE_APPROACH
   // Hardware pattern generators may be unable to generate complicated patterns
   // arising from residuals left over from ancestor (grandparent-upwards) loop
   // iterations. With the specific exception of an entire tile staying resident
@@ -669,14 +669,11 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   else
     point_set.SaveAndSubtract(cur_state.last_point_set);
   auto& delta = point_set;
-
-  // -- Old approach begin --
-  // problem::OperationSpace delta(workload_);
-  // delta = point_set - cur_state.last_point_set;
-
-  // Update last-seen point set for this level.
-  // cur_state.last_point_set = point_set;
-  // -- Old approach end --
+#else
+  problem::OperationSpace delta(workload_);
+  delta = point_set - cur_state.last_point_set;
+  cur_state.last_point_set = point_set;
+#endif
 
   // Restore loop gist sets.
   if (storage_boundary_level_[level])
@@ -766,7 +763,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool run_last_iteration = true; // imperfectly_factorized_;
+    bool run_last_iteration = imperfectly_factorized_ || problem::GetShape()->UsesFlattening;
       
     if (gExtrapolateUniformTemporal && !disable_temporal_extrapolation_.at(level))
     {
