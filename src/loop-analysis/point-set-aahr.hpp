@@ -135,6 +135,14 @@ class AxisAlignedHyperRectangle
     max_ = max;
   }
 
+  AxisAlignedHyperRectangle(std::uint32_t order, const std::vector<std::pair<Point, Point>> corner_sets) :
+      AxisAlignedHyperRectangle(order)
+  {
+    ASSERT(corner_sets.size() == 1);
+    min_ = corner_sets.front().first;
+    max_ = corner_sets.front().second;
+  }
+
   AxisAlignedHyperRectangle(const AxisAlignedHyperRectangle& a) :
       order_(a.order_),
       min_(a.min_),

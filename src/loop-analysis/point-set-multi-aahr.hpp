@@ -31,7 +31,6 @@
 
 #include "util/misc.hpp"
 #include "point-set-aahr.hpp"
-#include "aahr-carve.hpp"
 
 class MultiAAHR
 {
@@ -222,6 +221,9 @@ class MultiAAHR
 
     // Because the AAHRs in each set are guaranteed to be disjoint,
     // our match procedure is a little simpler.
+    if (aahrs_.size() != s.aahrs_.size())
+      return false;
+
     for (auto& a: aahrs_)
     {
       // Find this AAHR in the other set.

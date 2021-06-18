@@ -26,6 +26,7 @@
  */
 
 #include "util/numeric.hpp"
+#include "loop-analysis/aahr-carve.hpp"
 
 #include "operation-space.hpp"
 
