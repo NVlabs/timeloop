@@ -33,9 +33,9 @@
 #include "loop-analysis/point-set.hpp"
 #include "compound-config/compound-config.hpp"
 
-#include "problem-shape.hpp"
-#include "density-distribution.hpp"
-#include "density-distribution-factory.hpp"
+#include "shape-models/problem-shape.hpp"
+#include "density-models/density-distribution.hpp"
+#include "density-models/density-distribution-factory.hpp"
 
 namespace problem
 {
@@ -72,6 +72,7 @@ class Workload
   Coefficients coefficients_;
   Densities densities_;
   bool workload_tensor_size_set_ = false;
+  bool default_dense_ = true;
 
  public:
   Workload() {}
@@ -114,6 +115,11 @@ class Workload
     return densities_.at(pv);
   }
 
+  bool GetDenseDefaultTensor() const
+  {
+    return default_dense_;
+  }
+
   void DeriveFlattenedBounds()
   {
     for (unsigned i = 0; i < GetShape()->NumFlattenedDimensions; i++)
@@ -152,9 +158,20 @@ class Workload
     densities_.at(id)->SetWorkloadTensorSize(tensor_size);
   }
 
-  bool IsWorkloadTensorSizesSet(){ return workload_tensor_size_set_;}
+  bool IsWorkloadTensorSizesSet()
+  {
+    return workload_tensor_size_set_;
+  }
 
-  void AllTensorsSet() {workload_tensor_size_set_ = true;}
+  void AllTensorsSet()
+  {
+    workload_tensor_size_set_ = true;
+  }
+
+  void SetDefaultDenseTensorFlag(const bool flag)
+  {
+    default_dense_ = flag;
+  }
 
  private:
   // Serialization

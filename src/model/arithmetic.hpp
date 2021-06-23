@@ -34,6 +34,7 @@
 #include "model/network.hpp"
 #include "mapping/mapping.hpp"
 #include "compound-config/compound-config.hpp"
+#include "loop-analysis/operation-type.hpp"
 
 namespace model
 {
@@ -78,6 +79,9 @@ class ArithmeticUnits : public Level
     }
 
    public:
+
+    void UpdateOpEnergyViaERT();
+
     std::shared_ptr<LevelSpecs> Clone() const override
     {
       return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
@@ -99,13 +103,15 @@ class ArithmeticUnits : public Level
   double area_ = 0;
   std::uint64_t cycles_ = 0;
   std::size_t utilized_instances_ = 0;
-  std::uint64_t maccs_ = 0;
-  bool populate_energy_per_op = false;
-
-  //fine-grained actions
-  std::uint64_t compute_random = 0;
-  std::uint64_t compute_skipped = 0;
-  std::uint64_t compute_gated = 0;
+  std::uint64_t algorithmic_computes_ = 0; // number of computes defined by the algorithm (loop nests)
+  std::uint64_t actual_computes_ = 0; // computes that actually happened, right now, consists of random computes only
+  // Fine-grained actions
+  // A fine grained action is either effectual and ineffectual
+  //     effectual: actual computes: random compute
+  //     ineffectual: computes that did not happen: nonexistent compute, skipped compute, gated compute,
+  std::uint64_t random_computes_ = 0;
+  std::uint64_t skipped_computes_ = 0;
+  std::uint64_t gated_computes_ = 0;
 
   // Serialization
   friend class boost::serialization::access;
@@ -120,7 +126,10 @@ class ArithmeticUnits : public Level
       ar& BOOST_SERIALIZATION_NVP(area_);
       ar& BOOST_SERIALIZATION_NVP(cycles_);
       ar& BOOST_SERIALIZATION_NVP(utilized_instances_);
-      ar& BOOST_SERIALIZATION_NVP(maccs_);
+      ar& BOOST_SERIALIZATION_NVP(algorithmic_computes_);
+      ar& BOOST_SERIALIZATION_NVP(random_computes_);
+      ar& BOOST_SERIALIZATION_NVP(gated_computes_);
+      ar& BOOST_SERIALIZATION_NVP(skipped_computes_);
     }
   }
   
@@ -139,8 +148,7 @@ class ArithmeticUnits : public Level
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
   static void ValidateTopology(ArithmeticUnits::Specs& specs);
-  void PopulateEnergyPerOp(unsigned num_ops);
-  
+
   Specs& GetSpecs() { return specs_; }
 
   // Connect to networks.
@@ -215,66 +223,44 @@ class ArithmeticUnits : public Level
     (void) mask;
     (void) confidence_threshold;
     (void) break_on_failure;
-//    (void) compute_cycles;
+    (void) compute_cycles;
 
     EvalStatus eval_status;
     eval_status.success = true;
 
-    // tiling::ComputeInfo compute_info = tile.compute_info[0]; // one optype only
-    // tiling::CompoundDataMovementInfo data_movement_info = tile.data_movement_info;
-  
-    utilized_instances_ = tile.compute_info.replication_factor; 
-
-    // maccs_ = analysis->GetMACs();
+    utilized_instances_ = tile.compute_info.replication_factor;
 
     if (utilized_instances_ <= specs_.instances.Get())
     {
 
-      // energy_ = maccs_ * specs_.energy_per_op.Get();
-
-      // // Scale energy for sparsity.
-      // for (unsigned d = 0; d < problem::GetShape()->NumDataSpaces; d++)
-      // {
-      //   if (!problem::GetShape()->IsReadWriteDataSpace.at(d))
-      //     energy_ *= data_movement_info[d].tile_density.GetAverageDensity();
-      // }
       energy_ = 0;
-      int op_accesses;
+      std::uint64_t op_accesses;
       std::string op_name;
 
-      // find the static correspondence between timeloop action name and ERT action names
-      if (! populate_energy_per_op)
-        PopulateEnergyPerOp(tiling::GetNumOpTypes("arithmetic"));
-
       // go through the fine grained actions and reflect the special impacts
-      for (int op_id = 0; op_id < tiling::GetNumOpTypes("arithmetic"); op_id++){
+      for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++){
         op_name = tiling::arithmeticOperationTypes[op_id];
         op_accesses = tile.compute_info.fine_grained_accesses.at(op_name);
         energy_ += op_accesses * specs_.op_energy_map.at(op_name);
 
         // collect stats...
-        if (op_name == "random_compute"){
-          compute_random = op_accesses;
-        } else if (op_name == "gated_compute"){
-          compute_gated = op_accesses;
-        } else if (op_name == "skipped_compute"){
-          compute_skipped = op_accesses;
+        if (op_name == "random_compute")
+        {
+          random_computes_ = op_accesses;
+        } else if (op_name == "gated_compute")
+        {
+          gated_computes_ = op_accesses;
+        } else if (op_name == "skipped_compute")
+        {
+          skipped_computes_ = op_accesses;
         }
+
+        actual_computes_ = random_computes_;
       }
 
-      // FIXME: phase 1 computations here -- everything is dense
-      // dense compute cycles and dense MACCs
-      cycles_ = compute_cycles;
-      maccs_ = utilized_instances_ * compute_cycles;
-
-      // FIXME: phase 2 computations should be finalized and taken into account
-      // unstable phase 2 logic: account for cycle savings due to skipping
-      //   tile info compute cycles contains the post-processed number of cycles by looking at the sparsity distribution
-      //   by commenting out this line, we are still using the dense # of computes
-      // cycles_ = tile.compute_info.compute_cycles;
-      // maccs_ = utilized_instances_ * tile.compute_info.accesses; // total number of dense maccs
-
-      is_evaluated_ = true;    
+      cycles_ = ceil(double(random_computes_ + gated_computes_)/utilized_instances_);
+      algorithmic_computes_ = tile.compute_info.replication_factor * tile.compute_info.accesses;
+      is_evaluated_ = true;
     }
     else
     {
@@ -288,17 +274,23 @@ class ArithmeticUnits : public Level
     return eval_status;
   }
   
-  std::uint64_t MACCs() const
+  std::uint64_t AlgorithmicComputes() const
   {
     assert(is_evaluated_);
-    return maccs_;
+    return algorithmic_computes_;
+  }
+
+  std::uint64_t ActualComputes() const
+  {
+    assert(is_evaluated_);
+    return random_computes_;
   }
 
   double IdealCycles() const
   {
     // FIXME: why would this be different from Cycles()?
     assert(is_evaluated_);
-    return double(maccs_) / specs_.instances.Get();
+    return double(actual_computes_ + gated_computes_)/specs_.instances.Get();
   }
 };
 

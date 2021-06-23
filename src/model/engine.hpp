@@ -34,7 +34,7 @@
 #include "model/model-base.hpp"
 #include "model/arithmetic.hpp"
 #include "model/topology.hpp"
-#include "model/sparse.hpp"
+#include "model/sparse-optimization-info.hpp"
 #include "mapping/mapping.hpp"
 #include "loop-analysis/nest-analysis.hpp"
 #include "compound-config/compound-config.hpp"
@@ -108,17 +108,17 @@ class Engine : public Module
 
   const Topology& GetTopology() const { return topology_; }
 
-  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo sparse_optimizations, bool break_on_failure = true)
+  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true)
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest, mapping.fanoutX_map, mapping.fanoutY_map);
-    return topology_.PreEvaluationCheck(mapping, &nest_analysis_, &sparse_optimizations, break_on_failure);
+    return topology_.PreEvaluationCheck(mapping, &nest_analysis_, sparse_optimizations, break_on_failure);
   }
 
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo sparse_optimizations, bool break_on_failure = true)
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true)
   {
     nest_analysis_.Init(&workload, &mapping.loop_nest, mapping.fanoutX_map, mapping.fanoutY_map);
     
-    auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, &sparse_optimizations, break_on_failure);
+    auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, sparse_optimizations, break_on_failure);
 
     is_evaluated_ = std::accumulate(eval_status.begin(), eval_status.end(), true,
                                     [](bool cur, const EvalStatus& status)

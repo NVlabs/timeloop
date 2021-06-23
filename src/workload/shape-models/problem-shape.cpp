@@ -25,8 +25,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <algorithm>
 #include "problem-shape.hpp"
-#include "workload.hpp"
+#include "workload/workload.hpp"
 #include "operation-space.hpp"
 
 namespace problem
@@ -173,10 +174,12 @@ void Shape::Parse(config::CompoundConfigNode shape)
       DataSpaceOrder[NumDataSpaces] = 0;
       std::vector<std::string> dim_names;
       data_space.lookupArrayValue("projection", dim_names);
+      DataSpaceIDToDimensionIDVector.push_back({});
       for (const std::string& dim_name : dim_names)
       {
         auto& dim_id = FactorizedDimensionNameToID.at(dim_name);
         projection.push_back({{ NumCoefficients, dim_id }});        
+        DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
         DataSpaceOrder[NumDataSpaces]++;
       }
     }
@@ -187,6 +190,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
       {
         // Process one data-space dimension.
         ProjectionExpression expression;
+        DataSpaceIDToDimensionIDVector.push_back({});
         auto dimension = projection_cfg[k];
         // Each expression is a list of terms. Each term can be
         // a libconfig array or list.
@@ -202,6 +206,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
             const std::string& dim_name = nameAndCoeff[0];
             auto& dim_id = FactorizedDimensionNameToID.at(dim_name);
             expression.push_back({ NumCoefficients, dim_id });
+            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
           }
           else if (term.getLength() == 2)
           {
@@ -210,6 +215,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
             auto& dim_id = FactorizedDimensionNameToID.at(dim_name);
             auto& coeff_id = CoefficientNameToID.at(coeff_name);
             expression.push_back({ coeff_id, dim_id });
+            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
           }
           else
           {
@@ -230,5 +236,58 @@ void Shape::Parse(config::CompoundConfigNode shape)
     NumDataSpaces++;
   }
 }
+
+std::set <Shape::FactorizedDimensionID> Shape::GetFullyContractedDimensions() const
+{
+  // criteria for contracted dimensions: in read dataspace but not in read-write dataspace
+
+  std::set <FactorizedDimensionID> contracted_dims;
+  DataSpaceID pv;
+
+  // find the read write dataspace
+  for (pv = 0; pv < NumDataSpaces; pv++)
+  {
+    if (IsReadWriteDataSpace.at(pv))
+    {
+      break;
+    }
+  }
+  auto& dims_in_rw_dspace = DataSpaceIDToDimensionIDVector[pv];
+
+  for (DataSpaceID pv = 0; pv < NumDataSpaces; pv++)
+  {
+    if (!IsReadWriteDataSpace.at(pv))
+    {
+      auto& dims = DataSpaceIDToDimensionIDVector.at(pv);
+      for (auto iter = dims.begin(); iter != dims.end(); iter++)
+      {
+        if (dims_in_rw_dspace.find(*iter) == dims_in_rw_dspace.end())
+        {
+          contracted_dims.insert(*iter);
+        }
+      }
+    }
+  }
+
+  return contracted_dims;
+}
+
+std::set <Shape::FactorizedDimensionID> Shape::GetCoIteratedDimensions(const std::vector <Shape::DataSpaceID> dataspace_pair) const
+{
+  std::set <DimensionID> contracted_dims;
+  auto dataspace_a_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[0]];
+  auto dataspae_b_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[1]];
+
+  for (auto iter = dataspace_a_dims.begin(); iter != dataspace_a_dims.end(); iter++)
+  {
+    if (dataspae_b_dims.find(*iter) != dataspae_b_dims.end())
+    {
+      contracted_dims.insert(*iter);
+    }
+  }
+
+  return contracted_dims;
+}
+
 
 }  // namespace problem

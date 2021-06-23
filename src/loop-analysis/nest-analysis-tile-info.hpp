@@ -27,15 +27,28 @@
 #pragma once
 
 #include <map>
+#include <boost/serialization/map.hpp>
 
-struct AccessStatMatrix
-{
   struct AccessStats
   {
     std::uint64_t accesses = 0;
     double hops = 0.0;
+
+    // Serialization.
+    friend class boost::serialization::access;
+    template <class Archive>
+    void serialize(Archive& ar, const unsigned int version=0) 
+    {
+      if(version == 0)
+      {
+        ar& BOOST_SERIALIZATION_NVP(accesses);
+        ar& BOOST_SERIALIZATION_NVP(hops);
+      }
+    }
   };
 
+struct AccessStatMatrix
+{
   std::map<std::pair<std::uint64_t,std::uint64_t>, AccessStats> stats;
 
   void clear()
@@ -126,24 +139,34 @@ struct AccessStatMatrix
     }
     return out;
   }
-};
 
+  // Serialization.
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version=0) 
+  {
+    if(version == 0)
+    {
+      ar& BOOST_SERIALIZATION_NVP(stats);
+    }
+  }
+};
 
 namespace analysis
 {
 // data structures for nest-analysis to store datamovement and compute info
 struct DataMovementInfo
 {
-  friend class boost::serialization::access;
 
   // Serialization.
+  friend class boost::serialization::access;
   template <class Archive>
   void serialize(Archive& ar, const unsigned int version=0) 
   {
     if(version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(size);
-      //ar& BOOST_SERIALIZATION_NVP(accesses);
+      ar& BOOST_SERIALIZATION_NVP(access_stats);
       ar& BOOST_SERIALIZATION_NVP(subnest);
     }
   }
@@ -226,4 +249,4 @@ struct CompoundTileNest{
    CompoundComputeNest compound_compute_info_nest;
 };
 
-} //namespace
+} // namespace

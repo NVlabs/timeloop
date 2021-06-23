@@ -34,7 +34,7 @@
 
 #include "util/numeric.hpp"
 #include "util/misc.hpp"
-#include "workload/problem-shape.hpp"
+#include "workload/shape-models/problem-shape.hpp"
 #include "mapspaces/mapspace-base.hpp"
 #include "mapspaces/subspaces.hpp"
 #include "compound-config/compound-config.hpp"
@@ -609,6 +609,7 @@ class Uber : public MapSpace
           mapping->loop_nest.AddLoop(subnests[i][dim]);
           num_subnests_added++;
         }
+        mapping->complete_loop_nest.AddLoop(subnests[i][dim]);
       }
       if (!arch_props_.IsSpatial(i))
       {
@@ -620,6 +621,7 @@ class Uber : public MapSpace
                                      0, 1, 1, spacetime::Dimension::Time);
         }
         mapping->loop_nest.AddStorageTilingBoundary();
+        mapping->complete_loop_nest.AddStorageTilingBoundary();
         storage_level++;
       }
     }

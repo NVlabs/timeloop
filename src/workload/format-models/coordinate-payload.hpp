@@ -1,4 +1,4 @@
-/* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,12 @@
 
 #pragma once
 
-#include "density-distribution.hpp"
+#include "metadata-format.hpp"
 #include <boost/serialization/export.hpp>
 
 namespace problem {
 
-class FixedDistribution : public DensityDistribution {
+class CoordinatePayload : public MetaDataFormat {
 
 public:
 
@@ -40,14 +40,20 @@ public:
   // Specs
   //
 
-  struct Specs : public DensityDistributionSpecs {
+  struct Specs : public MetaDataFormatSpecs {
 
-    std::string type;
-    double fixed_density;
-    std::uint64_t workload_tensor_size;
+    std::string name = "cp";  // coordinate payload
+    bool rank_compressed = true;
+    bool coordinates_implicit = false;
+    std::vector<problem::Shape::FactorizedDimensionID> dimension_ids;
+    int metadata_width;
+    int payload_width;
 
 
-    const std::string Type() const override { return type; }
+    const std::string Name() const override { return name; }
+    bool RankCompressed() const override {return rank_compressed;}
+    std::vector<problem::Shape::FactorizedDimensionID> DimensionIDs() const override {return dimension_ids;}
+
 
     // Serialization
     friend class boost::serialization::access;
@@ -55,17 +61,17 @@ public:
     template<class Archive>
     void serialize(Archive &ar, const unsigned int version = 0) {
 
-      ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(DensityDistributionSpecs);
+      ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(MetaDataFormatSpecs);
       if (version == 0) {
-        ar& BOOST_SERIALIZATION_NVP(type);
-        ar& BOOST_SERIALIZATION_NVP(fixed_density);
+        ar& BOOST_SERIALIZATION_NVP(name);
+        ar& BOOST_SERIALIZATION_NVP(dimension_ids);
       }
     }
 
   public:
-    std::shared_ptr<DensityDistributionSpecs> Clone() const override
+    std::shared_ptr<MetaDataFormatSpecs> Clone() const override
     {
-      return std::static_pointer_cast<DensityDistributionSpecs>(std::make_shared<Specs>(*this));
+      return std::static_pointer_cast<MetaDataFormatSpecs>(std::make_shared<Specs>(*this));
     }
 
   }; // struct Specs
@@ -85,7 +91,7 @@ public:
 
   template<class Archive>
   void serialize(Archive &ar, const unsigned int version = 0) {
-    ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(DensityDistribution);
+    ar& BOOST_SERIALIZATION_BASE_OBJECT_NVP(MetaDataFormat);
     if (version == 0) {
       ar & BOOST_SERIALIZATION_NVP(specs_);
     }
@@ -96,26 +102,18 @@ public:
   //
 
   // constructor and destructors
-  FixedDistribution();
+  CoordinatePayload();
+  CoordinatePayload(const Specs &specs);
+  ~CoordinatePayload();
 
-  FixedDistribution(const Specs &specs);
+  static Specs ParseSpecs(config::CompoundConfigNode metadata_config);
 
-  ~FixedDistribution();
-
-  static Specs ParseSpecs(config::CompoundConfigNode density_config);
-
-
-  void SetDensity(double density) ;
-  void SetWorkloadTensorSize(std::uint64_t size);
-
-  double GetTileConfidenceByAllocatedCapacity(std::uint64_t tile_shape, std::uint64_t allocated_buffer_size) const;
-  std::uint64_t GetTileOccupancyByConfidence(std::uint64_t tile_shape, double confidence);
-  std::uint64_t GetWorkloadTensorSize() const;
-  std::string GetDistributionType() const;
-  double GetTileDensityByConfidence(std::uint64_t tile_shape, double confidence, uint64_t allocated_capacity = 0) const;
-  double GetTileExpectedDensity(uint64_t tile_shape) const;
-  double GetProbability(std::uint64_t tile_shape, std::uint64_t nnz_vals) const;
-
-}; // class FixedDistribution
+  PerRankMetaDataTileOccupancy GetOccupancy(const MetaDataOccupancyQuery& query) const;
+  bool RankCompressed () const;
+  bool CoordinatesImplicit() const;
+  std::vector<problem::Shape::FactorizedDimensionID> GetDimensionIDs() const;
+  std::string GetFormatName() const;
+  bool MetaDataImplicitAsLowestRank() const {return false;}
+}; // class CoordinatePayload
 
 } // namespace problem

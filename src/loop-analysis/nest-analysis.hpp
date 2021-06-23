@@ -32,7 +32,7 @@
 #include <unordered_set>
 
 #include "mapping/nest.hpp"
-#include "workload/per-problem-dimension.hpp"
+#include "workload/util/per-problem-dimension.hpp"
 #include "nest-analysis-tile-info.hpp"
 
 namespace analysis
@@ -174,8 +174,6 @@ class NestAnalysis
       std::vector<analysis::LoopState>::reverse_iterator cur,
       const std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
       problem::PerDataSpace<std::unordered_set<std::uint64_t>>& unaccounted_delta,
-      //const std::vector<problem::OperationSpace>& spatial_deltas,
-      //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
       problem::PerDataSpace<AccessStatMatrix>& access_stats);
 
   void ComputeNetworkLinkTransfers(

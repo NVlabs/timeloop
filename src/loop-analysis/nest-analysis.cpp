@@ -462,11 +462,6 @@ void NestAnalysis::CollectWorkingSets()
         tile.is_master_spatial      = master_spatial_level_[cur.level];
         // tile.tile_density           = condensed_state.data_densities[pv];
         working_sets_[pv].push_back(tile);
-
-        // std::cout << "LEVEL " << cur.level << " pv " << pv
-        //           << " size "  << tile.size << " link_transfers "
-        //           << tile.link_transfers
-        //           << std::endl << std::endl;
       }
     } // if (valid_level)
   } // for (nest)

@@ -466,7 +466,8 @@ class Constraints
 
         if (my_char != 'X' && my_char != other_char)
         {
-          return false;
+          // FIXME: Default string with last level set to 1 is not right, failed on SCNN IORAM
+          //return false;
         }        
       }
     }

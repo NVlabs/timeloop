@@ -109,9 +109,10 @@ if not os.path.isdir('../src/pat'):
     
 common_sources = Split("""
 loop-analysis/tiling.cpp
+loop-analysis/tiling-tile-info.cpp
 loop-analysis/nest-analysis.cpp
-loop-analysis/operation-type.cpp
 loop-analysis/aahr-carve.cpp
+loop-analysis/sparse-analysis.cpp
 pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp
@@ -119,14 +120,20 @@ model/arithmetic.cpp
 model/buffer.cpp
 model/topology.cpp
 model/network-legacy.cpp
-model/sparse.cpp
+model/network-reduction-tree.cpp
+model/network-simple-multicast.cpp
+model/sparse-optimization-parser.cpp
 util/numeric.cpp
 util/map2d.cpp
-workload/problem-shape.cpp
+workload/shape-models/problem-shape.cpp
 workload/workload.cpp
-workload/operation-space.cpp
-workload/fixed-distribution.cpp
-workload/hypergeometric-distribution.cpp
+workload/shape-models/operation-space.cpp
+workload/density-models/fixed-structured-distribution.cpp
+workload/density-models/hypergeometric-distribution.cpp
+workload/format-models/run-length-encoding.cpp
+workload/format-models/uncompressed-offset-pair.cpp
+workload/format-models/coordinate-payload.cpp
+workload/format-models/uncompressed-bitmask.cpp
 compound-config/compound-config.cpp
 """)
 

@@ -1,5 +1,5 @@
-/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -27,21 +27,13 @@
 
 #pragma once
 
-#include <string>
-#include <tuple>
-
-#include "workload/shape-models/problem-shape.hpp"
-#include "workload/workload.hpp"
+#include "sparse-optimization-info.hpp"
+#include "model/engine.hpp"
 #include "compound-config/compound-config.hpp"
 
-namespace problem
-{
+namespace sparse {
 
-Workload::FactorizedBounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
-Workload::Densities GetLayerDensities(std::string layer_name);
-void ReadDensities(std::string filename);
-void DumpDensities(std::string filename);
-void DumpDensities_CPP(std::string filename);
-void ParseConfig(config::CompoundConfigNode problem, Workload& workload);
+SparseOptimizationInfo  ParseAndConstruct(config::CompoundConfigNode sparse_config,
+										  model::Engine::Specs& arch_specs);
 
 }

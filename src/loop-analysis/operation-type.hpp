@@ -27,58 +27,57 @@
 
 #pragma once
 
-#include <math.h>
-
-#include "loop-analysis/tiling-tile-info.hpp"
-#include "model/sparse.hpp"
-
-
 namespace tiling
 {
 
 // define the (data-dependent fine-grained) operation types for each type of components
-static std::string storageOperationTypes[17] = {"random_read",
-                                                "random_fill",
-                                                "random_update",
-                                                "gated_read",
-                                                "gated_fill",
-                                                "gated_update",
-                                                "skipped_read",
-                                                "skipped_fill",
-                                                "skipped_update",
-                                                "metadata_read",
-                                                "gated_metadata_read",
-                                                "metadata_fill",
-                                                "gated_metadata_fill",
-                                                "metadata_update",
-                                                "gated_metadata_update",
-                                                "decompression_count",
-                                                "compression_count"};   // we don't update a metadata
+static std::vector<std::string> storageOperationTypes = {"random_read",
+                                                         "random_fill",
+                                                         "random_update",
+                                                         "gated_read",
+                                                         "gated_fill",
+                                                         "gated_update",
+                                                         "skipped_read",
+                                                         "skipped_fill",
+                                                         "skipped_update",
+                                                         "random_metadata_read",
+                                                         "gated_metadata_read",
+                                                         "skipped_metadata_read",
+                                                         "random_metadata_fill",
+                                                         "gated_metadata_fill",
+                                                         "skipped_metadata_fill",
+                                                         "random_metadata_update",
+                                                         "gated_metadata_update",
+                                                         "skipped_metadata_update",
+                                                         "decompression_count",
+                                                         "compression_count"};
 
-static std::string arithmeticOperationTypes[3] = {"random_compute",
-                                                  "skipped_compute",
-                                                  "gated_compute"};
+static std::vector<std::string> arithmeticOperationTypes = {"random_compute",
+                                                            "skipped_compute",
+                                                            "gated_compute"};
 
-static std::string networkOperationTypes[1] = {"random_transfer"};
-										                             
-
-int GetNumOpTypes();
-int GetNumOpTypes(std::string component_type);
-
-  void ComputeFineGrainComputeAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
-                                       unsigned level,
-                                       sparse::ComputeActionOptimizationInfo& compute_gating_info,
-                                       sparse::ComputeActionOptimizationInfo& compute_skipping_info);
-
-void ComputeFineGrainDataMovementAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
-                                          unsigned level,
-                                          sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating,
-                                          sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_skipping);
-
-void ComputeFineGrainMetaDataAccesses(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
-                                      unsigned level,
-                                      sparse::PerStorageLevelCompressionInfo& per_level_compression_info,
-                                      sparse::PerStorageLevelActionOptimizationInfo& per_level_sparse_gating);
+static std::vector<std::string> networkOperationTypes = {"random_transfer"};
 
 
-} // namespace problem
+//int GetNumOpTypes()
+//{
+//  // default placeholder: assuming one op type
+//  return 1;
+//}
+//
+//int GetNumOpTypes(std::string component_type){
+//  if (component_type == "arithmetic"){
+//    return sizeof(arithmeticOperationTypes) / sizeof(arithmeticOperationTypes[0]);
+//
+//  } else if (component_type == "storage"){
+//    return sizeof(storageOperationTypes) / sizeof(storageOperationTypes[0]);
+//
+//  } else if (component_type == "network") {
+//    return sizeof(networkOperationTypes) / sizeof(networkOperationTypes[0]);
+//
+//  } else {
+//    assert(false);
+//  }
+//}
+
+} // namespace

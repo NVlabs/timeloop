@@ -260,6 +260,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
         mapping.loop_nest.AddLoop(subnests[i][dim]);
         num_subnests_added++;
       }
+      mapping.complete_loop_nest.AddLoop(subnests[i][dim]);
     }
     if (!arch_props_.IsSpatial(i))
     {
@@ -271,6 +272,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
                                    0, 1, 1, spacetime::Dimension::Time);
       }
       mapping.loop_nest.AddStorageTilingBoundary();
+      mapping.complete_loop_nest.AddStorageTilingBoundary();
       storage_level++;
     }
   }

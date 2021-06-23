@@ -57,15 +57,15 @@ struct PointResult
   void PrintEvaluationResultsHeader(std::ostream& out)
   {
       out << "Summary stats for best mapping found by mapper:" << std::endl; 
-      out << "config_name, MACCs, utilization, pj/MACC" << std::endl;
+      out << "config_name, Total Computes, utilization, pJ/Compute" << std::endl;
   }
 
   void PrintEvaluationResult(std::ostream& out)
   {
       out << config_name_ ; 
-      out << ", " << result_.stats.maccs;
+      out << ", " << result_.stats.algorithmic_computes;
       out << ", " << std::setw(4) << std::fixed << std::setprecision(2) << result_.stats.utilization;
-      out << ", " << std::setw(8) << std::fixed << std::setprecision(3) << result_.stats.energy / result_.stats.maccs << std::endl;
+      out << ", " << std::setw(8) << std::fixed << std::setprecision(3) << result_.stats.energy / result_.stats.algorithmic_computes << std::endl;
   }
 
 };

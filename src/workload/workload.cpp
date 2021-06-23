@@ -29,7 +29,7 @@
 #include <cstring>
 #include <fstream>
 
-#include "problem-shape.hpp"
+#include "workload/shape-models/problem-shape.hpp"
 #include "workload.hpp"
 
 namespace problem
@@ -197,7 +197,7 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
     config::CompoundConfigNode density_config;
     if (! config.lookup("commonDensity").isMap()){
       config.lookupValue("commonDensity", common_avg_density);
-      ynode["distribution"] = "fixed";
+      ynode["distribution"] = "fixed-structured";
       ynode["density"] = common_avg_density;
       density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
     } else {
@@ -207,6 +207,8 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
     // assign all dataspaces the same density value
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
       densities[i]= DensityDistributionFactory::Construct(density_specs);
+      // make sure the density model is correctly set
+      assert (densities[i] != NULL);
     }
   }
 
@@ -219,28 +221,49 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
       config::CompoundConfigNode density_config;
       std::string dataspace_name = GetShape()->DataSpaceIDToName.at(i);
 
-      if (! config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap()){
-        // single number for density is given, default to fixed density distribution
-        assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
-        ynode["distribution"] = "fixed";
-        ynode["density"] = dataspace_avg_density;
-        density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
-      } else {
-        density_config = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
+      if (config_densities.exists(GetShape()->DataSpaceIDToName.at(i)))
+      {
+        // if the specific dataspace's density is specified
+        if (!config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap())
+        {
+          // single number for density is given, default to fixed density distribution
+          assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
+          ynode["distribution"] = "fixed-structured";
+          ynode["density"] = dataspace_avg_density;
+          density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
+        } else
+        {
+          density_config = config_densities.lookup(GetShape()->DataSpaceIDToName.at(i));
+        }
+        auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
+        densities[i] = DensityDistributionFactory::Construct(density_specs);
       }
-      auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
-      densities[i]= DensityDistributionFactory::Construct(density_specs);
+      else
+      {
+        // no density specified, roll back to default
+        ynode["distribution"] = "fixed-structured";
+        ynode["density"] = 1.0;
+        density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
+        auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
+        densities[i]= DensityDistributionFactory::Construct(density_specs);
+      }
+
+      // make sure the density model is correctly set
+      assert (densities[i] != NULL);
     }
 
     // 3) no density specification -> dense workload tensors
   } else {
     config::CompoundConfigNode density_config;
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
-      ynode["distribution"] = "fixed";
+      ynode["distribution"] = "fixed-structured";
       ynode["density"] = 1.0;
       density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
       auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
       densities[i]= DensityDistributionFactory::Construct(density_specs);
+
+      // make sure the density model is correctly set
+      assert (densities[i] != NULL);
     }
   }
   workload.SetDensities(densities);

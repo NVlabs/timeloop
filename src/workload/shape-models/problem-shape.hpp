@@ -79,17 +79,20 @@ class Shape
   typedef std::list<ProjectionTerm> ProjectionExpression;
   typedef std::vector<ProjectionExpression> Projection;
 
-  std::vector<Projection> Projections;
-
   // Projection from an flattened iteration-space dimension to an un-flattened
   // problem dimension. Because its form is a simple linear expression, we can
   // hard-code the projection functions. All we need to record here is an
   // *ordered* list of all problem dimensions that flatten into each flattened
   // dimension. During parsing we also need to make sure that each problem
   // dimension is flattened into at most one flattened dimension.
+  std::vector<Projection> Projections;
+
+  std::vector<std::set<FactorizedDimensionID>> DataSpaceIDToDimensionIDVector;
 
  public: 
-  void Parse(config::CompoundConfigNode config); 
+  void Parse(config::CompoundConfigNode config);
+  std::set<FactorizedDimensionID> GetCoIteratedDimensions(const std::vector<DataSpaceID> dataspace_pair) const;
+  std::set<FactorizedDimensionID> GetFullyContractedDimensions() const;
 };
 
 } // namespace problem
