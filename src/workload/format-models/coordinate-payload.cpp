@@ -75,7 +75,7 @@ bool CoordinatePayload::CoordinatesImplicit() const
   return specs_.coordinates_implicit;
 }
 
-std::vector<problem::Shape::DimensionID> CoordinatePayload::GetDimensionIDs() const
+std::vector<problem::Shape::FactorizedDimensionID> CoordinatePayload::GetDimensionIDs() const
 {
   assert(is_specced_);
   return specs_.dimension_ids;

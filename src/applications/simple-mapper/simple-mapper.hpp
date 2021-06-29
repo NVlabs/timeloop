@@ -51,11 +51,7 @@ class Application
   problem::Workload workload_;
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
-<<<<<<< HEAD
-  sparse::SparseOptimizationInfo sparse_optimizations_;
-=======
   sparse::SparseOptimizationInfo* sparse_optimizations_;
->>>>>>> master
 
   std::string out_prefix_ = "timeloop-mapper";
 

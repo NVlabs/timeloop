@@ -274,7 +274,7 @@ std::set <Shape::FactorizedDimensionID> Shape::GetFullyContractedDimensions() co
 
 std::set <Shape::FactorizedDimensionID> Shape::GetCoIteratedDimensions(const std::vector <Shape::DataSpaceID> dataspace_pair) const
 {
-  std::set <DimensionID> contracted_dims;
+  std::set <FactorizedDimensionID> contracted_dims;
   auto dataspace_a_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[0]];
   auto dataspae_b_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[1]];
 

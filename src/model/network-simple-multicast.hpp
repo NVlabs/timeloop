@@ -92,7 +92,7 @@ class SimpleMulticastNetwork : public Network
   {
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<std::uint64_t> utilized_instances;
-    problem::PerDataSpace<std::vector<unsigned long>> ingresses;
+    problem::PerDataSpace<AccessStatMatrix> ingresses;
     problem::PerDataSpace<std::uint64_t> fanout;
     problem::PerDataSpace<std::uint64_t> multicast_factor;
 

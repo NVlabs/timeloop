@@ -223,23 +223,31 @@ EvalStatus SimpleMulticastNetwork::Evaluate(const tiling::CompoundTile& tile,
 
     // don't care what type of connection this is
     // only need to count the number of transfers
-    stats_.ingresses[pv].resize(data_movement[pvi].accesses.size());
-    for (unsigned i = 0; i < data_movement[pvi].accesses.size(); i++)
+    stats_.ingresses[pv] = data_movement[pv].access_stats;
+    stats_.multicast_factor[pv] = 0;
+
+    for (auto& x: stats_.ingresses.at(pv).stats)
     {
-      stats_.ingresses[pv][i] = data_movement[pvi].accesses[i];
-    }
-    for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
-    {
-      auto ingresses = stats_.ingresses.at(pv).at(i);
+      auto multicast_factor = x.first.first;
+      // auto scatter_factor = x.first.second;
+      auto ingresses = x.second.accesses;
+      // auto hops = x.second.hops;
+
       if (ingresses > 0)
       {
-        auto multicast_factor = i + 1;
-        if (specs_.per_datatype_ERT){
+        if (specs_.per_datatype_ERT)
+        {
           stats_.energy[pv] = GetMulticastEnergyByDataType(multicast_factor, data_space_name) * ingresses;
-        } else {
+        }
+        else
+        {
           stats_.energy[pv] = GetMulticastEnergy(multicast_factor) * ingresses;
         }
-        stats_.multicast_factor[pv] = multicast_factor;
+
+        if (multicast_factor > stats_.multicast_factor[pv])
+        {
+          stats_.multicast_factor[pv] = multicast_factor;
+        }
       }
     }
   }
@@ -278,10 +286,7 @@ void SimpleMulticastNetwork::Print(std::ostream& out) const
     << stats_.fanout.at(pv) << std::endl;
     out << indent + indent << "Multicast factor                        : "
         << stats_.multicast_factor.at(pv) << std::endl;
-    auto total_accesses =
-      std::accumulate(stats_.ingresses.at(pv).begin(),
-                      stats_.ingresses.at(pv).end(),
-                      static_cast<std::uint64_t>(0));
+    auto total_accesses = stats_.ingresses.at(pv).TotalAccesses();
     out << indent + indent << "Ingresses                               : "
         << total_accesses << std::endl;
     out << indent + indent << "Energy (per-instance)                   : "
