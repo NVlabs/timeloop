@@ -31,6 +31,8 @@
 #include <iomanip>
 #include <ncurses.h>
 
+#include "util/accelergy_interface.hpp"
+
 #include "mapper.hpp"
 
 //--------------------------------------------//
@@ -66,14 +68,18 @@ Application::Application(config::CompoundConfig* config,
 
   // Architecture configuration.
   config::CompoundConfigNode arch;
-  if (rootNode.exists("arch")) {
+  if (rootNode.exists("arch"))
+  {
     arch = rootNode.lookup("arch");
-  } else if (rootNode.exists("architecture")) {
+  }
+  else if (rootNode.exists("architecture"))
+  {
     arch = rootNode.lookup("architecture");
   }
   arch_specs_ = model::Engine::ParseSpecs(arch);
 
-  if (rootNode.exists("ERT")) {
+  if (rootNode.exists("ERT"))
+  {
     auto ert = rootNode.lookup("ERT");
     std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
     arch_specs_.topology.ParseAccelergyERT(ert);
@@ -82,10 +88,13 @@ Application::Application(config::CompoundConfig* config,
       std::cout << "Found Accelergy ART (area reference table), replacing internal area model." << std::endl;
       arch_specs_.topology.ParseAccelergyART(art);  
     }
-  } else {
+  }
+  else
+  {
 #ifdef USE_ACCELERGY
     // Call accelergy ERT with all input files
-    if (arch.exists("subtree") || arch.exists("local")) {
+    if (arch.exists("subtree") || arch.exists("local"))
+    {
       accelergy::invokeAccelergy(config->inFiles, semi_qualified_prefix, output_dir);
       std::string ertPath = out_prefix_ + ".ERT.yaml";
       auto ertConfig = new config::CompoundConfig(ertPath.c_str());
@@ -213,13 +222,16 @@ Application::Application(config::CompoundConfig* config,
   }
   std::cout << "Search configuration complete." << std::endl;
   // Store the complete configuration in a string.
-  if (config->hasLConfig()) {
+  if (config->hasLConfig())
+  {
     std::size_t len;
     FILE* cfg_stream = open_memstream(&cfg_string_, &len);
     auto& lconfig = config->getLConfig();
     lconfig.write(cfg_stream);
     fclose(cfg_stream);
-  } else {
+  }
+  else
+  {
     cfg_string_ = nullptr;
   }
 

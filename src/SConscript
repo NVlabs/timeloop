@@ -112,6 +112,7 @@ model/network-simple-multicast.cpp
 model/sparse-optimization-parser.cpp
 util/numeric.cpp
 util/map2d.cpp
+util/accelergy_interface.cpp
 workload/shape-models/problem-shape.cpp
 workload/workload.cpp
 workload/shape-models/operation-space.cpp
@@ -148,10 +149,12 @@ if not GetOption('link_static'):
 # Build the various binaries.
 
 metrics_sources = Split("""
+applications/metrics/metrics.cpp
 applications/metrics/main.cpp
 """)
 
 model_sources = Split("""
+applications/model/model.cpp
 applications/model/main.cpp
 """)
 
@@ -166,6 +169,7 @@ applications/mapper/main.cpp
 
 simple_mapper_sources = Split("""
 mapspaces/mapspace-base.cpp
+applications/simple-mapper/simple-mapper.cpp
 applications/simple-mapper/main.cpp
 """)
 
