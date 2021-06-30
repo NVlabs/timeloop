@@ -157,6 +157,10 @@ applications/model/main.cpp
 
 mapper_sources = Split("""
 mapspaces/mapspace-base.cpp
+mapspaces/mapspace-factory.cpp
+search/search-factory.cpp
+applications/mapper/mapper.cpp
+applications/mapper/mapper-thread.cpp
 applications/mapper/main.cpp
 """)
 
@@ -167,6 +171,10 @@ applications/simple-mapper/main.cpp
 
 design_space_sources = Split("""
 mapspaces/mapspace-base.cpp
+mapspaces/mapspace-factory.cpp
+search/search-factory.cpp
+applications/mapper/mapper.cpp
+applications/mapper/mapper-thread.cpp
 applications/design-space/main.cpp
 """)
 

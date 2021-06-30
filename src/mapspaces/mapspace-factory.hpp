@@ -27,8 +27,7 @@
 
 #pragma once
 
-
-#include "mapspaces/uber.hpp"
+#include "mapspaces/mapspace-base.hpp"
 #include "workload/shape-models/problem-shape.hpp"
 #include "compound-config/compound-config.hpp"
 
@@ -42,24 +41,6 @@ namespace mapspace
 MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
                             config::CompoundConfigNode arch_constraints,
                             model::Engine::Specs& arch_specs,
-                            const problem::Workload& workload)
-{
-  MapSpace* mapspace = nullptr;
-  
-  std::string mapspace_template = "uber";
-  config.lookupValue("template", mapspace_template);
-    
-  if (mapspace_template == "uber")
-  {
-    mapspace = new Uber(config, arch_constraints, arch_specs, workload);
-  }
-  else
-  {
-    std::cerr << "ERROR: unsupported mapspace template: " << mapspace_template << std::endl;
-    exit(-1);
-  }
-
-  return mapspace;
-}
+                            const problem::Workload& workload);
 
 } // namespace mapspace

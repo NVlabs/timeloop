@@ -25,10 +25,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "search/random.hpp"
+#include "search/exhaustive.hpp"
+#include "search/linear-pruned.hpp"
+#include "search/hybrid.hpp"
+#include "search/random-pruned.hpp"
 
-#include "search/search.hpp"
-#include "compound-config/compound-config.hpp"
+#include "search/search-factory.hpp"
 
 namespace search
 {
@@ -39,6 +42,40 @@ namespace search
 
 SearchAlgorithm* ParseAndConstruct(config::CompoundConfigNode config,
                                    mapspace::MapSpace* mapspace,
-                                   unsigned id);
+                                   unsigned id)
+{
+  SearchAlgorithm* search = nullptr;
+  
+  std::string search_alg = "hybrid";
+  config.lookupValue("algorithm", search_alg);
+    
+  if (search_alg == "random")
+  {
+    search = new RandomSearch(config, mapspace);
+  }
+  else if (search_alg == "exhaustive")
+  {
+    search = new ExhaustiveSearch(config, mapspace);
+  }
+  else if (search_alg == "linear-pruned")
+  {
+    search = new LinearPrunedSearch(config, mapspace, id);
+  }
+  else if (search_alg == "hybrid")
+  {
+    search = new HybridSearch(config, mapspace, id);
+  }
+  else if (search_alg == "random-pruned")
+  {
+    search = new RandomPrunedSearch(config, mapspace, id);
+  }
+  else
+  {
+    std::cerr << "ERROR: unsupported search algorithm: " << search_alg << std::endl;
+    exit(-1);
+  }
+
+  return search;
+}
 
 } // namespace search

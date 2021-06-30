@@ -25,20 +25,38 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "mapspaces/uber.hpp"
 
-#include "search/search.hpp"
-#include "compound-config/compound-config.hpp"
+#include "mapspace-factory.hpp"
 
-namespace search
+namespace mapspace
 {
 
 //--------------------------------------------//
-//             Parser and Factory             //
+//       Parser and Mapspace Factory          //
 //--------------------------------------------//
 
-SearchAlgorithm* ParseAndConstruct(config::CompoundConfigNode config,
-                                   mapspace::MapSpace* mapspace,
-                                   unsigned id);
+MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
+                            config::CompoundConfigNode arch_constraints,
+                            model::Engine::Specs& arch_specs,
+                            const problem::Workload& workload)
+{
+  MapSpace* mapspace = nullptr;
+  
+  std::string mapspace_template = "uber";
+  config.lookupValue("template", mapspace_template);
+    
+  if (mapspace_template == "uber")
+  {
+    mapspace = new Uber(config, arch_constraints, arch_specs, workload);
+  }
+  else
+  {
+    std::cerr << "ERROR: unsupported mapspace template: " << mapspace_template << std::endl;
+    exit(-1);
+  }
 
-} // namespace search
+  return mapspace;
+}
+
+} // namespace mapspace
