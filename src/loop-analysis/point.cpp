@@ -1,4 +1,4 @@
-/* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,19 +25,80 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "point.hpp"
 
-#include <string>
-#include <vector>
-
-namespace tiling
+Point::Point(const Point& p) :
+    order_(p.order_),
+    coordinates_(p.coordinates_)
 {
+}
 
-// define the (data-dependent fine-grained) operation types for each type of components
-extern std::vector<std::string> storageOperationTypes;
+Point::Point(std::uint32_t order) :
+    order_(order)
+{
+  coordinates_.resize(order_);
+  Reset();
+}
+  
+// Copy-and-swap idiom.
+Point& Point::operator = (Point other)
+{
+  swap(*this, other);
+  return *this;
+}
 
-extern std::vector<std::string> arithmeticOperationTypes;
+void swap(Point& first, Point& second)
+{
+  using std::swap;
+  swap(first.order_, second.order_);
+  swap(first.coordinates_, second.coordinates_);
+}
 
-extern std::vector<std::string> networkOperationTypes;
+void Point::Reset()
+{
+  std::fill(coordinates_.begin(), coordinates_.end(), 0);
+}
 
-} // namespace
+std::uint32_t Point::Order() const
+{
+  return order_;
+}
+
+Coordinate& Point::operator[] (std::uint32_t i)
+{
+  return coordinates_[i];
+}
+
+const Coordinate& Point::operator[] (std::uint32_t i) const
+{
+  return coordinates_[i];
+}
+
+void Point::IncrementAllDimensions(Coordinate m)
+{
+  for (auto& c : coordinates_)
+    c += m;
+}
+
+// Translation operator.
+Point Point::operator + (Point& other)
+{
+  Point retval(order_);
+  for (unsigned i = 0; i < order_; i++)
+    retval.coordinates_.at(i) = coordinates_.at(i) += other.coordinates_.at(i);
+  return retval;
+}
+
+void Point::Scale(unsigned factor)
+{
+  for (auto& c : coordinates_)
+    c *= factor;
+}
+
+std::ostream& Point::Print(std::ostream& out) const
+{
+  out << "[" << order_ << "]: ";
+  for (auto& c : coordinates_)
+    out << c << " ";
+  return out;
+}

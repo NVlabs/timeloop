@@ -27,9 +27,9 @@
 
 #pragma once
 
-#include <vector>
 #include <cassert>
-#include <iostream>
+
+#include "point.hpp"
 
 // We should have asserts turned on in this code.
 // They aren't very costly and we aren't fully sure if we are doing
@@ -38,112 +38,17 @@
 #define ASSERT(args...) assert(args)
 //#define ASSERT(args...)
 
-#define POINT_SET_GENERIC_SLOW 1
-#define POINT_SET_GENERIC_FAST 2
-#define POINT_SET_4D           3
 #define POINT_SET_AAHR         4
 
 #define POINT_SET_IMPL POINT_SET_AAHR
 
-typedef std::int32_t Coordinate;
-
-class Point
-{
- protected:
-  std::uint32_t order_;
-  std::vector<Coordinate> coordinates_;
-
- public:
-  Point() = delete;
-
-  Point(const Point& p) :
-      order_(p.order_),
-      coordinates_(p.coordinates_)
-  {
-  }
-
-  Point(std::uint32_t order) :
-      order_(order)
-  {
-    coordinates_.resize(order_);
-    Reset();
-  }
-  
-  // Copy-and-swap idiom.
-  Point& operator = (Point other)
-  {
-    swap(*this, other);
-    return *this;
-  }
-
-  friend void swap(Point& first, Point& second)
-  {
-    using std::swap;
-    swap(first.order_, second.order_);
-    swap(first.coordinates_, second.coordinates_);
-  }
-
-  void Reset()
-  {
-    std::fill(coordinates_.begin(), coordinates_.end(), 0);
-  }
-
-  std::uint32_t Order() const { return order_; }
-
-  Coordinate& operator[] (std::uint32_t i)
-  {
-    return coordinates_[i];
-  }
-
-  const Coordinate& operator[] (std::uint32_t i) const
-  {
-    return coordinates_[i];
-  }
-
-  void IncrementAllDimensions(Coordinate m = 1)
-  {
-    for (auto& c : coordinates_)
-      c += m;
-  }
-
-  // Translation operator.
-  Point operator + (Point& other)
-  {
-    Point retval(order_);
-    for (unsigned i = 0; i < order_; i++)
-      retval.coordinates_.at(i) = coordinates_.at(i) += other.coordinates_.at(i);
-    return retval;
-  }
-
-  void Scale(unsigned factor)
-  {
-    for (auto& c : coordinates_)
-      c *= factor;
-  }
-
-  std::ostream& Print(std::ostream& out = std::cout) const
-  {
-    out << "[" << order_ << "]: ";
-    for (auto& c : coordinates_)
-      out << c << " ";
-    return out;
-  }
-};
+#if POINT_SET_IMPL == POINT_SET_AAHR
 
 #include "point-set-aahr.hpp"
-//#include "point-set-generic-slow.hpp"
-//#include "point-set-4d.hpp"
-//#include "point-set-generic-fast.hpp"
-
-#if POINT_SET_IMPL == POINT_SET_AAHR
 typedef AxisAlignedHyperRectangle PointSet;
-#elif POINT_SET_IMPL == POINT_SET_GENERIC_SLOW
-#error fix API error with PointSetGenericSlow
-// typedef PointSetGenericSlow PointSet;
-#elif POINT_SET_IMPL == POINT_SET_4D
-#error fix API error with PointSet4D
-#elif POINT_SET_IMPL == POINT_SET_GENERIC_FAST
-#error fix API error with PointSetGenericFast
+
 #else
+
 #error illegal point set implementation
+
 #endif

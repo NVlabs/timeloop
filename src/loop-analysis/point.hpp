@@ -1,4 +1,4 @@
-/* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,17 +27,39 @@
 
 #pragma once
 
-#include <string>
 #include <vector>
+#include <iostream>
 
-namespace tiling
+typedef std::int32_t Coordinate;
+
+class Point
 {
+ protected:
+  std::uint32_t order_;
+  std::vector<Coordinate> coordinates_;
 
-// define the (data-dependent fine-grained) operation types for each type of components
-extern std::vector<std::string> storageOperationTypes;
+ public:
+  Point() = delete;
+  Point(const Point& p);
+  Point(std::uint32_t order);
+  
+  // Copy-and-swap idiom.
+  Point& operator = (Point other);
+  friend void swap(Point& first, Point& second);
 
-extern std::vector<std::string> arithmeticOperationTypes;
+  void Reset();
 
-extern std::vector<std::string> networkOperationTypes;
+  std::uint32_t Order() const;
 
-} // namespace
+  Coordinate& operator[] (std::uint32_t i);
+  const Coordinate& operator[] (std::uint32_t i) const;
+
+  void IncrementAllDimensions(Coordinate m = 1);
+
+  // Translation operator.
+  Point operator + (Point& other);
+
+  void Scale(unsigned factor);
+
+  std::ostream& Print(std::ostream& out = std::cout) const;
+};
