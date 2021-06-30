@@ -65,39 +65,9 @@ struct ElementState
   // Data density in each spatial element
   // problem::PerDataSpace<problem::DataDensity> data_densities;
 
-  void Reset()
-  {
-    last_point_set.Reset();
-    max_size.fill(0);
-    for (auto& it : accesses)
-    {
-      it.resize(0);
-    }
-    for (auto& it : scatter_factors)
-    {
-      it.resize(0);
-    }
-    for (auto& it : cumulative_hops)
-    {
-      it.resize(0);
-    }
-    for (auto& it : delta_histograms)
-    {
-      it.clear();
-    }
-    link_transfers.fill(0);
+  ElementState();
 
-    for (uint64_t i = 0; i < prev_point_sets.size(); i++)
-    {
-      prev_point_sets[i].resize(0);
-    }
-    prev_point_sets.resize(0);
-  }
-
-  ElementState()
-  {
-    Reset();
-  }
+  void Reset();
 };
 
 // -----------------------------------------------------------------
@@ -110,21 +80,13 @@ class LoopState
   loop::Descriptor descriptor;
   std::vector<ElementState> live_state; // one for each spatial element
 
-  LoopState() {}
+  LoopState();
 
   // Serialization
   friend class boost::serialization::access;
   
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version=0) 
-  {
-    if(version == 0)
-    {
-      ar& BOOST_SERIALIZATION_NVP(level);
-      ar& BOOST_SERIALIZATION_NVP(descriptor);
-    }
-  }
+  void serialize(Archive& ar, const unsigned int version = 0);
 };
-
 
 } // namespace analysis

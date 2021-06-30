@@ -25,35 +25,66 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "loop-state.hpp"
 
-#include <string>
-#include <tuple>
-
-#include "workload/shape-models/problem-shape.hpp"
-#include "workload/workload.hpp"
-#include "compound-config/compound-config.hpp"
-
-namespace problem
+namespace analysis
 {
 
-extern const unsigned kDimensionR;
-extern const unsigned kDimensionS;
-extern const unsigned kDimensionP;
-extern const unsigned kDimensionQ;
-extern const unsigned kDimensionC;
-extern const unsigned kDimensionK;
-extern const unsigned kDimensionN;
+// ---------------------------------------------------------------
+// Live state for a single spatial element in a single loop level.
+// ---------------------------------------------------------------
 
-extern const unsigned kDataSpaceWeight;
-extern const unsigned kDataSpaceInput;
-extern const unsigned kDataSpaceOutput;
-
-Workload::Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
-Workload::Densities GetLayerDensities(std::string layer_name);
-void ReadDensities(std::string filename);
-void DumpDensities(std::string filename);
-void DumpDensities_CPP(std::string filename);
-void ParseConfig(config::CompoundConfigNode problem, Workload& workload);
-
+ElementState::ElementState()
+{
+  Reset();
 }
+
+void ElementState::Reset()
+{
+  last_point_set.Reset();
+  max_size.fill(0);
+  for (auto& it : accesses)
+  {
+    it.resize(0);
+  }
+  for (auto& it : scatter_factors)
+  {
+    it.resize(0);
+  }
+  for (auto& it : cumulative_hops)
+  {
+    it.resize(0);
+  }
+  for (auto& it : delta_histograms)
+  {
+    it.clear();
+  }
+  link_transfers.fill(0);
+
+  for (uint64_t i = 0; i < prev_point_sets.size(); i++)
+  {
+    prev_point_sets[i].resize(0);
+  }
+  prev_point_sets.resize(0);
+}
+
+// -----------------------------------------------------------------
+// Live state for a single loop level (across all spatial elements).
+// -----------------------------------------------------------------
+
+LoopState::LoopState()
+{
+}
+
+template <class Archive>
+void LoopState::serialize(Archive& ar, const unsigned int version)
+{
+  if (version == 0)
+  {
+    ar& BOOST_SERIALIZATION_NVP(level);
+    ar& BOOST_SERIALIZATION_NVP(descriptor);
+  }
+}
+
+
+} // namespace analysis

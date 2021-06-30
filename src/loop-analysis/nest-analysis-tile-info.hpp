@@ -24,26 +24,24 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #pragma once
+
+#include <boost/serialization/vector.hpp>
+
+#include "mapping/loop.hpp"
+#include "workload/util/per-data-space.hpp"
 
 namespace analysis
 {
+
 // data structures for nest-analysis to store datamovement and compute info
 struct DataMovementInfo
 {
-  friend class boost::serialization::access;
-
   // Serialization.
+  friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version=0) 
-  {
-    if(version == 0)
-    {
-      ar& BOOST_SERIALIZATION_NVP(size);
-      ar& BOOST_SERIALIZATION_NVP(accesses);
-      ar& BOOST_SERIALIZATION_NVP(subnest);
-    }
-  }
+  void serialize(Archive& ar, const unsigned int version = 0);
 
   std::size_t size;
   // std::size_t partition_size;
@@ -59,86 +57,30 @@ struct DataMovementInfo
   bool is_on_storage_boundary;
   bool is_master_spatial;
   
-  std::uint64_t GetTotalAccesses() const
-  {
-    return std::accumulate(accesses.begin(), accesses.end(), static_cast<std::uint64_t>(0));
-  }
+  std::uint64_t GetTotalAccesses() const;
   
-  std::uint64_t GetWeightedAccesses() const
-  {
-    std::uint64_t total = 0;
-    for (std::uint32_t i = 0; i < accesses.size(); i++)
-    {
-      total += accesses[i] * (i + 1);
-    }
-    return total;
-  }
+  std::uint64_t GetWeightedAccesses() const;
 
-  void Reset()
-  {
-    size = 0;
-    accesses.resize(0);
-    scatter_factors.resize(0);
-    cumulative_hops.resize(0);
-    link_transfers = 0;
-    subnest.resize(0);
-    replication_factor = 0;
-    fanout = 0;
-    distributed_fanout = 0;
-  }
+  void Reset();
 
-  void Validate()
-  {
-    std::uint64_t f = 0;
-    for (std::uint64_t i = 0; i < fanout; i++)
-    {
-      if (accesses[i] != 0)
-      {
-        auto multicast_factor = i + 1;
-        auto scatter_factor = scatter_factors[i];
-        f += (multicast_factor * scatter_factor);
-      }
-    }
-
-    if (f != fanout)
-    {
-      std::cerr << "ERROR: sigma(multicast * scatter) != fanout." << std::endl;
-      std::cerr << "  dumping (multicast, scatter) pairs:" << std::endl;
-      for (std::uint64_t i = 0; i < fanout; i++)
-      {
-        if (accesses[i] != 0)
-        {
-          auto multicast_factor = i + 1;
-          auto scatter_factor = scatter_factors[i];
-          std::cerr << "    " << multicast_factor << ", " << scatter_factor << std::endl;
-        }
-      }
-      std::cerr << "  sigma(multicast, scatter) = " << f << std::endl;
-      std::cerr << "  fanout = " << fanout << std::endl;
-      exit(1);
-    }
-  }
+  void Validate();
 };
-
 
 struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t accesses;
   
-  ComputeInfo() { Reset(); }
+  ComputeInfo();
 
-  void Reset()
-  {
-    replication_factor = 0;
-    accesses = 0;
-  }
+  void Reset();
 };
 
 // compound tile info types to capture per-dataspace info
 typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest ; 
 typedef std::vector<ComputeInfo> CompoundComputeNest;  // single vector, each element for a nest level, no fine-grained op type should be considered here
-struct CompoundTileNest{
+struct CompoundTileNest
+{
    CompoundDataMovementNest compound_data_movement_info_nest;
    CompoundComputeNest compound_compute_info_nest;
 };

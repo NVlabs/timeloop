@@ -96,8 +96,10 @@ if not os.path.isdir('../src/pat'):
 # Build the model library.
     
 common_sources = Split("""
+loop-analysis/loop-state.cpp
 loop-analysis/tiling.cpp
 loop-analysis/tiling-tile-info.cpp
+loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/sparse-analysis.cpp
 pat/pat.cpp
@@ -127,6 +129,7 @@ compound-config/compound-config.cpp
 
 modellib_sources = common_sources + Split("""
 data/cnn/cnn-layers.cpp
+data/cnn/cnn-densities.cpp
 mapping/mapping.cpp
 mapping/parser.cpp
 """)
