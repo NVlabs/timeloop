@@ -96,12 +96,16 @@ if not os.path.isdir('../src/pat'):
 # Build the model library.
     
 common_sources = Split("""
+loop-analysis/coordinate-space-tile-info.cpp
 loop-analysis/loop-state.cpp
 loop-analysis/tiling.cpp
 loop-analysis/tiling-tile-info.cpp
+loop-analysis/point.cpp
+loop-analysis/point-set-aahr.cpp
 loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/sparse-analysis.cpp
+loop-analysis/operation-type.cpp
 pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp

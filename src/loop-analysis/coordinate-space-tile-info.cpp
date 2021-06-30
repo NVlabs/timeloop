@@ -25,54 +25,80 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-#include "mapping/loop.hpp"
+#include "coordinate-space-tile-info.hpp"
 
 namespace tiling
 {
 
 // additional shape and occupancy constraints added during tiling
-struct ExtraTileConstraintInfo
+void ExtraTileConstraintInfo::Set(const std::uint64_t shape, const std::uint64_t occupancy)
 {
-  std::uint64_t shape_;
-  std::uint64_t occupancy_;
-  bool set_ = false;
+  shape_ = shape;
+  occupancy_ = occupancy;
+  set_ = true;
+}
 
-  void Set(const std::uint64_t shape, const std::uint64_t occupancy);
+std::uint64_t ExtraTileConstraintInfo::GetShape() const
+{
+  return shape_;
+}
 
-  std::uint64_t GetShape() const;
-
-  std::uint64_t GetOccupancy() const;
-};
+std::uint64_t ExtraTileConstraintInfo::GetOccupancy() const
+{
+  return occupancy_;
+}
 
 // interface object between sparse modeling module and density models
 // tells the density models which set of tiles are we looking at
-struct CoordinateSpaceTileInfo
+void CoordinateSpaceTileInfo::Clear()
 {
+  shape_ = 0;
+  subnests_ = {};
+}
 
-  // an operation space mold for coordinate space representation needed for more precise representation
-  // problem::Operation operation_space_mold_;
-  std::vector <loop::Descriptor> subnests_;
-  std::uint64_t shape_;
-  problem::Shape::DataSpaceID dspace_id_;
-  ExtraTileConstraintInfo extra_tile_constraint_;
+void CoordinateSpaceTileInfo::Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id)
+{
+  shape_ = shape;
+  dspace_id_ = data_space_id;
+}
 
-  // for compatibility (there are code segments that do not set the mold yet)
-  // TODO: maks all usage of coord space tile include mold and remove the check
-  bool mold_set_ = false;
+void CoordinateSpaceTileInfo::Set(std::uint64_t shape, std::vector <loop::Descriptor> subnests, problem::Shape::DataSpaceID data_space_id)
+{
+  shape_ = shape;
+  subnests_ = subnests;
+  dspace_id_ = data_space_id;
+}
 
-  void Clear();
+void CoordinateSpaceTileInfo::Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint)
+{
+  shape_ = shape;
+  dspace_id_ = data_space_id;
+  extra_tile_constraint_ = extra_tile_constraint;
+}
 
-  void Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id);
-  void Set(std::uint64_t shape, std::vector <loop::Descriptor> subnests, problem::Shape::DataSpaceID data_space_id);
-  void Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint);
+std::uint64_t CoordinateSpaceTileInfo::GetShape() const
+{
+  return shape_;
+}
 
-  std::uint64_t GetShape() const;
+std::vector <loop::Descriptor> CoordinateSpaceTileInfo::GetSubnests() const
+{ return subnests_; }
 
-  std::vector <loop::Descriptor> GetSubnests() const;
+bool CoordinateSpaceTileInfo::HasExtraConstraintInfo() const
+{
+  return extra_tile_constraint_.set_;
+}
 
-  bool HasExtraConstraintInfo() const;
-  ExtraTileConstraintInfo GetExtraConstraintInfo() const;
-};
+ExtraTileConstraintInfo CoordinateSpaceTileInfo::GetExtraConstraintInfo() const
+{
+  return extra_tile_constraint_;
+}
+
+// void Set(problem::OperationSpace mold, problem::DataSpaceID dspace_id)
+// {
+//   operation_space_mold_ = mold;
+//   dspace_id_ = dspace_id;
+//   mold_set_ = true;
+// }
 
 }
