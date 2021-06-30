@@ -29,18 +29,6 @@
 
 #include "mapping/parser.hpp"
 #include "compound-config/compound-config.hpp"
-#include "util/accelergy_interface.hpp"
-
-#include <fstream>
-
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/bitset.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/xml_iarchive.hpp>
-#include <boost/archive/xml_oarchive.hpp>
 
 //--------------------------------------------//
 //                Application                 //
@@ -56,64 +44,14 @@ class Application
  
  public:
 
-  Application(config::CompoundConfig* config)
-  {
-    auto rootNode = config->getRoot();
-    // Architecture configuration.
-    config::CompoundConfigNode arch;
-    if (rootNode.exists("arch")) {
-      arch = rootNode.lookup("arch");
-    } else if (rootNode.exists("architecture")) {
-      arch = rootNode.lookup("architecture");
-    }
-    arch_specs_ = model::Engine::ParseSpecs(arch);
-
-    if (rootNode.exists("ERT")) {
-      auto ert = rootNode.lookup("ERT");
-      std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
-      arch_specs_.topology.ParseAccelergyERT(ert);
-     
-     if (rootNode.exists("ART")){ // Nellie: well, if the users have the version of Accelergy that generates ART
-          auto art = rootNode.lookup("ART");
-          std::cout << "Found Accelergy ART (area reference table), replacing internal area model." << std::endl;
-          arch_specs_.topology.ParseAccelergyART(art);  
-      }     
-      
-    } else {
-#ifdef USE_ACCELERGY
-      // Call accelergy ERT with all input files
-      if (arch.exists("subtree") || arch.exists("local")) {
-        accelergy::invokeAccelergy(config->inFiles, out_prefix_, ".");
-        std::string ertPath = out_prefix_ + ".ERT.yaml";
-        auto ertConfig = new config::CompoundConfig(ertPath.c_str());
-        auto ert = ertConfig->getRoot().lookup("ERT");
-        arch_specs_.topology.ParseAccelergyERT(ert);
-
-        std::string artPath = out_prefix_ + ".ART.yaml";
-        auto artConfig = new config::CompoundConfig(artPath.c_str());
-        auto art = artConfig->getRoot().lookup("ART");
-        std::cout << "Generate Accelergy ART (area reference table) to replace internal area model." << std::endl;
-        arch_specs_.topology.ParseAccelergyART(art);
-      }
-#endif
-    }
-
-    engine_.Spec(arch_specs_);
-    std::cout << "Architecture configuration complete." << std::endl;
-  }
+  Application(config::CompoundConfig* config);
 
   // This class does not support being copied
   Application(const Application&) = delete;
   Application& operator=(const Application&) = delete;
 
-  ~Application()
-  {
-  }
+  ~Application();
 
-  // Run the evaluation.
-  void Run()
-  {
-    std::cout << engine_ << std::endl;
-  }
+  void Run();
 };
 
