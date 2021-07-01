@@ -55,186 +55,36 @@ class ArchProperties
   std::map<unsigned, std::uint64_t> fanoutY_map_; 
 
  public:
-  ArchProperties()
-  { }
+  ArchProperties();
+  ArchProperties(const model::Engine::Specs& arch_specs);
 
-  ArchProperties(const model::Engine::Specs& arch_specs)
-  {
-    Construct(arch_specs);
-  }
+  void DeriveFanouts();
 
-  void DeriveFanouts()
-  {
-    // Assumption here is that level i always connects to level
-    // i-1 via a 1:1 or fanout network. The network module will
-    // eventually be factored out, at which point we can make the
-    // interconnection more generic and specifiable.
-
-    for (unsigned i = 0; i < specs_.topology.NumStorageLevels(); i++)
-    {
-      std::uint64_t inner_meshX, inner_meshY;
-      std::uint64_t outer_meshX, outer_meshY;
-
-      if (i == 0)
-      {
-        inner_meshX = specs_.topology.GetArithmeticLevel()->meshX.Get();
-        inner_meshY = specs_.topology.GetArithmeticLevel()->meshY.Get();
-      }
-      else
-      {
-        inner_meshX = specs_.topology.GetStorageLevel(i-1)->meshX.Get();
-        inner_meshY = specs_.topology.GetStorageLevel(i-1)->meshY.Get();        
-      }
-
-      outer_meshX = specs_.topology.GetStorageLevel(i)->meshX.Get();
-      outer_meshY = specs_.topology.GetStorageLevel(i)->meshY.Get();        
-
-      if ((inner_meshX % outer_meshX) != 0)
-      {
-        if (i == 0)
-          std::cerr << "inner MACC meshX = " << inner_meshX << std::endl;
-        else
-          std::cerr << "inner " << StorageLevelName(i-1) << " meshX = " << inner_meshX << std::endl;
-        std::cerr << "outer " << StorageLevelName(i) << " meshX = " << outer_meshX << std::endl;
-      }
-
-      if ((inner_meshY % outer_meshY) != 0)
-      {
-        if (i == 0)
-          std::cerr << "inner MACC meshY = " << inner_meshY << std::endl;
-        else
-          std::cerr << "inner " << StorageLevelName(i-1) << " meshY = " << inner_meshY << std::endl;
-        std::cerr << "outer " << StorageLevelName(i) << " meshY = " << outer_meshY << std::endl;
-      }
-
-      assert(inner_meshX % outer_meshX == 0);
-      assert(inner_meshY % outer_meshY == 0);
-
-      fanoutX_map_[i] = inner_meshX / outer_meshX;
-      fanoutY_map_[i] = inner_meshY / outer_meshY;
-    }
-  }
-
-  void Construct(const model::Engine::Specs& arch_specs)
-  {
-    specs_ = arch_specs;
-
-    // Derive fanouts.
-    DeriveFanouts();
-    
-    auto num_storage_levels = specs_.topology.NumStorageLevels();
-    
-    // one temporal partition for each storage level
-    num_temporal_tiling_levels_ = num_storage_levels;
-
-    uint64_t cur_tiling_level = 0;
-    for (uint64_t i = 0; i < num_storage_levels; i++)
-    {
-      // Peek at the fanout in the arch specs to figure out if this is a
-      // purely temporal level, a 1D spatial level or a 2D spatial level.
-
-      // For partitioned levels, we have to look at all partitions. If
-      // any of the partitions have a spatial fanout, then we treat
-      // this as a spatial level.
-      bool is_spatial = (Fanout(i) > 1);
-      bool is_spatial_2D = (FanoutX(i) > 1 && FanoutY(i) > 1);
-
-      if (is_spatial)
-      {
-        // This is a spatial level.
-        spatial_mask_.push_back(true);
-        twoD_spatial_mask_.push_back(is_spatial_2D);
-        spatial_to_tiling_map_[i] = cur_tiling_level;
-        tiling_to_storage_map_[cur_tiling_level] = i;
-        cur_tiling_level++;
-      }
-      
-      // There is always a temporal level
-      spatial_mask_.push_back(false);
-      twoD_spatial_mask_.push_back(false);
-
-      temporal_to_tiling_map_[i] = cur_tiling_level;
-      tiling_to_storage_map_[cur_tiling_level] = i;
-      cur_tiling_level++;      
-    }
-
-    num_total_tiling_levels_ = spatial_mask_.size();
-    assert(twoD_spatial_mask_.size() == num_total_tiling_levels_);    
-  }
+  void Construct(const model::Engine::Specs& arch_specs);
 
   //
   // Accessors.
   //
   
-  std::uint64_t FanoutX(unsigned storage_level_id)
-  {
-    return fanoutX_map_.at(storage_level_id);
-  }
+  std::uint64_t FanoutX(unsigned storage_level_id);
+  std::uint64_t FanoutY(unsigned storage_level_id);
+  std::uint64_t Fanout(unsigned storage_level_id);
   
-  std::uint64_t FanoutY(unsigned storage_level_id)
-  {
-    return fanoutY_map_.at(storage_level_id);
-  }
+  const unsigned& TemporalToTiling(const unsigned l) const;
+  const unsigned& SpatialToTiling(const unsigned l) const;
+  const unsigned& TilingToStorage(const unsigned l) const;
   
-  std::uint64_t Fanout(unsigned storage_level_id)
-  {
-    return fanoutX_map_.at(storage_level_id) * fanoutY_map_.at(storage_level_id);
-  }
-  
-  const unsigned& TemporalToTiling(const unsigned l) const
-  {
-    return temporal_to_tiling_map_.at(l);
-  }
+  unsigned TilingLevels() const;
+  unsigned StorageLevels() const;
 
-  const unsigned& SpatialToTiling(const unsigned l) const
-  {
-    return spatial_to_tiling_map_.at(l);
-  }
+  model::Engine::Specs& Specs();
 
-  const unsigned& TilingToStorage(const unsigned l) const
-  {
-    return tiling_to_storage_map_.at(l);
-  }
-  
-  unsigned TilingLevels() const
-  {
-    return num_total_tiling_levels_;
-  }
-
-  unsigned StorageLevels() const
-  {
-    return specs_.topology.NumStorageLevels();
-  }
-
-  model::Engine::Specs& Specs()
-  {
-    return specs_;
-  }
-
-  bool IsSpatial(int level) const
-  {
-    return spatial_mask_.at(level);
-  }
-
-  bool IsSpatial2D(int level) const
-  {
-    return twoD_spatial_mask_.at(level);
-  }
+  bool IsSpatial(int level) const;
+  bool IsSpatial2D(int level) const;
 
   //
   // Helpers.
   //
-  std::string StorageLevelName(unsigned l) const
-  {
-    return specs_.topology.GetStorageLevel(l)->level_name;
-  }
-
-  std::string TilingLevelName(unsigned l) const
-  {
-    std::string retval;
-    auto& storage_level = TilingToStorage(l);
-    retval = specs_.topology.GetStorageLevel(storage_level)->level_name;
-    retval += IsSpatial(l) ? " (spatial)" : " (temporal)";
-    return retval;
-  }
+  std::string StorageLevelName(unsigned l) const;
+  std::string TilingLevelName(unsigned l) const;
 };
