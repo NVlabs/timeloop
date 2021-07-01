@@ -25,28 +25,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "model/level.hpp"
 
 namespace model
 {
 
-//
-// Module.
-//
-
-class Module
+std::ostream& operator << (std::ostream& out, const Level& level)
 {
- protected:
-  bool is_specced_ = false;
-  bool is_evaluated_ = false;
-
- public:
-  virtual ~Module();
-  bool IsSpecced() const;
-  bool IsEvaluated() const;
-  virtual void Reset();
-};
+  level.Print(out);
+  return out;
+}
 
 } // namespace model
-
-#include "model/attribute.hpp"

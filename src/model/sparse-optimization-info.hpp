@@ -52,7 +52,6 @@ struct ConditionedOnOptimization
   std::vector<problem::Shape::DataSpaceID> condition_on_dspace_ids;
 };
 
-
 struct ActionOptimization
 {
   ActionOptimizationType type;
@@ -79,7 +78,6 @@ typedef std::map<std::string, bool> ComputeOptimizationInfo;
 
 struct PerDataSpaceCompressionInfo
 {
-
   bool tensor_compressed = false; // whether this tensor is a compressed tensor
 
   // user-defined order for applying ranks to loops
@@ -95,29 +93,9 @@ struct PerDataSpaceCompressionInfo
   std::vector <std::shared_ptr<problem::MetaDataFormat>> metadata_models; // pointers to metadata format objs
   double compression_rate; // not very useful yet, placeholder
 
-  bool HasMetaData() const
-  {
-    if (tensor_compressed) return true; // compressed tensor must have metadata
-    if (metadata_models.size() > 1) return true; // intermediate levels must have payloads
-    if (metadata_models.size() == 1 && !metadata_models[0]->MetaDataImplicitAsLowestRank())
-      return true; // single level with metadata
-    return false; // single level default dense
-  }
-
+  bool HasMetaData() const;
   bool FoundDimensionInFlatteningRule(std::uint64_t rank_id, problem::Shape::DimensionID dim_id,
-                                      std::vector<problem::Shape::DimensionID> &rule_item) const
-  {
-    for (auto iter = flattened_rankIDs[rank_id].begin(); iter != flattened_rankIDs[rank_id].end(); iter++)
-    {
-      if (std::find(iter->begin(), iter->end(), dim_id) != iter->end())
-      {
-        rule_item = *iter;
-        return true;
-      }
-    }
-    return false;
-  }
-
+                                      std::vector<problem::Shape::DimensionID> &rule_item) const;
 };
 
 typedef std::map<unsigned, PerDataSpaceCompressionInfo> PerStorageLevelCompressionInfo;
@@ -136,30 +114,9 @@ struct CompressionInfo
   std::vector<bool> compression_supported_masks;
   bool all_ranks_default_dense;
 
-  bool GetDataSpaceCompressionInfo(unsigned level, unsigned pv, PerDataSpaceCompressionInfo &info)
-  {
-    if (has_metadata_masks[level][pv])
-    {
-      info = per_level_info_map[level][pv];
-      return true;
-    }
-    return false;
-  }
-
-  bool GetStorageLevelCompressionInfo(unsigned level, PerStorageLevelCompressionInfo &info)
-  {
-    if (per_level_info_map.find(level) != per_level_info_map.end())
-    {
-      info = per_level_info_map[level];
-      return true;
-    }
-    return false;
-  }
-
-  bool GetDataSpaceCompressed(unsigned level, unsigned pv)
-  {
-    return compressed_masks[level][pv];
-  }
+  bool GetDataSpaceCompressionInfo(unsigned level, unsigned pv, PerDataSpaceCompressionInfo &info);
+  bool GetStorageLevelCompressionInfo(unsigned level, PerStorageLevelCompressionInfo &info);
+  bool GetDataSpaceCompressed(unsigned level, unsigned pv);
 };
 
 //
