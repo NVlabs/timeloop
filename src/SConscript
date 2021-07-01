@@ -109,8 +109,6 @@ loop-analysis/operation-type.cpp
 pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp
-mapping/arch-properties.cpp
-mapping/constraints.cpp
 model/arithmetic.cpp
 model/buffer.cpp
 model/topology.cpp
@@ -138,6 +136,8 @@ data/cnn/cnn-layers.cpp
 data/cnn/cnn-densities.cpp
 mapping/mapping.cpp
 mapping/parser.cpp
+mapping/arch-properties.cpp
+mapping/constraints.cpp
 """)
 
 libenv = env.Clone()
@@ -167,24 +167,26 @@ applications/model/model.cpp
 applications/model/main.cpp
 """)
 
-mapper_sources = Split("""
+mapspace_sources = Split("""
 mapspaces/mapspace-base.cpp
 mapspaces/mapspace-factory.cpp
+mapspaces/subspaces.cpp
+mapspaces/uber.cpp
+""")
+
+mapper_sources = mapspace_sources + Split("""
 search/search-factory.cpp
 applications/mapper/mapper.cpp
 applications/mapper/mapper-thread.cpp
 applications/mapper/main.cpp
 """)
 
-simple_mapper_sources = Split("""
-mapspaces/mapspace-base.cpp
+simple_mapper_sources = mapspace_sources + Split("""
 applications/simple-mapper/simple-mapper.cpp
 applications/simple-mapper/main.cpp
 """)
 
-design_space_sources = Split("""
-mapspaces/mapspace-base.cpp
-mapspaces/mapspace-factory.cpp
+design_space_sources = mapspace_sources + Split("""
 search/search-factory.cpp
 applications/mapper/mapper.cpp
 applications/mapper/mapper-thread.cpp
