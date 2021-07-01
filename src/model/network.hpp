@@ -117,11 +117,7 @@ class Network : public Module
     (void) version;
   }
 
-  friend std::ostream& operator << (std::ostream& out, const Network& network)
-  {
-    network.Print(out);
-    return out;
-  }
+  friend std::ostream& operator << (std::ostream& out, const Network& network);
 
 }; // class Network
 

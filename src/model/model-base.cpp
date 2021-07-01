@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "model/model-base.hpp"
 
 namespace model
 {
@@ -34,19 +34,23 @@ namespace model
 // Module.
 //
 
-class Module
+Module::~Module()
 {
- protected:
-  bool is_specced_ = false;
-  bool is_evaluated_ = false;
+}
 
- public:
-  virtual ~Module();
-  bool IsSpecced() const;
-  bool IsEvaluated() const;
-  virtual void Reset();
-};
+bool Module::IsSpecced() const
+{
+  return is_specced_;
+}
+
+bool Module::IsEvaluated() const
+{
+  return is_evaluated_;
+}
+
+void Module::Reset()
+{
+  is_evaluated_ = false;
+}
 
 } // namespace model
-
-#include "model/attribute.hpp"
