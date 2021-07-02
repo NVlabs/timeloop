@@ -50,7 +50,6 @@ class LinearPrunedSearch : public SearchAlgorithm
     Terminated
   };
   
- private:
   // Config.
   mapspace::MapSpace* mapspace_;
   unsigned id_;
@@ -64,47 +63,6 @@ class LinearPrunedSearch : public SearchAlgorithm
   double best_cost_;
   std::ofstream best_cost_file_;
 
- public:
-  LinearPrunedSearch(config::CompoundConfigNode config, mapspace::MapSpace* mapspace, unsigned id) :
-      SearchAlgorithm(),
-      mapspace_(mapspace),
-      id_(id),
-      state_(State::Ready),
-      valid_mappings_(0),
-      eval_fail_count_(0),
-      best_cost_(0)
-  {
-    (void) config;
-    
-    for (unsigned i = 0; i < unsigned(mapspace::Dimension::Num); i++)
-    {
-      iterator_[i] = 0;
-    }
-
-    // Special case: if the index factorization space has size 0
-    // (can happen with residual mapspaces) then we init in terminated
-    // state.
-    if (mapspace_->Size(mapspace::Dimension::IndexFactorization) == 0)
-    {
-      state_ = State::Terminated;
-    }
-    else
-    {
-      // Prune the mapspace for the first time.
-      mapspace_->InitPruned(0);
-    }
-
-#ifdef DUMP_COSTS
-    // Dump best cost for each index factorization.
-    best_cost_file_.open("/tmp/timeloop-if-cost.txt");
-#endif
-  }
-
-  ~LinearPrunedSearch()
-  {
-    best_cost_file_.close();
-  }
-
   // Order:
   //   DatatypeBypass <- Spatial <- LoopPermutation <- IndexFactorization.
   std::vector<mapspace::Dimension> dim_order_ =
@@ -115,135 +73,16 @@ class LinearPrunedSearch : public SearchAlgorithm
     mapspace::Dimension::IndexFactorization
   };
   
-  bool IncrementRecursive_(int position = 0)
-  {
-    auto dim = dim_order_[position];
-    if (iterator_[unsigned(dim)] + 1 < mapspace_->Size(dim))
-    {
-      // Move to next integer in this mapspace dimension.
-      iterator_[unsigned(dim)]++;
-      if (dim == mapspace::Dimension::IndexFactorization)
-      {
-        // We just changed the index factorization. Prune the sub-mapspace
-        // for this specific factorization index.
-        mapspace_->InitPruned(iterator_[unsigned(dim)]);
+ public:
+  LinearPrunedSearch(config::CompoundConfigNode config, mapspace::MapSpace* mapspace, unsigned id);
 
-#ifdef DUMP_COSTS
-        // Dump the best cost observed for this index factorization.
-        // Note: best_cost_ == 0 implies this was a bad index factorization
-        // that failed mapping. We can choose to not report these, or
-        // grep them out in post-processing.
-        best_cost_file_ << best_cost_ << std::endl;
-#endif
-        
-        // Reset the best cost.
-        best_cost_ = 0;
-      }
-      return true;
-    }
-    // Carry over to next higher-order mapspace dimension.
-    else if (position + 1 < int(mapspace::Dimension::Num))
-    {
-      iterator_[unsigned(dim)] = 0;
-      return IncrementRecursive_(position + 1);
-    }
-    else
-    {
-      // Overflow! We are done.
-      return false;
-    }
-  }
+  ~LinearPrunedSearch();
 
-  bool Next(mapspace::ID& mapping_id)
-  {
-    if (state_ == State::Terminated)
-    {
-      return false;
-    }
+  bool IncrementRecursive_(int position = 0);
 
-    assert(state_ == State::Ready);
+  bool Next(mapspace::ID& mapping_id);
 
-    mapping_id = mapspace::ID(mapspace_->AllSizes());
-    for (unsigned i = 0; i < unsigned(mapspace::Dimension::Num); i++)
-    {
-      mapping_id.Set(i, iterator_[i]);
-    }
-    
-    state_ = State::WaitingForStatus;
-    
-    // std::cerr << "MAPPING ID: IF(" << iterator_[unsigned(mapspace::Dimension::IndexFactorization)]
-    //           << ") P(" << iterator_[unsigned(mapspace::Dimension::LoopPermutation)]
-    //           << ") B(" << iterator_[unsigned(mapspace::Dimension::DatatypeBypass)]
-    //           << ") S(" << iterator_[unsigned(mapspace::Dimension::Spatial)]
-    //           << ")" << std::endl;
-    
-    return true;
-  }
-
-  void Report(Status status, double cost = 0)
-  {
-    assert(state_ == State::WaitingForStatus);
-
-    bool skip_datatype_bypass = false;
-    if (status == Status::Success)
-    {
-      valid_mappings_++;
-
-      if (best_cost_ == 0)
-        best_cost_ = cost;
-      else
-        best_cost_ = std::min(best_cost_, cost);
-    }
-    else if (status == Status::MappingConstructionFailure)
-    {
-      // Accelerate search by invalidating bad spaces.
-      // ConstructMapping failure =>
-      //   Combination of (IF, LP, S) is bad.
-      //   Skip all DBs.
-      skip_datatype_bypass = true;
-    }
-    else if (status == Status::EvalFailure)
-    {
-      // PreEval/Eval failure (capacity) =>
-      //   Combination of (IF, DB) is bad.
-      //   If all DBs cause Eval failure for an IF, then that IF is bad,
-      //   no need to look at other LP, S combinations.
-      eval_fail_count_++;
-    }
-
-    if (iterator_[unsigned(mapspace::Dimension::DatatypeBypass)] + 1 ==
-        mapspace_->Size(mapspace::Dimension::DatatypeBypass))
-    {
-      if (eval_fail_count_ == mapspace_->Size(mapspace::Dimension::DatatypeBypass))
-      {
-        // All DBs failed eval for this combination of IF*LP*S. This means
-        // this IF is bad. Skip to the next IF by fast-forwarding to the end of
-        // this IF.
-        iterator_[unsigned(mapspace::Dimension::Spatial)] =
-          mapspace_->Size(mapspace::Dimension::Spatial) - 1;
-        iterator_[unsigned(mapspace::Dimension::LoopPermutation)] =
-          mapspace_->Size(mapspace::Dimension::LoopPermutation) - 1;
-      }
-      eval_fail_count_ = 0;
-    }
-
-    if (skip_datatype_bypass)
-    {
-      iterator_[unsigned(mapspace::Dimension::DatatypeBypass)] =
-        mapspace_->Size(mapspace::Dimension::DatatypeBypass) - 1;
-    }
-
-    bool mapspace_remaining = IncrementRecursive_();
-
-    if (mapspace_remaining) //  && valid_mappings_ < search_size_)
-    {
-       state_ = State::Ready;
-    }
-    else
-    {
-      state_ = State::Terminated;
-    }
-  }
+  void Report(Status status, double cost = 0);
 };
 
 } // namespace search
