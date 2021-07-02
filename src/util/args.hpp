@@ -29,38 +29,7 @@
 
 #include <vector>
 #include <string>
-#include <sys/stat.h>
 
 bool ParseArgs(int argc, char* argv[],
                std::vector<std::string>& input_files,
-               std::string& output_dir)
-{
-  // Very rudimentary argument parsing. The only recognized pattern is "-o <odir>"
-  // and a set of .yaml or .cfg files.
-  std::vector<std::string> input_args(argv + 1, argv + argc);
-  for (auto arg = input_args.begin(); arg != input_args.end(); arg++)
-  {
-    if (arg->compare("-o") == 0)
-    {
-      arg++;
-      output_dir = *arg;
-      struct stat info;
-      if (stat(output_dir.c_str(), &info) != 0)
-      {
-        std::cerr << "ERROR: cannot access output directory: " << output_dir << std::endl;
-        return false;
-      }
-      else if (!(info.st_mode & S_IFDIR))
-      {
-        std::cerr << "ERROR: non-existent output directory: " << output_dir << std::endl;
-        return false;
-      }
-    }
-    else
-    {
-      input_files.push_back(*arg);
-    }
-  }
-
-  return true;
-}
+               std::string& output_dir);
