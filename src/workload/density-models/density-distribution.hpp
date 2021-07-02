@@ -43,9 +43,9 @@ namespace problem
 //         Density Distribution Specs              //
 //-------------------------------------------------//
 
-struct DensityDistributionSpecs{
-
-  virtual ~DensityDistributionSpecs() { }
+struct DensityDistributionSpecs
+{
+  virtual ~DensityDistributionSpecs();
 
   virtual std::shared_ptr<DensityDistributionSpecs> Clone() const = 0;
 
@@ -57,8 +57,10 @@ struct DensityDistributionSpecs{
   friend class boost::serialization::access;
 
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0){
-    if (version == 0){
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
       ar& BOOST_SERIALIZATION_NVP(type);
     }
   }
@@ -67,16 +69,15 @@ struct DensityDistributionSpecs{
 BOOST_SERIALIZATION_ASSUME_ABSTRACT(DensityDistributionSpecs)
 
 
-
 //-------------------------------------------------//
 //      Density Distribution (base class)          //
 //-------------------------------------------------//
 
-class DensityDistribution{
-
+class DensityDistribution
+{
 public:
   // destructor
-  virtual ~DensityDistribution(){ }
+  virtual ~DensityDistribution();
 
   virtual void SetDensity(const double density) = 0;
 
@@ -100,7 +101,8 @@ public:
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version=0){
+  void serialize(Archive& ar, const unsigned int version=0)
+  {
     (void) ar;
     (void) version;
   }

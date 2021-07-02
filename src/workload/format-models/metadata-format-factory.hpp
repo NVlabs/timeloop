@@ -42,87 +42,14 @@ namespace problem
 // std::vector<std::string> rank_formats = {"u", "b", "rle", "cp", "uop", "ub"};
 
 //-------------------------------------------------//
-//               MetaData Format Factory          //
+//              MetaData Format Factory            //
 //-------------------------------------------------//
 
-class MetaDataFormatFactory{
-
+class MetaDataFormatFactory
+{
 public:
-  static std::shared_ptr<MetaDataFormatSpecs> ParseSpecs(config::CompoundConfigNode metadata_rank_config){
-
-    std::shared_ptr<MetaDataFormatSpecs> specs_ptr;
-    std::string metadata_format_name = "None";
-
-    if (metadata_rank_config.lookupValue("format", metadata_format_name))
-    {
-      if (metadata_format_name == "uop" || metadata_format_name == "UOP")
-      {
-        auto uop_specs = UncompressedOffsetPair::ParseSpecs(metadata_rank_config);
-        specs_ptr = std::make_shared<UncompressedOffsetPair::Specs>(uop_specs);
-      }
-      else if (metadata_format_name == "rle" || metadata_format_name == "RLE")
-      {
-        auto rle_specs = RunLengthEncoding::ParseSpecs(metadata_rank_config);
-        specs_ptr = std::make_shared<RunLengthEncoding::Specs>(rle_specs);
-      }
-      else if (metadata_format_name == "cp" || metadata_format_name == "CP")
-      {
-        auto cp_specs = CoordinatePayload::ParseSpecs(metadata_rank_config);
-        specs_ptr = std::make_shared<CoordinatePayload::Specs>(cp_specs);
-      }
-      else if (metadata_format_name == "ub" || metadata_format_name == "UB")
-      {
-        auto ub_specs = UncompressedBitmask::ParseSpecs(metadata_rank_config);
-        specs_ptr = std::make_shared<UncompressedBitmask::Specs>(ub_specs);
-      }
-      else
-      {
-        std::cerr << "ERROR: parsing specs... unrecognized metadata format name: " << metadata_format_name<< std::endl;
-        exit(1);
-      }
-    }
-
-    return specs_ptr;
-  }
-
-  static std::shared_ptr<MetaDataFormat> Construct(std::shared_ptr<MetaDataFormatSpecs> specs){
-
-    std::shared_ptr<MetaDataFormat> metadata_format_ptr;
-
-    if (specs->Name() == "uop")
-    {
-      auto specs_ptr = *std::static_pointer_cast<UncompressedOffsetPair::Specs>(specs);
-      auto uop_metadata_ptr = std::make_shared<UncompressedOffsetPair>(specs_ptr);
-      metadata_format_ptr = std::static_pointer_cast<MetaDataFormat>(uop_metadata_ptr);
-    }
-    else if (specs->Name() == "rle")
-    {
-      auto specs_ptr = *std::static_pointer_cast<RunLengthEncoding::Specs>(specs);
-      auto rle_metadata_ptr = std::make_shared<RunLengthEncoding>(specs_ptr);
-      metadata_format_ptr = std::static_pointer_cast<MetaDataFormat>(rle_metadata_ptr);
-    }
-    else if (specs->Name() == "cp")
-    {
-      auto specs_ptr = *std::static_pointer_cast<CoordinatePayload::Specs>(specs);
-      auto cp_metadata_ptr = std::make_shared<CoordinatePayload>(specs_ptr);
-      metadata_format_ptr = std::static_pointer_cast<MetaDataFormat>(cp_metadata_ptr);
-    }
-    else if (specs->Name() == "ub")
-    {
-      auto specs_ptr = *std::static_pointer_cast<UncompressedBitmask::Specs>(specs);
-      auto ub_metadata_ptr = std::make_shared<UncompressedBitmask>(specs_ptr);
-      metadata_format_ptr = std::static_pointer_cast<MetaDataFormat>(ub_metadata_ptr);
-    }
-    else
-    {
-      std::cerr << "ERROR: constructing model... unrecognized metadata format name: " << specs->name << std::endl;
-      exit(1);
-    }
-
-    return metadata_format_ptr;
-  }
-
-
+  static std::shared_ptr<MetaDataFormatSpecs> ParseSpecs(config::CompoundConfigNode metadata_rank_config);
+  static std::shared_ptr<MetaDataFormat> Construct(std::shared_ptr<MetaDataFormatSpecs> specs);
 };
 
 

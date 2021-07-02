@@ -130,8 +130,12 @@ util/accelergy_interface.cpp
 workload/shape-models/problem-shape.cpp
 workload/workload.cpp
 workload/shape-models/operation-space.cpp
+workload/density-models/density-distribution.cpp
+workload/density-models/density-distribution-factory.cpp
 workload/density-models/fixed-structured-distribution.cpp
 workload/density-models/hypergeometric-distribution.cpp
+workload/format-models/metadata-format.cpp
+workload/format-models/metadata-format-factory.cpp
 workload/format-models/run-length-encoding.cpp
 workload/format-models/uncompressed-offset-pair.cpp
 workload/format-models/coordinate-payload.cpp

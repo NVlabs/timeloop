@@ -1,5 +1,5 @@
 /* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -25,26 +25,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
-#include "density-distribution.hpp"
-#include "fixed-structured-distribution.hpp"
-#include "hypergeometric-distribution.hpp"
-#include "compound-config/compound-config.hpp"
-
+#include "workload/density-models/density-distribution.hpp"
 
 namespace problem
 {
 
 //-------------------------------------------------//
-//            Density Distribution Factory         //
+//         Density Distribution Specs              //
 //-------------------------------------------------//
 
-class DensityDistributionFactory
+DensityDistributionSpecs::~DensityDistributionSpecs()
 {
- public:
-  static std::shared_ptr<DensityDistributionSpecs> ParseSpecs(config::CompoundConfigNode density_config);
-  static std::shared_ptr<DensityDistribution> Construct(std::shared_ptr<DensityDistributionSpecs> specs);
-};
+}
 
-} // namespace
+//-------------------------------------------------//
+//      Density Distribution (base class)          //
+//-------------------------------------------------//
+
+DensityDistribution::~DensityDistribution()
+{
+}
+
+} // namespace problem
