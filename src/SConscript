@@ -209,14 +209,17 @@ applications/simple-mapper/main.cpp
 design_space_sources = mapspace_sources + search_sources + Split("""
 applications/mapper/mapper.cpp
 applications/mapper/mapper-thread.cpp
+applications/design-space/arch.cpp
+applications/design-space/problem.cpp
+applications/design-space/design-space.cpp
 applications/design-space/main.cpp
 """)
 
 bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
 bin_model = env.Program(target = 'timeloop-model', source = model_sources)
-#bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
+bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
 bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
-#bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
+bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
 
 env.Install(env["BUILD_BASE_DIR"] + '/bin', [ bin_metrics,
                                               bin_model,

@@ -29,7 +29,6 @@
 
 #include <fstream>
 #include <iomanip>
-#include <iostream>
 
 #include "compound-config/compound-config.hpp"
 
@@ -39,8 +38,8 @@ class ProblemSpaceNode
   std::string name_; //descriptive name
   YAML::Node yaml_; //text version of YAML
 
-  ProblemSpaceNode() {}  
-  ProblemSpaceNode(std::string n, YAML::Node p) : name_(n), yaml_(p) {}
+  ProblemSpaceNode();
+  ProblemSpaceNode(std::string n, YAML::Node p);
 };
 
 
@@ -48,45 +47,16 @@ class ProblemSpace
 {
  protected:
   std::string name_;
-
   std::vector<ProblemSpaceNode> problems_;
 
  public:
-
-  ProblemSpace() {}
-  ProblemSpace(std::string n) : name_(n) {}
-
+  ProblemSpace();
+  ProblemSpace(std::string n);
   
-  void InitializeFromFile(std::string filename)
-  {    
-    std::ifstream fin;
-    fin.open(filename);
-    YAML::Node filecontents = YAML::Load(fin);
+  void InitializeFromFile(std::string filename);
+  void InitializeFromFileList(YAML::Node list_yaml);
 
-    ProblemSpaceNode new_problem = ProblemSpaceNode(filename, filecontents);
-    problems_.push_back(new_problem);
-  }
+  int GetSize();
 
-  void InitializeFromFileList(YAML::Node list_yaml)
-  {    
-    //traverse list, create new nodes and push_back
-    for (std::size_t i = 0; i < list_yaml.size(); i++)
-    {
-      std::string filename = list_yaml[i].as<std::string>();
-
-      std::ifstream fin;
-      fin.open(filename);
-      YAML::Node filecontents = YAML::Load(fin);
-      std::cout << "Configuring YAML : " << filename << std::endl;
-      std::cout << "  contents : " << filecontents << std::endl;
- 
-      ProblemSpaceNode new_problem = ProblemSpaceNode(filename, filecontents);
-      problems_.push_back(new_problem);
-    }
-  }
-
-  int GetSize() { return problems_.size(); } 
-
-  ProblemSpaceNode& GetNode(int index) { return problems_[index]; }
-
+  ProblemSpaceNode& GetNode(int index);
 };
