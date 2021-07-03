@@ -25,56 +25,64 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include <iostream>
 
-#include <fstream>
-#include <vector>
-
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/bitset.hpp>
-
-#include "compound-config/compound-config.hpp"
 #include "applications/design-space/problem.hpp"
-#include "applications/design-space/arch.hpp"
-#include "applications/mapper/mapper.hpp"
 
-using namespace config;
-
-struct PointResult
+ProblemSpaceNode::ProblemSpaceNode()
 {
-  std::string config_name_;
-  //Mapping best_mapping_; can't be used due to bug
-  EvaluationResult result_;
+}
   
-  PointResult(std::string name, EvaluationResult result);
-  
-  void PrintEvaluationResultsHeader(std::ostream& out);
-  void PrintEvaluationResult(std::ostream& out);
-};
-
-//--------------------------------------------//
-//                Application                 //
-//--------------------------------------------//
-
-class DesignSpaceExplorer
+ProblemSpaceNode::ProblemSpaceNode(std::string n, YAML::Node p) :
+    name_(n), yaml_(p)
 {
- protected:
+}
 
-  //want a list of files for each workload
-  std::string problemspec_filename_;
-  std::string archspec_filename_;
 
-  std::vector<PointResult> designs_;
-  std::vector<Application*> mappers_;
+ProblemSpace::ProblemSpace()
+{
+}
 
- public:
+ProblemSpace::ProblemSpace(std::string n) :
+    name_(n)
+{
+}
 
-  DesignSpaceExplorer(std::string problemfile, std::string archfile);
+  
+void ProblemSpace::InitializeFromFile(std::string filename)
+{    
+  std::ifstream fin;
+  fin.open(filename);
+  YAML::Node filecontents = YAML::Load(fin);
 
-  // ---------------------------------
-  // Run the design space exploration.
-  // ---------------------------------
-  void Run();
-};
+  ProblemSpaceNode new_problem = ProblemSpaceNode(filename, filecontents);
+  problems_.push_back(new_problem);
+}
+
+void ProblemSpace::InitializeFromFileList(YAML::Node list_yaml)
+{    
+  //traverse list, create new nodes and push_back
+  for (std::size_t i = 0; i < list_yaml.size(); i++)
+  {
+    std::string filename = list_yaml[i].as<std::string>();
+
+    std::ifstream fin;
+    fin.open(filename);
+    YAML::Node filecontents = YAML::Load(fin);
+    std::cout << "Configuring YAML : " << filename << std::endl;
+    std::cout << "  contents : " << filecontents << std::endl;
+ 
+    ProblemSpaceNode new_problem = ProblemSpaceNode(filename, filecontents);
+    problems_.push_back(new_problem);
+  }
+}
+
+int ProblemSpace::GetSize()
+{
+  return problems_.size();
+} 
+
+ProblemSpaceNode& ProblemSpace::GetNode(int index)
+{
+  return problems_[index];
+}
