@@ -31,7 +31,7 @@
 #include <boost/math/distributions/hypergeometric.hpp>
 #include <iostream>
 
-#include "hypergeometric-distribution.hpp"
+#include "workload/density-models/hypergeometric-distribution.hpp"
 
 BOOST_CLASS_EXPORT(problem::HypergeometricDistribution)
 

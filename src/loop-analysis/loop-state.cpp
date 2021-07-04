@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "loop-state.hpp"
+#include "loop-analysis/loop-state.hpp"
 
 namespace analysis
 {

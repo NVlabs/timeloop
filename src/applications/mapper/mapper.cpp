@@ -33,7 +33,7 @@
 
 #include "util/accelergy_interface.hpp"
 
-#include "mapper.hpp"
+#include "applications/mapper/mapper.hpp"
 
 //--------------------------------------------//
 //                Application                 //

@@ -30,7 +30,7 @@
 
 #include "util/accelergy_interface.hpp"
 
-#include "simple-mapper.hpp"
+#include "applications/simple-mapper/simple-mapper.hpp"
 
 //--------------------------------------------//
 //                Application                 //

@@ -30,7 +30,7 @@
 #include <fstream>
 
 #include "workload/shape-models/problem-shape.hpp"
-#include "workload.hpp"
+#include "workload/workload.hpp"
 
 namespace problem
 {

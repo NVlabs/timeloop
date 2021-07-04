@@ -30,7 +30,7 @@
 #include "util/accelergy_interface.hpp"
 #include "util/banner.hpp"
 
-#include "model.hpp"
+#include "applications/model/model.hpp"
 
 //--------------------------------------------//
 //                Application                 //

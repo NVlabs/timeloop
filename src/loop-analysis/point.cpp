@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "point.hpp"
+#include "loop-analysis/point.hpp"
 
 Point::Point(const Point& p) :
     order_(p.order_),

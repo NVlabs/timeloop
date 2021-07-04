@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "simple-mapper.hpp"
+#include "applications/simple-mapper/simple-mapper.hpp"
 #include "compound-config/compound-config.hpp"
 
 bool gTerminate = false;

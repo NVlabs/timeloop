@@ -28,9 +28,8 @@
 #include <cassert>
 #include <sstream>
 
-#include "tiling.hpp"
-#include "operation-type.hpp"
-
+#include "loop-analysis/operation-type.hpp"
+#include "loop-analysis/tiling.hpp"
 
 namespace tiling
 {
