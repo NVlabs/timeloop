@@ -30,7 +30,10 @@ import os
 Import('env')
 
 env.Append(CPPDEFINES = [('BUILD_BASE_DIR', '\\"' + env["BUILD_BASE_DIR"] + '\\"')])
-env.Append(CPPPATH = ['src/include'])
+env.Append(CPPPATH = [os.path.join(env['BUILD_BASE_DIR'], 'include')])
+#env.Append(CPPPATH = ['src/include'])
+#env["CPPPATH"] = ["."]
+
 if GetOption('debug'):
     env.Append(CCFLAGS = ['-g', '-O0'])
 else:
@@ -86,8 +89,6 @@ if "NCURSESPATH" in os.environ:
 
 if GetOption('use_accelergy'):
     env["CPPDEFINES"] += [('USE_ACCELERGY')]
-
-env["CPPPATH"] += ["."]
 
 if not os.path.isdir('../src/pat'):
     print ("ERROR: 'src/pat' not found. Please create a symbolic link to the source code for the power-area-timing model and place it in src/pat. E.g., ln -s pat-public/src/pat src/pat.")

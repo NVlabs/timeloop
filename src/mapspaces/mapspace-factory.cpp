@@ -26,8 +26,7 @@
  */
 
 #include "mapspaces/uber.hpp"
-
-#include "mapspace-factory.hpp"
+#include "mapspaces/mapspace-factory.hpp"
 
 namespace mapspace
 {

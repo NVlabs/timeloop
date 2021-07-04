@@ -35,5 +35,7 @@ AddOption('--accelergy', dest='use_accelergy', default=False, action='store_true
 AddOption('--d', dest='debug', default=False, action='store_true', help='Debug build (default is off)')
 
 env = Environment(ENV = os.environ)
+
 env.Append(BUILD_BASE_DIR = Dir('.').abspath)
+
 env.SConscript('build/SConscript', exports='env')

@@ -25,8 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#include "uncompressed-bitmask.hpp"
+#include "workload/format-models/uncompressed-bitmask.hpp"
 
 namespace problem
 {

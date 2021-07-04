@@ -33,7 +33,7 @@
 BOOST_CLASS_EXPORT(model::ArithmeticUnits)
 
 #include "pat/pat.hpp"
-#include "topology.hpp"
+#include "model/topology.hpp"
 
 namespace model
 {

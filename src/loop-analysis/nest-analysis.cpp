@@ -41,7 +41,7 @@
 
 #include "util/misc.hpp"
 
-#include "nest-analysis.hpp"
+#include "loop-analysis/nest-analysis.hpp"
 
 extern bool gTerminateEval;
 

@@ -29,7 +29,7 @@
 #include <csignal>
 #include <cstring>
 
-#include "model.hpp"
+#include "applications/model/model.hpp"
 #include "compound-config/compound-config.hpp"
 #include "util/args.hpp"
 

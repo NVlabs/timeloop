@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "tiling-tile-info.hpp"
+#include "loop-analysis/tiling-tile-info.hpp"
 
 namespace tiling
 {

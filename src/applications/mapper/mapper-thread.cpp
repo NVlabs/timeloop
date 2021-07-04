@@ -27,7 +27,7 @@
 
 #include <ncurses.h>
 
-#include "mapper-thread.hpp"
+#include "applications/mapper/mapper-thread.hpp"
 
 enum class Betterness
 {

@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "operation-space.hpp"
+#include "workload/shape-models/operation-space.hpp"
 
 namespace problem
 {

@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "mapspace-base.hpp"
+#include "mapspaces/mapspace-base.hpp"
 
 //--------------------------------------------//
 //             Mapspace Dimensions            //

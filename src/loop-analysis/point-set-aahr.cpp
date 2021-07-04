@@ -27,7 +27,7 @@
 
 #include <iostream>
 
-#include "point-set.hpp"
+#include "loop-analysis/point-set.hpp"
 
 // ---------------------------------------------
 //                   Gradient

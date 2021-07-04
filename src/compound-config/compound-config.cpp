@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compound-config.hpp"
+#include "compound-config/compound-config.hpp"
 
 #include <iostream>
 #include <fstream>

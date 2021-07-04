@@ -27,7 +27,7 @@
 
 
 #include "workload/workload.hpp"
-#include "loop.hpp"
+#include "mapping/loop.hpp"
 
 namespace loop
 {

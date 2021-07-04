@@ -29,8 +29,8 @@
 #include <fstream>
 #include <iostream>
 
-#include "cnn-layers.hpp"
-#include "cnn-densities.hpp" 
+#include "data/cnn/cnn-layers.hpp"
+#include "data/cnn/cnn-densities.hpp" 
 
 namespace problem
 {

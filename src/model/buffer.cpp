@@ -40,7 +40,7 @@ BOOST_CLASS_EXPORT(model::BufferLevel)
 #include "util/numeric.hpp"
 #include "util/misc.hpp"
 #include "pat/pat.hpp"
-#include "topology.hpp"
+#include "model/topology.hpp"
 
 namespace model
 {
