@@ -29,7 +29,7 @@
 #include <cstring>
 #include <stdexcept>
 
-#include "accelergy_interface.hpp"
+#include "util/accelergy_interface.hpp"
 
 namespace accelergy
 {

@@ -27,8 +27,8 @@
 
 #include <regex>
 
-#include "parser.hpp"
-#include "arch-properties.hpp"
+#include "mapping/parser.hpp"
+#include "mapping/arch-properties.hpp"
 
 namespace mapping
 {

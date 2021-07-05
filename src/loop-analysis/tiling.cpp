@@ -28,9 +28,9 @@
 #include <cassert>
 #include <sstream>
 
-#include "tiling.hpp"
+#include "loop-analysis/tiling.hpp"
 #include "workload/workload.hpp"
-#include "operation-type.hpp"
+#include "loop-analysis/operation-type.hpp"
 
 namespace tiling
 {

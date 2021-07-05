@@ -25,8 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#include "uncompressed-offset-pair.hpp"
+#include "workload/format-models/uncompressed-offset-pair.hpp"
 
 namespace problem
 {

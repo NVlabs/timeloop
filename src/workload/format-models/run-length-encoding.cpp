@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "run-length-encoding.hpp"
+#include "workload/format-models/run-length-encoding.hpp"
 
 namespace problem
 {

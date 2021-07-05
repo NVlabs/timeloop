@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "operation-type.hpp"
+#include "loop-analysis/operation-type.hpp"
 
 namespace tiling
 {

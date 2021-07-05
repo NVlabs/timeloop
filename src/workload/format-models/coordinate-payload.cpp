@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "coordinate-payload.hpp"
+#include "workload/format-models/coordinate-payload.hpp"
 
 namespace problem
 {

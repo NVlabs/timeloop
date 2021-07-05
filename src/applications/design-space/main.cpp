@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "design-space.hpp"
+#include "applications/design-space/design-space.hpp"
 #include "compound-config/compound-config.hpp"
 
 

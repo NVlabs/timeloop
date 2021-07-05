@@ -28,7 +28,7 @@
 #include "util/numeric.hpp"
 #include "loop-analysis/aahr-carve.hpp"
 
-#include "operation-space.hpp"
+#include "workload/shape-models/operation-space.hpp"
 
 namespace problem
 {

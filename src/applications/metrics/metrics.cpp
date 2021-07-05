@@ -27,7 +27,7 @@
 
 #include "util/accelergy_interface.hpp"
 
-#include "metrics.hpp"
+#include "applications/metrics/metrics.hpp"
 
 //--------------------------------------------//
 //                Application                 //

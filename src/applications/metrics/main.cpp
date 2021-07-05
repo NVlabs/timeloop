@@ -29,7 +29,7 @@
 #include <csignal>
 #include <cstring>
 
-#include "metrics.hpp"
+#include "applications/metrics/metrics.hpp"
 #include "util/banner.hpp"
 
 bool gTerminateEval = false; // FIXME: cleanup.

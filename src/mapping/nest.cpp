@@ -28,7 +28,7 @@
 #include <sstream>
 #include <unordered_set>
 
-#include "nest.hpp"
+#include "mapping/nest.hpp"
 
 namespace loop
 {

@@ -26,9 +26,9 @@
  */
 
 #include <algorithm>
-#include "problem-shape.hpp"
+#include "workload/shape-models/problem-shape.hpp"
 #include "workload/workload.hpp"
-#include "operation-space.hpp"
+#include "workload/shape-models/operation-space.hpp"
 
 namespace problem
 {

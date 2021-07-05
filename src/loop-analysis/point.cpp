@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "point.hpp"
+#include "loop-analysis/point.hpp"
 
 // We really wanted to delete this constructor, but that would mean we can't
 // use DynamicArray<Point> (and consequently PerDataSpace<Point>).

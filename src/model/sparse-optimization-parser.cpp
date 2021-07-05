@@ -27,7 +27,7 @@
 
 #include <cctype>
 #include <stdlib.h>
-#include "sparse-optimization-parser.hpp"
+#include "model/sparse-optimization-parser.hpp"
 #include "mapping/arch-properties.hpp"
 
 namespace sparse

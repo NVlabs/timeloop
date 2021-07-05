@@ -25,7 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "coordinate-space-tile-info.hpp"
+#include "loop-analysis/coordinate-space-tile-info.hpp"
 
 namespace tiling
 {

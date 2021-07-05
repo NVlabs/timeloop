@@ -27,7 +27,7 @@
 
 #include <boost/multiprecision/cpp_int.hpp>
 
-#include "numeric.hpp"
+#include "util/numeric.hpp"
 
 using namespace boost::multiprecision;
 

@@ -25,8 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "sparse-analysis.hpp"
-#include "coordinate-space-tile-info.hpp"
+#include "loop-analysis/sparse-analysis.hpp"
+#include "loop-analysis/coordinate-space-tile-info.hpp"
 
 namespace sparse
 {
