@@ -37,6 +37,18 @@
 namespace problem
 {
 
+extern const unsigned kDimensionR;
+extern const unsigned kDimensionS;
+extern const unsigned kDimensionP;
+extern const unsigned kDimensionQ;
+extern const unsigned kDimensionC;
+extern const unsigned kDimensionK;
+extern const unsigned kDimensionN;
+
+extern const unsigned kDataSpaceWeight;
+extern const unsigned kDataSpaceInput;
+extern const unsigned kDataSpaceOutput;
+
 Workload::FactorizedBounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
 Workload::Densities GetLayerDensities(std::string layer_name);
 void ReadDensities(std::string filename);

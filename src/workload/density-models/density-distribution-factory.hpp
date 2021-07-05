@@ -37,65 +37,14 @@ namespace problem
 {
 
 //-------------------------------------------------//
-//               Density Distribution Factory      //
+//            Density Distribution Factory         //
 //-------------------------------------------------//
 
-class DensityDistributionFactory{
-
-public:
-
-
-  static std::shared_ptr<DensityDistributionSpecs> ParseSpecs(config::CompoundConfigNode density_config){
-
-    std::shared_ptr<DensityDistributionSpecs> specs;
-    std::string distribution_type = "None";
-
-    if (density_config.lookupValue("distribution", distribution_type)) {
-      if (distribution_type == "fixed" || distribution_type == "fixed-structured") {
-        auto fixed__structured_specs = FixedStructuredDistribution::ParseSpecs(density_config);
-        specs = std::make_shared<FixedStructuredDistribution::Specs>(fixed__structured_specs);
-
-      } else if (distribution_type == "hypergeometric"){
-        auto hypergeo_specs = HypergeometricDistribution::ParseSpecs(density_config);
-        specs = std::make_shared<HypergeometricDistribution::Specs>(hypergeo_specs);
-
-      } else {
-        std::cerr << "ERROR: unrecognized density distribution type: " << specs->Type() << std::endl;
-        exit(1);
-      }
-
-    }
-
-    return specs;
-  }
-
-
-  static std::shared_ptr<DensityDistribution> Construct(std::shared_ptr<DensityDistributionSpecs> specs){
-
-    std::shared_ptr<DensityDistribution> density_distribution;
-
-    if (specs->Type() == "fixed" || specs->Type() == "fixed-structured"){
-      auto fixed_specs = *std::static_pointer_cast<FixedStructuredDistribution::Specs>(specs);
-      auto fixed_density_distribution = std::make_shared<FixedStructuredDistribution>(fixed_specs);
-      density_distribution = std::static_pointer_cast<DensityDistribution>(fixed_density_distribution);
-
-    } else if (specs->Type() == "hypergeometric"){
-      auto hypergeo_specs = *std::static_pointer_cast<HypergeometricDistribution::Specs>(specs);
-      auto hypergeo_density_distribution = std::make_shared<HypergeometricDistribution>(hypergeo_specs);
-      density_distribution = std::static_pointer_cast<DensityDistribution>(hypergeo_density_distribution);
-
-    } else {
-      std::cerr << "ERROR: unrecognized density distribution type: " << specs->Type() << std::endl;
-      exit(1);
-    }
-
-    return density_distribution;
-  }
-
-
+class DensityDistributionFactory
+{
+ public:
+  static std::shared_ptr<DensityDistributionSpecs> ParseSpecs(config::CompoundConfigNode density_config);
+  static std::shared_ptr<DensityDistribution> Construct(std::shared_ptr<DensityDistributionSpecs> specs);
 };
-
-
-
 
 } // namespace

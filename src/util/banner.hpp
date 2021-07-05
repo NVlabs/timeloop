@@ -27,12 +27,7 @@
 
 #pragma once
 
-std::vector<std::string> banner =
-{
-  "  _______                __                ",
-  " /_  __(_)___ ___  ___  / /___  ____  ____ ",
-  "  / / / / __ `__ \\/ _ \\/ / __ \\/ __ \\/ __ \\",
-  " / / / / / / / / /  __/ / /_/ / /_/ / /_/ /",
-  "/_/ /_/_/ /_/ /_/\\___/_/\\____/\\____/ .___/ ",
-  "                                  /_/      "
-};
+#include <vector>
+#include <string>
+
+extern const std::vector<std::string> banner;

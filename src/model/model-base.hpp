@@ -27,71 +27,8 @@
 
 #pragma once
 
-#include <iostream>
-#include <iomanip>
-
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-
 namespace model
 {
-
-//
-// Attribute.
-//
-
-template<class T>
-class Attribute
-{
- private:
-  T t_;
-  std::string name_;
-  bool specified_;
-
- public:
-  Attribute() : t_(), name_("NONAME"), specified_(false) {}
-  
-  Attribute(T t) : t_(t), name_("NONAME"), specified_(true) {}
-
-  Attribute(T t, std::string name) : t_(t), name_(name), specified_(true) {}
-  
-  bool IsSpecified() const { return specified_; }
-  
-  T Get() const
-  {
-    assert(specified_);
-    return t_;
-  }
-
-  friend std::ostream& operator << (std::ostream& out, const Attribute& a)
-  {
-    if (a.specified_)
-    {
-      // FIXME: names aren't initialized properly.
-      // out << std::left << std::setw(12) << a.name_;
-      // out << " : ";
-      out << a.t_;
-    }
-    else
-    {
-      out << "-";
-    }
-    return out;
-  }
-
-  // Serialization
-  friend class boost::serialization::access;
-
-  template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0)
-  {
-    if (version == 0)
-    {
-      if (specified_)
-        ar& BOOST_SERIALIZATION_NVP(t_);
-    }
-  }  
-};
 
 //
 // Module.
@@ -104,10 +41,12 @@ class Module
   bool is_evaluated_ = false;
 
  public:
-  virtual ~Module() {}
-  bool IsSpecced() const { return is_specced_; }
-  bool IsEvaluated() const { return is_evaluated_; }
-  virtual void Reset() { is_evaluated_ = false; }
+  virtual ~Module();
+  bool IsSpecced() const;
+  bool IsEvaluated() const;
+  virtual void Reset();
 };
 
 } // namespace model
+
+#include "model/attribute.hpp"

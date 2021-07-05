@@ -68,12 +68,6 @@ struct DataMovementInfo
     }
   }
 
-  std::size_t size; // for backward compatibility TODO: eventually we should use shape
-  std::size_t partition_size;
-  std::size_t compressed_size;
-  bool distributed_multicast;
-  AccessStatMatrix access_stats;
-
   CoordinateSpaceTileInfo coord_space_info;  // carries information such as the shape of the tile, and eventually the point set
   // Information particularly useful for tensors with metadata
   // all of the vectors below should have the same length... which is the fiber tree depth
@@ -82,12 +76,14 @@ struct DataMovementInfo
   std::vector<std::shared_ptr<problem::MetaDataFormat>> metadata_models; // metadata models (if any) for each rank of the tile
   std::vector<bool> rank_compressed; // if each rank is compressed
   std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format, none for uncompressed
-
+  std::size_t size; // for backward compatibility TODO: eventually we should use shape
   std::size_t shape;
   double expected_data_occupancy;
   MetaDataTileOccupancy expected_metadata_occupancy;
   problem::Shape::DataSpaceID dataspace_id ; // which dataspace does this tile belong to
-
+  std::size_t partition_size;
+  bool distributed_multicast;
+  AccessStatMatrix access_stats;
   std::uint64_t content_accesses;
   std::uint64_t fills;
   std::uint64_t reads;
@@ -107,7 +103,6 @@ struct DataMovementInfo
   bool is_master_spatial;
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
-
   // Tile density
   std::shared_ptr<problem::DensityDistribution> tile_density;  // statistical representation of tile data density
   // Fine grained actions, names defined in operation-type.hpp

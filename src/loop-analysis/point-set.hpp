@@ -27,13 +27,17 @@
 
 #pragma once
 
-#include <vector>
 #include <cassert>
-#include <iostream>
 
-#define POINT_SET_GENERIC_SLOW 1
-#define POINT_SET_GENERIC_FAST 2
-#define POINT_SET_4D           3
+#include "point.hpp"
+
+// We should have asserts turned on in this code.
+// They aren't very costly and we aren't fully sure if we are doing
+// the right thing in the code, in particular in new PointSet implementation.
+// Will help us catch some serious bugs for 10% extra runtime.
+#define ASSERT(args...) assert(args)
+//#define ASSERT(args...)
+
 #define POINT_SET_AAHR         4
 #define POINT_SET_MULTI_AAHR   5
 
@@ -47,19 +51,8 @@ typedef MultiAAHR PointSet;
 #include "point-set-aahr.hpp"
 typedef AxisAlignedHyperRectangle PointSet;
 
-#elif POINT_SET_IMPL == POINT_SET_GENERIC_SLOW
-#error fix API error with PointSetGenericSlow
-#include "point-set-generic-slow.hpp"
-typedef PointSetGenericSlow PointSet;
-
-#elif POINT_SET_IMPL == POINT_SET_4D
-#error fix API error with PointSet4D
-#include "point-set-4d.hpp"
-
-#elif POINT_SET_IMPL == POINT_SET_GENERIC_FAST
-#error fix API error with PointSetGenericFast
-#include "point-set-generic-fast.hpp"
-
 #else
+
 #error illegal point set implementation
+
 #endif

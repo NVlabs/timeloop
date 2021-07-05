@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include <unordered_map>
+
 #include "mapping/loop.hpp"
 #include "workload/shape-models/problem-shape.hpp"
 #include "workload/shape-models/operation-space.hpp"
@@ -67,24 +69,9 @@ struct ElementState
   // Data density in each spatial element
   // problem::PerDataSpace<problem::DataDensity> data_densities;
 
-  void Reset()
-  {
-    last_point_set.Reset();
-    last_translations.fill(Point(0));
-    max_size.fill(0);
-    access_stats.clear();
-    for (auto& it : delta_histograms)
-    {
-      it.clear();
-    }
-    link_transfers.fill(0);
-    prev_spatial_deltas.clear();
-  }
+  ElementState();
 
-  ElementState()
-  {
-    Reset();
-  }
+  void Reset();
 };
 
 // -----------------------------------------------------------------
@@ -98,21 +85,13 @@ class LoopState
   // std::vector<ElementState> live_state; // one for each spatial element
   std::map<std::vector<unsigned>, ElementState> live_state;
 
-  LoopState() {}
+  LoopState();
 
   // Serialization
   friend class boost::serialization::access;
   
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version=0) 
-  {
-    if(version == 0)
-    {
-      ar& BOOST_SERIALIZATION_NVP(level);
-      ar& BOOST_SERIALIZATION_NVP(descriptor);
-    }
-  }
+  void serialize(Archive& ar, const unsigned int version = 0);
 };
-
 
 } // namespace analysis

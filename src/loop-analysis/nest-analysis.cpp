@@ -81,6 +81,7 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
 {
   ASSERT(nest != NULL);
   ASSERT(wc != NULL);
+
   ASSERT(fanoutX_map.size() == nest->storage_tiling_boundaries.size());
   ASSERT(fanoutY_map.size() == nest->storage_tiling_boundaries.size());
 

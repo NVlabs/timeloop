@@ -108,28 +108,48 @@ if not os.path.isdir('../src/pat'):
 # Build the model library.
     
 common_sources = Split("""
+loop-analysis/coordinate-space-tile-info.cpp
+loop-analysis/loop-state.cpp
 loop-analysis/tiling.cpp
 loop-analysis/tiling-tile-info.cpp
+loop-analysis/point.cpp
+loop-analysis/point-set-aahr.cpp
+loop-analysis/point-set-multi-aahr.cpp
+loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/aahr-carve.cpp
 loop-analysis/sparse-analysis.cpp
+loop-analysis/operation-type.cpp
 pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp
+model/model-base.cpp
+model/engine.cpp
+model/level.cpp
 model/arithmetic.cpp
 model/buffer.cpp
 model/topology.cpp
+model/network.cpp
+model/network-factory.cpp
 model/network-legacy.cpp
 model/network-reduction-tree.cpp
 model/network-simple-multicast.cpp
+model/sparse-optimization-info.cpp
 model/sparse-optimization-parser.cpp
+util/banner.cpp
+util/args.cpp
 util/numeric.cpp
 util/map2d.cpp
+util/accelergy_interface.cpp
 workload/shape-models/problem-shape.cpp
 workload/workload.cpp
 workload/shape-models/operation-space.cpp
+workload/density-models/density-distribution.cpp
+workload/density-models/density-distribution-factory.cpp
 workload/density-models/fixed-structured-distribution.cpp
 workload/density-models/hypergeometric-distribution.cpp
+workload/format-models/metadata-format.cpp
+workload/format-models/metadata-format-factory.cpp
 workload/format-models/run-length-encoding.cpp
 workload/format-models/uncompressed-offset-pair.cpp
 workload/format-models/coordinate-payload.cpp
@@ -142,8 +162,11 @@ if GetOption('with_isl'):
 
 modellib_sources = common_sources + Split("""
 data/cnn/cnn-layers.cpp
+data/cnn/cnn-densities.cpp
 mapping/mapping.cpp
 mapping/parser.cpp
+mapping/arch-properties.cpp
+mapping/constraints.cpp
 """)
 
 libenv = env.Clone()
@@ -164,25 +187,48 @@ if not GetOption('link_static'):
 # Build the various binaries.
 
 metrics_sources = Split("""
+applications/metrics/metrics.cpp
 applications/metrics/main.cpp
 """)
 
 model_sources = Split("""
+applications/model/model.cpp
 applications/model/main.cpp
 """)
 
-mapper_sources = Split("""
+mapspace_sources = Split("""
 mapspaces/mapspace-base.cpp
+mapspaces/mapspace-factory.cpp
+mapspaces/subspaces.cpp
+mapspaces/uber.cpp
+""")
+
+search_sources = Split("""
+search/search-factory.cpp
+search/exhaustive.cpp
+search/hybrid.cpp
+search/linear-pruned.cpp
+search/random-pruned.cpp
+search/random.cpp
+""")
+
+mapper_sources = mapspace_sources + search_sources + Split("""
+applications/mapper/mapper.cpp
+applications/mapper/mapper-thread.cpp
 applications/mapper/main.cpp
 """)
 
-simple_mapper_sources = Split("""
-mapspaces/mapspace-base.cpp
+simple_mapper_sources = mapspace_sources + Split("""
+applications/simple-mapper/simple-mapper.cpp
 applications/simple-mapper/main.cpp
 """)
 
-design_space_sources = Split("""
-mapspaces/mapspace-base.cpp
+design_space_sources = mapspace_sources + search_sources + Split("""
+applications/mapper/mapper.cpp
+applications/mapper/mapper-thread.cpp
+applications/design-space/arch.cpp
+applications/design-space/problem.cpp
+applications/design-space/design-space.cpp
 applications/design-space/main.cpp
 """)
 
@@ -196,7 +242,8 @@ env.Install(env["BUILD_BASE_DIR"] + '/bin', [ bin_metrics,
                                               bin_model,
                                               bin_simple_mapper,
                                               bin_mapper,
-                                              bin_design_space ])
+                                              bin_design_space
+                                            ])
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))
 #os.symlink(os.path.abspath('timeloop-model'), os.path.abspath('model'))

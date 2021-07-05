@@ -40,165 +40,124 @@
 namespace problem
 {
 
-  //---------------------------------------//
-  //   API with sparse modeling step       //
-  //---------------------------------------//
+//---------------------------------------//
+//   API with sparse modeling step       //
+//---------------------------------------//
 
-  // query struct received from sparse modeling
-  struct MetaDataOccupancyQuery
-   {
-     std::uint64_t max_number_of_fibers;
-     std::uint64_t cur_rank_fiber_shape;
-     tiling::CoordinateSpaceTileInfo cur_rank_coord_tile;
-     tiling::CoordinateSpaceTileInfo next_rank_coord_tile;
-     std::shared_ptr<problem::DensityDistribution> tile_density_ptr;
-     double confidence = 1.0;
+// query struct received from sparse modeling
+struct MetaDataOccupancyQuery
+{
+  std::uint64_t max_number_of_fibers;
+  std::uint64_t cur_rank_fiber_shape;
+  tiling::CoordinateSpaceTileInfo cur_rank_coord_tile;
+  tiling::CoordinateSpaceTileInfo next_rank_coord_tile;
+  std::shared_ptr<problem::DensityDistribution> tile_density_ptr;
+  double confidence = 1.0;
 
-     // constructors
-     MetaDataOccupancyQuery();
-     MetaDataOccupancyQuery(std::uint64_t max_num_of_fibers,
-                            std::uint64_t cur_rank_fiber_shape,
-                            tiling::CoordinateSpaceTileInfo cur_rank_coord_tile,
-                            tiling::CoordinateSpaceTileInfo next_rank_coord_tile,
-                            std::shared_ptr<problem::DensityDistribution> density_ptr):
-                            max_number_of_fibers(max_num_of_fibers),
-                            cur_rank_fiber_shape(cur_rank_fiber_shape),
-                            cur_rank_coord_tile(cur_rank_coord_tile),
-                            next_rank_coord_tile(next_rank_coord_tile),
-                            tile_density_ptr(density_ptr){}
-     MetaDataOccupancyQuery(std::uint64_t max_num_of_fibers,
-                           std::uint64_t cur_rank_fiber_shape,
-                           tiling::CoordinateSpaceTileInfo cur_rank_coord_tile,
-                           tiling::CoordinateSpaceTileInfo next_rank_coord_tile,
-                           std::shared_ptr<problem::DensityDistribution> density_ptr,
-                           double confidence):
-                           max_number_of_fibers(max_num_of_fibers),
-                           cur_rank_fiber_shape(cur_rank_fiber_shape),
-                           cur_rank_coord_tile(cur_rank_coord_tile),
-                           next_rank_coord_tile(next_rank_coord_tile),
-                           tile_density_ptr(density_ptr),
-                           confidence(confidence){}
+  // constructors
+  MetaDataOccupancyQuery();
+  MetaDataOccupancyQuery(std::uint64_t max_num_of_fibers,
+                         std::uint64_t cur_rank_fiber_shape,
+                         tiling::CoordinateSpaceTileInfo cur_rank_coord_tile,
+                         tiling::CoordinateSpaceTileInfo next_rank_coord_tile,
+                         std::shared_ptr<problem::DensityDistribution> density_ptr);
+  MetaDataOccupancyQuery(std::uint64_t max_num_of_fibers,
+                         std::uint64_t cur_rank_fiber_shape,
+                         tiling::CoordinateSpaceTileInfo cur_rank_coord_tile,
+                         tiling::CoordinateSpaceTileInfo next_rank_coord_tile,
+                         std::shared_ptr<problem::DensityDistribution> density_ptr,
+                         double confidence);
 
-     // Getters
-     std::uint64_t MaxNumFibers() const {return max_number_of_fibers;}
-     tiling::CoordinateSpaceTileInfo CurRankCoordTile() const {return cur_rank_coord_tile;}
-     tiling::CoordinateSpaceTileInfo NextRankCoordTile() const {return next_rank_coord_tile;}
-     std::shared_ptr<problem::DensityDistribution> TileDensityPtr() const {return tile_density_ptr;}
-     std::shared_ptr<problem::DensityDistribution> NextRankTileDensityPtr() const {return tile_density_ptr;}
-     std::uint64_t CurRankFiberShape() const {return cur_rank_fiber_shape;}
+  // Getters
+  std::uint64_t MaxNumFibers() const;
+  tiling::CoordinateSpaceTileInfo CurRankCoordTile() const;
+  tiling::CoordinateSpaceTileInfo NextRankCoordTile() const;
+  std::shared_ptr<problem::DensityDistribution> TileDensityPtr() const;
+  std::shared_ptr<problem::DensityDistribution> NextRankTileDensityPtr() const;
+  std::uint64_t CurRankFiberShape() const;
+};
 
-   };
+// occupancy object returned to sparse modeling
+struct PerRankMetaDataTileOccupancy
+{
+  double metadata_units;
+  double payload_units;
+  // if any of the datawidth is -1, it means unspecified but needed, will thus use the hardware attribute later
+  int metadata_width;  // user-specified metadata payload width ( e.g., runlength width for RLE)
+  int payload_width;   // user-specified payload width (memory pointers)
 
-  // occupancy object returned to sparse modeling
-  struct PerRankMetaDataTileOccupancy
+  // Setters
+  void SetEmpty();
+  void SetPayloadUnits(const std::uint64_t units);
+
+  // API
+  double MetaDataUnits() const;
+  double PayloadUnits() const;
+  int MetaDataWidth() const;
+  int PayloadWidth() const;
+  double TotalMetDataAndPayloadUnits() const;
+
+  void Scale(double s);
+  void Add(PerRankMetaDataTileOccupancy m);
+
+  bool IsEmpty();
+
+  // Serialization.
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version = 0)
   {
-    double metadata_units;
-    double payload_units;
-    // if any of the datawidth is -1, it means unspecified but needed, will thus use the hardware attribute later
-    int metadata_width;  // user-specified metadata payload width ( e.g., runlength width for RLE)
-    int payload_width;   // user-specified payload width (memory pointers)
-
-    // Setters
-    void SetEmpty()
+    if (version == 0)
     {
-      metadata_units = 0;
-      payload_units = 0;
-      metadata_width = -1;
-      payload_width = -1;
+      ar& BOOST_SERIALIZATION_NVP(payload_units);
+      ar& BOOST_SERIALIZATION_NVP(metadata_units);
+      ar& BOOST_SERIALIZATION_NVP(payload_width);
+      ar& BOOST_SERIALIZATION_NVP(metadata_width);
     }
-
-    void SetPayloadUnits(const std::uint64_t units)
-    {
-      payload_units = units;
-    }
-
-    // API
-    double MetaDataUnits() const {return metadata_units;}
-    double PayloadUnits() const {return payload_units;}
-    int MetaDataWidth() const {return metadata_width;}
-    int PayloadWidth() const {return payload_width;}
-    double TotalMetDataAndPayloadUnits() const {return metadata_units + payload_units;}
-
-    void Scale( double s)
-    {
-      metadata_units *= s;
-      payload_units *= s;
-    }
-
-    void Add ( PerRankMetaDataTileOccupancy m)
-    {
-      metadata_units += m.MetaDataUnits();
-      payload_units += m.PayloadUnits();
-    }
-
-    bool IsEmpty()
-    {
-      if (MetaDataUnits() == 0 && PayloadUnits() == 0)
-      {
-        return true;
-      }
-      else
-      {
-        return false;
-      }
-    }
-
-    friend class boost::serialization::access;
-
-    // Serialization.
-    template <class Archive>
-    void serialize(Archive& ar, const unsigned int version=0)
-    {
-      if(version == 0)
-      {
-        ar& BOOST_SERIALIZATION_NVP(payload_units);
-        ar& BOOST_SERIALIZATION_NVP(metadata_units);
-        ar& BOOST_SERIALIZATION_NVP(payload_width);
-        ar& BOOST_SERIALIZATION_NVP(metadata_width);
-      }
-    }
-
-  };
+  }
+};
 
 
 //-------------------------------------------------//
-//         MetaData Format Specs                   //
+//             MetaData Format Specs               //
 //-------------------------------------------------//
 
-  struct MetaDataFormatSpecs{
+struct MetaDataFormatSpecs
+{
+  virtual ~MetaDataFormatSpecs();
 
-    virtual ~MetaDataFormatSpecs() { }
+  virtual std::shared_ptr<MetaDataFormatSpecs> Clone() const = 0;
 
-    virtual std::shared_ptr<MetaDataFormatSpecs> Clone() const = 0;
+  virtual const std::string Name() const = 0;
+  virtual bool RankCompressed() const = 0;
+  virtual std::vector<problem::Shape::FactorizedDimensionID> DimensionIDs() const = 0;
 
-    virtual const std::string Name() const = 0;
-    virtual bool RankCompressed() const = 0;
-    virtual std::vector<problem::Shape::FactorizedDimensionID> DimensionIDs() const = 0;
+  std::string name = "UNSET";
 
-    std::string name = "UNSET";
-
-    // Serialization
-    friend class boost::serialization::access;
-
-    template <class Archive>
-    void serialize(Archive& ar, const unsigned int version = 0){
-      if (version == 0){
-        ar& BOOST_SERIALIZATION_NVP(name);
-      }
+  // Serialization
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar& BOOST_SERIALIZATION_NVP(name);
     }
-  };  // struct MetaDataFormatSpecs
+  }
+};  // struct MetaDataFormatSpecs
 
-  BOOST_SERIALIZATION_ASSUME_ABSTRACT(MetaDataFormatSpecs)
+BOOST_SERIALIZATION_ASSUME_ABSTRACT(MetaDataFormatSpecs)
+
 
 //-------------------------------------------------//
-//      MetaDataFormat (base class)          //
+//          MetaDataFormat (base class)            //
 //-------------------------------------------------//
 
-class MetaDataFormat{
-
-public:
+class MetaDataFormat
+{
+ public:
   // destructor
-  virtual ~MetaDataFormat(){}
+  virtual ~MetaDataFormat();
 
   // API
   virtual PerRankMetaDataTileOccupancy GetOccupancy(const MetaDataOccupancyQuery& query) const = 0;
@@ -211,7 +170,8 @@ public:
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version=0){
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
     (void) ar;
     (void) version;
   }

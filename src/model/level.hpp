@@ -103,12 +103,7 @@ class Level : public Module
   virtual std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   
   virtual void Print(std::ostream& out) const = 0;
-
-  friend std::ostream& operator << (std::ostream& out, const Level& level)
-  {
-    level.Print(out);
-    return out;
-  }
+  friend std::ostream& operator << (std::ostream& out, const Level& level);
   
   // Serialization
   friend class boost::serialization::access;

@@ -51,241 +51,29 @@ class Factors
   std::vector<unsigned long> all_factors_;
   std::vector<std::vector<unsigned long>> cofactors_;
 
-  unsigned long ISqrt_(unsigned long x)
-  {
-    register unsigned long op, res, one;
+  unsigned long ISqrt_(unsigned long x);
 
-    op = x;
-    res = 0;
-
-    one = 1 << 30;
-    while (one > op) one >>= 2;
-
-    while (one != 0)
-    {
-      if (op >= res + one)
-      {
-        op -= res + one;
-        res += one << 1;
-      }
-      res >>= 1;
-      one >>= 2;
-    }
-    return res;
-  }
-
-  void CalculateAllFactors_()
-  {
-    all_factors_.clear();
-    for (unsigned long i = 1; i <= ISqrt_(n_); i++)
-    {
-      if (n_ % i == 0)
-      {
-        all_factors_.push_back(i);
-        if (i * i != n_)
-        {
-          all_factors_.push_back(n_ / i);
-        }
-      }
-    }
-  }
+  void CalculateAllFactors_();
 
   // Return a vector of all order-way cofactor sets of n.
-  std::vector<std::vector<unsigned long>> MultiplicativeSplitRecursive_(
-      unsigned long n, int order)
-  {
-    if (order == 0)
-    {
-      return {{}};
-    }
-    else if (order == 1)
-    {
-      return {{n}};
-    }
-    else
-    {
-      std::vector<std::vector<unsigned long>> retval;
-      for (auto factor = all_factors_.begin(); factor != all_factors_.end(); factor++)
-      {
-        // This factor is only acceptable if the residue is divisible by it.
-        if (n % (*factor) == 0)
-        {
-          // Recursive call.
-          std::vector<std::vector<unsigned long>> subproblem =
-              MultiplicativeSplitRecursive_(n / (*factor), order - 1);
-
-          // Append this factor to the end of each vector returned by the
-          // recursive call.
-          for (auto vector = subproblem.begin(); vector != subproblem.end(); vector++)
-          {
-            vector->push_back(*factor);
-          }
-
-          // Add all these appended vectors to my growing vector of vectors.
-          retval.insert(retval.end(), subproblem.begin(), subproblem.end());
-        }
-        else
-        {
-          // Discard this factor.
-        }
-      }
-      return retval;
-    }
-  }
+  std::vector<std::vector<unsigned long>> MultiplicativeSplitRecursive_(unsigned long n, int order);
 
  public:
-  Factors() : n_(0) {}
+  Factors();
+  Factors(const unsigned long n, const int order);
+  Factors(const unsigned long n, const int order, std::map<unsigned, unsigned long> given);
 
-  Factors(const unsigned long n, const int order) : n_(n), cofactors_()
-  {
-    CalculateAllFactors_();
-    cofactors_ = MultiplicativeSplitRecursive_(n, order);
-  }
+  void PruneMax(std::map<unsigned, unsigned long>& max);
 
-  Factors(const unsigned long n, const int order, std::map<unsigned, unsigned long> given)
-      : n_(n), cofactors_()
-  {
-    assert(given.size() <= std::size_t(order));
+  std::vector<unsigned long>& operator[](int index);
 
-    // If any of the given factors is not a factor of n, forcibly reset that to
-    // be a free variable, otherwise accumulate them into a partial product.
-    unsigned long partial_product = 1;
-    for (auto f = given.begin(); f != given.end(); f++)
-    {
-      auto factor = f->second;
-      if (n % (factor * partial_product) == 0)
-      {
-        partial_product *= factor;
-      }
-      else
-      {
-        std::cerr << "WARNING: cannot accept " << factor << " as a factor of " << n
-                  << " with current partial product " << partial_product;
-#define SET_NONFACTOR_TO_FREE_VARIABLE
-#ifdef SET_NONFACTOR_TO_FREE_VARIABLE
-        // Ignore mapping constraint and set the factor to a free variable.
-        std::cerr << ", ignoring mapping constraint and setting to a free variable."
-                  << std::endl;
-        f = given.erase(f);
-#else       
-        // Try to find the next *lower* integer that is a factor of n.
-        // FIXME: there are multiple exceptions that can cause us to be here:
-        // (a) factor doesn't divide into n.
-        // (b) factor does divide into n but causes partial product to exceed n.
-        // (c) factor does divide into n but causes partial product to not
-        //     divide into n.
-        // The following code only solves case (a).
-        std::cerr << "FIXME: please fix this code." << std::endl;
-        assert(false);
-        
-        for (; factor >= 1 && (n % factor != 0); factor--);
-        std::cerr << ", setting this to " << factor << " instead." << std::endl;
-        f->second = factor;
-        partial_product *= factor;
-#endif
-      }
-      assert(n % partial_product == 0);
-    }
+  std::size_t size();
 
-    CalculateAllFactors_();
+  void Print();
+  void PrintAllFactors();
+  void PrintCoFactors();
 
-    cofactors_ = MultiplicativeSplitRecursive_(n / partial_product, order - given.size());
-
-    // Insert the given factors at the specified indices of each of the solutions.
-    for (auto& cofactors : cofactors_)
-    {
-      for (auto& given_factor : given)
-      {
-        // Insert the given factor, pushing all existing factors back.
-        auto index = given_factor.first;
-        auto value = given_factor.second;
-        assert(index <= cofactors.size());
-        cofactors.insert(cofactors.begin() + index, value);
-      }
-    }
-  }
-
-  void PruneMax(std::map<unsigned, unsigned long>& max)
-  {
-    // Prune the vector of cofactor sets by removing those sets that have factors
-    // outside user-specified min/max range. We should really have done this during
-    // MultiplicativeSplitRecursive. However, the "given" map complicates things
-    // because given factors may be scattered, and we'll need a map table to
-    // find the original rank from the "compressed" rank seen by
-    // MultiplicativeSplitRecursive. Doing it now is slower but cleaner and less
-    // bug-prone.
-
-    auto cofactors_it = cofactors_.begin();
-    while (cofactors_it != cofactors_.end())
-    {
-      bool illegal = false;
-      for (auto& max_factor : max)
-      {
-        auto index = max_factor.first;
-        auto max = max_factor.second;
-        assert(index <= cofactors_it->size());
-        auto value = cofactors_it->at(index);
-        if (value > max)
-        {
-          illegal = true;
-          break;
-        }
-      }
-      
-      if (illegal)
-        cofactors_it = cofactors_.erase(cofactors_it);
-      else
-        cofactors_it++;
-    }
-  }
-
-  std::vector<unsigned long>& operator[](int index)
-  {
-    return cofactors_[index];
-  }
-
-  std::size_t size() { return cofactors_.size(); }
-
-  void Print()
-  {
-    PrintAllFactors();
-    PrintCoFactors();
-  }
-
-  void PrintAllFactors()
-  {
-    std::cout << "All factors of " << n_ << ": ";
-    bool first = true;
-    for (auto f = all_factors_.begin(); f != all_factors_.end(); f++) {
-      if (first) {
-        first = false;
-      } else {
-        std::cout << ", ";
-      }
-      std::cout << (*f);
-    }
-    std::cout << std::endl;
-  }
-
-  void PrintCoFactors() { std::cout << *this; }
-
-  friend std::ostream& operator<<(std::ostream& out, const Factors& f) {
-    out << "Co-factors of " << f.n_ << " are: " << std::endl;
-    for (auto cset = f.cofactors_.begin(); cset != f.cofactors_.end(); cset++) {
-      out << "    " << f.n_ << " = ";
-      bool first = true;
-      for (auto i = cset->begin(); i != cset->end(); i++) {
-        if (first) {
-          first = false;
-        } else {
-          out << " * ";
-        }
-        out << (*i);
-      }
-      out << std::endl;
-    }
-    return out;
-  }
+  friend std::ostream& operator<<(std::ostream& out, const Factors& f);
 };
 
 //------------------------------------
@@ -765,10 +553,7 @@ class PatternGenerator128
   uint128_t bound_;
 
  public:
-  PatternGenerator128(uint128_t bound) :
-      bound_(bound)
-  {
-  }
+  PatternGenerator128(uint128_t bound);
 
   virtual uint128_t Next() = 0;
 };
@@ -780,27 +565,9 @@ class SequenceGenerator128 final : public PatternGenerator128
   uint128_t cur_;
 
  public:
-  SequenceGenerator128(uint128_t bound, bool autoloop = true) :
-      PatternGenerator128(bound),
-      autoloop_(autoloop),
-      cur_(0)
-  {
-  }
+  SequenceGenerator128(uint128_t bound, bool autoloop = true);
 
-  uint128_t Next()
-  {
-    auto retval = cur_;
-    if (cur_ == bound_-1)
-    {
-      assert(autoloop_);
-      cur_ = 0;
-    }
-    else
-    {
-      cur_++;
-    }
-    return retval;
-  }
+  uint128_t Next();
 };
 
 class RandomGenerator128 final : public PatternGenerator128
@@ -813,29 +580,9 @@ class RandomGenerator128 final : public PatternGenerator128
   std::uniform_int_distribution<std::uint64_t> high_gen_;
 
  public:
-  RandomGenerator128(uint128_t bound) :
-      PatternGenerator128(bound),
-      use_two_generators_(bound > uint128_t(uint64_max_)),
-      low_gen_(0, use_two_generators_ ? uint64_max_ : (std::uint64_t)(bound - 1)),
-      high_gen_(0, (std::uint64_t)(bound/uint64_max_ - 1))
-  {
-  }
+  RandomGenerator128(uint128_t bound);
 
-  uint128_t Next()
-  {
-    std::uint64_t low = low_gen_(engine_);
-    std::uint64_t high = 0;
-    
-    if (use_two_generators_)
-    {
-      high = high_gen_(engine_);
-    }
-
-    uint128_t rand = low + ((uint128_t)high * uint64_max_);
-    assert(rand < bound_);
-    
-    return rand;
-  }
+  uint128_t Next();
 };
 
 //------------------------------------

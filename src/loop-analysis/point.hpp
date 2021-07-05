@@ -1,4 +1,4 @@
-/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,117 +42,33 @@ class Point
  public:
   // We really wanted to delete this constructor, but that would mean we can't
   // use DynamicArray<Point> (and consequently PerDataSpace<Point>).
-  Point() :
-      order_(0)
-  {
-  }
-
-  Point(const Point& p) :
-      order_(p.order_),
-      coordinates_(p.coordinates_)
-  {
-  }
-
-  Point(std::uint32_t order) :
-      order_(order)
-  {
-    coordinates_.resize(order_);
-    Reset();
-  }
+  Point();
+  Point(const Point& p);
+  Point(std::uint32_t order);
   
   // Copy-and-swap idiom.
-  Point& operator = (Point other)
-  {
-    swap(*this, other);
-    return *this;
-  }
+  Point& operator = (Point other);
+  friend void swap(Point& first, Point& second);
 
-  bool operator == (const Point& other)
-  {
-    if (order_ != other.order_)
-      return false;
+  bool operator == (const Point& other);
 
-    for (unsigned rank = 0; rank < order_; rank++)
-    {
-      if (coordinates_.at(rank) != other.coordinates_.at(rank))
-        return false;
-    }
+  Point DiscardTopRank() const;
+  void AddTopRank(Coordinate x);
 
-    return true;
-  }
+  void Reset();
 
-  Point DiscardTopRank() const
-  {
-    Point p = *this;
-    p.coordinates_.pop_back();
-    p.order_--;
-    return p;
-  }
+  std::uint32_t Order() const;
 
-  void AddTopRank(Coordinate x)
-  {
-    order_++;
-    coordinates_.push_back(x);
-  }
+  Coordinate& operator[] (std::uint32_t i);
+  const Coordinate& operator[] (std::uint32_t i) const;
 
-  friend void swap(Point& first, Point& second)
-  {
-    using std::swap;
-    swap(first.order_, second.order_);
-    swap(first.coordinates_, second.coordinates_);
-  }
-
-  void Reset()
-  {
-    std::fill(coordinates_.begin(), coordinates_.end(), 0);
-  }
-
-  std::uint32_t Order() const { return order_; }
-
-  Coordinate& operator[] (std::uint32_t i)
-  {
-    return coordinates_[i];
-  }
-
-  const Coordinate& operator[] (std::uint32_t i) const
-  {
-    return coordinates_[i];
-  }
-
-  void IncrementAllDimensions(Coordinate m = 1)
-  {
-    for (auto& c : coordinates_)
-      c += m;
-  }
+  void IncrementAllDimensions(Coordinate m = 1);
 
   // Translation operator.
-  Point operator + (Point& other)
-  {
-    Point retval(order_);
-    for (unsigned i = 0; i < order_; i++)
-      retval.coordinates_.at(i) = coordinates_.at(i) += other.coordinates_.at(i);
-    return retval;
-  }
+  Point operator + (Point& other);
 
-  void Scale(unsigned factor)
-  {
-    for (auto& c : coordinates_)
-      c *= factor;
-  }
+  void Scale(unsigned factor);
 
-  std::ostream& Print(std::ostream& out = std::cout) const
-  {
-    out << "[" << order_ << "]: ";
-    for (auto& c : coordinates_)
-      out << c << " ";
-    return out;
-  }
-
-  friend std::ostream& operator << (std::ostream& out, const Point& p)
-  {
-    out << "[" << p.order_ << "]: ";
-    for (auto& c : p.coordinates_)
-      out << c << " ";
-    return out;
-  }
+  std::ostream& Print(std::ostream& out = std::cout) const;
+  friend std::ostream& operator << (std::ostream& out, const Point& p);
 };

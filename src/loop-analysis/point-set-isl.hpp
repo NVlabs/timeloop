@@ -33,7 +33,7 @@
 #include <unordered_map>
 #include <mutex>
 
-#include "point-set-aahr.hpp"
+#include "loop-analysis/point.hpp"
 
 class ISLPointSet
 {
@@ -45,206 +45,38 @@ class ISLPointSet
   std::uint32_t order_;
   isl_set* set_;
 
-  // All AAHRs in the set are guaranteed to be disjoint.
-  // This property must be maintained at all times.
-  std::vector<AxisAlignedHyperRectangle> aahrs_;
-
   // Convert point to isl_point.
-  isl_point* ToISL(const Point p)
-  {
-    auto order = p.Order();
-    isl_space* space = isl_space_set_alloc(Context(), 0, order);
-    isl_point* point = isl_point_zero(space);
-
-    for (unsigned dim = 0; dim < order; dim++)
-    {
-      isl_val* v = isl_val_int_from_si(Context(), p[dim]);
-      point = isl_point_set_coordinate_val(point, isl_dim_set, dim, v);
-    }
-
-    return point;
-  }
+  isl_point* ToISL(const Point p);
 
   // Get the thread-local ISL context.
-  isl_ctx* Context()
-  {
-    mutex.lock();
-    auto thread_id = pthread_self();
-    isl_ctx* retval;
-    auto it = contexts.find(thread_id);
-    if (it == contexts.end())
-    {
-      retval = isl_ctx_alloc();
-      contexts[thread_id] = retval;
-      consoles[thread_id] = isl_printer_to_file(retval, stdout);
-    }
-    else
-    {
-      retval = it->second;
-    }
-    mutex.unlock();
-    return retval;
-  }
+  isl_ctx* Context();
 
  public:
 
-  ~ISLPointSet()
-  {
-    if (set_ != nullptr)
-      isl_set_free(set_);
-  }
-
   ISLPointSet() = delete;
+  ISLPointSet(std::uint32_t order);
+  ISLPointSet(std::uint32_t order, isl_set* set);
+  ISLPointSet(std::uint32_t order, const Point unit);
+  ISLPointSet(std::uint32_t order, const Point min, const Point max);
+  ISLPointSet(const ISLPointSet& a);
 
-  ISLPointSet(std::uint32_t order) :
-      order_(order)
-  {
-    isl_space* space = isl_space_set_alloc(Context(), 0, order);
-    set_ = isl_set_empty(space);
-  }
-
-  ISLPointSet(std::uint32_t order, isl_set* set) :
-      order_(order)
-  {
-    set_ = isl_set_copy(set);
-  }
-
-  ISLPointSet(std::uint32_t order, const Point unit) :
-      order_(order)
-  {
-    // Construct a singleton set.
-    set_ = isl_set_from_point(ToISL(unit));
-  }
-
-  ISLPointSet(std::uint32_t order, const Point min, const Point max) :
-      order_(order)
-  {
-    // Construct an AAHR (or "box" in ISL parlance). Both points are inclusive
-    // in the ISL call, so we need to adjust our max.
-    Point incl_max = max;
-    incl_max.IncrementAllDimensions(-1);
-    set_ = isl_set_box_from_points(ToISL(min), ToISL(incl_max));
-  }
-
-  ISLPointSet(const ISLPointSet& a) :
-      order_(a.order_)
-  {
-    set_ = isl_set_copy(a.set_);
-  }
+  ~ISLPointSet();
 
   // Copy-and-swap idiom.
-  ISLPointSet& operator = (ISLPointSet other)
-  {
-    // Note: the copy constructor fired because this function is call-by value.
-    // This means other now has an isl_copy of the isl_set that was in the
-    // parameter in the function call. The swap() call below will simply swap
-    // the set_ pointers between us and the copy in other, giving us that
-    // pointer. When this function ends, other will be destroyed, calling
-    // isl_set_free on the set_ pointer we were holding (if any).
-    swap(*this, other);
-    return *this;
-  }
+  ISLPointSet& operator = (ISLPointSet other);
+  friend void swap(ISLPointSet& first, ISLPointSet& second);
 
-  friend void swap(ISLPointSet& first, ISLPointSet& second)
-  {
-    using std::swap;
-    swap(first.order_, second.order_);
-    swap(first.set_, second.set_);
-  }
+  std::size_t size() const;
+  bool empty() const;
 
-  std::size_t size() const
-  {
-    isl_set* copy = isl_set_copy(set_);
+  void Reset();
 
-    // Unfortunately, barvinok does not appear to be thread-safe. Even though
-    // we have per-thread context management, we need to wrap this call
-    // with a mutex, which is unfortunate because this call is the most
-    // expensive step in the entire execution.
-    mutex.lock();    
-    isl_pw_qpolynomial* cardinality = isl_set_card(copy);
-    mutex.unlock();
+  ISLPointSet& operator += (const Point& p);
+  ISLPointSet operator - (const ISLPointSet& s);
+  bool operator == (const ISLPointSet& s) const;
 
-    isl_size num_pieces = isl_pw_qpolynomial_n_piece(cardinality);
+  Point GetTranslation(const ISLPointSet& s) const;
+  void Translate(const Point& p);
 
-    ASSERT(num_pieces <= 1);
-
-    size_t size = 0;
-
-    isl_pw_qpolynomial_foreach_piece(
-      cardinality,
-      [ ](__isl_take isl_set* set, __isl_take isl_qpolynomial* qp, void* user)
-      {
-        (void) set;
-
-        isl_val* constant = isl_qpolynomial_get_constant_val(qp);
-        long numerator = isl_val_get_num_si(constant);
-        long denominator = isl_val_get_den_si(constant);
-
-        ASSERT(numerator % denominator == 0);
-        *static_cast<size_t*>(user) += (numerator / denominator);
-
-        isl_set_free(set);
-        isl_qpolynomial_free(qp);
-
-        return isl_stat_ok;
-      },
-      static_cast<void*>(&size));
-
-    return size;
-  }
-
-  bool empty() const
-  {
-    ASSERT(set_ != nullptr);
-    return (isl_set_is_empty(set_) == isl_bool_true);
-  }
-
-  void Reset()
-  {
-    if (set_ != nullptr)
-      isl_set_free(set_);
-    isl_space* space = isl_space_set_alloc(Context(), 0, order_);
-    set_ = isl_set_empty(space);
-  }
-
-  ISLPointSet& operator += (const Point& p)
-  {
-    isl_set* singleton = isl_set_from_point(ToISL(p));
-    set_ = isl_set_union(set_, singleton);
-    return *this;
-  }
-
-  ISLPointSet operator - (const ISLPointSet& s)
-  {
-    // This implementation performs too many copies. FIXME: optimize.
-    isl_set* delta = isl_set_subtract(isl_set_copy(set_), isl_set_copy(s.set_));
-    ISLPointSet retval(order_, delta);
-    return retval;
-  }
-
-  bool operator == (const ISLPointSet& s) const
-  {
-    return (isl_set_is_equal(set_, s.set_) == isl_bool_true);
-  }
-
-  Point GetTranslation(const ISLPointSet& s) const
-  {
-    (void) s;
-    assert(false);
-    return Point(order_);
-  }
-
-  void Translate(const Point& p)
-  {
-    (void) p;
-    assert(false);
-  }
-
-  void Print(std::ostream& out = std::cout) const
-  {
-    (void) out;
-    mutex.lock();
-    consoles.at(pthread_self()) = isl_printer_print_set(consoles.at(pthread_self()), set_);
-    mutex.unlock();
-  }
+  void Print(std::ostream& out = std::cout) const;
 };

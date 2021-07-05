@@ -29,123 +29,54 @@
 #include <map>
 #include <boost/serialization/map.hpp>
 
-  struct AccessStats
-  {
-    std::uint64_t accesses = 0;
-    double hops = 0.0;
+#include <boost/serialization/vector.hpp>
 
-    // Serialization.
-    friend class boost::serialization::access;
-    template <class Archive>
-    void serialize(Archive& ar, const unsigned int version=0) 
+#include "mapping/loop.hpp"
+#include "workload/util/per-data-space.hpp"
+
+struct AccessStats
+{
+  std::uint64_t accesses = 0;
+  double hops = 0.0;
+
+  // Serialization.
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
     {
-      if(version == 0)
-      {
-        ar& BOOST_SERIALIZATION_NVP(accesses);
-        ar& BOOST_SERIALIZATION_NVP(hops);
-      }
+      ar& BOOST_SERIALIZATION_NVP(accesses);
+      ar& BOOST_SERIALIZATION_NVP(hops);
     }
-  };
+  }
+};
 
 struct AccessStatMatrix
 {
   std::map<std::pair<std::uint64_t,std::uint64_t>, AccessStats> stats;
 
-  void clear()
-  {
-    stats.clear();
-  }
+  void clear();
 
-  std::uint64_t TotalAccesses() const
-  {
-    std::uint64_t total = 0;
-    for (auto& x: stats)
-    {
-      total += x.second.accesses;
-    }
-    return total;
-  }
-  
-  std::uint64_t WeightedAccesses() const
-  {
-    std::uint64_t total = 0;
-    for (auto& x: stats)
-    {
-      total += x.second.accesses * x.first.first;
-    }
-    return total;
-  }
+  std::uint64_t TotalAccesses() const;
+  std::uint64_t WeightedAccesses() const;
 
-  void Accumulate(const AccessStatMatrix& other)
-  {
-    for (auto& x: other.stats)
-    {
-      auto multicast = x.first.first;
-      auto scatter = x.first.second;
+  void Accumulate(const AccessStatMatrix& other);
+  void Divide(const std::uint64_t divisor);
 
-      auto& mine = stats[std::make_pair(multicast, scatter)];
-      mine.accesses += x.second.accesses; 
-      mine.hops += x.second.hops; 
-    }
-  }
+  AccessStats& at(std::uint64_t multicast, std::uint64_t scatter);
+  AccessStats& operator () (std::uint64_t multicast, std::uint64_t scatter);
 
-  void Divide(const std::uint64_t divisor)
-  {
-    ASSERT(divisor > 0);
-    for (auto& x: stats)
-    {
-      x.second.accesses /= divisor;
-      x.second.hops /= divisor;
-    }
-  }
+  bool operator == (const AccessStatMatrix& other);
 
-  AccessStats& at(std::uint64_t multicast, std::uint64_t scatter)
-  {
-    return stats.at(std::make_pair(multicast, scatter));
-  }
-
-  AccessStats& operator () (std::uint64_t multicast, std::uint64_t scatter)
-  {
-    return stats[std::make_pair(multicast, scatter)];
-  }
-
-  bool operator == (const AccessStatMatrix& other)
-  {
-    for (auto& x: other.stats)
-    {
-      auto it = stats.find(std::make_pair(x.first.first, x.first.second));
-      if (it == stats.end()) return false;
-      if (it->second.accesses != x.second.accesses) return false;
-      if (it->second.hops != x.second.hops) return false;
-    }
-    for (auto& x: stats)
-    {
-      auto it = other.stats.find(std::make_pair(x.first.first, x.first.second));
-      if (it == other.stats.end()) return false;
-      if (it->second.accesses != x.second.accesses) return false;
-      if (it->second.hops != x.second.hops) return false;
-    }
-    return true;
-  }
-
-  friend std::ostream& operator << (std::ostream& out, const AccessStatMatrix& m)
-  {
-    for (auto& x: m.stats)
-    {
-      auto multicast = x.first.first;
-      auto scatter = x.first.second;
-      out << "    [" << multicast << ", " << scatter << "]: accesses = "
-          << x.second.accesses << " hops = " << x.second.hops << std::endl;
-    }
-    return out;
-  }
+  friend std::ostream& operator << (std::ostream& out, const AccessStatMatrix& m);
 
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version=0) 
+  void serialize(Archive& ar, const unsigned int version = 0)
   {
-    if(version == 0)
+    if (version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(stats);
     }
@@ -154,24 +85,17 @@ struct AccessStatMatrix
 
 namespace analysis
 {
+
 // data structures for nest-analysis to store datamovement and compute info
 struct DataMovementInfo
 {
-
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version=0) 
-  {
-    if(version == 0)
-    {
-      ar& BOOST_SERIALIZATION_NVP(size);
-      ar& BOOST_SERIALIZATION_NVP(access_stats);
-      ar& BOOST_SERIALIZATION_NVP(subnest);
-    }
-  }
+  void serialize(Archive& ar, const unsigned int version = 0);
 
   std::size_t size;
+  // std::size_t partition_size;
   bool distributed_multicast;
   AccessStatMatrix access_stats;
   std::uint64_t link_transfers;
@@ -182,69 +106,26 @@ struct DataMovementInfo
   bool is_on_storage_boundary;
   bool is_master_spatial;
   
-  void Reset()
-  {
-    size = 0;
-    access_stats.clear();
-    link_transfers = 0;
-    subnest.resize(0);
-    replication_factor = 0;
-    fanout = 0;
-    distributed_fanout = 0;
-  }
+  void Reset();
 
-  void Validate()
-  {
-    // std::uint64_t f = 0;
-    // for (std::uint64_t i = 0; i < fanout; i++)
-    // {
-    //   if (accesses[i] != 0)
-    //   {
-    //     auto multicast_factor = i + 1;
-    //     auto scatter_factor = scatter_factors[i];
-    //     f += (multicast_factor * scatter_factor);
-    //   }
-    // }
-
-    // if (f != fanout)
-    // {
-    //   std::cerr << "ERROR: sigma(multicast * scatter) != fanout." << std::endl;
-    //   std::cerr << "  dumping (multicast, scatter) pairs:" << std::endl;
-    //   for (std::uint64_t i = 0; i < fanout; i++)
-    //   {
-    //     if (accesses[i] != 0)
-    //     {
-    //       auto multicast_factor = i + 1;
-    //       auto scatter_factor = scatter_factors[i];
-    //       std::cerr << "    " << multicast_factor << ", " << scatter_factor << std::endl;
-    //     }
-    //   }
-    //   std::cerr << "  sigma(multicast, scatter) = " << f << std::endl;
-    //   std::cerr << "  fanout = " << fanout << std::endl;
-    //   exit(1);
-    // }
-  }
+  void Validate();
 };
-
 
 struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t accesses;
   
-  ComputeInfo() { Reset(); }
+  ComputeInfo();
 
-  void Reset()
-  {
-    replication_factor = 0;
-    accesses = 0;
-  }
+  void Reset();
 };
 
 // compound tile info types to capture per-dataspace info
 typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest ; 
 typedef std::vector<ComputeInfo> CompoundComputeNest;  // single vector, each element for a nest level, no fine-grained op type should be considered here
-struct CompoundTileNest{
+struct CompoundTileNest
+{
    CompoundDataMovementNest compound_data_movement_info_nest;
    CompoundComputeNest compound_compute_info_nest;
 };

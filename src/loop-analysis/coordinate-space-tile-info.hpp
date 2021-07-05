@@ -38,17 +38,11 @@ struct ExtraTileConstraintInfo
   std::uint64_t occupancy_;
   bool set_ = false;
 
-  void Set(const std::uint64_t shape, const std::uint64_t occupancy)
-  {
-    shape_ = shape;
-    occupancy_ = occupancy;
-    set_ = true;
-  }
-  std::uint64_t GetShape() const
-  { return shape_; }
-  std::uint64_t GetOccupancy() const
-  { return occupancy_; }
+  void Set(const std::uint64_t shape, const std::uint64_t occupancy);
 
+  std::uint64_t GetShape() const;
+
+  std::uint64_t GetOccupancy() const;
 };
 
 // interface object between sparse modeling module and density models
@@ -67,60 +61,18 @@ struct CoordinateSpaceTileInfo
   // TODO: maks all usage of coord space tile include mold and remove the check
   bool mold_set_ = false;
 
-  void Clear()
-  {
-    shape_ = 0;
-    subnests_ = {};
-  }
+  void Clear();
 
-  void Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id)
-  {
-    shape_ = shape;
-    dspace_id_ = data_space_id;
-  }
+  void Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id);
+  void Set(std::uint64_t shape, std::vector <loop::Descriptor> subnests, problem::Shape::DataSpaceID data_space_id);
+  void Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint);
 
-  void Set(std::uint64_t shape, std::vector <loop::Descriptor> subnests, problem::Shape::DataSpaceID data_space_id)
-  {
-    shape_ = shape;
-    subnests_ = subnests;
-    dspace_id_ = data_space_id;
-  }
+  std::uint64_t GetShape() const;
 
-  void Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint)
-  {
-    shape_ = shape;
-    dspace_id_ = data_space_id;
-    extra_tile_constraint_ = extra_tile_constraint;
-  }
+  std::vector <loop::Descriptor> GetSubnests() const;
 
-  std::uint64_t GetShape() const
-  {
-    return shape_;
-  }
-
-  std::vector <loop::Descriptor> GetSubnests() const
-  { return subnests_; }
-
-  bool HasExtraConstraintInfo() const
-  {
-    return extra_tile_constraint_.set_;
-  }
-
-  ExtraTileConstraintInfo GetExtraConstraintInfo() const
-  {
-    return extra_tile_constraint_;
-  }
-
+  bool HasExtraConstraintInfo() const;
+  ExtraTileConstraintInfo GetExtraConstraintInfo() const;
 };
 
-// void Set(problem::OperationSpace mold, problem::DataSpaceID dspace_id)
-// {
-//   operation_space_mold_ = mold;
-//   dspace_id_ = dspace_id;
-//   mold_set_ = true;
-// }
-
 }
-
-
-

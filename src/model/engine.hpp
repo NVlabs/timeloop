@@ -27,9 +27,10 @@
 
 #pragma once
 
-#include <stdlib.h>
-
+#include <cstdlib>
 #include <boost/serialization/shared_ptr.hpp>
+#include <boost/archive/xml_iarchive.hpp>
+#include <boost/archive/xml_oarchive.hpp>
 
 #include "model/model-base.hpp"
 #include "model/arithmetic.hpp"
@@ -66,7 +67,7 @@ class Engine : public Module
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version=0)
+  void serialize(Archive& ar, const unsigned int version = 0)
   {
     if (version == 0)
     {
@@ -79,79 +80,22 @@ class Engine : public Module
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting)
-  {
-    Specs specs;
-    std::string version;
+  static Specs ParseSpecs(config::CompoundConfigNode setting);
 
-    if (!setting.exists("version") || (setting.lookupValue("version", version) && (version != "0.2" && version != "0.3"))) {
-      // format used in the ISPASS paper
-      // std::cout << "ParseSpecs" << std::endl;
-      auto arithmetic = setting.lookup("arithmetic");
-      auto topology = setting.lookup("storage");
-      specs.topology = Topology::ParseSpecs(topology, arithmetic);
-    } else {
-      // format used in Accelergy v0.2/v0.3
-      // std::cout << "ParseTreeSpecs" << std::endl;
-      specs.topology = Topology::ParseTreeSpecs(setting);
-    }
+  void Spec(Specs specs);
 
-    return specs;
-  }
+  const Topology& GetTopology() const;
 
-  void Spec(Specs specs)
-  {
-    specs_ = specs;
-    topology_.Spec(specs.topology);
-    is_specced_ = true;
-  }
+  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true);
 
-  const Topology& GetTopology() const { return topology_; }
-
-  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true)
-  {
-    nest_analysis_.Init(&workload, &mapping.loop_nest, mapping.fanoutX_map, mapping.fanoutY_map);
-    return topology_.PreEvaluationCheck(mapping, &nest_analysis_, sparse_optimizations, break_on_failure);
-  }
-
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true)
-  {
-    nest_analysis_.Init(&workload, &mapping.loop_nest, mapping.fanoutX_map, mapping.fanoutY_map);
-    
-    auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, sparse_optimizations, break_on_failure);
-
-    is_evaluated_ = std::accumulate(eval_status.begin(), eval_status.end(), true,
-                                    [](bool cur, const EvalStatus& status)
-                                    { return cur && status.success; });
-
-    return eval_status;
-  }
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true);
   
-  double Energy() const
-  {
-    return topology_.Energy();
-  }
+  double Energy() const;
+  double Area() const;
+  std::uint64_t Cycles() const;
+  double Utilization() const;
 
-  double Area() const
-  {
-    return topology_.Area();
-  }
-
-  std::uint64_t Cycles() const
-  {
-    return topology_.Cycles();
-  }
-
-  double Utilization() const
-  {
-    return topology_.Utilization();
-  }
-
-  friend std::ostream& operator << (std::ostream& out, Engine& engine)
-  {
-    out << engine.topology_;
-    return out;
-  }
+  friend std::ostream& operator << (std::ostream& out, Engine& engine);
 };
 
 } // namespace model

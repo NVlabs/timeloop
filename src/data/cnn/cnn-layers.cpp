@@ -30,6 +30,7 @@
 #include <iostream>
 
 #include "cnn-layers.hpp"
+#include "cnn-densities.hpp" 
 
 namespace problem
 {
@@ -689,11 +690,6 @@ std::ostream& operator << (std::ostream& out, Workload::FactorizedBounds& bounds
   return out;
 }
 
-// ===============================================
-//                   Densities
-// ===============================================
-#include "cnn-densities.hpp" 
-
 const std::map<uint32_t, uint32_t> nearest_composite = {
   {11, 12}, {13, 15}, {27, 28}, {55, 56}, {57, 60}};
 
@@ -726,101 +722,6 @@ Workload::FactorizedBounds GetLayerBounds(std::string layer_name, bool pad_prime
   }
 
   return prob;
-}
-
-// Function to get the layer density from a layer name.
-Workload::Densities GetLayerDensities(std::string layer_name)
-{
-  std::map<Shape::DataSpaceID, double> avg_dens;
-  Workload::Densities dens;
-  try
-  {
-    avg_dens = densities.at(layer_name);
-    for (unsigned d = 0; d < GetShape()->NumDataSpaces; d++){
-      YAML::Node ynode;
-      ynode["distribution"] = "fixed";
-      ynode["density"] = avg_dens;
-      auto density_specs = problem::DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode(nullptr, ynode,
-                                                                                                      new config::CompoundConfig("dummy.yaml")));
-      dens[d]= problem::DensityDistributionFactory::Construct(density_specs);
-    }
-
-  }
-  catch (const std::out_of_range& oor)
-  {
-    std::cerr << "Out of Range error: " << oor.what() << std::endl;
-    std::cerr << "Layer " << layer_name << " not found in dictionary." << std::endl;
-    exit(1);
-  }
-
-  return dens;
-}
-
-// Read CSV files
-void ReadDensities(std::string filename)
-{
-  std::ifstream file(filename);
-  std::string buf;
-
-  while (getline(file, buf, ','))
-  {
-    std::string layer = buf;
-    
-    getline(file, buf, ',');
-    densities.at(layer).at(kDataSpaceWeight) = atof(buf.data());
-
-    getline(file, buf, ',');
-    densities.at(layer).at(kDataSpaceInput) = atof(buf.data());
-
-    getline(file, buf);
-    densities.at(layer).at(kDataSpaceOutput) = atof(buf.data());
-  }
-
-  file.close();
-}
-
-// Dump densities.
-void DumpDensities(std::string filename)
-{
-  std::ofstream file(filename);
-
-  for (auto & layer : densities)
-  {
-    file << layer.first << ", ";
-    file << layer.second.at(kDataSpaceWeight) << ", ";
-    file << layer.second.at(kDataSpaceInput) << ", ";
-    file << layer.second.at(kDataSpaceOutput) << std::endl;
-  }
-
-  file.close();
-}
-
-// Dump densities.
-void DumpDensities_CPP(std::string filename)
-{
-  std::ofstream file(filename);
-
-  // file << "#include \"cnn-layers.hpp\"" << std::endl;
-  // file << std::endl;
-
-  // file << "const unsigned kDataSpaceWeight = " << kDataSpaceWeight << ";" << std::endl;
-  // file << "const unsigned kDataSpaceInput = " << kDataSpaceInput << ";" << std::endl;
-  // file << "const unsigned kDataSpaceOutput = " << kDataSpaceOutput << ";" << std::endl;
-  // file << std::endl;
-  
-  file << "std::map<std::string, Workload::Densities> densities = {" << std::endl;
-  
-  for (auto & layer : densities)
-  {
-    file << "{\"" << layer.first << "\"," << std::endl;
-    file << "  {{" << "kDataSpaceWeight, " << layer.second.at(kDataSpaceWeight) << "}," << std::endl;
-    file << "   {" << "kDataSpaceInput, " << layer.second.at(kDataSpaceInput) << "}, " << std::endl;
-    file << "   {" << "kDataSpaceOutput, " << layer.second.at(kDataSpaceOutput) << "}}}," << std::endl;
-  }
-
-  file << "};" << std::endl;
-  
-  file.close();
 }
 
 // Libconfig Parsers.
