@@ -224,9 +224,9 @@ bin_design_space = env.Program(target = 'timeloop-design-space', source = design
 
 env.Install(env["BUILD_BASE_DIR"] + '/bin', [ bin_metrics,
                                               bin_model,
-                                              #bin_simple_mapper,
+                                              bin_simple_mapper,
                                               bin_mapper,
-                                              #bin_design_space
+                                              bin_design_space
                                             ])
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))
