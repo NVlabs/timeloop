@@ -28,7 +28,6 @@
 
 #include <map>
 #include <boost/serialization/map.hpp>
-
 #include <boost/serialization/vector.hpp>
 
 #include "mapping/loop.hpp"
@@ -36,7 +35,7 @@
 
 struct AccessStats
 {
-  std::uint64_t accesses = 0;
+  double accesses = 0;
   double hops = 0.0;
 
   // Serialization.
@@ -58,8 +57,8 @@ struct AccessStatMatrix
 
   void clear();
 
-  std::uint64_t TotalAccesses() const;
-  std::uint64_t WeightedAccesses() const;
+  double TotalAccesses() const;
+  double WeightedAccesses() const;
 
   void Accumulate(const AccessStatMatrix& other);
   void Divide(const std::uint64_t divisor);
@@ -98,7 +97,7 @@ struct DataMovementInfo
   // std::size_t partition_size;
   bool distributed_multicast;
   AccessStatMatrix access_stats;
-  std::uint64_t link_transfers;
+  double link_transfers;
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t fanout;                  // per-element fanout to next-level.

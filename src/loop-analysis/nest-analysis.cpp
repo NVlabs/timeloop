@@ -1031,6 +1031,10 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   ComputeAccurateMulticastedAccesses(cur, spatial_deltas, unaccounted_delta,
                                      access_stats_without_link_transfers);
 
+  // *** FIXME *** for Read-Write data spaces, we must check if hardware
+  // reduction is supported by the child level. If not, we cannot perform
+  // link transfers.
+
   if (gEnableLinkTransfers && linked_spatial_level_[level])
   {
     // Reset unaccounted delta, and now count with link transfers.
@@ -1371,7 +1375,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
   // delta data, then populate the new access stats.
   struct TempAccessStats
   {
-    std::uint64_t accesses = 0;
+    double accesses = 0;
     std::uint64_t scatter_factor = 0;
     double hops = 0.0;
   };

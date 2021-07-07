@@ -82,6 +82,7 @@ struct DataMovementInfo
   MetaDataTileOccupancy expected_metadata_occupancy;
   problem::Shape::DataSpaceID dataspace_id ; // which dataspace does this tile belong to
   std::size_t partition_size;
+  double parent_access_share;
   bool distributed_multicast;
   AccessStatMatrix access_stats;
   std::uint64_t content_accesses;
@@ -91,10 +92,11 @@ struct DataMovementInfo
   std::uint64_t metadata_updates;
   std::uint64_t metadata_fills;
   std::uint64_t metadata_reads;
-  std::uint64_t temporal_reductions;
-  std::uint64_t link_transfers;
-  std::uint64_t peer_accesses;           // number of accesses caused by link transfers in the previous level 
-  std::uint64_t peer_fills;              // number of fills caused by link transfers in the previous level
+  double temporal_reductions;
+  double link_transfers;
+  double peer_accesses;           // number of accesses caused by link transfers in the previous level 
+  double peer_fills;              // number of fills caused by link transfers in the previous level
+
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t fanout;                  // per-element fanout to next-level.

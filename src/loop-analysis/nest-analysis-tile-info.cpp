@@ -36,9 +36,9 @@ void AccessStatMatrix::clear()
   stats.clear();
 }
 
-std::uint64_t AccessStatMatrix::TotalAccesses() const
+double AccessStatMatrix::TotalAccesses() const
 {
-  std::uint64_t total = 0;
+  double total = 0;
   for (auto& x: stats)
   {
     total += x.second.accesses;
@@ -46,9 +46,9 @@ std::uint64_t AccessStatMatrix::TotalAccesses() const
   return total;
 }
   
-std::uint64_t AccessStatMatrix::WeightedAccesses() const
+double AccessStatMatrix::WeightedAccesses() const
 {
-  std::uint64_t total = 0;
+  double total = 0;
   for (auto& x: stats)
   {
     total += x.second.accesses * x.first.first;
