@@ -35,6 +35,10 @@
 namespace tiling
 {
 
+bool gUpdatedRMW =
+  (getenv("TIMELOOP_ENABLE_UPDATED_RMW") != NULL) &&
+  (strcmp(getenv("TIMELOOP_ENABLE_UPDATED_RMW"), "0") != 0);
+
 bool operator < (const DataMovementInfo& a, const DataMovementInfo& b)
 {
   // Logic doesn't matter as long as we provide a way to detect inequality.
@@ -230,6 +234,22 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
       // the inner content was accessed.
       x.second.accesses = tile_nest[cur].content_accesses * scatter_factor;
 
+      // If a child level gets masked out, all _its_ children will now make
+      // accesses to the parent. This means the link transfers are pointless – all
+      // the data will be directly accessed at the parent. For RMW data spaces, if
+      // the child level disappears (remember, it must have supported in-place
+      // reduction) but the parent doesn’t support reduction, the grandchildren
+      // must perform the fill-reduce-update cycle. Therefore, reduction
+      // processing must happen after masking. Note that parents store the link
+      // transfer counts for children. We don't have to check if outer==cur+1.
+      tile_nest[outer].link_transfers = 0;
+
+      // If a parent level gets masked out, we keep the link transfer stats
+      // intact (as part of the network stats, which don’t get wiped out on being
+      // masked). During peer transfer computation we’ll update child stats based
+      // on these network stats. This means that in this code, we don't have to
+      // check on our children.
+
       // Note: partition size for outer does not change.
     }
 
@@ -238,9 +258,9 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     tile_nest[cur].shape = 0;
     tile_nest[cur].partition_size = 0;
     tile_nest[cur].content_accesses = 0;
-    tile_nest[cur].fills = 0;
+    tile_nest[cur].parent_access_share = 0;
 
-    // It appears fills are not affected by masking (FIXME: verify).
+    // It appears parent access share is not affected by masking (FIXME: verify).
   }
 
   // std::cout << "***** AFTER *****" << std::endl;
@@ -335,23 +355,22 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
 #endif
 }
 
-// Compute Fills.
-void ComputeFills(std::vector<DataMovementInfo>& tile_nest)
+// Compute parent access share.
+void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
 {
   int num_tiling_levels = tile_nest.size();
 
   for (int cur = 0; cur < num_tiling_levels; cur++)
   {
-    
     // Skip if this tile level has 0 size or 0 accesses.
     if (tile_nest[cur].size == 0)
     {
       continue;
     }
 
-    // Initialize fills to 0.
-    tile_nest[cur].fills = 0;
-    
+    // Initialize parent_access_share to 0.
+    tile_nest[cur].parent_access_share = 0;
+   
     // Find next (outer) non-zero level.
     int outer;
     for (outer = cur + 1; outer < num_tiling_levels && tile_nest[outer].size == 0; outer++)
@@ -361,7 +380,11 @@ void ComputeFills(std::vector<DataMovementInfo>& tile_nest)
 
     if (outer == num_tiling_levels)
     {
-      // No outer tiling level.
+      if (gUpdatedRMW)
+      {
+        // No outer tiling level: parent access share is my partition size.
+        tile_nest[cur].parent_access_share = tile_nest[cur].partition_size;
+      }
       continue;
     }
 
@@ -381,15 +404,16 @@ void ComputeFills(std::vector<DataMovementInfo>& tile_nest)
       auto multicast_factor = x.first.first;
       auto accesses = x.second.accesses;
 
-      // We were using an older formula of fills = (accesses / scatter). However,
-      // Link transfers and irregular sets result in fanout != (multicast * scatter)
-      // so we use a new formula: fills = (accesses * multicast) / fanout. This calculates
-      // an *average* number of fills per child instance (the reality is that some child
-      // instances, such as edge instances, will receive more parent fills).      
-      tile_nest[cur].fills += (accesses * multicast_factor) / tile_nest[outer].fanout;
+      // We were using an older formula of parent_access_share = (accesses / scatter).
+      // However, Link transfers and irregular sets result in fanout != (multicast * scatter)
+      // so we use a new formula: parent_access_share = (accesses * multicast) / fanout.
+      // This calculates an *average* number of parent_access_share per child instance (the
+      // reality is that some child instances, such as edge instances, will receive more
+      // parent_access_share).      
+      tile_nest[cur].parent_access_share += (accesses * multicast_factor) / tile_nest[outer].fanout;
     }
 
-    // assert(tile_nest[cur].fills <= tile_nest[cur].GetTotalAccesses());
+    // assert(tile_nest[cur].parent_access_share <= tile_nest[cur].GetTotalAccesses());
   }
 
 }
@@ -430,6 +454,11 @@ void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
   {
     if (tile_nest[cur].link_transfers != 0)
     {
+      // We don't have to find the next-inner level, it's guaranteed to be
+      // cur-1. If cur-1 were bypassed, our link_transfers would have been
+      // reset to 0.
+      assert(tile_nest[cur-1].size > 0);
+
       // FIXME: For now our assumption is that all spatial units in a level
       // are responsible for all peer communication, even though there can be
       // some optimizations. For example, one read for PE x is multicast to
@@ -449,8 +478,7 @@ void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
 }
 
 // FIXME: check the if logic for hardware reduction support is still in the loop
-
-void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv)
+void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv)
 {
   // Loop through all levels and update reads, writes, updates.
   //
@@ -486,7 +514,7 @@ void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest
       // std::cout << "  reads = " << tile_nest[cur].reads << std::endl << std::endl;
 
       tile_nest[cur].updates = tile_nest[cur].content_accesses;
-      tile_nest[cur].fills = tile_nest[cur].fills + tile_nest[cur].peer_fills;
+      tile_nest[cur].fills = tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills;
       //tile.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
 
       // FIXME: temporal reduction and network costs if hardware reduction isn't
@@ -501,7 +529,7 @@ void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest
     {
       tile_nest[cur].reads = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses;
       tile_nest[cur].updates = 0;
-      tile_nest[cur].fills = tile_nest[cur].fills + tile_nest[cur].peer_fills;
+      tile_nest[cur].fills = tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills;
       //tile.address_generations = tile.reads + tile.fills; // scalar
       tile_nest[cur].temporal_reductions = 0;
     }
@@ -510,6 +538,116 @@ void ComputeReadUpdateReductionAccesses(std::vector<DataMovementInfo>& tile_nest
   return;
 }
 
+// Split the accesses to read and update and generate reduction.
+void ComputeReadUpdateReductionAccesses_UpdatedRMW(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv)
+{
+  // Loop through all levels and update reads, writes, updates.
+  //
+  int num_tiling_levels = tile_nest.size();
+
+  // UGGGGGHHHH.... this entire code is hard-coded to assume that the outermost
+  // level does not support hardware reduction and all other levels support
+  // hardware reduction. We do have the makings of a generalized algorithm to
+  // propagate reductions into inner levels but it is not finalized yet.
+  bool outermost_found = false;
+  bool second_outer_found = false;
+
+  for (int cur = num_tiling_levels-1; cur >= 0; cur--)
+  {
+    if (tile_nest[cur].size == 0)
+    {
+      // This level was bypassed.
+      tile_nest[cur].reads = 0;
+      tile_nest[cur].updates = 0;
+      tile_nest[cur].fills = 0;
+      //tile.address_generations = tile.reads + tile.fills0; // scalar
+      tile_nest[cur].temporal_reductions = 0;
+      continue;
+    }
+
+// #define BYPASS_LAST_UPDATE
+
+    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    {
+      // Start with the general case: hardware reduction supported.
+      tile_nest[cur].fills = 0;
+      tile_nest[cur].reads = tile_nest[cur].content_accesses - tile_nest[cur].parent_access_share;
+      tile_nest[cur].temporal_reductions = tile_nest[cur].content_accesses - tile_nest[cur].parent_access_share;
+      tile_nest[cur].updates = tile_nest[cur].content_accesses;
+#ifdef BYPASS_LAST_UPDATE
+      tile_nest[cur].updates -= tile_nest[cur].parent_access_share;
+#endif
+
+      // std::cout << "--------------------------------\n";
+      // std::cout << "Level " << cur << std::endl;
+      // std::cout << "  reads = trs = updates = " << tile_nest[cur].reads << std::endl;
+
+      if (cur == num_tiling_levels-1)
+      {
+        // No hardware reduction support.
+        tile_nest[cur].temporal_reductions = 0;
+        // std::cout << "  DRAM level, setting trs = 0\n";
+      }
+
+      if (!outermost_found)
+      {
+#ifdef BYPASS_LAST_UPDATE
+        tile_nest[cur].updates += tile_nest[cur].parent_access_share;
+#endif
+        // std::cout << "  outermost level, updates = " << tile_nest[cur].updates << std::endl;
+      }
+
+      if (outermost_found && !second_outer_found)
+      {
+        // Second-outer: perform reductions on behalf of outermost level.
+        auto tax = tile_nest[cur].parent_access_share - tile_nest[cur].partition_size;
+        tile_nest[cur].fills += tax;
+        tile_nest[cur].reads += tax;
+        tile_nest[cur].temporal_reductions += tax;
+        second_outer_found = true;
+
+        // std::cout << "  GBuf, adding parent tax = " << tax << std::endl;
+        // std::cout << "  updated fills = " << tile_nest[cur].fills << std::endl;
+        // std::cout << "  updated reads = " << tile_nest[cur].reads << std::endl;
+        // std::cout << "  updated trs = " << tile_nest[cur].temporal_reductions << std::endl;
+      }
+
+      // Accumulate peer accesses.
+      if (tile_nest[cur].peer_accesses > 0)
+      {
+        ASSERT(tile_nest[cur].peer_accesses >= tile_nest[cur].partition_size);
+        tile_nest[cur].reads += tile_nest[cur].peer_accesses - tile_nest[cur].partition_size;
+        tile_nest[cur].temporal_reductions += tile_nest[cur].peer_accesses - tile_nest[cur].partition_size;
+        tile_nest[cur].updates += tile_nest[cur].peer_accesses;
+#ifdef BYPASS_LAST_UPDATE
+        tile_nest[cur].updates -= tile_nest[cur].partition_size;
+#endif
+      }
+
+      // std::cout << "  +peer reads, updated = " << tile_nest[cur].reads << std::endl;
+      // std::cout << "  +peer trs, updated = " << tile_nest[cur].temporal_reductions << std::endl;
+      // std::cout << "  +peer updates, updated = " << tile_nest[cur].updates << std::endl;
+    }
+    else // Read-only data type.
+    {
+      tile_nest[cur].reads = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses;
+      tile_nest[cur].updates = 0;
+      if (!outermost_found)
+        tile_nest[cur].fills = tile_nest[cur].peer_fills;
+      else
+        tile_nest[cur].fills = tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills;
+      //tile.address_generations = tile.reads + tile.fills; // scalar
+      tile_nest[cur].temporal_reductions = 0;
+    }
+
+    if (!outermost_found)
+    {
+      outermost_found = true;
+    }
+  }
+
+  return;
+}
 
 void ComputeWorkloadTensorSizes(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv, problem::Workload* workload){
    if (! workload->IsWorkloadTensorSizesSet()){
@@ -694,8 +832,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     // Compute partition sizes.
     ComputePartitionSizes(solution[pv]);
 
-    // Calculate fills.
-    ComputeFills(solution[pv]);
+    // Calculate share of parent accesses (used to compute fills).
+    ComputeParentAccessShare(solution[pv]);
 
     // Mask each solution according to the provided bit mask.
     MaskTiles(solution[pv], tile_mask[pv]);
@@ -710,13 +848,16 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     // Calculate the extra accesses and fills due to link transfers
     ComputePeerAccesses(solution[pv]);
 
-    // split the accesses to read and update and generate reduction
-    ComputeReadUpdateReductionAccesses(solution[pv], pv);
+    // Split the accesses to read and update and generate reduction.
+    if (gUpdatedRMW)
+      ComputeReadUpdateReductionAccesses_UpdatedRMW(solution[pv], pv);
+    else
+      ComputeReadUpdateReductionAccesses_Legacy(solution[pv], pv);
 
-    // calculate workload tensor size
+    // Calculate workload tensor size.
     ComputeWorkloadTensorSizes(solution[pv], pv, workload);
 
-    // find the parent and child levels for later compression/decompression logic
+    // Find the parent and child levels for later compression/decompression logic.
     SetParentLevel(solution[pv]);
     SetChildLevel(solution[pv]);
 
