@@ -156,7 +156,8 @@ void NestAnalysis::Reset()
   working_sets_computed_ = false;
   imperfectly_factorized_ = false;
 
-  compute_info_.Reset();
+  // compute_info_.Reset();
+  compute_info_.clear();
   compute_info_sets_.clear();
 
   loop_gists_temporal_.clear();
@@ -241,7 +242,6 @@ analysis::CompoundComputeNest NestAnalysis::GetComputeInfo()
     ComputeWorkingSets();
   }
   ASSERT(working_sets_computed_);
-  //return compute_info_;
   return compute_info_sets_;
 }
 
@@ -304,7 +304,8 @@ void NestAnalysis::InitializeLiveState()
   indices_.resize(nest_state_.size());
   spatial_id_ = 0;
   
-  compute_info_.Reset();
+  // compute_info_.Reset();
+  compute_info_.clear();
   compute_info_sets_.clear();
 
   for (auto loop = nest_state_.rbegin(); loop != nest_state_.rend(); loop++)
@@ -330,6 +331,14 @@ void NestAnalysis::InitializeLiveState()
     // }
     loop->live_state.clear();
   }
+}
+
+// Helpers.
+std::ostream& operator << (std::ostream& out, const std::vector<unsigned>& v)
+{
+  out << "/";
+  for (auto& x: v) out << x << "/";
+  return out;
 }
 
 void PrintStamp(const std::vector<unsigned>& v)
@@ -474,14 +483,26 @@ void NestAnalysis::CollectWorkingSets()
   {
     // All spatial levels that are not a master-spatial level are not valid
     bool valid_level = !loop::IsSpatial(cur.descriptor.spacetime_dimension) || master_spatial_level_[cur.level];
-    if (valid_level){
-      if(!innermost_level_compute_info_collected){
+    if (valid_level)
+    {
+      if (!innermost_level_compute_info_collected)
+      {
         analysis::ComputeInfo compute_info;
         compute_info.replication_factor = num_spatial_elems_[cur.level] * spatial_fanouts_[cur.level];
-        compute_info.accesses = compute_info_.accesses;
+
+        double avg_accesses = 0;
+        for (auto& info: compute_info_)
+        {
+          avg_accesses += info.second.accesses;
+        }
+        avg_accesses /= compute_info_.size();
+
+        compute_info.accesses = avg_accesses;
         compute_info_sets_.push_back(compute_info);
         innermost_level_compute_info_collected = true;
-      } else {  // if not the inner most level
+      }
+      else
+      { // if not the inner most level
         analysis::ComputeInfo compute_info;
         compute_info.replication_factor = 0;
         compute_info.accesses = 0;
@@ -489,6 +510,7 @@ void NestAnalysis::CollectWorkingSets()
       } // inner most
     } // valid level
   }
+
 }
 
 // All but last vector.
@@ -606,14 +628,17 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // Above this level range, we use the transform problem-point to
   // translate, rotate or otherwise transform the mold.
 
-  auto loop_dim = cur->descriptor.dimension;
-  auto& mold_high = IsLastGlobalIteration_(level+1, loop_dim) ?
-    mold_high_residual_[level] : mold_high_[level];
+  // auto loop_dim = cur->descriptor.dimension;
+  // auto& mold_high = IsLastGlobalIteration_(level+1, loop_dim) ?
+  //   mold_high_residual_[level] : mold_high_[level];
 
   for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumFlattenedDimensions); dim++)
   {
     low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
-    high_problem_point[dim] = cur_transform_[dim] + mold_high[dim];
+    // high_problem_point[dim] = cur_transform_[dim] + mold_high[dim];
+    high_problem_point[dim] = cur_transform_[dim] + (IsLastGlobalIteration_(level+1, dim) ?
+                                                     mold_high_residual_[level][dim] :
+                                                     mold_high_[level][dim]);
   }
 
   // Compute the polyhedron between the low and high problem
@@ -722,16 +747,17 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
   bool dump = false; // (level >= 4);
 
+  int end = IsLastGlobalIteration_(level+1, cur->descriptor.dimension) ?
+    cur->descriptor.residual_end : cur->descriptor.end;
+
   // First, update loop gist. FIXME: handle base!=0, stride!=1.
   ASSERT(cur->descriptor.start == 0);
   ASSERT(cur->descriptor.stride == 1);
-  loop_gists_temporal_[cur->descriptor.dimension] = { 0, cur->descriptor.end };
+  loop_gists_temporal_[cur->descriptor.dimension] = { 0, end };
   
   //
   // Step II: Compute Accesses by accumulating deltas returned by inner levels.
   //
-  int end = IsLastGlobalIteration_(level+1, cur->descriptor.dimension) ?
-    cur->descriptor.residual_end : cur->descriptor.end;
 
   std::uint64_t num_iterations = 1 + ((end - 1 - cur->descriptor.start) /
                                       cur->descriptor.stride);
@@ -739,13 +765,18 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
   if (level == 0) // base
   {
     auto body_iterations = num_iterations * num_epochs_;
-    // macs_ += body_iterations;
-    if (spatial_id_ == 0)
-    {
-      // To avoid double counting of compute_cycles when there are multiple PEs.
-      // compute_cycles_ += body_iterations;
-      compute_info_.accesses += body_iterations;
-    }
+
+    // If all spatial indices were uniform then we can simply increment the
+    // compute count at a representative spatial ID (e.g., 0) with the present
+    // value of num_epochs_. That's what this commented-out code used to do.
+    // However, we now handle non-uniformity due to several reasons, which is
+    // why we need to update the compute count of a specific skewed spatial ID.
+
+    // if (spatial_id_ == 0)
+    // {
+    //   compute_info_.accesses += body_iterations;
+    // }
+    compute_info_[AllButLast(space_stamp_)].accesses += body_iterations;
 
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
@@ -968,7 +999,9 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   
   // Check if the expected number of spatial_deltas was updated by
   // recursive calls.
-  ASSERT(spatial_deltas.size() == num_spatial_elems);
+  ASSERT(spatial_deltas.size() <= num_spatial_elems);
+  // The above assertion used to be ==, but that condition may not hold if the
+  // mapping uses imperfect factorization in a spatial loop.
 
   // Restore spatial_id_ to original value.
   spatial_id_ /= num_spatial_elems;
@@ -1161,14 +1194,14 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
   int level = cur->level;
   auto dim = cur->descriptor.dimension;
 
-  // First, update loop gist. FIXME: handle base!=0, stride!=1.
-  ASSERT(cur->descriptor.start == 0);
-  ASSERT(cur->descriptor.stride == 1);
-  loop_gists_spatial_[cur->descriptor.dimension] = { 0, cur->descriptor.end };
-  
   int end = IsLastGlobalIteration_(level+1, cur->descriptor.dimension) ?
     cur->descriptor.residual_end : cur->descriptor.end;
 
+  // First, update loop gist. FIXME: handle base!=0, stride!=1.
+  ASSERT(cur->descriptor.start == 0);
+  ASSERT(cur->descriptor.stride == 1);
+  loop_gists_spatial_[cur->descriptor.dimension] = { 0, end };
+  
   // base_index determines which element of spatial_deltas
   // is going to be updated at the last recursive call to FillSpatialDeltas.
   // It's value is updated as we recursively call FillSpatialDeltas.
@@ -1178,14 +1211,21 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
   if (level == 0)
   {
-    // std::uint64_t body_iterations = (end - cur->descriptor.start) * num_epochs_;
-    // macs_ += body_iterations;
-    // to avoid double counting of compute_cycles_
-    if (base_index == 0 && spatial_id_ == 0)
-    {
-      // compute_cycles_ += num_epochs_;
-      compute_info_.accesses += num_epochs_;
-    }
+    // Level 0 is a spatial loop.
+
+    // Compute update.
+
+    // If all spatial indices were uniform then we can simply increment the
+    // compute count at a representative spatial ID (e.g., 0) with the present
+    // value of num_epochs_. That's what this commented-out code used to do.
+    // However, we now handle non-uniformity due to several reasons, which is
+    // why we need to update the compute count of each spatial ID independently
+    // after applying a skew.
+
+    // if (base_index == 0 && spatial_id_ == 0)
+    // {
+    //   compute_info_.accesses += num_epochs_;
+    // }
 
     // No more recursive calls, directly update spatial_deltas.
     for (indices_[level] = cur->descriptor.start;
@@ -1206,6 +1246,9 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       spatial_deltas[skewed_delta_index] = problem::OperationSpace(workload_);
       spatial_deltas[skewed_delta_index] += IndexToOperationPoint_(indices_);
       //valid_delta[skewed_delta_index] = true;
+
+      space_stamp_.back() = skewed_delta_index;
+      compute_info_[space_stamp_].accesses += num_epochs_;
 
       // FIXME: add log.
     }

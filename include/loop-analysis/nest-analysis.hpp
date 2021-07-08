@@ -58,7 +58,7 @@ class NestAnalysis
   std::uint64_t spatial_id_;
   
   CompoundDataMovementNest working_sets_;
-  ComputeInfo compute_info_;  
+  std::map<std::vector<unsigned>, ComputeInfo> compute_info_;
   CompoundComputeNest compute_info_sets_;
 
   // Memoization structures to accelerate IndexToOperationPoint()
