@@ -409,8 +409,11 @@ void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
       // so we use a new formula: parent_access_share = (accesses * multicast) / fanout.
       // This calculates an *average* number of parent_access_share per child instance (the
       // reality is that some child instances, such as edge instances, will receive more
-      // parent_access_share).      
+      // parent_access_share).
       tile_nest[cur].parent_access_share += (accesses * multicast_factor) / tile_nest[outer].fanout;
+
+      // Note: using a floating-point parent_access_share here fixes a rounding
+      // in older code that was accumulating directly into an int field fills.
     }
 
     // assert(tile_nest[cur].parent_access_share <= tile_nest[cur].GetTotalAccesses());
