@@ -113,7 +113,7 @@ struct DataMovementInfo
 struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
-  std::uint64_t accesses;
+  double accesses;
   
   ComputeInfo();
 
