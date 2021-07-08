@@ -48,16 +48,16 @@ extern bool gTerminateEval;
 
 bool gEnableLinkTransfers =
   (getenv("TIMELOOP_DISABLE_LINK_TRANSFERS") == NULL) ||
-  (strcmp(getenv("TIMELOOP_DISABLE_LINK_TRANSFERS"), "0") != 0);
+  (strcmp(getenv("TIMELOOP_DISABLE_LINK_TRANSFERS"), "0") == 0);
 bool gEnableToroidalLinks =
   (getenv("TIMELOOP_ENABLE_TOROIDAL_LINKS") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TOROIDAL_LINKS"), "0") != 0);
 bool gExtrapolateUniformTemporal =
   (getenv("TIMELOOP_DISABLE_TEMPORAL_EXTRAPOLATION") == NULL) ||
-  (strcmp(getenv("TIMELOOP_DISABLE_TEMPORAL_EXTRAPOLATION"), "0") != 0);
+  (strcmp(getenv("TIMELOOP_DISABLE_TEMPORAL_EXTRAPOLATION"), "0") == 0);
 bool gExtrapolateUniformSpatial =
   (getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION") == NULL) ||
-  (strcmp(getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION"), "0") != 0);
+  (strcmp(getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION"), "0") == 0);
 bool gEnableTracing =
   (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
