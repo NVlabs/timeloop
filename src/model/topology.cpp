@@ -1005,9 +1005,9 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   Reset();
   assert(!is_evaluated_);
 
-  //std::cout << "\n ==================================================== " << std::endl;
-  //std::cout << mapping.PrintCompact() << std::endl;
-  //std::cout << " ====================================================  " << std::endl;
+  // std::cout << "\n ==================================================== " << std::endl;
+  // std::cout << mapping.PrintCompact() << std::endl;
+  // std::cout << " ====================================================  " << std::endl;
 
   // ==================================================================
   // TODO: connect buffers to networks based on bypass mask in mapping.
@@ -1100,6 +1100,9 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                             compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
+
+    if (break_on_failure && !s.success)
+      return eval_status;
   }
 
   // update the dense compute cycles to be sparse compute cycles (actual compute cycles + gated compute cycles)

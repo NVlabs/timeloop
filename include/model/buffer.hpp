@@ -90,6 +90,7 @@ class BufferLevel : public Level
     Attribute<Technology> technology;
     Attribute<std::uint64_t> size;
     Attribute<std::uint64_t> md_size;
+    Attribute<std::uint64_t> md_size_bits;
     Attribute<std::uint64_t> word_bits;
     Attribute<std::uint64_t> addr_gen_bits;
     Attribute<std::uint64_t> block_size;
@@ -102,6 +103,7 @@ class BufferLevel : public Level
     Attribute<double> multiple_buffering;
     Attribute<std::uint64_t> effective_size;
     Attribute<std::uint64_t> effective_md_size;
+    Attribute<std::uint64_t> effective_md_size_bits;
     Attribute<double> min_utilization;
     Attribute<std::uint64_t> num_ports;
     Attribute<std::uint64_t> num_banks;
@@ -113,12 +115,13 @@ class BufferLevel : public Level
     Attribute<bool> compression_supported;
 
     // metadata storage related
-    // we treat each buffer as having a pair of storages, one for data and one for metadata
-    // TODO: we should allow specification of metadata buffers, each store (a set of) rank(s)
-    Attribute<std::uint64_t> metadata_block_size;
-    Attribute<std::uint64_t> metadata_word_bits;
     Attribute<std::uint64_t> metadata_storage_width;
     Attribute<std::uint64_t> metadata_storage_depth;
+
+    Attribute<bool> unified_data_md_storage;
+
+    Attribute<std::uint64_t> default_md_block_size;
+    Attribute<std::uint64_t> default_md_word_bits;
 
     Attribute<std::string> read_network_name;
     Attribute<std::string> fill_network_name;
@@ -189,15 +192,15 @@ class BufferLevel : public Level
     problem::PerDataSpace<bool> keep;
     problem::PerDataSpace<std::uint64_t> partition_size;
     problem::PerDataSpace<std::uint64_t> utilized_capacity;
-    problem::PerDataSpace<std::uint64_t> utilized_md_capacity;
+    problem::PerDataSpace<std::uint64_t> utilized_md_capacity_bits;
     problem::PerDataSpace<std::uint64_t> tile_size;
     problem::PerDataSpace<std::uint64_t> utilized_instances;
     problem::PerDataSpace<std::uint64_t> utilized_clusters;
-    problem::PerDataSpace<unsigned long> reads;
-    problem::PerDataSpace<unsigned long> updates;
-    problem::PerDataSpace<unsigned long> fills;
-    problem::PerDataSpace<unsigned long> address_generations;
-    problem::PerDataSpace<unsigned long> temporal_reductions;
+    problem::PerDataSpace<std::uint64_t> reads;
+    problem::PerDataSpace<std::uint64_t> updates;
+    problem::PerDataSpace<std::uint64_t> fills;
+    problem::PerDataSpace<std::uint64_t> address_generations;
+    problem::PerDataSpace<std::uint64_t> temporal_reductions;
     problem::PerDataSpace<double> read_bandwidth;
     problem::PerDataSpace<double> write_bandwidth;
     problem::PerDataSpace<double> energy_per_algorithmic_access;
@@ -212,45 +215,64 @@ class BufferLevel : public Level
     problem::PerDataSpace<std::uint64_t> tile_shape;
     problem::PerDataSpace<std::uint64_t> data_tile_size;
     problem::PerDataSpace<bool> compressed;
-    problem::PerDataSpace<std::uint64_t> metadata_tile_size;
+    //problem::PerDataSpace<std::uint64_t> metadata_tile_size;
+    problem::PerDataSpace<std::vector<std::vector<std::uint64_t>>> metadata_tile_size;
+    
+    problem::PerDataSpace<std::uint64_t> metadata_tile_size_bits;
     problem::PerDataSpace<std::string> metadata_format;
     problem::PerDataSpace<double> tile_confidence;
-    problem::PerDataSpace<double> tile_max_density;
     problem::PerDataSpace<std::string> parent_level_name;
     problem::PerDataSpace<unsigned> parent_level_id;
     problem::PerDataSpace<std::string> tile_density_distribution;
-
-
+    problem::PerDataSpace<double> format_read_bandwidth_ratio;
+    problem::PerDataSpace<double> format_write_bandwidth_ratio;
+    
     // fine-grained action stats
-    problem::PerDataSpace<std::map<std::string, unsigned std::uint64_t>> fine_grained_scalar_accesses;
+    problem::PerDataSpace<std::map<std::string, std::uint64_t>> fine_grained_scalar_accesses;
+    problem::PerDataSpace<std::map<std::string, tiling::PerTileFormatAccesses>> fine_grained_format_scalar_accesses;
     problem::PerDataSpace<std::map<std::string, double>> fine_grained_vector_accesses;
-    problem::PerDataSpace<unsigned long> gated_reads;
-    problem::PerDataSpace<unsigned long> skipped_reads;
-    problem::PerDataSpace<unsigned long> random_reads;
+    problem::PerDataSpace<std::map<std::string, std::uint64_t>> fine_grained_fromat_accesses_bits;
 
-    problem::PerDataSpace<unsigned long> gated_fills;
-    problem::PerDataSpace<unsigned long> skipped_fills;
-    problem::PerDataSpace<unsigned long> random_fills;
 
-    problem::PerDataSpace<unsigned long> gated_updates;
-    problem::PerDataSpace<unsigned long> skipped_updates;
-    problem::PerDataSpace<unsigned long> random_updates;
+    problem::PerDataSpace<std::uint64_t> gated_reads;
+    problem::PerDataSpace<std::uint64_t> skipped_reads;
+    problem::PerDataSpace<std::uint64_t> random_reads;
 
-    problem::PerDataSpace<unsigned long> metadata_reads;
-    problem::PerDataSpace<unsigned long> random_metadata_reads;
-    problem::PerDataSpace<unsigned long> gated_metadata_reads;
-    problem::PerDataSpace<unsigned long> skipped_metadata_reads;
-    problem::PerDataSpace<unsigned long> metadata_fills;
-    problem::PerDataSpace<unsigned long> random_metadata_fills;
-    problem::PerDataSpace<unsigned long> gated_metadata_fills;
-    problem::PerDataSpace<unsigned long> skipped_metadata_fills;
-    problem::PerDataSpace<unsigned long> metadata_updates;
-    problem::PerDataSpace<unsigned long> random_metadata_updates;
-    problem::PerDataSpace<unsigned long> gated_metadata_updates;
-    problem::PerDataSpace<unsigned long> skipped_metadata_updates;
+    problem::PerDataSpace<std::uint64_t> gated_fills;
+    problem::PerDataSpace<std::uint64_t> skipped_fills;
+    problem::PerDataSpace<std::uint64_t> random_fills;
 
-    problem::PerDataSpace<unsigned long> decompression_counts;
-    problem::PerDataSpace<unsigned long> compression_counts;
+    problem::PerDataSpace<std::uint64_t> gated_updates;
+    problem::PerDataSpace<std::uint64_t> skipped_updates;
+    problem::PerDataSpace<std::uint64_t> random_updates;
+
+    problem::PerDataSpace<tiling::PerTileFormatAccesses> random_format_reads;
+    problem::PerDataSpace<tiling::PerTileFormatAccesses> skipped_format_reads;
+    problem::PerDataSpace<tiling::PerTileFormatAccesses> gated_format_reads;
+
+    problem::PerDataSpace<tiling::PerTileFormatAccesses> random_format_fills;
+    problem::PerDataSpace<tiling::PerTileFormatAccesses> skipped_format_fills;
+    problem::PerDataSpace<tiling::PerTileFormatAccesses> gated_format_fills;
+ 
+    problem::PerDataSpace<tiling::PerTileFormatAccesses> random_format_updates;
+    problem::PerDataSpace<tiling::PerTileFormatAccesses> skipped_format_updates;
+    problem::PerDataSpace<tiling::PerTileFormatAccesses> gated_format_updates;
+       
+    //problem::PerDataSpace<std::uint64_t> metadata_reads;
+    //problem::PerDataSpace<std::uint64_t> random_metadata_reads;
+    //problem::PerDataSpace<std::uint64_t> gated_metadata_reads;
+    //problem::PerDataSpace<std::uint64_t> skipped_metadata_reads;
+    //problem::PerDataSpace<std::uint64_t> metadata_fills;
+    //problem::PerDataSpace<std::uint64_t> random_metadata_fills;
+    //problem::PerDataSpace<std::uint64_t> gated_metadata_fills;
+    //problem::PerDataSpace<std::uint64_t> skipped_metadata_fills;
+    //problem::PerDataSpace<std::uint64_t> metadata_updates;
+    //problem::PerDataSpace<std::uint64_t> random_metadata_updates;
+    //problem::PerDataSpace<std::uint64_t> gated_metadata_updates;
+    //problem::PerDataSpace<std::uint64_t> skipped_metadata_updates;
+
+    problem::PerDataSpace<std::uint64_t> decompression_counts;
+    problem::PerDataSpace<std::uint64_t> compression_counts;
 
     std::uint64_t cycles;
     double slowdown;
@@ -271,10 +293,7 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(reads);
         ar& BOOST_SERIALIZATION_NVP(updates);
         ar& BOOST_SERIALIZATION_NVP(fills);
-        ar& BOOST_SERIALIZATION_NVP(metadata_reads);
-        ar& BOOST_SERIALIZATION_NVP(metadata_fills);
-        ar& BOOST_SERIALIZATION_NVP(metadata_updates);
-
+        
         // fine grained accesses
         ar& BOOST_SERIALIZATION_NVP(gated_reads);
         ar& BOOST_SERIALIZATION_NVP(skipped_reads);
@@ -287,20 +306,19 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(gated_updates);
         ar& BOOST_SERIALIZATION_NVP(skipped_updates);
         ar& BOOST_SERIALIZATION_NVP(random_updates);
+       
+        ar& BOOST_SERIALIZATION_NVP(random_format_reads);
+        ar& BOOST_SERIALIZATION_NVP(gated_format_reads);
+        ar& BOOST_SERIALIZATION_NVP(skipped_format_reads);
 
+        ar& BOOST_SERIALIZATION_NVP(random_format_fills);
+        ar& BOOST_SERIALIZATION_NVP(gated_format_fills);
+        ar& BOOST_SERIALIZATION_NVP(skipped_format_fills);
 
-        ar& BOOST_SERIALIZATION_NVP(random_metadata_reads);
-        ar& BOOST_SERIALIZATION_NVP(gated_metadata_reads);
-        ar& BOOST_SERIALIZATION_NVP(skipped_metadata_reads);
-
-        ar& BOOST_SERIALIZATION_NVP(random_metadata_fills);
-        ar& BOOST_SERIALIZATION_NVP(gated_metadata_fills);
-        ar& BOOST_SERIALIZATION_NVP(skipped_metadata_fills);
-
-        ar& BOOST_SERIALIZATION_NVP(random_metadata_updates);
-        ar& BOOST_SERIALIZATION_NVP(gated_metadata_updates);
-        ar& BOOST_SERIALIZATION_NVP(skipped_metadata_updates);
-
+        ar& BOOST_SERIALIZATION_NVP(random_format_updates);
+        ar& BOOST_SERIALIZATION_NVP(gated_format_updates);
+        ar& BOOST_SERIALIZATION_NVP(skipped_format_updates);
+        
         ar& BOOST_SERIALIZATION_NVP(decompression_counts);
         ar& BOOST_SERIALIZATION_NVP(compression_counts);
 
@@ -315,6 +333,9 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(addr_gen_energy);
         ar& BOOST_SERIALIZATION_NVP(cycles);
         ar& BOOST_SERIALIZATION_NVP(slowdown);
+       
+        ar& BOOST_SERIALIZATION_NVP(format_read_bandwidth_ratio);
+        ar& BOOST_SERIALIZATION_NVP(format_write_bandwidth_ratio);
       }
     }
   };
@@ -361,7 +382,7 @@ class BufferLevel : public Level
                                    const bool break_on_failure);
   void ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& tile);
   void ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMovementInfo& tile, const double confidence_threshold);
-  std::uint64_t ComputeMetaDataTileSizeInBit (const tiling::MetaDataTileOccupancy metadata_occupancy) const;
+  std::uint64_t ComputeMetaDataTileSizeInBits (const tiling::MetaDataTileOccupancy metadata_occupancy) const;
   std::uint64_t ComputeMetaDataTileSize(const tiling::MetaDataTileOccupancy metadata_occupancy) const;
   void ComputePerformance(const std::uint64_t compute_cycles);
   // void ComputeBufferEnergy();

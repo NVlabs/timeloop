@@ -78,11 +78,6 @@ HypergeometricDistribution::Specs HypergeometricDistribution::ParseSpecs(config:
   return specs;
 }
 
-void HypergeometricDistribution::SetDensity(const double density)
-{
-  specs_.average_density = density;
-}
-
 void HypergeometricDistribution::SetWorkloadTensorSize(const std::uint64_t size)
 {
   // setter that allows workload tensor size at a latter stage (topology.cpp, PreEvaluationCheck)

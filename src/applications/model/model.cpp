@@ -128,6 +128,17 @@ Application::Application(config::CompoundConfig* config,
 #endif
   }
 
+  // Sparse optimizations
+  config::CompoundConfigNode sparse_optimizations;
+  if (rootNode.exists("sparse_optimizations"))
+    sparse_optimizations = rootNode.lookup("sparse_optimizations");
+      sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
+  // characterize workload on whether it has metadata
+  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
+  
+  if (verbose_)
+    std::cout << "Sparse optimization configuration complete." << std::endl;
+
   arch_props_ = new ArchProperties(arch_specs_);
   // Architecture constraints.
   config::CompoundConfigNode arch_constraints;
@@ -157,16 +168,6 @@ Application::Application(config::CompoundConfig* config,
     std::cerr << "ERROR: mapping violates architecture constraints." << std::endl;
     exit(1);
   }
-
-  // Sparse optimizations
-  config::CompoundConfigNode sparse_optimizations;
-  if (rootNode.exists("sparse_optimizations"))
-    sparse_optimizations = rootNode.lookup("sparse_optimizations");
-  sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
-
-  // characterize workload on whether it has metadata
-  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
-
 }
 
 Application::~Application()

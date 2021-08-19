@@ -84,20 +84,8 @@ class FixedStructuredDistribution : public DensityDistribution
   bool is_specced_;
 
   // private functions
-  double GetProbability(const std::uint64_t tile_shape,
-                        const std::uint64_t nnz_vals) const;
-
-  double GetProbability(const std::uint64_t tile_shape,
-                        const std::uint64_t nnz_vals,
-                        const std::uint64_t constraint_tensor_shape,
-                        const std::uint64_t constraint_tensor_occupancy) const;
-  // double GetTileDensityByConfidence(const std::uint64_t tile_shape,
-  //                                   const double confidence,
-  //                                   const uint64_t allocated_capacity = 0) const;
   std::uint64_t GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
                                              const double confidence) const;
-  double GetTileExpectedDensity(const uint64_t tile_shape) const;
-
  public:
   // Serialization
   friend class boost::serialization::access;
@@ -125,7 +113,6 @@ class FixedStructuredDistribution : public DensityDistribution
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
-  void SetDensity(const double density);
   void SetWorkloadTensorSize(const std::uint64_t size);
 
   std::uint64_t GetWorkloadTensorSize() const;
@@ -140,8 +127,6 @@ class FixedStructuredDistribution : public DensityDistribution
   double GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
                                      const std::uint64_t occupancy) const;
   double GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile) const;
-
- private:
 
 }; // class FixedStructuredDistribution
 

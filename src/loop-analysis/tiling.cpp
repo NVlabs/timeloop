@@ -277,6 +277,7 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     // Obliterate the buffer stats (*not* the network stats) for the cur tiling level.
     tile_nest[cur].size = 0;
     tile_nest[cur].shape = 0;
+    tile_nest[cur].SetTensorRepresentation();
     tile_nest[cur].partition_size = 0;
     tile_nest[cur].content_accesses = 0;
     tile_nest[cur].parent_access_share = 0;
@@ -840,11 +841,6 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.peer_fills = 0;
       collapsed_tile.replication_factor = tiles[pv][outermost_loop].replication_factor;
       collapsed_tile.fanout = tiles[pv][innermost_loop].fanout;
-
-      //place holder initializations
-      collapsed_tile.metadata_reads = 0;
-      collapsed_tile.metadata_fills = 0;
-      collapsed_tile.metadata_updates = 0;
       collapsed_tile.SetTensorRepresentation(); // default to uncompressed
 
       collapsed_tile.parent_level = std::numeric_limits<unsigned>::max();

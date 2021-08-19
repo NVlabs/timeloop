@@ -79,8 +79,6 @@ public:
   // destructor
   virtual ~DensityDistribution();
 
-  virtual void SetDensity(const double density) = 0;
-
   virtual void SetWorkloadTensorSize(const std::uint64_t size) = 0;
 
   virtual std::uint64_t GetWorkloadTensorSize() const = 0;

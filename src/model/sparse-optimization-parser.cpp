@@ -36,44 +36,47 @@ namespace sparse
 //
 // Shared state.
 //
-ArchProperties arch_props_;
+model::Engine::Specs  arch_specs_;
 
 //
 // Forward declarations
 //
-void Parse(config::CompoundConfigNode sparse_config, SparseOptimizationInfo &sparse_optimization_info);
-void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info);
+void Parse(config::CompoundConfigNode sparse_config, SparseOptimizationInfo &sparse_optimization_info, model::Engine::Specs &arch_specs);
+void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info, const  model::Engine::Specs &arch_specs);
 void InitializeActionOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info);
 void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
-                          const config::CompoundConfigNode &directive);
+                          const config::CompoundConfigNode &directive,
+                          model::Engine::Specs &arch_specs);
 void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
-                      PerDataSpaceCompressionInfo &per_data_space_compression_info);
-unsigned FindTargetStorageLevel(std::string storage_level_name);
+                      PerDataSpaceCompressionInfo &per_data_space_compression_info,
+                      std::shared_ptr<model::BufferLevel::Specs> buffer_specs);
+unsigned FindTargetStorageLevel(std::string storage_level_name, const model::Engine::Specs &arch_specs);
 void ParseActionOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info,
-                                 const config::CompoundConfigNode& directive);
+                                 const config::CompoundConfigNode& directive,
+                                 const model::Engine::Specs &arch_specs);
 void ParseComputeOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info,
-                                  const config::CompoundConfigNode& directive);
-
-
+                                  const config::CompoundConfigNode& directivei,
+                                  const model::Engine::Specs &arch_specs);
 //
 // Parsing
 //
 SparseOptimizationInfo ParseAndConstruct(config::CompoundConfigNode sparse_config,
                                          model::Engine::Specs &arch_specs)
 {
-  arch_props_.Construct(arch_specs);
+  //arch_specs_ = arch_specs;
   SparseOptimizationInfo sparse_optimization_info;
   sparse_optimization_info.no_optimization_applied = true;
 
-  InitializeCompressionInfo(sparse_optimization_info);
+  InitializeCompressionInfo(sparse_optimization_info, arch_specs);
   InitializeActionOptimizationInfo(sparse_optimization_info);
-  Parse(sparse_config, sparse_optimization_info);
+  Parse(sparse_config, sparse_optimization_info, arch_specs);
   return sparse_optimization_info;
 }
 
 // highest level parse function
 void Parse(config::CompoundConfigNode sparse_config,
-           SparseOptimizationInfo &sparse_optimization_info)
+           SparseOptimizationInfo &sparse_optimization_info,
+           model::Engine::Specs &arch_specs)
 {
 
   config::CompoundConfigNode opt_target_list;
@@ -92,21 +95,21 @@ void Parse(config::CompoundConfigNode sparse_config,
       {
         if (directive.exists("action-optimization"))
         {
-          ParseActionOptimizationInfo(sparse_optimization_info, directive);
+          ParseActionOptimizationInfo(sparse_optimization_info, directive, arch_specs);
           sparse_optimization_info.no_optimization_applied = false;
         }
 
         // parse for representation format
         if (directive.exists("representation-format"))
         {
-          ParseCompressionInfo(sparse_optimization_info, directive);
+          ParseCompressionInfo(sparse_optimization_info, directive, arch_specs);
           sparse_optimization_info.compression_info.all_ranks_default_dense = false;
           sparse_optimization_info.no_optimization_applied = false;
         }
 
         if (directive.exists("compute-optimization"))
         {
-          ParseComputeOptimizationInfo(sparse_optimization_info, directive);
+          ParseComputeOptimizationInfo(sparse_optimization_info, directive, arch_specs);
           sparse_optimization_info.no_optimization_applied = false;
         }
       }
@@ -118,10 +121,10 @@ void Parse(config::CompoundConfigNode sparse_config,
       }
     }
   }
-  std::cout << "Sparse optimization configuration complete." << std::endl;
 }
 
-void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info)
+void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info, 
+                               const model::Engine::Specs &arch_specs)
 {
 
   CompressionInfo compression_info;
@@ -136,10 +139,9 @@ void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info)
   compression_info.tile_partition_supported_masks = {};
 
   // set all storage levels to uncompressed
-  for (unsigned storage_level_id = 0; storage_level_id < arch_props_.StorageLevels(); storage_level_id++)
+  for (unsigned storage_level_id = 0; storage_level_id < arch_specs.topology.NumStorageLevels(); storage_level_id++)
   {
-    auto storage_level_specs = arch_props_.Specs().topology.GetStorageLevel(storage_level_id);
-
+    auto storage_level_specs = arch_specs.topology.GetStorageLevel(storage_level_id);
     // get arch related info
     bool tile_partition_supported = storage_level_specs->tile_partition_supported.Get();
     assert(tile_partition_supported == false); //TODO: implement online tile partition related logic
@@ -166,12 +168,49 @@ void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info)
 void InitializeActionOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info)
 {
   sparse_optimization_info.action_skipping_info = {};
+  sparse_optimization_info.action_spatial_skipping_info = {};
   sparse_optimization_info.action_skipping_info = {};
   sparse_optimization_info.compute_optimization_info = {};
 }
 
+std::uint32_t AdjustFormatWordBits(std::uint32_t specified_word_bits, 
+                                   std::shared_ptr<model::BufferLevel::Specs> buffer_specs)
+{
+  
+  auto metadata_storage_width = buffer_specs->metadata_storage_width.Get();
+
+  std::uint32_t adjusted_word_bits;
+  if (specified_word_bits == std::numeric_limits<std::uint32_t>::max()) 
+  {
+    adjusted_word_bits = buffer_specs->default_md_word_bits.Get();
+  }
+  else if (specified_word_bits != 0 && metadata_storage_width % specified_word_bits != 0)
+  {
+    for (adjusted_word_bits = specified_word_bits; adjusted_word_bits < specified_word_bits*2; adjusted_word_bits++)
+    {
+      if (metadata_storage_width % adjusted_word_bits == 0) break;
+    }
+    std::cout << "Warning: " << buffer_specs->level_name <<": adjust representation format word bits from " 
+    << specified_word_bits << " to " << adjusted_word_bits << " to avoid storage fragmentation." << std::endl;
+  }
+  else
+  {
+    adjusted_word_bits = specified_word_bits; 
+  }
+  
+  if (adjusted_word_bits > metadata_storage_width)
+  {
+    std::cerr << "\nERROR: specified format representation  word bits > metadata storage width at " << buffer_specs->level_name << std::endl;
+    exit(1);
+  }
+  
+  return adjusted_word_bits;
+}
+
+
 void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
-                      PerDataSpaceCompressionInfo &per_data_space_compression_info)
+                      PerDataSpaceCompressionInfo &per_data_space_compression_info,
+                      std::shared_ptr<model::BufferLevel::Specs> buffer_specs)
 {
 
   // 0) keyword check
@@ -183,7 +222,9 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
 
   // 1) construct metadata model objects
   auto metadata_specs = problem::MetaDataFormatFactory::ParseSpecs(rank_specs);
-  auto metadata_model = problem::MetaDataFormatFactory::Construct(metadata_specs);
+  metadata_specs->SetPayloadWordBits(AdjustFormatWordBits(metadata_specs->PayloadWordBits(), buffer_specs));
+  metadata_specs->SetMetaDataWordBits(AdjustFormatWordBits(metadata_specs->MetaDataWordBits(), buffer_specs));
+  auto metadata_model = problem::MetaDataFormatFactory::Construct(metadata_specs); 
   per_data_space_compression_info.metadata_models.push_back(metadata_model);
 
   // 2) record the per-rank formats, whether each dimension is compressed, and user-defined flattening rules
@@ -227,18 +268,18 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
 
 // parse for compression info (storage only) of one directive
 void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
-                          const config::CompoundConfigNode& directive)
+                          const config::CompoundConfigNode& directive,
+                          model::Engine::Specs &arch_specs)
 {
 
   std::string level_name;
   assert(directive.exists("name"));
   directive.lookupValue("name", level_name);
-
+  unsigned level_id = FindTargetStorageLevel(level_name, arch_specs);
   auto &compression_info = sparse_optimization_info.compression_info;
 
   auto compression_directive = directive.lookup("representation-format");
-  unsigned storage_level_id = FindTargetStorageLevel(level_name);
-
+  unsigned storage_level_id = FindTargetStorageLevel(level_name, arch_specs);
   if (compression_directive.exists("data-spaces"))
   {
     auto data_space_list = compression_directive.lookup("data-spaces");
@@ -261,20 +302,34 @@ void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
         exit(1);
       }
 
+      bool apply_rank_inner_to_outer = false;
+      std::string application_order;
+      if (data_space_list[pv].lookupValue("rank-application-order", application_order))
+      {
+         if (application_order == "inner-to-outer") apply_rank_inner_to_outer = true;
+         else if (application_order == "outer-to-inner") apply_rank_inner_to_outer = false;
+         else 
+         {
+           std::cerr << "ERROR: compression rank application order not recognized: " << application_order << std::endl;
+           exit(1);
+         }
+      }
+      per_data_space_compression_info.apply_rank_inner_to_outer = apply_rank_inner_to_outer;
+      
       // parse accordingly
       auto rank_spec_list = data_space_list[pv].lookup("ranks");
       // user spec has top rank on the top of the list (top rank has index 0 in list)
       // we reverse the order here to be little endian during parsing
       for (int r_id = rank_spec_list.getLength()-1; r_id >= 0; r_id--)
       {
-        ParsePerRankSpec(rank_spec_list[r_id], per_data_space_compression_info);
+        ParsePerRankSpec(rank_spec_list[r_id], per_data_space_compression_info, arch_specs.topology.GetStorageLevel(level_id));
       }
 
       // check whether data representation format supported
-      // upper level compresssed lower level uncompressed will lead to partially compressed (sub) tensors
+      // upper level compressed lower level uncompressed will lead to partially compressed (sub) tensors
       // we currently just have a bool stating whether a tensor is fully compressed
       // TODO: per-rank bool to specify if a subtensor is compressed, or double in 0-1.0 stating how much is compressed
-      bool lower_rank_uncompressed = per_data_space_compression_info.rank_compressed[0];
+      bool lower_rank_uncompressed = !per_data_space_compression_info.rank_compressed[0];
       for (int r_id = 1; r_id < rank_spec_list.getLength(); r_id++)
       {
         bool rank_compressed = per_data_space_compression_info.rank_compressed[r_id];
@@ -286,6 +341,7 @@ void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
                     << std::endl;
           exit(1);
         }
+        if (!rank_compressed) lower_rank_uncompressed = true;
       }
 
       // sanity check: all the info are pushed correctly
@@ -322,12 +378,13 @@ void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
 }
 
 void ParseComputeOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info,
-                                 const config::CompoundConfigNode& directive)
+                                 const config::CompoundConfigNode& directive,
+                                 const model::Engine::Specs &arch_specs)
 {
   std::string level_name;
   assert(directive.exists("name"));
   directive.lookupValue("name", level_name);
-  assert(arch_props_.Specs().topology.GetArithmeticLevel()->name.Get() == level_name);
+  assert(arch_specs.topology.GetArithmeticLevel()->name.Get() == level_name);
   ComputeOptimizationInfo compute_optimization_info = {};
   auto compute_opt_list = directive.lookup("compute-optimization");
   for (int i = 0; i < compute_opt_list.getLength(); i++)
@@ -354,7 +411,8 @@ void ParseComputeOptimizationInfo(SparseOptimizationInfo &sparse_optimization_in
 
 // parse for storage action optimization of one directive
 void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_info,
-                                 const config::CompoundConfigNode& directive)
+                                 const config::CompoundConfigNode& directive,
+                                 const model::Engine::Specs &arch_specs)
 {
 
   std::string level_name;
@@ -366,6 +424,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
 
   std::string optimization_type;
   PerStorageActionOptimization per_storage_action_optimization_skipping = {};
+  PerStorageActionOptimization per_storage_action_optimization_spatial_skipping = {};
   PerStorageActionOptimization per_storage_action_optimization_gating = {};
   for (int id = 0; id < optimization_list.getLength(); id++)
   {
@@ -457,26 +516,30 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
     } else if (optimization_type == "skipping")
     {
       per_storage_action_optimization_skipping.push_back(group);
-    } else
+    } else if (optimization_type == "skipping-spatial")
+    {
+      per_storage_action_optimization_spatial_skipping.push_back(group);
+    }
+    else
     {
       std::cerr << "ERROR: " << level_name << ": storage action optimization type not recognized..." << std::endl;
       assert(false);
     } // end of type
   }
 
-  unsigned cur_storage_level_id = FindTargetStorageLevel(level_name);
+  unsigned cur_storage_level_id = FindTargetStorageLevel(level_name, arch_specs);
   sparse_optimization_info.action_skipping_info[cur_storage_level_id] = per_storage_action_optimization_skipping;
+  sparse_optimization_info.action_spatial_skipping_info[cur_storage_level_id] = per_storage_action_optimization_spatial_skipping;
   sparse_optimization_info.action_gating_info[cur_storage_level_id] = per_storage_action_optimization_gating;
 }
 
 //
 // FindTargetTilingLevel()
 //
-unsigned FindTargetStorageLevel(std::string storage_level_name)
+unsigned FindTargetStorageLevel(std::string storage_level_name, const model::Engine::Specs &arch_specs)
 {
 
-  auto num_storage_levels = arch_props_.StorageLevels();
-
+  auto num_storage_levels = arch_specs.topology.NumStorageLevels();
   //
   // Find the target storage level using its name
   //
@@ -485,7 +548,7 @@ unsigned FindTargetStorageLevel(std::string storage_level_name)
   // Find this name within the storage hierarchy in the arch specs.
   for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++)
   {
-    if (arch_props_.Specs().topology.GetStorageLevel(storage_level_id)->level_name == storage_level_name)
+    if (arch_specs.topology.GetStorageLevel(storage_level_id)->level_name == storage_level_name)
       break;
   }
 

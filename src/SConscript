@@ -155,6 +155,7 @@ workload/format-models/run-length-encoding.cpp
 workload/format-models/uncompressed-offset-pair.cpp
 workload/format-models/coordinate-payload.cpp
 workload/format-models/uncompressed-bitmask.cpp
+workload/format-models/bitmask.cpp
 compound-config/compound-config.cpp
 """)
 

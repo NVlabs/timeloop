@@ -47,17 +47,18 @@ FixedStructuredDistribution::Specs FixedStructuredDistribution::ParseSpecs(confi
   Specs specs;
   std::string type;
   double fixed_density;
-  density_config.lookupValue("distribution", type);
-  density_config.lookupValue("density", fixed_density);
 
+  density_config.lookupValue("distribution", type);
+  if( !density_config.lookupValue("density", fixed_density))
+  { 
+    std::cerr << "ERROR: missing density value specification for " << type << " distribution" << std::endl;
+    exit(1);
+  }
+  
   specs.type = "fixed-structured";
   specs.fixed_density = fixed_density;
 
   return specs;
-}
-
-void FixedStructuredDistribution::SetDensity(const double density){
-  specs_.fixed_density = density;
 }
 
 void FixedStructuredDistribution::SetWorkloadTensorSize(const std::uint64_t size ){
@@ -89,7 +90,7 @@ std::uint64_t FixedStructuredDistribution::GetMaxTileOccupancyByConfidence(const
   return FixedStructuredDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
 
-
+// place holder lightweight version
 std::uint64_t FixedStructuredDistribution::GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
                                                    const double confidence) const
 {
@@ -106,11 +107,11 @@ std::string FixedStructuredDistribution::GetDistributionType() const{
 
 
 double FixedStructuredDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                                        const double confidence) const
+                                                                  const double confidence) const
 {
-  (void) tile;
   (void) confidence;
 
+  if (tile.GetShape() == 0) return 0;
   return specs_.fixed_density;
 }
 
@@ -125,21 +126,27 @@ double FixedStructuredDistribution::GetMinTileDensity(const tiling::CoordinateSp
   return floor_nnzs/tile.GetShape();
 }
 
-double FixedStructuredDistribution::GetTileExpectedDensity( const uint64_t tile_shape ) const {
-
-  (void) tile_shape;
-  assert(is_specced_);
-  return specs_.fixed_density;
-}
-
-double FixedStructuredDistribution::GetProbability(const std::uint64_t tile_shape,
-                                         const std::uint64_t nnz_vals) const
+double FixedStructuredDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
+                                                                const std::uint64_t occupancy) const
 {
+  
 
   assert(is_specced_);
+  double prob, exact_nnzs;
+  std::uint64_t tile_shape = tile.GetShape();
 
-  double exact_nnzs = tile_shape * specs_.fixed_density;
-  // now we need to decide how to assign the prob of ceil and floor so that the expected nnzs == exact_nnzs
+  if (tile.HasExtraConstraintInfo())
+  {
+    auto extra_constraint_info = tile.GetExtraConstraintInfo();
+    double constrained_density = (double)extra_constraint_info.GetOccupancy()/extra_constraint_info.GetShape();
+    exact_nnzs = tile_shape * constrained_density;
+  }
+  else
+  {
+    exact_nnzs = tile_shape * specs_.fixed_density;
+  }
+
+   // now we need to decide how to assign the prob of ceil and floor so that the expected nnzs == exact_nnzs
 
   // assume prob of ceil is pc, then the prob of floor is pf = 1 - pc
   //  => pc*ceil + (1-pc)*floor = exact_nnzs
@@ -148,11 +155,11 @@ double FixedStructuredDistribution::GetProbability(const std::uint64_t tile_shap
   double prob_ceil = exact_nnzs - floor(exact_nnzs);
   double prob_floor = 1 - prob_ceil;
 
-  if (floor(exact_nnzs) == nnz_vals)
+  if (floor(exact_nnzs) == occupancy)
   {
     return prob_floor;
 
-  } else if (ceil(exact_nnzs) == nnz_vals)
+  } else if (ceil(exact_nnzs) == occupancy)
   {
     return prob_ceil;
 
@@ -160,54 +167,8 @@ double FixedStructuredDistribution::GetProbability(const std::uint64_t tile_shap
   {
     return 0.0;
   }
-}
-
-double FixedStructuredDistribution::GetProbability(const std::uint64_t tile_shape,
-                                                   const std::uint64_t nnz_vals,
-                                                   const std::uint64_t constraint_tensor_shape,
-                                                   const std::uint64_t constraint_tensor_occupancy) const
-{
-  double constrained_density = (double)constraint_tensor_occupancy/constraint_tensor_shape;
-
-  double exact_nnzs = tile_shape * constrained_density;
-
-  double prob_ceil = exact_nnzs - floor(exact_nnzs);
-  double prob_floor = 1 - prob_ceil;
-
-  if (floor(exact_nnzs) == nnz_vals)
-  {
-    return prob_floor;
-
-  } else if (ceil(exact_nnzs) == nnz_vals)
-  {
-    return prob_ceil;
-
-  } else
-  {
-    return 0.0;
-  }
-
-}
-
-
-double FixedStructuredDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
-                                                      const std::uint64_t occupancy) const
-{
-  double prob;
-  std::uint64_t tile_shape = tile.GetShape();
-
-  if (tile.HasExtraConstraintInfo())
-  {
-    auto extra_constraint_info = tile.GetExtraConstraintInfo();
-    auto occupancy_constraint = extra_constraint_info.GetOccupancy();
-    auto shape_constraint = extra_constraint_info.GetShape();
-    prob = GetProbability(tile_shape, occupancy, shape_constraint, occupancy_constraint);
-  }
-  else
-  {
-    prob = GetProbability(tile_shape, occupancy);
-  }
-
+ 
+  
   return prob;
 }
 

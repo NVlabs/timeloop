@@ -75,8 +75,10 @@ struct SparseAnalysisState
   std::vector<std::vector<loop::Descriptor>> complete_subnests_;
   std::vector<std::vector<bool>> trivial_nest_masks_;
   std::map<unsigned, std::map<DataSpaceID, double>> prob_explicitly_optimized_read_;
+  std::map<unsigned, std::map<DataSpaceID, double>> prob_explicitly_spatially_optimized_read_;
   std::map<std::string, ListOfPerDataSpaceMask> dspace_optimization_masks_;
   std::map<std::string, ListOfPerDataSpaceMask> scalar_scalar_opt_masks_;
+  problem::PerDataSpace<std::vector<std::uint64_t>> num_spatial_instances_;
 
   // info that impact compute analysis
   std::vector<problem::Shape::FactorizedDimensionID> c_intersection_dims_;

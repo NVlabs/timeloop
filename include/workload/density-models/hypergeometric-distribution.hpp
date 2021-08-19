@@ -96,9 +96,6 @@ private:
   double GetProbability(const std::uint64_t tile_shape, const std::uint64_t nnz_vals,
                         const std::uint64_t constraint_tensor_shape,
                         const std::uint64_t constraint_tensor_occupancy) const;
-  // double GetTileDensityByConfidence(const std::uint64_t tile_shape,
-  //                                   const double confidence,
-  //                                   const uint64_t allocated_capacity = 0) const;
   std::uint64_t GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
                                              const double confidence) const;
   double GetTileExpectedDensity(const uint64_t tile_shape) const;
@@ -129,7 +126,6 @@ public:
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
 
-  void SetDensity(double density) ;
   void SetWorkloadTensorSize(std::uint64_t size);
 
   std::uint64_t GetWorkloadTensorSize() const;

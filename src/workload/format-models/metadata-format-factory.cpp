@@ -64,7 +64,12 @@ std::shared_ptr<MetaDataFormatSpecs> MetaDataFormatFactory::ParseSpecs(config::C
       auto ub_specs = UncompressedBitmask::ParseSpecs(metadata_rank_config);
       specs_ptr = std::make_shared<UncompressedBitmask::Specs>(ub_specs);
     }
-    else
+     else if (metadata_format_name == "b" || metadata_format_name == "B")
+    {
+      auto b_specs = Bitmask::ParseSpecs(metadata_rank_config);
+      specs_ptr = std::make_shared<Bitmask::Specs>(b_specs);
+    }
+   else
     {
       std::cerr << "ERROR: parsing specs... unrecognized metadata format name: " << metadata_format_name<< std::endl;
       exit(1);
@@ -102,7 +107,13 @@ std::shared_ptr<MetaDataFormat> MetaDataFormatFactory::Construct(std::shared_ptr
     auto ub_metadata_ptr = std::make_shared<UncompressedBitmask>(specs_ptr);
     metadata_format_ptr = std::static_pointer_cast<MetaDataFormat>(ub_metadata_ptr);
   }
-  else
+  else if (specs->Name() == "b")
+  {
+    auto specs_ptr = *std::static_pointer_cast<Bitmask::Specs>(specs);
+    auto b_metadata_ptr = std::make_shared<Bitmask>(specs_ptr);
+    metadata_format_ptr = std::static_pointer_cast<MetaDataFormat>(b_metadata_ptr);
+  }
+ else
   {
     std::cerr << "ERROR: constructing model... unrecognized metadata format name: " << specs->name << std::endl;
     exit(1);

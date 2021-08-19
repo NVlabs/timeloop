@@ -78,12 +78,13 @@ typedef std::map<std::string, bool> ComputeOptimizationInfo;
 
 struct PerDataSpaceCompressionInfo
 {
+
   bool tensor_compressed = false; // whether this tensor is a compressed tensor
 
   // user-defined order for applying ranks to loops
-  // 0: inner to outer, i.e., if fewer non-trivial loops than supported ranks, outer ranks get spared
-  // 1: outer to inner, i.e., if more non-trivial loops than supported ranks, inner ranks get spared
-  bool rank_application_order = 1;
+  // ture: inner to outer, i.e., if fewer non-trivial loops than supported ranks, outer ranks get spared
+  // false: outer to inner, i.e., if more non-trivial loops than supported ranks, inner ranks get spared
+  bool apply_rank_inner_to_outer = false;
 
   // all of the vectors below should have the same length... which is the fiber tree depth
   std::vector<bool> rank_compressed; // if each rank is compressed
@@ -128,6 +129,7 @@ struct SparseOptimizationInfo
   // various types of sparse optimizations
   StorageActionOptimizationInfo action_gating_info;
   StorageActionOptimizationInfo action_skipping_info;
+  StorageActionOptimizationInfo action_spatial_skipping_info;
   ComputeOptimizationInfo compute_optimization_info;
   CompressionInfo compression_info;
   bool no_optimization_applied;

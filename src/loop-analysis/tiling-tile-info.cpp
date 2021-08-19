@@ -171,16 +171,19 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
     std::uint64_t cur_rank_fiber_shape = fiber_shape[r_id];
     next_coord_tile.Set(metadata_subtile_shape[r_id], dataspace_id, cur_coord_tile.GetExtraConstraintInfo());
     problem::PerRankMetaDataTileOccupancy per_rank_metadata_occupancy;
-     if (cur_rank_fiber_shape == 1 && r_id != int(metadata_models.size()) - 1)
-     {
-        // trivial rank (rank related to trivial loop) and it is not top rank
-        // a good compression setup eliminate a trivial rank and it is reasonble to assume that
-        // the underlying hardware is also programmable to skip the traversal of trivial loops as well
-        // FIXME: check  if this is a good approximation of common practice
-        per_rank_metadata_occupancy.SetEmpty();
-     }
-     else
-     {
+    if (cur_rank_fiber_shape == 1 && 
+        ((!apply_rank_inner_to_outer && r_id != int(metadata_models.size()) - 1) ||
+         (apply_rank_inner_to_outer && r_id != 0))
+       )
+    {
+       // trivial rank (rank related to trivial loop) and it is not top rank
+       // a good compression setup eliminate a trivial rank and it is reasonble to assume that
+       // the underlying hardware is also programmable to skip the traversal of trivial loops as well
+       // FIXME: check  if this is a good approximation of common practice
+       per_rank_metadata_occupancy.SetEmpty();
+    }
+    else
+    {
       // significant rank
       // construct query
       problem::MetaDataOccupancyQuery query(max_number_of_fibers_in_rank,
@@ -198,8 +201,13 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
       per_rank_metadata_occupancy = metadata_models[r_id]->GetOccupancy(query);
 
     }
-    // std::cout << "Results: payload units:  " << per_rank_metadata_occupancy.PayloadUnits()
-    // << "metadata units: " << per_rank_metadata_occupancy.MetaDataUnits() << std::endl;
+
+    // std::cout << metadata_models[r_id]->GetFormatName()
+    // << "  Results: payload units:  " << per_rank_metadata_occupancy.PayloadUnits()
+    // << "  metadata units: " << per_rank_metadata_occupancy.MetaDataUnits() 
+    // << "  payload word bits: " << per_rank_metadata_occupancy.PayloadWordBits() 
+    // << "  metadata word bits: " << per_rank_metadata_occupancy.MetaDataWordBits()
+    // << std::endl;
     metadata_tile_occupancy.insert(metadata_tile_occupancy.begin(), per_rank_metadata_occupancy);
 
     // prepare for next round
@@ -247,19 +255,19 @@ MetaDataTileOccupancy DataMovementInfo::GetMaxMetaDataTileOccupancyByConfidence(
 }
 
 
- double DataMovementInfo::GetExpectedAggregatedMetaDataTileOccupancy() const
- {
-   double aggregated_occupancy = 0;
-   if (has_metadata)
-   {
-     assert(expected_metadata_occupancy.size() > 0);
-     for (auto iter = expected_metadata_occupancy.begin(); iter != expected_metadata_occupancy.end(); iter++)
-     {
-       aggregated_occupancy += iter->TotalMetDataAndPayloadUnits();
-     }
-   }
-   return aggregated_occupancy;
- }
+double DataMovementInfo::GetExpectedAggregatedMetaDataTileOccupancy() const
+{
+  double aggregated_occupancy = 0;
+  if (has_metadata)
+  {
+    assert(expected_metadata_occupancy.size() > 0);
+    for (auto iter = expected_metadata_occupancy.begin(); iter != expected_metadata_occupancy.end(); iter++)
+    {
+      aggregated_occupancy += iter->TotalMetDataAndPayloadUnits();
+    }
+  }
+  return aggregated_occupancy;
+}
 
 double DataMovementInfo::GetMaxTileDensityByConfidence(const double confidence) const
 {

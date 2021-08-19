@@ -228,7 +228,8 @@ class ArithmeticUnits : public Level
     EvalStatus eval_status;
     eval_status.success = true;
 
-    utilized_instances_ = tile.compute_info.replication_factor;
+    // utilized_instances_ = tile.compute_info.replication_factor;
+    utilized_instances_ = tile.compute_info.effective_replication_factor;
 
     if (utilized_instances_ <= specs_.instances.Get())
     {

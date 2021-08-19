@@ -113,6 +113,17 @@ Application::Application(config::CompoundConfig* config,
 
   std::cout << "Architecture configuration complete." << std::endl;
 
+  // Sparse optimizations
+  config::CompoundConfigNode sparse_optimizations;
+  if (rootNode.exists("sparse_optimizations"))
+    sparse_optimizations = rootNode.lookup("sparse_optimizations");
+  
+  sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
+  // characterize workload on whether it has metadata
+  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
+  
+  std::cout << "Sparse optimization configuration complete." << std::endl;
+
   // Mapper (this application) configuration. (the rest)
 
   num_threads_ = std::thread::hardware_concurrency();
@@ -235,14 +246,6 @@ Application::Application(config::CompoundConfig* config,
     cfg_string_ = nullptr;
   }
 
-  // Sparse optimizations
-  config::CompoundConfigNode sparse_optimizations;
-  if (rootNode.exists("sparse_optimizations"))
-    sparse_optimizations = rootNode.lookup("sparse_optimizations");
-	sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
-
-  // characterize workload on whether it has metadata
-  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
 }
 
 Application::~Application()
