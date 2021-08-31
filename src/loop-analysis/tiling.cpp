@@ -517,6 +517,7 @@ void ComputeWorkloadTensorSizes(std::vector<DataMovementInfo>& tile_nest, proble
       }
 
       assert(max_tensor_size != 0); //workload tensor size cannot be zero
+	  printf("Toluwa DEBUG: Setting workload tensor size now, tiling.cpp\n");
       workload->SetWorkloadTensorSize(pv, max_tensor_size);
    }
 

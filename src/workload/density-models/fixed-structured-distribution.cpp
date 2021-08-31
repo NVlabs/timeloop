@@ -52,6 +52,7 @@ FixedStructuredDistribution::Specs FixedStructuredDistribution::ParseSpecs(confi
 
   specs.type = "fixed-structured";
   specs.fixed_density = fixed_density;
+  printf("Toluwa DEBUG: Density is %f\n", fixed_density);
 
   return specs;
 }

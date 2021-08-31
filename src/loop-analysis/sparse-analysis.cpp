@@ -199,7 +199,7 @@ bool CheckComputeAlignmentUnitRequirement(SparseAnalysisState& state,
         {
           num_contracted_dims++;
           state.c_intersection_dims_.push_back(loop.dimension);
-          //std::cout << "contracted dimension: " << problem::GetShape()->DimensionIDToName.at(loop.dimension) << std::endl;
+          std::cout << "contracted dimension: " << problem::GetShape()->DimensionIDToName.at(loop.dimension) << std::endl;
         }
       }
     }
@@ -1049,7 +1049,8 @@ std::map<DataSpaceID, double> GetExpectedOperandDensities(const SetOfOperationSp
   return expected_operand_densities;
 }
 
-void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
+
+void CalculateFineGrainedComputeAccesses3Operand(const SparseAnalysisState& state,
                                          tiling::CompoundTileNest& compound_tile_nest)
 {
 
@@ -1098,7 +1099,9 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
 
   // Query density models to get necessary density of the scalar operands
   //TODO: consider when there are more than 2 operand dataspaces
-  assert(operand_compressed.size() == 2);
+  //assert(operand_compressed.size() == 2);
+  
+	printf("WARNING: Sparseloop can only correctly deal with 2 operands for intersection. You have %ld operands\n", operand_compressed.size());
 
   SetOfOperationSpaces set_of_operation_spaces;
   problem::OperationPoint scalar_high;
@@ -1106,10 +1109,10 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   set_of_operation_spaces.upper_level_loops = state.mapping_.loop_nest.loops;
   set_of_operation_spaces.workload = state.workload_;
   auto operand_exp_densities = GetExpectedOperandDensities(set_of_operation_spaces, operand_density_models);
-  // for (auto iter = operand_exp_densities.begin(); iter != operand_exp_densities.end(); iter++)
-  // {
-  //   std::cout << problem::GetShape()->DataSpaceIDToName.at(iter->first) << " density : " << iter->second << std::endl;
-  // }
+   for (auto iter = operand_exp_densities.begin(); iter != operand_exp_densities.end(); iter++)
+   {
+     std::cout << problem::GetShape()->DataSpaceIDToName.at(iter->first) << " density : " << iter->second << std::endl;
+   }
 
   // Calculate the probability of each possible state of the operands
   std::map <DataSpaceID, PerStateProb> per_operand_states;
@@ -1128,13 +1131,13 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
       per_operand_states[pv][NOT_EXIST] = 0;
     }
 
-    // std::cout << "  EZ: " << per_operand_states[pv][EXIST_ZERO] << std::endl;
-    // std::cout << "  NE: " << per_operand_states[pv][NOT_EXIST] << std::endl;
-    // std::cout << "  ENZ: " << per_operand_states[pv][EXIST_NOT_ZERO] << std::endl;
+     std::cout << "  EZ: " << per_operand_states[pv][EXIST_ZERO] << std::endl;
+     std::cout << "  NE: " << per_operand_states[pv][NOT_EXIST] << std::endl;
+     std::cout << "  ENZ: " << per_operand_states[pv][EXIST_NOT_ZERO] << std::endl;
 
   }
 
-  // Extract the operand dataspace ids
+    // Extract the operand dataspace ids
   auto iter = per_operand_states.begin();
   DataSpaceID op_a_id = iter->first;
   iter++;
@@ -1216,6 +1219,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   }
   else
   {
+	printf("Toluwa, I'm in here!\n");
     flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
       * per_operand_states[op_b_id][EXIST_NOT_ZERO];
     flattened_probs[{EXIST_NOT_ZERO, EXIST_ZERO}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
@@ -1357,10 +1361,478 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   compute_info.fine_grained_accesses["random_compute"] =
     total_compute - floor(skipped_compute) - floor(gated_compute) - floor(nonexistent_compute);
 
-  // std::cout << "(final) skipped compute: " << compute_info.fine_grained_accesses["skipped_compute"]
-  //   << " gated compute: " << compute_info.fine_grained_accesses["gated_compute"]
-  //   << " random compute: " << compute_info.fine_grained_accesses["random_compute"]
-  //   << " nonexistent: " << nonexistent_compute << std::endl;
+   std::cout << "(final) skipped compute: " << compute_info.fine_grained_accesses["skipped_compute"]
+     << " gated compute: " << compute_info.fine_grained_accesses["gated_compute"]
+     << " random compute: " << compute_info.fine_grained_accesses["random_compute"]
+     << " nonexistent: " << nonexistent_compute << std::endl;
+
+}
+
+
+/*****************************************************************************
+ * 
+ *****************************************************************************/
+void to_base_3(uint64_t value, std::vector<ComputeOperandState>& ternary_array, uint32_t size) 
+{
+	ComputeOperandState r = static_cast<ComputeOperandState>(value % 3);
+	uint64_t q = (uint64_t) floor(value/3);
+	ternary_array.push_back(r);
+	
+	printf("\t\tvalue %ld, ternary_bit %d, size %d\n", value, r, size);
+	
+	if (ternary_array.size() == size) {
+		return;
+	}
+
+	to_base_3(q, ternary_array, size);
+}
+
+
+void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
+                                         tiling::CompoundTileNest& compound_tile_nest)
+{
+
+  // scenarios of operands states       | resulted compute actions
+  // -----------------------------------------------------------------
+  // 1) A: ENZ, B: ENZ                  | random compute
+  // 2) A: ENZ, B: EZ, 4) A: EZ, B: ENZ | random, gated compute (depends on optimization) not we cannot skip here as both operands exist
+  // 3) A: ENZ, B: NE, 7) A: NE, B: ENZ | random, gated, skipped compute  depends on optimization
+  // 5) A: EZ, B: EZ                    | random, gated compute (depends on optimization) note that we cannot skip here as both operands exist
+  // 6) A: EZ, B: NE,  8) A: NE, B: EZ  | random, gated, skipped compute  depends on optimization
+  // 9) A: NE, B: NE                    | nonexistent compute (the compute unit will not see this case happening as nothing actually exists)
+  // -----------------------------------------------------------------
+  // NE: not exist; EZ: exist, is zero; ENZ: exist, not zero
+
+
+  // Find the inner most level tile for each operand
+  auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
+  auto& compute_info = compound_tile_nest.compute_info_nest[0];
+
+  std::map<DataSpaceID, bool> operand_compressed;
+  //std::map<DataSpaceID, bool> implicit_coordinates;
+  std::map<DataSpaceID, bool> operand_has_metadata;
+  PerDataSpaceDensityModel operand_density_models;
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  {
+    if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    {
+      auto& pv_data_movement_nest = compound_data_movement_nest[pv];
+      for (unsigned l = 0; l < state.num_storage_levels_; l++)
+      {
+        if (pv_data_movement_nest[l].shape != 0)
+        {
+          // found the inner most storage for dspace pv
+          operand_compressed[pv] = pv_data_movement_nest[l].compressed;
+          operand_density_models[pv] = pv_data_movement_nest[l].tile_density;
+          operand_has_metadata[pv] = pv_data_movement_nest[l].has_metadata;
+          // if (pv_data_movement_nest[l].has_metadata)
+          // {
+          //   implicit_coordinates[pv] = compression_info.per_level_info_map.at(l).at(pv).coordinates_implicit[0];
+          // }
+          break;
+        }
+      }
+    }
+  }
+
+  // Query density models to get necessary density of the scalar operands
+  //TODO: consider when there are more than 2 operand dataspaces
+  //assert(operand_compressed.size() == 2);
+  
+	printf("WARNING: Sparseloop can only correctly deal with 2 operands for intersection. You have %ld operands\n", operand_compressed.size());
+
+  SetOfOperationSpaces set_of_operation_spaces;
+  problem::OperationPoint scalar_high;
+  set_of_operation_spaces.op_space_mold_high = scalar_high;
+  set_of_operation_spaces.upper_level_loops = state.mapping_.loop_nest.loops;
+  set_of_operation_spaces.workload = state.workload_;
+  auto operand_exp_densities = GetExpectedOperandDensities(set_of_operation_spaces, operand_density_models);
+   for (auto iter = operand_exp_densities.begin(); iter != operand_exp_densities.end(); iter++)
+   {
+     std::cout << problem::GetShape()->DataSpaceIDToName.at(iter->first) << " density : " << iter->second << std::endl;
+   }
+
+  // Calculate the probability of each possible state of the operands
+  std::map <DataSpaceID, PerStateProb> per_operand_states;
+  for (auto iter = operand_exp_densities.begin(); iter != operand_exp_densities.end(); iter++)
+  {
+    problem::Shape::DimensionID pv = iter->first;
+    double pv_density = iter->second;
+    per_operand_states[pv][EXIST_NOT_ZERO] = pv_density;
+    if (operand_has_metadata.at(pv))
+    {
+      per_operand_states[pv][EXIST_ZERO] = 0;
+      per_operand_states[pv][NOT_EXIST] = 1.0 - pv_density;
+    } else
+    {
+      per_operand_states[pv][EXIST_ZERO] = 1.0 - pv_density;
+      per_operand_states[pv][NOT_EXIST] = 0;
+    }
+
+     std::cout << "  EZ: " << per_operand_states[pv][EXIST_ZERO] << std::endl;
+     std::cout << "  NE: " << per_operand_states[pv][NOT_EXIST] << std::endl;
+     std::cout << "  ENZ: " << per_operand_states[pv][EXIST_NOT_ZERO] << std::endl;
+
+  }
+
+  /*******************************************************
+   * TOLUWA'S WORKAROUND FOR MULTI-OPERAND INTERSECTION
+   * Assumptions:
+   *     - optimizations are on all other operands, 
+   *       (see scalar_storage_optimization_ variable
+   *       So, this assumes the ranks are shared in some
+   *       way by all operands
+   *******************************************************/
+
+  uint32_t num_operands = per_operand_states.size();
+  double num_states = pow(3.0, num_operands);
+  printf("The number of states are %f\n", num_states);
+
+
+  // Extract the operand dataspace ids
+  auto iter = per_operand_states.begin();
+  DataSpaceID op_a_id = iter->first;
+  iter++;
+  DataSpaceID op_b_id = iter->first;
+
+  // Calculate dependent probabilities
+  std::map<ComputeOperandStatePair, double> flattened_probs = {};
+
+  /* OLD CODE:
+  flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}] = 0.0;
+  flattened_probs[{EXIST_NOT_ZERO, EXIST_ZERO}] = 0.0;
+  flattened_probs[{EXIST_NOT_ZERO, NOT_EXIST}] = 0.0;
+  flattened_probs[{EXIST_ZERO, EXIST_NOT_ZERO}] = 0.0;
+  flattened_probs[{EXIST_ZERO, EXIST_ZERO}] = 0.0;
+  flattened_probs[{EXIST_ZERO, NOT_EXIST}] = 0.0;
+  flattened_probs[{NOT_EXIST, EXIST_NOT_ZERO}] = 0.0;
+  flattened_probs[{NOT_EXIST, EXIST_ZERO}] = 0.0;
+  flattened_probs[{NOT_EXIST, NOT_EXIST}] = 0.0;
+  */
+
+  // Set the probabilities to 0
+  for (uint32_t i = 0; i < num_states; i++) { 
+	ComputeOperandStatePair state_vector;
+	to_base_3(i, state_vector, num_operands);
+	printf("to_base_3, size is %ld\n", state_vector.size());
+	flattened_probs[state_vector] = 0.0;
+  }
+
+
+  // Extract if both operands are scalar-scalar optimization
+  bool scalar_scalar_opt = state.scalar_storage_optimization_.at(op_a_id) && state.scalar_storage_optimization_.at(op_b_id);
+
+  printf("scalar_scalar_opt is %d\n", scalar_scalar_opt); 
+  
+
+  // Check if all operands are scalar-scalar optimization
+  bool multi_scalar_opt = true;
+  auto iter_all_ops = per_operand_states.begin();
+ 
+  std::vector<DataSpaceID> operand_dataspaces;
+
+  for (uint32_t i = 0; i < num_operands; i++) {
+	DataSpaceID op_x_id = iter_all_ops->first;
+  	multi_scalar_opt = multi_scalar_opt && state.scalar_storage_optimization_.at(op_x_id);
+	printf("Here! %d %d\n", multi_scalar_opt, state.scalar_storage_optimization_.at(op_x_id));
+	operand_dataspaces.push_back(op_x_id);
+	iter_all_ops++;
+  }
+
+  bool no_opts = true;
+
+  if (multi_scalar_opt)
+  {
+    // essentially intersection at scalar scale
+	// This version is for when all operands are ENZ or NE
+    printf("In multi_scalar_opt\n");	
+	double enz_value = 1;
+
+	ComputeOperandStatePair state_vector;
+	ComputeOperandStatePair state_vector_ne;
+
+	for (uint32_t i = 0; i < num_operands; i++) {
+	    state_vector.push_back(EXIST_NOT_ZERO);
+		state_vector_ne.push_back(NOT_EXIST);
+		DataSpaceID op_x_id = operand_dataspaces.at(i);
+		enz_value = enz_value * per_operand_states[op_x_id][EXIST_NOT_ZERO];
+	}
+
+	flattened_probs[state_vector] = enz_value;
+	flattened_probs[state_vector_ne] = 1 - enz_value;
+
+  	//ORIGINAL CODE
+    /*
+	flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}] = per_operand_states[op_a_id][EXIST_NOT_ZERO]
+      * per_operand_states[op_b_id][EXIST_NOT_ZERO];
+    flattened_probs[{NOT_EXIST, NOT_EXIST}] = 1 - flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}];
+	*/
+	no_opts = false;
+  }
+  else { //loop through each operand and check if they need to be optimized
+	for (uint32_t i = 0; i < num_operands; i++) { //iterate through each operand
+		DataSpaceID op_this_id = operand_dataspaces.at(i);
+
+		if (no_opts && state.scalar_storage_optimization_.at(op_this_id)) {
+			no_opts = false;
+			printf("Need optimiation on %d\n", op_this_id); 
+			
+			for (uint32_t state_i = 0; state_i < num_states; state_i++) { 
+				ComputeOperandStatePair state_vector;
+				to_base_3(state_i, state_vector, num_operands);
+				printf("to_base_3 %ld\n", state_vector.size());
+
+				//For this state, set the flattened_probs
+				ComputeOperandState this_state = state_vector.at(i);
+				int prob_state = 2; //0 -- compute, 1 -- set to 0, 2 -- all don't exist
+				bool there_is_compute = true;
+				double prob_value = 1.0; 
+				double prob_ne_value = 1.0;
+				ComputeOperandState op_state;
+
+				for (uint32_t op_i = 0; op_i < num_operands; op_i++) {
+
+					DataSpaceID op_x_id = operand_dataspaces.at(op_i);
+					//make sure we're looking at the other operands
+					if (op_i != i) {
+						op_state = state_vector.at(op_i);
+
+						//There's a zero! No compute
+						if (op_state == EXIST_ZERO)
+						{
+							prob_state = 1;		
+							there_is_compute = false;
+						} 
+						
+						else if (op_state == NOT_EXIST)
+						{
+							//we've encountered either EZ or ENZ 
+							//in some other operand
+							if (prob_state != 2) 
+							{ 
+								prob_state = 1;
+								there_is_compute = false;
+							}
+							//else everything's been NE so far...
+							else 
+							{// leave it at 2
+								prob_ne_value = prob_ne_value *
+								   (per_operand_states[op_x_id][NOT_EXIST] + 
+									per_operand_states[op_x_id][EXIST_ZERO]);
+								there_is_compute = false;
+							}
+						}
+
+						//op_state == EXIST_NOT_ZERO
+						else //op_state == EXIST_NOT_ZERO 
+						{
+							//Then prior runs have all been NOT_EXIST There'll be no compute
+							if (prob_state == 2 && !there_is_compute) 
+							{ 
+								prob_state = 1;
+							} 
+
+							//then prior runs have either been NE or EZ. leave as is.
+							else if (prob_state == 1) {
+							}
+
+							//then prior runs have been compute!
+							else if (there_is_compute) { 
+								prob_state = 0;
+								prob_value = prob_value*per_operand_states[op_x_id][EXIST_NOT_ZERO];
+							}
+						}
+					}
+					 
+				} //done checking the states of the other operands
+
+				//If compute, then compute!
+				if (prob_state == 0) {
+					flattened_probs[state_vector] = 
+						prob_value*per_operand_states[op_this_id][this_state];
+				} 
+				//one of the operands is zero or doesn't exist. Set to 0
+				else if (prob_state == 1) {
+					flattened_probs[state_vector] = 0.0;
+				}
+				//so far, none of the operands existed...
+				else if (prob_state == 2) {
+					if (this_state == NOT_EXIST) {
+						flattened_probs[state_vector] = prob_ne_value;
+					} else {
+						flattened_probs[state_vector] = 0.0;
+					}
+				}
+				printf("flattened_probs at %d is %f with state %d\n", state_i, flattened_probs[state_vector], prob_state);
+  			}//done with all possible combinations of operand states
+		} // done with checking this optimization for this operand
+	} //done checking optimizations for ALL operands
+  }
+
+  //There were no optimizations on any of the operands.
+  //EVERYTHING will be compute
+  if (no_opts) {
+	  printf("I'm in no_opts\n");
+	  fflush(stdout);
+	//Go through each possible state
+	for (uint32_t state_i = 0; state_i < num_states; state_i++) {
+		ComputeOperandStatePair state_vector;
+		to_base_3(state_i, state_vector, num_operands);
+		printf("Done converting...%ld\n", state_vector.size());
+		fflush(stdout);
+		//Set the flattened_probs for each state
+
+		double prob_value = 1.0;
+
+		for (uint32_t op_i = 0; op_i < num_operands; op_i++) {
+			printf("op_i is %d, state_i is %d\n", op_i, state_i);
+			fflush(stdout);
+			DataSpaceID op_x_id = operand_dataspaces.at(op_i);
+			printf("Got op_x_id\n");
+			fflush(stdout);
+			ComputeOperandState op_state = state_vector.at(op_i);
+			printf("Got op_state %d\n", op_state);
+			fflush(stdout);
+			prob_value = prob_value * per_operand_states[op_x_id][op_state];
+		}
+		flattened_probs[state_vector] = prob_value;
+		printf("***\n\n"); fflush(stdout);
+	}
+  }
+
+
+  // Initialize fine grained access counts
+  // double total_compute = compute_info.replication_factor * (double)compute_info.accesses;
+  double total_compute = compute_info.fine_grained_accesses["random_compute"];
+
+  // Extract hardware sparse optimization spec (can zero operand be identified?)
+  bool gate_on_zero_operand = false;
+  bool skip_on_not_aligned_operands = false;
+  if (state.sparse_optimization_info_->compute_optimization_info.find("gate_on_zero_operand") !=
+    state.sparse_optimization_info_->compute_optimization_info.end())
+  {
+    gate_on_zero_operand = state.sparse_optimization_info_->compute_optimization_info.at("gate_on_zero_operand");
+  }
+
+  if (state.sparse_optimization_info_->compute_optimization_info.find("skip_on_not_aligned_operands") !=
+    state.sparse_optimization_info_->compute_optimization_info.end())
+  {
+    skip_on_not_aligned_operands = state.sparse_optimization_info_->compute_optimization_info.at("skip_on_not_aligned_operands");
+  }
+
+  // Initialize all the counters
+  // nonexistent compute: although should happen in algorithmic world, will not be present at the hardware
+  //   e.g., for cartesian product, any pair of non-empty operands is legal,
+  //   the empty operands are then naturally skipped over by hardware as no alignment is performed
+  //   however, if alignment is needed, unless the hardware can lookup corresponding pairs with the "skipping" optimization
+  //   the cycle needs to be spent when one of the operands is empty
+  double random_compute = 0.0, skipped_compute = 0.0, gated_compute = 0.0, tmp_delta = 0.0, nonexistent_compute = 0.0;
+
+
+  //Multi-operand version
+  // Go through each possible case/state
+  // Priorities:
+  //  	if all operands are NE: update non-existent compute
+  //  	if any operand is NE: update skip or gate or random compute
+  //  	if any operand is EZ: update gate or random
+  //  	else all operands are ENZ: update random only
+  for (uint32_t state_i = 0; state_i < num_states; state_i++) {
+	ComputeOperandStatePair state_vector;
+	to_base_3(state_i, state_vector, num_operands);
+
+	tmp_delta = total_compute * (flattened_probs[state_vector]);
+	
+	//enumerate the cases
+	int all_ne = 0, some_ne = 0, some_ez = 0, some_enz = 0, all_enz = 0;
+	
+	//Loop through each operand state in this state_vector
+	for (uint32_t op_i = 0; op_i < num_operands; op_i++) {
+		ComputeOperandState op_state = state_vector.at(op_i);
+		
+		if (op_state == NOT_EXIST) {
+			some_ne = 1;
+		} else if (op_state == EXIST_ZERO) {
+			some_ez = 1;
+		} else if (op_state == EXIST_NOT_ZERO) {
+			some_enz = 1;
+		} else {
+			printf("ERROR: op_state does not exist!\n");
+			exit(1);
+		}
+	}
+
+	//No EZ and No ENZ means they are all NE
+	if (!some_ez && !some_enz && some_ne) {
+		all_ne = 1;
+	} 
+	//No NE and No EZ means they are all ENZ
+	else if (some_enz && !some_ne && !some_ez) {
+		all_enz = 1;
+	}
+	
+	//Update compute for this state_vector
+	//all operands are in the NOT_EXIST state
+	if (all_ne) {
+		nonexistent_compute += tmp_delta;
+	}
+	//SOME of the operands are in the NOT_EXIST state
+	else if (some_ne) {
+		if (skip_on_not_aligned_operands)
+  		{
+    		skipped_compute += tmp_delta; // operand alignment unit jumps to look for pair of ENZ ENZ operands
+  		}
+  		else
+  		{
+    		if (gate_on_zero_operand)
+    		{
+      			gated_compute += tmp_delta;
+    		}
+    		else
+    		{
+      			random_compute += tmp_delta;  // operand alignment unit sends bubble to compute unit
+    		}
+  		}
+  	}
+	//SOME of the operands are in the EXIST_ZERO state, but not NE state
+	else if (some_ez) {
+		if (gate_on_zero_operand)
+  		{
+    		gated_compute += tmp_delta;
+  		} else
+  		{
+    		random_compute += tmp_delta;
+  		}
+	} 
+	//All the operands exist and aren't zero!
+	else if (all_enz) {
+		random_compute += tmp_delta;
+	}
+	else {//we should never reach this stage
+		printf("ERROR: Bug in calculating intersection computes...\n");
+		exit(1);
+	}
+  }
+
+ std::cout << "total: " << total_compute << "  sum: " <<  skipped_compute + random_compute + gated_compute + nonexistent_compute
+ << " diff: " << total_compute - skipped_compute - random_compute - gated_compute  - nonexistent_compute << std::endl;
+
+ fflush(stdout);
+  // sanity check
+  // as long as different is smaller than 0.001% of the total compute, pass
+  // there could be tiny discrepencies due to lack of precision...
+  assert(abs(skipped_compute + random_compute + gated_compute + nonexistent_compute - total_compute) < total_compute * 0.00001);
+
+
+  // now round the action counts into integers (pessimistic rounding)
+  compute_info.fine_grained_accesses["skipped_compute"] = floor(skipped_compute);
+  compute_info.fine_grained_accesses["gated_compute"] = floor(gated_compute);
+  compute_info.fine_grained_accesses["random_compute"] =
+    total_compute - floor(skipped_compute) - floor(gated_compute) - floor(nonexistent_compute);
+
+   std::cout << "(final) skipped compute: " << compute_info.fine_grained_accesses["skipped_compute"]
+     << " gated compute: " << compute_info.fine_grained_accesses["gated_compute"]
+     << " random compute: " << compute_info.fine_grained_accesses["random_compute"]
+     << " nonexistent: " << nonexistent_compute << std::endl;
 
 }
 
@@ -2084,10 +2556,12 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
 
       std::uint64_t abs_max_tile_occupancy = pv_data_movement_info.GetMaxDataTileOccupancyByConfidence(1.0);
       std::uint64_t abs_min_tile_occupancy = pv_data_movement_info.GetMinDataTileOccupancy();
+	  printf("\nToluwa DEBUG: tile occupancies %lu %lu\n", abs_max_tile_occupancy, abs_min_tile_occupancy);
 
       for (std::uint64_t possible_occupancy = abs_min_tile_occupancy;
            possible_occupancy <= abs_max_tile_occupancy; possible_occupancy++)
       {
+		printf("\tToluwa DEBUG: possible_occupancy is %lu\n", possible_occupancy);
         double p = pv_data_movement_info.GetDataTileOccupancyProbability(possible_occupancy);
         if (p != 0)
         {

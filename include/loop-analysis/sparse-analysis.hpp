@@ -32,6 +32,7 @@
 #include "tiling-tile-info.hpp"
 #include "model/sparse-optimization-info.hpp"
 #include "model/topology.hpp"
+#include <math.h>
 
 namespace sparse
 {

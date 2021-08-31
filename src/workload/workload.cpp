@@ -217,8 +217,13 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
       config::CompoundConfigNode density_config;
       std::string dataspace_name = GetShape()->DataSpaceIDToName.at(i);
 
+	  printf("\nTOLUWA DEBUG: Looking at %s\n", dataspace_name.c_str());
+
       if (config_densities.exists(GetShape()->DataSpaceIDToName.at(i)))
       {
+		config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density);
+		printf("TOLUWA DEBUG: config densities exists! %d %f\n", 
+				config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap(), dataspace_avg_density);
         // if the specific dataspace's density is specified
         if (!config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap())
         {
