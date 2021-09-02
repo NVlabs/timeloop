@@ -55,17 +55,23 @@ BandedDistribution::Specs BandedDistribution::ParseSpecs(config::CompoundConfigN
 
 void BandedDistribution::SetWorkloadTensorSize(const problem::DataSpace& point_set)
 {
-  // 2D matrix only for now
-  assert(point_set.Order() == 2);
- 
+  // do not support multi-AAHR cases yet
+  assert(point_set.numAAHRs() == 1);
+  
+  // retrieve the first(and only) aahr
+  auto workload_aahr = point_set.GetAAHRs()[0];
+  
+  // only support 2D matrix
+  assert(workload_aahr.Max().Order()==2 && workload_aahr.Min().Order()==2);
+  
   // record workload information per dimension and generate global density level information
-  workload_tensor_size_ = point_set.size();
-  int min_dim_bound = point_set.Max()[0];
-  for (unsigned i= 0; i < point_set.Max().Order(); i++)
+  workload_tensor_size_ = workload_aahr.size();
+  int min_dim_bound = workload_aahr.Max()[0];
+  for (unsigned i= 0; i < workload_aahr.Max().Order(); i++)
   {
-    workload_dim_bounds_.emplace_back(point_set.Max()[i]);
-    assert(min_dim_bound == point_set.Max()[i]); // square matrix only for now
-    min_dim_bound = min_dim_bound > point_set.Max()[i] ? point_set.Max()[i] : min_dim_bound;
+    workload_dim_bounds_.emplace_back(workload_aahr.Max()[i]);
+    assert(min_dim_bound == workload_aahr.Max()[i]); // square matrix only for now
+    min_dim_bound = min_dim_bound > workload_aahr.Max()[i] ? workload_aahr.Max()[i] : min_dim_bound;
   }
  
   // total number of nonzeros == the sum of the number of elements in the diagonals
@@ -85,12 +91,19 @@ std::string BandedDistribution::GetDistributionType() const { return specs_.type
 std::uint64_t BandedDistribution::ComputeNNZForSpecificTile(const problem::DataSpace& point_set)
 {
   // std::cout << " eval: row offset:  " << dim_offsets[0] << "  col offset: " << dim_offsets[1] << std::endl;
+  
+  // do not support multi-AAHR cases yet
+  assert(point_set.numAAHRs() == 1);
+  
+  // retrieve the first(and only) aahr
+  auto tile_aahr = point_set.GetAAHRs()[0];
+  
   std:: uint64_t nnz = 0; 
-  for (int r = point_set.Min()[0]; r < point_set.Max()[0]; r++)
+  for (int r = tile_aahr.Min()[0]; r < tile_aahr.Max()[0]; r++)
   {
-    int min_tile_c_bound = point_set.Min()[1];     // dim_offsets[1];
+    int min_tile_c_bound = tile_aahr.Min()[1];     // dim_offsets[1];
     int c_start = std::max(min_tile_c_bound, std::max(r - int(specs_.band_width), 0));
-    int max_tile_c_bound = point_set.Max()[1]; // upper bound exclusive
+    int max_tile_c_bound = tile_aahr.Max()[1]; // upper bound exclusive
     int c_end = std::min(max_tile_c_bound,  r + int(specs_.band_width + 1)); // exculsive end point
     
     // sanity check of the nz points in tile
@@ -114,10 +127,10 @@ std::uint64_t BandedDistribution::ComputeNNZForSpecificTile(const problem::DataS
 
 
 double BandedDistribution::GetZeroOccupancyProbForConstrainedTileMold(const problem::DataSpace& point_set_mold,
-                                                                      const problem::DataSpace& constraint_point_mold) const
+                                                                      const problem::DataSpace& constraint_point_set_mold) const
 {
 
-  if (constraint_point_mold.size() == 0) return 1.0;
+  if (constraint_point_set_mold.size() == 0) return 1.0;
  
   // std::cout << "point set:  ";
   // point_set_mold.Print(std::cout);
@@ -125,31 +138,39 @@ double BandedDistribution::GetZeroOccupancyProbForConstrainedTileMold(const prob
   // constraint_point_mold.Print(std::cout);
   // std::cout << std::endl;
 
-  for (unsigned i = 0; i < point_set_mold.Order(); i++) 
-    assert(workload_dim_bounds_[i] % point_set_mold.Max()[i] == 0);
- 
-  int constraint_col_bound = constraint_point_mold.Max()[1] - constraint_point_mold.Min()[1];
-  int constraint_row_bound = constraint_point_mold.Max()[0] - constraint_point_mold.Min()[0];
-
-  int num_col_groups = constraint_col_bound / point_set_mold.Max()[1] ;
-  int num_row_groups = constraint_row_bound / point_set_mold.Max()[0] ;
+  // do not support multi-AAHR cases yet
+  assert(point_set_mold.numAAHRs() == 1);
+  assert(constraint_point_set_mold.numAAHRs() == 1);
   
-  int num_warm_up_row_groups = constraint_point_mold.size() == workload_tensor_size_?  ceil((double)specs_.band_width/point_set_mold.Max()[0]) : num_row_groups;
-  int num_steady_state_groups = constraint_point_mold.size() == workload_tensor_size_? std::max(int(num_row_groups) - 2*int(num_warm_up_row_groups), 0) : 0;
+  // retrieve the first(and only) aahr
+  auto tile_aahr_mold = point_set_mold.GetAAHRs()[0];
+  auto constraint_aahr_mold = constraint_point_set_mold.GetAAHRs()[0]; 
+   
+  for (unsigned i = 0; i < tile_aahr_mold.Max().Order(); i++) 
+    assert(workload_dim_bounds_[i] % tile_aahr_mold.Max()[i] == 0);
+ 
+  int constraint_col_bound = constraint_aahr_mold.Max()[1] - constraint_aahr_mold.Min()[1];
+  int constraint_row_bound = constraint_aahr_mold.Max()[0] - constraint_aahr_mold.Min()[0];
+
+  int num_col_groups = constraint_col_bound / tile_aahr_mold.Max()[1] ;
+  int num_row_groups = constraint_row_bound / tile_aahr_mold.Max()[0] ;
+  
+  int num_warm_up_row_groups = constraint_aahr_mold.size() == workload_tensor_size_?  ceil((double)specs_.band_width/tile_aahr_mold.Max()[0]) : num_row_groups;
+  int num_steady_state_groups = constraint_aahr_mold.size() == workload_tensor_size_? std::max(int(num_row_groups) - 2*int(num_warm_up_row_groups), 0) : 0;
   
 
   int row_offset, cur_r_group;
-  row_offset = constraint_point_mold.Min()[0]; 
+  row_offset = constraint_aahr_mold.Min()[0]; 
   cur_r_group = 0;
 
   std::uint64_t count = 0;
   
   while(cur_r_group < num_warm_up_row_groups + 1 && cur_r_group < num_row_groups)
   {
-    int col_offset = constraint_point_mold.Min()[1];
+    int col_offset = constraint_aahr_mold.Min()[1];
     for (int cur_c_group = 0; cur_c_group < num_col_groups;cur_c_group++)
     {
-      if (col_offset > row_offset + point_set_mold.Max()[0] - 1 + int(specs_.band_width))
+      if (col_offset > row_offset + tile_aahr_mold.Max()[0] - 1 + int(specs_.band_width))
       {
          
         if (cur_r_group >= num_warm_up_row_groups)
@@ -163,11 +184,11 @@ double BandedDistribution::GetZeroOccupancyProbForConstrainedTileMold(const prob
         }
         break;
       }
-      col_offset += point_set_mold.Max()[1];
+      col_offset += tile_aahr_mold.Max()[1];
     }
     // reset to first column
-    col_offset = constraint_point_mold.Min()[1];
-    row_offset += point_set_mold.Max()[0];
+    col_offset = constraint_aahr_mold.Min()[1];
+    row_offset += tile_aahr_mold.Max()[0];
     cur_r_group += 1; 
   }
  
@@ -181,13 +202,18 @@ double BandedDistribution::GetZeroOccupancyProbForConstrainedTileMold(const prob
 void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::DataSpace& point_set_mold,
                                                                const bool zero_occupancy_only)
 {
-  for (unsigned i = 0; i < point_set_mold.Order(); i++) 
-    assert(workload_dim_bounds_[i] % point_set_mold.Max()[i] == 0);
   
-  int num_col_groups = workload_dim_bounds_[1] / point_set_mold.Max()[1] ;
-  int num_row_groups = workload_dim_bounds_[0] / point_set_mold.Max()[0] ;
+  // do not support multi-AAHR cases yet
+  assert(point_set_mold.numAAHRs() == 1);
+  auto tile_aahr_mold = point_set_mold.GetAAHRs()[0];
   
-  int num_warm_up_row_groups = ceil((double)specs_.band_width/point_set_mold.Max()[0]);
+  for (unsigned i = 0; i < tile_aahr_mold.Max().Order(); i++) 
+    assert(workload_dim_bounds_[i] % tile_aahr_mold.Max()[i] == 0);
+  
+  int num_col_groups = workload_dim_bounds_[1] / tile_aahr_mold.Max()[1] ;
+  int num_row_groups = workload_dim_bounds_[0] / tile_aahr_mold.Max()[0] ;
+  
+  int num_warm_up_row_groups = ceil((double)specs_.band_width/tile_aahr_mold.Max()[0]);
   int num_steady_state_groups = std::max(int(num_row_groups) - 2*int(num_warm_up_row_groups), 0);
   
 
@@ -205,7 +231,7 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
     int col_offset = 0;
     for (int cur_c_group = 0; cur_c_group < num_col_groups;cur_c_group++)
     {
-      if (zero_occupancy_only || col_offset > row_offset + point_set_mold.Max()[0] - 1 + int(specs_.band_width))
+      if (zero_occupancy_only || col_offset > row_offset + tile_aahr_mold.Max()[0] - 1 + int(specs_.band_width))
       {
         
         if (cur_r_group >= num_warm_up_row_groups)
@@ -220,8 +246,8 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
          
         if (!zero_occupancy_only)
         {
-          problem::DataSpace point_set(point_set_mold.Min().Order());
-          representative_point_set_[0] = {point_set.Min().GetCoordinates(), point_set.Max().GetCoordinates()};
+          problem::DataSpace point_set(tile_aahr_mold.Min().Order());
+          representative_point_set_[0] = {tile_aahr_mold.Min().GetCoordinates(), tile_aahr_mold.Max().GetCoordinates()};
         }
         
         break;
@@ -230,16 +256,16 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
       {
         // construct exact point set
         
-        std::vector<Coordinate> min_coordinates = {point_set_mold.Min()[0] + row_offset, point_set_mold.Min()[1] + col_offset};
-        std::vector<Coordinate> max_coordinates = {point_set_mold.Max()[0] + row_offset, point_set_mold.Max()[1] + col_offset};
-        problem::DataSpace point_set(point_set_mold.Min().Order(), Point(min_coordinates), Point(max_coordinates));
+        std::vector<Coordinate> min_coordinates = {tile_aahr_mold.Min()[0] + row_offset, tile_aahr_mold.Min()[1] + col_offset};
+        std::vector<Coordinate> max_coordinates = {tile_aahr_mold.Max()[0] + row_offset, tile_aahr_mold.Max()[1] + col_offset};
+        problem::DataSpace point_set(tile_aahr_mold.Min().Order(), Point(min_coordinates), Point(max_coordinates));
         
         auto occupancy = ComputeNNZForSpecificTile(point_set);
         
         if (occupancy_count.find(occupancy) == occupancy_count.end()) 
         {
           occupancy_count[occupancy] = 0;
-          representative_point_set_[occupancy] = {point_set.Min().GetCoordinates(), point_set.Max().GetCoordinates()};
+          representative_point_set_[occupancy] = {min_coordinates, max_coordinates};
         }
         if (cur_r_group >= num_warm_up_row_groups)
         {
@@ -250,11 +276,11 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
           occupancy_count[occupancy] += num_warm_up_row_groups != num_row_groups ?  2 : 1;
         }
       }
-      col_offset += point_set_mold.Max()[1];
+      col_offset += tile_aahr_mold.Max()[1];
     }
     // reset to first column
     col_offset = 0;
-    row_offset += point_set_mold.Max()[0];
+    row_offset += tile_aahr_mold.Max()[0];
     cur_r_group += 1; 
   }
   
@@ -264,9 +290,8 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
     //
     // sanity check for occupancy calaculation
     //
-    // std::cout << "point set mold occupancy eval: ";
-    // point_set_mold.Print(std::cout);
-    // std::cout << std::endl;
+    // std::cout << "point set mold occupancy eval: "
+    // << tile_aahr_mold << std::endl;
 
     // std::cout << "num col groups: " << num_col_groups 
     // << "  num row groups: " << num_row_groups 
@@ -284,20 +309,24 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
     }
     // record what tile mold is this table for
     cur_tile_dims_.clear();
-    cur_tile_dims_.reserve(point_set_mold.Max().Order());
-    for (unsigned i = 0; i < point_set_mold.Max().Order(); i++)
+    cur_tile_dims_.reserve(tile_aahr_mold.Max().Order());
+    for (unsigned i = 0; i < tile_aahr_mold.Max().Order(); i++)
     {
-      cur_tile_dims_.emplace_back(point_set_mold.Max()[i]);
+      cur_tile_dims_.emplace_back(tile_aahr_mold.Max()[i]);
     }
   }
  }
 
 bool BandedDistribution::UseLookUpTable(const problem::DataSpace& point_set_mold)
 {
-  bool use_look_up_table = point_set_mold.Max().Order() == cur_tile_dims_.size() ? true : false;
-  for (unsigned i = 0; use_look_up_table && i < point_set_mold.Max().Order(); i++)
+  
+  assert(point_set_mold.numAAHRs()==1);
+  auto aahr_mold = point_set_mold.GetAAHRs()[0];
+  
+  bool use_look_up_table = aahr_mold.Max().Order() == cur_tile_dims_.size() ? true : false;
+  for (unsigned i = 0; use_look_up_table && i < aahr_mold.Max().Order(); i++)
   {
-    if (point_set_mold.Max()[i] != cur_tile_dims_[i]) 
+    if (aahr_mold.Max()[i] != cur_tile_dims_[i]) 
     {
       use_look_up_table = false;
     }

@@ -40,7 +40,7 @@ void ExtraTileConstraintInfo::Set(const std::uint64_t shape, const std::uint64_t
 
 void ExtraTileConstraintInfo::SetMold(const problem::DataSpace& tile_point_set_mold)
 {
-  tile_point_set_mold_ = std::make_shared<problem::DataSpace>(tile_point_set_mold.Order(), tile_point_set_mold.Min(), tile_point_set_mold.Max());
+  tile_point_set_mold_ = std::make_shared<problem::DataSpace>(tile_point_set_mold);
   mold_set_ = true;
 }
 
