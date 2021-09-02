@@ -569,16 +569,16 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
       ->GetTileOccupancyProbability(cspace_tile, 0);
     prob_target_dspace_effectual *= (1 - prob_condition_on_dspace_empty);
 
-    std::cout << " \n\n target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
-              << " condition on dspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
-              << " \n target loop dim: " << problem::GetShape()->FlattenedDimensionIDToName.at(target_loop_dim)
-              << " co-iterated: " << is_co_iterated_dim
-              << " trivial loop: " << target_loop_trivial
-              << "\n operation space mold derived dataspace sizes (target, conditioned): "
-              << optimization_granularity << "  "
-              << condition_on_granularity
-              << "\n condtion on tile empty probability(target skip prob): " << prob_condition_on_dspace_empty
-              << std::endl;
+    // std::cout << " \n\n target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
+    //           << " condition on dspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
+    //           << " \n target loop dim: " << problem::GetShape()->FlattenedDimensionIDToName.at(target_loop_dim)
+    //           << " co-iterated: " << is_co_iterated_dim
+    //           << " trivial loop: " << target_loop_trivial
+    //           << "\n operation space mold derived dataspace sizes (target, conditioned): "
+    //           << optimization_granularity << "  "
+    //           << condition_on_granularity
+    //           << "\n condtion on tile empty probability(target skip prob): " << prob_condition_on_dspace_empty
+    //           << std::endl;
   }
   double prob_target_dspace_ineffectual = 1 - prob_target_dspace_effectual;
   // std::cout << " (after aggregation) target skip prob: " << prob_target_dspace_ineffectual << std::endl;
