@@ -363,114 +363,112 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   bool found_target_dspace_loop = false;
   problem::Shape::FlattenedDimensionID target_loop_dim = std::numeric_limits<unsigned>::max();
   problem::OperationPoint mold_high;
-  bool target_loop_trivial;
-  loop::Descriptor target_loop;
-  unsigned target_loop_level, target_loop_id;
+  loop::Descriptor target_loop; // target loop itself
+  unsigned target_loop_storage_level, target_loop_id; // together defines the exact location of the target loop
 
-  if (child_level == -1)
-  {
-    // found loop related to target dataspace
-    target_loop_trivial = true;
-    found_target_dspace_loop = true;
-    target_loop = state.complete_subnests_[0][0]; //innermost loop above compute
-    target_loop_dim = target_loop.dimension;
-    target_loop_level = 0;
-    target_loop_id = 0;
-  }
-  else
-  {
-    for (unsigned l = child_level + 1; l <= storage_level_id && !found_target_dspace_loop; l++)
+//  if (child_level == -1)
+//  {
+//    // found loop related to target dataspace
+//    target_loop_trivial = true;
+//    found_target_dspace_loop = true;
+//    target_loop = state.complete_subnests_[0][0];  
+//    target_loop_dim = target_loop.dimension;
+//    target_loop_storage_level = 0;
+//    target_loop_id = 0;
+//  }
+//  else
+//  {
+    
+    problem::OperationPoint origin;
+    
+    bool construct_scalar_mold = false;
+    for (unsigned l = child_level + 1; l <= target_dspace_level && !found_target_dspace_loop; l++)
     {
       for (unsigned loop_id = 0; loop_id < state.complete_subnests_[l].size() && !found_target_dspace_loop; loop_id++)
       {
-        if (!state.trivial_nest_masks_[l][loop_id])
+        if (child_level != -1) 
         {
-          target_loop_dim = state.complete_subnests_[l][loop_id].dimension;
-          if (target_dspace_dimensions.find(target_loop_dim) != target_dspace_dimensions.end())
+          if(!state.trivial_nest_masks_[l][loop_id] 
+              && target_dspace_dimensions.find(state.complete_subnests_[l][loop_id].dimension) != target_dspace_dimensions.end())
           {
-            // found loop related to target dataspace
             found_target_dspace_loop = true;
-            target_loop = state.complete_subnests_[l][loop_id];
-            target_loop_level = l;
-            target_loop_id = loop_id;
-                        
-            // innermost loop of level l: next level top most operation point
-            if (loop_id == 0)
+          }
+        }
+        else // child_level == -1: 
+        {
+          // we want to look at the loop below the inner most temp loop (could just be a scalar if there is no temporal loops)
+          //   or any inner spatial loop that projects to target dspace
+          //   prepare for the case where there are spatial loops that projects to cond-on dspace but not target dataspace
+          //   in this case, this logic makes sure the spatial tile is accounted for when calculating optimization ratio
+          //   (optimizatin no longer based on a single cond-on scalar)
+          if (state.complete_subnests_[l][loop_id + 1].spacetime_dimension == spacetime::Dimension::Time)
+          {
+            found_target_dspace_loop = true;
+            if (state.complete_subnests_[l][loop_id].spacetime_dimension == spacetime::Dimension::Time)
             {
-              mold_high = state.maxtile_molds_high_[l - 1].back();
-              target_loop_trivial = false;
-            }
-            // intermediate loop of a level l: next loop in level l
-            else
-            {
-              mold_high = state.maxtile_molds_high_[l][loop_id - 1];
-              target_loop_trivial = false;
+              // std::cout << "inner most loop is temporal, explicitly construct scalar mold, later we should not consider co-iteration factor: "
+              //   << state.complete_subnests_[l][loop_id] << std::endl;
+              construct_scalar_mold = true;
             }
           }
+          else if (target_dspace_dimensions.find(state.complete_subnests_[l][loop_id].dimension) != target_dspace_dimensions.end() 
+                   && !state.trivial_nest_masks_[l][loop_id])
+          {
+            found_target_dspace_loop = true;
+          }
+        }
+        
+        if (found_target_dspace_loop)
+        {
+          // found loop related to target dataspace
+          target_loop = state.complete_subnests_[l][loop_id];
+          target_loop_dim = target_loop.dimension;
+          target_loop_storage_level = l;
+          target_loop_id = loop_id;
+          // record the mold high for the operation space associated with the *target loop*
+          // (note: not *an iteration of the target loop*)
+          mold_high = construct_scalar_mold ? origin : state.maxtile_molds_high_[l][loop_id];
         }
       }
     }
-  }
+//  }
 
-  // target-loop is trivial and topmost
-  if (!found_target_dspace_loop)
-  {
-    target_loop_trivial = true;
-    target_loop_level = storage_level_id;
-    target_loop_id = state.complete_subnests_[target_dspace_level].size();
-   
-    target_loop = state.complete_subnests_[target_dspace_level].back();
-    // std::cout << "target_loop: " << target_loop << std::endl;
-    target_loop_dim = state.complete_subnests_[target_dspace_level].back().dimension;
-    mold_high = state.maxtile_molds_high_[target_dspace_level].back();
-    found_target_dspace_loop = true;
-    // std::cout << " top most loop at storage level: "
-    // << topology_specs.GetStorageLevel(target_dspace_level)->level_name << std::endl;
-  }
-  
-  // std::cout << "target_loop: " << target_loop << std::endl;
-  // std::cout << "target_loop_trivial: " << target_loop_trivial << std::endl;
-  // std::cout << "found the loop that defines the operation space at level:  "
-  //           << topology_specs.GetStorageLevel(target_loop_level)->level_name << std::endl;
-  // std::cout << state.complete_subnests_[target_loop_level][target_loop_id] << std::endl;
-
+     
   // sanity check: target_loop_dim must be assigned, i.e., a loop that describes the operation space must be found
   assert(target_loop_dim != std::numeric_limits<unsigned>::max());
-
+  assert(found_target_dspace_loop);
+  
   // factor in the block size of the target dataspace storage
   //   if the conditioned on dataspace co-iteration on this dimension, the corresponding tile shape will be impacted
-  //   else, it makes no difference on the condition on dataspace tile shape
-  auto target_dspace_level_block_size = topology_specs.GetStorageLevel(target_dspace_level)->block_size.Get();
-  mold_high.IncrementAllDimensions();
-  unsigned scaled_dim_bound = mold_high[target_loop_dim] * target_dspace_level_block_size;
-  mold_high[target_loop_dim] = scaled_dim_bound;
-  mold_high.IncrementAllDimensions(-1);
+  //   else, this scaling will make no difference on the condition on dataspace tile shape
+  // auto target_dspace_level_block_size = topology_specs.GetStorageLevel(target_dspace_level)->block_size.Get();
+  auto default_target_dspace_mold_high = mold_high; 
+ 
+  // construct default  operation space mold for target dataspace  
+  // we will always be optimizing on the target dataspace tile described by this operation space
   
-  //
-  // Ineffectual read probability calculations
-  //
-
-  // construct the corresponding operation space mold for target dataspace
-  problem::OperationPoint origin;
-  problem::OperationSpace target_operation_space_mold(state.workload_, origin, mold_high);
-
-  // construct the corresponding operation space mold for conditioned on dataspace
+  problem::OperationSpace default_target_operation_space_mold(state.workload_, origin, default_target_dspace_mold_high);
+    
+  // construct the corresponding high point of the operation space mold for conditioned on dataspace
+ 
   // if we are looking at a spatial target loop
-  //   we need to go all the way to the top most spatial loop below a temporal loop that projects to target dataspace 
+  //   1) since there is actually no order between spatial loops, we need to look at the largest spatial tile (which is described by the topmost spatial loop)
+  //   2) we also need to look at all the temporal loops until we find a temporal loop that projects to target dataspace, because the spatial target
+  //      tile needs to stay stationary across the iterations of these temporal loops as well 
   //   (if innermost level, then the inner most temp loop as there is no order between loops)
-  //   since there is actually no order between spatial loops, we need to loop at the largest tile
-  //   and the spatial target tile will be used by all spatial cond-on tiles + any temporal tiles before loading in the
-  //   next spatial target tile
+  //   Thus, the aggregated operation space of 2) and 3) is what we will be using for cond on dataspaces
   // else
   //   we can directly use the target operation space as the conditioned on operation space
   
   bool is_spatial = target_loop.spacetime_dimension != spacetime::Dimension::Time;
-  // record the upper spatial dimensions for later to determine if the skipping optimization is effective
+  
+  // record (if needed) the upper spatial and temporal loops for later to determine if the skipping optimization is effective
+  // only needed if the optimization falls on a spatial loop
   std::vector<loop::Descriptor> upper_loops = {};
-  problem::OperationPoint cond_on_mold_high;
+  problem::OperationPoint default_cond_on_mold_high;
   if (is_spatial)
   {
-    for (unsigned l = target_loop_level; l <= storage_level_id; l++)
+    for (unsigned l = target_loop_storage_level; l <= target_dspace_level; l++)
     {
       for (unsigned loop_id = target_loop_id + 1; loop_id < state.complete_subnests_[l].size(); loop_id++)
       {
@@ -478,9 +476,9 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
         if (state.complete_subnests_[l][loop_id].spacetime_dimension == spacetime::Dimension::Time
             && (child_level == -1 || target_dspace_dimensions.find(state.complete_subnests_[l][loop_id].dimension) != target_dspace_dimensions.end()))
         {
-          // std::cout << "spatial target loop, fond nearest target temporal loop: " 
-          // << state.complete_subnests_[l][loop_id] << std::endl;
-          cond_on_mold_high = loop_id == 0 ? state.maxtile_molds_high_[l-1].back() : state.maxtile_molds_high_[l][loop_id];
+         // std::cout << "spatial target loop, fond nearest target temporal loop: " 
+         // << state.complete_subnests_[l][loop_id] << std::endl;
+          default_cond_on_mold_high = loop_id == 0 ? state.maxtile_molds_high_[l-1].back() : state.maxtile_molds_high_[l][loop_id - 1];
           break;
         }
         else
@@ -490,14 +488,12 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   }
   else
   {
-    cond_on_mold_high = mold_high;
+    default_cond_on_mold_high = mold_high;
   }
-  cond_on_mold_high.IncrementAllDimensions();
-  scaled_dim_bound = cond_on_mold_high[target_loop_dim] * target_dspace_level_block_size;
-  cond_on_mold_high[target_loop_dim] = scaled_dim_bound;
-  cond_on_mold_high.IncrementAllDimensions(-1);
-  problem::OperationSpace cond_on_operation_space_mold(state.workload_, origin, cond_on_mold_high);
 
+  //
+  // Ineffectual read probability calculations
+  //
 
   // go through each conditioned on dataspace id to get the probability of optimized away reads
   bool scalar_opt_cond_on_scalar = false;
@@ -507,18 +503,14 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
     DataSpaceID condition_on_dspace_id = resulted_impact.condition_on_dspace_ids[i];
     auto co_iterated_dimensions = problem::GetShape()->GetCoIteratedDimensions({target_dspace_id, condition_on_dspace_id});
     bool is_co_iterated_dim = co_iterated_dimensions.find(target_loop_dim) != co_iterated_dimensions.end();
-    auto optimization_granularity = target_operation_space_mold.GetSize(target_dspace_id);
-    std::uint64_t condition_on_granularity;
-
-    if (!is_spatial)
-    {
-      condition_on_granularity = is_co_iterated_dim ? ceil((double)cond_on_operation_space_mold.GetSize(condition_on_dspace_id)/((target_loop.end - target_loop.start)/target_loop.stride))
-        : cond_on_operation_space_mold.GetSize(condition_on_dspace_id);
-    }
-    else
+    
+    std::uint64_t condition_on_granularity, target_optimization_granularity;  // the shape of cond-on and target tile 
+   
+    // factor the cond on and target data tiles based on the defined operation spaces
+    double co_iteration_factor = is_co_iterated_dim ? ceil((target_loop.end - target_loop.start)/target_loop.stride) : 1.0;
+    if (is_spatial) 
     {
       bool ineffective_optimization = false;
-      double co_iteration_factor = is_co_iterated_dim ? (target_loop.end - target_loop.start)/target_loop.stride : 1.0;
 
       for (auto uloop = upper_loops.begin(); uloop != upper_loops.end(); uloop++) 
       {
@@ -540,7 +532,6 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
           // -> update co-iteration factor, so that a smaller conditioned on tile is examined
           // -> update record, so that any upper loop projecting to cond-on dataspace will result in ineffective optimizations
           co_iteration_factor *= ((uloop->end - uloop->start)/uloop->stride);
-          is_co_iterated_dim = true; 
         }
       }
       
@@ -550,12 +541,58 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
         //   "ineffectual optimization" << std::endl;
         continue;
       }
-
-      condition_on_granularity = cond_on_operation_space_mold.GetSize(condition_on_dspace_id)/co_iteration_factor;
     }
 
-    if (condition_on_granularity == 1 && ((optimization_granularity == 1 && target_loop_trivial)
-                                          || (is_co_iterated_dim && optimization_granularity == 1)))
+    if (construct_scalar_mold) co_iteration_factor = 1; // co-iteration is not considered if we are looking at scalar operand
+
+    // scale the default operation molds approproately according to co_iteration_factor and block size of the target dspace storage 
+    //   if the granularity is larger than block size, then no scaling needed
+    //   else, scale the granularity to be at least the block size
+ 
+    // prepare for scaling
+    auto target_dspace_mold_high = default_target_dspace_mold_high;
+    auto cond_on_mold_high = default_cond_on_mold_high;
+    
+    target_dspace_mold_high.IncrementAllDimensions();
+    cond_on_mold_high.IncrementAllDimensions();
+    
+    unsigned scaled_dim_bound;
+    target_optimization_granularity = floor(double(default_target_operation_space_mold.GetSize(target_dspace_id))/co_iteration_factor);
+    auto target_dspace_level_block_size = topology_specs.GetStorageLevel(target_dspace_level)->block_size.Get();
+   
+    // scaling
+    if (target_optimization_granularity < target_dspace_level_block_size)
+    {
+      auto co_iteration_scaled_target_loop_dim = target_dspace_mold_high[target_loop_dim]/co_iteration_factor;
+      
+      auto block_sz_scaling_ratio = ceil(target_dspace_level_block_size/co_iteration_scaled_target_loop_dim);
+      scaled_dim_bound = co_iteration_scaled_target_loop_dim*block_sz_scaling_ratio;
+      target_dspace_mold_high[target_loop_dim] = scaled_dim_bound;
+      
+      scaled_dim_bound = cond_on_mold_high[target_loop_dim]/co_iteration_factor*block_sz_scaling_ratio;
+      cond_on_mold_high[target_loop_dim] = scaled_dim_bound;
+    }
+    else
+    {
+      scaled_dim_bound = target_dspace_mold_high[target_loop_dim]/co_iteration_factor;
+      target_dspace_mold_high[target_loop_dim] = scaled_dim_bound;
+      
+      scaled_dim_bound = cond_on_mold_high[target_loop_dim]/co_iteration_factor;
+      cond_on_mold_high[target_loop_dim] = scaled_dim_bound;
+    }
+    
+    target_dspace_mold_high.IncrementAllDimensions(-1);
+    cond_on_mold_high.IncrementAllDimensions(-1);
+
+    // construct the appropriate operation spaces for taget and conditioned on dataspaces
+    problem::OperationSpace target_operation_space_mold(state.workload_, origin, cond_on_mold_high);
+    problem::OperationSpace cond_on_operation_space_mold(state.workload_, origin, cond_on_mold_high);
+
+    target_optimization_granularity = target_operation_space_mold.GetSize(target_dspace_id);
+    condition_on_granularity = cond_on_operation_space_mold.GetSize(condition_on_dspace_id);
+    
+    
+    if (condition_on_granularity == 1 && target_optimization_granularity == 1)
     {
       scalar_opt_cond_on_scalar = true;
       // std::cout << "---> scalar optimization of the target space based on a scalar conditioned on dspace" << std::endl;
@@ -571,11 +608,11 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
 
     // std::cout << " \n\n target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
     //           << " condition on dspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
-    //           << " \n target loop dim: " << problem::GetShape()->FlattenedDimensionIDToName.at(target_loop_dim)
+    //           << " \n target loop: " << target_loop
     //           << " co-iterated: " << is_co_iterated_dim
-    //           << " trivial loop: " << target_loop_trivial
+    //           << " child level: " << child_level
     //           << "\n operation space mold derived dataspace sizes (target, conditioned): "
-    //           << optimization_granularity << "  "
+    //           << target_optimization_granularity << "  "
     //           << condition_on_granularity
     //           << "\n condtion on tile empty probability(target skip prob): " << prob_condition_on_dspace_empty
     //           << std::endl;
@@ -721,6 +758,8 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
     if (compound_data_movement_nest[target_dspace_id][child_level].shape > 0) break;
  
   // go through the loops in this storage level
+  // note that spatial skipping is only applied to the spatial instances below this level, it is irrelevant to 
+  // whether this storage level stores the target dataspace or not
   auto per_level_loop_nests = state.complete_subnests_[storage_level];
   auto& target_dims = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(target_dspace_id);
   unsigned loop_id = -1;
@@ -742,9 +781,11 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
           auto& cond_on_dims = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(condition_on_dspace_id);
           
           // only if the dimension is relevant to the conditioned on dataspace do we proceed to analyze the impact
+          // otherwise the optimization is ineffective
           if (cond_on_dims.find(loop->dimension) != cond_on_dims.end())
           {
             unsigned level_cond_on_dspace_in = storage_level;
+            // find the level that stores the conditioned on dataspace
             while(compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].shape == 0
                 && level_cond_on_dspace_in < state.num_storage_levels_)
             {
@@ -774,6 +815,10 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
               }
               
               // only if the loop is a co-iterated loop, do we consider the stationarity of spatial loops relative to the temporal loops above it
+              // the target dataspace tile described by this spatial loop needs to be stationary 
+              // until next upper temp loop that projects to target dataspace is encountered
+              // go through all the temp loops above the current loop to find the appropriate operation space 
+              // (note that inner most level (child level = -1) is never stationary, so skip this analysis for innet most level) 
               auto co_iterated_dimensions = problem::GetShape()->GetCoIteratedDimensions({target_dspace_id, condition_on_dspace_id});
               if (child_level != -1 && co_iterated_dimensions.find(loop->dimension) != co_iterated_dimensions.end())
               {
@@ -784,9 +829,9 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
                   target_dspace_storage_level++;
                   target_dspace_in_level = compound_data_movement_nest[target_dspace_id][target_dspace_storage_level].shape == 0 ? false: true;
                 }
-                assert(target_dspace_in_level);
+                
                 bool found_target_temp_loop = false;
-                for(unsigned l = storage_level; l <= target_dspace_in_level && !found_target_temp_loop; l++)
+                for(unsigned l = storage_level; l <= target_dspace_storage_level && !found_target_temp_loop; l++)
                 {
                   for (auto uloop = state.complete_subnests_[l].begin(); 
                        uloop != state.complete_subnests_[l].end() && !found_target_temp_loop; uloop++)
@@ -794,12 +839,12 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
                     std::uint64_t uloop_bound = (uloop->end - uloop->start)/uloop->stride; 
                     if (uloop->spacetime_dimension == spacetime::Dimension::Time && uloop_bound > 1)
                     {
-                     
                       if (target_dims.find(uloop->dimension) != target_dims.end()) found_target_temp_loop = true;
                       else if (cond_on_dims.find(loop->dimension) != cond_on_dims.end())
                       {
-                        // the same spatial target tile is stationary while iterating through the temporal condition on loops only
-                        // account for the loop in density calculation
+                        // the same spatial target tile is stationary while iterating through the temporal loops not projecting to target dataspace
+                        // take this loop into account for mold high representation as it might impact the cond on dspace tile we will be looking at
+                        // for this optimization
                         mold_high.IncrementAllDimensions();
                         unsigned scaled_dim_bound = mold_high[uloop->dimension] * uloop_bound ;
                         mold_high[uloop->dimension] = scaled_dim_bound;
@@ -871,9 +916,7 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
       auto per_level_loop_nests = state.complete_subnests_[storage_level];
       
       unsigned loop_id = -1;
-
       unsigned level_dspace_in = storage_level;
-      
       while(compound_data_movement_nest[pv][level_dspace_in].shape == 0 && level_dspace_in < state.num_storage_levels_)
       {
         level_dspace_in++; 
@@ -2490,10 +2533,10 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
   int loop_id = singleton_metadata_subnest.size() - 1;
   int r_id = cur_level_num_ranks;
   std::uint64_t corresponding_tile_shape = 1;
-  //std::cout << "total number of ranks: " << cur_level_num_ranks
-  //<< "  inner rank id: " << inner_rank_id
-  //<< " total loops: " << singleton_metadata_subnest.size() 
-  //<< " has metadata: " << pv_has_metadata  << std::endl;
+  // std::cout << "total number of ranks: " << cur_level_num_ranks
+  // << "  inner rank id: " << inner_rank_id
+  // << " total loops: " << singleton_metadata_subnest.size() 
+  // << " has metadata: " << pv_has_metadata  << std::endl;
 
   while (r_id > (int)inner_rank_id && loop_id >= 0)
   {
