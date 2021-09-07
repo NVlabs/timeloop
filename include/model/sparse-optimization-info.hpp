@@ -95,6 +95,7 @@ struct PerDataSpaceCompressionInfo
   double compression_rate; // not very useful yet, placeholder
 
   bool HasMetaData() const;
+  bool ExistFlatteningRule(std::uint64_t rank_id) const;
   bool FoundDimensionInFlatteningRule(std::uint64_t rank_id, problem::Shape::FlattenedDimensionID dim_id,
                                       std::vector<problem::Shape::FlattenedDimensionID> &rule_item) const;
 };

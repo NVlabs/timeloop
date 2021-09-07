@@ -2540,8 +2540,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
 
   while (r_id > (int)inner_rank_id && loop_id >= 0)
   {
-    //r_id--; // next inner rank
-    //flattened_rank_nest.clear();
+    
     bool trivial_loop = true;
 
     while (trivial_loop && loop_id >= 0)  // get rid of the first set of consecutive trivial loops
@@ -2552,43 +2551,54 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
       loop_id--;
     }
 
-    if (loop_id >= 0) //there are some non-trivial loop(s) that can be mapped to next rank
+    if (loop_id >= 0) //there are some non-trivial loop(s) that can potenitally be mapped to next rank
     {
       r_id--; // next inner rank
       flattened_rank_nest.clear();
 
       auto loop = singleton_metadata_subnest[loop_id];
-      //std::cout << "mapping loop below to rank " << r_id << std::endl;
-      //std::cout << loop << std::endl;
+      // std::cout << "trying to map loop below to rank " << r_id << std::endl;
+      // std::cout << loop << std::endl;
+      
+      // reset flattening rule
+      flattening_rule = {};     
+      bool in_flattened_list = false;
+      std::vector<problem::Shape::FlattenedDimensionID>::iterator flatten_iter;
 
       if (!trivial_loop)
       {
-        flattened_rank_nest.push_back(loop);
-        corresponding_tile_shape = singleton_metadata_subtile_shape[loop_id];
-      }
-      loop_id--;
-
-      bool in_flattened_list;
-      if (loop_id >= 0)
-      {
-        // reset flattening rule
-        flattening_rule = {};
-        std::vector<problem::Shape::FlattenedDimensionID>::iterator flatten_iter;
-
+        // if there is any flattening rule set for the rank, test if we can map the loop the to rank
+        if (pv_has_metadata && pv_compression_info.ExistFlatteningRule(r_id))
+        {
+          if (pv_compression_info.FoundDimensionInFlatteningRule(r_id, loop.dimension, flattening_rule))
+          {
+            in_flattened_list = true;
+            flatten_iter = std::find(flattening_rule.begin(), flattening_rule.end(), loop.dimension);
+          }
+          else
+          {
+            // std::cout << "flattening rule specified but dimension not in there, this rank cannot be mapped" << std::endl; 
+            std::vector <loop::Descriptor> tmp_loop = {};
+            pv_data_movement_info.metadata_subnest.push_back(tmp_loop);
+            pv_data_movement_info.metadata_subtile_shape.push_back(singleton_metadata_subtile_shape[0]);
+            continue;
+          }
+        }
+       
+        // if uncompressed, by default, the dimension is in flattening rule
         if (!pv_has_metadata)
         {
           in_flattened_list = true;
-        } else if (pv_compression_info.FoundDimensionInFlatteningRule(r_id, loop.dimension,
-                                                                      flattening_rule))
-        {
-          flatten_iter = std::find(flattening_rule.begin(), flattening_rule.end(), loop.dimension);
-          // flattening_rule.erase(flatten_iter);
-          in_flattened_list = true;
-        } else
-        {
-          in_flattened_list = false;
         }
+        
+        flattened_rank_nest.push_back(loop);
+        corresponding_tile_shape = singleton_metadata_subtile_shape[loop_id];
+      }
+      // next inner loop
+      loop_id--;
 
+      if (loop_id >= 0)
+      {
         // std::cout << "rest of dims in the flattening rule: " << in_flattened_list << std::endl;
         // if (pv_has_metadata)
         // {
@@ -2715,7 +2725,7 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
       if (!trivial_loop) break;
       loop_id++;
     }
-
+    
     if (loop_id < singleton_metadata_subnest.size()) //there are some non-trivial loop(s) that can be mapped to next rank
     {
       r_id++; // next outer rank
@@ -2724,40 +2734,55 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
       //std::cout << "mapping loop below to rank " << r_id << std::endl;
       //std::cout << loop << std::endl;
 
+      bool in_flattened_list = false;
+      // reset flattening rule
+      flattening_rule = {};
+      std::vector<problem::Shape::FlattenedDimensionID>::iterator flatten_iter;
+      
       if (!trivial_loop)
       {
-        flattened_rank_nest.push_back(loop);
-        corresponding_tile_shape = singleton_metadata_subtile_shape[loop_id];
-      }
-      loop_id++;
-
-      bool in_flattened_list;
-      if (loop_id < singleton_metadata_subnest.size())
-      {
-        // reset flattening rule
-        flattening_rule = {};
-        std::vector<problem::Shape::FlattenedDimensionID>::iterator flatten_iter;
-
+        // if there is any flattening rule set for the rank, test if we can map the loop the to rank
+        // std::cout << "has metadata: " << pv_has_metadata << "  exist flat rule: " <<  pv_compression_info.ExistFlatteningRule(r_id) <<std::endl;
+        if (pv_has_metadata && pv_compression_info.ExistFlatteningRule(r_id))
+        {
+          
+          if (pv_compression_info.FoundDimensionInFlatteningRule(r_id, loop.dimension, flattening_rule))
+          {
+            in_flattened_list = true;
+            flatten_iter = std::find(flattening_rule.begin(), flattening_rule.end(), loop.dimension);
+          }
+          else
+          {
+            // std::cout << "flattening rule specified but dimension not in there, this rank cannot be mapped" << std::endl; 
+            std::vector <loop::Descriptor> tmp_loop = {};
+            pv_data_movement_info.metadata_subnest.push_back(tmp_loop);
+            pv_data_movement_info.metadata_subtile_shape.push_back(0);
+            continue;
+          }
+        }
+     
+        // if uncompressed, by default, the dimension is in flattening rule
         if (!pv_has_metadata)
         {
           in_flattened_list = true;
-        } else if (pv_compression_info.FoundDimensionInFlatteningRule(r_id, loop.dimension,
-                                                                      flattening_rule))
-        {
-          flatten_iter = std::find(flattening_rule.begin(), flattening_rule.end(), loop.dimension);
-          //flattening_rule.erase(flatten_iter);
-          in_flattened_list = true;
-        } else
-        {
-          in_flattened_list = false;
-        }
-
+        } 
+        
+        // we are able to map the loop to the specific rank we are looking at
+        flattened_rank_nest.push_back(loop);
+        corresponding_tile_shape = singleton_metadata_subtile_shape[loop_id];
+      }
+      
+      // next outer loop
+      loop_id++;
+      
+      if (loop_id < singleton_metadata_subnest.size())
+      {
         //std::cout << "rest of dims in the flattening rule: " << in_flattened_list << std::endl;
         //if (pv_has_metadata)
         //{
         //  for (auto dim = flattening_rule.begin(); dim != flattening_rule.end(); dim++)
         //  {
-        //    std::cout << problem::GetShape()->DimensionIDToName.at(*dim) << "  ";
+        //    std::cout << problem::GetShape()->FlattenedDimensionIDToName.at(*dim) << "  ";
         //  }
         //  std::cout << std::endl;
         //}
