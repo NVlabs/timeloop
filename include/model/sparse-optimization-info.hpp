@@ -98,6 +98,7 @@ struct PerDataSpaceCompressionInfo
   bool ExistFlatteningRule(std::uint64_t rank_id) const;
   bool FoundDimensionInFlatteningRule(std::uint64_t rank_id, problem::Shape::FlattenedDimensionID dim_id,
                                       std::vector<problem::Shape::FlattenedDimensionID> &rule_item) const;
+  problem::Shape::FlattenedDimensionID GetFlatteningRule(std::uint64_t rank_id, std::uint64_t rule_idx = 0) const;
 };
 
 typedef std::map<unsigned, PerDataSpaceCompressionInfo> PerStorageLevelCompressionInfo;

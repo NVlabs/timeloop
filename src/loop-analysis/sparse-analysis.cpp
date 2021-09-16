@@ -592,7 +592,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
     condition_on_granularity = cond_on_operation_space_mold.GetSize(condition_on_dspace_id);
     
     
-    if (condition_on_granularity == 1 && target_optimization_granularity == 1)
+    if (condition_on_granularity == 1 || target_optimization_granularity == 1)
     {
       scalar_opt_cond_on_scalar = true;
       // std::cout << "---> scalar optimization of the target space based on a scalar conditioned on dspace" << std::endl;
@@ -2731,8 +2731,8 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
       r_id++; // next outer rank
       flattened_rank_nest.clear();
       auto loop = singleton_metadata_subnest[loop_id];
-      //std::cout << "mapping loop below to rank " << r_id << std::endl;
-      //std::cout << loop << std::endl;
+      // std::cout << "trying mapping loop below to rank " << r_id << std::endl;
+      // std::cout << loop << std::endl;
 
       bool in_flattened_list = false;
       // reset flattening rule
@@ -2754,9 +2754,13 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
           else
           {
             // std::cout << "flattening rule specified but dimension not in there, this rank cannot be mapped" << std::endl; 
-            std::vector <loop::Descriptor> tmp_loop = {};
+            // std::vector <loop::Descriptor> tmp_loop();
+            std::vector <loop::Descriptor> tmp_loop = { loop };
+            tmp_loop[0].end = 1;
+            tmp_loop[0].residual_end = 1;
+            tmp_loop[0].dimension = pv_compression_info.GetFlatteningRule(r_id);
             pv_data_movement_info.metadata_subnest.push_back(tmp_loop);
-            pv_data_movement_info.metadata_subtile_shape.push_back(0);
+            pv_data_movement_info.metadata_subtile_shape.push_back(corresponding_tile_shape);
             continue;
           }
         }
