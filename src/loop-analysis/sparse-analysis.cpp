@@ -917,7 +917,7 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
       
       unsigned loop_id = -1;
       unsigned level_dspace_in = storage_level;
-      while(compound_data_movement_nest[pv][level_dspace_in].shape == 0 && level_dspace_in < state.num_storage_levels_)
+      while(compound_data_movement_nest[pv][level_dspace_in].shape == 0 && level_dspace_in < state.num_storage_levels_-1)
       {
         level_dspace_in++; 
       }
