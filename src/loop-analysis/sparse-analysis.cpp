@@ -2713,7 +2713,12 @@ bool PerformSparseProcessing(problem::Workload* workload,
   PropagateImpactOfExplicitlyOptimizedRead(state, compound_tile_nest, topology_specs);
   CalculateFineGrainedStorageAccesses(state, compound_data_movement_nest);
   CalculateDecompressionCompressionCost(state.num_storage_levels_, compound_data_movement_nest);
+
+  #ifdef USE_MULTI_OPERAND  //under debug
   CalculateFineGrainedComputeAccesses(state, compound_tile_nest);
+  #else
+  CalculateFineGrainedComputeAccesses2Operand(state, compound_tile_nest);
+  #endif
 
   return success;
 }
