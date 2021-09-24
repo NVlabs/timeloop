@@ -508,7 +508,7 @@ void Application::Run()
               << global_best_.stats.utilization << " | pJ/Algorithmic-Compute = " << std::setw(8)
               << std::fixed << std::setprecision(3) << global_best_.stats.energy /
       global_best_.stats.algorithmic_computes
-              << " | pJ/Compute = " << std::setw(8)
+              << " | pJ/Compute = " << std::setw(12)
               << std::fixed << std::setprecision(3) << global_best_.stats.energy /
       global_best_.stats.actual_computes << std::endl;
 
