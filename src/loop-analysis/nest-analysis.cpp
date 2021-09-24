@@ -179,7 +179,7 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
         }
         assert(max_tensor_size != 0);
         // set tensor size for all dataspaces
-		printf("Toluwa DEBUG: Setting workload tensor size now\n");
+		//printf("Toluwa DEBUG: Setting workload tensor size now\n");
         workload_->SetWorkloadTensorSize(problem::Shape::DataSpaceID(pvi), max_tensor_size);
      }
      workload_->AllTensorsSet();
