@@ -27,12 +27,12 @@
 
 #pragma once
 
+#include <math.h>
 #include "model/level.hpp"
 #include "mapping/mapping.hpp"
 #include "tiling-tile-info.hpp"
 #include "model/sparse-optimization-info.hpp"
 #include "model/topology.hpp"
-#include <math.h>
 
 namespace sparse
 {
