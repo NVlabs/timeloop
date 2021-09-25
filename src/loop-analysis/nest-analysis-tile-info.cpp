@@ -25,8 +25,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "loop-analysis/nest-analysis-tile-info.hpp"
 #include <numeric>
+#include "loop-analysis/nest-analysis-tile-info.hpp"
+
 namespace analysis
 {
 
