@@ -137,6 +137,37 @@ void SparseAnalysisState::CollectCompletePointSetsAndSubnests()
   }
 }
 
+
+void SetPointSetTileRepresentations(const SparseAnalysisState& state,
+                                    tiling::CompoundDataMovementNest& compound_data_movement_nest)
+{
+  // empty operation space for bypassed tiles
+  problem::OperationPoint origin;
+  problem::OperationSpace empty_mold(state.workload_);
+  
+  unsigned tiling_level = 0;
+  unsigned loop_offset = 0;
+  auto& loops = state.mapping_.complete_loop_nest.loops;
+
+  for (unsigned loop_level = 0; loop_level < loops.size(); loop_level++)
+  {
+    if (loop_level == state.mapping_.complete_loop_nest.storage_tiling_boundaries.at(tiling_level))
+    {
+      problem::OperationSpace operation_space_mold(state.workload_, origin, 
+                                                   state.maxtile_molds_high_.at(tiling_level).at(loop_level-loop_offset));
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+      {
+        auto& tile_point_set_mold = compound_data_movement_nest.at(pv).at(tiling_level).shape != 0 ? operation_space_mold.GetDataSpace(pv) : empty_mold.GetDataSpace(pv);
+        compound_data_movement_nest.at(pv).at(tiling_level).coord_space_info.SetMold(tile_point_set_mold);
+        std::cout << " point set representation of tile " << problem::GetShape()->DataSpaceIDToName.at(pv) 
+          << compound_data_movement_nest.at(pv).at(tiling_level).coord_space_info.tile_point_set_mold_ << std::endl;
+      }
+      tiling_level++;
+      loop_offset = loop_level + 1;
+    }
+  }
+}
+
 //
 // Sparse Analysis Functions
 //
@@ -594,6 +625,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
     // construct the corresponding coordinate space tile for conditioned on and calculate the prob of the tile being empty
     tiling::CoordinateSpaceTileInfo cspace_tile;
     cspace_tile.Set(condition_on_granularity, condition_on_dspace_id);
+    cspace_tile.SetMold(cond_on_operation_space_mold.GetDataSpace(condition_on_dspace_id));
 
     double prob_condition_on_dspace_empty = state.workload_->GetDensity(condition_on_dspace_id)
       ->GetTileOccupancyProbability(cspace_tile, 0);
@@ -856,7 +888,8 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
               problem::OperationPoint origin;
               problem::OperationSpace subtile_mold(state.workload_, origin, mold_high);
               tiling::CoordinateSpaceTileInfo ctile_info;
-              ctile_info.Set(subtile_mold.GetSize(condition_on_dspace_id), condition_on_dspace_id);
+              ctile_info.Set(subtile_mold.GetDataSpace(condition_on_dspace_id), condition_on_dspace_id);
+              
               double prob_empty_coord = compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].tile_density->GetTileOccupancyProbability(ctile_info, 0);
               per_dim_effective_ratio[loop->dimension] = 1 - prob_empty_coord;
               // std::cout <<" per dimension effective ratio: " << problem::GetShape()->FlattenedDimensionIDToName.at(loop->dimension) << "  " << 1 - prob_empty_coord << std::endl;
@@ -949,7 +982,7 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
                 problem::OperationPoint origin;
                 problem::OperationSpace subtile_mold(state.workload_, origin, mold_high);
                 tiling::CoordinateSpaceTileInfo ctile_info;
-                ctile_info.Set(subtile_mold.GetSize(pv), pv);
+                ctile_info.Set(subtile_mold.GetDataSpace(pv), pv);
                 double prob_empty_coord = compound_data_movement_nest[pv][level_dspace_in].tile_density->GetTileOccupancyProbability(ctile_info, 0);
                 effective_ratio *= (1.0 - prob_empty_coord);
               }
@@ -1678,7 +1711,7 @@ std::map<DataSpaceID, double> GetExpectedOperandDensities(const SetOfOperationSp
     problem::OperationPoint origin;
     tiling::CoordinateSpaceTileInfo ctile_info;
     problem::OperationSpace mold_op_space(set_of_operation_spaces.workload, origin, mold_high);
-    ctile_info.Set(mold_op_space.GetSize(iter->first), iter->first);
+    ctile_info.Set(mold_op_space.GetDataSpace(iter->first), iter->first);
     expected_operand_densities[iter->first] = iter->second->GetExpectedTileOccupancy(ctile_info) / ctile_info.GetShape();
   }
   return expected_operand_densities;
@@ -2506,7 +2539,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
 
 bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
                             const std::vector <loop::Descriptor>& singleton_metadata_subnest,
-                            const std::vector <std::uint64_t>& singleton_metadata_subtile_shape,
+                            const std::vector<problem::DataSpace>& singleton_metadata_subtile_point_set,
                             const sparse::PerDataSpaceCompressionInfo& pv_compression_info,
                             tiling::DataMovementInfo& pv_data_movement_info)
 {
@@ -2516,13 +2549,18 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
   bool pv_has_metadata = pv_compression_info.HasMetaData();
   std::uint64_t cur_level_num_ranks = pv_has_metadata ? pv_compression_info.rank_formats.size() : 1;
 
-  assert(singleton_metadata_subnest.size() == singleton_metadata_subtile_shape.size());
-
+  assert(singleton_metadata_subnest.size() == singleton_metadata_subtile_point_set.size());
+  
   // start by applying the outermost rank to the outermost loop
   // if there are extra inner ranks supported, all of the these ranks will cost no overhead
   int loop_id = singleton_metadata_subnest.size() - 1;
   int r_id = cur_level_num_ranks;
-  std::uint64_t corresponding_tile_shape = 1;
+  
+  std::uint32_t point_set_order = problem::GetShape()->DataSpaceOrder.at(pv_data_movement_info.dataspace_id);
+  Point unit(point_set_order);
+  problem::DataSpace scalar_point_set(point_set_order, unit);
+  problem::DataSpace corresponding_tile_point_set = scalar_point_set;
+
   // std::cout << "total number of ranks: " << cur_level_num_ranks
   // << "  inner rank id: " << inner_rank_id
   // << " total loops: " << singleton_metadata_subnest.size() 
@@ -2570,7 +2608,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
             // std::cout << "flattening rule specified but dimension not in there, this rank cannot be mapped" << std::endl; 
             std::vector <loop::Descriptor> tmp_loop = {};
             pv_data_movement_info.metadata_subnest.push_back(tmp_loop);
-            pv_data_movement_info.metadata_subtile_shape.push_back(singleton_metadata_subtile_shape[0]);
+            pv_data_movement_info.metadata_subtile_point_set.emplace_back(singleton_metadata_subtile_point_set.at(0));
             continue;
           }
         }
@@ -2582,7 +2620,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
         }
         
         flattened_rank_nest.push_back(loop);
-        corresponding_tile_shape = singleton_metadata_subtile_shape[loop_id];
+        corresponding_tile_point_set = singleton_metadata_subtile_point_set.at(loop_id);
       }
       // next inner loop
       loop_id--;
@@ -2635,16 +2673,14 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
           }
         }
       }
-      pv_data_movement_info.metadata_subnest.insert(pv_data_movement_info.metadata_subnest.begin(), flattened_rank_nest);
-      pv_data_movement_info.metadata_subtile_shape.insert(pv_data_movement_info.metadata_subtile_shape.begin(),
-                                                        corresponding_tile_shape);
+      pv_data_movement_info.metadata_subnest.emplace(pv_data_movement_info.metadata_subnest.begin(), flattened_rank_nest);
+      pv_data_movement_info.metadata_subtile_point_set.emplace(pv_data_movement_info.metadata_subtile_point_set.begin(),
+          corresponding_tile_point_set);
     }
-    //pv_data_movement_info.metadata_subnest.insert(pv_data_movement_info.metadata_subnest.begin(), flattened_rank_nest);
-    //pv_data_movement_info.metadata_subtile_shape.insert(pv_data_movement_info.metadata_subtile_shape.begin(),
-    //                                                    corresponding_tile_shape);
 
     // reset to 1
-    corresponding_tile_shape = 1;
+    // corresponding_tile_shape = 1;
+    corresponding_tile_point_set = scalar_point_set;
 
   }
 
@@ -2654,9 +2690,10 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
   {
     r_id--;
     std::vector <loop::Descriptor> tmp_loop = {};
-    pv_data_movement_info.metadata_subnest.insert(pv_data_movement_info.metadata_subnest.begin(), tmp_loop);
-    pv_data_movement_info.metadata_subtile_shape.insert(pv_data_movement_info.metadata_subtile_shape.begin(),
-                                                        singleton_metadata_subtile_shape[0]);
+    pv_data_movement_info.metadata_subnest.emplace(pv_data_movement_info.metadata_subnest.begin(), tmp_loop);
+    pv_data_movement_info.metadata_subtile_point_set.emplace(pv_data_movement_info.metadata_subtile_point_set.begin(),
+                                                             singleton_metadata_subtile_point_set.at(0));
+
     // std::cout << "Warning: more supported ranks then non-trivial loops, "
     //              "the extra inner rank is turned into a dummy rank: "
     //           << pv_compression_info.rank_formats[r_id] << std::endl; 
@@ -2682,7 +2719,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
 
 bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
                             const std::vector <loop::Descriptor>& singleton_metadata_subnest,
-                            const std::vector <std::uint64_t>& singleton_metadata_subtile_shape,
+                            const std::vector<problem::DataSpace>& singleton_metadata_subtile_point_set,
                             const sparse::PerDataSpaceCompressionInfo& pv_compression_info,
                             tiling::DataMovementInfo& pv_data_movement_info)
 {
@@ -2693,13 +2730,19 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
   bool pv_has_metadata = pv_compression_info.HasMetaData();
   int  cur_level_num_ranks = pv_has_metadata ? (int)pv_compression_info.rank_formats.size() : 1;
 
-  assert(singleton_metadata_subnest.size() == singleton_metadata_subtile_shape.size());
-
+  assert(singleton_metadata_subnest.size() == singleton_metadata_subtile_point_set.size());
+  
   // start by applying the innermost rank to the innermost loop
   // if there are extra outer ranks supported, all of the these ranks will cost no overhead
   unsigned loop_id = 0; 
   int r_id = inner_rank_id - 1;
-  std::uint64_t corresponding_tile_shape = 1;
+  
+  auto point_set_order = problem::GetShape()->DataSpaceOrder.at(pv_data_movement_info.dataspace_id);
+  Point unit(point_set_order);
+  problem::DataSpace scalar_point_set(point_set_order, unit);
+  
+  problem::DataSpace corresponding_tile_point_set = scalar_point_set;
+  
   //std::cout << "total number of ranks: " << cur_level_num_ranks
   //<< "  inner rank id: " << inner_rank_id
   //<< " total loops: " << singleton_metadata_subnest.size() << std::endl;
@@ -2749,8 +2792,8 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
             tmp_loop[0].end = 1;
             tmp_loop[0].residual_end = 1;
             tmp_loop[0].dimension = pv_compression_info.GetFlatteningRule(r_id);
-            pv_data_movement_info.metadata_subnest.push_back(tmp_loop);
-            pv_data_movement_info.metadata_subtile_shape.push_back(corresponding_tile_shape);
+            pv_data_movement_info.metadata_subnest.emplace_back(tmp_loop);
+            pv_data_movement_info.metadata_subtile_point_set.emplace_back(corresponding_tile_point_set);
             continue;
           }
         }
@@ -2763,7 +2806,7 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
         
         // we are able to map the loop to the specific rank we are looking at
         flattened_rank_nest.push_back(loop);
-        corresponding_tile_shape = singleton_metadata_subtile_shape[loop_id];
+        corresponding_tile_point_set = singleton_metadata_subtile_point_set.at(loop_id);
       }
       
       // next outer loop
@@ -2818,13 +2861,12 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
         }
       }
       pv_data_movement_info.metadata_subnest.push_back(flattened_rank_nest);
-      pv_data_movement_info.metadata_subtile_shape.push_back(corresponding_tile_shape);
+      pv_data_movement_info.metadata_subtile_point_set.emplace_back(corresponding_tile_point_set);
     }
-    //pv_data_movement_info.metadata_subnest.push_back(flattened_rank_nest);
-    //pv_data_movement_info.metadata_subtile_shape.push_back(corresponding_tile_shape);
     
     // reset to 1
-    corresponding_tile_shape = 1;
+    // corresponding_tile_shape = 1;
+    corresponding_tile_point_set = scalar_point_set;
   }
 
   // fill in the extra outer supported rank (if any)
@@ -2833,7 +2875,7 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
     r_id++;
     std::vector <loop::Descriptor> tmp_loop = {};
     pv_data_movement_info.metadata_subnest.push_back(tmp_loop);
-    pv_data_movement_info.metadata_subtile_shape.push_back(singleton_metadata_subtile_shape[0]);
+    pv_data_movement_info.metadata_subtile_point_set.emplace_back(singleton_metadata_subtile_point_set[0]);
     //std::cout << "Warning: more supported ranks then non-trivial loops, "
     //             "the extra outer rank is turned into a dummy rank: "
     //          << pv_compression_info.rank_formats[r_id] << std::endl;
@@ -2918,8 +2960,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
       if (cur_level_has_metadata)
       {
         // update tile information to reflect sparse optimization's impact
-        compound_data_movement_nest[pv][level].SetTensorRepresentation(compression_info.per_level_info_map.at(level).at(
-                                                                         pv));
+        compound_data_movement_nest[pv][level].SetTensorRepresentation(compression_info.per_level_info_map.at(level).at(pv));
       }
 
       bool child_level_has_metadata = false;
@@ -2982,8 +3023,10 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
 
       // singleton subnests for current level and bypassed level
       std::vector <loop::Descriptor> singleton_metadata_subnest;
-      std::vector <std::uint64_t> singleton_metadata_subtile_shape;
-
+      std::vector <problem::DataSpace> singleton_metadata_subtile_point_set;
+      problem::OperationPoint origin;
+      problem::OperationSpace scalar_mold(state.workload_, origin, origin);
+      
       // Go through the corresponding storage levels to retrieve info
       for (int l = level; l >= int(inner_most_level); l--)
       {
@@ -2996,10 +3039,8 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
           if (dim_ids_in_proj.find(loop.dimension) != dim_ids_in_proj.end())
           {
             singleton_metadata_subnest.insert(singleton_metadata_subnest.begin(), loop);
-            problem::OperationPoint origin;
             problem::OperationSpace maxtile_mold(state.workload_, origin, state.maxtile_molds_high_[l][loop_id]);
-            auto subtile_shape = maxtile_mold.GetSize(pv);
-            singleton_metadata_subtile_shape.insert(singleton_metadata_subtile_shape.begin(), subtile_shape);
+            singleton_metadata_subtile_point_set.insert(singleton_metadata_subtile_point_set.begin(), maxtile_mold.GetDataSpace(pv));
           }
         }
       }
@@ -3062,12 +3103,14 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
       if (!pv_compression_info.apply_rank_inner_to_outer)
       {
         more_compression_ranks_needed = ApplyRanksOuterToInner(inner_rank_id, singleton_metadata_subnest,
-                                                               singleton_metadata_subtile_shape, pv_compression_info,
+                                                               singleton_metadata_subtile_point_set,
+                                                               pv_compression_info,
                                                                pv_data_movement_nest[level]);
       } else
       {
         more_compression_ranks_needed = ApplyRanksInnerToOuter(inner_rank_id, singleton_metadata_subnest,
-                                                               singleton_metadata_subtile_shape, pv_compression_info,
+                                                               singleton_metadata_subtile_point_set,
+                                                               pv_compression_info,
                                                                pv_data_movement_nest[level]);
       }
 
@@ -3094,18 +3137,18 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
           pv_data_movement_nest[level].metadata_subnest.insert(pv_data_movement_nest[level].metadata_subnest.begin(),
                                                                loop);
 
-          auto subtile_shape = pv_data_movement_nest[child_level_id].metadata_subtile_shape[loop_id + 1];
-          pv_data_movement_nest[level].metadata_subtile_shape.insert(pv_data_movement_nest[level].metadata_subtile_shape.begin(),
-                                                                     subtile_shape);
+          pv_data_movement_nest[level].metadata_subtile_point_set.emplace(pv_data_movement_nest[level].metadata_subtile_point_set.begin(),
+                                                                          pv_data_movement_nest[child_level_id].metadata_subtile_point_set.at(loop_id + 1));
+
         }
         // subtile shape must have one more element than subtile nest
         // see assert below for more
-        pv_data_movement_nest[level].metadata_subtile_shape.insert(pv_data_movement_nest[level].metadata_subtile_shape.begin(),
-                                                                   pv_data_movement_nest[child_level_id].metadata_subtile_shape[0]);
-      } else
+        pv_data_movement_nest[level].metadata_subtile_point_set.emplace(pv_data_movement_nest[level].metadata_subtile_point_set.begin(),
+                                                                   pv_data_movement_nest[child_level_id].metadata_subtile_point_set[0]);
+      } 
+      else
       {
-        pv_data_movement_nest[level].metadata_subtile_shape.insert(pv_data_movement_nest[level].metadata_subtile_shape.begin(),
-                                                                   1);
+        pv_data_movement_nest[level].metadata_subtile_point_set.emplace(pv_data_movement_nest[level].metadata_subtile_point_set.begin(), scalar_mold.GetDataSpace(pv));
       }
 
       if (pv_data_movement_nest[level].metadata_subnest.size() != cur_level_num_ranks)
@@ -3151,8 +3194,8 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
       // subtile shape must have one more element than subtile nest
       // as it includes the tile size of the child level:
       //     important for compressed metadata models to get the prob of empty coordinates in the last level of metadata
-      assert(pv_data_movement_nest[level].metadata_subnest.size() + 1
-             == pv_data_movement_nest[level].metadata_subtile_shape.size());
+      assert(pv_data_movement_nest[level].metadata_subnest.size() + 1 
+             == pv_data_movement_nest[level].metadata_subtile_point_set.size());
 
       // print info for sanity checks
 
@@ -3166,8 +3209,8 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
       //  if (compression_info.compressed_masks[level][pv])
       //    std::cout << "   rank format: " << compression_info.per_level_info_map.at(level).at(pv).rank_formats[i]
       //              << std::endl;
-      //  std::cout << "   rank tile shape: " << pv_data_movement_nest[level].metadata_subtile_shape[i + 1] << std::endl;
-      //  std::cout << "   rank subtile shape: " << pv_data_movement_nest[level].metadata_subtile_shape[i] << std::endl;
+      //  std::cout << "   rank tile shape: " << pv_data_movement_nest[level].metadata_subtile_point_set[i + 1].size() << std::endl;
+      //  std::cout << "   rank subtile shape: " << pv_data_movement_nest[level].metadata_subtile_point_set[i].size() << std::endl;
       //  std::cout << "   fiber shape: " << pv_data_movement_nest[level].fiber_shape[i] << std::endl;
       //  std::cout << "   flattened nests: " << pv_data_movement_nest[level].metadata_subnest[i].size() << std::endl;
 
@@ -3332,7 +3375,7 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
             tiling::ExtraTileConstraintInfo extra_constraint_info;
             extra_constraint_info.Set(pv_data_movement_info.shape, possible_occupancy);
             tiling::CoordinateSpaceTileInfo possible_coord_tile;
-            possible_coord_tile.Set(pv_data_movement_info.shape, pv, extra_constraint_info);
+            possible_coord_tile.Set(*pv_data_movement_info.coord_space_info.tile_point_set_mold_, pv, extra_constraint_info);
             auto occupancy = pv_data_movement_info.GetMetaDataTileOccupancyGivenDataTile(possible_coord_tile);
             // update the metadata tile occupancy record (each item in the record correspond to a rank)
             for (unsigned r = 0; r < occupancy.size(); r++)
@@ -3415,14 +3458,16 @@ bool PerformSparseProcessing(problem::Workload* workload,
   bool sparse_analysis_needed;
   sparse_analysis_needed = state.Init(sparse_optimization_info, workload, mapping, topology_specs.NumStorageLevels());
   if (!sparse_analysis_needed) return success;
-
+  
+  auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
   state.CollectCompletePointSetsAndSubnests();
+
+  // Populate the point set representation for the data tiles
+  SetPointSetTileRepresentations(state, compound_data_movement_nest);
 
   //
   // Define the necessary densities/probabilities/misc info of sparse optimizations
   //
-
-  auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
 
   // Define the necessary metadata modeling information according to mapping
   success = DefineCompressionFormatModels(state, compound_data_movement_nest, topology_specs,

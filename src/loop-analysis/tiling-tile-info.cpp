@@ -32,51 +32,29 @@ namespace tiling
 
 void DataMovementInfo::SetTensorRepresentation()
 {
-
   // set all fields to empty for default dense tensors with no metadata as these info will not be useful
   rank_compressed = {};
   rank_formats = {};
   metadata_models = {};
-  coord_space_info.Set(shape, dataspace_id);
+  coord_space_info.dspace_id_ = dataspace_id;
 
   // for safety, set the quick accessors (should be initialized just right)
   compressed = false;
   has_metadata = false;
-
-}
-
-void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompressionInfo& compression_opt_spec,
-                                               const std::vector <loop::Descriptor> subnests)
-{
-
-  // About the inputs:
-  // 1) since we assume the mapping must be fully concordant,
-  //     the rank order in the compression opt must fully specify all necessary compression format info
-  // 2) subnests[0] is the inner most loop, subnests.size()-1 is the outer most loop in this level
-  rank_compressed = compression_opt_spec.rank_compressed;
-  rank_formats = compression_opt_spec.rank_formats;
-  metadata_models = compression_opt_spec.metadata_models;
-  coord_space_info.Set(shape, subnests, dataspace_id);
-
-  compressed = compression_opt_spec.tensor_compressed;
-  has_metadata = true;
-
 }
 
 void DataMovementInfo::SetTensorRepresentation(const sparse::PerDataSpaceCompressionInfo& compression_opt_spec)
 {
-
   // About the inputs:
   // 1) since we assume the mapping must be fully concordant,
   //     the rank order in the compression opt must fully specify all necessary compression format info
   rank_compressed = compression_opt_spec.rank_compressed;
   rank_formats = compression_opt_spec.rank_formats;
   metadata_models = compression_opt_spec.metadata_models;
-  coord_space_info.Set(shape, dataspace_id);
-
+  coord_space_info.dspace_id_ = dataspace_id;
+  
   compressed = compression_opt_spec.tensor_compressed;
   has_metadata = true;
-
 }
 
 std::string DataMovementInfo::GetMetaDataFormatName() const
@@ -110,8 +88,12 @@ CoordinateSpaceTileInfo DataMovementInfo::GetChildTileCoordinateSpaceInfo() cons
   } else
   {
     // lowest level of its data type, next level is compute
+    assert(coord_space_info.mold_set_);
+    std::uint32_t point_set_order = problem::GetShape()->DataSpaceOrder.at(dataspace_id);
+    Point unit(point_set_order);
+    problem::DataSpace scalar_point_set(point_set_order, unit);
     CoordinateSpaceTileInfo singleton_tile;
-    singleton_tile.Set(1, dataspace_id);
+    singleton_tile.Set(scalar_point_set, dataspace_id);
     return singleton_tile;
   }
 }
@@ -164,12 +146,13 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
   //inits related to next rank, will be defined and updated in the loop
   CoordinateSpaceTileInfo cur_coord_tile = coord_tile;
   CoordinateSpaceTileInfo next_coord_tile;
-
+  
   for (int r_id = metadata_models.size() - 1; r_id >= 0; r_id--)
   {
 
     std::uint64_t cur_rank_fiber_shape = fiber_shape[r_id];
-    next_coord_tile.Set(metadata_subtile_shape[r_id], dataspace_id, cur_coord_tile.GetExtraConstraintInfo());
+    next_coord_tile.Set(metadata_subtile_point_set.at(r_id), dataspace_id, cur_coord_tile.GetExtraConstraintInfo());
+    
     problem::PerRankMetaDataTileOccupancy per_rank_metadata_occupancy;
     if (cur_rank_fiber_shape == 1 && 
         ((!apply_rank_inner_to_outer && r_id != int(metadata_models.size()) - 1) ||
@@ -195,7 +178,7 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
 
       // std::cout << problem::GetShape()->DataSpaceIDToName.at(dataspace_id) << "  rid: " << r_id << " format: " << metadata_models[r_id]->GetFormatName()
       //           << " cur_rank_fiber_shape: " << cur_rank_fiber_shape << " max_num_fibers: " << max_number_of_fibers_in_rank
-      //           << " next coord tile shape: "  <<metadata_subtile_shape[r_id]
+      //           << " next coord tile shape: "  <<metadata_subtile_point_set[r_id].size()
       //           << std::endl;
 
       per_rank_metadata_occupancy = metadata_models[r_id]->GetOccupancy(query);
@@ -239,14 +222,13 @@ MetaDataTileOccupancy DataMovementInfo::GetMaxMetaDataTileOccupancyByConfidence(
 
   if (has_metadata)
   {
-
-    CoordinateSpaceTileInfo cur_coord_tile;
-    cur_coord_tile.Set(shape, dataspace_id);
-
-    std::uint64_t max_tile_occupancy = tile_density->GetMaxTileOccupancyByConfidence(cur_coord_tile, confidence);
+    std::uint64_t max_tile_occupancy = tile_density->GetMaxTileOccupancyByConfidence(coord_space_info, confidence);
+    
     ExtraTileConstraintInfo extra_tile_constraint_info;
     extra_tile_constraint_info.Set(shape, max_tile_occupancy);
-    cur_coord_tile.Set(shape, dataspace_id, extra_tile_constraint_info);
+    
+    CoordinateSpaceTileInfo cur_coord_tile;
+    cur_coord_tile.Set(*coord_space_info.tile_point_set_mold_, dataspace_id, extra_tile_constraint_info);
 
     metadata_tile_occupancy = GetMetaDataTileOccupancyGivenDataTile(cur_coord_tile);
 

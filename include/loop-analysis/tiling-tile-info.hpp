@@ -123,7 +123,8 @@ struct DataMovementInfo
 
   // Only needed when tile has metadata
   std::vector<std::vector<loop::Descriptor>> metadata_subnest;
-  std::vector<std::uint64_t> metadata_subtile_shape;
+  // std::vector<std::uint64_t> metadata_subtile_shape;
+  std::vector<problem::DataSpace> metadata_subtile_point_set;
   std::vector<std::uint64_t> fiber_shape;
   double child_level_metadata_occupancy_ratio;
 
@@ -170,7 +171,8 @@ struct DataMovementInfo
     format_reads = {};
     format_updates = {};
     metadata_subnest.clear();
-    metadata_subtile_shape.clear();
+    //metadata_subtile_shape.clear();
+    metadata_subtile_point_set.clear();
     fiber_shape.clear();
     coord_space_info.Clear();
     tile_density = NULL;
@@ -214,9 +216,6 @@ struct DataMovementInfo
     tile_density = tile_density_ptr;
   }
 
-  //void SetSubTileShapes(std::vector<std::size_t> subtile_shapes){subtile_shapes_ = subtile_shapes;}
-  void SetTensorRepresentation(const sparse::PerDataSpaceCompressionInfo& compression_opt_spec,
-                               const std::vector<loop::Descriptor> subnests);
   void SetTensorRepresentation(const sparse::PerDataSpaceCompressionInfo& compression_opt_spec);
   void SetTensorRepresentation(); // for default dense tensors
 

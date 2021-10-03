@@ -50,39 +50,36 @@ std::uint64_t ExtraTileConstraintInfo::GetOccupancy() const
 
 // interface object between sparse modeling module and density models
 // tells the density models which set of tiles are we looking at
+CoordinateSpaceTileInfo::CoordinateSpaceTileInfo()
+  : dspace_id_(0){} 
+
 void CoordinateSpaceTileInfo::Clear()
 {
-  shape_ = 0;
-  subnests_ = {};
+  tile_point_set_mold_->Reset();
 }
 
-void CoordinateSpaceTileInfo::Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id)
+void CoordinateSpaceTileInfo::Set(const problem::DataSpace& tile_point_set_mold, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint)
 {
-  shape_ = shape;
-  dspace_id_ = data_space_id;
-}
-
-void CoordinateSpaceTileInfo::Set(std::uint64_t shape, std::vector <loop::Descriptor> subnests, problem::Shape::DataSpaceID data_space_id)
-{
-  shape_ = shape;
-  subnests_ = subnests;
-  dspace_id_ = data_space_id;
-}
-
-void CoordinateSpaceTileInfo::Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint)
-{
-  shape_ = shape;
   dspace_id_ = data_space_id;
   extra_tile_constraint_ = extra_tile_constraint;
+  SetMold(tile_point_set_mold);
+}
+
+void CoordinateSpaceTileInfo::SetMold(const problem::DataSpace& tile_point_set_mold)
+{
+  tile_point_set_mold_ = std::make_shared<problem::DataSpace>(tile_point_set_mold);
+  mold_set_ = true;
 }
 
 std::uint64_t CoordinateSpaceTileInfo::GetShape() const
 {
-  return shape_;
-}
+  assert(mold_set_);
+  // std::cout << "dataspace: " << dspace_id_<< std::endl;
+  // tile_point_set_mold_->Max().Print(std::cout);
+  // std::cout << std::endl;
 
-std::vector <loop::Descriptor> CoordinateSpaceTileInfo::GetSubnests() const
-{ return subnests_; }
+  return tile_point_set_mold_->size();
+}
 
 bool CoordinateSpaceTileInfo::HasExtraConstraintInfo() const
 {
@@ -93,12 +90,5 @@ ExtraTileConstraintInfo CoordinateSpaceTileInfo::GetExtraConstraintInfo() const
 {
   return extra_tile_constraint_;
 }
-
-// void Set(problem::OperationSpace mold, problem::DataSpaceID dspace_id)
-// {
-//   operation_space_mold_ = mold;
-//   dspace_id_ = dspace_id;
-//   mold_set_ = true;
-// }
 
 }

@@ -1079,15 +1079,24 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                                mapping.datatype_bypass_nest,
                                                distribution_supported,
                                                analysis->GetWorkload());
-
-  success = sparse::PerformSparseProcessing(analysis->GetWorkload(),
-                                            mapping,
-                                            collapsed_tiles,
-                                            sparse_optimizations,
-                                            specs_,
-                                            eval_status,
-                                            break_on_failure);
-  if (break_on_failure && !success) { return eval_status; }
+  
+  try
+  {
+    success = sparse::PerformSparseProcessing(analysis->GetWorkload(),
+                                              mapping,
+                                              collapsed_tiles,
+                                              sparse_optimizations,
+                                              specs_,
+                                              eval_status,
+                                              break_on_failure);
+    if (break_on_failure && !success) { return eval_status; }
+  }
+  catch (std::runtime_error& e)
+  {
+    std::fill(eval_status.begin(), eval_status.end(),
+              EvalStatus({ .success = false, .fail_reason = "" }));
+    return eval_status;
+  }
 
   // Transpose the tiles into level->datatype/level->optype structure.
   auto tiles = tiling::TransposeTiles(collapsed_tiles);

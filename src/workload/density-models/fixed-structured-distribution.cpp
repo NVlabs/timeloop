@@ -134,6 +134,7 @@ double FixedStructuredDistribution::GetTileOccupancyProbability(const tiling::Co
   assert(is_specced_);
   double prob, exact_nnzs;
   std::uint64_t tile_shape = tile.GetShape();
+  assert(tile.mold_set_);
 
   if (tile.HasExtraConstraintInfo())
   {
