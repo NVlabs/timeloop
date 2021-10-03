@@ -698,28 +698,6 @@ void ComputeReadUpdateReductionAccesses_UpdatedRMW(std::vector<DataMovementInfo>
   return;
 }
 
-void ComputeWorkloadTensorSizes(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv, problem::Workload* workload){
-   if (! workload->IsWorkloadTensorSizesSet()){
-      unsigned num_tiling_levels = tile_nest.size();
-
-      uint64_t max_tensor_size = 0;
-
-      for (unsigned cur = 0; cur < num_tiling_levels; cur++)
-      {
-
-        // Skip if this tile level has 0 size or 0 accesses.
-        if (tile_nest[cur].size >= max_tensor_size)
-        {
-          max_tensor_size = tile_nest[cur].size;
-        }
-      }
-
-      assert(max_tensor_size != 0); //workload tensor size cannot be zero
-      workload->SetWorkloadTensorSize(pv, max_tensor_size);
-   }
-
-}
-
 // place holder function that performs post processing of the # of fills for
 // the backing storage of each data space.
 // theoretically, we should reorder ComputeFills and MaskTiles to achieve this
@@ -795,6 +773,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
   // storage level. Size comes from the outermost tile within the storage level,
   // and accesses comes from the innermost tile within the storage level.
   CompoundDataMovementNest solution;
+  (void) workload;
   for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
   {
     int processed_loop_count = 0;  // number of loops that have been collapsed
@@ -900,18 +879,15 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       ComputeReadUpdateReductionAccesses_UpdatedRMW(solution[pv], pv);
     else
       ComputeReadUpdateReductionAccesses_Legacy(solution[pv], pv);
-
-    // Calculate workload tensor size.
-    ComputeWorkloadTensorSizes(solution[pv], pv, workload);
-
-    // Find the parent and child levels for later compression/decompression logic.
+    
+    // Find the parent and child levels for later compression/decompression logic
     SetParentLevel(solution[pv]);
     SetChildLevel(solution[pv]);
 
   }
 
   // flip the workload tensor set flag if necessary
-  if (! workload->IsWorkloadTensorSizesSet()) {workload->AllTensorsSet();}
+  // if (! workload->IsWorkloadTensorSizesSet()) {workload->AllTensorsSet();}
 
   return solution;
 }

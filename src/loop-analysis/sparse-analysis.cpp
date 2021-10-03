@@ -135,6 +135,15 @@ void SparseAnalysisState::CollectCompletePointSetsAndSubnests()
       tiling_level++;
     }
   }
+
+  if (!workload_->IsWorkloadTensorSizesSet()){
+    problem::OperationPoint high = dimension_sizes;
+    high.IncrementAllDimensions(-1);
+    problem::OperationSpace maxtile(workload_, origin, high);
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+      workload_->SetWorkloadTensorSize(problem::Shape::DataSpaceID(pvi), maxtile.GetDataSpace(pvi));
+    workload_->AllTensorsSet();
+  }
 }
 
 
@@ -159,8 +168,8 @@ void SetPointSetTileRepresentations(const SparseAnalysisState& state,
       {
         auto& tile_point_set_mold = compound_data_movement_nest.at(pv).at(tiling_level).shape != 0 ? operation_space_mold.GetDataSpace(pv) : empty_mold.GetDataSpace(pv);
         compound_data_movement_nest.at(pv).at(tiling_level).coord_space_info.SetMold(tile_point_set_mold);
-        std::cout << " point set representation of tile " << problem::GetShape()->DataSpaceIDToName.at(pv) 
-          << compound_data_movement_nest.at(pv).at(tiling_level).coord_space_info.tile_point_set_mold_ << std::endl;
+        // std::cout << " point set representation of tile " << problem::GetShape()->DataSpaceIDToName.at(pv) 
+        //   << compound_data_movement_nest.at(pv).at(tiling_level).coord_space_info.tile_point_set_mold_ << std::endl;
       }
       tiling_level++;
       loop_offset = loop_level + 1;

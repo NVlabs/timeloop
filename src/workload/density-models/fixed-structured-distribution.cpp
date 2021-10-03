@@ -38,6 +38,7 @@ FixedStructuredDistribution::FixedStructuredDistribution(){ }
 
 FixedStructuredDistribution::FixedStructuredDistribution(const Specs& specs) : specs_(specs){
   is_specced_ = true;
+  workload_tensor_size_set_ = false;
 }
 
 FixedStructuredDistribution::~FixedStructuredDistribution() { }
@@ -61,9 +62,10 @@ FixedStructuredDistribution::Specs FixedStructuredDistribution::ParseSpecs(confi
   return specs;
 }
 
-void FixedStructuredDistribution::SetWorkloadTensorSize(const std::uint64_t size ){
-  // setter that allows workload tensor size at a latter stage (topology.cpp, PreEvaluationCheck)
-  specs_.workload_tensor_size = size;
+void FixedStructuredDistribution::SetWorkloadTensorSize(const problem::DataSpace& point_set)
+{
+  specs_.workload_tensor_size = point_set.size();
+  workload_tensor_size_set_ = true;
 }
 
 std::uint64_t FixedStructuredDistribution::GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
@@ -97,9 +99,11 @@ std::uint64_t FixedStructuredDistribution::GetMaxTileOccupancyByConfidence_LTW (
   return FixedStructuredDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
 
-std::uint64_t FixedStructuredDistribution::GetWorkloadTensorSize() const{
+std::uint64_t FixedStructuredDistribution::GetWorkloadTensorSize() const
+{
+  assert(workload_tensor_size_set_);
   return specs_.workload_tensor_size;
-};
+}
 
 std::string FixedStructuredDistribution::GetDistributionType() const{
   return specs_.type;
@@ -129,9 +133,8 @@ double FixedStructuredDistribution::GetMinTileDensity(const tiling::CoordinateSp
 double FixedStructuredDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
                                                                 const std::uint64_t occupancy) const
 {
-  
-
   assert(is_specced_);
+  assert(workload_tensor_size_set_);
   double prob, exact_nnzs;
   std::uint64_t tile_shape = tile.GetShape();
   assert(tile.mold_set_);

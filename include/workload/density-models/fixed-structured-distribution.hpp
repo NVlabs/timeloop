@@ -48,6 +48,7 @@ class FixedStructuredDistribution : public DensityDistribution
     std::string type;
     double fixed_density;
     std::uint64_t workload_tensor_size;
+    
 
     const std::string Type() const override
     { return type; }
@@ -82,6 +83,7 @@ class FixedStructuredDistribution : public DensityDistribution
  private:
   Specs specs_;
   bool is_specced_;
+  bool workload_tensor_size_set_;
 
   // private functions
   std::uint64_t GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
@@ -113,8 +115,8 @@ class FixedStructuredDistribution : public DensityDistribution
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
-  void SetWorkloadTensorSize(const std::uint64_t size);
-
+  void SetWorkloadTensorSize(const problem::DataSpace& point_set);
+  
   std::uint64_t GetWorkloadTensorSize() const;
   std::string GetDistributionType() const;
   std::uint64_t GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tensor,

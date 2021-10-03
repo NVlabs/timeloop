@@ -125,9 +125,8 @@ public:
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
-
-  void SetWorkloadTensorSize(std::uint64_t size);
-
+  void SetWorkloadTensorSize(const problem::DataSpace& point_set);
+  
   std::uint64_t GetWorkloadTensorSize() const;
   std::string GetDistributionType() const;
   std::uint64_t GetMaxTileOccupancyByConfidence (const tiling::CoordinateSpaceTileInfo& tensor,

@@ -78,12 +78,11 @@ HypergeometricDistribution::Specs HypergeometricDistribution::ParseSpecs(config:
   return specs;
 }
 
-void HypergeometricDistribution::SetWorkloadTensorSize(const std::uint64_t size)
+void HypergeometricDistribution::SetWorkloadTensorSize(const problem::DataSpace& point_set)
 {
-  // setter that allows workload tensor size at a latter stage (topology.cpp, PreEvaluationCheck)
   assert(is_specced_);
-  specs_.workload_tensor_size = size;
-  specs_.total_nnzs = ceil(specs_.average_density * size);
+  specs_.workload_tensor_size = point_set.size();
+  specs_.total_nnzs = ceil(specs_.average_density * specs_.workload_tensor_size);
   workload_tensor_size_set_ = true;
 }
 
