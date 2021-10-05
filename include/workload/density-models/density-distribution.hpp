@@ -85,17 +85,19 @@ public:
   virtual std::string GetDistributionType() const = 0;
 
   virtual std::uint64_t GetMaxTileOccupancyByConfidence (const tiling::CoordinateSpaceTileInfo& tile,
-                                                         const double confidence = 1.0) const = 0;
+                                                         const double confidence = 1.0) = 0;
   // for lightweight pre-evaluation check
   virtual std::uint64_t GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
-                                                             const double confidence = 1.0) const = 0;
+                                                             const double confidence = 1.0) = 0;
   virtual double GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                               const double confidence = 1.0) const = 0;
-  virtual double GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) const = 0;
+                                               const double confidence = 1.0) = 0;
+  virtual double GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) = 0;
   virtual double GetTileOccupancyProbability (const tiling::CoordinateSpaceTileInfo& tile,
-                                              const std::uint64_t occupancy) const = 0;
-  virtual double GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) const = 0;
-
+                                              const std::uint64_t occupancy) = 0;
+  virtual double GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) = 0;
+  virtual bool OccupancyMoldNeeded() = 0;
+  virtual problem::DataSpace GetOccupancyMold(const std::uint64_t occupancy) const = 0;
+  
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>

@@ -1111,16 +1111,6 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     stats_.gated_updates[pv] = stats_.fine_grained_scalar_accesses[pvi]["gated_update"];
     stats_.skipped_updates[pv] = stats_.fine_grained_scalar_accesses[pvi]["skipped_update"];
     stats_.random_updates[pv] = stats_.fine_grained_scalar_accesses[pvi]["random_update"];
-    //stats_.random_metadata_reads[pv] = stats_.fine_grained_scalar_accesses[pvi]["random_metadata_read"];
-    //stats_.gated_metadata_reads[pv] = stats_.fine_grained_scalar_accesses[pvi]["gated_metadata_read"];
-    //stats_.skipped_metadata_reads[pv] = stats_.fine_grained_scalar_accesses[pvi]["skipped_metadata_read"];
-    //stats_.random_metadata_fills[pv] = stats_.fine_grained_scalar_accesses[pvi]["random_metadata_fill"];
-    //stats_.gated_metadata_fills[pv] = stats_.fine_grained_scalar_accesses[pvi]["gated_metadata_fill"];
-    //stats_.gated_metadata_fills[pv] = stats_.fine_grained_scalar_accesses[pvi]["gated_metadata_fill"];
-    //stats_.random_metadata_updates[pv] = stats_.fine_grained_scalar_accesses[pvi]["random_metadata_update"];
-    //stats_.gated_metadata_updates[pv] = stats_.fine_grained_scalar_accesses[pvi]["gated_metadata_updates"];
-    //stats_.skipped_metadata_updates[pv] = stats_.fine_grained_scalar_accesses[pvi]["skipped_metadata_update"];
-    //stats_.decompression_counts[pv] = stats_.fine_grained_scalar_accesses[pvi]["decompression_count"];
     stats_.compression_counts[pv] = stats_.fine_grained_scalar_accesses[pvi]["compression_count"];
 
 

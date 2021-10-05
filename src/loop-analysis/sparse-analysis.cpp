@@ -1218,7 +1218,7 @@ void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest& compoun
     {
 
      auto& data_movement_info = compound_data_movement_nest[pv][l];
-     // std::cout << "\tstorage level: " << topology_specs.GetStorageLevel(l)->level_name
+     // std::cout << "storage level: " << topology_specs.GetStorageLevel(l)->level_name
      // << "  dataspace name: " << problem::GetShape()->DataSpaceIDToName.at(pv)
      // << " shape: " << data_movement_info.shape << "  has metadata: " << data_movement_info.has_metadata
      // << std::endl;
@@ -1254,19 +1254,21 @@ void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest& compoun
         double md_units = expected_metadata_tile_occupancy[r_id].MetaDataUnits();
         double pl_units = expected_metadata_tile_occupancy[r_id].PayloadUnits();
 
+        // std::cout << "=== rank id: " << r_id << " ===" << std::endl;
+        // std::cout << " md units: " << md_units << "  pl units: " << pl_units << std::endl;
+
         md_accesses = ceil(md_units * fill_ratio);
         pl_accesses = ceil(pl_units * fill_ratio);
         data_movement_info.format_fills.push_back({md_accesses, pl_accesses});
-
+         
+        // std::cout << " fill ratio: " << fill_ratio << " md fills: " << md_accesses <<" pl fills: " << pl_accesses << std::endl;
+ 
         md_accesses = ceil(md_units * read_ratio);
         pl_accesses = ceil(pl_units * read_ratio);
         data_movement_info.format_reads.push_back({md_accesses, pl_accesses});  
  
-        // std::cout << "r id: " << r_id <<  " md units: " << md_units
-        //   << " read ratio: " << read_ratio
-        //   << " md reads: " << md_accesses 
-        //   <<" pl reads: " << pl_accesses << std::endl;
-       
+        // std::cout << " read ratio: " << read_ratio << " md reads: " << md_accesses <<" pl reads: " << pl_accesses << std::endl;
+        
         md_accesses = ceil(md_units * update_ratio);
         pl_accesses = ceil(pl_units * update_ratio);        
         data_movement_info.format_updates.push_back({md_accesses, pl_accesses});       
@@ -1278,15 +1280,9 @@ void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest& compoun
         for (auto iter = data_movement_info.fine_grained_format_accesses.begin(); 
              iter != data_movement_info.fine_grained_format_accesses.end(); iter++)
         { iter->second.push_back({0, 0}); }
-              
-       // if (r_id < num_child_metadata_ranks)
-       // {
-       //   child_metadata_payload_units_per_tile += md_units; 
-       //   child_metadata_payload_units_per_tile += pl_units;
-       // }
       }
 
-      // calculate how many rounds did the tile get read/fill/update, then scale the metadata accesses per tile accordingly
+     // calculate how many rounds did the tile get read/fill/update, then scale the metadata accesses per tile accordingly
      // data_movement_info.metadata_fills = ceil(total_metadata_payload_units_per_tile * fill_ratio);
      // data_movement_info.metadata_reads = ceil(total_metadata_payload_units_per_tile * read_ratio);
      // data_movement_info.metadata_updates = ceil(total_metadata_payload_units_per_tile * update_ratio);
@@ -1663,6 +1659,13 @@ void CalculateFineGrainedStorageAccesses(const SparseAnalysisState& state,
           data_movement_record.temporal_reductions * (double)data_movement_record.fine_grained_data_accesses["random_update"]
           / data_movement_record.updates);
       }
+
+      // Sanity print
+      // std::cout << "----- after post processing " << std::endl;
+      // for (auto iter = data_movement_record.fine_grained_data_accesses.begin(); iter != data_movement_record.fine_grained_data_accesses.end(); iter++)
+      // {
+      //   std::cout << iter->first << ": " << iter->second << std::endl;
+      // }
     }
   }
 
@@ -3361,18 +3364,42 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
 
       std::uint64_t abs_max_tile_occupancy = pv_data_movement_info.GetMaxDataTileOccupancyByConfidence(1.0);
       std::uint64_t abs_min_tile_occupancy = pv_data_movement_info.GetMinDataTileOccupancy();
-      
-      // std::cout << "dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
-      //   << "  tile shape: " << pv_data_movement_info.shape 
-      //   << "  abs max tile occupancy: " << abs_max_tile_occupancy 
-      //   << "  abs min tile occupancy: " << abs_min_tile_occupancy << std::endl;
 
+      std::vector<double> occupancy_probabilities;
+      std::vector<problem::DataSpace> occupancy_molds = {};
+      
+      std::vector<bool> exist_masks; // mask possible occupancies to reudce size of occupancy probabilities vector
+      exist_masks.reserve(abs_max_tile_occupancy - abs_min_tile_occupancy + 1);
+      
+      // query density model for all probs to maximize density model reuse ( some densities model might use internal recording mechanisims)
       for (std::uint64_t possible_occupancy = abs_min_tile_occupancy;
            possible_occupancy <= abs_max_tile_occupancy; possible_occupancy++)
       {
         double p = pv_data_movement_info.GetDataTileOccupancyProbability(possible_occupancy);
+          exist_masks.emplace_back(p != 0);
         if (p != 0)
         {
+          occupancy_probabilities.emplace_back(p);
+          if( pv_data_movement_info.GetTileDensityModel()->OccupancyMoldNeeded() )
+          {
+            occupancy_molds.emplace_back(pv_data_movement_info.GetTileDensityModel()->GetOccupancyMold(possible_occupancy));
+          }
+        }
+      }
+
+      // std::cout << "dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
+      //   << "  tile shape: " << pv_data_movement_info.shape 
+      //   << "  abs max tile occupancy: " << abs_max_tile_occupancy 
+      //   << "  abs min tile occupancy: " << abs_min_tile_occupancy << std::endl;
+      
+      unsigned equivalent_i = 0;
+      for (unsigned i = 0; i < exist_masks.size(); i++)
+      {
+        if (exist_masks[i])
+        {
+          double p = occupancy_probabilities[equivalent_i];
+          std::uint64_t possible_occupancy = abs_min_tile_occupancy + i;
+
           // update expected occupancy accordingly
           total_non_empty_payloads += p * (double)possible_occupancy;
           if (pv_data_movement_info.has_metadata)
@@ -3383,9 +3410,14 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
             
             tiling::ExtraTileConstraintInfo extra_constraint_info;
             extra_constraint_info.Set(pv_data_movement_info.shape, possible_occupancy);
+
+            if (occupancy_molds.size() > equivalent_i) 
+              extra_constraint_info.SetMold(occupancy_molds.at(equivalent_i));
+
             tiling::CoordinateSpaceTileInfo possible_coord_tile;
             possible_coord_tile.Set(*pv_data_movement_info.coord_space_info.tile_point_set_mold_, pv, extra_constraint_info);
             auto occupancy = pv_data_movement_info.GetMetaDataTileOccupancyGivenDataTile(possible_coord_tile);
+
             // update the metadata tile occupancy record (each item in the record correspond to a rank)
             for (unsigned r = 0; r < occupancy.size(); r++)
             {
@@ -3395,6 +3427,7 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
               else expected_metadata_occupancy[r].Add(per_rank_occupancy);
             }
           }
+          equivalent_i += 1;
         }
       }
 

@@ -46,6 +46,13 @@ Point::Point(std::uint32_t order) :
   coordinates_.resize(order_);
   Reset();
 }
+
+
+Point::Point(std::vector<Coordinate> coordinates) : 
+  order_(coordinates.size()),
+  coordinates_(coordinates)
+{
+}
   
 // Copy-and-swap idiom.
 Point& Point::operator = (Point other)
@@ -97,6 +104,11 @@ void Point::Reset()
 std::uint32_t Point::Order() const
 {
   return order_;
+}
+
+std::vector<Coordinate> Point::GetCoordinates() const
+{
+  return coordinates_;
 }
 
 Coordinate& Point::operator[] (std::uint32_t i)

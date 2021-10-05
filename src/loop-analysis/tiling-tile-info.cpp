@@ -226,6 +226,8 @@ MetaDataTileOccupancy DataMovementInfo::GetMaxMetaDataTileOccupancyByConfidence(
     
     ExtraTileConstraintInfo extra_tile_constraint_info;
     extra_tile_constraint_info.Set(shape, max_tile_occupancy);
+    if( tile_density->OccupancyMoldNeeded() )
+      extra_tile_constraint_info.SetMold(tile_density->GetOccupancyMold(max_tile_occupancy));
     
     CoordinateSpaceTileInfo cur_coord_tile;
     cur_coord_tile.Set(*coord_space_info.tile_point_set_mold_, dataspace_id, extra_tile_constraint_info);

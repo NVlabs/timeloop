@@ -38,6 +38,12 @@ void ExtraTileConstraintInfo::Set(const std::uint64_t shape, const std::uint64_t
   set_ = true;
 }
 
+void ExtraTileConstraintInfo::SetMold(const problem::DataSpace& tile_point_set_mold)
+{
+  tile_point_set_mold_ = std::make_shared<problem::DataSpace>(tile_point_set_mold.Order(), tile_point_set_mold.Min(), tile_point_set_mold.Max());
+  mold_set_ = true;
+}
+
 std::uint64_t ExtraTileConstraintInfo::GetShape() const
 {
   return shape_;
@@ -46,6 +52,12 @@ std::uint64_t ExtraTileConstraintInfo::GetShape() const
 std::uint64_t ExtraTileConstraintInfo::GetOccupancy() const
 {
   return occupancy_;
+}
+
+problem::DataSpace ExtraTileConstraintInfo::GetPointSetMold() const
+{
+  assert(mold_set_);
+  return *tile_point_set_mold_;
 }
 
 // interface object between sparse modeling module and density models
@@ -79,6 +91,12 @@ std::uint64_t CoordinateSpaceTileInfo::GetShape() const
   // std::cout << std::endl;
 
   return tile_point_set_mold_->size();
+}
+
+problem::DataSpace CoordinateSpaceTileInfo::GetPointSetRepr() const
+{
+  assert(mold_set_);
+  return *tile_point_set_mold_;
 }
 
 bool CoordinateSpaceTileInfo::HasExtraConstraintInfo() const

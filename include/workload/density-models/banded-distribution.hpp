@@ -1,4 +1,4 @@
-/* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@
 namespace problem
 {
 
-class FixedStructuredDistribution : public DensityDistribution
+class BandedDistribution : public DensityDistribution
 {
 
  public:
@@ -46,9 +46,7 @@ class FixedStructuredDistribution : public DensityDistribution
   {
 
     std::string type;
-    double fixed_density;
-    std::uint64_t workload_tensor_size;
-    
+    std::uint32_t band_width;
 
     const std::string Type() const override
     { return type; }
@@ -59,12 +57,10 @@ class FixedStructuredDistribution : public DensityDistribution
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version = 0)
     {
-
       ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(DensityDistributionSpecs);
       if (version == 0)
       {
         ar & BOOST_SERIALIZATION_NVP(type);
-        ar & BOOST_SERIALIZATION_NVP(fixed_density);
       }
     }
 
@@ -83,11 +79,23 @@ class FixedStructuredDistribution : public DensityDistribution
  private:
   Specs specs_;
   bool is_specced_;
-  bool workload_tensor_size_set_;
 
-  // private functions
-  std::uint64_t GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
-                                             const double confidence);
+  std::uint64_t workload_tensor_size_;
+  std::vector<std::uint64_t> workload_dim_bounds_;
+  double global_density_level_;
+
+  // keep a lookup table for tile occupancy probabilities
+  std::map<std::uint64_t, double> cur_tile_probability_lookup_table_ = {};
+  std::vector<int> cur_tile_dims_ = {};
+  std::map<std::uint64_t, std::vector<std::vector<Coordinate>>> representative_point_set_ = {};
+  
+  std::uint64_t ComputeNNZForSpecificTile(const problem::DataSpace& point_set);
+  void GetProbabilityDistributionForTileMold(const problem::DataSpace& point_set_mold,
+                                             const bool zero_occupancy_only = false);
+  double GetZeroOccupancyProbForConstrainedTileMold(const problem::DataSpace& point_set_mold,
+                                                    const problem::DataSpace& constraint_point_mold) const;
+  bool UseLookUpTable(const problem::DataSpace& point_set_mold);
+
  public:
   // Serialization
   friend class boost::serialization::access;
@@ -107,16 +115,16 @@ class FixedStructuredDistribution : public DensityDistribution
   //
 
   // constructor and destructors
-  FixedStructuredDistribution();
+  BandedDistribution();
 
-  FixedStructuredDistribution(const Specs& specs);
+  BandedDistribution(const Specs& specs);
 
-  ~FixedStructuredDistribution();
+  ~BandedDistribution();
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
   void SetWorkloadTensorSize(const problem::DataSpace& point_set);
-  
+
   std::uint64_t GetWorkloadTensorSize() const;
   std::string GetDistributionType() const;
   std::uint64_t GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tensor,
@@ -131,6 +139,6 @@ class FixedStructuredDistribution : public DensityDistribution
   double GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile);
   bool OccupancyMoldNeeded();
   problem::DataSpace GetOccupancyMold(const std::uint64_t occupancy) const;
-}; // class FixedStructuredDistribution
+}; // class BandedDistribution
 
 } // namespace problem

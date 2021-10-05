@@ -149,6 +149,7 @@ workload/density-models/density-distribution.cpp
 workload/density-models/density-distribution-factory.cpp
 workload/density-models/fixed-structured-distribution.cpp
 workload/density-models/hypergeometric-distribution.cpp
+workload/density-models/banded-distribution.cpp
 workload/format-models/metadata-format.cpp
 workload/format-models/metadata-format-factory.cpp
 workload/format-models/run-length-encoding.cpp

@@ -87,7 +87,7 @@ void HypergeometricDistribution::SetWorkloadTensorSize(const problem::DataSpace&
 }
 
 std::uint64_t HypergeometricDistribution::GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
-                                                                       const double confidence) const
+                                                                       const double confidence) 
 {
 
   std::uint64_t tile_occupancy;
@@ -114,14 +114,14 @@ std::uint64_t HypergeometricDistribution::GetTileOccupancyByConfidence(const std
 }
 
 std::uint64_t HypergeometricDistribution::GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tile,
-                                                                          const double confidence) const
+                                                                          const double confidence) 
 {
   std::uint64_t tile_shape = tile.GetShape();
   return HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
 
 std::uint64_t HypergeometricDistribution::GetMaxTileOccupancyByConfidence_LTW(const std::uint64_t tile_shape,
-                                                                              const double confidence) const
+                                                                              const double confidence) 
 {
   return HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
@@ -138,7 +138,7 @@ std::string HypergeometricDistribution::GetDistributionType() const
 }
 
 double HypergeometricDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                                                 const double confidence) const
+                                                                 const double confidence) 
 {
 
   if (confidence == 0.5)
@@ -150,7 +150,7 @@ double HypergeometricDistribution::GetMaxTileDensityByConfidence(const tiling::C
 
 }
 
-double HypergeometricDistribution::GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) const
+double HypergeometricDistribution::GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) 
 {
   if (tile.GetShape() <= specs_.workload_tensor_size - specs_.total_nnzs)
   {
@@ -162,7 +162,7 @@ double HypergeometricDistribution::GetMinTileDensity(const tiling::CoordinateSpa
   }
 }
 
-double HypergeometricDistribution::GetTileExpectedDensity(const uint64_t tile_shape) const
+double HypergeometricDistribution::GetTileExpectedDensity(const uint64_t tile_shape) 
 {
 
   (void)tile_shape;
@@ -200,7 +200,7 @@ double HypergeometricDistribution::CalculateProbability(const std::uint64_t nnz_
 }
 
 double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape,
-                                                  const std::uint64_t nnz_vals) const
+                                                  const std::uint64_t nnz_vals) 
 {
 
   assert(is_specced_);
@@ -232,7 +232,7 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
 
 double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape, const std::uint64_t nnz_vals,
                                                   const std::uint64_t constraint_tensor_shape,
-                                                  const std::uint64_t constraint_tensor_occupancy) const
+                                                  const std::uint64_t constraint_tensor_occupancy) 
 {
 
   std::uint64_t r = constraint_tensor_occupancy;
@@ -259,7 +259,7 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
 }
 
 double HypergeometricDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
-                                                               const std::uint64_t occupancy) const
+                                                               const std::uint64_t occupancy) 
 {
   std::uint64_t tile_shape = tile.GetShape();
   double prob;
@@ -278,7 +278,7 @@ double HypergeometricDistribution::GetTileOccupancyProbability(const tiling::Coo
   return prob;
 }
 
-double HypergeometricDistribution::GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile) const
+double HypergeometricDistribution::GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile) 
 {
 
   std::uint64_t tile_shape = tile.GetShape();
@@ -305,6 +305,17 @@ double HypergeometricDistribution::GetExpectedTileOccupancy(const tiling::Coordi
     }
   }
   return expected_occupancy;
+}
+
+bool HypergeometricDistribution::OccupancyMoldNeeded()
+{
+  return false;
+}
+
+problem::DataSpace HypergeometricDistribution::GetOccupancyMold(const std::uint64_t occupancy) const
+{
+  (void) occupancy;
+  return problem::DataSpace(0); // place holder point set
 }
 
 }

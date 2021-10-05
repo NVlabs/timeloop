@@ -69,7 +69,7 @@ void FixedStructuredDistribution::SetWorkloadTensorSize(const problem::DataSpace
 }
 
 std::uint64_t FixedStructuredDistribution::GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
-                                                              const double confidence) const
+                                                              const double confidence)
 {
 
   double exact_nnzs = tile_shape * specs_.fixed_density;
@@ -86,7 +86,7 @@ std::uint64_t FixedStructuredDistribution::GetTileOccupancyByConfidence(const st
 }
 
 std::uint64_t FixedStructuredDistribution::GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tile,
-                                                                 const double confidence) const
+                                                                 const double confidence) 
 {
   std::uint64_t tile_shape = tile.GetShape();
   return FixedStructuredDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
@@ -94,7 +94,7 @@ std::uint64_t FixedStructuredDistribution::GetMaxTileOccupancyByConfidence(const
 
 // place holder lightweight version
 std::uint64_t FixedStructuredDistribution::GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
-                                                   const double confidence) const
+                                                   const double confidence)
 {
   return FixedStructuredDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
@@ -111,7 +111,7 @@ std::string FixedStructuredDistribution::GetDistributionType() const{
 
 
 double FixedStructuredDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                                                  const double confidence) const
+                                                                  const double confidence)
 {
   (void) confidence;
 
@@ -120,18 +120,18 @@ double FixedStructuredDistribution::GetMaxTileDensityByConfidence(const tiling::
 }
 
 
-double FixedStructuredDistribution::GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) const
+double FixedStructuredDistribution::GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile)
 {
   if (tile.GetShape() == 0)
   {
     return 0;
   }
   std::uint64_t floor_nnzs =  floor(tile.GetShape() * specs_.fixed_density);
-  return floor_nnzs/tile.GetShape();
+  return (double)floor_nnzs/tile.GetShape();
 }
 
 double FixedStructuredDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
-                                                                const std::uint64_t occupancy) const
+                                                                const std::uint64_t occupancy)
 {
   assert(is_specced_);
   assert(workload_tensor_size_set_);
@@ -177,9 +177,23 @@ double FixedStructuredDistribution::GetTileOccupancyProbability(const tiling::Co
 }
 
 
-double FixedStructuredDistribution::GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) const
+double FixedStructuredDistribution::GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile)
 {
   return tile.GetShape() * specs_.fixed_density;
+}
+
+
+
+bool FixedStructuredDistribution::OccupancyMoldNeeded()
+{
+  return false;
+}
+
+
+problem::DataSpace FixedStructuredDistribution::GetOccupancyMold(const std::uint64_t occupancy) const
+{
+  (void) occupancy;
+  return problem::DataSpace(0); // place holder point set
 }
 
 }
