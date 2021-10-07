@@ -223,7 +223,9 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
 
       if (config_densities.exists(GetShape()->DataSpaceIDToName.at(i)))
       {
-        // if the specific dataspace's density is specified
+		config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density);
+        
+		// if the specific dataspace's density is specified
         if (!config_densities.lookup(GetShape()->DataSpaceIDToName.at(i)).isMap())
         {
           // single number for density is given, default to fixed density distribution
