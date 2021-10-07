@@ -26,6 +26,7 @@
  */
 
 #include <numeric>
+
 #include "loop-analysis/nest-analysis-tile-info.hpp"
 
 namespace analysis
