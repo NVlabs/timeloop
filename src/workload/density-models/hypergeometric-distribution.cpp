@@ -30,6 +30,8 @@
 #include <boost/archive/xml_oarchive.hpp>
 #include <boost/math/distributions/hypergeometric.hpp>
 #include <iostream>
+#include <exception>
+#include <boost/math/special_functions/binomial.hpp>
 
 #include "workload/density-models/hypergeometric-distribution.hpp"
 
@@ -174,6 +176,35 @@ double HypergeometricDistribution::GetTileExpectedDensity(const uint64_t tile_sh
   return specs_.average_density;
 }
 
+/*************************************************************************************
+ * Calculating the probability directly, 
+ * based on this mathematical definition: 
+ * https://www.statisticshowto.com/hypergeometric-distribution-examples/ 
+ *************************************************************************************/
+double HypergeometricDistribution::CalculateProbability(const std::uint64_t nnz_vals,
+                                                        const std::uint64_t r,
+                                                        const std::uint64_t n,
+                                                        const std::uint64_t N
+                                                        ) const 
+{
+
+   double prob;
+   try 
+   {
+      long double r_choose_x = boost::math::binomial_coefficient<long double>(r, nnz_vals);
+      long double Nr_choose_nx = boost::math::binomial_coefficient<long double>(N-r, n-nnz_vals);
+      long double N_choose_n = boost::math::binomial_coefficient<long double>(N, n);
+      prob =  (double) (r_choose_x*Nr_choose_nx)/N_choose_n;
+   } catch (std::exception& e) 
+   {
+      std::cout << "ERROR: Integer overflow occured. Check your workload sizes and density." 
+      << std::endl;
+      exit(-1);
+   }
+
+    return prob;
+}
+
 double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape,
                                                   const std::uint64_t nnz_vals) const
 {
@@ -189,8 +220,18 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
   { return 0; }
 
   boost::math::hypergeometric_distribution<double> distribution(r, n, N);
-  double prob = pdf(distribution, nnz_vals);
-
+  
+  //Workaround/fix for domain error for large workload size. Compute the PDF directly
+  //This might return an overflow error, but it occurs less times than using the boost pdf call  
+  double prob;
+  try 
+  {
+    prob = pdf(distribution, nnz_vals);
+  } catch (std::exception& e) 
+  {
+    prob = CalculateProbability(nnz_vals, r, n, N);
+  }
+  
   return prob;
 
 }
@@ -203,16 +244,27 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
   std::uint64_t r = constraint_tensor_occupancy;
   std::uint64_t n = tile_shape;
   std::uint64_t N = constraint_tensor_shape;
-  // std::cout << "more involved get prob: nnz: " << nnz_vals << "  tile shape: " << tile_shape
-  // << "   constr shape: " << constraint_tensor_shape << std::endl;
+  
+  //std::cout << "more involved get prob: nnz: " << nnz_vals << "  tile shape: " << tile_shape
+  //<< "   constr shape: " << constraint_tensor_shape << std::endl;
 
   if (((n + r > N) && (nnz_vals < n + r - N)) | (nnz_vals > r))
   { return 0; }
 
   boost::math::hypergeometric_distribution<double> distribution(r, n, N);
-  double prob = pdf(distribution, nnz_vals);
 
+  //Workaround/fix for domain error for large workload size. Compute the PDF directly
+  //This might return an overflow error, but it occurs less times than using the boost pdf call
+  double prob;
+  try 
+  {
+    prob = pdf(distribution, nnz_vals);
+  } catch (std::exception& e) {
+    prob = CalculateProbability(nnz_vals, r, n, N);
+  } 
+  
   return prob;
+
 }
 
 double HypergeometricDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,

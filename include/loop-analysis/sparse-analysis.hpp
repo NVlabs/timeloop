@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <math.h>
 #include "model/level.hpp"
 #include "mapping/mapping.hpp"
 #include "tiling-tile-info.hpp"
