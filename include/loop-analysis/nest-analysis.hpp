@@ -121,7 +121,8 @@ class NestAnalysis
                          std::vector<problem::OperationSpace>& spatial_deltas,
                          std::vector<bool>& valid_delta,
                          std::uint64_t base_index,
-                         int depth = 0);
+                         int depth,
+                         int extrapolation_stride);
 
   void ComputeAccurateMulticastedAccesses(
       std::vector<analysis::LoopState>::reverse_iterator cur,
