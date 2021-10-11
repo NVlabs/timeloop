@@ -640,16 +640,18 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
       ->GetTileOccupancyProbability(cspace_tile, 0);
     prob_target_dspace_effectual *= (1 - prob_condition_on_dspace_empty);
 
-    // std::cout << " \n\n target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
-    //           << " condition on dspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
-    //           << " \n target loop: " << target_loop
-    //           << " co-iterated: " << is_co_iterated_dim
-    //           << " child level: " << child_level
-    //           << "\n operation space mold derived dataspace sizes (target, conditioned): "
-    //           << target_optimization_granularity << "  "
-    //           << condition_on_granularity
-    //           << "\n condtion on tile empty probability(target skip prob): " << prob_condition_on_dspace_empty
-    //           << std::endl;
+   // std::cout << " \n\n target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
+   //           << " condition on dspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
+   //           << " \n target loop: " << target_loop
+   //           << " co-iterated: " << is_co_iterated_dim
+   //           << " child level: " << child_level
+   //           << "\n operation space mold derived dataspace sizes (target, conditioned): "
+   //           << target_optimization_granularity << "  "
+   //           << condition_on_granularity
+   //           << "  condition on mold: ";
+   //           cspace_tile.GetPointSetRepr().Print();
+   // std::cout << "\n condtion on tile empty probability(target skip prob): " << prob_condition_on_dspace_empty
+   //           << std::endl;
   }
   double prob_target_dspace_ineffectual = 1 - prob_target_dspace_effectual;
   // std::cout << " (after aggregation) target skip prob: " << prob_target_dspace_ineffectual << std::endl;
@@ -3362,72 +3364,75 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
       // Initialize occupancy holders
       tiling::MetaDataTileOccupancy expected_metadata_occupancy = {}; //empty means no metadata
 
-      std::uint64_t abs_max_tile_occupancy = pv_data_movement_info.GetMaxDataTileOccupancyByConfidence(1.0);
-      std::uint64_t abs_min_tile_occupancy = pv_data_movement_info.GetMinDataTileOccupancy();
-
-      std::vector<double> occupancy_probabilities;
-      std::vector<problem::DataSpace> occupancy_molds = {};
-      
-      std::vector<bool> exist_masks; // mask possible occupancies to reudce size of occupancy probabilities vector
-      exist_masks.reserve(abs_max_tile_occupancy - abs_min_tile_occupancy + 1);
-      
-      // query density model for all probs to maximize density model reuse ( some densities model might use internal recording mechanisims)
-      for (std::uint64_t possible_occupancy = abs_min_tile_occupancy;
-           possible_occupancy <= abs_max_tile_occupancy; possible_occupancy++)
+      if (pv_data_movement_info.shape != 0)
       {
-        double p = pv_data_movement_info.GetDataTileOccupancyProbability(possible_occupancy);
-          exist_masks.emplace_back(p != 0);
-        if (p != 0)
+        std::uint64_t abs_max_tile_occupancy = pv_data_movement_info.GetMaxDataTileOccupancyByConfidence(1.0);
+        std::uint64_t abs_min_tile_occupancy = pv_data_movement_info.GetMinDataTileOccupancy();
+
+        std::vector<double> occupancy_probabilities;
+        std::vector<problem::DataSpace> occupancy_molds = {};
+        
+        std::vector<bool> exist_masks; // mask possible occupancies to reudce size of occupancy probabilities vector
+        exist_masks.reserve(abs_max_tile_occupancy - abs_min_tile_occupancy + 1);
+        
+        // query density model for all probs to maximize density model reuse ( some densities model might use internal recording mechanisims)
+        for (std::uint64_t possible_occupancy = abs_min_tile_occupancy;
+             possible_occupancy <= abs_max_tile_occupancy; possible_occupancy++)
         {
-          occupancy_probabilities.emplace_back(p);
-          if( pv_data_movement_info.GetTileDensityModel()->OccupancyMoldNeeded() )
+          double p = pv_data_movement_info.GetDataTileOccupancyProbability(possible_occupancy);
+            exist_masks.emplace_back(p != 0);
+          if (p != 0)
           {
-            occupancy_molds.emplace_back(pv_data_movement_info.GetTileDensityModel()->GetOccupancyMold(possible_occupancy));
-          }
-        }
-      }
-
-      // std::cout << "dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
-      //   << "  tile shape: " << pv_data_movement_info.shape 
-      //   << "  abs max tile occupancy: " << abs_max_tile_occupancy 
-      //   << "  abs min tile occupancy: " << abs_min_tile_occupancy << std::endl;
-      
-      unsigned equivalent_i = 0;
-      for (unsigned i = 0; i < exist_masks.size(); i++)
-      {
-        if (exist_masks[i])
-        {
-          double p = occupancy_probabilities[equivalent_i];
-          std::uint64_t possible_occupancy = abs_min_tile_occupancy + i;
-
-          // update expected occupancy accordingly
-          total_non_empty_payloads += p * (double)possible_occupancy;
-          if (pv_data_movement_info.has_metadata)
-          {
-            // Calculate the resulted metadata occupancy for this specific potential data tile size
-            // the exact possible occupancy serves as additional information about the tile
-            // it is upto the density models to determine whether this addition information is useful
-            
-            tiling::ExtraTileConstraintInfo extra_constraint_info;
-            extra_constraint_info.Set(pv_data_movement_info.shape, possible_occupancy);
-
-            if (occupancy_molds.size() > equivalent_i) 
-              extra_constraint_info.SetMold(occupancy_molds.at(equivalent_i));
-
-            tiling::CoordinateSpaceTileInfo possible_coord_tile;
-            possible_coord_tile.Set(*pv_data_movement_info.coord_space_info.tile_point_set_mold_, pv, extra_constraint_info);
-            auto occupancy = pv_data_movement_info.GetMetaDataTileOccupancyGivenDataTile(possible_coord_tile);
-
-            // update the metadata tile occupancy record (each item in the record correspond to a rank)
-            for (unsigned r = 0; r < occupancy.size(); r++)
+            occupancy_probabilities.emplace_back(p);
+            if( pv_data_movement_info.GetTileDensityModel()->OccupancyMoldNeeded() )
             {
-              auto per_rank_occupancy = occupancy[r];
-              per_rank_occupancy.Scale(p);
-              if (expected_metadata_occupancy.size() == r) expected_metadata_occupancy.push_back(per_rank_occupancy);
-              else expected_metadata_occupancy[r].Add(per_rank_occupancy);
+              occupancy_molds.emplace_back(pv_data_movement_info.GetTileDensityModel()->GetOccupancyMold(possible_occupancy));
             }
           }
-          equivalent_i += 1;
+        }
+
+        // std::cout << "dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
+        //   << "  tile shape: " << pv_data_movement_info.shape 
+        //   << "  abs max tile occupancy: " << abs_max_tile_occupancy 
+        //   << "  abs min tile occupancy: " << abs_min_tile_occupancy << std::endl;
+        
+        unsigned equivalent_i = 0;
+        for (unsigned i = 0; i < exist_masks.size(); i++)
+        {
+          if (exist_masks[i])
+          {
+            double p = occupancy_probabilities[equivalent_i];
+            std::uint64_t possible_occupancy = abs_min_tile_occupancy + i;
+
+            // update expected occupancy accordingly
+            total_non_empty_payloads += p * (double)possible_occupancy;
+            if (pv_data_movement_info.has_metadata)
+            {
+              // Calculate the resulted metadata occupancy for this specific potential data tile size
+              // the exact possible occupancy serves as additional information about the tile
+              // it is upto the density models to determine whether this addition information is useful
+              
+              tiling::ExtraTileConstraintInfo extra_constraint_info;
+              extra_constraint_info.Set(pv_data_movement_info.shape, possible_occupancy);
+
+              if (occupancy_molds.size() > equivalent_i) 
+                extra_constraint_info.SetMold(occupancy_molds.at(equivalent_i));
+
+              tiling::CoordinateSpaceTileInfo possible_coord_tile;
+              possible_coord_tile.Set(*pv_data_movement_info.coord_space_info.tile_point_set_mold_, pv, extra_constraint_info);
+              auto occupancy = pv_data_movement_info.GetMetaDataTileOccupancyGivenDataTile(possible_coord_tile);
+
+              // update the metadata tile occupancy record (each item in the record correspond to a rank)
+              for (unsigned r = 0; r < occupancy.size(); r++)
+              {
+                auto per_rank_occupancy = occupancy[r];
+                per_rank_occupancy.Scale(p);
+                if (expected_metadata_occupancy.size() == r) expected_metadata_occupancy.push_back(per_rank_occupancy);
+                else expected_metadata_occupancy[r].Add(per_rank_occupancy);
+              }
+            }
+            equivalent_i += 1;
+          }
         }
       }
 

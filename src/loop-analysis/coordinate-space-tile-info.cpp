@@ -67,7 +67,7 @@ CoordinateSpaceTileInfo::CoordinateSpaceTileInfo()
 
 void CoordinateSpaceTileInfo::Clear()
 {
-  tile_point_set_mold_->Reset();
+  if (mold_set_) tile_point_set_mold_->Reset();
 }
 
 void CoordinateSpaceTileInfo::Set(const problem::DataSpace& tile_point_set_mold, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint)

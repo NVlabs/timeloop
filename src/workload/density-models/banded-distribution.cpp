@@ -74,7 +74,7 @@ void BandedDistribution::SetWorkloadTensorSize(const problem::DataSpace& point_s
     total_nnzs += (min_dim_bound - ud) * 2;
  
   global_density_level_ = (double)total_nnzs/workload_tensor_size_;
-  // std::cout << "total nnzs: " << total_nnzs << "  density: " << global_density_level_ << std::endl;
+  std::cout << "total nnzs: " << total_nnzs << "  density: " << global_density_level_ << std::endl;
 }
 
 std::uint64_t BandedDistribution::GetWorkloadTensorSize() const { return workload_tensor_size_; }
@@ -230,7 +230,6 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
       {
         // construct exact point set
         
-
         std::vector<Coordinate> min_coordinates = {point_set_mold.Min()[0] + row_offset, point_set_mold.Min()[1] + col_offset};
         std::vector<Coordinate> max_coordinates = {point_set_mold.Max()[0] + row_offset, point_set_mold.Max()[1] + col_offset};
         problem::DataSpace point_set(point_set_mold.Min().Order(), Point(min_coordinates), Point(max_coordinates));
@@ -259,21 +258,22 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
     cur_r_group += 1; 
   }
   
-  //
-  // sanity check for occupancy calaculation
-  //
-  // std::cout << "point set mold occupancy eval: ";
-  // point_set_mold.Print(std::cout);
-  // std::cout << std::endl;
-
-  // std::cout << "num col groups: " << num_col_groups 
-  //   << "  num row groups: " << num_row_groups 
-  //   << "  num warm up row groups: " <<  num_warm_up_row_groups 
-  //   << "  num steady state row groups: " << num_steady_state_groups
-  //   << std::endl;
-  
   if (!zero_occupancy_only)
   {
+
+    //
+    // sanity check for occupancy calaculation
+    //
+    // std::cout << "point set mold occupancy eval: ";
+    // point_set_mold.Print(std::cout);
+    // std::cout << std::endl;
+
+    // std::cout << "num col groups: " << num_col_groups 
+    // << "  num row groups: " << num_row_groups 
+    // << "  num warm up row groups: " <<  num_warm_up_row_groups 
+    // << "  num steady state row groups: " << num_steady_state_groups
+    // << std::endl;
+    
     // populate lookup table for this new tile
     cur_tile_probability_lookup_table_.clear();
     for (auto iter = occupancy_count.begin(); iter != occupancy_count.end(); iter++)
@@ -378,7 +378,7 @@ double BandedDistribution::GetTileOccupancyProbability(const tiling::CoordinateS
   }
   else
   {
-    if (!UseLookUpTable(tile_point_set)) GetProbabilityDistributionForTileMold(tile_point_set, occupancy==0);  
+    if (!UseLookUpTable(tile_point_set)) GetProbabilityDistributionForTileMold(tile_point_set);  
     if (cur_tile_probability_lookup_table_.find(occupancy) != cur_tile_probability_lookup_table_.end())
       prob = cur_tile_probability_lookup_table_.at(occupancy);
     else
