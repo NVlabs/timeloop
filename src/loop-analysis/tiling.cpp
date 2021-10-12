@@ -969,4 +969,14 @@ NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks)
   return retval;
 }
 
+// check if any fo the dataspace is not stored anywhere
+bool CheckMaskValidity(const CompoundMaskNest& masks)
+{
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  {
+    if (masks[pv].none()) return false; 
+  }
+  return true;
+}
+
 }  // namespace tiling

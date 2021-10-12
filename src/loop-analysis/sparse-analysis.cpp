@@ -828,8 +828,11 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
               level_cond_on_dspace_in++; 
             }
             
-            // there must be some level storing the conditioned on dataspace
-            assert(level_cond_on_dspace_in != state.num_storage_levels_); 
+            if (level_cond_on_dspace_in == state.num_storage_levels_)
+            {
+              // if there is no upper level that stores the conditioned on tile, then the optimization is ineffective
+              continue;
+            }
             
             // only if there is sparsity and metadata in conditioned on dataspace do we proceed to analyze the impact 
             if (compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].has_metadata)
