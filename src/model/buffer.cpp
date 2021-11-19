@@ -122,6 +122,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
 
   // Block size.
   std::uint32_t block_size;
+  bool block_size_specified = false;
   specs.block_size = 1;
   if (buffer.lookupValue("block-size", block_size) ||
       buffer.lookupValue("block_size", block_size) ||
@@ -129,7 +130,8 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   {
     specs.block_size = block_size;
     assert(block_size != 0);
-  }
+    block_size_specified = true;
+  } 
 
   // we currently consider metadata and data storages always form a pair
   // metadata data width is important to get a realistic size for the metadata
@@ -226,9 +228,11 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   std::uint32_t cluster_size;
   specs.cluster_size = 1;
   std::uint32_t width;
+  bool cluster_size_specified = false;
   if (buffer.lookupValue("cluster-size", cluster_size))
   {
     specs.cluster_size = cluster_size;
+    cluster_size_specified = true;
   }
   else if (buffer.lookupValue("width", width)||
            buffer.lookupValue("memory_width", width) ||
@@ -240,7 +244,30 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
       std::cout << "ERROR: data storage width: " << width << "  block_size: " << block_size << "  word_bits: " << word_bits << std::endl;
     }
     assert(width % (word_bits * block_size)  == 0);
-    specs.cluster_size = width / (word_bits * block_size);
+
+    if (block_size_specified && cluster_size_specified)
+    {
+       if (block_size * word_bits * cluster_size != width) 
+       {
+         std::cout << "ERROR: " << specs.level_name  << "  block_size * word_bits * cluster_size != storage width" << std::endl;
+         exit(1);
+       }
+    }
+    else if (cluster_size_specified)
+    {
+      specs.block_size = width / cluster_size / word_bits; 
+    }
+    else if (block_size_specified) 
+    {
+      specs.cluster_size = width / (word_bits * block_size);
+    }
+    else
+    {
+      specs.block_size = width / word_bits;
+      specs.cluster_size = 1;
+      std::cout << "Warning: neither block size nor cluster size specified, set according to specified storage width: block size: " 
+        << specs.block_size << "  cluster-size: " << specs.cluster_size << std::endl;
+    }
   }
 
   // Size.
