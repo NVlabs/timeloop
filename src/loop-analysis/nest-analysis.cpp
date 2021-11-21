@@ -787,7 +787,10 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   // by a recursive call. Only needed to ensure correctness.
   std::vector<bool> valid_delta(num_spatial_elems, false);
 
-  FillSpatialDeltas(cur, spatial_deltas, valid_delta, 0 /* base_index */);
+  FillSpatialDeltas(cur, spatial_deltas, valid_delta,
+                    0,   // base_index,
+                    0,   // depth,
+                    0);  // extrapolation_stride
   
   // Check if each element of spatial_deltas was updated by recursive calls.
   for (auto it : valid_delta)
@@ -1015,19 +1018,23 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
                                      std::vector<problem::OperationSpace>& spatial_deltas,
                                      std::vector<bool>& valid_delta,
                                      std::uint64_t base_index,
-                                     int depth)
+                                     int depth,
+                                     int extrapolation_stride)
 {
   int level = cur->level;
 
   int end = IsLastGlobalIteration_(level+1, cur->descriptor.dimension) ?
     cur->descriptor.residual_end : cur->descriptor.end;
 
+  unsigned num_iterations = 1 + ((end - 1 - cur->descriptor.start) /
+                                 cur->descriptor.stride);
+
   // base_index determines which element of spatial_deltas
   // is going to be updated at the last recursive call to FillSpatialDeltas.
   // It's value is updated as we recursively call FillSpatialDeltas.
   // Very similar to how spatial_id_ is used to identify the spatial element
   // that we are currently computing the working set for.
-  base_index *= end;
+  base_index *= end; // num_iterations?
 
   if (level == 0)
   {
@@ -1063,20 +1070,40 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
     auto orig_spatial_id = spatial_id_;
     auto saved_transform = cur_transform_[dim];
 
+    unsigned iterations_run = 0;
+    indices_[level] = cur->descriptor.start;
+
+    unsigned iterations_to_run = gExtrapolateUniformSpatial ? 3 : num_iterations;
+
+    // std::string indent;
+    // for (int i = 0; i < depth; i++)
+    //   indent += "  ";
+    // std::cout << indent << "FSD depth " << depth << " stride " << extrapolation_stride
+    //           << " iterations " << num_iterations << std::endl;
+
     if (loop::IsSpatial(next->descriptor.spacetime_dimension))
     {
-      // Next-inner loop level is spatial. Note that we do not use the
-      // gExtrapolateUniformSpatial optimization here. To do that, we need to
-      // extrapolate the entire *vector* of spatial_deltas returned by the
-      // recursive FillSpatialDeltas() call. TODO.
+      // Next-inner loop level is spatial.
+      // Make a recursive call for all iterations, but send a different
+      // extrapolation_stride depending on the type of iteration:
+      // "run" iteration => multiply current extrapolation_stride with my num_iterations.
+      // "extrapolation" iteration => update extrapolation_stride with my stride.
       for (indices_[level] = cur->descriptor.start;
            indices_[level] < end;
-           indices_[level] += cur->descriptor.stride)
+           indices_[level] += cur->descriptor.stride, iterations_run++)
       {
         ++cur;
 
+        // auto stride = (iterations_run < iterations_to_run) ? (extrapolation_stride * end) : cur->descriptor.stride;
+        // std::cout << indent + "  " << iterations_run << " recursing with stride "
+        //           << stride
+        //           << std::endl;
+
         FillSpatialDeltas(cur, spatial_deltas, valid_delta,
-                          base_index + indices_[level], depth+1);
+                          base_index + indices_[level], depth+1,
+                          (iterations_run < iterations_to_run)
+                           ? (extrapolation_stride * end) // * num_iterations?
+                           : cur->descriptor.stride);
 
         --cur;
         cur_transform_[dim] += scale;
@@ -1084,71 +1111,103 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
     }
     else // Next-inner loop level is temporal.
     {
-      unsigned num_iterations = 1 + ((end - 1 - cur->descriptor.start) /
-                                     cur->descriptor.stride);
-
-      unsigned iterations_run = 0;
-      indices_[level] = cur->descriptor.start;
-
-      unsigned iterations_to_run = gExtrapolateUniformSpatial ? 3 : num_iterations;
-
-      // Run iterations #0, #1, ... #iterations_to_run-1
-      for (indices_[level] = cur->descriptor.start;
-           indices_[level] < end && iterations_run < iterations_to_run;
-           indices_[level] += cur->descriptor.stride, iterations_run++)
+      // Logic is:
+      // Parent stride == 0?
+      // - 0:iterations_to_run-1 => recursive temporal ComputeDeltas().
+      // - iterations_to_run:num_iterations-1 => extrapolate with cur.stride.
+      // Parent stride != 0?
+      // - 0:iterations_to_run-1 => extrapolate with extrapolation_stride*cur.end
+      // - iterations_to_run:num_iterations-1 => extrapolate with cur.stride
+      //                                         OR extrapolation_stride*cur.end.
+      //                                         (we're going with the latter)
+      if (extrapolation_stride == 0)
       {
-        ++cur;
+        // std::cout << indent << "Parent stride is 0, running temporal loops" << std::endl;
 
-        std::uint64_t spatial_delta_index = base_index + indices_[level];
-        ASSERT(spatial_delta_index < spatial_deltas.size());
-        ASSERT(!valid_delta[spatial_delta_index]);
-
-        spatial_id_ = orig_spatial_id + spatial_delta_index;
-        spatial_deltas[spatial_delta_index] = ComputeDeltas(cur);
-        valid_delta[spatial_delta_index] = true;
-
-        --cur;
-        cur_transform_[dim] += scale;
-      }
-
-      // Extrapolate all other iterations.
-      if (iterations_run < num_iterations)
-      {
-        // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
-        std::vector<Point> translation_vectors;
-
-        auto& opspace_lastrun = spatial_deltas[base_index + indices_[level] - cur->descriptor.stride];
-        auto& opspace_secondlastrun = spatial_deltas[base_index + indices_[level] - 2*cur->descriptor.stride];
-
-        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-        {
-          translation_vectors.push_back(
-            opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv)));
-        }
-
-        // Iterations #num_iterations_to_run through #last.
-        problem::OperationSpace* prev_temporal_delta = &opspace_lastrun;
-        for (;
-             indices_[level] < end;
+        // Recursive temporal calls. This is the expensive bit.
+        for (indices_[level] = cur->descriptor.start;
+             indices_[level] < end && iterations_run < iterations_to_run;
              indices_[level] += cur->descriptor.stride, iterations_run++)
         {
-          std::uint64_t spatial_delta_index = base_index + indices_[level];
-          ASSERT(spatial_delta_index < spatial_deltas.size());
-          ASSERT(!valid_delta[spatial_delta_index]);
-
-          spatial_id_ = orig_spatial_id + spatial_delta_index;
-
-          auto& temporal_delta = spatial_deltas[spatial_delta_index];
-          for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+          // If the final extrapolation_stride is 0, it means we have no data to
+          // extrapolate from, so recurse into a full temporal ComputeDeltas() call.
+          if (iterations_run < iterations_to_run && extrapolation_stride == 0)
           {
-            temporal_delta.GetDataSpace(pv) = prev_temporal_delta->GetDataSpace(pv);
-            temporal_delta.GetDataSpace(pv).Translate(translation_vectors.at(pv));
-          }
-          valid_delta[spatial_delta_index] = true;
+            ++cur;
 
-          prev_temporal_delta = &temporal_delta;
-        } // extrapolated iterations
-      } // iterations_run < num_iterations
+            std::uint64_t spatial_delta_index = base_index + indices_[level];
+            ASSERT(spatial_delta_index < spatial_deltas.size());
+            ASSERT(!valid_delta[spatial_delta_index]);
+
+            // std::cout << indent + "  " << iterations_run << " sdi " << spatial_delta_index
+            //           << " calling temporal " << std::endl;
+
+            spatial_id_ = orig_spatial_id + spatial_delta_index;
+            spatial_deltas[spatial_delta_index] = ComputeDeltas(cur);
+            valid_delta[spatial_delta_index] = true;
+
+            --cur;
+            cur_transform_[dim] += scale;
+          }
+        }
+
+        // Set up extrapolation stride for the remaining iterations.
+        extrapolation_stride = cur->descriptor.stride;
+      }
+      else
+      {
+        // std::cout << indent << "Parent stride is NZ, updating stride "
+        //           << extrapolation_stride*end << std::endl;
+
+        // Set up extrapolation stride for the remaining iterations.
+        extrapolation_stride *= end; // num_iterations;
+        indices_[level] = cur->descriptor.start;
+      }
+
+      // Extrapolate all remaining iterations.
+
+      // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
+      std::vector<Point> translation_vectors;
+
+      ASSERT((int(base_index) + indices_[level]) >= (2*extrapolation_stride));
+      ASSERT(valid_delta[base_index + indices_[level] - extrapolation_stride]);
+      ASSERT(valid_delta[base_index + indices_[level] - 2*extrapolation_stride]);
+
+      auto& opspace_lastrun = spatial_deltas[base_index + indices_[level] - extrapolation_stride];
+      auto& opspace_secondlastrun = spatial_deltas[base_index + indices_[level] - 2*extrapolation_stride];
+
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+      {
+        translation_vectors.push_back(
+          opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv)));
+      }
+
+      // Iterations #num_iterations_to_run through #last.
+      for (;
+           indices_[level] < end;
+           indices_[level] += cur->descriptor.stride, iterations_run++)
+      {
+        std::uint64_t dst_delta_index = base_index + indices_[level];
+        std::uint64_t src_delta_index = dst_delta_index - extrapolation_stride;
+
+        ASSERT(dst_delta_index < spatial_deltas.size());
+        ASSERT(src_delta_index < spatial_deltas.size());
+
+        ASSERT(!valid_delta[dst_delta_index]);
+        ASSERT(valid_delta[src_delta_index]);
+
+        spatial_id_ = orig_spatial_id + dst_delta_index;
+
+        auto& dst_temporal_delta = spatial_deltas[dst_delta_index];
+        auto& src_temporal_delta = spatial_deltas[src_delta_index];
+        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+        {
+          dst_temporal_delta.GetDataSpace(pv) = src_temporal_delta.GetDataSpace(pv);
+          dst_temporal_delta.GetDataSpace(pv).Translate(translation_vectors.at(pv));
+        }
+        valid_delta[dst_delta_index] = true;
+      } // extrapolated iterations
+          
     } // next inner loop is temporal
 
     // Restore state.
