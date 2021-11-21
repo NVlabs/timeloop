@@ -1073,12 +1073,14 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   if (specs_.size.IsSpecified())
   {
     double address_range = std::ceil(static_cast<double>(specs_.size.Get() / specs_.block_size.Get()));
+    address_range = std::max(address_range, 1.0);
     specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
   }
   else if (specs_.technology.Get() == Technology::SRAM)
   {
     // Use utilized capacity as proxy for size.
     double address_range = std::ceil(static_cast<double>(total_utilized_capacity / specs_.block_size.Get()));
+    address_range = std::max(address_range, 1.0);
     specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
   }
   else // DRAM.
@@ -1089,6 +1091,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
 #else
     // Use utilized capacity as proxy for size.
     double address_range = std::ceil(static_cast<double>(total_utilized_capacity / specs_.block_size.Get()));
+    address_range = std::max(address_range, 1.0);
     specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
 #endif
   }
