@@ -85,7 +85,7 @@ struct DataMovementInfo
   double parent_access_share;
   bool distributed_multicast;
   AccessStatMatrix access_stats;
-  std::uint64_t content_accesses;
+  double content_accesses;
   std::uint64_t fills;
   std::uint64_t reads;
   std::uint64_t updates;
