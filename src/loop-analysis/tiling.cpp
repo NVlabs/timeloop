@@ -208,7 +208,13 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     // mappings such that the utilized fanout is either 1 or max fanout, but
     // we won't make that assumption here.
     
-    tile_nest[outer].content_accesses = 0;
+    // tile_nest[outer].content_accesses = 0;
+
+    double all_children_content_accesses = tile_nest[cur].content_accesses * tile_nest[outer].fanout;
+
+    // Warning! It's not clear if this child temporal factor is precise enough
+    // if there is temporal imperfection.
+    double child_temporal_factor = all_children_content_accesses / tile_nest[outer].access_stats.WeightedAccesses();
 
     for (auto& x: tile_nest[outer].access_stats.stats)
     {
@@ -225,14 +231,15 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
       // these accesses may be further amplified. Multicasts along the fanout
       // do not amplify accesses, but scatters do.
       // - FIXME: outer - cur > 1.
-      auto scatter_factor = x.first.second;
-      
-      tile_nest[outer].content_accesses +=
-        tile_nest[cur].content_accesses * scatter_factor;
+      // auto scatter_factor = x.first.second;
+
+      // tile_nest[outer].content_accesses +=
+      //   tile_nest[cur].content_accesses * scatter_factor;
 
       // The outer network will now be energized as frequently as
       // the inner content was accessed.
-      x.second.accesses = tile_nest[cur].content_accesses * scatter_factor;
+      x.second.accesses *= child_temporal_factor;
+      // x.second.accesses = tile_nest[cur].content_accesses * scatter_factor;
 
       // If a child level gets masked out, all _its_ children will now make
       // accesses to the parent. This means the link transfers are pointless – all
@@ -252,6 +259,9 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
 
       // Note: partition size for outer does not change.
     }
+
+    // Recompute outer content accesses.
+    tile_nest[outer].content_accesses = tile_nest[outer].access_stats.TotalAccesses();
 
     // Obliterate the buffer stats (*not* the network stats) for the cur tiling level.
     tile_nest[cur].size = 0;
