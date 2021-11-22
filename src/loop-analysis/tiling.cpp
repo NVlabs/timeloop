@@ -519,28 +519,28 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
       // assert(tile[pvi].size == 0 || tile[pvi].content_accesses % tile[pvi].size == 0);
 
       assert((tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses) >= tile_nest[cur].partition_size);
-      tile_nest[cur].reads = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size ;
+      tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
       // std::cout << "TILING LEVEL = " << cur << std::endl;
       // std::cout << "  content = " << tile_nest[cur].content_accesses << std::endl;
       // std::cout << "  partition size = " << tile_nest[cur].partition_size << std::endl;
       // std::cout << "  peer accesses = " << tile_nest[cur].peer_accesses << std::endl;
       // std::cout << "  reads = " << tile_nest[cur].reads << std::endl << std::endl;
 
-      tile_nest[cur].updates = tile_nest[cur].content_accesses;
+      tile_nest[cur].updates = std::round(tile_nest[cur].content_accesses);
       tile_nest[cur].fills = tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills;
       //tile.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
 
       // FIXME: temporal reduction and network costs if hardware reduction isn't
       // supported appears to be wonky - network costs may need to trickle down
       // all the way to the level that has the reduction hardware.
-      tile_nest[cur].temporal_reductions = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size;
+      tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
 
       // std::cout << "tile: reads, updates, fills " 
       // << tile.reads << " " <<  tile.updates<< " " << tile.fills <<std::endl;
     }
     else // Read-only data type.
     {
-      tile_nest[cur].reads = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses;
+      tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
       tile_nest[cur].updates = 0;
       tile_nest[cur].fills = tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills;
       //tile.address_generations = tile.reads + tile.fills; // scalar
@@ -584,9 +584,9 @@ void ComputeReadUpdateReductionAccesses_UpdatedRMW(std::vector<DataMovementInfo>
     {
       // Start with the general case: hardware reduction supported.
       tile_nest[cur].fills = 0;
-      tile_nest[cur].reads = tile_nest[cur].content_accesses - tile_nest[cur].parent_access_share;
-      tile_nest[cur].temporal_reductions = tile_nest[cur].content_accesses - tile_nest[cur].parent_access_share;
-      tile_nest[cur].updates = tile_nest[cur].content_accesses;
+      tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses - tile_nest[cur].parent_access_share);
+      tile_nest[cur].temporal_reductions = tile_nest[cur].reads;
+      tile_nest[cur].updates = std::round(tile_nest[cur].content_accesses);
 #ifdef BYPASS_LAST_UPDATE
       tile_nest[cur].updates -= tile_nest[cur].parent_access_share;
 #endif
@@ -643,7 +643,7 @@ void ComputeReadUpdateReductionAccesses_UpdatedRMW(std::vector<DataMovementInfo>
     }
     else // Read-only data type.
     {
-      tile_nest[cur].reads = tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses;
+      tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
       tile_nest[cur].updates = 0;
       if (!outermost_found)
         tile_nest[cur].fills = tile_nest[cur].peer_fills;
