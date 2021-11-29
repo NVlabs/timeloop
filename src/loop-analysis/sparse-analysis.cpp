@@ -1485,11 +1485,13 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
         {
           
           max_computes[0] -= floor(max_computes[0] * p);
+          // std::cout << "inner most level update compute " << max_computes[0] << std::endl; 
+          
           std::string saf_type = state.dspace_optimization_masks_.at("gate").at(l).at(pv) ? "gate" : state.dspace_optimization_masks_.at("skip").at(l).at(pv) ? "skip" : "spatial-skip";
           if (p != 0 && (saf_type == "gate" || saf_type == "skip"))
           {
             state.storage_gs_saf_[pv] = true;
-            state.innermost_empty_cond_on_prob_[pv] = p;
+            state.innermost_empty_cond_on_prob_[pv] = round(p*100000000)/100000000;
           }
         }
       } else
@@ -1716,7 +1718,7 @@ void CalculateFineGrainedComputeAccesses2Operand(const SparseAnalysisState& stat
   for (auto iter = operand_exp_densities.begin(); iter != operand_exp_densities.end(); iter++)
   {
     problem::Shape::DataSpaceID pv = iter->first;
-    double pv_density = iter->second;
+    double pv_density = round(iter->second*100000000)/100000000;
     per_operand_states[pv][EXIST_NOT_ZERO] = pv_density;
     if (operand_has_metadata.at(pv))
     {
