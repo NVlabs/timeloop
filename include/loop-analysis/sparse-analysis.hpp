@@ -78,12 +78,14 @@ struct SparseAnalysisState
   std::map<unsigned, std::map<DataSpaceID, double>> prob_explicitly_spatially_optimized_read_;
   std::map<std::string, ListOfPerDataSpaceMask> dspace_optimization_masks_;
   std::map<std::string, ListOfPerDataSpaceMask> scalar_scalar_opt_masks_;
+  std::map<unsigned, std::map<DataSpaceID, problem::OperationPoint>> cond_on_mold_highs_;
   problem::PerDataSpace<std::vector<std::uint64_t>> num_spatial_instances_;
 
   // info that impact compute analysis
   std::vector<problem::Shape::FactorizedDimensionID> c_intersection_dims_;
   std::map<DataSpaceID, double> c_operand_densities_;
-  std::map<DataSpaceID, bool> scalar_storage_optimization_;
+  std::map<DataSpaceID, bool> storage_gs_saf_;
+  std::map<DataSpaceID, double> innermost_empty_cond_on_prob_;
 
   SparseAnalysisState()
   {}

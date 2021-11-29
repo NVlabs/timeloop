@@ -505,7 +505,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
       } else
       {
         std::cerr << "ERROR: " << level_name << ": storage action optimization choice not recognized..." << std::endl;
-        assert(false);
+        exit(1);
       }
       group.push_back(opt);
     }

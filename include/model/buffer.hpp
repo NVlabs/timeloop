@@ -107,6 +107,7 @@ class BufferLevel : public Level
     Attribute<double> min_utilization;
     Attribute<std::uint64_t> num_ports;
     Attribute<std::uint64_t> num_banks;
+    Attribute<bool> reduction_supported;
 
     // compression related
     Attribute<bool> concordant_compressed_tile_traversal;
