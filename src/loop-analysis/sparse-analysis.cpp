@@ -1491,7 +1491,7 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
           if (p != 0 && (saf_type == "gate" || saf_type == "skip"))
           {
             state.storage_gs_saf_[pv] = true;
-            state.innermost_empty_cond_on_prob_[pv] = round(p*100000000)/100000000;
+            state.innermost_empty_cond_on_prob_[pv] = round(p*1000000)/1000000;
           }
         }
       } else
@@ -1617,7 +1617,7 @@ std::map<DataSpaceID, double> GetExpectedOperandDensities(const SetOfOperationSp
     tiling::CoordinateSpaceTileInfo ctile_info;
     problem::OperationSpace mold_op_space(set_of_operation_spaces.workload, origin, mold_high);
     ctile_info.Set(mold_op_space.GetDataSpace(iter->first), iter->first);
-    expected_operand_densities[iter->first] = iter->second->GetExpectedTileOccupancy(ctile_info) / ctile_info.GetShape();
+    expected_operand_densities[iter->first] = round(1000000*iter->second->GetExpectedTileOccupancy(ctile_info) / ctile_info.GetShape())/1000000;
   }
   return expected_operand_densities;
 }
@@ -1628,12 +1628,38 @@ std::map<DataSpaceID, double> GetExpectedOperandDensities(const SetOfOperationSp
 // ------------------------------------------------------------------
 
 
-void CalculateFlattenedProb(const std::map <DataSpaceID, PerStateProb>& per_operand_states,
+void CalculateFlattenedProb(std::map <DataSpaceID, PerStateProb>& per_operand_states,
                             std::map<ComputeOperandStatePair, double>& flattened_probs,
                             const DataSpaceID op_a_id,
                             const DataSpaceID op_b_id)
 {
+  // std::cout << "after postrpocessing based on conditioned probability..."        << std::endl;
+  // std::cout << "op b EZ:  " << per_operand_states.at(op_b_id).at(EXIST_ZERO)     << std::endl;
+  // std::cout << "op b ENZ: " << per_operand_states.at(op_b_id).at(EXIST_NOT_ZERO) << std::endl;
+  // std::cout << "op b NE:  " << per_operand_states.at(op_b_id).at(NOT_EXIST)      << std::endl;
+  // std::cout << "op a EZ:  " << per_operand_states.at(op_a_id).at(EXIST_ZERO)     << std::endl;
+  // std::cout << "op a ENZ: " << per_operand_states.at(op_a_id).at(EXIST_NOT_ZERO) << std::endl;
+  // std::cout << "op a NE:  " << per_operand_states.at(op_a_id).at(NOT_EXIST)      << std::endl; 
 
+  for (auto op_iter = per_operand_states.begin(); op_iter != per_operand_states.end(); op_iter++)
+  {
+    std::vector<ComputeOperandState> states = {EXIST_ZERO, EXIST_NOT_ZERO, NOT_EXIST};
+    for (auto s: states)
+    {
+      if (op_iter->second.at(s) < -0.00001 || op_iter->second.at(s) > 1.00001) 
+      {
+        std::cout << " operand probability: " << op_iter->second.at(s) << std::endl;
+        std::cerr << " illegal operand probability, can be due to rounding" << std::endl;
+        assert(false);
+      }
+      else
+      {
+        if (op_iter->second.at(s) < 0) op_iter->second.at(s) = 0;
+        if (op_iter->second.at(s) > 1) op_iter->second.at(s) = 1;
+      }
+    }
+  }
+  
   flattened_probs[{EXIST_NOT_ZERO, EXIST_NOT_ZERO}] = per_operand_states.at(op_a_id).at(EXIST_NOT_ZERO)
     * per_operand_states.at(op_b_id).at(EXIST_NOT_ZERO);
   flattened_probs[{EXIST_NOT_ZERO, EXIST_ZERO}] = per_operand_states.at(op_a_id).at(EXIST_NOT_ZERO)
@@ -1718,7 +1744,7 @@ void CalculateFineGrainedComputeAccesses2Operand(const SparseAnalysisState& stat
   for (auto iter = operand_exp_densities.begin(); iter != operand_exp_densities.end(); iter++)
   {
     problem::Shape::DataSpaceID pv = iter->first;
-    double pv_density = round(iter->second*100000000)/100000000;
+    double pv_density = round(iter->second*1000000)/1000000;
     per_operand_states[pv][EXIST_NOT_ZERO] = pv_density;
     if (operand_has_metadata.at(pv))
     {
@@ -1754,41 +1780,56 @@ void CalculateFineGrainedComputeAccesses2Operand(const SparseAnalysisState& stat
   flattened_probs[{NOT_EXIST, EXIST_ZERO}] = 0.0;
   flattened_probs[{NOT_EXIST, NOT_EXIST}] = 0.0;
 
-
+  // std::cout << "op b EZ:  " << per_operand_states.at(op_b_id).at(EXIST_ZERO)     << std::endl;
+  // std::cout << "op b ENZ: " << per_operand_states.at(op_b_id).at(EXIST_NOT_ZERO) << std::endl;
+  // std::cout << "op b NE:  " << per_operand_states.at(op_b_id).at(NOT_EXIST)      << std::endl;
+  // std::cout << "op a EZ:  " << per_operand_states.at(op_a_id).at(EXIST_ZERO)     << std::endl;
+  // std::cout << "op a ENZ: " << per_operand_states.at(op_a_id).at(EXIST_NOT_ZERO) << std::endl;
+  // std::cout << "op a NE:  " << per_operand_states.at(op_a_id).at(NOT_EXIST)      << std::endl; 
+ 
   // Extract if this is a double sided intersection
   bool double_sided_saf = state.storage_gs_saf_.at(op_a_id) && state.storage_gs_saf_.at(op_b_id);
 
   if (double_sided_saf)
   {
+    // std::cout << " double sided saf..." << std::endl;
     double cond_on_nonempty_ratio = 1 - state.innermost_empty_cond_on_prob_.at(op_b_id);
     per_operand_states[op_a_id][EXIST_ZERO] = operand_has_metadata.at(op_a_id) ? 0 : 1 - operand_exp_densities.at(op_a_id)/cond_on_nonempty_ratio;
     per_operand_states[op_a_id][NOT_EXIST] = !operand_has_metadata.at(op_a_id) ? 0 : 1 - operand_exp_densities.at(op_a_id)/cond_on_nonempty_ratio;
     per_operand_states[op_a_id][EXIST_NOT_ZERO] = operand_exp_densities.at(op_a_id)/cond_on_nonempty_ratio;
-    
+    // std::cout << "op a leader tile conditioned on nonempty ratio: " << cond_on_nonempty_ratio << std::endl;
+
+
     cond_on_nonempty_ratio = 1 - state.innermost_empty_cond_on_prob_.at(op_a_id);
     per_operand_states[op_b_id][EXIST_ZERO] = operand_has_metadata.at(op_b_id) ? 0 : 1 - operand_exp_densities.at(op_b_id)/cond_on_nonempty_ratio;
     per_operand_states[op_b_id][NOT_EXIST] = !operand_has_metadata.at(op_b_id) ? 0 : 1 - operand_exp_densities.at(op_b_id)/cond_on_nonempty_ratio;
     per_operand_states[op_b_id][EXIST_NOT_ZERO] = operand_exp_densities.at(op_b_id)/cond_on_nonempty_ratio;
+    // std::cout << "op b leader tile conditioned on nonempty ratio: " << cond_on_nonempty_ratio << std::endl;
     
     CalculateFlattenedProb(per_operand_states, flattened_probs, op_a_id, op_b_id); 
   }
   else if (state.storage_gs_saf_.at(op_a_id))
   {
+    // std::cout << "op a optimized based on op b" << std::endl;
     double cond_on_nonempty_ratio = 1 - state.innermost_empty_cond_on_prob_.at(op_a_id);
     per_operand_states[op_b_id][EXIST_ZERO] = operand_has_metadata.at(op_b_id) ? 0 : 1 - operand_exp_densities.at(op_b_id)/cond_on_nonempty_ratio;
     per_operand_states[op_b_id][NOT_EXIST] = !operand_has_metadata.at(op_b_id) ? 0 : 1 - operand_exp_densities.at(op_b_id)/cond_on_nonempty_ratio;
     per_operand_states[op_b_id][EXIST_NOT_ZERO] = operand_exp_densities.at(op_b_id)/cond_on_nonempty_ratio;
     
+    // std::cout << "op b leader tile conditioned on nonempty ratio: " << cond_on_nonempty_ratio << std::endl;
+
     CalculateFlattenedProb(per_operand_states, flattened_probs, op_a_id, op_b_id); 
   }
   else if (state.storage_gs_saf_.at(op_b_id))
   {
     // get dependent probability for a
+    // std::cout << "opb conditioned on op a" << std::endl;
     double cond_on_nonempty_ratio = 1 - state.innermost_empty_cond_on_prob_.at(op_b_id);
     per_operand_states[op_a_id][EXIST_ZERO] = operand_has_metadata.at(op_a_id) ? 0 : 1 - operand_exp_densities.at(op_a_id)/cond_on_nonempty_ratio;
     per_operand_states[op_a_id][NOT_EXIST] = !operand_has_metadata.at(op_a_id) ? 0 : 1 - operand_exp_densities.at(op_a_id)/cond_on_nonempty_ratio;
     per_operand_states[op_a_id][EXIST_NOT_ZERO] = operand_exp_densities.at(op_a_id)/cond_on_nonempty_ratio;
     
+    // std::cout << "op a leader tile conditioned on nonempty ratio: " << cond_on_nonempty_ratio << std::endl;
     CalculateFlattenedProb(per_operand_states, flattened_probs, op_a_id, op_b_id); 
   }
   else
