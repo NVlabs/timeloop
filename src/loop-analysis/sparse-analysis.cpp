@@ -288,6 +288,8 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   //    we should look at the operation space defined by *block-size-a iterations* of target-loop
 
   DataSpaceID target_dspace_id = resulted_impact.target_dspace_id;
+  //CHECKME: this set dimensions is of factorized dimension id type, later when we compare this id type to target_loop_dim, 
+  //the type does not match
   auto target_dspace_dimensions = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(target_dspace_id);
 
   // for (auto iter = target_dspace_dimensions.begin(); iter != target_dspace_dimensions.end(); iter++)
@@ -335,7 +337,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
                     -1 : compound_data_movement_nest[target_dspace_id][target_dspace_level].child_level; // -1 is compute level...
 
   bool found_target_dspace_loop = false;
-  problem::Shape::FactorizedDimensionID target_loop_dim = std::numeric_limits<unsigned>::max();
+  problem::Shape::FlattenedDimensionID target_loop_dim = std::numeric_limits<unsigned>::max();
   problem::OperationPoint mold_high;
   bool target_loop_trivial;
 
@@ -1115,7 +1117,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   std::map <DataSpaceID, PerStateProb> per_operand_states;
   for (auto iter = operand_exp_densities.begin(); iter != operand_exp_densities.end(); iter++)
   {
-    problem::Shape::FlattenedDimensionID pv = iter->first;
+    problem::Shape::DataSpaceID pv = iter->first;
     double pv_density = iter->second;
     per_operand_states[pv][EXIST_NOT_ZERO] = pv_density;
     if (operand_has_metadata.at(pv))
@@ -1371,7 +1373,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
                             tiling::DataMovementInfo& pv_data_movement_info)
 {
   std::vector <loop::Descriptor> flattened_rank_nest;
-  std::vector <problem::Shape::FactorizedDimensionID> flattening_rule;
+  std::vector <problem::Shape::FlattenedDimensionID> flattening_rule;
 
   bool pv_has_metadata = pv_compression_info.HasMetaData();
   std::uint64_t cur_level_num_ranks = pv_has_metadata ? pv_compression_info.rank_formats.size() : 1;
@@ -1419,7 +1421,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
       {
         // reset flattening rule
         flattening_rule = {};
-        std::vector<problem::Shape::FactorizedDimensionID>::iterator flatten_iter;
+        std::vector<problem::Shape::FlattenedDimensionID>::iterator flatten_iter;
 
         if (!pv_has_metadata)
         {
@@ -1550,7 +1552,7 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
   assert(false);
 
   std::vector <loop::Descriptor> flattened_rank_nest;
-  std::vector <problem::Shape::FactorizedDimensionID> flattening_rule;
+  std::vector <problem::Shape::FlattenedDimensionID> flattening_rule;
 
   bool pv_has_metadata = pv_compression_info.HasMetaData();
   std::uint64_t cur_level_num_ranks = pv_has_metadata ? pv_compression_info.rank_formats.size() : 1;
