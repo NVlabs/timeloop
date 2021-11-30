@@ -87,12 +87,12 @@ class Shape
   // dimension is flattened into at most one flattened dimension.
   std::vector<Projection> Projections;
 
-  std::vector<std::set<FactorizedDimensionID>> DataSpaceIDToDimensionIDVector;
+  std::vector<std::set<FlattenedDimensionID>> DataSpaceIDToDimensionIDVector;
 
  public: 
   void Parse(config::CompoundConfigNode config);
-  std::set<FactorizedDimensionID> GetCoIteratedDimensions(const std::vector<DataSpaceID> dataspace_pair) const;
-  std::set<FactorizedDimensionID> GetFullyContractedDimensions() const;
+  std::set<FlattenedDimensionID> GetCoIteratedDimensions(const std::vector<DataSpaceID> dataspace_pair) const;
+  std::set<FlattenedDimensionID> GetFullyContractedDimensions() const;
 };
 
 } // namespace problem

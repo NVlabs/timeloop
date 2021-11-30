@@ -134,6 +134,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
     FlattenedDimensionIDToName[NumFlattenedDimensions] = flattened_name;
     FlattenedDimensionNameToID[flattened_name] = NumFlattenedDimensions;
     FlattenedToFactorized.push_back({ factorized_id });
+    FactorizedToFlattened[factorized_id] = NumFlattenedDimensions;
     NumFlattenedDimensions++;
   }
 
@@ -206,7 +207,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
             const std::string& dim_name = nameAndCoeff[0];
             auto& dim_id = FactorizedDimensionNameToID.at(dim_name);
             expression.push_back({ NumCoefficients, dim_id });
-            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
+            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(FactorizedToFlattened.at(dim_id));
           }
           else if (term.getLength() == 2)
           {
@@ -215,7 +216,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
             auto& dim_id = FactorizedDimensionNameToID.at(dim_name);
             auto& coeff_id = CoefficientNameToID.at(coeff_name);
             expression.push_back({ coeff_id, dim_id });
-            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
+            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(FactorizedToFlattened.at(dim_id));
           }
           else
           {
@@ -237,7 +238,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
   }
 }
 
-std::set <Shape::FactorizedDimensionID> Shape::GetFullyContractedDimensions() const
+std::set <Shape::FlattenedDimensionID> Shape::GetFullyContractedDimensions() const
 {
   // criteria for contracted dimensions: in read dataspace but not in read-write dataspace
 
@@ -272,7 +273,7 @@ std::set <Shape::FactorizedDimensionID> Shape::GetFullyContractedDimensions() co
   return contracted_dims;
 }
 
-std::set <Shape::FactorizedDimensionID> Shape::GetCoIteratedDimensions(const std::vector <Shape::DataSpaceID> dataspace_pair) const
+std::set <Shape::FlattenedDimensionID> Shape::GetCoIteratedDimensions(const std::vector <Shape::DataSpaceID> dataspace_pair) const
 {
   std::set <FactorizedDimensionID> contracted_dims;
   auto dataspace_a_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[0]];
