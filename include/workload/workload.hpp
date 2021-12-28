@@ -155,7 +155,6 @@ class Workload
   void SetWorkloadTensorSize(problem::Shape::DataSpaceID id, std::uint64_t tensor_size)
   {
     // hypergeometric distribution specification requires workload tensor sizes
-	//printf("Setting workload tensor sizes! %lu\n", tensor_size);
     densities_.at(id)->SetWorkloadTensorSize(tensor_size);
   }
 

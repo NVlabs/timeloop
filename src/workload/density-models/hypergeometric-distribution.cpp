@@ -44,7 +44,7 @@ HypergeometricDistribution::HypergeometricDistribution()
 {}
 
 HypergeometricDistribution::HypergeometricDistribution(const Specs& specs)
-  : specs_(specs)
+    : specs_(specs)
 {
   is_specced_ = true;
   if (specs.workload_tensor_size != 0)
@@ -148,7 +148,7 @@ double HypergeometricDistribution::GetMaxTileDensityByConfidence(const tiling::C
 {
 
   if (confidence == 0.5)
-  { return specs_.average_density; } //shortcut for faster calculations
+    { return specs_.average_density; } //shortcut for faster calculations
 
   std::uint64_t tile_shape = tile.GetShape();
   std::uint64_t percentile_occupancy = HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
@@ -176,33 +176,33 @@ double HypergeometricDistribution::GetTileExpectedDensity(const uint64_t tile_sh
   return specs_.average_density;
 }
 
-/*************************************************************************************
- * Calculating the probability directly, 
- * based on this mathematical definition: 
- * https://www.statisticshowto.com/hypergeometric-distribution-examples/ 
- *************************************************************************************/
+// ------------------------------------------------------------------------
+// Calculating the probability directly, 
+// based on this mathematical definition: 
+// https://www.statisticshowto.com/hypergeometric-distribution-examples/ 
+// ------------------------------------------------------------------------
 double HypergeometricDistribution::CalculateProbability(const std::uint64_t nnz_vals,
                                                         const std::uint64_t r,
                                                         const std::uint64_t n,
                                                         const std::uint64_t N
-                                                        ) const 
+  ) const 
 {
 
-   double prob;
-   try 
-   {
-      long double r_choose_x = boost::math::binomial_coefficient<long double>(r, nnz_vals);
-      long double Nr_choose_nx = boost::math::binomial_coefficient<long double>(N-r, n-nnz_vals);
-      long double N_choose_n = boost::math::binomial_coefficient<long double>(N, n);
-      prob =  (double) (r_choose_x*Nr_choose_nx)/N_choose_n;
-   } catch (std::exception& e) 
-   {
-      std::cout << "ERROR: Integer overflow occured. Check your workload sizes and density." 
-      << std::endl;
-      exit(-1);
-   }
+  double prob;
+  try 
+  {
+    long double r_choose_x = boost::math::binomial_coefficient<long double>(r, nnz_vals);
+    long double Nr_choose_nx = boost::math::binomial_coefficient<long double>(N-r, n-nnz_vals);
+    long double N_choose_n = boost::math::binomial_coefficient<long double>(N, n);
+    prob =  (double) (r_choose_x*Nr_choose_nx)/N_choose_n;
+  } catch (std::exception& e) 
+  {
+    std::cout << "ERROR: Integer overflow occured. Check your workload sizes and density." 
+              << std::endl;
+    exit(-1);
+  }
 
-    return prob;
+  return prob;
 }
 
 double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape,
@@ -217,7 +217,7 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
   std::uint64_t N = specs_.workload_tensor_size;
 
   if (((n + r > N) && (nnz_vals < n + r - N)) | (nnz_vals > r))
-  { return 0; }
+    { return 0; }
 
   boost::math::hypergeometric_distribution<double> distribution(r, n, N);
   
@@ -245,16 +245,13 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
   std::uint64_t n = tile_shape;
   std::uint64_t N = constraint_tensor_shape;
   
-  //std::cout << "more involved get prob: nnz: " << nnz_vals << "  tile shape: " << tile_shape
-  //<< "   constr shape: " << constraint_tensor_shape << std::endl;
-
   if (((n + r > N) && (nnz_vals < n + r - N)) | (nnz_vals > r))
-  { return 0; }
+    { return 0; }
 
   boost::math::hypergeometric_distribution<double> distribution(r, n, N);
 
-  //Workaround/fix for domain error for large workload size. Compute the PDF directly
-  //This might return an overflow error, but it occurs less times than using the boost pdf call
+  // Workaround/fix for domain error for large workload size. Compute the PDF directly
+  // This might return an overflow error, but it occurs less times than using the boost pdf call
   double prob;
   try 
   {
