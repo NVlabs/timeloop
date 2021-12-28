@@ -116,8 +116,6 @@ class NestAnalysis
   // loops. Just be careful to expand them in the Reset() call.
   std::vector<LoopGist> loop_gists_temporal_;
   std::vector<LoopGist> loop_gists_spatial_;
-  // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_temporal_;
-  // std::unordered_map<problem::Shape::FlattenedDimensionID, LoopGist> loop_gists_spatial_;
 
   // Storage level to fanout map.
   std::map<unsigned, std::uint64_t> fanoutX_map_; 
@@ -156,17 +154,15 @@ class NestAnalysis
   problem::OperationSpace ComputeDeltas(std::vector<analysis::LoopState>::reverse_iterator cur);
 
   void ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                 //problem::OperationSpace& point_set,
                                  analysis::ElementState& cur_state);
   void ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur);
-  //problem::OperationSpace& point_set);
 
   void FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
                          std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
-                         //std::vector<problem::OperationSpace>& spatial_deltas,
-                         //std::vector<bool>& valid_delta,
+                         std::unordered_map<std::uint64_t, std::uint64_t>& skew_table,
                          std::uint64_t base_index,
-                         int depth = 0);
+                         int depth,
+                         int extrapolation_stride);
 
   std::uint64_t ApplySkew(std::uint64_t unskewed_index);
 
@@ -180,16 +176,11 @@ class NestAnalysis
       std::vector<analysis::LoopState>::reverse_iterator cur,
       const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
       problem::PerDataSpace<std::unordered_set<std::uint64_t>>& unaccounted_delta,
-      //std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>>& unaccounted_delta,
-      //const std::vector<problem::OperationSpace>& cur_spatial_deltas,
-      //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
       problem::PerDataSpace<std::uint64_t>& link_transfers);
  
   void CompareSpatioTemporalDeltas(
     const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
     const std::unordered_map<std::uint64_t, problem::OperationSpace>& prev_spatial_deltas,
-    //const std::vector<problem::OperationSpace>& cur_spatial_deltas,
-    //const std::vector<problem::OperationSpace>& prev_spatial_deltas,
     const std::uint64_t cur_spatial_index,
     const std::uint64_t prev_spatial_index,
     std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse);
