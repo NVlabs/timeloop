@@ -1035,7 +1035,12 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     stats_.partition_size[pv] = tile[pvi].partition_size;
     stats_.tile_size[pv] = tile[pvi].size;
     // stats_.utilized_instances[pv] = tile[pvi].replication_factor;
-    stats_.utilized_instances[pv] = tile[pvi].effective_replication_factor;
+    
+    // std::cout << specs_.level_name << " max x expansion: " << tile[pvi].max_x_expansion
+    //  << "  max y expansion: " << tile[pvi].max_y_expansion << std::endl;
+    stats_.utilized_x_expansion[pv] = tile[pvi].max_x_expansion;
+    stats_.utilized_y_expansion[pv] = tile[pvi].max_y_expansion;
+    stats_.utilized_instances[pv] = tile[pvi].max_x_expansion * tile[pvi].max_y_expansion;
 
     assert((tile[pvi].size == 0) == (tile[pvi].content_accesses == 0));
 
@@ -1243,7 +1248,19 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     fail_reason << "mapped instances " << stats_.utilized_instances.Max() << " exceeds available hardware instances "
                 << specs_.instances.Get();
   }
-
+  else if (stats_.utilized_x_expansion.Max() > specs_.meshX.Get())
+  {
+    success = false;
+    fail_reason << "mapped X expansion " << stats_.utilized_x_expansion.Max() << " exceeds available hardware instances "
+                << specs_.meshX.Get();
+  }
+  else if (stats_.utilized_y_expansion.Max() > specs_.meshY.Get())
+  {
+    success = false;
+    fail_reason << "mapped Y expansion " << stats_.utilized_y_expansion.Max() << " exceeds available hardware instances "
+                << specs_.meshY.Get();
+  }
+  
   // Bandwidth constraints cannot be checked/inherited at this point
   // because the calculation is a little more involved. We will do
   // this later in the ComputePerformance() function.      

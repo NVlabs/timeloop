@@ -32,6 +32,7 @@
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/math/distributions/hypergeometric.hpp>
 #include <iostream>
+#include <exception>
 
 #include "compound-config/compound-config.hpp"
 #include "loop-analysis/coordinate-space-tile-info.hpp"
@@ -89,6 +90,9 @@ public:
   // for lightweight pre-evaluation check
   virtual std::uint64_t GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
                                                              const double confidence = 1.0) = 0;
+  virtual std::uint64_t GetMaxNumElementByConfidence(const tiling::CoordinateSpaceTileInfo& fiber_tile,
+                                             const tiling::CoordinateSpaceTileInfo& element_tile,
+                                             const double confidence = 1.0) = 0;
   virtual double GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
                                                const double confidence = 1.0) = 0;
   virtual double GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) = 0;
@@ -109,6 +113,17 @@ public:
 
 }; // class DensityDistribution
 
-BOOST_SERIALIZATION_ASSUME_ABSTRACT(DensityDistribution)
 
+// exception class to handle requests that cannot be answsered by density model  
+class DensityModelIncapability: public std::exception
+{
+  const char* what() const throw()
+  {
+    return "Density model cannot anwser specific request";
+  }
+
+};
+
+
+BOOST_SERIALIZATION_ASSUME_ABSTRACT(DensityDistribution)
 } // namespace problem

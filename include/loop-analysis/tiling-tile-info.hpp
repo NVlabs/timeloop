@@ -103,7 +103,10 @@ struct DataMovementInfo
   
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
-  std::uint64_t effective_replication_factor; // number of spatial elements at this level after considering sparsity
+  double        avg_replication_factor;
+  std::uint64_t max_replication_factor;
+  std::uint64_t max_x_expansion;
+  std::uint64_t max_y_expansion;
   std::uint64_t fanout;                  // per-element fanout to next-level.
   std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
@@ -154,7 +157,9 @@ struct DataMovementInfo
     peer_fills = 0;
     subnest.resize(0);
     replication_factor = 0;
-    effective_replication_factor = 0;
+    avg_replication_factor = 0;
+    max_x_expansion = 0;
+    max_y_expansion = 0;
     fanout = 0;
     distributed_fanout = 0;
     compressed = false;
@@ -264,7 +269,10 @@ struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   double accesses;
-  std::uint64_t effective_replication_factor; // number of spatial elements at this level after considering sparsity.
+  double avg_replication_factor;
+  std::uint64_t max_replication_factor;
+  std::uint64_t max_x_expansion;
+  std::uint64_t max_y_expansion;
   std::uint64_t compute_cycles;
 
   // fine grained actions, names defined in operation-type.hpp
@@ -275,7 +283,10 @@ struct ComputeInfo
   void Reset()
   {
     replication_factor = 0;
-    effective_replication_factor = 0;
+    avg_replication_factor = 0;
+    max_replication_factor = 0;
+    max_x_expansion = 0;
+    max_y_expansion = 0;
     accesses = 0;
     compute_cycles = 0;
   }

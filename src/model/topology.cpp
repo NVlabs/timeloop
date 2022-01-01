@@ -1111,10 +1111,10 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                               break_on_failure);
     if (break_on_failure && !success) { return eval_status; }
   }
-  catch (std::runtime_error& e)
+  catch (problem::DensityModelIncapability& e)
   {
     std::fill(eval_status.begin(), eval_status.end(),
-              EvalStatus({ .success = false, .fail_reason = "" }));
+              EvalStatus({ .success = false, .fail_reason = "density model incapable of evaluating a specific request" }));
     return eval_status;
   }
 

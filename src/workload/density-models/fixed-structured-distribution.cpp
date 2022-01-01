@@ -85,6 +85,33 @@ std::uint64_t FixedStructuredDistribution::GetTileOccupancyByConfidence(const st
   return confidence <= prob_floor ? floor(exact_nnzs) : ceil(exact_nnzs);
 }
 
+std::uint64_t FixedStructuredDistribution::GetMaxNumElementByConfidence(const tiling::CoordinateSpaceTileInfo& fiber_tile,
+                                                                        const tiling::CoordinateSpaceTileInfo& element_tile,
+                                                                        const double confidence)
+{
+  std::uint64_t element_shape = element_tile.GetShape();
+  std::uint64_t fiber_shape = fiber_tile.GetShape();
+
+  //  std::cout << "fiber shape: " << fiber_shape << " element shape: " << element_shape << std::endl;
+  
+  // Sanity check
+  if (fiber_shape % element_shape != 0)
+  {
+    std::cerr << "ERROR: fiber shape not divisiable by element shape" << std::endl;
+    assert(false);
+  }
+  
+  std::uint64_t num_elements = fiber_shape / element_shape;
+  
+  // Maximum number of nonzeros in the entire fiber
+  std::uint64_t max_fiber_occupancy = GetMaxTileOccupancyByConfidence(fiber_tile, confidence);
+  
+  // Nonzeros are evenly distributed in the elements
+  return max_fiber_occupancy > num_elements ? num_elements : max_fiber_occupancy;
+
+}
+
+
 std::uint64_t FixedStructuredDistribution::GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tile,
                                                                  const double confidence) 
 {

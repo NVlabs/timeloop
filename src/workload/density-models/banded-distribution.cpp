@@ -366,6 +366,20 @@ std::uint64_t BandedDistribution::GetMaxTileOccupancyByConfidence(const tiling::
   return max_occupancy;
 }
 
+
+std::uint64_t BandedDistribution::GetMaxNumElementByConfidence(const tiling::CoordinateSpaceTileInfo& fiber_tile,
+                                                               const tiling::CoordinateSpaceTileInfo& element_tile,
+                                                               const double confidence)
+{
+  std::cerr << "Not implemented error" << std::endl;
+  assert(false);
+  (void) fiber_tile;
+  (void) element_tile;
+  (void) confidence;
+  return 0;
+}
+
+
 double BandedDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
                                                          const double confidence) 
 {

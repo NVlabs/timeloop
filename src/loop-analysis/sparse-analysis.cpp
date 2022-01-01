@@ -89,7 +89,6 @@ void SparseAnalysisState::Reset()
       dspace_optimization_masks_["gate"][l][pv] = false;
       dspace_optimization_masks_["skip"][l][pv] = false;
       dspace_optimization_masks_["spatial_skip"][l][pv] = false;
-      dspace_optimization_masks_["spatial_skip"][l][pv] = false;
     }
   }
 
@@ -132,7 +131,8 @@ void SparseAnalysisState::CollectCompletePointSetsAndSubnests()
     }
   }
 
-  if (!workload_->IsWorkloadTensorSizesSet()){
+  if (!workload_->IsWorkloadTensorSizesSet())
+  {
     problem::OperationPoint high = dimension_sizes;
     high.IncrementAllDimensions(-1);
     problem::OperationSpace maxtile(workload_, origin, high);
@@ -234,6 +234,71 @@ void InitializeFineGrainedAccesses(tiling::CompoundTileNest& compound_tile_nest,
   }
   compute_info.fine_grained_accesses["random_compute"] = compute_info.accesses * compute_info.replication_factor;
 }
+
+void InitializeMappingSpatialExpansion(tiling::CompoundTileNest& compound_tile_nest,
+                                       const model::Topology::Specs& topology_specs,
+                                       Mapping mapping)
+{
+  
+  
+  int tiling_level = topology_specs.NumStorageLevels() - 1;
+  
+  auto& loops = mapping.loop_nest.loops;
+  std::uint64_t max_x_expansion = 1;
+  std::uint64_t max_y_expansion = 1;
+  int boundary_loop_id = mapping.loop_nest.storage_tiling_boundaries.at(tiling_level);
+
+  // top down fashion for expansion calacultion at each storage level
+  for (int loop_level = loops.size()-1; loop_level >= 0; loop_level--)
+  {
+    auto& loop = loops[loop_level];
+    // std::cout << loop << std::endl;   
+    
+    // boundary is the top most loop at a specific storage level,
+    if (loop_level == boundary_loop_id)
+    {
+      // std::cout <<"tiling level: " << tiling_level << "  name: " 
+      //  << topology_specs.GetStorageLevel(tiling_level)->level_name << std::endl;
+      std::uint64_t storage_level = tiling_level; 
+      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+      {
+        compound_tile_nest.compound_data_movement_info_nest[pv][storage_level].max_x_expansion = max_x_expansion;
+        compound_tile_nest.compound_data_movement_info_nest[pv][storage_level].max_y_expansion = max_y_expansion;
+      }
+      // std::cout << "hw mesh x: " << topology_specs.GetStorageLevel(storage_level)->meshX 
+      //   << "  mesh y: " << topology_specs.GetStorageLevel(storage_level)->meshY << std::endl;
+      // std::cout <<"max x expansion: " << max_x_expansion << "  max y expansion: " << max_y_expansion << "\n" << std::endl;
+      
+      // update tiling level and the boundary loop to next level
+      // if this is the innermost storage level, the boundary is outside all the loops, i.e., -1
+      tiling_level--;
+      boundary_loop_id = tiling_level >= 0 ? mapping.loop_nest.storage_tiling_boundaries.at(tiling_level) : -1;
+    }
+
+    if (loop.spacetime_dimension != spacetime::Dimension::Time)
+    {
+      auto factor = ceil((loop.end - loop.start) / loop.stride);
+      if (loop.spacetime_dimension == spacetime::Dimension::SpaceX)
+      {
+        max_x_expansion *= factor;
+      }
+      else
+      {
+        max_y_expansion *= factor;
+      }
+    }
+  }
+
+  // inner most tiling level is compute
+  compound_tile_nest.compute_info_nest[0].max_x_expansion = max_x_expansion;
+  compound_tile_nest.compute_info_nest[0].max_y_expansion = max_y_expansion;
+  // std::cout << "tiling level: " << tiling_level << "   name: compute"  << std::endl;
+  // std::cout << "hw mesh x: " << topology_specs.GetArithmeticLevel()->meshX 
+  //   << "  mesh y: " << topology_specs.GetArithmeticLevel()->meshY << std::endl;
+  // std::cout <<"max x expansion: " << max_x_expansion << "  max y expansion: " << max_y_expansion << std::endl;
+}
+
+
 
 bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
                                   tiling::CompoundDataMovementNest& compound_data_movement_nest,
@@ -697,7 +762,7 @@ bool DefineIneffectualReadImpact(SparseAnalysisState& state,
 void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
                                         const tiling::CompoundTileNest& compound_tile_nest,
                                         ExplicitReadOptimizationImpact& resulted_impact,
-                                        const std::uint64_t storage_level,
+                                        const std::uint64_t upper_storage_level,
                                         const model::Topology::Specs& topology_specs)
 {
    
@@ -713,150 +778,184 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
   // if child level is compute, then there is no stationarity of the spatial tiles
   // else spatial target tile stay stationary in child level until a temporal upper target loop is met
   int child_level;
-  for (child_level = int(storage_level) - 1; child_level >= 0; child_level--)
+  for (child_level = int(upper_storage_level) - 1; child_level >= 0; child_level--)
     if (compound_data_movement_nest[target_dspace_id][child_level].shape > 0) break;
  
   // go through the loops in this storage level
   // note that spatial skipping is only applied to the spatial instances below this level, it is irrelevant to 
   // whether this storage level stores the target dataspace or not
-  auto per_level_loop_nests = state.complete_subnests_[storage_level];
+  auto per_level_loop_nests = state.complete_subnests_[upper_storage_level];
   auto& target_dims = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(target_dspace_id);
   unsigned loop_id = -1;
-  std::map<problem::Shape::FlattenedDimensionID, double> per_dim_effective_ratio;
 
-  for (auto loop = per_level_loop_nests.begin(); loop != per_level_loop_nests.end(); loop++)
+  std::map<problem::Shape::DataSpaceID, double> per_cond_on_effective_ratio;
+  auto architecture_level = upper_storage_level; 
+  
+  for (unsigned pvi = 0; pvi < condition_on_dspace_ids.size(); pvi++)
   {
-    loop_id++;
-    if (loop->spacetime_dimension == spacetime::Dimension::SpaceX 
-      || loop->spacetime_dimension == spacetime::Dimension::SpaceY)
+    auto condition_on_dspace_id = condition_on_dspace_ids[pvi];
+    auto& cond_on_dims = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(condition_on_dspace_id);
+    
+    // find the level that stores the conditioned on dataspace
+    unsigned level_cond_on_dspace_in = upper_storage_level;
+    while(compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].shape == 0
+        && level_cond_on_dspace_in < state.num_storage_levels_)
     {
-      std::uint64_t fiber_shape = (loop->end - loop->start)/loop->stride;
-      if (fiber_shape > 1)
+      level_cond_on_dspace_in++; 
+    }   
+    
+    if (level_cond_on_dspace_in == state.num_storage_levels_ 
+        || !compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].has_metadata)
+    {
+      // if there is no upper level that stores the conditioned on tile, 
+      // or if there is no metadata information for us to identify the sparsity of the cond on dspace
+      // then the optimization is ineffective
+      per_cond_on_effective_ratio[condition_on_dspace_id] = 1.0;
+      continue;
+    }   
+    
+    bool innermost_captured = false;
+    
+    for (auto loop = per_level_loop_nests.begin(); loop != per_level_loop_nests.end(); loop++)
+    {
+      loop_id++;
+      
+      if (loop->spacetime_dimension == spacetime::Dimension::SpaceX 
+          || loop->spacetime_dimension == spacetime::Dimension::SpaceY)
       {
-        problem::PerDataSpace<double> required_spatial_instances;
-        for (unsigned pvi = 0; pvi < condition_on_dspace_ids.size(); pvi++)
-        { 
-          auto condition_on_dspace_id = condition_on_dspace_ids[pvi];
-          auto& cond_on_dims = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(condition_on_dspace_id);
-          
+        std::uint64_t fiber_shape = (loop->end - loop->start)/loop->stride;
+        if (fiber_shape > 1)
+        {
           // only if the dimension is relevant to the conditioned on dataspace do we proceed to analyze the impact
           // otherwise the optimization is ineffective
           if (cond_on_dims.find(loop->dimension) != cond_on_dims.end())
           {
-            unsigned level_cond_on_dspace_in = storage_level;
-            // find the level that stores the conditioned on dataspace
-            while(compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].shape == 0
-                && level_cond_on_dspace_in < state.num_storage_levels_)
+            
+            problem::OperationPoint mold_high;
+            if (upper_storage_level == 0 && loop_id == 0)
             {
-              level_cond_on_dspace_in++; 
+              problem::OperationPoint scalar_high;
+              mold_high = scalar_high;
+            }    
+            else if (loop_id == 0)
+            {
+              mold_high = state.maxtile_molds_high_[upper_storage_level-1].back();
+            }
+            else
+            {
+              mold_high = state.maxtile_molds_high_[upper_storage_level][loop_id - 1];
             }
             
-            if (level_cond_on_dspace_in == state.num_storage_levels_)
+            // only if the loop is a co-iterated loop, do we consider the stationarity of spatial loops relative to the temporal loops above it
+            // the target dataspace tile described by this spatial loop needs to be stationary 
+            // until next upper temp loop that projects to target dataspace is encountered
+            // go through all the temp loops above the current loop to find the appropriate operation space 
+            // (note that inner most level (child level = -1) is never stationary, so skip this analysis for innet most level) 
+            auto co_iterated_dimensions = problem::GetShape()->GetCoIteratedDimensions({target_dspace_id, condition_on_dspace_id});
+            if (child_level != -1 && co_iterated_dimensions.find(loop->dimension) != co_iterated_dimensions.end())
             {
-              // if there is no upper level that stores the conditioned on tile, then the optimization is ineffective
-              continue;
-            }
-            
-            // only if there is sparsity and metadata in conditioned on dataspace do we proceed to analyze the impact 
-            if (compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].has_metadata)
-            {
-              
-              problem::OperationPoint mold_high;
-              if (storage_level == 0 && loop_id == 0)
+              unsigned target_dspace_storage_level = upper_storage_level;
+              bool target_dspace_in_level = compound_data_movement_nest[target_dspace_id][target_dspace_storage_level].shape == 0 ? false: true;
+              while(!target_dspace_in_level && target_dspace_storage_level < state.num_storage_levels_ - 1)
               {
-                problem::OperationPoint scalar_high;
-                mold_high = scalar_high;
-              }    
-              else if (loop_id == 0)
-              {
-                mold_high = state.maxtile_molds_high_[storage_level-1].back();
-              }
-              else
-              {
-                mold_high = state.maxtile_molds_high_[storage_level][loop_id - 1];
+                target_dspace_storage_level++;
+                target_dspace_in_level = compound_data_movement_nest[target_dspace_id][target_dspace_storage_level].shape == 0 ? false: true;
               }
               
-              // only if the loop is a co-iterated loop, do we consider the stationarity of spatial loops relative to the temporal loops above it
-              // the target dataspace tile described by this spatial loop needs to be stationary 
-              // until next upper temp loop that projects to target dataspace is encountered
-              // go through all the temp loops above the current loop to find the appropriate operation space 
-              // (note that inner most level (child level = -1) is never stationary, so skip this analysis for innet most level) 
-              auto co_iterated_dimensions = problem::GetShape()->GetCoIteratedDimensions({target_dspace_id, condition_on_dspace_id});
-              if (child_level != -1 && co_iterated_dimensions.find(loop->dimension) != co_iterated_dimensions.end())
+              bool found_target_temp_loop = false;
+              for(unsigned l = upper_storage_level; l <= target_dspace_storage_level && !found_target_temp_loop; l++)
               {
-                unsigned target_dspace_storage_level = storage_level;
-                bool target_dspace_in_level = compound_data_movement_nest[target_dspace_id][target_dspace_storage_level].shape == 0 ? false: true;
-                while(!target_dspace_in_level && target_dspace_storage_level < state.num_storage_levels_ - 1)
+                for (auto uloop = state.complete_subnests_[l].begin(); 
+                     uloop != state.complete_subnests_[l].end() && !found_target_temp_loop; uloop++)
                 {
-                  target_dspace_storage_level++;
-                  target_dspace_in_level = compound_data_movement_nest[target_dspace_id][target_dspace_storage_level].shape == 0 ? false: true;
-                }
-                
-                bool found_target_temp_loop = false;
-                for(unsigned l = storage_level; l <= target_dspace_storage_level && !found_target_temp_loop; l++)
-                {
-                  for (auto uloop = state.complete_subnests_[l].begin(); 
-                       uloop != state.complete_subnests_[l].end() && !found_target_temp_loop; uloop++)
+                  std::uint64_t uloop_bound = (uloop->end - uloop->start)/uloop->stride; 
+                  if (uloop->spacetime_dimension == spacetime::Dimension::Time && uloop_bound > 1)
                   {
-                    std::uint64_t uloop_bound = (uloop->end - uloop->start)/uloop->stride; 
-                    if (uloop->spacetime_dimension == spacetime::Dimension::Time && uloop_bound > 1)
+                    if (target_dims.find(uloop->dimension) != target_dims.end()) found_target_temp_loop = true;
+                    else if (cond_on_dims.find(loop->dimension) != cond_on_dims.end())
                     {
-                      if (target_dims.find(uloop->dimension) != target_dims.end()) found_target_temp_loop = true;
-                      else if (cond_on_dims.find(loop->dimension) != cond_on_dims.end())
-                      {
-                        // the same spatial target tile is stationary while iterating through the temporal loops not projecting to target dataspace
-                        // take this loop into account for mold high representation as it might impact the cond on dspace tile we will be looking at
-                        // for this optimization
-                        mold_high.IncrementAllDimensions();
-                        unsigned scaled_dim_bound = mold_high[uloop->dimension] * uloop_bound ;
-                        mold_high[uloop->dimension] = scaled_dim_bound;
-                        mold_high.IncrementAllDimensions(-1);
-                        // std::cout << " found temp conditioned on loop above spatial reduction loop: " << *uloop << " scale space: " << uloop_bound << std::endl;
-                      }
-                      else
-                      { 
-                        // irrelevant loop, pass 
-                      }
+                      // the same spatial target tile is stationary while iterating through the temporal loops not projecting to target dataspace
+                      // take this loop into account for mold high representation as it might impact the cond on dspace tile we will be looking at
+                      // for this optimization
+                      mold_high.IncrementAllDimensions();
+                      unsigned scaled_dim_bound = mold_high[uloop->dimension] * uloop_bound ;
+                      mold_high[uloop->dimension] = scaled_dim_bound;
+                      mold_high.IncrementAllDimensions(-1);
+                      // std::cout << " found temp conditioned on loop above spatial reduction loop: " << *uloop << " scale space: " << uloop_bound << std::endl;
+                    }
+                    else
+                    { 
+                      // irrelevant loop, pass 
                     }
                   }
                 }
               }
-
-              problem::OperationPoint origin;
-              problem::OperationSpace subtile_mold(state.workload_, origin, mold_high);
-              tiling::CoordinateSpaceTileInfo ctile_info;
-              ctile_info.Set(subtile_mold.GetDataSpace(condition_on_dspace_id), condition_on_dspace_id);
+            } 
+            // construct the tile processed by each spatial instance
+            problem::OperationPoint origin;
+            problem::OperationSpace subtile_mold(state.workload_, origin, mold_high);
+            tiling::CoordinateSpaceTileInfo ctile_info;
+            ctile_info.Set(subtile_mold.GetDataSpace(condition_on_dspace_id), condition_on_dspace_id);
               
-              double prob_empty_coord = compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].tile_density->GetTileOccupancyProbability(ctile_info, 0);
-              per_dim_effective_ratio[loop->dimension] = 1 - prob_empty_coord;
-              // std::cout <<" per dimension effective ratio: " << problem::GetShape()->FlattenedDimensionIDToName.at(loop->dimension) << "  " << 1 - prob_empty_coord << std::endl;
-            }
-            else
+            // get the probability of the tile being empty, i.e., the probability of not needing a spatial instance to process the tile
+            if (!innermost_captured)
             {
-              per_dim_effective_ratio[loop->dimension] = 1.0;               
+              double prob_empty_coord = compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].tile_density->GetTileOccupancyProbability(ctile_info, 0);
+
+              per_cond_on_effective_ratio[condition_on_dspace_id] = 1 - prob_empty_coord;
+              
+              // std::cout << "conditioned on dataspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
+              // << "  innermost relevant spatial loop: " << problem::GetShape()->DimensionIDToName.at(loop->dimension) 
+              // << "  effective ratio:  " << 1 - prob_empty_coord << std::endl;
+              
+              // the innermost spatial loop detemrines the needed spatial instances, break out of the looping  
+              innermost_captured = true;
             }
-          }
-        } // for each conditioned on dspace
-      } // if fiber non-trivial
-    } // if spatial loop
-  } // for each loop
-    
+            
+            // construct a fiber tile
+            problem::OperationPoint fiber_mold_high = mold_high;
+            fiber_mold_high.IncrementAllDimensions();
+            fiber_mold_high[loop->dimension] *= fiber_shape;
+            fiber_mold_high.IncrementAllDimensions(-1);
+            problem::OperationSpace fiber_tile_mold(state.workload_, origin, fiber_mold_high);
+            tiling::CoordinateSpaceTileInfo fiber_ctile_info;
+            fiber_ctile_info.Set(fiber_tile_mold.GetDataSpace(condition_on_dspace_id), condition_on_dspace_id);
+            
+            // get max number of elements in this fiber
+            std::uint64_t num_elements = compound_data_movement_nest[condition_on_dspace_id][level_cond_on_dspace_in].tile_density
+              ->GetMaxNumElementByConfidence(fiber_ctile_info, ctile_info);
+            
+            double ratio = (double)num_elements/fiber_shape;
+            if (loop->spacetime_dimension == spacetime::Dimension::SpaceX)
+              state.max_spatial_expansion_[target_dspace_id][architecture_level].X *= ratio;
+            else
+              state.max_spatial_expansion_[target_dspace_id][architecture_level].Y *= ratio;
+
+          } // if dimension does map to cond on dataspace 
+        } //if fiber non-trivial
+      } // if spatial loop
+    } // for each loop
+  } // for each conditioned on dpsace
+  
+  // mulitplicative effect for all conditioned on dataspaces
   double aggregated_effective_ratio = 1.0;
-  for (auto iter = per_dim_effective_ratio.begin(); iter != per_dim_effective_ratio.end(); iter++)
+  for (auto iter = per_cond_on_effective_ratio.begin(); iter != per_cond_on_effective_ratio.end(); iter++)
   {
     aggregated_effective_ratio *= iter->second;
   }
   
-  if (storage_level == 0)
-  {
-    state.num_spatial_instances_[target_dspace_id][0] = ceil(aggregated_effective_ratio * state.num_spatial_instances_[target_dspace_id][0]);
-  }
-  else
-  {
-    state.num_spatial_instances_[target_dspace_id][storage_level] = ceil(aggregated_effective_ratio * state.num_spatial_instances_[target_dspace_id][storage_level]);
-  }
+  state.avg_effective_expansion_ratio_[target_dspace_id][architecture_level] = aggregated_effective_ratio;
   resulted_impact.optimization_prob =  1 - aggregated_effective_ratio;
-  // std::cout << "aggregated spatial ratio: " << aggregated_effective_ratio << std::endl;
+  state.max_spatial_expansion_[target_dspace_id][architecture_level].XY = state.max_spatial_expansion_[target_dspace_id][architecture_level].X *
+                                                                          state.max_spatial_expansion_[target_dspace_id][architecture_level].Y;
+  std::string arch_level_name = architecture_level != 0 ? topology_specs.GetStorageLevel(architecture_level- 1)->level_name : "compute";
+
+  // std::cout << "architecture level: " << arch_level_name << "(" << architecture_level << ")"
+  // << "  aggregated spatial ratio: " << aggregated_effective_ratio 
+  // << "  XY version instances: " << state.max_spatial_expansion_[target_dspace_id][architecture_level].X 
+  //                                * state.max_spatial_expansion_[target_dspace_id][architecture_level].Y
+  // << "  avg effective ratio: " <<  state.avg_effective_expansion_ratio_[target_dspace_id][architecture_level]<< std::endl;
+
 }
 
 
@@ -869,25 +968,47 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
   auto compute_info = compound_tile_nest.compute_info_nest[0];
 
   // Initialize spatial instances
-  problem::PerDataSpace<std::vector<std::uint64_t>> num_spatial_instances;
+  problem::PerDataSpace<std::vector<double>> avg_effective_expansion_ratio;
+  problem::PerDataSpace<std::vector<SpatialExpansion>> max_spatial_expansion;
+  
+  std::uint16_t cur_architecture_level;
+  
   for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
-    num_spatial_instances[pv].push_back(compute_info.replication_factor);
-    for (unsigned storage_level = 0; storage_level < state.num_storage_levels_; storage_level++)
+    avg_effective_expansion_ratio[pv].emplace_back(1.0);
+
+    SpatialExpansion max_compute_expansion;
+    max_compute_expansion.X = compute_info.max_x_expansion;
+    max_compute_expansion.Y = compute_info.max_y_expansion;
+    max_compute_expansion.XY = max_compute_expansion.X * max_compute_expansion.Y;
+    max_spatial_expansion[pv].emplace_back(max_compute_expansion);
+  
+    //effective_spatial_expansion_.push_back(init_expansion);
+    
+    cur_architecture_level = 0; // compute is always the inner most level in the architecture 
+    
+    // each level's number of required instances is impacted by the set of par-fors from the level above,
+    // as a result, we first look at the inner most storage level to determine the number of compute instances needed,
+    // and move upward
+    for (unsigned upper_storage_id = 0; upper_storage_id < state.num_storage_levels_; upper_storage_id++)
     {
-      num_spatial_instances[pv].push_back(compound_data_movement_nest[pv][storage_level].replication_factor);
-      auto per_level_loop_nests = state.complete_subnests_[storage_level];
       
+      auto per_level_loop_nests = state.complete_subnests_[upper_storage_id];
       unsigned loop_id = -1;
-      unsigned level_dspace_in = storage_level;
+      unsigned level_dspace_in = upper_storage_id;
+
+      // find the first upper level that stores the target dataspace
       while(compound_data_movement_nest[pv][level_dspace_in].shape == 0 && level_dspace_in < state.num_storage_levels_-1)
       {
         level_dspace_in++; 
       }
       
+      // if we have some way to identify the zeros in this upper storage, we can skip some spatial instances
       if (compound_data_movement_nest[pv][level_dspace_in].has_metadata)
       {
+        bool inner_most_level = true; 
         double effective_ratio = 1.0;
+        
         for (auto loop = per_level_loop_nests.begin(); loop != per_level_loop_nests.end(); loop++)
         {
           loop_id++;
@@ -902,35 +1023,81 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
               if (cond_on_dims.find(loop->dimension) != cond_on_dims.end())
               {
                 problem::OperationPoint mold_high;
-                if (storage_level == 0 && loop_id == 0)
+                if (upper_storage_id == 0 && loop_id == 0)
                 {
                   problem::OperationPoint scalar_high;
                   mold_high = scalar_high;
                 }    
                 else if (loop_id == 0)
                 {
-                  mold_high = state.maxtile_molds_high_[storage_level-1].back();
+                  mold_high = state.maxtile_molds_high_[upper_storage_id-1].back();
                 }
                 else
                 {
-                  mold_high = state.maxtile_molds_high_[storage_level][loop_id - 1];
+                  mold_high = state.maxtile_molds_high_[upper_storage_id][loop_id - 1];
                 }
 
                 problem::OperationPoint origin;
                 problem::OperationSpace subtile_mold(state.workload_, origin, mold_high);
                 tiling::CoordinateSpaceTileInfo ctile_info;
                 ctile_info.Set(subtile_mold.GetDataSpace(pv), pv);
-                double prob_empty_coord = compound_data_movement_nest[pv][level_dspace_in].tile_density->GetTileOccupancyProbability(ctile_info, 0);
-                effective_ratio *= (1.0 - prob_empty_coord);
+                
+                if (inner_most_level)
+                {
+                  double prob_empty_coord = compound_data_movement_nest[pv][level_dspace_in].tile_density->GetTileOccupancyProbability(ctile_info, 0);
+                  effective_ratio = (1.0 - prob_empty_coord);
+                  inner_most_level = false;
+                  // std::cout <<"loop: " << *loop <<  " shape: " << ctile_info.GetShape() << " opt prob: " << prob_empty_coord << "  effective ratio: " << effective_ratio << std::endl;
+                }
+                
+                problem::OperationPoint fiber_mold_high = mold_high;
+                fiber_mold_high.IncrementAllDimensions();
+                fiber_mold_high[loop->dimension] *= fiber_shape;
+                fiber_mold_high.IncrementAllDimensions(-1);
+                problem::OperationSpace fiber_tile_mold(state.workload_, origin, fiber_mold_high);
+                tiling::CoordinateSpaceTileInfo fiber_ctile_info;
+                fiber_ctile_info.Set(fiber_tile_mold.GetDataSpace(pv), pv);
+
+                // get max number of elements in this fiber
+                std::uint64_t num_elements = compound_data_movement_nest[pv][level_dspace_in].tile_density
+                  ->GetMaxNumElementByConfidence(fiber_ctile_info, ctile_info);
+                double ratio = (double)num_elements/fiber_shape;
+
+                if (loop->spacetime_dimension == spacetime::Dimension::SpaceX)
+                  max_spatial_expansion[pv][cur_architecture_level].X *= ratio;
+                else
+                  max_spatial_expansion[pv][cur_architecture_level].Y *= ratio;
+                
+                // std::cout << "-->loop: " << *loop << " max num elements: " <<  num_elements << "  ratio: " << ratio
+                //   << " max X: " << max_spatial_expansion[pv][cur_architecture_level].X 
+                //   << " max Y: " << max_spatial_expansion[pv][cur_architecture_level].Y
+                //   << std::endl;
               }
             } // if fiber non-trivial
           } // if spatial loop
         } // for each loop
-        num_spatial_instances[pv][storage_level] = effective_ratio * num_spatial_instances[pv][storage_level];
+        avg_effective_expansion_ratio[pv][cur_architecture_level] = effective_ratio;
       } // if needs more processing
+      
+      // std::cout << "Initialize spatial instances: " 
+      // << " architecture level (0 is compute): " << cur_architecture_level << " dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) 
+      // << "  XY version instances: " << max_spatial_expansion[pv][cur_architecture_level].X * max_spatial_expansion[pv][cur_architecture_level].Y
+      // << "  avg effective ratio: " <<  avg_effective_expansion_ratio[pv][cur_architecture_level]<< std::endl;
+       
+      // prepare for the next level: increment arch level, and push in the original number of instances of current upper storage level
+      // note that the top most storage level never gets spatial skip saf
+      cur_architecture_level++;
+      avg_effective_expansion_ratio[pv].emplace_back(1.0);
+    
+      SpatialExpansion max_storage_expansion;
+      max_storage_expansion.X = compound_data_movement_nest[pv][upper_storage_id].max_x_expansion;
+      max_storage_expansion.Y = compound_data_movement_nest[pv][upper_storage_id].max_y_expansion;
+      max_storage_expansion.XY = max_storage_expansion.X * max_storage_expansion.Y;
+      max_spatial_expansion[pv].emplace_back(max_storage_expansion);
     }
   }
-  state.num_spatial_instances_ = num_spatial_instances;
+  state.avg_effective_expansion_ratio_ = avg_effective_expansion_ratio;
+  state.max_spatial_expansion_ = max_spatial_expansion;
 }
 
 
@@ -966,87 +1133,162 @@ void DefineSpatialOptimizationImpact(SparseAnalysisState& state,
 
 
 void SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
-                                                   tiling::CompoundTileNest& compound_tile_nest)
+                                                   tiling::CompoundTileNest& compound_tile_nest,
+                                                   const model::Topology::Specs& topology_specs)
 {
+
+  (void) topology_specs;
 
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
   auto& compute_info = compound_tile_nest.compute_info_nest[0];
 
+  std::vector<SpatialExpansion> processed_spatial_expansion;
+
+
   // Summarize storage effective instances and propagate to inner levels
-  for (int l = state.num_storage_levels_-2; l >= 0 ; l--)
+  //    level 0: compute   level 1: inner most storage etc.  
+  // as a result, we are summarizing the spatial instances of the storage levels in this loop
+  for (int architecture_level = state.num_storage_levels_; architecture_level >= 0 ; architecture_level--)
   {
+     
+    bool is_compute = architecture_level == 0 ? true : false;
     
     // pick max number of instances
-    std::uint64_t max_spatial_instances = state.num_spatial_instances_[0][l+1];
+    std::uint64_t level_max_x = state.max_spatial_expansion_[0][architecture_level].X;
+    std::uint64_t level_max_y = state.max_spatial_expansion_[0][architecture_level].Y;
+    double level_max_avg_ratio = state.avg_effective_expansion_ratio_[0][architecture_level];
+
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      max_spatial_instances = state.num_spatial_instances_[pv][l+1] > max_spatial_instances
-      ? state.num_spatial_instances_[pv][l+1] : max_spatial_instances;
+      auto pv_max_x = state.max_spatial_expansion_[pv][architecture_level].X;
+      auto pv_max_y = state.max_spatial_expansion_[pv][architecture_level].Y;
+      auto pv_avg_ratio = state.avg_effective_expansion_ratio_[pv][architecture_level];
       
-      // std::cout << "dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) 
-      //   << "  num spatial instances: " << state.num_spatial_instances_[pv][l+1] << std::endl;
+      if ((level_max_x < pv_max_x && level_max_y > pv_max_y)
+          || (level_max_y < pv_max_y && level_max_x > pv_max_x))
+      {
+        std::cerr << "Not implemented error. FIXME: consider a dataspace requires"
+          << " more spatial instances than another in one dimension, " 
+          << " but fewer spatial instances in another dimension" << std::endl;
+        assert(false);
+      } 
+       
+      level_max_x = pv_max_x >= level_max_x ? pv_max_x : level_max_x;
+      level_max_y = pv_max_y >= level_max_y ? pv_max_y : level_max_y;
+      level_max_avg_ratio = pv_avg_ratio >= level_max_avg_ratio ? pv_avg_ratio : level_max_avg_ratio; 
+    
+      // std::cout << topology_specs.GetLevel(architecture_level)->level_name 
+      //   << " dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
+      //   << " num X spatial instances: " << level_max_x 
+      //   << " num Y spatial instances: " << level_max_y
+      //   << " avg effective ratio: " << level_max_avg_ratio
+      //   << std::endl;
     }
-
+    
+    SpatialExpansion level_spatial_expansion;
+    level_spatial_expansion.X = level_max_x;
+    level_spatial_expansion.Y = level_max_y;
+    level_spatial_expansion.XY = level_max_x * level_max_y;
+    processed_spatial_expansion.insert(processed_spatial_expansion.begin(), level_spatial_expansion);
+    
+    auto storage_level = architecture_level - 1;
+    // finalize the expansion factors at this level
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      compound_data_movement_nest[pv][l].effective_replication_factor = max_spatial_instances;
-    }
-    double reduction_ratio = (double)max_spatial_instances/compound_data_movement_nest[0][l].replication_factor;
-    
-    // std::cout << " level: " << l  << "  max spatial instances: " << max_spatial_instances
-    //   << " reduction ratio:   " << reduction_ratio << std::endl;
-
-    
-    // Propagate only if there is reduction
-    if (reduction_ratio != 1.0)
-    {
-      for (int inner_levels = l-1; inner_levels >= -1; inner_levels--)
+      if (!is_compute)
       {
-        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+        compound_data_movement_nest[pv][storage_level].avg_replication_factor = level_max_avg_ratio 
+          * compound_data_movement_nest[pv][storage_level].replication_factor;
+      }
+      else
+      {
+        compute_info.avg_replication_factor = level_max_avg_ratio * compute_info.replication_factor;
+      }
+    }
+   
+    double y_reduction_ratio = 1.0;
+    double x_reduction_ratio = 1.0;
+    if (!is_compute)
+    {
+      y_reduction_ratio = (double)level_max_y/compound_data_movement_nest[0][storage_level].max_y_expansion;
+      x_reduction_ratio = (double)level_max_x/compound_data_movement_nest[0][storage_level].max_x_expansion;
+    }
+    
+    // std::cout << "  --> " << topology_specs.GetLevel(architecture_level)->level_name  
+    //   << " y-reduction ratio: " << y_reduction_ratio 
+    //   << " x-reduction ratio: " << x_reduction_ratio
+    //   << " max average effective ratio: " << level_max_avg_ratio
+    //   << std::endl;
+
+    // We should not propagate to levels below next spatial skipping
+    // since the probability of being optimized we get is the absolute probability for a certain tile
+    // irrelevant to whether the upper level has any optimization
+    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+    {  
+      for (int inner_level = architecture_level - 1; inner_level >= 0; inner_level--)
+      {
+        int upper_storage_level = inner_level; // offset exactly by 1, e.g., arch level 0 (compute)'s upper storage level is storage level 0
+        if (state.dspace_optimization_masks_["spatial_skip"][upper_storage_level][pv])
         {
-          state.num_spatial_instances_[pv][inner_levels+1] = (double)state.num_spatial_instances_[pv][inner_levels+1] * reduction_ratio;
-        }
+          // std::cout << "spatial skip flag on for storage level: " << upper_storage_level << std::endl;
+          break;
+        } 
+        // std::cout << " propagate to inner arch level: " << inner_level << std::endl;
+        state.max_spatial_expansion_[pv][inner_level].X = (double)state.max_spatial_expansion_[pv][inner_level].X * x_reduction_ratio;
+        state.max_spatial_expansion_[pv][inner_level].Y = (double)state.max_spatial_expansion_[pv][inner_level].Y * y_reduction_ratio;
+
+        state.avg_effective_expansion_ratio_[pv][inner_level] = state.avg_effective_expansion_ratio_[pv][inner_level] * level_max_avg_ratio; 
       }
     }
   }
-  
-  // Summarize compute effective instances
-  std::uint64_t max_spatial_instances = state.num_spatial_instances_[0][0];
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-  {
-    max_spatial_instances = state.num_spatial_instances_[pv][0] > max_spatial_instances
-      ? state.num_spatial_instances_[pv][0] : max_spatial_instances;
-  }
-  compute_info.effective_replication_factor = max_spatial_instances;
-  
-  // std::vector<double> upper_spatial_opt_prob(problem::GetShape()->NumDataSpaces);
-  // for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++) upper_spatial_opt_prob.push_back(0);
   
   // after propagation, summarize the final amount of skipping at each level
-  for (int l = state.num_storage_levels_ - 1; l >= 0; l--)
+  for (int architecture_level = state.num_storage_levels_; architecture_level >= 0; architecture_level--)
   {
+    bool is_compute = architecture_level == 0 ? true : false;
+    auto max_xy_expansion = processed_spatial_expansion[architecture_level];
+
+    double cur_level_opt_prob = 1.0;
+    double avg_effective_replication_factor = 0;
+
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      if (state.dspace_optimization_masks_["spatial_skip"][l][pv])
+      // impact of spatial skip is manifested as the reduced number of spatial instances in the lower level
+      if (!is_compute)
       {
-        // impact of spatial skip is manifested as the reduced number of spatial instances in the lower level
-        double cur_level_opt_prob;
-        if (l != 0)
-          cur_level_opt_prob  = 1 - (double)compound_data_movement_nest[pv][l-1].effective_replication_factor/compound_data_movement_nest[pv][l-1].replication_factor;
-        else
-          cur_level_opt_prob = 1 - (double)compute_info.effective_replication_factor/compute_info.replication_factor;
-
-        // std::cout << "level:" << l << " pv: " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
-        // std::cout << " cur level opt prob: " << cur_level_opt_prob <<  std::endl;
+        auto storage_level = architecture_level - 1;
+        auto& data_movement_info = compound_data_movement_nest[pv][storage_level];
         
-        // Redefine the spatial optimization probability in a incremental fashion, 
-        // i.e., how much additional savings does each spatial skipping optimization introduce
-        // assert(upper_spatial_opt_prob[pv] <= cur_level_opt_prob);
-        // if (upper_spatial_opt_prob[pv] <= cur_level_opt_prob) 
-        state.prob_explicitly_spatially_optimized_read_[l][pv] = cur_level_opt_prob; 
-        // upper_spatial_opt_prob[pv] = cur_level_opt_prob;
+        data_movement_info.max_x_expansion = max_xy_expansion.X;
+        data_movement_info.max_y_expansion = max_xy_expansion.Y;
+        data_movement_info.max_replication_factor = max_xy_expansion.XY;
+        
+        avg_effective_replication_factor = data_movement_info.avg_replication_factor;
+        cur_level_opt_prob  = 1 - avg_effective_replication_factor/data_movement_info.replication_factor;
       }
+      else
+      { 
+        
+        compute_info.max_x_expansion = max_xy_expansion.X;
+        compute_info.max_y_expansion = max_xy_expansion.Y;
+        compute_info.max_replication_factor = max_xy_expansion.XY;
+        
+        avg_effective_replication_factor = compute_info.avg_replication_factor;
+        cur_level_opt_prob  = 1 - avg_effective_replication_factor/compute_info.replication_factor;
+      }
+      
+      // the optimized away ratio is recorded as an attribute of the level above
+      if ((unsigned)architecture_level < state.num_storage_levels_)
+        state.prob_explicitly_spatially_optimized_read_[architecture_level][pv] = cur_level_opt_prob; 
     }
+    
+    // Sanity check 
+    // std::cout << "Final: " << topology_specs.GetLevel(architecture_level)->level_name << std::endl; 
+    // std::cout << " avg effective rep factor: " << avg_effective_replication_factor 
+    //   << " max X expansion: " << max_xy_expansion.X
+    //   << " max Y expansion: " << max_xy_expansion.Y
+    //   << " max rep factor : " << max_xy_expansion.XY
+    //   << " opt prob: " << cur_level_opt_prob <<  std::endl;
   }
 
 }
@@ -1125,7 +1367,7 @@ bool DefineStorageOptimizationImpact(SparseAnalysisState& state,
         DefineSpatialOptimizationImpact(state, compound_tile_nest, storage_level_id, group, topology_specs, "spatial_skip");
       }
     }
-    SummarizeAndPropagateSpatialCapacityReduction(state, compound_tile_nest);
+    SummarizeAndPropagateSpatialCapacityReduction(state, compound_tile_nest, topology_specs);
   }
   
   return success;
@@ -1382,6 +1624,9 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
         // not allowed to have gating and skipping applied to the same tile
         assert(false);
       }
+      
+      // perform processing only if this level has some saf applied
+      // (levels w/o any safs are passively processed during propagation analysis)
       if (state.dspace_optimization_masks_.at("gate").at(l).at(pv)
         || state.dspace_optimization_masks_.at("skip").at(l).at(pv)
         || state.dspace_optimization_masks_.at("spatial_skip").at(l).at(pv))
@@ -1396,9 +1641,15 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
         
         if (state.dspace_optimization_masks_.at("spatial_skip").at(l).at(pv))
         {
-          // FIXME: check dependency validity
-          if (p != 0) assert(false); 
-          p += (1-p)*state.prob_explicitly_spatially_optimized_read_.at(l).at(pv);
+          // FIXME: handle the impact of applying spatial skip and temporal skip at the same time
+          if (p != 0) 
+          {
+            std::cout << "Not implemented error: we do not support applying spatial " 
+              << "and temporal skip at the same time yet"
+              << std::endl;
+            assert(false); 
+          }
+          p = state.prob_explicitly_spatially_optimized_read_.at(l).at(pv);
         }
         
         // std::cout << topology_specs.GetStorageLevel(l)->level_name << ": dspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) 
@@ -1411,14 +1662,6 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
           // upper level propagation essentially chops off a subtree
           //  child level will not see the subtree, so the accesses are nonexistent
           //  do no need to increment the skipped and gated counts
-          // std::cout << " examine level: " << topology_specs.GetStorageLevel(impacted_level_id)->level_name << std::endl;
-          
-          if (compound_data_movement_nest[pv][impacted_level_id].shape == 0)
-          {
-            fine_grained_action_finalized[impacted_level_id][pv] = true; 
-            impacted_level_id --;
-            continue;
-          }
 
           // std::cout << " impacted level: " << topology_specs.GetStorageLevel(impacted_level_id)->level_name << std::endl;
           // apply the popagational impact first to all action types 
@@ -1440,7 +1683,9 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
           // if so, the fine-grained reads and updates can now be finalized
           // note that all the ops eliminated by upper levels are nonexistent, so they do not count towards skipped/gated ops incurred at this specific level
           bool local_saf_detected = state.dspace_optimization_masks_.at("gate").at(impacted_level_id).at(pv)
-                                    || state.dspace_optimization_masks_.at("skip").at(impacted_level_id).at(pv);
+                                    || state.dspace_optimization_masks_.at("skip").at(impacted_level_id).at(pv)
+                                    || state.dspace_optimization_masks_.at("spatial_skip").at(impacted_level_id).at(pv);
+          
           if (local_saf_detected)
           {
             // std::cout <<  "   this is the next inner level with sparse optimization specified, finalize fine-grained action counts at " 
@@ -1454,17 +1699,30 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
             compound_data_movement_nest[pv][impacted_level_id].fine_grained_format_accesses["random_metadata_read"] = max_format_updates[impacted_level_id][pv];
             compound_data_movement_nest[pv][impacted_level_id].fine_grained_data_accesses["random_update"] = max_updates[impacted_level_id][pv];
             compound_data_movement_nest[pv][impacted_level_id].fine_grained_format_accesses["random_metadata_update"] = max_format_updates[impacted_level_id][pv];           
-            ApplyLocalStorageSAFImpact(compound_data_movement_nest, effective_p, pv, impacted_level_id, saf_type);
+            
+            if (state.dspace_optimization_masks_.at("spatial_skip").at(impacted_level_id).at(pv))
+            {
+              // std::cout <<  "   spatial sparse optimization specified, saf has no fine grained actin impact to current level: " 
+              // << topology_specs.GetStorageLevel(impacted_level_id)->level_name << std::endl;
+            }
+            else
+            {
+              ApplyLocalStorageSAFImpact(compound_data_movement_nest, effective_p, pv, impacted_level_id, saf_type);
+            }
+            // fine grained access at this level is determined by its local saf
             fine_grained_action_finalized[impacted_level_id][pv] = true; 
-            // all of the levels below will be impacted by this level's optimized away ops, do not propatage anymore
+            // all of the levels below will be impacted by this level's optimized away ops, 
+            // stop propating upper level's saf's impact
             break;
           }
-          impacted_level_id--;
+          else
+          {
+            impacted_level_id--;
+          }
         }
         
         // if this level has SAF and is still not finalized, it must be the upper most level with SAF for this dataspace
-        // spatial skip does not need local SAF impact since it does not change the number of accesses to local storages
-        if (!fine_grained_action_finalized[l][pv] && !state.dspace_optimization_masks_.at("spatial_skip").at(l).at(pv))
+        if (!fine_grained_action_finalized[l][pv])
         {
           // std::cout << " first level with SAF for this dataspce, apply impact directly" << std::endl;
           fine_grained_action_finalized[l][pv] = true;
@@ -1475,9 +1733,13 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
           compound_data_movement_nest[pv][l].fine_grained_format_accesses["random_metadata_read"] = max_format_reads[l][pv];
           compound_data_movement_nest[pv][l].fine_grained_data_accesses["random_update"] = max_updates[l][pv];
           compound_data_movement_nest[pv][l].fine_grained_format_accesses["random_metadata_update"] = max_format_updates[l][pv];
-          
-          std::string saf_type = state.dspace_optimization_masks_.at("gate").at(l).at(pv) ? "gated" : "skipped";
-          ApplyLocalStorageSAFImpact(compound_data_movement_nest, p,  pv, l, saf_type);
+  
+          // spatial skip does not need local SAF impact since it does not change the number of accesses to local storages 
+          if (!state.dspace_optimization_masks_.at("spatial_skip").at(l).at(pv))
+          {
+            std::string saf_type = state.dspace_optimization_masks_.at("gate").at(l).at(pv) ? "gated" : "skipped";
+            ApplyLocalStorageSAFImpact(compound_data_movement_nest, p,  pv, l, saf_type);
+          }
         }
        
         // only the innermost level for the target gives the final impact on compute units, propagated the impact to compute
@@ -1485,19 +1747,12 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
         {
           
           max_computes[0] -= floor(max_computes[0] * p);
-          // std::cout << "inner most level update compute " << max_computes[0] << std::endl; 
-          
-          std::string saf_type = state.dspace_optimization_masks_.at("gate").at(l).at(pv) ? "gate" : state.dspace_optimization_masks_.at("skip").at(l).at(pv) ? "skip" : "spatial-skip";
-          if (p != 0 && (saf_type == "gate" || saf_type == "skip"))
-          {
-            state.storage_gs_saf_[pv] = true;
-            state.innermost_empty_cond_on_prob_[pv] = round(p*1000000)/1000000;
-          }
+          state.storage_gs_saf_[pv] = true;
+          state.innermost_empty_cond_on_prob_[pv] = round(p*1000000)/1000000;
         }
-      } else
-      {
+      } 
+      else
         continue;
-      }
     }
   }
 
@@ -3379,14 +3634,15 @@ void InitializeSparsityRelatedEntries(const problem::Workload* workload,
       //compound_data_movement_nest[pv][level].fiber_shape = {}; // only useful if has metadata
       compound_data_movement_nest[pv][level].expected_data_occupancy = compound_data_movement_nest[pv][level].shape;
       // compound_data_movement_nest[pv][level].expected_metadata_occupancy = {};
-      compound_data_movement_nest[pv][level].effective_replication_factor = compound_data_movement_nest[pv][level].replication_factor;
+      // compound_data_movement_nest[pv][level].effective_replication_factor = compound_data_movement_nest[pv][level].replication_factor;
+      compound_data_movement_nest[pv][level].avg_replication_factor = compound_data_movement_nest[pv][level].replication_factor;
     }
   }
 
   auto& compute_info_nest = compound_tile_nest.compute_info_nest;
   auto& compute_info = compute_info_nest[0];
-  compute_info.effective_replication_factor = compute_info.replication_factor;
-
+  // compute_info.effective_replication_factor = compute_info.replication_factor;
+  compute_info.avg_replication_factor = compute_info.replication_factor;
 }
 
 // Perform all necessary sparse analysis
@@ -3413,6 +3669,8 @@ bool PerformSparseProcessing(problem::Workload* workload,
   // Initialize fine grained access counts
   InitializeFineGrainedAccesses(compound_tile_nest, topology_specs);
 
+  InitializeMappingSpatialExpansion(compound_tile_nest, topology_specs, mapping);
+  
   SparseAnalysisState state;
   bool sparse_analysis_needed;
   sparse_analysis_needed = state.Init(sparse_optimization_info, workload, mapping, topology_specs.NumStorageLevels());

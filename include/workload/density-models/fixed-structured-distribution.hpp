@@ -123,6 +123,9 @@ class FixedStructuredDistribution : public DensityDistribution
                                                 const double confidence);
   std::uint64_t GetMaxTileOccupancyByConfidence_LTW(const std::uint64_t tile_shape,
                                                     const double confidence);
+  std::uint64_t GetMaxNumElementByConfidence(const tiling::CoordinateSpaceTileInfo& fiber_tile,
+                                             const tiling::CoordinateSpaceTileInfo& element_tile,
+                                             const double confidence);
   double GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
                                        const double confidence = 1.0);
   double GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile);
