@@ -965,19 +965,28 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
 
   problem::Workload* workload = analysis->GetWorkload();
 
-  
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     sparse::PerStorageLevelCompressionInfo per_level_compression_info = {};
     storage_compression_info.GetStorageLevelCompressionInfo(storage_level_id, per_level_compression_info);
     auto level_id = specs_.StorageMap(storage_level_id);
-    auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
+    try
+    {
+      auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
       working_set_sizes.at(storage_level_id), masks.at(storage_level_id), workload,
       per_level_compression_info, mapping.confidence_thresholds.at(storage_level_id),
       break_on_failure);
-    eval_status.at(level_id) = s;
-    if (break_on_failure && !s.success)
-      break;
+      eval_status.at(level_id) = s;
+     
+      if (break_on_failure && !s.success)
+        break;
+    }
+    catch (problem::DensityModelIncapability& e)
+    {
+      std::fill(eval_status.begin(), eval_status.end(),
+                EvalStatus({ .success = false, .fail_reason = "density model incapable of evaluating a specific request" }));
+      return eval_status;
+    }
   }
 
   return eval_status;

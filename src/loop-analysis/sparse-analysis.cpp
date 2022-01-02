@@ -1298,8 +1298,8 @@ bool SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
       // Check Fanout
       if (!topmost_level)
       {
-        std::uint64_t fanoutX =  max_xy_expansion.X/compound_data_movement_nest[pv][architecture_level].max_x_expansion;
-        std::uint64_t fanoutY =  max_xy_expansion.Y/compound_data_movement_nest[pv][architecture_level].max_y_expansion;       
+        std::uint64_t fanoutX =  max_xy_expansion.X/topology_specs.GetStorageLevel(architecture_level)->meshX.Get();
+        std::uint64_t fanoutY =  max_xy_expansion.Y/topology_specs.GetStorageLevel(architecture_level)->meshY.Get();       
         if (fanoutX > state.sparse_optimization_info_-> max_fanoutX.at(architecture_level))
         {
           fail_reason << "Required fanoutX " << fanoutX 
