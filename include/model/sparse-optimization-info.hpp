@@ -135,6 +135,9 @@ struct SparseOptimizationInfo
   ComputeOptimizationInfo compute_optimization_info;
   CompressionInfo compression_info;
   bool no_optimization_applied;
+  std::map<unsigned, std::uint64_t> max_fanoutX;
+  std::map<unsigned, std::uint64_t> max_fanoutY;
+
 };
 
 } // namespace

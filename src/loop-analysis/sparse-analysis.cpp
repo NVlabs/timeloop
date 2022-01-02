@@ -1132,12 +1132,13 @@ void DefineSpatialOptimizationImpact(SparseAnalysisState& state,
 }
 
 
-void SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
+bool SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
                                                    tiling::CompoundTileNest& compound_tile_nest,
-                                                   const model::Topology::Specs& topology_specs)
+                                                   const model::Topology::Specs& topology_specs,
+                                                   std::vector <model::EvalStatus>& eval_status)
 {
 
-  (void) topology_specs;
+  bool success = true;
 
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
   auto& compute_info = compound_tile_nest.compute_info_nest[0];
@@ -1241,6 +1242,8 @@ void SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
       }
     }
   }
+   
+  std::ostringstream fail_reason;
   
   // after propagation, summarize the final amount of skipping at each level
   for (int architecture_level = state.num_storage_levels_; architecture_level >= 0; architecture_level--)
@@ -1262,13 +1265,12 @@ void SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
         data_movement_info.max_x_expansion = max_xy_expansion.X;
         data_movement_info.max_y_expansion = max_xy_expansion.Y;
         data_movement_info.max_replication_factor = max_xy_expansion.XY;
-        
         avg_effective_replication_factor = data_movement_info.avg_replication_factor;
-        cur_level_opt_prob  = 1 - avg_effective_replication_factor/data_movement_info.replication_factor;
+        
+        cur_level_opt_prob  = 1 - avg_effective_replication_factor/data_movement_info.replication_factor; 
       }
       else
       { 
-        
         compute_info.max_x_expansion = max_xy_expansion.X;
         compute_info.max_y_expansion = max_xy_expansion.Y;
         compute_info.max_replication_factor = max_xy_expansion.XY;
@@ -1277,19 +1279,58 @@ void SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
         cur_level_opt_prob  = 1 - avg_effective_replication_factor/compute_info.replication_factor;
       }
       
-      // the optimized away ratio is recorded as an attribute of the level above
+      // The optimized away ratio is recorded as an attribute of the level above
       if ((unsigned)architecture_level < state.num_storage_levels_)
         state.prob_explicitly_spatially_optimized_read_[architecture_level][pv] = cur_level_opt_prob; 
+     
+      bool topmost_level = architecture_level == int(topology_specs.NumLevels() - 1); 
+      
+      // Sanity check 
+      // std::cout << "Final: " << topology_specs.GetLevel(architecture_level)->level_name << std::endl; 
+      // std::cout << " avg effective rep factor: " << avg_effective_replication_factor 
+      //   << " max X expansion: " << max_xy_expansion.X
+      //   << " max Y expansion: " << max_xy_expansion.Y
+      //   << " max rep factor : " << max_xy_expansion.XY
+      //   << " opt prob: " << cur_level_opt_prob  
+      //   << " architecture level: " << architecture_level 
+      //   << " topmost level: " << topmost_level << std::endl; 
+      
+      // Check Fanout
+      if (!topmost_level)
+      {
+        std::uint64_t fanoutX =  max_xy_expansion.X/compound_data_movement_nest[pv][architecture_level].max_x_expansion;
+        std::uint64_t fanoutY =  max_xy_expansion.Y/compound_data_movement_nest[pv][architecture_level].max_y_expansion;       
+        if (fanoutX > state.sparse_optimization_info_-> max_fanoutX.at(architecture_level))
+        {
+          fail_reason << "Required fanoutX " << fanoutX 
+            << " does not meet hardware constraint " 
+            << state.sparse_optimization_info_-> max_fanoutX.at(architecture_level)         
+            << std::endl;
+
+          success = false;
+          auto overall_level_id = architecture_level;
+          eval_status[overall_level_id].success = false;
+          eval_status[overall_level_id].fail_reason = fail_reason.str();   
+        }
+        
+        if (fanoutY > state.sparse_optimization_info_-> max_fanoutY.at(architecture_level))
+        {
+          fail_reason << "Required fanoutY " << fanoutY 
+            << " does not meet hardware constraint " 
+            << state.sparse_optimization_info_-> max_fanoutY.at(architecture_level)   
+            << std::endl;
+
+          success = false;
+          auto overall_level_id = architecture_level;
+          eval_status[overall_level_id].success = false;
+          eval_status[overall_level_id].fail_reason = fail_reason.str();   
+        }
+        // std::cout << "  required FanoutX: " << fanoutX << "   FanoutY: " << fanoutY << std::endl;
+      }     
     }
-    
-    // Sanity check 
-    // std::cout << "Final: " << topology_specs.GetLevel(architecture_level)->level_name << std::endl; 
-    // std::cout << " avg effective rep factor: " << avg_effective_replication_factor 
-    //   << " max X expansion: " << max_xy_expansion.X
-    //   << " max Y expansion: " << max_xy_expansion.Y
-    //   << " max rep factor : " << max_xy_expansion.XY
-    //   << " opt prob: " << cur_level_opt_prob <<  std::endl;
   }
+  
+  return success;
 
 }
 
@@ -1367,7 +1408,7 @@ bool DefineStorageOptimizationImpact(SparseAnalysisState& state,
         DefineSpatialOptimizationImpact(state, compound_tile_nest, storage_level_id, group, topology_specs, "spatial_skip");
       }
     }
-    SummarizeAndPropagateSpatialCapacityReduction(state, compound_tile_nest, topology_specs);
+    success = SummarizeAndPropagateSpatialCapacityReduction(state, compound_tile_nest, topology_specs, eval_status);
   }
   
   return success;
@@ -1690,8 +1731,11 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
           {
             // std::cout <<  "   this is the next inner level with sparse optimization specified, finalize fine-grained action counts at " 
             //  << topology_specs.GetStorageLevel(impacted_level_id)->level_name << std::endl;
-            std::string saf_type = state.dspace_optimization_masks_.at("gate").at(impacted_level_id).at(pv) ? "gated" : "skipped";
-            double local_saf_p = state.prob_explicitly_optimized_read_.at(impacted_level_id).at(pv);
+            std::string saf_type = state.dspace_optimization_masks_.at("spatial_skip").at(impacted_level_id).at(pv) ? "spatial-skip" :
+              state.dspace_optimization_masks_.at("gate").at(impacted_level_id).at(pv) ? "gated" : "skipped";
+            
+            double local_saf_p = saf_type != "spatial-skip" ? state.prob_explicitly_optimized_read_.at(impacted_level_id).at(pv) :
+                                                              state.prob_explicitly_spatially_optimized_read_.at(impacted_level_id).at(pv);
             double effective_p = 1 - ((1-local_saf_p)/(1-p));
             compound_data_movement_nest[pv][impacted_level_id].fine_grained_data_accesses["random_fill"] = max_fills[impacted_level_id][pv];
             compound_data_movement_nest[pv][impacted_level_id].fine_grained_format_accesses["random_metadata_fill"] = max_format_fills[impacted_level_id][pv];

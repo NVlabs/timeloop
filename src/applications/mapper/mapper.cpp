@@ -220,7 +220,8 @@ Application::Application(config::CompoundConfig* config,
   //   exit(1);
   // }
 
-  mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_constraints, arch_specs_, workload_);
+  bool filter_spatial_fanout = sparse_optimizations_->action_spatial_skipping_info.size() == 0;
+  mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_constraints, arch_specs_, workload_, filter_spatial_fanout);
   split_mapspaces_ = mapspace_->Split(num_threads_);
 
   std::cout << "Mapspace construction complete." << std::endl;

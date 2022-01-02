@@ -44,12 +44,14 @@ Uber::Uber(
   config::CompoundConfigNode arch_constraints,
   model::Engine::Specs arch_specs,
   const problem::Workload& workload,
+  bool filter_spatial_fanout,
   bool skip_init) :
     MapSpace(arch_specs, workload),
     split_id_(0),
     num_parent_splits_(0),
     arch_props_(arch_specs),
-    constraints_(arch_props_, workload)
+    constraints_(arch_props_, workload),
+    filter_spatial_fanout_(filter_spatial_fanout)
 {
   if (!skip_init)
   {
@@ -789,14 +791,14 @@ Status Uber::AssignSpatialTilingDirections_Level_Expand(std::uint32_t spatial_sp
     
   // if (level_specs->SharingType() == model::DataSpaceIDSharing::Shared)
   // {
-  if (x_expansion > arch_props_.FanoutX(storage_level_id))
+  if (filter_spatial_fanout_ && x_expansion > arch_props_.FanoutX(storage_level_id))
   {
     success = false;
     fail_reason << "mapped fanoutX " << x_expansion << " exceeds hardware fanoutX "
                 << arch_props_.FanoutX(storage_level_id);
   }
       
-  if (y_expansion > arch_props_.FanoutY(storage_level_id))
+  if (filter_spatial_fanout_ && y_expansion > arch_props_.FanoutY(storage_level_id))
   {
     success = false;
     fail_reason << "mapped fanoutY " << y_expansion << " exceeds hardware fanoutY "

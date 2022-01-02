@@ -39,7 +39,8 @@ namespace mapspace
 MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
                             config::CompoundConfigNode arch_constraints,
                             model::Engine::Specs& arch_specs,
-                            const problem::Workload& workload)
+                            const problem::Workload& workload,
+                            bool filter_spatial_fanout)
 {
   MapSpace* mapspace = nullptr;
   
@@ -48,7 +49,7 @@ MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
     
   if (mapspace_template == "uber")
   {
-    mapspace = new Uber(config, arch_constraints, arch_specs, workload);
+    mapspace = new Uber(config, arch_constraints, arch_specs, workload, filter_spatial_fanout);
   }
   else
   {

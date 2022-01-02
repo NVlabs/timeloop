@@ -44,6 +44,7 @@ model::Engine::Specs  arch_specs_;
 void Parse(config::CompoundConfigNode sparse_config, SparseOptimizationInfo &sparse_optimization_info, model::Engine::Specs &arch_specs);
 void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info, const  model::Engine::Specs &arch_specs);
 void InitializeActionOptimizationInfo(SparseOptimizationInfo &sparse_optimization_info);
+void InitializeMaxFanout(SparseOptimizationInfo& sparse_optimization_info);
 void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
                           const config::CompoundConfigNode &directive,
                           model::Engine::Specs &arch_specs);
@@ -121,6 +122,19 @@ void Parse(config::CompoundConfigNode sparse_config,
       }
     }
   }
+
+  if (sparse_optimization_info.action_spatial_skipping_info.size() > 0)
+  {
+    ArchProperties arch_props = ArchProperties(arch_specs);
+    for (unsigned storage_level = 0; storage_level < arch_specs.topology.NumStorageLevels(); storage_level++)
+    {
+      auto FanoutX = arch_props.FanoutX(storage_level);
+      auto FanoutY = arch_props.FanoutY(storage_level);
+      sparse_optimization_info.max_fanoutX[storage_level] = FanoutX;
+      sparse_optimization_info.max_fanoutY[storage_level] = FanoutY;
+    }
+  }
+
 }
 
 void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info, 
@@ -171,6 +185,12 @@ void InitializeActionOptimizationInfo(SparseOptimizationInfo &sparse_optimizatio
   sparse_optimization_info.action_spatial_skipping_info = {};
   sparse_optimization_info.action_skipping_info = {};
   sparse_optimization_info.compute_optimization_info = {};
+}
+
+void InitializeMaxFanout(SparseOptimizationInfo& sparse_optimization_info)
+{
+  sparse_optimization_info.max_fanoutX = {};
+  sparse_optimization_info.max_fanoutY = {};
 }
 
 std::uint32_t AdjustFormatWordBits(std::uint32_t specified_word_bits, 
