@@ -66,6 +66,8 @@ struct Mapping
   }
 
   void FormatAsConstraints(libconfig::Setting& mapspace);
+
+  void FormatAsLibConfig(libconfig::Setting& mapping, const std::vector<std::string>& storage_level_names);
   
   void PrintAsConstraints(std::string filename);
 

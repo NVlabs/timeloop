@@ -103,31 +103,41 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     {
       auto level_id = FindTargetTilingLevel(directive, type);
 
-      auto level_factors = ParseUserFactors(directive);
-      if (level_factors.size() > 0)
-      {
-        // Fill in missing factors with default = 1.
-        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
-        {
-          auto dim = problem::Shape::FlattenedDimensionID(idim);
-          if (level_factors.find(dim) == level_factors.end())
-            level_factors[dim] = std::make_pair<>(1, 1);
-        }
-        user_factors[level_id] = level_factors;
-      }
+      user_factors[level_id] = ParseUserFactors(directive);
+
+      // The following logic was moved to the next per-level block of code.
+
+      // auto level_factors = ParseUserFactors(directive);
+      // if (level_factors.size() > 0)
+      // {
+      //   // Fill in missing factors with default = 1.
+      //   for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      //   {
+      //     auto dim = problem::Shape::FlattenedDimensionID(idim);
+      //     if (level_factors.find(dim) == level_factors.end())
+      //     {
+      //       level_factors[dim] = std::make_pair<>(1, 1);
+      //     }
+      //   }
+      //   user_factors[level_id] = level_factors;
+      // }
         
-      auto level_permutations = ParseUserPermutations(directive);
-      if (level_permutations.size() > 0)
-      {
-        // Fill in missing dimensions with an undetermined order.
-        for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
-        {
-          auto dim = problem::Shape::FlattenedDimensionID(idim);
-          if (std::find(level_permutations.begin(), level_permutations.end(), dim) == level_permutations.end())
-            level_permutations.push_back(dim);
-        }
-        user_permutations[level_id] = level_permutations;
-      }
+      user_permutations[level_id] = ParseUserPermutations(directive);
+
+      // The following logic was moved to the next per-level block of code.
+
+      // auto level_permutations = ParseUserPermutations(directive);
+      // if (level_permutations.size() > 0)
+      // {
+      //   // Fill in missing dimensions with an undetermined order.
+      //   for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      //   {
+      //     auto dim = problem::Shape::FlattenedDimensionID(idim);
+      //     if (std::find(level_permutations.begin(), level_permutations.end(), dim) == level_permutations.end())
+      //       level_permutations.push_back(dim);
+      //   }
+      //   user_permutations[level_id] = level_permutations;
+      // }
 
       if (type == "spatial")
       {
@@ -155,7 +165,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       std::cerr << "ERROR: illegal mapping directive type: " << type << std::endl;
       std::exit(1);
     }
-  }
+  } // Done iterating through user-provided directives.
 
   // Construct the mapping from the parsed sub-structures.
   // A set of subnests, one for each tiling level.
@@ -168,29 +178,61 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     auto permutation = user_permutations.find(level);
     if (permutation == user_permutations.end())
     {
-      std::cerr << "ERROR: parsing mapping: permutation not found for level: "
+      std::cerr << "WARNING: parsing mapping: permutation not found for level: "
                 << arch_props_.TilingLevelName(level) << std::endl;
-      exit(1);
+      user_permutations[level];
+      permutation = user_permutations.find(level);
     }
+
     if (permutation->second.size() != std::size_t(problem::GetShape()->NumFlattenedDimensions))
     {
-      std::cerr << "ERROR: parsing mapping: permutation contains insufficient dimensions at level: "
-                << arch_props_.TilingLevelName(level) << std::endl;
-      exit(1);
+      // Fill in missing dimensions with an undetermined order.
+      std::cerr << "WARNING: parsing mapping: permutation contains insufficient dimensions at level: "
+                << arch_props_.TilingLevelName(level) << ", padding with arbitrary order." << std::endl;
+
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      {
+        auto dim = problem::Shape::FlattenedDimensionID(idim);
+        if (std::find(permutation->second.begin(), permutation->second.end(), dim) == permutation->second.end())
+          permutation->second.push_back(dim);
+      }
     }
       
     auto factors = user_factors.find(level);
     if (factors == user_factors.end())
     {
-      std::cerr << "ERROR: parsing mapping: factors not found for level: "
+      std::cerr << "WARNING: parsing mapping: factors not found for level: "
                 << arch_props_.TilingLevelName(level) << std::endl;
-      exit(1);
+      user_factors[level];
+      factors = user_factors.find(level);
     }
+
     if (factors->second.size() != std::size_t(problem::GetShape()->NumFlattenedDimensions))
     {
-      std::cerr << "ERROR: parsing mapping: factors not provided for all dimensions at level: "
-                << arch_props_.TilingLevelName(level) << std::endl;
-      exit(1);
+      // Fill in missing factors with default = 1.
+      std::cerr << "WARNING: parsing mapping: factors not provided for all dimensions at level: "
+                << arch_props_.TilingLevelName(level) << ", setting to 1." << std::endl;
+
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      {
+        auto dim = problem::Shape::FlattenedDimensionID(idim);
+        if (factors->second.find(dim) == factors->second.end())
+        {
+          factors->second[dim] = std::make_pair<>(1, 1);
+        }
+      }
+    }
+
+    auto split = user_spatial_splits.find(level);
+    if (arch_props_.IsSpatial(level))
+    {
+      if (split == user_spatial_splits.end())
+      {
+        std::cerr << "WARNING: parsing mapping: split not found for spatial level: "
+                  << arch_props_.TilingLevelName(level) << ", setting to all-X." << std::endl;
+        user_spatial_splits[level] = unsigned(problem::GetShape()->NumFlattenedDimensions);
+        split = user_spatial_splits.find(level);
+      }
     }
 
     // Each partition has problem::GetShape()->NumFlattenedDimensions loops.
@@ -203,7 +245,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       loop.residual_end = factors->second.at(loop.dimension).second;
       loop.stride = 1; // FIXME.
       loop.spacetime_dimension = arch_props_.IsSpatial(level)
-        ? (idim < user_spatial_splits.at(level) ? spacetime::Dimension::SpaceX : spacetime::Dimension::SpaceY)
+        ? (idim < split->second ? spacetime::Dimension::SpaceX : spacetime::Dimension::SpaceY)
         : spacetime::Dimension::Time;
       subnests.at(level).push_back(loop);
     }
