@@ -136,6 +136,8 @@ struct DataMovementInfo
     expected_metadata_occupancy = {};
     partition_size = 0;
     access_stats.clear();
+    parent_access_share = 0;
+    distributed_multicast = false;
     content_accesses = 0;
     fills = 0;
     reads = 0;

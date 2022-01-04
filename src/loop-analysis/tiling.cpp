@@ -166,15 +166,6 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
       continue;
     }
 
-    // Special case: if the last tiling level is forcibly masked, simply
-    // discard it. Caller is responsible to make sure this doesn't mess
-    // counts up. WARNING!
-    if (cur == num_tiling_levels - 1)
-    {
-      tile_nest[cur].Reset();
-      continue;
-    }
-
     // Regular cases: inner tiling levels.
     // Okay, we need to mask this tile level. Find next (outer) non-zero level.
     int outer;
@@ -185,7 +176,25 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
 
     if (outer == num_tiling_levels)
     {
-      continue;
+      // We did not find any outer unmasked tiling level. This means that
+      // the cur tiling level was (so far) the outermost unmasked tiling level.
+      // The mapping is asking us to mask this level. We need to do something
+      // special for these outermost-masked levels, but we do that in a
+      // subsequent pass. For now, simply obliterate the buffer stats (*not*
+      // the network stats) for the cur tiling level, just like we do for all
+      // other masked levels.
+
+      // WARNING! this is dangerous: masking out an outer level is only
+      // correct if the next-inner level contains the entire tensor. We
+      // do not check for this here and assume it is the user's responsibility.
+      tile_nest[cur].size = 0;
+      tile_nest[cur].shape = 0;
+      tile_nest[cur].partition_size = 0;
+      tile_nest[cur].content_accesses = 0;
+      tile_nest[cur].parent_access_share = 0;
+
+      // Break out, we are done since there is no other unmasked level.
+      break;
     }
 
     //
@@ -263,6 +272,8 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     // Recompute outer content accesses.
     tile_nest[outer].content_accesses = tile_nest[outer].access_stats.TotalAccesses();
 
+    // Outer or child's parent access share is not affected by masking
+
     // Obliterate the buffer stats (*not* the network stats) for the cur tiling level.
     tile_nest[cur].size = 0;
     tile_nest[cur].shape = 0;
@@ -270,13 +281,37 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     tile_nest[cur].content_accesses = 0;
     tile_nest[cur].parent_access_share = 0;
 
-    // It appears parent access share is not affected by masking (FIXME: verify).
   }
 
   // std::cout << "***** AFTER *****" << std::endl;
   // std::cout << "Tile nest = " << std::endl;
   // for (auto & tile : tile_nest)
   //   std::cout << "    " << tile << std::endl;  
+}
+
+// Special post-processing for outermost-masked tile levels.
+void ProcessOuterMaskedLevels(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLevels> mask)
+{
+  for (int cur = int(tile_nest.size())-1; cur >= 0; cur--)
+  {
+    // Work on all outermost masked levels until we find an unmasked level.
+    if (!mask[cur])
+    {
+      // Blow up *all* stats (including network stats).
+      tile_nest[cur].Reset();
+    }
+    else
+    {
+      // First unmasked level: set parent_access_share to 0.
+
+      // WARNING! the updated RMW path uses parent_access_share in a more
+      // sophisticated way. FIXME: revisit and make sure we do not have to do
+      // anything different for that path.
+      // if (gUpdatedRMW) { }
+      tile_nest[cur].parent_access_share = 0;
+      break;
+    }
+  }  
 }
 
 // Convert multicasts into scatter->distributed-multicasts if certain conditions
@@ -378,7 +413,7 @@ void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
       continue;
     }
 
-    // Initialize parent_access_share to 0.
+    // Initialize parent0_access_share to 0.
     tile_nest[cur].parent_access_share = 0;
    
     // Find next (outer) non-zero level.
@@ -850,6 +885,9 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 
     // Mask each solution according to the provided bit mask.
     MaskTiles(solution[pv], tile_mask[pv]);
+
+    // Additional step for outermost masked levels.
+    ProcessOuterMaskedLevels(solution[pv], tile_mask[pv]);
 
     // Set backing storage fill to zero
     // place holder
