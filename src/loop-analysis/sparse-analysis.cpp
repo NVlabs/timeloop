@@ -961,15 +961,16 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
 
 
 void InitializeSpatialInstances(SparseAnalysisState& state,
-                                const tiling::CompoundTileNest& compound_tile_nest)
+                                tiling::CompoundTileNest& compound_tile_nest)
 {
   
-  auto compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
-  auto compute_info = compound_tile_nest.compute_info_nest[0];
+  auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
+  auto& compute_info = compound_tile_nest.compute_info_nest[0];
 
   // Initialize spatial instances
   problem::PerDataSpace<std::vector<double>> avg_effective_expansion_ratio;
   problem::PerDataSpace<std::vector<SpatialExpansion>> max_spatial_expansion;
+  problem::PerDataSpace<std::vector<bool>> spatial_reduction_masks;
   
   std::uint16_t cur_architecture_level;
   
@@ -982,9 +983,8 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
     max_compute_expansion.Y = compute_info.max_y_expansion;
     max_compute_expansion.XY = max_compute_expansion.X * max_compute_expansion.Y;
     max_spatial_expansion[pv].emplace_back(max_compute_expansion);
+    spatial_reduction_masks[pv].emplace_back(false);
   
-    //effective_spatial_expansion_.push_back(init_expansion);
-    
     cur_architecture_level = 0; // compute is always the inner most level in the architecture 
     
     // each level's number of required instances is impacted by the set of par-fors from the level above,
@@ -1071,18 +1071,16 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
                 // std::cout << "-->loop: " << *loop << " max num elements: " <<  num_elements << "  ratio: " << ratio
                 //   << " max X: " << max_spatial_expansion[pv][cur_architecture_level].X 
                 //   << " max Y: " << max_spatial_expansion[pv][cur_architecture_level].Y
+                //   << " arch level: " << cur_architecture_level
                 //   << std::endl;
               }
             } // if fiber non-trivial
           } // if spatial loop
         } // for each loop
         avg_effective_expansion_ratio[pv][cur_architecture_level] = effective_ratio;
+        if (effective_ratio != 1.0)
+          spatial_reduction_masks[pv][cur_architecture_level] = true;
       } // if needs more processing
-      
-      // std::cout << "Initialize spatial instances: " 
-      // << " architecture level (0 is compute): " << cur_architecture_level << " dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) 
-      // << "  XY version instances: " << max_spatial_expansion[pv][cur_architecture_level].X * max_spatial_expansion[pv][cur_architecture_level].Y
-      // << "  avg effective ratio: " <<  avg_effective_expansion_ratio[pv][cur_architecture_level]<< std::endl;
        
       // prepare for the next level: increment arch level, and push in the original number of instances of current upper storage level
       // note that the top most storage level never gets spatial skip saf
@@ -1094,10 +1092,53 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
       max_storage_expansion.Y = compound_data_movement_nest[pv][upper_storage_id].max_y_expansion;
       max_storage_expansion.XY = max_storage_expansion.X * max_storage_expansion.Y;
       max_spatial_expansion[pv].emplace_back(max_storage_expansion);
+      spatial_reduction_masks[pv].emplace_back(false);
     }
   }
   state.avg_effective_expansion_ratio_ = avg_effective_expansion_ratio;
   state.max_spatial_expansion_ = max_spatial_expansion;
+  
+  // propagte expansion and avg ratio 
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  {
+    for (int architecture_level = state.num_storage_levels_; architecture_level >= 0; architecture_level-- )
+    {
+      if (architecture_level != 0)
+      {
+        double x_reduction_ratio = (double)state.max_spatial_expansion_[pv][architecture_level].X/compound_data_movement_nest[pv][architecture_level-1].max_x_expansion;
+        double y_reduction_ratio = (double)state.max_spatial_expansion_[pv][architecture_level].Y/compound_data_movement_nest[pv][architecture_level-1].max_y_expansion;
+        if (x_reduction_ratio != 1.0 || y_reduction_ratio != 1.0)
+        {
+          compound_data_movement_nest[pv][architecture_level-1].max_x_expansion = state.max_spatial_expansion_[pv][architecture_level].X ;
+          compound_data_movement_nest[pv][architecture_level-1].max_y_expansion = state.max_spatial_expansion_[pv][architecture_level].Y ;
+          bool cross_boundary = false;
+          for (int inner_level = architecture_level - 1; inner_level >= 0; inner_level--)
+          {
+            state.max_spatial_expansion_[pv][inner_level].X *= x_reduction_ratio;
+            state.max_spatial_expansion_[pv][inner_level].Y *= y_reduction_ratio;
+            if (spatial_reduction_masks[pv][inner_level]) cross_boundary = true; 
+            if (!cross_boundary)
+            {
+              //std::cout << "inner level: " << inner_level << std::endl;
+              state.avg_effective_expansion_ratio_[pv][inner_level] *= state.avg_effective_expansion_ratio_[pv][architecture_level];
+              //std::cout << state.avg_effective_expansion_ratio_[pv][inner_level] << std::endl;
+            }
+              
+          }
+        }
+      }
+      else
+      {
+        compute_info.max_x_expansion = state.max_spatial_expansion_[pv][architecture_level].X;
+        compute_info.max_y_expansion = state.max_spatial_expansion_[pv][architecture_level].Y;
+      }
+      // std::cout << "Initialize spatial instances: " 
+      // << " architecture level (0 is compute): " << architecture_level << " dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) 
+      // << "  XY version instances: " << state.max_spatial_expansion_[pv][architecture_level].X 
+      //                                  * state.max_spatial_expansion_[pv][architecture_level].Y
+      // << "  avg effective ratio: " <<  avg_effective_expansion_ratio[pv][architecture_level]<< std::endl;
+    }
+  }
 }
 
 
@@ -1142,164 +1183,118 @@ bool SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
 
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
   auto& compute_info = compound_tile_nest.compute_info_nest[0];
-
-  std::vector<SpatialExpansion> processed_spatial_expansion;
-
-
+  
   // Summarize storage effective instances and propagate to inner levels
   //    level 0: compute   level 1: inner most storage etc.  
   // as a result, we are summarizing the spatial instances of the storage levels in this loop
-  for (int architecture_level = state.num_storage_levels_; architecture_level >= 0 ; architecture_level--)
-  {
-     
-    bool is_compute = architecture_level == 0 ? true : false;
-    
-    // pick max number of instances
-    std::uint64_t level_max_x = state.max_spatial_expansion_[0][architecture_level].X;
-    std::uint64_t level_max_y = state.max_spatial_expansion_[0][architecture_level].Y;
-    double level_max_avg_ratio = state.avg_effective_expansion_ratio_[0][architecture_level];
-
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  { 
+    // std::cout << "Dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
+    std::vector<SpatialExpansion> orig_spatial_expansion = {};
+    for (unsigned storage_level = 0; storage_level < state.num_storage_levels_ ; storage_level++)
+    {
+      SpatialExpansion se;
+      se.X = compound_data_movement_nest[pv][storage_level].max_x_expansion;
+      se.Y = compound_data_movement_nest[pv][storage_level].max_y_expansion;
+      se.XY = se.X * se.Y;
+      orig_spatial_expansion.emplace_back(se);
+    }
+      
+    for (int architecture_level = state.num_storage_levels_; architecture_level >= 0; architecture_level--)
     {
       auto pv_max_x = state.max_spatial_expansion_[pv][architecture_level].X;
       auto pv_max_y = state.max_spatial_expansion_[pv][architecture_level].Y;
       auto pv_avg_ratio = state.avg_effective_expansion_ratio_[pv][architecture_level];
+      double y_reduction_ratio = 1.0;
+      double x_reduction_ratio = 1.0;
+      double pv_avg_replication_factor = 0; 
       
-      if ((level_max_x < pv_max_x && level_max_y > pv_max_y)
-          || (level_max_y < pv_max_y && level_max_x > pv_max_x))
+      if (architecture_level != 0)
       {
-        std::cerr << "Not implemented error. FIXME: consider a dataspace requires"
-          << " more spatial instances than another in one dimension, " 
-          << " but fewer spatial instances in another dimension" << std::endl;
-        assert(false);
-      } 
-       
-      level_max_x = pv_max_x >= level_max_x ? pv_max_x : level_max_x;
-      level_max_y = pv_max_y >= level_max_y ? pv_max_y : level_max_y;
-      level_max_avg_ratio = pv_avg_ratio >= level_max_avg_ratio ? pv_avg_ratio : level_max_avg_ratio; 
-    
-      // std::cout << topology_specs.GetLevel(architecture_level)->level_name 
-      //   << " dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
-      //   << " num X spatial instances: " << level_max_x 
-      //   << " num Y spatial instances: " << level_max_y
-      //   << " avg effective ratio: " << level_max_avg_ratio
-      //   << std::endl;
-    }
-    
-    SpatialExpansion level_spatial_expansion;
-    level_spatial_expansion.X = level_max_x;
-    level_spatial_expansion.Y = level_max_y;
-    level_spatial_expansion.XY = level_max_x * level_max_y;
-    processed_spatial_expansion.insert(processed_spatial_expansion.begin(), level_spatial_expansion);
-    
-    auto storage_level = architecture_level - 1;
-    // finalize the expansion factors at this level
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-    {
-      if (!is_compute)
-      {
-        compound_data_movement_nest[pv][storage_level].avg_replication_factor = level_max_avg_ratio 
-          * compound_data_movement_nest[pv][storage_level].replication_factor;
-      }
-      else
-      {
-        compute_info.avg_replication_factor = level_max_avg_ratio * compute_info.replication_factor;
-      }
-    }
-   
-    double y_reduction_ratio = 1.0;
-    double x_reduction_ratio = 1.0;
-    if (!is_compute)
-    {
-      y_reduction_ratio = (double)level_max_y/compound_data_movement_nest[0][storage_level].max_y_expansion;
-      x_reduction_ratio = (double)level_max_x/compound_data_movement_nest[0][storage_level].max_x_expansion;
-    }
-    
-    // std::cout << "  --> " << topology_specs.GetLevel(architecture_level)->level_name  
-    //   << " y-reduction ratio: " << y_reduction_ratio 
-    //   << " x-reduction ratio: " << x_reduction_ratio
-    //   << " max average effective ratio: " << level_max_avg_ratio
-    //   << std::endl;
-
-    // We should not propagate to levels below next spatial skipping
-    // since the probability of being optimized we get is the absolute probability for a certain tile
-    // irrelevant to whether the upper level has any optimization
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-    {  
-      for (int inner_level = architecture_level - 1; inner_level >= 0; inner_level--)
-      {
-        int upper_storage_level = inner_level; // offset exactly by 1, e.g., arch level 0 (compute)'s upper storage level is storage level 0
-        if (state.dspace_optimization_masks_["spatial_skip"][upper_storage_level][pv])
-        {
-          // std::cout << "spatial skip flag on for storage level: " << upper_storage_level << std::endl;
-          break;
-        } 
-        // std::cout << " propagate to inner arch level: " << inner_level << std::endl;
-        state.max_spatial_expansion_[pv][inner_level].X = (double)state.max_spatial_expansion_[pv][inner_level].X * x_reduction_ratio;
-        state.max_spatial_expansion_[pv][inner_level].Y = (double)state.max_spatial_expansion_[pv][inner_level].Y * y_reduction_ratio;
-
-        state.avg_effective_expansion_ratio_[pv][inner_level] = state.avg_effective_expansion_ratio_[pv][inner_level] * level_max_avg_ratio; 
-      }
-    }
-  }
-   
-  std::ostringstream fail_reason;
-  
-  // after propagation, summarize the final amount of skipping at each level
-  for (int architecture_level = state.num_storage_levels_; architecture_level >= 0; architecture_level--)
-  {
-    bool is_compute = architecture_level == 0 ? true : false;
-    auto max_xy_expansion = processed_spatial_expansion[architecture_level];
-
-    double cur_level_opt_prob = 1.0;
-    double avg_effective_replication_factor = 0;
-
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-    {
-      // impact of spatial skip is manifested as the reduced number of spatial instances in the lower level
-      if (!is_compute)
-      {
+        // impact of spatial skip is manifested as the reduced number of spatial instances in the lower level
         auto storage_level = architecture_level - 1;
         auto& data_movement_info = compound_data_movement_nest[pv][storage_level];
-        
-        data_movement_info.max_x_expansion = max_xy_expansion.X;
-        data_movement_info.max_y_expansion = max_xy_expansion.Y;
-        data_movement_info.max_replication_factor = max_xy_expansion.XY;
-        avg_effective_replication_factor = data_movement_info.avg_replication_factor;
-        
-        cur_level_opt_prob  = 1 - avg_effective_replication_factor/data_movement_info.replication_factor; 
-      }
+        pv_avg_replication_factor = data_movement_info.replication_factor * pv_avg_ratio;
+
+        data_movement_info.max_x_expansion = pv_max_x;
+        data_movement_info.max_y_expansion = pv_max_y;
+        data_movement_info.max_replication_factor = pv_max_x * pv_max_y;
+        data_movement_info.avg_replication_factor = (double)data_movement_info.replication_factor * pv_avg_ratio;
+
+        y_reduction_ratio = (double)pv_max_y/orig_spatial_expansion[storage_level].Y;
+        x_reduction_ratio = (double)pv_max_x/orig_spatial_expansion[storage_level].X;
+      } 
       else
-      { 
-        compute_info.max_x_expansion = max_xy_expansion.X;
-        compute_info.max_y_expansion = max_xy_expansion.Y;
-        compute_info.max_replication_factor = max_xy_expansion.XY;
-        
-        avg_effective_replication_factor = compute_info.avg_replication_factor;
-        cur_level_opt_prob  = 1 - avg_effective_replication_factor/compute_info.replication_factor;
+      {
+        compute_info.max_x_expansion = pv == 0 ? 
+          pv_max_x : (compute_info.max_x_expansion < pv_max_x ? pv_max_x : compute_info.max_x_expansion); 
+        compute_info.max_y_expansion = pv == 0 ? 
+          pv_max_y : (compute_info.max_y_expansion < pv_max_y ? pv_max_y : compute_info.max_y_expansion); 
+        pv_avg_replication_factor =  compute_info.replication_factor * pv_avg_ratio;
+        compute_info.avg_replication_factor = pv == 0 ? pv_avg_replication_factor 
+           : (compute_info.avg_replication_factor < pv_avg_replication_factor ? pv_avg_replication_factor : compute_info.avg_replication_factor); 
       }
       
       // The optimized away ratio is recorded as an attribute of the level above
       if ((unsigned)architecture_level < state.num_storage_levels_)
-        state.prob_explicitly_spatially_optimized_read_[architecture_level][pv] = cur_level_opt_prob; 
-     
-      bool topmost_level = architecture_level == int(topology_specs.NumLevels() - 1); 
+        state.prob_explicitly_spatially_optimized_read_[architecture_level][pv] =  1- pv_avg_ratio; 
       
       // Sanity check 
-      // std::cout << "Final: " << topology_specs.GetLevel(architecture_level)->level_name << std::endl; 
-      // std::cout << " avg effective rep factor: " << avg_effective_replication_factor 
-      //   << " max X expansion: " << max_xy_expansion.X
-      //   << " max Y expansion: " << max_xy_expansion.Y
-      //   << " max rep factor : " << max_xy_expansion.XY
-      //   << " opt prob: " << cur_level_opt_prob  
+      // std::cout << "  Final: " << topology_specs.GetLevel(architecture_level)->level_name 
+      //   << " avg effective rep factor: " << pv_avg_replication_factor 
+      //   << " max X expansion: " << pv_max_x
+      //   << " max Y expansion: " << pv_max_y
+      //   << " max rep factor : " << pv_max_x * pv_max_y
+      //   << " opt prob: " << 1 - pv_avg_ratio
       //   << " architecture level: " << architecture_level 
-      //   << " topmost level: " << topmost_level << std::endl; 
+      //   << " y-reduction ratio: " << y_reduction_ratio 
+      //   << " x-reduction ratio: " << x_reduction_ratio
+      //   << std::endl;
+
+      // We should not propagate to levels below next spatial skipping
+      // since the probability of being optimized we get is the absolute probability for a certain tile
+      // irrelevant to whether the upper level has any optimization
+      if (x_reduction_ratio != 1 || y_reduction_ratio != 1)
+      {
+        bool cross_boundary = false;
+        for (int inner_level = architecture_level - 1; inner_level >= 0; inner_level--)
+        {
+          // offset exactly by 1, e.g., arch level 0 (compute)'s upper storage level is storage level 0
+          int upper_storage_level = inner_level; 
+          if (state.dspace_optimization_masks_["spatial_skip"][upper_storage_level][pv])
+            cross_boundary = true;
+          
+          if (!cross_boundary)
+          {
+            state.avg_effective_expansion_ratio_[pv][inner_level] = state.avg_effective_expansion_ratio_[pv][inner_level] * pv_avg_ratio;
+          } 
+          // std::cout << "      propagate expansion reduction to inner arch level: " << inner_level << std::endl;
+          state.max_spatial_expansion_[pv][inner_level].X = (double)state.max_spatial_expansion_[pv][inner_level].X * x_reduction_ratio;
+          state.max_spatial_expansion_[pv][inner_level].Y = (double)state.max_spatial_expansion_[pv][inner_level].Y * y_reduction_ratio;
+        } // for each inner level
+      }
+    } // for each level
+  } // for each datspace
+  
+  std::ostringstream fail_reason;
+  
+
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  {
+  
+    // after propagation, summarize the final amount of skipping at each level
+    for (int architecture_level = state.num_storage_levels_; architecture_level >= 0; architecture_level--)
+    {
+      bool topmost_level = architecture_level == int(topology_specs.NumLevels() - 1); 
       
       // Check Fanout
       if (!topmost_level)
       {
-        std::uint64_t fanoutX =  max_xy_expansion.X/topology_specs.GetStorageLevel(architecture_level)->meshX.Get();
-        std::uint64_t fanoutY =  max_xy_expansion.Y/topology_specs.GetStorageLevel(architecture_level)->meshY.Get();       
+        // std::uint64_t fanoutX =  state.max_spatial_expansion_[pv][architecture_level].X/topology_specs.GetStorageLevel(architecture_level)->meshX.Get();
+        // std::uint64_t fanoutY =  state.max_spatial_expansion_[pv][architecture_level].Y/topology_specs.GetStorageLevel(architecture_level)->meshY.Get();       
+        
+        std::uint64_t fanoutX =  state.max_spatial_expansion_[pv][architecture_level].X/state.max_spatial_expansion_[pv][architecture_level + 1].X;
+        std::uint64_t fanoutY =  state.max_spatial_expansion_[pv][architecture_level].Y/state.max_spatial_expansion_[pv][architecture_level + 1].Y;
         if (fanoutX > state.sparse_optimization_info_-> max_fanoutX.at(architecture_level))
         {
           fail_reason << "Required fanoutX " << fanoutX 
@@ -1331,7 +1326,6 @@ bool SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
   }
   
   return success;
-
 }
 
 bool DefineStorageOptimizationImpact(SparseAnalysisState& state,
@@ -1392,7 +1386,6 @@ bool DefineStorageOptimizationImpact(SparseAnalysisState& state,
 
   if ((success || !break_on_failure) && action_spatial_skipping_info.size() > 0)
   {
-    
     InitializeSpatialInstances(state, compound_tile_nest);
     // Define how much spatial capacity can be optimized away
     (void) compute_info;

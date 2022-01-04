@@ -344,7 +344,8 @@ void ArithmeticUnits::Print(std::ostream& out) const
   out << indent << "-----" << std::endl;
 #define PRINT_SPARSE_STATS
 #ifdef PRINT_SPARSE_STATS
-  out << indent << "Utilized instances           : " << UtilizedInstances() << std::endl;
+  out << indent << "Utilized instances (max)     : " << UtilizedInstances() << std::endl;
+  out << indent << "Utilized instances (average) : " << avg_utilized_instances_ << std::endl;
   out << indent << "Cycles                       : " << Cycles() << std::endl;
   out << indent << "Algorithmic Computes (total) : " << algorithmic_computes_ << std::endl;
   out << indent << "Actual Computes (total)      : " << actual_computes_ << std::endl;

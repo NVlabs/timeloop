@@ -103,6 +103,7 @@ class ArithmeticUnits : public Level
   double area_ = 0;
   std::uint64_t cycles_ = 0;
   std::uint64_t utilized_instances_ = 0;
+  std::uint64_t avg_utilized_instances_ = 0;
   std::uint64_t utilized_x_expansion_ = 0;
   std::uint64_t utilized_y_expansion_ = 0;
   std::uint64_t algorithmic_computes_ = 0; // number of computes defined by the algorithm (loop nests)
@@ -128,6 +129,7 @@ class ArithmeticUnits : public Level
       ar& BOOST_SERIALIZATION_NVP(area_);
       ar& BOOST_SERIALIZATION_NVP(cycles_);
       ar& BOOST_SERIALIZATION_NVP(utilized_instances_);
+      ar& BOOST_SERIALIZATION_NVP(avg_utilized_instances_);
       ar& BOOST_SERIALIZATION_NVP(algorithmic_computes_);
       ar& BOOST_SERIALIZATION_NVP(random_computes_);
       ar& BOOST_SERIALIZATION_NVP(gated_computes_);
@@ -231,6 +233,7 @@ class ArithmeticUnits : public Level
     eval_status.success = true;
 
     utilized_instances_ = tile.compute_info.max_x_expansion * tile.compute_info.max_y_expansion;
+    avg_utilized_instances_ = tile.compute_info.avg_replication_factor;
     utilized_x_expansion_ = tile.compute_info.max_x_expansion;
     utilized_y_expansion_ = tile.compute_info.max_y_expansion;
     
@@ -241,7 +244,7 @@ class ArithmeticUnits : public Level
     {
       eval_status.success = false;
       std::ostringstream str;
-      str << "mapped Arithmetic instances " << utilized_instances_
+      str << "mapped max Arithmetic instances " << utilized_instances_
           << " exceeds hardware instances " << specs_.instances.Get();
       eval_status.fail_reason = str.str();   
     }
@@ -249,7 +252,7 @@ class ArithmeticUnits : public Level
     {
       eval_status.success = false;
       std::ostringstream str;
-      str << "mapped Arithmetic X expansion " << utilized_x_expansion_ 
+      str << "mapped max Arithmetic X expansion " << utilized_x_expansion_ 
           << " exceeds hardware instances " << specs_.meshX.Get();
       eval_status.fail_reason = str.str();   
     }
@@ -257,7 +260,7 @@ class ArithmeticUnits : public Level
     {
       eval_status.success = false;
       std::ostringstream str;
-      str << "mapped Arithmetic Y expansion " << utilized_y_expansion_ 
+      str << "mapped max Arithmetic Y expansion " << utilized_y_expansion_ 
           << " exceeds hardware instances " << specs_.meshY.Get();
       eval_status.fail_reason = str.str();   
     }
@@ -288,7 +291,7 @@ class ArithmeticUnits : public Level
         actual_computes_ = random_computes_;
       }
 
-      cycles_ = ceil(double(random_computes_ + gated_computes_)/utilized_instances_);
+      cycles_ = ceil(double(random_computes_ + gated_computes_)/avg_utilized_instances_);
       algorithmic_computes_ = tile.compute_info.replication_factor * tile.compute_info.accesses;
       is_evaluated_ = true;
     }

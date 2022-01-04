@@ -441,6 +441,10 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
   config::CompoundConfigNode optimization_list;
   optimization_list = directive.lookup("action-optimization");
 
+  bool exist_gating_saf = false;
+  bool exist_skipping_saf = false;
+  bool exist_spatial_skipping_saf = false;
+
 
   std::string optimization_type;
   PerStorageActionOptimization per_storage_action_optimization_skipping = {};
@@ -533,12 +537,15 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
     if (optimization_type == "gating")
     {
       per_storage_action_optimization_gating.push_back(group);
+      exist_gating_saf = true;
     } else if (optimization_type == "skipping")
     {
       per_storage_action_optimization_skipping.push_back(group);
+      exist_skipping_saf = true;
     } else if (optimization_type == "skipping-spatial")
     {
       per_storage_action_optimization_spatial_skipping.push_back(group);
+      exist_spatial_skipping_saf = true;
     }
     else
     {
@@ -548,9 +555,12 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
   }
 
   unsigned cur_storage_level_id = FindTargetStorageLevel(level_name, arch_specs);
-  sparse_optimization_info.action_skipping_info[cur_storage_level_id] = per_storage_action_optimization_skipping;
-  sparse_optimization_info.action_spatial_skipping_info[cur_storage_level_id] = per_storage_action_optimization_spatial_skipping;
-  sparse_optimization_info.action_gating_info[cur_storage_level_id] = per_storage_action_optimization_gating;
+  if (exist_skipping_saf)
+    sparse_optimization_info.action_skipping_info[cur_storage_level_id] = per_storage_action_optimization_skipping;
+  if (exist_spatial_skipping_saf)
+    sparse_optimization_info.action_spatial_skipping_info[cur_storage_level_id] = per_storage_action_optimization_spatial_skipping;
+  if (exist_gating_saf)
+    sparse_optimization_info.action_gating_info[cur_storage_level_id] = per_storage_action_optimization_gating;
 }
 
 //
