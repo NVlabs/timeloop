@@ -413,7 +413,7 @@ void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
       continue;
     }
 
-    // Initialize parent0_access_share to 0.
+    // Initialize parent_access_share to 0.
     tile_nest[cur].parent_access_share = 0;
    
     // Find next (outer) non-zero level.
