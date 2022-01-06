@@ -683,7 +683,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   }
 
   // Calculate delta to send up to caller.
-
+#define NEW_RESET_ON_STRIDE_CHANGE_APPROACH
 #ifdef NEW_RESET_ON_STRIDE_CHANGE_APPROACH
   // Hardware pattern generators may be unable to generate complicated patterns
   // arising from residuals left over from ancestor (grandparent-upwards) loop

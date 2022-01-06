@@ -364,7 +364,6 @@ OperationSpace& OperationSpace::operator += (const OperationPoint& p)
   for (unsigned i = 0; i < data_spaces_.size(); i++)
   {
     data_spaces_.at(i) += Project(i, workload_, factorized);
-    std::cout << "dataspace after add: " << data_spaces_.at(i) << std::endl;
   }
 
   return (*this);
@@ -400,30 +399,45 @@ void OperationSpace::SaveAndSubtract(OperationSpace& prev)
 
 void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<Point>& prev_translation)
 {
-  // The logic to detect a change in stride/gradient is broken. We can't just
-  // compare the raw stride vector because we may jump from iteration 0 to 1 to
-  // last. We should only check for the direction, which we can do by
+  // The logic to detect a change in stride/gradient is sub-optimal. We are
+  // comparing the raw stride vectors, but we should only check for the
+  // direction (e.g., what if we jump from 0->1->last). We can do this by
   // normalizing the vector (which the old AAHR code was doing by just storing
   // the stride as a gradient along a single dimension and comparing signs).
   // However, this is a costly operation. We need to find a way to use a
   // simpler computation to accelerate the common/simple cases.
-  assert(false);
 
   for (unsigned i = 0; i < data_spaces_.size(); i++)
   {
-    auto translation = data_spaces_.at(i).GetTranslation(prev.data_spaces_.at(i));
-    if (translation == prev_translation.at(i))
+    Point translation;
+    if (!prev.data_spaces_.at(i).empty()) 
     {
-      // Stride is the same as previous stride, so perform a real subtraction.
+      // The reason we gate this is because if the prev set is null, we want
+      // the translation to also be null (i.e. an order-0 point) instead of
+      // a <0,0,...> vector.
+      translation = prev.data_spaces_.at(i).GetTranslation(data_spaces_.at(i));
+    }
+
+    if (prev_translation.at(i).Order() == 0)
+    {
+      // Previous stride is null, so we perform a delta.
+      auto saved = data_spaces_.at(i);
+      data_spaces_.at(i).Subtract(prev.data_spaces_.at(i));
+      std::swap(saved, prev.data_spaces_.at(i));
+      prev_translation.at(i) = translation;
+    }
+    else if (translation == prev_translation.at(i))
+    {
+      // Stride is the same as previous stride, so perform a delta.
       auto saved = data_spaces_.at(i);
       data_spaces_.at(i).Subtract(prev.data_spaces_.at(i));
       std::swap(saved, prev.data_spaces_.at(i));
     }
     else
     {
-      // Stride has changed; discard the subtrahend and update the stride.
-      prev_translation.at(i) = translation;
+      // Stride has changed; discard the subtrahend and reset the stride.
       prev.data_spaces_.at(i) = data_spaces_.at(i);
+      prev_translation.at(i) = Point();
     }
   }
 }
