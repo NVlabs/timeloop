@@ -195,10 +195,11 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
           // only check the user-defined networks
           auto networkSpec = GetNetwork(i);
           if (networkSpec->Type() == "SimpleMulticast" && networkSpec->name == componentName){
-            if (std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)){
-              // std::cout << "simple multicast component identified: " << componentName << std::endl;
-              std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
-            }
+            assert(false); // FIXME: why is the name of a network class exposed in this file?
+            // if (std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)){
+            //   // std::cout << "simple multicast component identified: " << componentName << std::endl;
+            //   std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
+            // }
           }
       }
       // Find the level that matches this name and see what type it is
@@ -971,6 +972,30 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
   return eval_status;
 }
 
+
+//void PopulateCompressedSizeAndConfidence(tiling::NestOfCompoundTiles tiles, problem::Workload* workload){
+//  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++){
+//    auto storage_level = GetStorageLevel(storage_level_id);
+//    auto storage_level_effective_capacity = storage_level->GetSpecs().effective_size.Get();
+//
+//    for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++){
+//      uint64_t tile_shape = tiles[storage_level_id].data_movement_info.at(pv).size;
+//      double confidence = workload->GetDensity(pv).GetTileConfidence(tile_shape, storage_level_effective_capacity);
+//      uint64_t compressed_size;
+//      if (storage_level_effective_capacity >= tile_shape){
+//        compressed_size = tile_shape;
+//      }
+//
+//    }
+//
+//
+//
+//
+//    // set confidence according to
+//  }
+//
+//
+
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            analysis::NestAnalysis* analysis,
                                            sparse::SparseOptimizationInfo* sparse_optimizations,
@@ -1166,8 +1191,6 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     if (break_on_failure && !s.success)
       break;
   }
-
-
 
   if (!break_on_failure || success_accum)
   {

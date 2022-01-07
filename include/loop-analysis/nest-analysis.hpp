@@ -27,10 +27,13 @@
 
 #pragma once
 
+#include <unordered_map>
+#include <map>
+#include <unordered_set>
+
 #include "mapping/nest.hpp"
 #include "workload/util/per-problem-dimension.hpp"
 #include "nest-analysis-tile-info.hpp"
-
 
 namespace analysis
 {
@@ -55,7 +58,7 @@ class NestAnalysis
   std::uint64_t spatial_id_;
   
   CompoundDataMovementNest working_sets_;
-  ComputeInfo compute_info_;  
+  std::map<std::vector<unsigned>, ComputeInfo> compute_info_;
   CompoundComputeNest compute_info_sets_;
 
   // Memoization structures to accelerate IndexToOperationPoint()
@@ -78,6 +81,12 @@ class NestAnalysis
   // point of a new storage tile.
   std::vector<bool> storage_boundary_level_;
   
+  // architectural storage level corresponding to a given loop level.
+  std::vector<unsigned> arch_storage_level_;
+
+  // extrapolation may be disabled at certain levels.
+  std::vector<bool> disable_temporal_extrapolation_;
+
   // any level which is at the transition point from temporal to
   // spatial nests is a master spatial level.
   // there should be one such level between each set of
@@ -88,10 +97,43 @@ class NestAnalysis
   // level are connected by on-chip links.
   std::vector<bool> linked_spatial_level_;
 
+  // The following data structures are used for skew calculation. We can
+  // possibly optimize the implementation by holding the data in a few
+  // OperationPoints instead of these maps. At each storage tiling
+  // boundary, we initiate a new loop gist that captures the information
+  // for all the loops in that block (i.e., before the next-inner
+  // storage tiling boundary).
+  struct LoopGist
+  {
+    int index = 0;
+    int bound = 1;
+  };
+  // Hold the gists in a vector instead of a map. This is because trivial
+  // unit-loops are omitted from the loop nest, which means the gist may
+  // not be complete by the time we arrive at the innermost
+  // FillSpatialDeltas in a loop block. Using a vector (along with the
+  // default values in the struct above) allows us to pre-initialize all
+  // loops. Just be careful to expand them in the Reset() call.
+  std::vector<LoopGist> loop_gists_temporal_;
+  std::vector<LoopGist> loop_gists_spatial_;
+
+  // Storage level to fanout map.
+  std::map<unsigned, std::uint64_t> fanoutX_map_; 
+  std::map<unsigned, std::uint64_t> fanoutY_map_; 
+
+  std::unordered_map<unsigned, loop::Nest::SkewDescriptor> packed_skew_descriptors_; // per storage level.
+  std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skew_descriptors_; // per loop level.
+  loop::Nest::SkewDescriptor* cur_skew_descriptor_ = nullptr;
+
+  // Other state.
+
   bool working_sets_computed_ = false;
   bool imperfectly_factorized_ = false;
 
   problem::Workload* workload_ = nullptr;
+
+  std::vector<unsigned> time_stamp_;
+  std::vector<unsigned> space_stamp_;
 
   // Internal helper methods.
   void ComputeWorkingSets();
@@ -107,47 +149,51 @@ class NestAnalysis
   void CollectWorkingSets();
 
   problem::OperationPoint IndexToOperationPoint_(const std::vector<int>& indices) const;
-  bool IsLastGlobalIteration_(int level, problem::Shape::DimensionID dim) const;
+  bool IsLastGlobalIteration_(int level, problem::Shape::FlattenedDimensionID dim) const;
   
   problem::OperationSpace ComputeDeltas(std::vector<analysis::LoopState>::reverse_iterator cur);
 
   void ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
-                                 //problem::OperationSpace& point_set,
                                  analysis::ElementState& cur_state);
   void ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur);
-  //problem::OperationSpace& point_set);
 
   void FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_iterator cur,
-                         std::vector<problem::OperationSpace>& spatial_deltas,
-                         std::vector<bool>& valid_delta,
+                         std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
+                         std::unordered_map<std::uint64_t, std::uint64_t>& skew_table,
                          std::uint64_t base_index,
                          int depth,
                          int extrapolation_stride);
 
+  std::uint64_t ApplySkew(std::uint64_t unskewed_index);
+
   void ComputeAccurateMulticastedAccesses(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::OperationSpace>& spatial_deltas,
-      std::vector<problem::PerDataSpace<bool>>&
-      unaccounted_delta,
-      problem::PerDataSpace<std::vector<std::uint64_t>>& accesses,
-      problem::PerDataSpace<std::vector<std::uint64_t>>& scatter_factors,
-      problem::PerDataSpace<std::vector<double>>& cumulative_hops
-    );
+      const std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
+      problem::PerDataSpace<std::unordered_set<std::uint64_t>>& unaccounted_delta,
+      problem::PerDataSpace<AccessStatMatrix>& access_stats);
 
   void ComputeNetworkLinkTransfers(
       std::vector<analysis::LoopState>::reverse_iterator cur,
-      const std::vector<problem::OperationSpace>& cur_spatial_deltas,
-      std::vector<problem::PerDataSpace<bool>>&
-      unaccounted_delta,
+      const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
+      problem::PerDataSpace<std::unordered_set<std::uint64_t>>& unaccounted_delta,
       problem::PerDataSpace<std::uint64_t>& link_transfers);
  
- void ComputeDataDensity();
-
+  void CompareSpatioTemporalDeltas(
+    const std::unordered_map<std::uint64_t, problem::OperationSpace>& cur_spatial_deltas,
+    const std::unordered_map<std::uint64_t, problem::OperationSpace>& prev_spatial_deltas,
+    const std::uint64_t cur_spatial_index,
+    const std::uint64_t prev_spatial_index,
+    std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse);
+  
+  void ComputeDataDensity();
+  void PrintSpaceTimeStamp();
 
  public:  
   // API
   NestAnalysis();
-  void Init(problem::Workload* wc, const loop::Nest* nest);
+  void Init(problem::Workload* wc, const loop::Nest* nest,
+            std::map<unsigned, std::uint64_t> fanoutX_map,
+            std::map<unsigned, std::uint64_t> fanoutY_map);
   void Reset();
  
   std::vector<problem::PerDataSpace<std::size_t>> GetWorkingSetSizes_LTW() const;

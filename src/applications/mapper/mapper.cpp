@@ -544,6 +544,7 @@ void Application::Run()
   free(cfg_string_);
   libconfig::Setting& root = config.getRoot();
 
+#ifdef EMIT_OPT_AS_CONSTRAINTS
   // Update the mapper constraints.
   libconfig::Setting& mapper = root.lookup("mapper");
 
@@ -576,6 +577,22 @@ void Application::Run()
     // Format the best mapping as libconfig constraints.
     global_best_.mapping.FormatAsConstraints(mapspace);
   }
+#else
+  // We used to create a set of mapper constraints to fit exactly one mapping,
+  // which could then be provided to timeloop-mapper.
+  // We now create a single mapping which can be fed to timeloop-model.
+  root.remove("mapper");
+  root.remove("mapspace");
+
+  if (global_best_.valid)
+  {
+    // Create a new mapping.
+    libconfig::Setting& mapping = root.add("mapping", libconfig::Setting::TypeList);
+    
+    // Format the best mapping as a libconfig spec.
+    global_best_.mapping.FormatAsLibConfig(mapping, arch_specs_.topology.StorageLevelNames());
+  }
+#endif
 
   config.writeFile(map_cfg_file_name.c_str());
 }

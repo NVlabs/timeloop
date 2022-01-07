@@ -33,7 +33,7 @@
 
 namespace sparse {
 
-SparseOptimizationInfo  ParseAndConstruct(config::CompoundConfigNode sparse_config,
-										  model::Engine::Specs& arch_specs);
+SparseOptimizationInfo  ParseAndConstruct(config::CompoundConfigNode sparse_config, 
+                                          model::Engine::Specs& arch_specs);
 
 }

@@ -71,7 +71,7 @@ bool UncompressedBitmask::CoordinatesImplicit() const
 }
 
 
-std::vector<problem::Shape::DimensionID> UncompressedBitmask::GetDimensionIDs() const
+std::vector<problem::Shape::FactorizedDimensionID> UncompressedBitmask::GetDimensionIDs() const
 {
   assert(is_specced_);
   return specs_.dimension_ids;

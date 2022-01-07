@@ -190,8 +190,10 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
   std::string lc_format = metadata_specs->Name();
   bool rank_compressed = metadata_model->RankCompressed();
   bool coordinates_implicit = metadata_model->CoordinatesImplicit();
-
-  std::vector<std::vector<problem::Shape::DimensionID>> per_level_flattened_rankIDs = {};
+  
+  // the dimension ids are the ones that appear in mapping spec,
+  // i.e., you can flatten two "flattened ids" together in fibertree
+  std::vector<std::vector<problem::Shape::FlattenedDimensionID>> per_level_flattened_rankIDs = {};
 
   if (rank_specs.exists("flattened-rankIDs"))
   {
@@ -202,11 +204,11 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
     {
       std::vector <std::string> dim_name_list;
       list_of_rankID_list[id].getArrayValue(dim_name_list);
-      std::vector<problem::Shape::DimensionID> dim_id_list;
+      std::vector<problem::Shape::FlattenedDimensionID> dim_id_list;
 
       for (auto iter = dim_name_list.begin(); iter != dim_name_list.end(); iter++)
       {
-        auto id = problem::GetShape()->DimensionNameToID.at(*iter);
+        auto id = problem::GetShape()->FlattenedDimensionNameToID.at(*iter);
         dim_id_list.push_back(id);
       }
       per_level_flattened_rankIDs.push_back(dim_id_list);

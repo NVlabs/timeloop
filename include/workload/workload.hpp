@@ -48,7 +48,7 @@ namespace problem
 // only be one active shape instance. To fix this, we need to make the shape
 // instance a member of Workload, and pass pointers to the Workload
 // object *everywhere*. The most problematic classes are PerDataSpace and
-// PerProblemDimension. If we can figure out a clean implementation of these
+// PerFlattenedDimension. If we can figure out a clean implementation of these
 // classes that does not require querying Shape::NumDimensions or
 // Shape::NumDataSpaces then most of the problem is possibly solved.
 
@@ -61,12 +61,14 @@ const Shape* GetShape();
 class Workload
 {
  public:
-  typedef std::map<Shape::DimensionID, Coordinate> Bounds;
+  typedef std::map<Shape::FactorizedDimensionID, Coordinate> FactorizedBounds;
+  typedef std::map<Shape::FlattenedDimensionID, Coordinate> FlattenedBounds;
   typedef std::map<Shape::CoefficientID, int> Coefficients;
   typedef std::map<Shape::DataSpaceID, std::shared_ptr<DensityDistribution>> Densities;
   
  protected:
-  Bounds bounds_;
+  FactorizedBounds factorized_bounds_;
+  FlattenedBounds flattened_bounds_;
   Coefficients coefficients_;
   Densities densities_;
   bool workload_tensor_size_set_ = false;
@@ -81,9 +83,26 @@ class Workload
     return problem::GetShape();
   }
 
-  int GetBound(Shape::DimensionID dim) const
+  int GetFactorizedBound(Shape::FactorizedDimensionID dim) const
   {
-    return bounds_.at(dim);
+    return factorized_bounds_.at(dim);
+  }
+
+  int GetFlattenedBound(Shape::FlattenedDimensionID dim) const
+  {
+    return flattened_bounds_.at(dim);
+  }
+
+  Point GetFactorizedBounds() const
+  {
+    // Pack all bounds into a point representation.
+    auto num_dimensions = GetShape()->NumFactorizedDimensions;
+    Point bounds(num_dimensions);
+    for (unsigned dim = 0; dim < num_dimensions; dim++)
+    {
+      bounds[dim] = factorized_bounds_.at(dim);
+    }
+    return bounds;
   }
 
   int GetCoefficient(Shape::CoefficientID p) const
@@ -101,10 +120,27 @@ class Workload
     return default_dense_;
   }
 
-  void SetBounds(const Bounds& bounds)
+  void DeriveFlattenedBounds()
   {
-    bounds_ = bounds;
+    for (unsigned i = 0; i < GetShape()->NumFlattenedDimensions; i++)
+    {
+      auto& factorized_dimensions = GetShape()->FlattenedToFactorized.at(i);
+      flattened_bounds_[i] = 1;
+      for (auto factorized_dim: factorized_dimensions)
+        flattened_bounds_[i] *= factorized_bounds_.at(factorized_dim);
+    }
   }
+
+  void SetFactorizedBounds(const FactorizedBounds& factorized_bounds)
+  {
+    factorized_bounds_ = factorized_bounds;
+    DeriveFlattenedBounds();
+  }
+  
+  // void SetFlattenedBounds(const FlattenedBounds& flattened_bounds)
+  // {
+  //   flattened_bounds_ = flattened_bounds;
+  // }
   
   void SetCoefficients(const Coefficients& coefficients)
   {
@@ -119,7 +155,6 @@ class Workload
   void SetWorkloadTensorSize(problem::Shape::DataSpaceID id, std::uint64_t tensor_size)
   {
     // hypergeometric distribution specification requires workload tensor sizes
-	//printf("Setting workload tensor sizes! %lu\n", tensor_size);
     densities_.at(id)->SetWorkloadTensorSize(tensor_size);
   }
 
@@ -138,7 +173,6 @@ class Workload
     default_dense_ = flag;
   }
 
-
  private:
   // Serialization
   friend class boost::serialization::access;
@@ -147,7 +181,7 @@ class Workload
   {
     if (version == 0)
     {
-      ar& BOOST_SERIALIZATION_NVP(bounds_);
+      ar& BOOST_SERIALIZATION_NVP(factorized_bounds_);
       ar& BOOST_SERIALIZATION_NVP(coefficients_);
       ar& BOOST_SERIALIZATION_NVP(densities_);
     }

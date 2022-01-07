@@ -74,7 +74,7 @@ bool UncompressedOffsetPair::CoordinatesImplicit() const
 }
 
 
-std::vector<problem::Shape::DimensionID> UncompressedOffsetPair::GetDimensionIDs() const
+std::vector<problem::Shape::FactorizedDimensionID> UncompressedOffsetPair::GetDimensionIDs() const
 {
   assert(is_specced_);
   return specs_.dimension_ids;

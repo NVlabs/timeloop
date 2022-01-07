@@ -49,14 +49,15 @@ class Constraints
   const problem::Workload& workload_;  
  
   // The constraints.
-  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> factors_;
-  std::map<unsigned, std::map<problem::Shape::DimensionID, int>> max_factors_;
-  std::map<unsigned, std::vector<problem::Shape::DimensionID>> permutations_;
+  std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>> factors_;
+  std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>> max_factors_;
+  std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> permutations_;
   std::map<unsigned, std::uint32_t> spatial_splits_;
   std::map<unsigned, double> confidence_thresholds_;
   problem::PerDataSpace<std::string> bypass_strings_;
   double min_parallelism_;
   bool min_parallelism_isset_;  
+  std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skews_;
 
  public:
   Constraints() = delete;
@@ -64,13 +65,14 @@ class Constraints
   Constraints(const ArchProperties& arch_props,
               const problem::Workload& workload);
 
-  const std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& Factors() const;
-  const std::map<unsigned, std::map<problem::Shape::DimensionID, int>>& MaxFactors() const;
-  const std::map<unsigned, std::vector<problem::Shape::DimensionID>>& Permutations() const;
+  const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>& Factors() const;
+  const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>& MaxFactors() const;
+  const std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>>& Permutations() const;
   const std::map<unsigned, std::uint32_t>& SpatialSplits() const;  
   const problem::PerDataSpace<std::string>& BypassStrings() const;
   double MinParallelism() const;
   const std::map<unsigned, double>& ConfidenceThresholds() const;
+  const std::unordered_map<unsigned, loop::Nest::SkewDescriptor> Skews() const;
 
   // Create a constraints object from a given mapping object. The resultant
   // constraints will *only* be satisfied by that mapping.
@@ -98,9 +100,9 @@ class Constraints
   unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type);
 
   // Parsers.
-  std::map<problem::Shape::DimensionID, int> ParseFactors(config::CompoundConfigNode constraint);
-  std::map<problem::Shape::DimensionID, int> ParseMaxFactors(config::CompoundConfigNode constraint);
-  std::vector<problem::Shape::DimensionID> ParsePermutations(config::CompoundConfigNode constraint);
+  std::map<problem::Shape::FlattenedDimensionID, int> ParseFactors(config::CompoundConfigNode constraint);
+  std::map<problem::Shape::FlattenedDimensionID, int> ParseMaxFactors(config::CompoundConfigNode constraint);
+  std::vector<problem::Shape::FlattenedDimensionID> ParsePermutations(config::CompoundConfigNode constraint);
   void ParseDatatypeBypassSettings(config::CompoundConfigNode constraint, unsigned level);
 };
 

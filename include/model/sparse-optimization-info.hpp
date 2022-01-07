@@ -89,13 +89,13 @@ struct PerDataSpaceCompressionInfo
   std::vector<bool> rank_compressed; // if each rank is compressed
   std::vector<bool> coordinates_implicit;
   std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format
-  std::vector<std::vector<std::vector< problem::Shape::DimensionID>>> flattened_rankIDs; // rankIDs that can be flattened together
+  std::vector<std::vector<std::vector< problem::Shape::FlattenedDimensionID>>> flattened_rankIDs; // rankIDs that can be flattened together
   std::vector <std::shared_ptr<problem::MetaDataFormat>> metadata_models; // pointers to metadata format objs
   double compression_rate; // not very useful yet, placeholder
 
   bool HasMetaData() const;
-  bool FoundDimensionInFlatteningRule(std::uint64_t rank_id, problem::Shape::DimensionID dim_id,
-                                      std::vector<problem::Shape::DimensionID> &rule_item) const;
+  bool FoundDimensionInFlatteningRule(std::uint64_t rank_id, problem::Shape::FlattenedDimensionID dim_id,
+                                      std::vector<problem::Shape::FlattenedDimensionID> &rule_item) const;
 };
 
 typedef std::map<unsigned, PerDataSpaceCompressionInfo> PerStorageLevelCompressionInfo;

@@ -165,16 +165,16 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
 
     if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
     {
-      stats_.ingresses[pv].resize(data_movement[pvi].accesses.size());
-      for (unsigned i = 0; i < data_movement[pvi].accesses.size(); i++)
+      stats_.ingresses[pv] = data_movement[pvi].access_stats;
+      for (auto& x: stats_.ingresses[pv].stats)
       {
-        stats_.ingresses[pv][i] = data_movement[pvi].accesses[i];
-        stats_.spatial_reductions[pv] += (i * stats_.ingresses[pv][i]);
+        auto multicast = x.first.first;
+        stats_.spatial_reductions[pv] += (multicast-1) * x.second.accesses;
       }
     }
     else // Read-only data, all zeros
     {
-      stats_.ingresses[pv] = std::vector<long unsigned int>(stats_.ingresses[pv].size(), 0);
+      stats_.ingresses[pv].clear();
     }
   } 
 
@@ -187,16 +187,21 @@ EvalStatus ReductionTreeNetwork::Evaluate(const tiling::CompoundTile& tile,
       WireEnergyPerHop(specs_.word_bits.Get(), specs_.tile_width.Get(), specs_.wire_energy.Get());
     double total_wire_hops = 0;
     double total_ingresses = 0;
-    for (unsigned i = 0; i < stats_.ingresses[pv].size(); i++)
+
+    for (auto& x: stats_.ingresses.at(pv).stats)
     {
-      auto ingresses = stats_.ingresses.at(pv).at(i);
+      auto reduction_factor = x.first.first;
+      // auto scatter_factor = x.first.second;
+      auto ingresses = x.second.accesses;
+      // auto hops = x.second.hops;
+
       total_ingresses += ingresses;
       double num_hops = 0;
       if (ingresses > 0)
       {
-        if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
+        if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+        {
           // Modeling the reduction tree here!
-          auto reduction_factor = i + 1;
           num_hops = std::floor(std::log2(reduction_factor)) * 0.5;
         }
       }

@@ -25,12 +25,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "compound-config/compound-config.hpp"
-
 #include <iostream>
 #include <fstream>
 #include <cstring>
 #include <streambuf>
+
+#include "compound-config/compound-config.hpp"
 
 #define EXCEPTION_PROLOGUE                                                          \
     try { 

@@ -24,13 +24,63 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #pragma once
 
+#include <map>
+#include <boost/serialization/map.hpp>
 #include <boost/serialization/vector.hpp>
 
 #include "mapping/loop.hpp"
 #include "workload/util/per-data-space.hpp"
+
+struct AccessStats
+{
+  double accesses = 0;
+  double hops = 0.0;
+
+  // Serialization.
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar& BOOST_SERIALIZATION_NVP(accesses);
+      ar& BOOST_SERIALIZATION_NVP(hops);
+    }
+  }
+};
+
+struct AccessStatMatrix
+{
+  std::map<std::pair<std::uint64_t,std::uint64_t>, AccessStats> stats;
+
+  void clear();
+
+  double TotalAccesses() const;
+  double WeightedAccesses() const;
+
+  void Accumulate(const AccessStatMatrix& other);
+  void Divide(const std::uint64_t divisor);
+
+  AccessStats& at(std::uint64_t multicast, std::uint64_t scatter);
+  AccessStats& operator () (std::uint64_t multicast, std::uint64_t scatter);
+
+  bool operator == (const AccessStatMatrix& other);
+
+  friend std::ostream& operator << (std::ostream& out, const AccessStatMatrix& m);
+
+  // Serialization.
+  friend class boost::serialization::access;
+  template <class Archive>
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar& BOOST_SERIALIZATION_NVP(stats);
+    }
+  }
+};
 
 namespace analysis
 {
@@ -46,10 +96,8 @@ struct DataMovementInfo
   std::size_t size;
   // std::size_t partition_size;
   bool distributed_multicast;
-  std::vector<std::uint64_t> accesses;   // accesses at various multicast factors.
-  std::vector<std::uint64_t> scatter_factors;
-  std::vector<double> cumulative_hops;
-  std::uint64_t link_transfers;
+  AccessStatMatrix access_stats;
+  double link_transfers;
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t fanout;                  // per-element fanout to next-level.
@@ -57,10 +105,6 @@ struct DataMovementInfo
   bool is_on_storage_boundary;
   bool is_master_spatial;
   
-  std::uint64_t GetTotalAccesses() const;
-  
-  std::uint64_t GetWeightedAccesses() const;
-
   void Reset();
 
   void Validate();
@@ -69,7 +113,7 @@ struct DataMovementInfo
 struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
-  std::uint64_t accesses;
+  double accesses;
   
   ComputeInfo();
 
@@ -85,4 +129,4 @@ struct CompoundTileNest
    CompoundComputeNest compound_compute_info_nest;
 };
 
-} //namespace
+} // namespace

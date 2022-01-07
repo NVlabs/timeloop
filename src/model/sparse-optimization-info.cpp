@@ -39,8 +39,8 @@ bool PerDataSpaceCompressionInfo::HasMetaData() const
   return false; // single level default dense
 }
 
-bool PerDataSpaceCompressionInfo::FoundDimensionInFlatteningRule(std::uint64_t rank_id, problem::Shape::DimensionID dim_id,
-                                                                 std::vector<problem::Shape::DimensionID> &rule_item) const
+bool PerDataSpaceCompressionInfo::FoundDimensionInFlatteningRule(std::uint64_t rank_id, problem::Shape::FlattenedDimensionID dim_id,
+                                                                 std::vector<problem::Shape::FlattenedDimensionID> &rule_item) const
 {
   for (auto iter = flattened_rankIDs[rank_id].begin(); iter != flattened_rankIDs[rank_id].end(); iter++)
   {

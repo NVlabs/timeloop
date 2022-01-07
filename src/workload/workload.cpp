@@ -155,8 +155,8 @@ void ParseWorkload(config::CompoundConfigNode config, Workload& workload)
   // Bounds may be specified directly (backwards-compat) or under a subkey.
   if (config.exists("instance"))
   {
-    auto bounds = config.lookup("instance");
-    ParseWorkloadInstance(bounds, workload);
+    auto factorized_bounds = config.lookup("instance");
+    ParseWorkloadInstance(factorized_bounds, workload);
   }
   else
   {
@@ -166,11 +166,15 @@ void ParseWorkload(config::CompoundConfigNode config, Workload& workload)
   
 void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload)
 {
-  // Loop bounds for each problem dimension.
-  Workload::Bounds bounds;
-  for (unsigned i = 0; i < GetShape()->NumDimensions; i++)
-    assert(config.lookupValue(GetShape()->DimensionIDToName.at(i), bounds[i]));
-  workload.SetBounds(bounds);
+  // Loop bounds for each factorized problem dimension.
+  Workload::FactorizedBounds factorized_bounds;
+  for (unsigned i = 0; i < GetShape()->NumFactorizedDimensions; i++)
+    assert(config.lookupValue(GetShape()->FactorizedDimensionIDToName.at(i),
+                              factorized_bounds[i]));
+  workload.SetFactorizedBounds(factorized_bounds);
+
+  // Translate into flattened bounds.
+  workload.DeriveFlattenedBounds();
 
   Workload::Coefficients coefficients;
   for (unsigned i = 0; i < GetShape()->NumCoefficients; i++)
@@ -246,10 +250,8 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
         densities[i]= DensityDistributionFactory::Construct(density_specs);
       }
 
-
       // make sure the density model is correctly set
       assert (densities[i] != NULL);
-
     }
 
     // 3) no density specification -> dense workload tensors
@@ -265,8 +267,6 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
       // make sure the density model is correctly set
       assert (densities[i] != NULL);
     }
-
-
   }
   workload.SetDensities(densities);
 }

@@ -86,7 +86,7 @@ class ReductionTreeNetwork : public Network
 
   struct Stats
   {
-    problem::PerDataSpace<std::vector<unsigned long>> ingresses;
+    problem::PerDataSpace<AccessStatMatrix> ingresses;
     problem::PerDataSpace<unsigned long> spatial_reductions;
     problem::PerDataSpace<double> num_hops;
     problem::PerDataSpace<double> energy_per_hop;

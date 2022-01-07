@@ -49,7 +49,7 @@ class DynamicArray
  public:
   DynamicArray(size_t size) :
     size_(size),
-    data_(new T[size])
+    data_(new T[size]())
   {
   }
 

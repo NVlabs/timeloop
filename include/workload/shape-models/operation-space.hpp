@@ -42,7 +42,7 @@ class OperationPoint : public Point
 {
  public:
   OperationPoint() :
-      Point(GetShape()->NumDimensions)
+      Point(GetShape()->NumFlattenedDimensions) // note! flattened, not factorized.
   {
   }
 };
@@ -61,26 +61,52 @@ class OperationSpace
   std::vector<DataSpace> data_spaces_;
 
  private:
+  void FactorizeCarveMultiply(const Workload* wc,
+                              const OperationPoint& flattened_low,
+                              const OperationPoint& flattened_high,
+                              std::vector<std::pair<Point, Point>>& carved_aahrs);
+
+  Point Factorize(const Workload* wc, const OperationPoint& flattened);
+
+  void FactorizeGrouped(const Workload* wc,
+                        const OperationPoint& flattened_low,
+                        const OperationPoint& flattened_high,
+                        
+                        std::vector<Point>& factor_groups_low,
+                        std::vector<Point>& factor_groups_high,
+                        std::vector<Point>& factor_groups_bounds);
+
   Point Project(Shape::DataSpaceID d, const Workload* wc,
-                const OperationPoint& problem_point);
+                const Point& factorized_point);
+  
   void ProjectLowHigh(Shape::DataSpaceID d,
                       const Workload* wc,
-                      const OperationPoint& problem_low,
-                      const OperationPoint& problem_high,
+                      const Point& factorized_low,
+                      const Point& factorized_high,
                       Point& data_space_low,
                       Point& data_space_high);
   
  public:
+  
+  // API always uses flattened "Operation" points and spaces.
+  // Factorized points and spaces are used internally.
+
   OperationSpace();
   OperationSpace(const Workload* wc);
-  OperationSpace(const Workload* wc, const OperationPoint& low,
-                 const OperationPoint& high);
+  OperationSpace(const Workload* wc,
+                 const OperationPoint& flattened_low,
+                 const OperationPoint& flattened_high);
 
   void Reset();
-  OperationSpace& operator+=(const OperationSpace& s);
+
+  // OperationSpace& operator+=(const OperationSpace& s);
   OperationSpace& operator+=(const OperationPoint& p);
-  OperationSpace& ExtrudeAdd(const OperationSpace& s);
+  // OperationSpace& ExtrudeAdd(const OperationSpace& s);
   OperationSpace operator-(const OperationSpace& p);
+
+  void SaveAndSubtract(OperationSpace& prev);
+  void SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<Point>& prev_translation);
+
   DataSpace& GetDataSpace(Shape::DataSpaceID pv);
   PerDataSpace<std::size_t> GetSizes() const;
   std::size_t GetSize(const int t) const;

@@ -39,11 +39,15 @@
 //#define ASSERT(args...)
 
 #define POINT_SET_AAHR         4
+#define POINT_SET_MULTI_AAHR   5
 
-#define POINT_SET_IMPL POINT_SET_AAHR
+#define POINT_SET_IMPL POINT_SET_MULTI_AAHR
 
-#if POINT_SET_IMPL == POINT_SET_AAHR
+#if POINT_SET_IMPL == POINT_SET_MULTI_AAHR
+#include "point-set-multi-aahr.hpp"
+typedef MultiAAHR PointSet;
 
+#elif POINT_SET_IMPL == POINT_SET_AAHR
 #include "point-set-aahr.hpp"
 typedef AxisAlignedHyperRectangle PointSet;
 

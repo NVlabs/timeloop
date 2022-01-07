@@ -28,8 +28,14 @@
 #pragma once
 
 #include <iostream>
+#include <cassert>
 
-#include "loop-analysis/point.hpp"
+#include "point.hpp"
+
+#define ASSERT(args...) assert(args)
+//#define ASSERT(args...)
+
+extern bool gResetOnStrideChange;
 
 // ---------------------------------------------
 //                   Gradient
@@ -49,6 +55,7 @@ struct Gradient
   std::int32_t Sign() const;
   
   void Print(std::ostream& out = std::cout) const;
+  friend std::ostream& operator << (std::ostream& out, const Gradient& g);
 };
 
 // ---------------------------------------------
@@ -69,6 +76,7 @@ class AxisAlignedHyperRectangle
   AxisAlignedHyperRectangle(std::uint32_t order);
   AxisAlignedHyperRectangle(std::uint32_t order, const Point unit);
   AxisAlignedHyperRectangle(std::uint32_t order, const Point min, const Point max);
+  AxisAlignedHyperRectangle(std::uint32_t order, const std::vector<std::pair<Point, Point>> corner_sets);
   AxisAlignedHyperRectangle(const AxisAlignedHyperRectangle& a);
 
   // Copy-and-swap idiom.
@@ -86,18 +94,22 @@ class AxisAlignedHyperRectangle
   void Add(const Point& p, bool extrude_if_discontiguous = false);
   void ExtrudeAdd(const AxisAlignedHyperRectangle& s);
   void Add(const AxisAlignedHyperRectangle& s, bool extrude_if_discontiguous = false);
-
   Gradient Subtract(const AxisAlignedHyperRectangle& s);
+  std::vector<AxisAlignedHyperRectangle> MultiSubtract(const AxisAlignedHyperRectangle& b);
+  bool MergeIfAdjacent(const Point& p);
 
   AxisAlignedHyperRectangle& operator += (const Point& p);
   AxisAlignedHyperRectangle& operator += (const AxisAlignedHyperRectangle& s);
-
   AxisAlignedHyperRectangle operator - (const AxisAlignedHyperRectangle& s);
-
   bool operator == (const AxisAlignedHyperRectangle& s) const;
+
+  bool Contains(const Point& p) const;
 
   Point GetTranslation(const AxisAlignedHyperRectangle& s) const;
   void Translate(const Point& p);
 
+  std::vector<double> Centroid() const;
+
   void Print(std::ostream& out = std::cout) const;
+  friend std::ostream& operator << (std::ostream& out, const AxisAlignedHyperRectangle& x);
 };

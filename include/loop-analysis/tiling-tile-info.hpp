@@ -63,10 +63,11 @@ struct DataMovementInfo
     if(version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(size);
-      ar& BOOST_SERIALIZATION_NVP(accesses);
+      ar& BOOST_SERIALIZATION_NVP(access_stats);
       ar& BOOST_SERIALIZATION_NVP(subnest);
     }
   }
+
   CoordinateSpaceTileInfo coord_space_info;  // carries information such as the shape of the tile, and eventually the point set
   // Information particularly useful for tensors with metadata
   // all of the vectors below should have the same length... which is the fiber tree depth
@@ -81,21 +82,21 @@ struct DataMovementInfo
   MetaDataTileOccupancy expected_metadata_occupancy;
   problem::Shape::DataSpaceID dataspace_id ; // which dataspace does this tile belong to
   std::size_t partition_size;
+  double parent_access_share;
   bool distributed_multicast;
-  std::vector<std::uint64_t> accesses;       // accesses at various multicast factors.
-  std::vector<std::uint64_t> scatter_factors;
-  std::vector<double> cumulative_hops;
-  std::uint64_t content_accesses;
+  AccessStatMatrix access_stats;
+  double content_accesses;
   std::uint64_t fills;
   std::uint64_t reads;
   std::uint64_t updates;
   std::uint64_t metadata_updates;
   std::uint64_t metadata_fills;
   std::uint64_t metadata_reads;
-  std::uint64_t temporal_reductions;
-  std::uint64_t link_transfers;
-  std::uint64_t peer_accesses;           // number of accesses caused by link transfers in the previous level 
-  std::uint64_t peer_fills;              // number of fills caused by link transfers in the previous level
+  double temporal_reductions;
+  double link_transfers;
+  double peer_accesses;           // number of accesses caused by link transfers in the previous level 
+  double peer_fills;              // number of fills caused by link transfers in the previous level
+
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t fanout;                  // per-element fanout to next-level.
@@ -127,21 +128,6 @@ struct DataMovementInfo
   DataMovementInfo* child_level_ptr;
   DataMovementInfo* parent_level_ptr;
 
-  std::uint64_t GetTotalAccesses() const
-  {
-    return std::accumulate(accesses.begin(), accesses.end(), static_cast<std::uint64_t>(0));
-  }
-  
-  std::uint64_t GetWeightedAccesses() const
-  {
-    std::uint64_t total = 0;
-    for (std::uint32_t i = 0; i < accesses.size(); i++)
-    {
-      total += accesses[i] * (i + 1);
-    }
-    return total;
-  }
-
   void Reset()
   {
     size = 0;
@@ -149,11 +135,13 @@ struct DataMovementInfo
     expected_data_occupancy = std::numeric_limits<unsigned>::max();
     expected_metadata_occupancy = {};
     partition_size = 0;
-    accesses.resize(0);
-    scatter_factors.resize(0);
-    cumulative_hops.resize(0);
+    access_stats.clear();
+    parent_access_share = 0;
+    distributed_multicast = false;
     content_accesses = 0;
     fills = 0;
+    reads = 0;
+    updates = 0;
     link_transfers = 0;
     peer_accesses = 0;
     peer_fills = 0;
@@ -182,34 +170,34 @@ struct DataMovementInfo
 
   void Validate()
   {
-    std::uint64_t f = 0;
-    for (std::uint64_t i = 0; i < fanout; i++)
-    {
-      if (accesses[i] != 0)
-      {
-        auto multicast_factor = i + 1;
-        auto scatter_factor = scatter_factors[i];
-        f += (multicast_factor * scatter_factor);
-      }
-    }
+    // std::uint64_t f = 0;
+    // for (std::uint64_t i = 0; i < fanout; i++)
+    // {
+    //   if (accesses[i] != 0)
+    //   {
+    //     auto multicast_factor = i + 1;
+    //     auto scatter_factor = scatter_factors[i];
+    //     f += (multicast_factor * scatter_factor);
+    //   }
+    // }
 
-    if (f != fanout)
-    {
-      std::cerr << "ERROR: sigma(multicast * scatter) != fanout." << std::endl;
-      std::cerr << "  dumping (multicast, scatter) pairs:" << std::endl;
-      for (std::uint64_t i = 0; i < fanout; i++)
-      {
-        if (accesses[i] != 0)
-        {
-          auto multicast_factor = i + 1;
-          auto scatter_factor = scatter_factors[i];
-          std::cerr << "    " << multicast_factor << ", " << scatter_factor << std::endl;
-        }
-      }
-      std::cerr << "  sigma(multicast, scatter) = " << f << std::endl;
-      std::cerr << "  fanout = " << fanout << std::endl;
-      exit(1);
-    }
+    // if (f != fanout)
+    // {
+    //   std::cerr << "ERROR: sigma(multicast * scatter) != fanout." << std::endl;
+    //   std::cerr << "  dumping (multicast, scatter) pairs:" << std::endl;
+    //   for (std::uint64_t i = 0; i < fanout; i++)
+    //   {
+    //     if (accesses[i] != 0)
+    //     {
+    //       auto multicast_factor = i + 1;
+    //       auto scatter_factor = scatter_factors[i];
+    //       std::cerr << "    " << multicast_factor << ", " << scatter_factor << std::endl;
+    //     }
+    //   }
+    //   std::cerr << "  sigma(multicast, scatter) = " << f << std::endl;
+    //   std::cerr << "  fanout = " << fanout << std::endl;
+    //   exit(1);
+    // }
   }
 
   void SetDensityModel(std::shared_ptr<problem::DensityDistribution> tile_density_ptr)
@@ -267,7 +255,7 @@ struct DataMovementInfo
 struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
-  std::uint64_t accesses;
+  double accesses;
   std::uint64_t compute_cycles;
 
   // fine grained actions, names defined in operation-type.hpp
@@ -308,4 +296,4 @@ typedef problem::PerDataSpace<bool> CompoundMask;
 typedef problem::PerDataSpace<std::bitset<MaxTilingLevels>> CompoundMaskNest;
 typedef std::vector<CompoundMask> NestOfCompoundMasks;
 
-} //namespace
+} // namespace

@@ -27,7 +27,8 @@
 
 #pragma once
 
-#include <math.h>
+#include <cmath>
+
 #include "model/level.hpp"
 #include "mapping/mapping.hpp"
 #include "tiling-tile-info.hpp"
@@ -78,7 +79,7 @@ struct SparseAnalysisState
   std::map<std::string, ListOfPerDataSpaceMask> scalar_scalar_opt_masks_;
 
   // info that impact compute analysis
-  std::vector<problem::Shape::DimensionID> c_intersection_dims_;
+  std::vector<problem::Shape::FactorizedDimensionID> c_intersection_dims_;
   std::map<DataSpaceID, double> c_operand_densities_;
   std::map<DataSpaceID, bool> scalar_storage_optimization_;
 

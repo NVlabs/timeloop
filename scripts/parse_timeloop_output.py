@@ -59,7 +59,7 @@ def parse_timeloop_stats(filename):
     root = tree.getroot()
     
     # Parse out the problem shape
-    problem_dims = root.findall('a')[0].findall('workload_')[0].findall('bounds_')[0].findall('item')
+    problem_dims = root.findall('a')[0].findall('workload_')[0].findall('factorized_bounds_')[0].findall('item')
     problem = [ int(pd.findall('second')[0].text) for pd in problem_dims ] #FIXedME generalize for non-conv problems
 
     macs = np.prod(problem)
@@ -167,7 +167,7 @@ def parse_timeloop_stats(filename):
         #FIXedME when router energy !== zero, need to fetch total energy per instance
         num_hops = get_stat(network_stats, 'num_hops', float)
         energy_per_hop_per_instance = get_stat(network_stats, 'energy_per_hop', float)
-        ingresses = get_stat(network_stats, 'ingresses', int)
+        ingresses = 0 #get_stat(network_stats, 'ingresses', int)
         network_energy_per_instance_pJ = get_stat(network_stats, 'energy', float)
         network_energy_in_pJ = network_energy_per_instance_pJ * instances
        
