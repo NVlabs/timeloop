@@ -952,7 +952,7 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
 
   // std::cout << "architecture level: " << arch_level_name << "(" << architecture_level << ")"
   // << "  aggregated spatial ratio: " << aggregated_effective_ratio 
-  // << "  XY version instances: " << state.max_spatial_expansion_[target_dspace_id][architecture_level].X 
+  // << "  XY total instances: " << state.max_spatial_expansion_[target_dspace_id][architecture_level].X 
   //                                * state.max_spatial_expansion_[target_dspace_id][architecture_level].Y
   // << "  avg effective ratio: " <<  state.avg_effective_expansion_ratio_[target_dspace_id][architecture_level]<< std::endl;
 
@@ -961,9 +961,11 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
 
 
 void InitializeSpatialInstances(SparseAnalysisState& state,
-                                tiling::CompoundTileNest& compound_tile_nest)
+                                tiling::CompoundTileNest& compound_tile_nest,
+                                const model::Topology::Specs& topology_specs)
 {
-  
+  (void) topology_specs;
+
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
   auto& compute_info = compound_tile_nest.compute_info_nest[0];
 
@@ -1132,11 +1134,16 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
         compute_info.max_x_expansion = state.max_spatial_expansion_[pv][architecture_level].X;
         compute_info.max_y_expansion = state.max_spatial_expansion_[pv][architecture_level].Y;
       }
-      // std::cout << "Initialize spatial instances: " 
-      // << " architecture level (0 is compute): " << architecture_level << " dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) 
-      // << "  XY version instances: " << state.max_spatial_expansion_[pv][architecture_level].X 
-      //                                  * state.max_spatial_expansion_[pv][architecture_level].Y
-      // << "  avg effective ratio: " <<  avg_effective_expansion_ratio[pv][architecture_level]<< std::endl;
+      
+      // Sanity Check
+      // if (architecture_level == int(state.num_storage_levels_))
+      //    std::cout << "Dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
+      // std::cout << "  Initialize: " 
+      // << topology_specs.GetLevel(architecture_level)->level_name  
+      // << "  avg effective ratio: " <<  avg_effective_expansion_ratio[pv][architecture_level]
+      // << "  max x expansion: " << state.max_spatial_expansion_[pv][architecture_level].X 
+      // << "  max y expansion:"  <<  state.max_spatial_expansion_[pv][architecture_level].Y
+      // << std::endl;
     }
   }
 }
@@ -1189,7 +1196,7 @@ bool SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
   // as a result, we are summarizing the spatial instances of the storage levels in this loop
   for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   { 
-    // std::cout << "Dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
+    
     std::vector<SpatialExpansion> orig_spatial_expansion = {};
     for (unsigned storage_level = 0; storage_level < state.num_storage_levels_ ; storage_level++)
     {
@@ -1240,6 +1247,8 @@ bool SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
         state.prob_explicitly_spatially_optimized_read_[architecture_level][pv] =  1- pv_avg_ratio; 
       
       // Sanity check 
+      // if (architecture_level == int(state.num_storage_levels_))
+      //   std::cout << "Dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
       // std::cout << "  Final: " << topology_specs.GetLevel(architecture_level)->level_name 
       //   << " avg effective rep factor: " << pv_avg_replication_factor 
       //   << " max X expansion: " << pv_max_x
@@ -1340,7 +1349,6 @@ bool DefineStorageOptimizationImpact(SparseAnalysisState& state,
   auto action_skipping_info = state.sparse_optimization_info_->action_skipping_info;
   auto action_spatial_skipping_info = state.sparse_optimization_info_->action_spatial_skipping_info;
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
-  auto& compute_info = compound_tile_nest.compute_info_nest[0];
 
   //
   // Go through the explicit gating and skipping specifications
@@ -1386,9 +1394,8 @@ bool DefineStorageOptimizationImpact(SparseAnalysisState& state,
 
   if ((success || !break_on_failure) && action_spatial_skipping_info.size() > 0)
   {
-    InitializeSpatialInstances(state, compound_tile_nest);
+    InitializeSpatialInstances(state, compound_tile_nest, topology_specs);
     // Define how much spatial capacity can be optimized away
-    (void) compute_info;
     for (auto level_iter = action_spatial_skipping_info.begin();
          level_iter != action_spatial_skipping_info.end(); level_iter++)
     {
