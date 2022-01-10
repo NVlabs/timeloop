@@ -196,9 +196,6 @@ MetaDataTileOccupancy DataMovementInfo::GetMetaDataTileOccupancyGivenDataTile(co
     // prepare for next round
     max_number_of_fibers_in_rank *= cur_rank_fiber_shape;
     cur_coord_tile = next_coord_tile;
-
-    // std::cout << " payloads: " << per_rank_metadata_occupancy.PayloadUnits()
-    // << " metadata: " << per_rank_metadata_occupancy.MetaDataUnits() << std::endl;
   }
 
   for (unsigned r_id = 0; r_id < metadata_tile_occupancy.size(); r_id++)

@@ -93,7 +93,7 @@ class BandedDistribution : public DensityDistribution
   void GetProbabilityDistributionForTileMold(const problem::DataSpace& point_set_mold,
                                              const bool zero_occupancy_only = false);
   double GetZeroOccupancyProbForConstrainedTileMold(const problem::DataSpace& point_set_mold,
-                                                    const problem::DataSpace& constraint_point_mold) const;
+                                                    const problem::DataSpace& constraint_point_mold);
   bool UseLookUpTable(const problem::DataSpace& point_set_mold);
 
  public:

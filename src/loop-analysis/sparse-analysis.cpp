@@ -66,7 +66,7 @@ void SparseAnalysisState::Reset()
   c_intersection_dims_ = {};
   storage_gs_saf_ = {};
   cond_on_mold_highs_ = {};
-  
+ 
   // by default, no propagation impact
   for (DataSpaceID pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
@@ -149,7 +149,7 @@ void SetPointSetTileRepresentations(const SparseAnalysisState& state,
   // empty operation space for bypassed tiles
   problem::OperationPoint origin;
   problem::OperationSpace empty_mold(state.workload_);
-  
+ 
   unsigned tiling_level = 0;
   unsigned loop_offset = 0;
   auto& loops = state.mapping_.complete_loop_nest.loops;
@@ -158,13 +158,13 @@ void SetPointSetTileRepresentations(const SparseAnalysisState& state,
   {
     if (loop_level == state.mapping_.complete_loop_nest.storage_tiling_boundaries.at(tiling_level))
     {
-      problem::OperationSpace operation_space_mold(state.workload_, origin, 
+      problem::OperationSpace operation_space_mold(state.workload_, origin,
                                                    state.maxtile_molds_high_.at(tiling_level).at(loop_level-loop_offset));
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         auto& tile_point_set_mold = compound_data_movement_nest.at(pv).at(tiling_level).shape != 0 ? operation_space_mold.GetDataSpace(pv) : empty_mold.GetDataSpace(pv);
         compound_data_movement_nest.at(pv).at(tiling_level).coord_space_info.SetMold(tile_point_set_mold);
-        // std::cout << " point set representation of tile " << problem::GetShape()->DataSpaceIDToName.at(pv) 
+        // std::cout << " point set representation of tile " << problem::GetShape()->DataSpaceIDToName.at(pv)
         //   << compound_data_movement_nest.at(pv).at(tiling_level).coord_space_info.tile_point_set_mold_ << std::endl;
       }
       tiling_level++;
@@ -201,9 +201,9 @@ void InitializeFineGrainedAccesses(tiling::CompoundTileNest& compound_tile_nest,
     {
       auto& fine_grained_data_accesses = compound_data_movement_nest[pv][l].fine_grained_data_accesses;
       auto& fine_grained_format_accesses = compound_data_movement_nest[pv][l].fine_grained_format_accesses;
-      
+
       fine_grained_format_accesses = {};
-      
+
       for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++)
       {
         auto op_name = tiling::storageOperationTypes[op_id];
@@ -240,9 +240,8 @@ void InitializeMappingSpatialExpansion(tiling::CompoundTileNest& compound_tile_n
                                        Mapping mapping)
 {
   
-  
   int tiling_level = topology_specs.NumStorageLevels() - 1;
-  
+ 
   auto& loops = mapping.loop_nest.loops;
   std::uint64_t max_x_expansion = 1;
   std::uint64_t max_y_expansion = 1;
@@ -252,23 +251,23 @@ void InitializeMappingSpatialExpansion(tiling::CompoundTileNest& compound_tile_n
   for (int loop_level = loops.size()-1; loop_level >= 0; loop_level--)
   {
     auto& loop = loops[loop_level];
-    // std::cout << loop << std::endl;   
-    
+    // std::cout << loop << std::endl;
+ 
     // boundary is the top most loop at a specific storage level,
     if (loop_level == boundary_loop_id)
     {
-      // std::cout <<"tiling level: " << tiling_level << "  name: " 
+      // std::cout <<"tiling level: " << tiling_level << "  name: "
       //  << topology_specs.GetStorageLevel(tiling_level)->level_name << std::endl;
-      std::uint64_t storage_level = tiling_level; 
+      std::uint64_t storage_level = tiling_level;
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         compound_tile_nest.compound_data_movement_info_nest[pv][storage_level].max_x_expansion = max_x_expansion;
         compound_tile_nest.compound_data_movement_info_nest[pv][storage_level].max_y_expansion = max_y_expansion;
       }
-      // std::cout << "hw mesh x: " << topology_specs.GetStorageLevel(storage_level)->meshX 
+      // std::cout << "hw mesh x: " << topology_specs.GetStorageLevel(storage_level)->meshX
       //   << "  mesh y: " << topology_specs.GetStorageLevel(storage_level)->meshY << std::endl;
       // std::cout <<"max x expansion: " << max_x_expansion << "  max y expansion: " << max_y_expansion << "\n" << std::endl;
-      
+
       // update tiling level and the boundary loop to next level
       // if this is the innermost storage level, the boundary is outside all the loops, i.e., -1
       tiling_level--;
@@ -293,7 +292,7 @@ void InitializeMappingSpatialExpansion(tiling::CompoundTileNest& compound_tile_n
   compound_tile_nest.compute_info_nest[0].max_x_expansion = max_x_expansion;
   compound_tile_nest.compute_info_nest[0].max_y_expansion = max_y_expansion;
   // std::cout << "tiling level: " << tiling_level << "   name: compute"  << std::endl;
-  // std::cout << "hw mesh x: " << topology_specs.GetArithmeticLevel()->meshX 
+  // std::cout << "hw mesh x: " << topology_specs.GetArithmeticLevel()->meshX
   //   << "  mesh y: " << topology_specs.GetArithmeticLevel()->meshY << std::endl;
   // std::cout <<"max x expansion: " << max_x_expansion << "  max y expansion: " << max_y_expansion << std::endl;
 }
@@ -327,9 +326,9 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   //    if the located loop is a temporal loop, proceed
   //    if the located loop is a spatial loop
   //       go up the spatial stack until you find a temporal loop that projects to the target dataspace
-  //       along the process, if there is any co-iterated loop below a loop that iterates on conditioned on dataspace only, invalid optimization 
+  //       along the process, if there is any co-iterated loop below a loop that iterates on conditioned on dataspace only, invalid optimization
   //       as it is not legal anymore to perform a fully concordant "conditioned on" operation
-  
+
   // if this is the last level that stores target dataspace
   //    will just be the bottom most loop (i.e., no reuse no matter how the loops are ordered)
 
@@ -342,7 +341,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   //    we should look at the operation space defined by *block-size-a iterations* of target-loop
 
   DataSpaceID target_dspace_id = resulted_impact.target_dspace_id;
-  //CHECKME: this set dimensions is of factorized dimension id type, later when we compare this id type to target_loop_dim, 
+  //CHECKME: this set dimensions is of factorized dimension id type, later when we compare this id type to target_loop_dim,
   //the type does not match
   auto target_dspace_dimensions = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(target_dspace_id);
 
@@ -397,21 +396,21 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   unsigned target_loop_storage_level, target_loop_id; // together defines the exact location of the target loop
 
   problem::OperationPoint origin;
-  
+ 
   bool construct_scalar_mold = false;
   for (unsigned l = child_level + 1; l <= target_dspace_level && !found_target_dspace_loop; l++)
   {
     for (unsigned loop_id = 0; loop_id < state.complete_subnests_[l].size() && !found_target_dspace_loop; loop_id++)
     {
-      if (child_level != -1) 
+      if (child_level != -1)
       {
-        if(!state.trivial_nest_masks_[l][loop_id] 
+        if(!state.trivial_nest_masks_[l][loop_id]
             && target_dspace_dimensions.find(state.complete_subnests_[l][loop_id].dimension) != target_dspace_dimensions.end())
         {
           found_target_dspace_loop = true;
         }
       }
-      else // child_level == -1: 
+      else // child_level == -1:
       {
         // we want to look at the loop below the inner most temp loop (could just be a scalar if there is no temporal loops)
         //   or any inner spatial loop that projects to target dspace
@@ -428,13 +427,13 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
             construct_scalar_mold = true;
           }
         }
-        else if (target_dspace_dimensions.find(state.complete_subnests_[l][loop_id].dimension) != target_dspace_dimensions.end() 
+        else if (target_dspace_dimensions.find(state.complete_subnests_[l][loop_id].dimension) != target_dspace_dimensions.end()
                  && !state.trivial_nest_masks_[l][loop_id])
         {
           found_target_dspace_loop = true;
         }
       }
-      
+ 
       if (found_target_dspace_loop)
       {
         // found loop related to target dataspace
@@ -448,7 +447,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
       }
     }
   }
-  
+ 
   if (!found_target_dspace_loop)
   {
     // found loop related to target dataspace
@@ -461,31 +460,31 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
     mold_high = construct_scalar_mold ? origin : state.maxtile_molds_high_[target_dspace_level][target_loop_id];
     found_target_dspace_loop = true;
   }
-     
+ 
   // sanity check: target_loop_dim must be assigned, i.e., a loop that describes the operation space must be found
   assert(target_loop_dim != std::numeric_limits<unsigned>::max());
   assert(found_target_dspace_loop);
-  
+ 
   // factor in the block size of the target dataspace storage
   //   if the conditioned on dataspace co-iteration on this dimension, the corresponding tile shape will be impacted
   //   else, this scaling will make no difference on the condition on dataspace tile shape
   // auto target_dspace_level_block_size = topology_specs.GetStorageLevel(target_dspace_level)->block_size.Get();
-  auto default_target_dspace_mold_high = mold_high; 
- 
-  // construct default  operation space mold for target dataspace  
+  auto default_target_dspace_mold_high = mold_high;
+
+  // construct default  operation space mold for target dataspace
   // we will always be optimizing on the target dataspace tile described by this operation space
-  
+ 
   problem::OperationSpace default_target_operation_space_mold(state.workload_, origin, default_target_dspace_mold_high);
-    
+ 
   // Prepare the default mold high for conditioned on dataspace
   // Go through all the loops between child level and target daspace level:
-  // 1. collect all non-trivial spatial loops above target loop 
+  // 1. collect all non-trivial spatial loops above target loop
   // 2. integrate the loops bounds the spatial loops to base mold high
   //
   // We need to consider spatial loops above the target loop in dependent of what type of loop the target loops is (i.e., spatial or temporal)
   // because the spatial tiles will stay stationary as we go through each iteration of the temporal target loop
   //
-  // Furthermore, 
+  // Furthermore,
   //   if we are looking at a spatial target loop
   //   1) since there is actually no order between spatial loops, we need to look at the largest spatial tile (which is described by the topmost spatial loop)
   //   2) we also need to look at all the temporal loops until we find a temporal loop that projects to target dataspace, because the spatial target
@@ -1435,7 +1434,6 @@ void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest& compoun
       double update_ratio = (double)data_movement_info.updates / data_movement_info.shape;
       
       tiling::MetaDataTileOccupancy expected_metadata_tile_occupancy = data_movement_info.expected_metadata_occupancy;
-      // std::cout <<" \tgot expected metadata tile occupancy..." << std::endl;
 
       //std::uint64_t num_child_metadata_ranks;
       //if (data_movement_info.child_level != std::numeric_limits<unsigned>::max())
@@ -1459,20 +1457,20 @@ void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest& compoun
         double md_units = expected_metadata_tile_occupancy[r_id].MetaDataUnits();
         double pl_units = expected_metadata_tile_occupancy[r_id].PayloadUnits();
 
-        // std::cout << "=== rank id: " << r_id << " ===" << std::endl;
-        // std::cout << " md units: " << md_units << "  pl units: " << pl_units << std::endl;
+        // std::cout << " === rank id: " << r_id << " ===" << std::endl;
+        // std::cout << " expected  md units: " << md_units << "  pl units: " << pl_units << std::endl;
 
         md_accesses = ceil(md_units * fill_ratio);
         pl_accesses = ceil(pl_units * fill_ratio);
         data_movement_info.format_fills.push_back({md_accesses, pl_accesses});
          
-        // std::cout << " fill ratio: " << fill_ratio << " md fills: " << md_accesses <<" pl fills: " << pl_accesses << std::endl;
+        // std::cout << "  fill ratio: " << fill_ratio << " md fills: " << md_accesses <<" pl fills: " << pl_accesses << std::endl;
  
         md_accesses = ceil(md_units * read_ratio);
         pl_accesses = ceil(pl_units * read_ratio);
         data_movement_info.format_reads.push_back({md_accesses, pl_accesses});  
  
-        // std::cout << " read ratio: " << read_ratio << " md reads: " << md_accesses <<" pl reads: " << pl_accesses << std::endl;
+        // std::cout << "  read ratio: " << read_ratio << " md reads: " << md_accesses <<" pl reads: " << pl_accesses << std::endl;
         
         md_accesses = ceil(md_units * update_ratio);
         pl_accesses = ceil(pl_units * update_ratio);        
@@ -3597,16 +3595,18 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
             occupancy_probabilities.emplace_back(p);
             if( pv_data_movement_info.GetTileDensityModel()->OccupancyMoldNeeded() )
             {
-              occupancy_molds.emplace_back(pv_data_movement_info.GetTileDensityModel()->GetOccupancyMold(possible_occupancy));
+              auto occupancy_mold = pv_data_movement_info.GetTileDensityModel()->GetOccupancyMold(possible_occupancy);
+              occupancy_molds.emplace_back(occupancy_mold);
+              // std::cout << "possible occupancy: " << possible_occupancy << " mold: " 
+              //   << occupancy_mold << "  size: " << occupancy_mold.size() <<std::endl;
             }
           }
         }
+ 
+        // std::cout << "Storage: " << topology_specs.GetStorageLevel(level)->level_name
+        // << "  dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
+        // << "  tile shape: " << pv_data_movement_info.shape << std::endl;
 
-        // std::cout << "dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
-        //   << "  tile shape: " << pv_data_movement_info.shape 
-        //   << "  abs max tile occupancy: " << abs_max_tile_occupancy 
-        //   << "  abs min tile occupancy: " << abs_min_tile_occupancy << std::endl;
-        
         unsigned equivalent_i = 0;
         for (unsigned i = 0; i < exist_masks.size(); i++)
         {
@@ -3622,11 +3622,11 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
               // Calculate the resulted metadata occupancy for this specific potential data tile size
               // the exact possible occupancy serves as additional information about the tile
               // it is upto the density models to determine whether this addition information is useful
-              
+ 
               tiling::ExtraTileConstraintInfo extra_constraint_info;
               extra_constraint_info.Set(pv_data_movement_info.shape, possible_occupancy);
 
-              if (occupancy_molds.size() > equivalent_i) 
+              if (occupancy_molds.size() > equivalent_i)
                 extra_constraint_info.SetMold(occupancy_molds.at(equivalent_i));
 
               tiling::CoordinateSpaceTileInfo possible_coord_tile;
@@ -3637,6 +3637,8 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
               for (unsigned r = 0; r < occupancy.size(); r++)
               {
                 auto per_rank_occupancy = occupancy[r];
+                // std::cout << "rid: " << r << " md units: " << per_rank_occupancy.MetaDataUnits()
+                //   << "  pl units: " << per_rank_occupancy.PayloadUnits() << std::endl;
                 per_rank_occupancy.Scale(p);
                 if (expected_metadata_occupancy.size() == r) expected_metadata_occupancy.push_back(per_rank_occupancy);
                 else expected_metadata_occupancy[r].Add(per_rank_occupancy);
@@ -3652,6 +3654,15 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
       pv_data_movement_info.expected_density = total_non_empty_payloads / pv_data_movement_info.shape;
       pv_data_movement_info.expected_metadata_occupancy = expected_metadata_occupancy;
       pv_data_movement_info.expected_data_occupancy = total_non_empty_payloads;
+ 
+      // std::cout << " expected data occupancy: " << pv_data_movement_info.expected_data_occupancy << std::endl;
+      // std::cout << " expected metdata occupancy: " << std::endl;
+      // for (unsigned r = 0; r < pv_data_movement_info.expected_metadata_occupancy.size(); r++)
+      // {
+      //   auto per_rank_occupancy = pv_data_movement_info.expected_metadata_occupancy[r];
+      //   std::cout << "   rid: " << r << "   md units: " << per_rank_occupancy.MetaDataUnits()
+      //     << "    pl units: " << per_rank_occupancy.PayloadUnits() << std::endl;
+      // }
     }
   }
 }
@@ -3714,12 +3725,12 @@ bool PerformSparseProcessing(problem::Workload* workload,
   InitializeFineGrainedAccesses(compound_tile_nest, topology_specs);
 
   InitializeMappingSpatialExpansion(compound_tile_nest, topology_specs, mapping);
-  
+ 
   SparseAnalysisState state;
   bool sparse_analysis_needed;
   sparse_analysis_needed = state.Init(sparse_optimization_info, workload, mapping, topology_specs.NumStorageLevels());
   if (!sparse_analysis_needed) return success;
-  
+ 
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
   state.CollectCompletePointSetsAndSubnests();
 
