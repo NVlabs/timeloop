@@ -1458,8 +1458,13 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
   };
   problem::PerDataSpace<std::unordered_map<std::uint64_t, TempAccessStats>> temp_stats;
 
-  auto h_size = physical_fanoutX_.at(arch_storage_level_.at(cur->level)); // logical_fanoutX_[cur->level];
-  auto v_size = physical_fanoutY_.at(arch_storage_level_.at(cur->level)); // logical_fanoutY_[cur->level];
+  // FIXME: we should only be looking at physical dimensions here. The problem
+  // is that sparse mappings may appear to exceed the physical dimensions before
+  // space-skipping is applied. The very notion of spatial skew and physical
+  // location for space-skipping sparse mappings is something we need to figure
+  // out.
+  auto h_size = std::max(physical_fanoutX_.at(arch_storage_level_.at(cur->level)), logical_fanoutX_[cur->level]);
+  auto v_size = std::max(physical_fanoutY_.at(arch_storage_level_.at(cur->level)), logical_fanoutY_[cur->level]);
 
   for (auto delta_it = spatial_deltas.begin(); delta_it != spatial_deltas.end(); delta_it++)
     //for (std::uint64_t i = 0; i < num_deltas; i++)
@@ -1630,8 +1635,13 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   //   cur_spatial_deltas[i].Print(pv);
   // }
   
-  auto h_size = physical_fanoutX_.at(arch_storage_level_.at(cur->level)); // logical_fanoutX_[cur->level];
-  auto v_size = physical_fanoutY_.at(arch_storage_level_.at(cur->level)); // logical_fanoutY_[cur->level];
+  // FIXME: we should only be looking at physical dimensions here. The problem
+  // is that sparse mappings may appear to exceed the physical dimensions before
+  // space-skipping is applied. The very notion of spatial skew and physical
+  // location for space-skipping sparse mappings is something we need to figure
+  // out.
+  auto h_size = std::max(physical_fanoutX_.at(arch_storage_level_.at(cur->level)), logical_fanoutX_[cur->level]);
+  auto v_size = std::max(physical_fanoutY_.at(arch_storage_level_.at(cur->level)), logical_fanoutY_[cur->level]);
 
   // Imagine origin (0,0) at the top-left corner of a 2D spatial array.
   // Horizontal ids grow from left to right.
@@ -1653,7 +1663,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   //auto& prev_spatial_deltas = cur_state.prev_spatial_deltas[0];
   //ASSERT(cur_spatial_deltas.size() == prev_spatial_deltas.size());
 
-  int num_spatial_elems = h_size * v_size; // need *physical* hardware elems. logical_fanouts_[cur->level];
+  int num_spatial_elems = h_size * v_size;
 
   // std::cout << "PREV:" << std::endl;
   // for (std::uint64_t i = 0; i < prev_spatial_deltas.size(); i++)
