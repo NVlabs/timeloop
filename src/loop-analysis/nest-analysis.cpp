@@ -99,8 +99,8 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
     // Copy over everything we need from the nest.
     storage_tiling_boundaries_ = nest->storage_tiling_boundaries;
     packed_skew_descriptors_ = nest->skew_descriptors;
-    fanoutX_map_ = fanoutX_map;
-    fanoutY_map_ = fanoutY_map;
+    physical_fanoutX_ = fanoutX_map;
+    physical_fanoutY_ = fanoutY_map;
 
     // Construct nest_state_.
     for (auto descriptor: nest->loops)
@@ -144,10 +144,10 @@ void NestAnalysis::Reset()
   cur_transform_ = problem::OperationPoint();
 
   num_spatial_elems_.clear();
-  spatial_fanouts_.clear();
+  logical_fanouts_.clear();
 
-  horizontal_sizes_.clear();
-  vertical_sizes_.clear();
+  logical_fanoutX_.clear();
+  logical_fanoutY_.clear();
 
   storage_boundary_level_.clear();
   master_spatial_level_.clear();
@@ -325,7 +325,7 @@ void NestAnalysis::InitializeLiveState()
     //     // Restore this line if MAX_TIME_LAPSE > 1. it.prev_spatial_deltas.resize(analysis::ElementState::MAX_TIME_LAPSE);
     //     // // for (auto& elem : it.prev_spatial_deltas)
     //     // // {
-    //     // //   elem.resize(spatial_fanouts_[loop->level]);
+    //     // //   elem.resize(logical_fanouts_[loop->level]);
     //     // // }
     //   }
     // }
@@ -467,7 +467,7 @@ void NestAnalysis::CollectWorkingSets()
         tile.link_transfers         = condensed_state.link_transfers[pv];
         tile.subnest                = subnest;
         tile.replication_factor     = num_spatial_elems_[cur.level];
-        tile.fanout                 = spatial_fanouts_[cur.level];
+        tile.fanout                 = logical_fanouts_[cur.level];
         tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
         tile.is_master_spatial      = master_spatial_level_[cur.level];
         // tile.tile_density           = condensed_state.data_densities[pv];
@@ -488,7 +488,7 @@ void NestAnalysis::CollectWorkingSets()
       if (!innermost_level_compute_info_collected)
       {
         analysis::ComputeInfo compute_info;
-        compute_info.replication_factor = num_spatial_elems_[cur.level] * spatial_fanouts_[cur.level];
+        compute_info.replication_factor = num_spatial_elems_[cur.level] * logical_fanouts_[cur.level];
 
         double avg_accesses = 0;
         for (auto& info: compute_info_)
@@ -984,7 +984,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   // Step II: Compute Spatial Deltas, etc.
   //
 
-  std::uint64_t num_spatial_elems = spatial_fanouts_[level];
+  std::uint64_t num_spatial_elems = logical_fanouts_[level];
   spatial_id_ *= num_spatial_elems;
 
   // Deltas needed by each of the spatial elements.
@@ -1135,10 +1135,10 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   //     fanout += (i+1) * cur_state.scatter_factors[pvi][i];
   //   }
     
-  //   if (fanout != spatial_fanouts_[cur->level])
+  //   if (fanout != logical_fanouts_[cur->level])
   //   {
   //     std::cerr << "FATAL: fanout mismatch, computed = " << fanout
-  //               << " actual = " << spatial_fanouts_[cur->level] << std::endl;
+  //               << " actual = " << logical_fanouts_[cur->level] << std::endl;
   //     exit(1);
   //   }
   // }    
@@ -1458,8 +1458,8 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
   };
   problem::PerDataSpace<std::unordered_map<std::uint64_t, TempAccessStats>> temp_stats;
 
-  auto h_size = fanoutX_map_.at(arch_storage_level_.at(cur->level)); // horizontal_sizes_[cur->level];
-  auto v_size = fanoutY_map_.at(arch_storage_level_.at(cur->level)); // vertical_sizes_[cur->level];
+  auto h_size = physical_fanoutX_.at(arch_storage_level_.at(cur->level)); // logical_fanoutX_[cur->level];
+  auto v_size = physical_fanoutY_.at(arch_storage_level_.at(cur->level)); // logical_fanoutY_[cur->level];
 
   for (auto delta_it = spatial_deltas.begin(); delta_it != spatial_deltas.end(); delta_it++)
     //for (std::uint64_t i = 0; i < num_deltas; i++)
@@ -1630,8 +1630,8 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   //   cur_spatial_deltas[i].Print(pv);
   // }
   
-  auto h_size = fanoutX_map_.at(arch_storage_level_.at(cur->level)); // horizontal_sizes_[cur->level];
-  auto v_size = fanoutY_map_.at(arch_storage_level_.at(cur->level)); // vertical_sizes_[cur->level];
+  auto h_size = physical_fanoutX_.at(arch_storage_level_.at(cur->level)); // logical_fanoutX_[cur->level];
+  auto v_size = physical_fanoutY_.at(arch_storage_level_.at(cur->level)); // logical_fanoutY_[cur->level];
 
   // Imagine origin (0,0) at the top-left corner of a 2D spatial array.
   // Horizontal ids grow from left to right.
@@ -1653,7 +1653,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   //auto& prev_spatial_deltas = cur_state.prev_spatial_deltas[0];
   //ASSERT(cur_spatial_deltas.size() == prev_spatial_deltas.size());
 
-  int num_spatial_elems = h_size * v_size; // need *physical* hardware elems. spatial_fanouts_[cur->level];
+  int num_spatial_elems = h_size * v_size; // need *physical* hardware elems. logical_fanouts_[cur->level];
 
   // std::cout << "PREV:" << std::endl;
   // for (std::uint64_t i = 0; i < prev_spatial_deltas.size(); i++)
@@ -1868,18 +1868,18 @@ void NestAnalysis::InitStorageBoundaries()
 
 void NestAnalysis::InitSpatialFanouts()
 {
-  spatial_fanouts_.resize(nest_state_.size(), 1);
-  horizontal_sizes_.resize(nest_state_.size(), 1);
-  vertical_sizes_.resize(nest_state_.size(), 1);
+  logical_fanouts_.resize(nest_state_.size(), 1);
+  logical_fanoutX_.resize(nest_state_.size(), 1);
+  logical_fanoutY_.resize(nest_state_.size(), 1);
   for (int cur_level = nest_state_.size() - 1; cur_level >= 0; cur_level--)
   {
     if (!loop::IsSpatial(nest_state_[cur_level].descriptor.spacetime_dimension))
     {
-      spatial_fanouts_[cur_level] = 1;
+      logical_fanouts_[cur_level] = 1;
     }
     else if (!master_spatial_level_[cur_level])
     {
-      spatial_fanouts_[cur_level] = 0;
+      logical_fanouts_[cur_level] = 0;
     }
     else
     {
@@ -1889,12 +1889,12 @@ void NestAnalysis::InitSpatialFanouts()
       {
         if (loop::IsSpatialX(nest_state_[next_temporal_level].descriptor.spacetime_dimension))
         {
-          horizontal_sizes_[cur_level] *=
+          logical_fanoutX_[cur_level] *=
               nest_state_[next_temporal_level].descriptor.end;
         }
         else
         {
-          vertical_sizes_[cur_level] *=
+          logical_fanoutY_[cur_level] *=
               nest_state_[next_temporal_level].descriptor.end;
         }
 
@@ -1909,12 +1909,12 @@ void NestAnalysis::InitSpatialFanouts()
         }
       }
 
-      spatial_fanouts_[cur_level] =
+      logical_fanouts_[cur_level] =
           num_spatial_elems_[next_temporal_level] / num_spatial_elems_[cur_level];
-      spatial_fanouts_[cur_level] *= scale_factor;
+      logical_fanouts_[cur_level] *= scale_factor;
 
-      ASSERT(spatial_fanouts_[cur_level] ==
-             horizontal_sizes_[cur_level] * vertical_sizes_[cur_level]);
+      ASSERT(logical_fanouts_[cur_level] ==
+             logical_fanoutX_[cur_level] * logical_fanoutY_[cur_level]);
     }
   }
 
@@ -1922,7 +1922,7 @@ void NestAnalysis::InitSpatialFanouts()
   std::cout << "Spatial fanouts at each level" << std::endl;
   for (int i = num_spatial_elems_.size() - 1; i >= 0; i--)
   {
-    std::cout << spatial_fanouts_[i];
+    std::cout << logical_fanouts_[i];
     std::cout << ", ";
   }
   std::cout << std::endl;

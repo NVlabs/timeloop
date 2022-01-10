@@ -70,12 +70,12 @@ class NestAnalysis
 
   // per-level properties.
   std::vector<uint64_t> num_spatial_elems_;
-  std::vector<uint64_t> spatial_fanouts_;
+  std::vector<uint64_t> logical_fanouts_;
 
   // used to accelerate to IndexToOperationPoint computation
   // relevant only for master spatial levels.
-  std::vector<uint64_t> horizontal_sizes_;
-  std::vector<uint64_t> vertical_sizes_;
+  std::vector<uint64_t> logical_fanoutX_;
+  std::vector<uint64_t> logical_fanoutY_;
 
   // records if a level corresponds to the starting
   // point of a new storage tile.
@@ -118,8 +118,8 @@ class NestAnalysis
   std::vector<LoopGist> loop_gists_spatial_;
 
   // Storage level to fanout map.
-  std::map<unsigned, std::uint64_t> fanoutX_map_; 
-  std::map<unsigned, std::uint64_t> fanoutY_map_; 
+  std::map<unsigned, std::uint64_t> physical_fanoutX_; 
+  std::map<unsigned, std::uint64_t> physical_fanoutY_; 
 
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> packed_skew_descriptors_; // per storage level.
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skew_descriptors_; // per loop level.
