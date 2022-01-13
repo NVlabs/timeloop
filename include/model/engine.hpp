@@ -61,9 +61,6 @@ class Engine : public Module
   // Utilities.
   analysis::NestAnalysis nest_analysis_;
 
-  // Sparse optimizations
-  sparse::SparseOptimizationInfo sparse_optimizations_;
-  
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>
