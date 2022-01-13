@@ -753,7 +753,8 @@ void Topology::Spec(const Topology::Specs& specs)
 // This function implements the "classic" hierarchical topology
 // with arithmetic units at level 0 and storage units at level 1+.
 Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
-                                     config::CompoundConfigNode arithmetic)
+                                     config::CompoundConfigNode arithmetic,
+                                     bool is_sparse_topology)
 {
   Specs specs;
   
@@ -761,20 +762,20 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
 
   // Level 0: arithmetic.
   // Use multiplication factor == 0 to ensure .instances attribute is set
-  auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic, 0));
+  auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic, 0, is_sparse_topology));
   specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
 
   // Storage levels.
   int num_storage_levels = storage.getLength();
   for (int i = 0; i < num_storage_levels; i++)
   {
-    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i], 0));
+    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i], 0, is_sparse_topology));
     specs.AddLevel(i, std::static_pointer_cast<LevelSpecs>(level_specs_p));
 
     // For each storage level, parse and extract an inferred network spec from the storage config.
     // A network object corresponding to this spec will only be instantiated if a user-specified
     // network is missing between any two topology levels.
-    auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(storage[i], 0));
+    auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(storage[i], 0, is_sparse_topology));
     specs.AddInferredNetwork(inferred_network_specs_p);
   }
 
@@ -784,7 +785,7 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
 // This function implements the "tree-like" hierarchical architecture description
 // used in Accelergy v0.2. The lowest level is level 0 and should have
 // arithmetic units, while other level are level 1+ with some buffer/storage units
-Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
+Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, bool is_sparse_topology)
 {
   Specs specs;
   auto curNode = designRoot;
@@ -830,24 +831,24 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
         if (isBufferClass(cClass))
         {
           // Create a buffer spec.
-          auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
+          auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements, is_sparse_topology));
           localStorages.push_back(level_specs_p);
 
           // Create an inferred network spec.
           // A network object corresponding to this spec will only be instantiated if a user-specified
           // network is missing between any two topology levels.
-          auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(curLocal[c], nElements));
+          auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(curLocal[c], nElements, is_sparse_topology));
           localInferredNetworks.push_back(inferred_network_specs_p);
         }
         else if (isComputeClass(cClass))
         {
           // Create arithmetic.
-          auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
+          auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements, is_sparse_topology));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
         }
         else if (isNetworkClass(cClass))
         {
-          auto network_specs_p = NetworkFactory::ParseSpecs(curLocal[c], nElements);
+          auto network_specs_p = NetworkFactory::ParseSpecs(curLocal[c], nElements, is_sparse_topology);
           localNetworks.push_back(network_specs_p);
         }
         else

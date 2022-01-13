@@ -63,6 +63,8 @@ class LegacyNetwork : public Network
     Attribute<double> tile_width; // um
     Attribute<double> energy_per_hop; //pJ
 
+    Attribute<bool> is_sparse_module;
+    
     const std::string Type() const override { return type; }
 
     // Serialization
@@ -174,7 +176,7 @@ class LegacyNetwork : public Network
     return std::static_pointer_cast<Network>(std::make_shared<LegacyNetwork>(*this));
   }
 
-  static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements);
+  static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module);
 
   void ConnectSource(std::weak_ptr<Level> source);
   void ConnectSink(std::weak_ptr<Level> sink);

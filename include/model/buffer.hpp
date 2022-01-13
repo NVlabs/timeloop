@@ -142,6 +142,8 @@ class BufferLevel : public Level
     Attribute<double> storage_area; // um^2
     Attribute<double> addr_gen_energy; // pJ
 
+    Attribute<bool> is_sparse_module;
+    
     // Serialization
     friend class boost::serialization::access;
 
@@ -414,7 +416,7 @@ class BufferLevel : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the constructor when an object is actually created.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t n_elements);
+  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t n_elements, bool is_sparse_module);
   static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n_elements,
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);

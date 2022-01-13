@@ -68,7 +68,7 @@ void ArithmeticUnits::Specs::UpdateOpEnergyViaERT()
 }
 
 
-ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements)
+ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements, bool is_sparse_module)
 {
   Specs specs;
 
@@ -82,6 +82,9 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
     setting = setting.lookup("attributes");
   }
 
+  // Sparse Architecture's Module 
+  specs.is_sparse_module = is_sparse_module;
+  
   // Instances.
   std::uint32_t instances;
   if (!setting.lookupValue("instances", instances))

@@ -58,6 +58,8 @@ class ArithmeticUnits : public Level
     Attribute<std::string> operand_network_name;
     Attribute<std::string> result_network_name;
 
+    Attribute<bool> is_sparse_module;
+
     // for ERT parsing
     std::map<std::string, double> ERT_entries;
     std::map<std::string, double> op_energy_map;
@@ -150,7 +152,7 @@ class ArithmeticUnits : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
+  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements, bool is_sparse_module);
   static void ValidateTopology(ArithmeticUnits::Specs& specs);
 
   Specs& GetSpecs() { return specs_; }

@@ -87,18 +87,21 @@ void BufferLevel::Specs::UpdateOpEnergyViaERT()
 // The hierarchical ParseSpecs functions are static and do not
 // affect the internal specs_ data structure, which is set by
 // the dynamic Spec() call later.
-BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uint32_t n_elements)
+BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uint32_t n_elements, bool is_sparse_module)
 {
   auto& buffer = level;
 
   Specs specs;
-
+ 
   // Name. This has to go first. Since the rest can be attributes
   std::string name;
   if (buffer.lookupValue("name", name))
   {
     specs.name = config::parseName(name);
   }
+
+  // Sparse Architecture's Module 
+  specs.is_sparse_module = is_sparse_module;
 
   std::string className = "";
   if (buffer.exists("attributes"))

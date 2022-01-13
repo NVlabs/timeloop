@@ -53,7 +53,7 @@ ReductionTreeNetwork::ReductionTreeNetwork(const Specs& specs) :
 ReductionTreeNetwork::~ReductionTreeNetwork()
 { }
 
-ReductionTreeNetwork::Specs ReductionTreeNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements)
+ReductionTreeNetwork::Specs ReductionTreeNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module)
 {
   (void) n_elements; // FIXME.
 
@@ -64,6 +64,9 @@ ReductionTreeNetwork::Specs ReductionTreeNetwork::ParseSpecs(config::CompoundCon
   std::string name;
   network.lookupValue("name", name);
   specs.name = name;
+
+  // Sparse Architecture's Module 
+  specs.is_sparse_module = is_sparse_module;
 
   if (network.exists("attributes"))
   {

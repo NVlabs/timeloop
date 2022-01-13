@@ -39,7 +39,6 @@ class Module
  protected:
   bool is_specced_ = false;
   bool is_evaluated_ = false;
-
  public:
   virtual ~Module();
   bool IsSpecced() const;

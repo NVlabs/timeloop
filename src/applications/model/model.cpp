@@ -89,7 +89,9 @@ Application::Application(config::CompoundConfig* config,
   {
     arch = rootNode.lookup("architecture");
   }
-  arch_specs_ = model::Engine::ParseSpecs(arch);
+  
+  bool is_sparse_topology = rootNode.exists("sparse_optimizations");
+  arch_specs_ = model::Engine::ParseSpecs(arch, is_sparse_topology);
 
   if (rootNode.exists("ERT"))
   {
@@ -130,7 +132,7 @@ Application::Application(config::CompoundConfig* config,
 
   // Sparse optimizations
   config::CompoundConfigNode sparse_optimizations;
-  if (rootNode.exists("sparse_optimizations"))
+  if (is_sparse_topology)
     sparse_optimizations = rootNode.lookup("sparse_optimizations");
       sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
   // characterize workload on whether it has metadata
