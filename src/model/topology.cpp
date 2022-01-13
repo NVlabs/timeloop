@@ -993,29 +993,6 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
 }
 
 
-//void PopulateCompressedSizeAndConfidence(tiling::NestOfCompoundTiles tiles, problem::Workload* workload){
-//  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++){
-//    auto storage_level = GetStorageLevel(storage_level_id);
-//    auto storage_level_effective_capacity = storage_level->GetSpecs().effective_size.Get();
-//
-//    for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++){
-//      uint64_t tile_shape = tiles[storage_level_id].data_movement_info.at(pv).size;
-//      double confidence = workload->GetDensity(pv).GetTileConfidence(tile_shape, storage_level_effective_capacity);
-//      uint64_t compressed_size;
-//      if (storage_level_effective_capacity >= tile_shape){
-//        compressed_size = tile_shape;
-//      }
-//
-//    }
-//
-//
-//
-//
-//    // set confidence according to
-//  }
-//
-//
-
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            analysis::NestAnalysis* analysis,
                                            sparse::SparseOptimizationInfo* sparse_optimizations,
@@ -1145,7 +1122,9 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   }
 
   // update the dense compute cycles to be sparse compute cycles (actual compute cycles + gated compute cycles)
-  compute_cycles = GetArithmeticLevel()->Cycles();
+  // will only get the correct number of cycles if the eval of compute level is successful
+  if (success_accum)
+    compute_cycles = GetArithmeticLevel()->Cycles();
 
 
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
