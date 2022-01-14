@@ -150,7 +150,9 @@ class NestAnalysis
 
   problem::OperationPoint IndexToOperationPoint_(const std::vector<int>& indices) const;
   bool IsLastGlobalIteration_(int level, problem::Shape::FlattenedDimensionID dim) const;
-  
+  problem::OperationSpace GetCurrentWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur);
+  problem::PerDataSpace<Point> GetCurrentTranslationVectors(std::vector<analysis::LoopState>::reverse_iterator cur);
+
   problem::OperationSpace ComputeDeltas(std::vector<analysis::LoopState>::reverse_iterator cur);
 
   void ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
@@ -162,7 +164,8 @@ class NestAnalysis
                          std::unordered_map<std::uint64_t, std::uint64_t>& skew_table,
                          std::uint64_t base_index,
                          int depth,
-                         int extrapolation_stride);
+                         int extrapolation_stride,
+                         std::vector<analysis::LoopState>::reverse_iterator extrapolation_level);
 
   std::uint64_t ApplySkew(std::uint64_t unskewed_index);
 

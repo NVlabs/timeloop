@@ -647,7 +647,10 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // Note: we aren't using +=. This means we're ignoring subvolumes
   // returned to us by recursive FillSpatialDeltas calls.
   point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
-
+  for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  {
+    ASSERT(point_set.GetSize(pv) == 0 || point_set.CheckEquality(GetCurrentWorkingSet(cur), pv));
+  }
   // Record the maximum point set size ever seen across all invocations
   // of this level.
   // Need to be done only for levels which will map to physical storage levels
@@ -997,7 +1000,8 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   FillSpatialDeltas(cur, spatial_deltas, skew_table,
                     0,   // base_index,
                     0,   // depth,
-                    0);  // extrapolation_stride
+                    0,   // extrapolation_stride
+                    cur);// extrapolation_level  
   
   // Check if the expected number of spatial_deltas was updated by
   // recursive calls.
@@ -1192,7 +1196,8 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
                                      std::unordered_map<std::uint64_t, std::uint64_t>& skew_table,
                                      std::uint64_t base_index,
                                      int depth,
-                                     int extrapolation_stride)
+                                     int extrapolation_stride,
+                                     std::vector<analysis::LoopState>::reverse_iterator extrapolation_level)
 {
   int level = cur->level;
   auto dim = cur->descriptor.dimension;
@@ -1272,7 +1277,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
     unsigned iterations_to_run =
       (gExtrapolateUniformSpatial && !problem::GetShape()->UsesFlattening)
-      ? 3 : num_iterations;
+      ? 3: num_iterations;
 
     if (loop::IsSpatial(next->descriptor.spacetime_dimension))
     {
@@ -1287,13 +1292,20 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       {
         loop_gists_spatial_.at(dim).index = indices_[level];
         
+        auto next_extrapolation_stride = extrapolation_stride * end; // * num_iterations?
+        auto next_extrapolation_level = extrapolation_level;
+        if (iterations_run >= iterations_to_run) // Extrapolate using this level
+        {
+          next_extrapolation_stride = cur->descriptor.stride;
+          next_extrapolation_level = cur;
+        }
+
         ++cur;
 
         FillSpatialDeltas(cur, spatial_deltas, skew_table,
                           base_index + indices_[level], depth+1,
-                          (iterations_run < iterations_to_run)
-                           ? (extrapolation_stride * end) // * num_iterations?
-                           : cur->descriptor.stride);
+                          next_extrapolation_stride,
+                          next_extrapolation_level);
 
         --cur;
         cur_transform_[dim] += scale;
@@ -1353,6 +1365,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
         // Set up extrapolation stride for the remaining iterations.
         extrapolation_stride = cur->descriptor.stride;
+        extrapolation_level = cur;
       }
       else
       {
@@ -1393,8 +1406,10 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       {
         translation_vectors.push_back(
           opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv)));
+        ASSERT(opspace_lastrun.GetDataSpace(pv).empty() || GetCurrentTranslationVectors(extrapolation_level)[pv] == translation_vectors.back());
       }
 
+      //auto translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
       // Iterations #num_iterations_to_run through #last.
       for (;
            indices_[level] < end;
@@ -2042,5 +2057,53 @@ bool NestAnalysis::IsLastGlobalIteration_(int level, problem::Shape::FlattenedDi
   return is_last;
 }
 
+// Calculate the translation vectors of the current nest level and transform.
+// Finds the motion of the working sets between two iterations at the current level.
+problem::PerDataSpace<Point> NestAnalysis::GetCurrentTranslationVectors(std::vector<analysis::LoopState>::reverse_iterator cur)
+{
+  int level = cur->level;
+  auto dim = cur->descriptor.dimension;
+  auto saved_transform = cur_transform_[dim];
+
+  // Calculate the first working set
+  auto firstrun = GetCurrentWorkingSet(cur);
+
+  // Calcualte the second working set
+  cur_transform_[dim] += vector_strides_[level][dim];
+  auto secondrun = GetCurrentWorkingSet(cur);
+  cur_transform_[dim] = saved_transform;
+  
+  // Calculate and return translation vectors
+  problem::PerDataSpace<Point> translation_vectors;
+  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  {
+    translation_vectors[pv] = firstrun.GetDataSpace(pv).GetTranslation(secondrun.GetDataSpace(pv));
+  }
+  return translation_vectors;
+}
+
+// Calculate the working set of the current nest level & current transform
+problem::OperationSpace NestAnalysis::GetCurrentWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur)
+{
+  int level = cur->level;
+  problem::OperationPoint low_problem_point;
+  problem::OperationPoint high_problem_point;
+
+  // 
+  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumFlattenedDimensions); dim++)
+  {
+    low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
+    high_problem_point[dim] = cur_transform_[dim] + (IsLastGlobalIteration_(level+1, dim) ?
+                                                     mold_high_residual_[level][dim] :
+                                                     mold_high_[level][dim]);
+  }
+
+  // Compute the polyhedron between the low and high problem
+  // points (exclusive). Note that this special constructor
+  // is only available for certain point-set implementations.
+  // Note: we aren't using +=. This means we're ignoring subvolumes
+  // returned to us by recursive FillSpatialDeltas calls.
+  return problem::OperationSpace(workload_, low_problem_point, high_problem_point);
+}
 
 } // namespace analysis
