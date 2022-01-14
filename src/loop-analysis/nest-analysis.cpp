@@ -2039,6 +2039,11 @@ problem::OperationSpace NestAnalysis::GetCurrentWorkingSet(std::vector<analysis:
   problem::OperationPoint low_problem_point;
   problem::OperationPoint high_problem_point;
 
+  // Compute the polyhedron between the low and high problem
+  // points (exclusive). Note that this special constructor
+  // is only available for certain point-set implementations.
+  // Note: we aren't using +=. This means we're ignoring subvolumes
+  // returned to us by recursive FillSpatialDeltas calls.
   for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumFlattenedDimensions); dim++)
   {
     low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
@@ -2046,12 +2051,6 @@ problem::OperationSpace NestAnalysis::GetCurrentWorkingSet(std::vector<analysis:
                                                      mold_high_residual_[level][dim] :
                                                      mold_high_[level][dim]);
   }
-
-  // Compute the polyhedron between the low and high problem
-  // points (exclusive). Note that this special constructor
-  // is only available for certain point-set implementations.
-  // Note: we aren't using +=. This means we're ignoring subvolumes
-  // returned to us by recursive FillSpatialDeltas calls.
   return problem::OperationSpace(workload_, low_problem_point, high_problem_point);
 }
 
