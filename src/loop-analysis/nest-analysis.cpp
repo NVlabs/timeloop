@@ -1356,7 +1356,6 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
       auto translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
 
-      //auto translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
       // Iterations #num_iterations_to_run through #last.
       for (;
            indices_[level] < end;
