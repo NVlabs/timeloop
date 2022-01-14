@@ -619,38 +619,9 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // state at this level to grow indefinitely, which isn't what we're trying to
   // model. The responsibility of this level is to supply all the deltas
   // demanded by the next-inner level for this invocation.
-  problem::OperationSpace point_set(workload_);
+  problem::OperationSpace point_set = GetCurrentWorkingSet(cur);
 
-  problem::OperationPoint low_problem_point;
-  problem::OperationPoint high_problem_point;
 
-  // We use the pre-computed molds within this level range.
-  // Above this level range, we use the transform problem-point to
-  // translate, rotate or otherwise transform the mold.
-
-  // auto loop_dim = cur->descriptor.dimension;
-  // auto& mold_high = IsLastGlobalIteration_(level+1, loop_dim) ?
-  //   mold_high_residual_[level] : mold_high_[level];
-
-  for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumFlattenedDimensions); dim++)
-  {
-    low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
-    // high_problem_point[dim] = cur_transform_[dim] + mold_high[dim];
-    high_problem_point[dim] = cur_transform_[dim] + (IsLastGlobalIteration_(level+1, dim) ?
-                                                     mold_high_residual_[level][dim] :
-                                                     mold_high_[level][dim]);
-  }
-
-  // Compute the polyhedron between the low and high problem
-  // points (exclusive). Note that this special constructor
-  // is only available for certain point-set implementations.
-  // Note: we aren't using +=. This means we're ignoring subvolumes
-  // returned to us by recursive FillSpatialDeltas calls.
-  point_set = problem::OperationSpace(workload_, low_problem_point, high_problem_point);
-  for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-  {
-    ASSERT(point_set.GetSize(pv) == 0 || point_set.CheckEquality(GetCurrentWorkingSet(cur), pv));
-  }
   // Record the maximum point set size ever seen across all invocations
   // of this level.
   // Need to be done only for levels which will map to physical storage levels
@@ -1277,7 +1248,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
     unsigned iterations_to_run =
       (gExtrapolateUniformSpatial && !problem::GetShape()->UsesFlattening)
-      ? 3: num_iterations;
+      ? 1 : num_iterations;
 
     if (loop::IsSpatial(next->descriptor.spacetime_dimension))
     {
@@ -1383,31 +1354,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       //
 
       // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
-      std::vector<Point> translation_vectors;
-
-      ASSERT((int(base_index) + indices_[level]) >= (2*extrapolation_stride));
-
-      // We need to find the operation spaces at the current-extrapolation_stride and
-      // current-2*extrapolation_stride indices. However, these are *unskewed* indices.
-      // Unfortunately we cannot simply use ApplySkew() because that function applies
-      // the skew to the current loop state (held in the loop gists) and cannot perform
-      // an unskewed->skewed translation. We can de-construct the loop gist from an
-      // unskewed index, but it is easier to just maintain a skew translation table
-      // as we walk through the loop. The specific entries at the table we need here
-      // are guaranteed to be populated.
-
-      auto last_skewed_index = skew_table.at(base_index + indices_[level] - extrapolation_stride);
-      auto secondlast_skewed_index = skew_table.at(base_index + indices_[level] - 2*extrapolation_stride);
-
-      auto& opspace_lastrun = spatial_deltas.at(last_skewed_index);
-      auto& opspace_secondlastrun = spatial_deltas.at(secondlast_skewed_index);
-
-      for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-      {
-        translation_vectors.push_back(
-          opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv)));
-        ASSERT(opspace_lastrun.GetDataSpace(pv).empty() || GetCurrentTranslationVectors(extrapolation_level)[pv] == translation_vectors.back());
-      }
+      auto translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
 
       //auto translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
       // Iterations #num_iterations_to_run through #last.
@@ -2086,10 +2033,12 @@ problem::PerDataSpace<Point> NestAnalysis::GetCurrentTranslationVectors(std::vec
 problem::OperationSpace NestAnalysis::GetCurrentWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur)
 {
   int level = cur->level;
+  // We use the pre-computed molds within this level range.
+  // Above this level range, we use the transform problem-point to
+  // translate, rotate or otherwise transform the mold.
   problem::OperationPoint low_problem_point;
   problem::OperationPoint high_problem_point;
 
-  // 
   for (unsigned dim = 0; dim < unsigned(problem::GetShape()->NumFlattenedDimensions); dim++)
   {
     low_problem_point[dim] = cur_transform_[dim] + mold_low_[level][dim];
