@@ -447,10 +447,21 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
     std::string indent = "    ";
     int align = max_name_length + 1;
 
-    std::vector<std::string> all_titles = {"Algorithmic Computes", "Actual Computes"};
-    std::vector<std::uint64_t> all_num_computes = {topology.stats_.algorithmic_computes, topology.stats_.actual_computes};
-    std::vector<std::string> all_units = {"pJ/Algorithmic-Compute", "pJ/Compute"};
-
+    std::vector<std::string> all_titles, all_units;
+    std::vector<std::uint64_t> all_num_computes;
+    if (topology.GetSpecs().GetArithmeticLevel()->is_sparse_module.Get())
+    {
+      all_titles = {"Algorithmic Computes", "Actual Computes"};
+      all_num_computes = {topology.stats_.algorithmic_computes, topology.stats_.actual_computes};
+      all_units = {"pJ/Algorithmic-Compute", "pJ/Compute"};
+    }
+    else
+    {
+      all_titles = {"Computes"};
+      all_num_computes = {topology.stats_.actual_computes};
+      all_units = {"pJ/Compute"};
+    }
+    
     for (unsigned i = 0; i < all_titles.size(); i++)
     {
       out << std::endl;
@@ -759,7 +770,7 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
   Specs specs;
   
   assert(storage.isList());
-
+ 
   // Level 0: arithmetic.
   // Use multiplication factor == 0 to ensure .instances attribute is set
   auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic, 0, is_sparse_topology));
@@ -789,7 +800,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
 {
   Specs specs;
   auto curNode = designRoot;
-
+ 
   std::vector<std::shared_ptr<LevelSpecs>> storages; // serialize all storages
   std::vector<std::shared_ptr<LegacyNetwork::Specs>> inferred_networks;
   std::vector<std::shared_ptr<NetworkSpecs>> networks;

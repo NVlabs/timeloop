@@ -245,12 +245,20 @@ Application::Stats Application::Run()
 
   if (engine.IsEvaluated())
   {
-    std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
+    if (!sparse_optimizations_->no_optimization_applied)
+    {   
+      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
               << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
       engine.GetTopology().AlgorithmicComputes()
-              << " | pJ/Compute = " << std::setw(12) << std::fixed << std::setprecision(3) << engine.Energy() /
+              << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
       engine.GetTopology().ActualComputes() << std::endl;
-
+    }
+    else
+    {
+      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
+                 << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+      engine.GetTopology().ActualComputes() << std::endl;
+    }
     std::ofstream map_txt_file(map_txt_file_name);
     mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());
     map_txt_file.close();

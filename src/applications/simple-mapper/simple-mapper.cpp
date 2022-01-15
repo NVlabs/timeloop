@@ -194,13 +194,26 @@ void Application::Run()
     stats_file.close();
 
     std::cout << std::endl;
-    std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
-    std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
-              << best_engine.Utilization() << " | pJ/Algorithmic-Compute = " << std::setw(8)
-              << std::fixed << std::setprecision(3) << best_engine.Energy() /
-      best_engine.GetTopology().AlgorithmicComputes() << " | pJ/Compute = " << std::setw(8)
-              << std::fixed << std::setprecision(3) << best_engine.Energy() /
-      best_engine.GetTopology().ActualComputes() << std::endl;
+    
+    if (!sparse_optimizations_->no_optimization_applied)
+    {
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
+      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
+                << best_engine.Utilization() << " | pJ/Algorithmic-Compute = " << std::setw(8)
+                << std::fixed << std::setprecision(3) << best_engine.Energy() /
+        best_engine.GetTopology().AlgorithmicComputes() << " | pJ/Compute = " << std::setw(8)
+                << std::fixed << std::setprecision(3) << best_engine.Energy() /
+        best_engine.GetTopology().ActualComputes() << std::endl;
+    }
+    else
+    {
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
+      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
+                << std::fixed << std::setprecision(3) << best_engine.Energy() /
+        best_engine.GetTopology().AlgorithmicComputes() << " | pJ/Compute = " << std::setw(8)
+                << std::fixed << std::setprecision(3) << best_engine.Energy() /
+        best_engine.GetTopology().ActualComputes() << std::endl;
+    }
   }
   else
   {

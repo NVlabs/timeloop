@@ -1812,193 +1812,198 @@ void BufferLevel::Print(std::ostream& out) const
       out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
 // flag to print verbose sparse stats or dense stats
-#define PRINT_SPARSE_STATS
-#ifdef PRINT_SPARSE_STATS
-      out << indent + indent << "Partition size                                              : " << stats.partition_size.at(pv) << std::endl;
-      // out << indent + indent << "Parent level name                                           : " << stats.parent_level_name.at(pv) << std::endl;
-      // out << indent + indent << "Overbooked proportion                                       : " << 100*(1.0 - stats.tile_confidence.at(pv)) << "%" << std::endl;
-      out << indent + indent << "Tile density distribution                                   : " << stats.tile_density_distribution.at(pv) << std::endl;
-      out << indent + indent << "Data tile shape                                             : " << stats.tile_shape.at(pv) << std::endl;
-      out << indent + indent << "Max utilized data storage capacity                          : " << stats.utilized_capacity.at(pv) << std::endl;
-      // out << indent + indent << "Max Data tile size                                          : " << stats.data_tile_size.at(pv) << std::endl;
-      out << indent + indent << "Metadata format                                             : " << stats.metadata_format.at(pv) << std::endl;
-      //out << indent + indent << "Max metadata tile size                                      : " << stats.metadata_tile_size.at(pv) << std::endl;
-      //out << indent + indent << "Max utilized metadata storage capacity                      : " << stats.utilized_md_capacity.at(pv) << std::endl;
-      out << indent + indent << "Max utilized metadata storage capacity                      "  << std::endl;
-      for (int rid = stats.random_format_reads.at(pv).size()-1; rid >=0; rid--)
+// #define PRINT_SPARSE_STATS
+// #ifdef PRINT_SPARSE_STATS
+      if (specs_.is_sparse_module.Get())
       {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.metadata_tile_size.at(pv).at(rid)[0] 
-        << ", " << stats.metadata_tile_size.at(pv).at(rid)[1] << ")" << std::endl;
+        out << indent + indent << "Partition size                                              : " << stats.partition_size.at(pv) << std::endl;
+        // out << indent + indent << "Parent level name                                           : " << stats.parent_level_name.at(pv) << std::endl;
+        // out << indent + indent << "Overbooked proportion                                       : " << 100*(1.0 - stats.tile_confidence.at(pv)) << "%" << std::endl;
+        out << indent + indent << "Tile density distribution                                   : " << stats.tile_density_distribution.at(pv) << std::endl;
+        out << indent + indent << "Data tile shape                                             : " << stats.tile_shape.at(pv) << std::endl;
+        out << indent + indent << "Max utilized data storage capacity                          : " << stats.utilized_capacity.at(pv) << std::endl;
+        // out << indent + indent << "Max Data tile size                                          : " << stats.data_tile_size.at(pv) << std::endl;
+        out << indent + indent << "Metadata format                                             : " << stats.metadata_format.at(pv) << std::endl;
+        //out << indent + indent << "Max metadata tile size                                      : " << stats.metadata_tile_size.at(pv) << std::endl;
+        //out << indent + indent << "Max utilized metadata storage capacity                      : " << stats.utilized_md_capacity.at(pv) << std::endl;
+        out << indent + indent << "Max utilized metadata storage capacity                      "  << std::endl;
+        for (int rid = stats.random_format_reads.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.metadata_tile_size.at(pv).at(rid)[0] 
+          << ", " << stats.metadata_tile_size.at(pv).at(rid)[1] << ")" << std::endl;
+        }
+
+        out << indent + indent << "Utilized instances (max)                                    : " << stats.utilized_instances.at(pv) << std::endl;
+        out << indent + indent << "Utilized clusters (max)                                     : " << stats.utilized_clusters.at(pv) << std::endl;
+
+        out << indent + indent << "Algorithmic scalar reads (per-instance)                     : " << stats.reads.at(pv) << std::endl;
+        out << indent + indent << "Actual scalar reads (per-instance)                          : " << stats.fine_grained_scalar_accesses.at(pv).at("random_read") << std::endl;
+        out << indent + indent << "Gated scalar reads (per-instance)                           : " << stats.fine_grained_scalar_accesses.at(pv).at("gated_read") << std::endl;
+        out << indent + indent << "Skipped scalar reads (per-instance)                         : " << stats.fine_grained_scalar_accesses.at(pv).at("skipped_read") << std::endl;
+
+        out << indent + indent << "Algorithmic scalar fills (per-instance)                     : " << stats.fills.at(pv) << std::endl;
+        out << indent + indent << "Actual scalar fills (per-instance)                          : " << stats.fine_grained_scalar_accesses.at(pv).at("random_fill") << std::endl;
+        out << indent + indent << "Gated scalar fills (per-instance)                           : " << stats.fine_grained_scalar_accesses.at(pv).at("gated_fill") << std::endl;
+        out << indent + indent << "Skipped scalar fills (per-instance)                         : " << stats.fine_grained_scalar_accesses.at(pv).at("skipped_fill") << std::endl;
+
+        out << indent + indent << "Algorithmic scalar updates (per-instance)                   : " << stats.updates.at(pv) << std::endl;
+        out << indent + indent << "Actual scalar updates (per-instance)                        : " << stats.fine_grained_scalar_accesses.at(pv).at("random_update") << std::endl;
+        out << indent + indent << "Gated scalar updates (per-instance)                         : " << stats.fine_grained_scalar_accesses.at(pv).at("gated_update") << std::endl;
+        out << indent + indent << "Skipped scalar updates (per-instance)                       : " << stats.fine_grained_scalar_accesses.at(pv).at("skipped_update") << std::endl;
+
+        if (stats.metadata_format.at(pv) != "none")
+        {
+        out << indent + indent << "Actual scalar format reads (per-instance)                  ";
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_read") == 0) {out << ": 0" << std::endl;} 
+        else
+        {
+        out << std::endl;
+        for (int rid = stats.random_format_reads.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.random_format_reads.at(pv).at(rid)[0] 
+          << ",  " << stats.random_format_reads.at(pv).at(rid)[1] << ")"  << std::endl;
+        }
+        }
+        out << indent + indent << "Gated scalar format reads (per-instance)                    ";
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_read") == 0) {out << ": 0" << std::endl;} 
+        else
+        {
+        out << std::endl;
+        for (int rid = stats.gated_format_reads.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.gated_format_reads.at(pv).at(rid)[0] 
+          << ",  "  << stats.gated_format_reads.at(pv).at(rid)[1] << ")" << std::endl;
+        }
+        }
+        out << indent + indent << "Skipped scalar format reads (per-instance)                  ";
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_read") == 0) {out << ": 0" << std::endl;} 
+        else
+        {
+        out << std::endl;
+        for (int rid = stats.skipped_format_reads.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.skipped_format_reads.at(pv).at(rid)[0] 
+          << ",  "  << stats.skipped_format_reads.at(pv).at(rid)[1] << ")" << std::endl;
+        }
+        }
+        out << indent + indent << "Actual scalar format fills (per-instance)                   ";
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_fill") == 0) {out << ": 0" << std::endl;} 
+        else
+        {
+        out << std::endl;
+        for (int rid = stats.random_format_fills.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.random_format_fills.at(pv).at(rid)[0] 
+          << ",  "  << stats.random_format_fills.at(pv).at(rid)[1] << ")" << std::endl;
+        }
+        }
+        out << indent + indent << "Gated scalar format fills (per-instance)                    "; 
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_fill") == 0) {out << ": 0" << std::endl;} 
+        else
+        {
+        out << std::endl;
+        for (int rid = stats.gated_format_fills.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.gated_format_fills.at(pv).at(rid)[0] 
+          << ",  "  << stats.gated_format_fills.at(pv).at(rid)[1] << ")" << std::endl;
+        }
+        }
+        out << indent + indent << "Skipped scalar format fills (per-instance)                  ";
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_fill") == 0) {out << ": 0" << std::endl;} 
+        else
+        {
+        out << std::endl;
+        for (int rid = stats.skipped_format_fills.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.skipped_format_fills.at(pv).at(rid)[0] 
+          << ",  "  << stats.skipped_format_fills.at(pv).at(rid)[1] << ")" << std::endl;
+        }
+        }
+        out << indent + indent << "Actual scalar format updates (per-instance)                 ";
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_update") == 0) {out << ": 0" << std::endl;} 
+        else
+        {
+        out << std::endl;
+        for (int rid = stats.random_format_updates.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.random_format_updates.at(pv).at(rid)[0] 
+          << ",  "  << stats.random_format_updates.at(pv).at(rid)[1] << ")" << std::endl;
+        }
+        }
+        out << indent + indent << "Gated scalar format updates (per-instance)                  ";
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_update") == 0) {out << ": 0" << std::endl;} 
+        else
+        {
+        out << std::endl;
+        for (int rid = stats.gated_format_updates.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.gated_format_updates.at(pv).at(rid)[0] 
+          << ",  "  << stats.gated_format_updates.at(pv).at(rid)[1] << ")" << std::endl;
+        }
+        }
+        out << indent + indent << "Skipped scalar format updates (per-instance)                "; 
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_update") == 0) {out << ": 0" << std::endl;} 
+        else
+        {
+        out << std::endl;
+        for (int rid = stats.skipped_format_updates.at(pv).size()-1; rid >=0; rid--)
+        {
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.skipped_format_updates.at(pv).at(rid)[0] 
+          << ",  "  << stats.skipped_format_updates.at(pv).at(rid)[1] << ")" << std::endl;
+        }
+        }
+        }
+        out << indent + indent << "Scalar decompression counts (per-cluster)                   : " << stats.fine_grained_scalar_accesses.at(pv).at("decompression_count") << std::endl;
+        out << indent + indent << "Scalar compression counts (per-cluster)                     : " << stats.fine_grained_scalar_accesses.at(pv).at("compression_count") << std::endl;
+
+        out << indent + indent << "Temporal reductions (per-instance)                          : " << stats.temporal_reductions.at(pv) << std::endl;
+        out << indent + indent << "Address generations (per-cluster)                           : " << stats.address_generations.at(pv) << std::endl;
+
+        out << indent + indent << "Energy (per-scalar-access)                                  : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Energy (per-instance)                                       : " << stats.energy.at(pv) << " pJ" << std::endl;
+        // out << indent + indent + indent << "Energy due to current level accesses (per-instance): "  << stats.energy.at(pv) - stats.energy_due_to_overflow.at(pv)<< std::endl;
+        // out << indent + indent + indent << "Energy due to child level overflow (per-instance): "  << stats.energy_due_to_overflow.at(pv)<< std::endl;
+        out << indent + indent << "Energy (total)                                              : " << stats.energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
+        // out << indent + indent + indent << "Energy due to current level accesses (total): "  << stats.energy.at(pv) * stats.utilized_instances.at(pv)-stats.energy_due_to_overflow.at(pv) * stats.utilized_instances.at(pv)<< std::endl;
+        // out << indent + indent + indent << "Energy due to child level overflow (total): "  << stats.energy_due_to_overflow.at(pv) * stats.utilized_instances.at(pv)<< std::endl;
+        out << indent + indent << "Temporal Reduction Energy (per-instance)                    : " << stats.temporal_reduction_energy.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Temporal Reduction Energy (total)                           : " << stats.temporal_reduction_energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
+
+        out << indent + indent << "Address Generation Energy (per-cluster)                     : " << stats.addr_gen_energy.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Address Generation Energy (total)                           : " << stats.addr_gen_energy.at(pv) * stats.utilized_clusters.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Read Bandwidth (per-instance)                               : " << stats.read_bandwidth.at(pv) << " words/cycle" << std::endl;
+        out << indent + indent + indent << "Breakdown (Data, Format): (" << 100 * (1 - stats.format_read_bandwidth_ratio.at(pv)) << "%, " << 100 * (stats.format_read_bandwidth_ratio.at(pv)) << "%)"<< std::endl;
+        out << indent + indent << "Read Bandwidth (total)                                      : " << stats.read_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
+        out << indent + indent << "Write Bandwidth (per-instance)                              : " << stats.write_bandwidth.at(pv) << " words/cycle" << std::endl;
+        out << indent + indent + indent << "Breakdown (Data, Format): (" << 100 * (1 - stats.format_write_bandwidth_ratio.at(pv)) << "%, " << 100 * (stats.format_write_bandwidth_ratio.at(pv)) << "%)"<< std::endl;
+        out << indent + indent << "Write Bandwidth (total)                                     : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
       }
-
-      out << indent + indent << "Utilized instances (max)                                    : " << stats.utilized_instances.at(pv) << std::endl;
-      out << indent + indent << "Utilized clusters (max)                                     : " << stats.utilized_clusters.at(pv) << std::endl;
-
-      out << indent + indent << "Algorithmic scalar reads (per-instance)                     : " << stats.reads.at(pv) << std::endl;
-      out << indent + indent << "Actual scalar reads (per-instance)                          : " << stats.fine_grained_scalar_accesses.at(pv).at("random_read") << std::endl;
-      out << indent + indent << "Gated scalar reads (per-instance)                           : " << stats.fine_grained_scalar_accesses.at(pv).at("gated_read") << std::endl;
-      out << indent + indent << "Skipped scalar reads (per-instance)                         : " << stats.fine_grained_scalar_accesses.at(pv).at("skipped_read") << std::endl;
-
-      out << indent + indent << "Algorithmic scalar fills (per-instance)                     : " << stats.fills.at(pv) << std::endl;
-      out << indent + indent << "Actual scalar fills (per-instance)                          : " << stats.fine_grained_scalar_accesses.at(pv).at("random_fill") << std::endl;
-      out << indent + indent << "Gated scalar fills (per-instance)                           : " << stats.fine_grained_scalar_accesses.at(pv).at("gated_fill") << std::endl;
-      out << indent + indent << "Skipped scalar fills (per-instance)                         : " << stats.fine_grained_scalar_accesses.at(pv).at("skipped_fill") << std::endl;
-
-      out << indent + indent << "Algorithmic scalar updates (per-instance)                   : " << stats.updates.at(pv) << std::endl;
-      out << indent + indent << "Actual scalar updates (per-instance)                        : " << stats.fine_grained_scalar_accesses.at(pv).at("random_update") << std::endl;
-      out << indent + indent << "Gated scalar updates (per-instance)                         : " << stats.fine_grained_scalar_accesses.at(pv).at("gated_update") << std::endl;
-      out << indent + indent << "Skipped scalar updates (per-instance)                       : " << stats.fine_grained_scalar_accesses.at(pv).at("skipped_update") << std::endl;
-
-      if (stats.metadata_format.at(pv) != "none")
-      {
-      out << indent + indent << "Actual scalar format reads (per-instance)                  ";
-      if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_read") == 0) {out << ": 0" << std::endl;} 
+// #else
       else
       {
-      out << std::endl;
-      for (int rid = stats.random_format_reads.at(pv).size()-1; rid >=0; rid--)
-      {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.random_format_reads.at(pv).at(rid)[0] 
-        << ",  " << stats.random_format_reads.at(pv).at(rid)[1] << ")"  << std::endl;
-      }
-      }
-      out << indent + indent << "Gated scalar format reads (per-instance)                    ";
-      if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_read") == 0) {out << ": 0" << std::endl;} 
-      else
-      {
-      out << std::endl;
-      for (int rid = stats.gated_format_reads.at(pv).size()-1; rid >=0; rid--)
-      {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.gated_format_reads.at(pv).at(rid)[0] 
-        << ",  "  << stats.gated_format_reads.at(pv).at(rid)[1] << ")" << std::endl;
-      }
-      }
-      out << indent + indent << "Skipped scalar format reads (per-instance)                  ";
-      if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_read") == 0) {out << ": 0" << std::endl;} 
-      else
-      {
-      out << std::endl;
-      for (int rid = stats.skipped_format_reads.at(pv).size()-1; rid >=0; rid--)
-      {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.skipped_format_reads.at(pv).at(rid)[0] 
-        << ",  "  << stats.skipped_format_reads.at(pv).at(rid)[1] << ")" << std::endl;
-      }
-      }
-      out << indent + indent << "Actual scalar format fills (per-instance)                   ";
-      if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_fill") == 0) {out << ": 0" << std::endl;} 
-      else
-      {
-      out << std::endl;
-      for (int rid = stats.random_format_fills.at(pv).size()-1; rid >=0; rid--)
-      {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.random_format_fills.at(pv).at(rid)[0] 
-        << ",  "  << stats.random_format_fills.at(pv).at(rid)[1] << ")" << std::endl;
-      }
-      }
-      out << indent + indent << "Gated scalar format fills (per-instance)                    "; 
-      if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_fill") == 0) {out << ": 0" << std::endl;} 
-      else
-      {
-      out << std::endl;
-      for (int rid = stats.gated_format_fills.at(pv).size()-1; rid >=0; rid--)
-      {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.gated_format_fills.at(pv).at(rid)[0] 
-        << ",  "  << stats.gated_format_fills.at(pv).at(rid)[1] << ")" << std::endl;
-      }
-      }
-      out << indent + indent << "Skipped scalar format fills (per-instance)                  ";
-      if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_fill") == 0) {out << ": 0" << std::endl;} 
-      else
-      {
-      out << std::endl;
-      for (int rid = stats.skipped_format_fills.at(pv).size()-1; rid >=0; rid--)
-      {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.skipped_format_fills.at(pv).at(rid)[0] 
-        << ",  "  << stats.skipped_format_fills.at(pv).at(rid)[1] << ")" << std::endl;
-      }
-      }
-      out << indent + indent << "Actual scalar format updates (per-instance)                 ";
-      if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_update") == 0) {out << ": 0" << std::endl;} 
-      else
-      {
-      out << std::endl;
-      for (int rid = stats.random_format_updates.at(pv).size()-1; rid >=0; rid--)
-      {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.random_format_updates.at(pv).at(rid)[0] 
-        << ",  "  << stats.random_format_updates.at(pv).at(rid)[1] << ")" << std::endl;
-      }
-      }
-      out << indent + indent << "Gated scalar format updates (per-instance)                  ";
-      if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_update") == 0) {out << ": 0" << std::endl;} 
-      else
-      {
-      out << std::endl;
-      for (int rid = stats.gated_format_updates.at(pv).size()-1; rid >=0; rid--)
-      {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.gated_format_updates.at(pv).at(rid)[0] 
-        << ",  "  << stats.gated_format_updates.at(pv).at(rid)[1] << ")" << std::endl;
-      }
-      }
-      out << indent + indent << "Skipped scalar format updates (per-instance)                "; 
-      if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_update") == 0) {out << ": 0" << std::endl;} 
-      else
-      {
-      out << std::endl;
-      for (int rid = stats.skipped_format_updates.at(pv).size()-1; rid >=0; rid--)
-      {
-      out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.skipped_format_updates.at(pv).at(rid)[0] 
-        << ",  "  << stats.skipped_format_updates.at(pv).at(rid)[1] << ")" << std::endl;
-      }
-      }
-      }
-      out << indent + indent << "Scalar decompression counts (per-cluster)                   : " << stats.fine_grained_scalar_accesses.at(pv).at("decompression_count") << std::endl;
-      out << indent + indent << "Scalar compression counts (per-cluster)                     : " << stats.fine_grained_scalar_accesses.at(pv).at("compression_count") << std::endl;
+        out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
+        out << indent + indent << "Utilized capacity                        : " << stats.utilized_capacity.at(pv) << std::endl;
+        out << indent + indent << "Utilized instances (max)                 : " << stats.utilized_instances.at(pv) << std::endl;
+        out << indent + indent << "Utilized clusters (max)                  : " << stats.utilized_clusters.at(pv) << std::endl;
+        out << indent + indent << "Scalar reads (per-instance)              : " << stats.reads.at(pv) << std::endl;
+        out << indent + indent << "Scalar updates (per-instance)            : " << stats.updates.at(pv) << std::endl;
+        out << indent + indent << "Scalar fills (per-instance)              : " << stats.fills.at(pv) << std::endl;
+        out << indent + indent << "Temporal reductions (per-instance)       : " << stats.temporal_reductions.at(pv) << std::endl;
+        out << indent + indent << "Address generations (per-cluster)        : " << stats.address_generations.at(pv) << std::endl;
 
-      out << indent + indent << "Temporal reductions (per-instance)                          : " << stats.temporal_reductions.at(pv) << std::endl;
-      out << indent + indent << "Address generations (per-cluster)                           : " << stats.address_generations.at(pv) << std::endl;
-
-      out << indent + indent << "Energy (per-scalar-access)                                  : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Energy (per-instance)                                       : " << stats.energy.at(pv) << " pJ" << std::endl;
-      // out << indent + indent + indent << "Energy due to current level accesses (per-instance): "  << stats.energy.at(pv) - stats.energy_due_to_overflow.at(pv)<< std::endl;
-      // out << indent + indent + indent << "Energy due to child level overflow (per-instance): "  << stats.energy_due_to_overflow.at(pv)<< std::endl;
-      out << indent + indent << "Energy (total)                                              : " << stats.energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
-      // out << indent + indent + indent << "Energy due to current level accesses (total): "  << stats.energy.at(pv) * stats.utilized_instances.at(pv)-stats.energy_due_to_overflow.at(pv) * stats.utilized_instances.at(pv)<< std::endl;
-      // out << indent + indent + indent << "Energy due to child level overflow (total): "  << stats.energy_due_to_overflow.at(pv) * stats.utilized_instances.at(pv)<< std::endl;
-      out << indent + indent << "Temporal Reduction Energy (per-instance)                    : " << stats.temporal_reduction_energy.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Temporal Reduction Energy (total)                           : " << stats.temporal_reduction_energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
-
-      out << indent + indent << "Address Generation Energy (per-cluster)                     : " << stats.addr_gen_energy.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Address Generation Energy (total)                           : " << stats.addr_gen_energy.at(pv) * stats.utilized_clusters.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Read Bandwidth (per-instance)                               : " << stats.read_bandwidth.at(pv) << " words/cycle" << std::endl;
-      out << indent + indent + indent << "Breakdown (Data, Format): (" << 100 * (1 - stats.format_read_bandwidth_ratio.at(pv)) << "%, " << 100 * (stats.format_read_bandwidth_ratio.at(pv)) << "%)"<< std::endl;
-      out << indent + indent << "Read Bandwidth (total)                                      : " << stats.read_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
-      out << indent + indent << "Write Bandwidth (per-instance)                              : " << stats.write_bandwidth.at(pv) << " words/cycle" << std::endl;
-      out << indent + indent + indent << "Breakdown (Data, Format): (" << 100 * (1 - stats.format_write_bandwidth_ratio.at(pv)) << "%, " << 100 * (stats.format_write_bandwidth_ratio.at(pv)) << "%)"<< std::endl;
-      out << indent + indent << "Write Bandwidth (total)                                     : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
-
-#else
-      out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
-      out << indent + indent << "Utilized capacity                        : " << stats.utilized_capacity.at(pv) << std::endl;
-      out << indent + indent << "Utilized instances (max)                 : " << stats.utilized_instances.at(pv) << std::endl;
-      out << indent + indent << "Utilized clusters (max)                  : " << stats.utilized_clusters.at(pv) << std::endl;
-      out << indent + indent << "Scalar reads (per-instance)              : " << stats.reads.at(pv) << std::endl;
-      out << indent + indent << "Scalar updates (per-instance)            : " << stats.updates.at(pv) << std::endl;
-      out << indent + indent << "Scalar fills (per-instance)              : " << stats.fills.at(pv) << std::endl;
-      out << indent + indent << "Temporal reductions (per-instance)       : " << stats.temporal_reductions.at(pv) << std::endl;
-      out << indent + indent << "Address generations (per-cluster)        : " << stats.address_generations.at(pv) << std::endl;
-
-      out << indent + indent << "Energy (per-scalar-access)               : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Energy (per-instance)                    : " << stats.energy.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Energy (total)                           : " << stats.energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Temporal Reduction Energy (per-instance) : " << stats.temporal_reduction_energy.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Temporal Reduction Energy (total)        : " << stats.temporal_reduction_energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Address Generation Energy (per-cluster)  : " << stats.addr_gen_energy.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Address Generation Energy (total)        : " << stats.addr_gen_energy.at(pv) * stats.utilized_clusters.at(pv) << " pJ" << std::endl;
-      out << indent + indent << "Read Bandwidth (per-instance)            : " << stats.read_bandwidth.at(pv) << " words/cycle" << std::endl;
-      out << indent + indent << "Read Bandwidth (total)                   : " << stats.read_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
-      out << indent + indent << "Write Bandwidth (per-instance)           : " << stats.write_bandwidth.at(pv) << " words/cycle" << std::endl;
-      out << indent + indent << "Write Bandwidth (total)                  : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
-#endif
+        out << indent + indent << "Energy (per-scalar-access)               : " << stats.energy_per_access.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Energy (per-instance)                    : " << stats.energy.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Energy (total)                           : " << stats.energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Temporal Reduction Energy (per-instance) : " << stats.temporal_reduction_energy.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Temporal Reduction Energy (total)        : " << stats.temporal_reduction_energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Address Generation Energy (per-cluster)  : " << stats.addr_gen_energy.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Address Generation Energy (total)        : " << stats.addr_gen_energy.at(pv) * stats.utilized_clusters.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Read Bandwidth (per-instance)            : " << stats.read_bandwidth.at(pv) << " words/cycle" << std::endl;
+        out << indent + indent << "Read Bandwidth (total)                   : " << stats.read_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
+        out << indent + indent << "Write Bandwidth (per-instance)           : " << stats.write_bandwidth.at(pv) << " words/cycle" << std::endl;
+        out << indent + indent << "Write Bandwidth (total)                  : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
+      }
+// #endif
     }
   }
 

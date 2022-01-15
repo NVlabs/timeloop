@@ -531,15 +531,27 @@ void MapperThread::Run()
     invalid_mappings_eval = 0;
     search_->Report(search::Status::Success, Cost(stats, optimization_metrics_.at(0)));
 
+    bool is_sparse_topology = !sparse_optimizations_->no_optimization_applied;
     if (log_suboptimal_)
     {
       mutex_->lock();
-      log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
+      if (is_sparse_topology)
+      {      
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                   << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                  << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.algorithmic_computes
-                  << " | pJ/Compute = " << std::setw(12) << std::fixed << std::setprecision(3) << stats.energy / stats.actual_computes
+                  << " | pJ/Algorithmic-Compute = " << std::setw(4) << std::fixed << std::setprecision(3) << stats.energy / stats.algorithmic_computes
+                  << " | pJ/Compute = " << std::setw(4) << std::fixed << std::setprecision(3) << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
                   << std::endl;
+      }
+      else
+      {
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
+                  << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
+                  << " | pJ/Compute = " << std::setw(4) << std::fixed << std::setprecision(3) << stats.energy / stats.actual_computes
+                  << " | " << mapping.PrintCompact()
+                  << std::endl;
+      }
       mutex_->unlock();
     }
 
@@ -561,15 +573,23 @@ void MapperThread::Run()
       if (!log_suboptimal_)
       {
         mutex_->lock();
-        log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
-                    << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization
-                    << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3)
-                    << stats.energy / stats.algorithmic_computes
-                    << " | pJ/Compute = " << std::setw(12) << std::fixed << std::setprecision(3)
-                    << stats.energy / stats.actual_computes
+        if (is_sparse_topology)
+        {      
+          log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
+                    << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
+                    << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.algorithmic_computes
+                    << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
                     << std::endl;
-        mutex_->unlock();
+        }
+        else
+        {
+          log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
+                    << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
+                    << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.actual_computes
+                    << " | " << mapping.PrintCompact()
+                    << std::endl;
+        }        mutex_->unlock();
       }
 
       mappings_since_last_best_update = 0;
