@@ -716,8 +716,8 @@ unsigned Constraints::FindTargetTilingLevel(config::CompoundConfigNode constrain
   // Translate this storage ID to a tiling ID.
   //
   unsigned tiling_level_id;
-  if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing" || type == "max_overbooked_proportion" 
-      || type == "no_link_transfer_no_multicast" || type == "no_link_transfer" || type == "no_multicast")
+  if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing" || type == "max_overbooked_proportion" ||
+      type == "no_link_transfer" || type == "no_multicast" || type == "no_reduction" || type == "no_multicast_no_reduction")
   {
     // This should always succeed.
     tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);
