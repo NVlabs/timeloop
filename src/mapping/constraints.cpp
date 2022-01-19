@@ -52,7 +52,7 @@ Constraints::Constraints(const ArchProperties& arch_props,
   skews_.clear();
   no_multicast_.clear();
   no_link_transfer_.clear();
-  
+
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
@@ -650,10 +650,10 @@ void Constraints::ParseSingleConstraint(
     // Error handling for re-spec conflicts are inside the parse function.
     ParseNoLinkTransferConstraint(attributes, arch_props_.TilingToStorage(level_id));
   }
-  else if (type == "no_multicast")
+  else if (type == "no_multicast" || type == "no_reduction" || type == "no_multicast_no_reduction")
   {
     // Error handling for re-spec conflicts are inside the parse function.
-    ParseNoMulticastConstraint(attributes, arch_props_.TilingToStorage(level_id));
+    ParseNoMulticastConstraint(attributes, arch_props_.TilingToStorage(level_id), type);
   }
   else if (type == "utilization" || type == "parallelism")
   {
@@ -716,7 +716,8 @@ unsigned Constraints::FindTargetTilingLevel(config::CompoundConfigNode constrain
   // Translate this storage ID to a tiling ID.
   //
   unsigned tiling_level_id;
-  if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing" || type == "max_overbooked_proportion" || type == "no_link_transfer" || type == "no_multicast")
+  if (type == "temporal" || type == "datatype" || type == "bypass" || type == "bypassing" || type == "max_overbooked_proportion" 
+      || type == "no_link_transfer_no_multicast" || type == "no_link_transfer" || type == "no_multicast")
   {
     // This should always succeed.
     tiling_level_id = arch_props_.TemporalToTiling(storage_level_id);
@@ -1022,7 +1023,7 @@ void Constraints::ParseNoLinkTransferConstraint(config::CompoundConfigNode const
 //
 // Parse user datatype no-multicast settings.
 //
-void Constraints::ParseNoMulticastConstraint(config::CompoundConfigNode constraint, unsigned level)
+void Constraints::ParseNoMulticastConstraint(config::CompoundConfigNode constraint, unsigned level, std::string type)
 {
   // Check that we have necessary parameters and ensure this isn't a redefinition
   if (!constraint.exists("datatypes"))
@@ -1031,13 +1032,13 @@ void Constraints::ParseNoMulticastConstraint(config::CompoundConfigNode constrai
               << "list. No key \"datatypes\" found." << std::endl;
     exit(1);
   }
-  if (no_multicast_.find(level) != no_multicast_.end())
+  if (no_multicast_.find(level) == no_multicast_.end())
   {
-    std::cerr << "ERROR: re-specification of no_multicast flag at level "
-              << arch_props_.StorageLevelName(level) << ". This may imply a "
-              << "conflict between architecture and mapspace constraints."
-              << std::endl;
-    exit(1);          
+    no_multicast_[level] = problem::PerDataSpace<bool>();
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      no_multicast_[level][pvi] = false;
+    }
   }
 
   no_multicast_[level] = problem::PerDataSpace<bool>();
@@ -1056,6 +1057,16 @@ void Constraints::ParseNoMulticastConstraint(config::CompoundConfigNode constrai
       std::cerr << "ERROR: parsing no_multicast setting: data-space " << datatype_string
                 << " not found in problem shape." << std::endl;
       exit(1);
+    }
+    if(type == "no_multicast" &&  problem::GetShape()->IsReadWriteDataSpace.at(datatype))
+    {
+      std::cerr << "ERROR: no_multicast directive for read-write data space " << problem::GetShape()->DataSpaceIDToName.at(datatype) << std::endl;
+      std::exit(1);
+    }
+    if(type == "no_reduction" &&  !problem::GetShape()->IsReadWriteDataSpace.at(datatype))
+    {
+      std::cerr << "ERROR: no_reduction directive for read-only data space " << problem::GetShape()->DataSpaceIDToName.at(datatype) << std::endl;
+      std::exit(1);
     }
     no_multicast_[level].at(datatype) = 1;
   }

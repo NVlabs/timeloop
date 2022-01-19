@@ -109,7 +109,7 @@ class Constraints
   std::vector<problem::Shape::FlattenedDimensionID> ParsePermutations(config::CompoundConfigNode constraint);
   void ParseDatatypeBypassSettings(config::CompoundConfigNode constraint, unsigned level);
   void ParseNoLinkTransferConstraint(config::CompoundConfigNode constraint, unsigned level);
-  void ParseNoMulticastConstraint(config::CompoundConfigNode constraint, unsigned level);
+  void ParseNoMulticastConstraint(config::CompoundConfigNode constraint, unsigned level, std::string type);
 
 };
 
