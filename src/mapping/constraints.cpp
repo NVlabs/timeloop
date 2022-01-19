@@ -1017,7 +1017,6 @@ void Constraints::ParseNoLinkTransferConstraint(config::CompoundConfigNode const
     }
     no_link_transfer_[level].at(datatype) = 1;
   }
-  std::cout << "Level " << arch_props_.StorageLevelName(level) << ": no_link_transfer: " << no_link_transfer_[level] << std::endl;
 }
 
 //
