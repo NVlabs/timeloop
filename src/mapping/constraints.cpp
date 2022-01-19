@@ -1069,7 +1069,6 @@ void Constraints::ParseNoMulticastConstraint(config::CompoundConfigNode constrai
     }
     no_multicast_[level].at(datatype) = 1;
   }
-  std::cout << "Level " << arch_props_.StorageLevelName(level) << " no_multicast_: " << no_multicast_.at(level) << std::endl;
 }
 
 } // namespace mapping
