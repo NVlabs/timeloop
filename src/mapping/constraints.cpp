@@ -1040,7 +1040,6 @@ void Constraints::ParseNoMulticastConstraint(config::CompoundConfigNode constrai
     }
   }
 
-  no_multicast_[level] = problem::PerDataSpace<bool>();
   std::vector<std::string> datatype_strings;
   constraint.lookupArrayValue("datatypes", datatype_strings);
   
@@ -1069,6 +1068,7 @@ void Constraints::ParseNoMulticastConstraint(config::CompoundConfigNode constrai
     }
     no_multicast_[level].at(datatype) = 1;
   }
+  std::cout << "Level " << arch_props_.StorageLevelName(level) << " no_multicast_: " << no_multicast_.at(level) << std::endl;
 }
 
 } // namespace mapping
