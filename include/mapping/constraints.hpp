@@ -58,6 +58,8 @@ class Constraints
   double min_parallelism_;
   bool min_parallelism_isset_;  
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skews_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast_;
 
  public:
   Constraints() = delete;
@@ -73,6 +75,8 @@ class Constraints
   double MinParallelism() const;
   const std::map<unsigned, double>& ConfidenceThresholds() const;
   const std::unordered_map<unsigned, loop::Nest::SkewDescriptor> Skews() const;
+  const std::unordered_map<unsigned, problem::PerDataSpace<bool>> NoLinkTransfers() const;
+  const std::unordered_map<unsigned, problem::PerDataSpace<bool>> NoMulticast() const;
 
   // Create a constraints object from a given mapping object. The resultant
   // constraints will *only* be satisfied by that mapping.
@@ -104,6 +108,9 @@ class Constraints
   std::map<problem::Shape::FlattenedDimensionID, int> ParseMaxFactors(config::CompoundConfigNode constraint);
   std::vector<problem::Shape::FlattenedDimensionID> ParsePermutations(config::CompoundConfigNode constraint);
   void ParseDatatypeBypassSettings(config::CompoundConfigNode constraint, unsigned level);
+  void ParseNoLinkTransferConstraint(config::CompoundConfigNode constraint, unsigned level);
+  void ParseNoMulticastConstraint(config::CompoundConfigNode constraint, unsigned level);
+
 };
 
 } // namespace mapping

@@ -125,6 +125,9 @@ class NestAnalysis
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skew_descriptors_; // per loop level.
   loop::Nest::SkewDescriptor* cur_skew_descriptor_ = nullptr;
 
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer_; // per storage level.
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast_; // per storage level.
+
   // Other state.
 
   bool working_sets_computed_ = false;
@@ -186,7 +189,8 @@ class NestAnalysis
     const std::unordered_map<std::uint64_t, problem::OperationSpace>& prev_spatial_deltas,
     const std::uint64_t cur_spatial_index,
     const std::uint64_t prev_spatial_index,
-    std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse);
+    std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse,
+    const problem::PerDataSpace<bool>& ignore_dims);
   
   void ComputeDataDensity();
   void PrintSpaceTimeStamp();

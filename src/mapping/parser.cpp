@@ -51,6 +51,7 @@ void ParseUserDatatypeBypassSettings(config::CompoundConfigNode constraint,
                                      unsigned level,
                                      problem::PerDataSpace<std::string>& user_bypass_strings);
 loop::Nest::SkewDescriptor ParseUserSkew(config::CompoundConfigNode directive);
+problem::PerDataSpace<bool> ParseBooleanTypePerDataSpace(config::CompoundConfigNode directive);
 
 //
 // Parse mapping in libconfig format and generate data structure.
@@ -70,6 +71,8 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   problem::PerDataSpace<std::string> user_bypass_strings;
   std::map<unsigned, double> confidence_thresholds;
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> user_skews;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast;
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
@@ -159,6 +162,45 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       // Note: skews are stored by storage level id, not tiling level id.
       auto storage_level_id = FindTargetStorageLevel(directive);
       user_skews[storage_level_id] = ParseUserSkew(directive);
+    }
+    else if (type == "no_link_transfer")
+    {
+      // Note: no_link_transfer is stored by storage level id, not tiling level id.
+      auto storage_level_id = FindTargetStorageLevel(directive);
+      if(no_link_transfer.find(storage_level_id) != no_link_transfer.end())
+      {
+        std::cerr << "ERROR: Repeated no-link-transfer directive for storage level " << storage_level_id << std::endl;
+        std::exit(1);
+      }
+      no_link_transfer[storage_level_id] = ParseBooleanTypePerDataSpace(directive);
+    }
+    else if (type == "no_multicast" || type == "no_reduction" || type == "no_multicast_no_reduction")
+    {
+      // Note: no_multicast are stored by storage level id, not tiling level id.
+      auto storage_level_id = FindTargetStorageLevel(directive);
+      auto new_directives = ParseBooleanTypePerDataSpace(directive);
+      
+      // Populate if not present
+      if(no_multicast.find(storage_level_id) == no_multicast.end())
+      {
+        no_multicast[storage_level_id] = new_directives;
+      }
+      // Update
+      for(unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      {
+        if(!new_directives[pvi]) continue;
+        if(type == "no_multicast" &&  problem::GetShape()->IsReadWriteDataSpace.at(pvi))
+        {
+          std::cerr << "ERROR: no_multicast directive for read-write data space " << problem::GetShape()->DataSpaceIDToName.at(pvi) << std::endl;
+          std::exit(1);
+        }
+        if(type == "no_reduction" &&  !problem::GetShape()->IsReadWriteDataSpace.at(pvi))
+        {
+          std::cerr << "ERROR: no_reduction directive for read-only data space " << problem::GetShape()->DataSpaceIDToName.at(pvi) << std::endl;
+          std::exit(1);
+        }
+        no_multicast[storage_level_id][pvi] = new_directives[pvi] || no_multicast[storage_level_id][pvi];
+      }
     }
     else
     {
@@ -358,6 +400,8 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
 
   mapping.confidence_thresholds = confidence_thresholds;
   mapping.loop_nest.skew_descriptors = user_skews;
+  mapping.loop_nest.no_link_transfer = no_link_transfer;
+  mapping.loop_nest.no_multicast = no_multicast;
   mapping.id = 0;
   mapping.fanoutX_map = arch_props_.FanoutX();
   mapping.fanoutY_map = arch_props_.FanoutY();
@@ -569,6 +613,25 @@ void ParseUserDatatypeBypassSettings(config::CompoundConfigNode directive,
     }
   }
 }
+
+//
+// Parse a boolean value per data space
+//
+problem::PerDataSpace<bool> ParseBooleanTypePerDataSpace(config::CompoundConfigNode directive)
+{
+  // Datatypes to "keep" at this level.
+  std::vector<std::string> datatype_strings;
+  directive.lookupArrayValue("datatypes", datatype_strings);
+  problem::PerDataSpace<bool> retval;
+  for (const std::string& datatype_string: datatype_strings)
+  {
+    auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
+    retval.at(datatype) = true;
+  }
+  return retval;
+}
+
+
 
 //
 // Parse user skew.
