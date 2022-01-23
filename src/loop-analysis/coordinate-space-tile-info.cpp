@@ -38,9 +38,9 @@ void ExtraTileConstraintInfo::Set(const std::uint64_t shape, const std::uint64_t
   set_ = true;
 }
 
-void ExtraTileConstraintInfo::SetMold(const problem::DataSpace& tile_point_set_mold)
+void ExtraTileConstraintInfo::SetMold(const PointSet& tile_point_set_mold)
 {
-  tile_point_set_mold_ = std::make_shared<problem::DataSpace>(tile_point_set_mold);
+  tile_point_set_mold_ = std::make_shared<PointSet>(PointSet(tile_point_set_mold));
   mold_set_ = true;
 }
 
@@ -54,7 +54,7 @@ std::uint64_t ExtraTileConstraintInfo::GetOccupancy() const
   return occupancy_;
 }
 
-problem::DataSpace ExtraTileConstraintInfo::GetPointSetMold() const
+PointSet ExtraTileConstraintInfo::GetPointSetMold() const
 {
   assert(mold_set_);
   return *tile_point_set_mold_;
@@ -70,16 +70,16 @@ void CoordinateSpaceTileInfo::Clear()
   if (mold_set_) tile_point_set_mold_->Reset();
 }
 
-void CoordinateSpaceTileInfo::Set(const problem::DataSpace& tile_point_set_mold, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint)
+void CoordinateSpaceTileInfo::Set(const PointSet& tile_point_set_mold, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint)
 {
   dspace_id_ = data_space_id;
   extra_tile_constraint_ = extra_tile_constraint;
   SetMold(tile_point_set_mold);
 }
 
-void CoordinateSpaceTileInfo::SetMold(const problem::DataSpace& tile_point_set_mold)
+void CoordinateSpaceTileInfo::SetMold(const PointSet& tile_point_set_mold)
 {
-  tile_point_set_mold_ = std::make_shared<problem::DataSpace>(tile_point_set_mold);
+  tile_point_set_mold_ = std::make_shared<PointSet>(tile_point_set_mold);
   mold_set_ = true;
 }
 
@@ -93,7 +93,7 @@ std::uint64_t CoordinateSpaceTileInfo::GetShape() const
   return tile_point_set_mold_->size();
 }
 
-problem::DataSpace CoordinateSpaceTileInfo::GetPointSetRepr() const
+PointSet CoordinateSpaceTileInfo::GetPointSetRepr() const
 {
   assert(mold_set_);
   return *tile_point_set_mold_;

@@ -127,7 +127,7 @@ struct DataMovementInfo
   // Only needed when tile has metadata
   std::vector<std::vector<loop::Descriptor>> metadata_subnest;
   // std::vector<std::uint64_t> metadata_subtile_shape;
-  std::vector<problem::DataSpace> metadata_subtile_point_set;
+  std::vector<PointSet> metadata_subtile_point_set;
   std::vector<std::uint64_t> fiber_shape;
   double child_level_metadata_occupancy_ratio;
 

@@ -62,7 +62,7 @@ FixedStructuredDistribution::Specs FixedStructuredDistribution::ParseSpecs(confi
   return specs;
 }
 
-void FixedStructuredDistribution::SetWorkloadTensorSize(const problem::DataSpace& point_set)
+void FixedStructuredDistribution::SetWorkloadTensorSize(const PointSet& point_set)
 {
   specs_.workload_tensor_size = point_set.size();
   workload_tensor_size_set_ = true;
@@ -209,18 +209,5 @@ double FixedStructuredDistribution::GetExpectedTileOccupancy (const tiling::Coor
   return tile.GetShape() * specs_.fixed_density;
 }
 
-
-
-bool FixedStructuredDistribution::OccupancyMoldNeeded()
-{
-  return false;
-}
-
-
-problem::DataSpace FixedStructuredDistribution::GetOccupancyMold(const std::uint64_t occupancy) const
-{
-  (void) occupancy;
-  return problem::DataSpace(0); // place holder point set
-}
 
 }

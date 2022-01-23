@@ -115,7 +115,7 @@ class FixedStructuredDistribution : public DensityDistribution
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
-  void SetWorkloadTensorSize(const problem::DataSpace& point_set);
+  void SetWorkloadTensorSize(const PointSet& point_set);
   
   std::uint64_t GetWorkloadTensorSize() const;
   std::string GetDistributionType() const;
@@ -132,8 +132,6 @@ class FixedStructuredDistribution : public DensityDistribution
   double GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
                                      const std::uint64_t occupancy);
   double GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile);
-  bool OccupancyMoldNeeded();
-  problem::DataSpace GetOccupancyMold(const std::uint64_t occupancy) const;
 }; // class FixedStructuredDistribution
 
 } // namespace problem

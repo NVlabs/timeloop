@@ -61,7 +61,6 @@ class Point
   std::uint32_t Order() const;
   std::vector<Coordinate> GetCoordinates() const;
 
-
   Coordinate& operator[] (std::uint32_t i);
   const Coordinate& operator[] (std::uint32_t i) const;
 

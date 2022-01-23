@@ -80,7 +80,7 @@ public:
   // destructor
   virtual ~DensityDistribution();
 
-  virtual void SetWorkloadTensorSize(const problem::DataSpace& point_set) = 0;
+  virtual void SetWorkloadTensorSize(const PointSet& point_set) = 0;
 
   virtual std::uint64_t GetWorkloadTensorSize() const = 0;
   virtual std::string GetDistributionType() const = 0;
@@ -99,8 +99,6 @@ public:
   virtual double GetTileOccupancyProbability (const tiling::CoordinateSpaceTileInfo& tile,
                                               const std::uint64_t occupancy) = 0;
   virtual double GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) = 0;
-  virtual bool OccupancyMoldNeeded() = 0;
-  virtual problem::DataSpace GetOccupancyMold(const std::uint64_t occupancy) const = 0;
   
   // Serialization.
   friend class boost::serialization::access;

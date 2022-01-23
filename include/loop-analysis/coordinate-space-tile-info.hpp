@@ -36,19 +36,19 @@ struct ExtraTileConstraintInfo
 {
   std::uint64_t shape_;
   std::uint64_t occupancy_;
-  std::shared_ptr<problem::DataSpace> tile_point_set_mold_;
+  std::shared_ptr<PointSet> tile_point_set_mold_;
   
   bool set_ = false;
   bool mold_set_ = false;
 
   void Set(const std::uint64_t shape, const std::uint64_t occupancy);
-  void SetMold(const problem::DataSpace& tile_point_set_mold);
+  void SetMold(const PointSet& tile_point_set_mold);
 
   std::uint64_t GetShape() const;
 
   std::uint64_t GetOccupancy() const;
 
-  problem::DataSpace GetPointSetMold() const;
+  PointSet GetPointSetMold() const;
 };
 
 // interface object between sparse modeling module and density models
@@ -59,7 +59,7 @@ struct CoordinateSpaceTileInfo
   // an operation space mold for coordinate space representation needed for more precise representation
   problem::Shape::DataSpaceID dspace_id_;
   ExtraTileConstraintInfo extra_tile_constraint_;
-  std::shared_ptr<problem::DataSpace> tile_point_set_mold_;
+  std::shared_ptr<PointSet> tile_point_set_mold_;
 
   // for compatibility (there are code segments that do not set the mold yet)
   // TODO: maks all usage of coord space tile include mold and remove the check
@@ -69,11 +69,11 @@ struct CoordinateSpaceTileInfo
   
   void Clear();
 
-  void Set(const problem::DataSpace& tile_mold_point_set, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint = ExtraTileConstraintInfo());
-  void SetMold(const problem::DataSpace& tile_mold_point_set);
+  void Set(const PointSet& tile_mold_point_set, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint = ExtraTileConstraintInfo());
+  void SetMold(const PointSet& tile_mold_point_set);
   
   std::uint64_t GetShape() const;
-  problem::DataSpace GetPointSetRepr() const;
+  PointSet GetPointSetRepr() const;
 
   bool HasExtraConstraintInfo() const;
   ExtraTileConstraintInfo GetExtraConstraintInfo() const;

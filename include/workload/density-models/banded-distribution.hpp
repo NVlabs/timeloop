@@ -84,17 +84,12 @@ class BandedDistribution : public DensityDistribution
   std::vector<std::uint64_t> workload_dim_bounds_;
   double global_density_level_;
 
-  // keep a lookup table for tile occupancy probabilities
-  std::map<std::uint64_t, double> cur_tile_probability_lookup_table_ = {};
-  std::vector<int> cur_tile_dims_ = {};
-  std::map<std::uint64_t, std::vector<std::vector<Coordinate>>> representative_point_set_ = {};
-  
-  std::uint64_t ComputeNNZForSpecificTile(const problem::DataSpace& point_set);
-  void GetProbabilityDistributionForTileMold(const problem::DataSpace& point_set_mold,
-                                             const bool zero_occupancy_only = false);
-  double GetZeroOccupancyProbForConstrainedTileMold(const problem::DataSpace& point_set_mold,
-                                                    const problem::DataSpace& constraint_point_mold);
-  bool UseLookUpTable(const problem::DataSpace& point_set_mold);
+  std::uint64_t ComputeNNZForSpecificTile(const PointSet& point_set);
+  std::map<std::uint64_t, double> GetProbabilityDistributionForTileMold
+      (const PointSet& point_set_mold, const bool zero_occupancy_only = false);
+  double GetZeroOccupancyProbForConstrainedTileMold(const PointSet& point_set_mold,
+                                                    const PointSet& constraint_point_mold);
+  PointSet GetReprPointSetForTileOccupancy(const PointSet& piont_set_mold, const std::uint64_t occupancy);
 
  public:
   // Serialization
@@ -123,7 +118,7 @@ class BandedDistribution : public DensityDistribution
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
-  void SetWorkloadTensorSize(const problem::DataSpace& point_set);
+  void SetWorkloadTensorSize(const PointSet& point_set);
 
   std::uint64_t GetWorkloadTensorSize() const;
   std::string GetDistributionType() const;
@@ -140,8 +135,9 @@ class BandedDistribution : public DensityDistribution
   double GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
                                      const std::uint64_t occupancy);
   double GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile);
-  bool OccupancyMoldNeeded();
-  problem::DataSpace GetOccupancyMold(const std::uint64_t occupancy) const;
+  
+
+
 }; // class BandedDistribution
 
 } // namespace problem

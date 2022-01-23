@@ -78,7 +78,7 @@ HypergeometricDistribution::Specs HypergeometricDistribution::ParseSpecs(config:
   return specs;
 }
 
-void HypergeometricDistribution::SetWorkloadTensorSize(const problem::DataSpace& point_set)
+void HypergeometricDistribution::SetWorkloadTensorSize(const PointSet& point_set)
 {
   assert(is_specced_);
   specs_.workload_tensor_size = point_set.size();
@@ -331,17 +331,6 @@ double HypergeometricDistribution::GetExpectedTileOccupancy(const tiling::Coordi
     }
   }
   return expected_occupancy;
-}
-
-bool HypergeometricDistribution::OccupancyMoldNeeded()
-{
-  return false;
-}
-
-problem::DataSpace HypergeometricDistribution::GetOccupancyMold(const std::uint64_t occupancy) const
-{
-  (void) occupancy;
-  return problem::DataSpace(0); // place holder point set
 }
 
 }

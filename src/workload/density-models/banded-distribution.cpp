@@ -53,7 +53,7 @@ BandedDistribution::Specs BandedDistribution::ParseSpecs(config::CompoundConfigN
   return specs;
 }
 
-void BandedDistribution::SetWorkloadTensorSize(const problem::DataSpace& point_set)
+void BandedDistribution::SetWorkloadTensorSize(const PointSet& point_set)
 {
   // do not support multi-AAHR cases yet
   assert(point_set.numAAHRs() == 1);
@@ -88,7 +88,7 @@ std::uint64_t BandedDistribution::GetWorkloadTensorSize() const { return workloa
 std::string BandedDistribution::GetDistributionType() const { return specs_.type; }
 
 
-std::uint64_t BandedDistribution::ComputeNNZForSpecificTile(const problem::DataSpace& point_set)
+std::uint64_t BandedDistribution::ComputeNNZForSpecificTile(const PointSet& point_set)
 {
   // do not support multi-AAHR cases yet
   assert(point_set.numAAHRs() == 1);
@@ -124,8 +124,8 @@ std::uint64_t BandedDistribution::ComputeNNZForSpecificTile(const problem::DataS
 }
 
 
-double BandedDistribution::GetZeroOccupancyProbForConstrainedTileMold(const problem::DataSpace& point_set_mold,
-                                                                      const problem::DataSpace& constraint_point_set_mold) 
+double BandedDistribution::GetZeroOccupancyProbForConstrainedTileMold(const PointSet& point_set_mold,
+                                                                      const PointSet& constraint_point_set_mold) 
 {
 
   if (constraint_point_set_mold.size() == 0) return 1.0;
@@ -168,7 +168,7 @@ double BandedDistribution::GetZeroOccupancyProbForConstrainedTileMold(const prob
     {
       std::vector<Coordinate> min_coordinates = {constraint_aahr_mold.Min()[0] + row_offset, constraint_aahr_mold.Min()[1] + col_offset};
       std::vector<Coordinate> max_coordinates = {tile_delta[0] + row_offset, tile_delta[1] + col_offset};
-      problem::DataSpace point_set(tile_aahr_mold.Min().Order(), Point(min_coordinates), Point(max_coordinates));
+      PointSet point_set(tile_aahr_mold.Min().Order(), Point(min_coordinates), Point(max_coordinates));
       auto occupancy = ComputeNNZForSpecificTile(point_set);
       if (occupancy == 0) count += 1;      
       
@@ -187,8 +187,9 @@ double BandedDistribution::GetZeroOccupancyProbForConstrainedTileMold(const prob
 }
 
 
-void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::DataSpace& point_set_mold,
-                                                               const bool zero_occupancy_only)
+std::map<std::uint64_t, double> 
+BandedDistribution::GetProbabilityDistributionForTileMold(const PointSet& point_set_mold,
+                                                          const bool zero_occupancy_only)
 {
   
   // do not support multi-AAHR cases yet
@@ -210,8 +211,6 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
   cur_r_group = 0;
 
   std::map<std::uint64_t, std::uint64_t> occupancy_count;
-  representative_point_set_.clear();
-  
   occupancy_count[0] = 0;
 
   while(cur_r_group < num_warm_up_row_groups + 1 && cur_r_group < num_row_groups)
@@ -234,14 +233,6 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
           occupancy_count[0] += num_warm_up_row_groups != num_row_groups ? 
             (num_col_groups - cur_c_group) * 2 : num_col_groups - cur_c_group;
         }
-         
-        if (!zero_occupancy_only)
-        {
-          problem::DataSpace point_set(tile_aahr_mold.Min().Order());
-          std::vector<Coordinate> min_coordinates = {tile_aahr_mold.Min()[0] + row_offset, tile_aahr_mold.Min()[1] + col_offset};
-          std::vector<Coordinate> max_coordinates = {tile_aahr_mold.Max()[0] + row_offset, tile_aahr_mold.Max()[1] + col_offset};
-          representative_point_set_[0] = {min_coordinates, max_coordinates};
-        }
         
         break;
       }
@@ -251,14 +242,12 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
         // we have not yet reached steady state yet, so it is not possible for a tile to be empty 
         std::vector<Coordinate> min_coordinates = {tile_aahr_mold.Min()[0] + row_offset, tile_aahr_mold.Min()[1] + col_offset};
         std::vector<Coordinate> max_coordinates = {tile_aahr_mold.Max()[0] + row_offset, tile_aahr_mold.Max()[1] + col_offset};
-        problem::DataSpace point_set(tile_aahr_mold.Min().Order(), Point(min_coordinates), Point(max_coordinates));
+        PointSet point_set(tile_aahr_mold.Min().Order(), Point(min_coordinates), Point(max_coordinates));
         
         auto occupancy = ComputeNNZForSpecificTile(point_set);
         if (occupancy_count.find(occupancy) == occupancy_count.end()) 
         {
           occupancy_count[occupancy] = 0;
-          representative_point_set_[occupancy] = {point_set.GetAAHRs()[0].Min().GetCoordinates()
-            , point_set.GetAAHRs()[0].Max().GetCoordinates()};
         }
         if (cur_r_group >= num_warm_up_row_groups)
         {
@@ -276,56 +265,35 @@ void BandedDistribution::GetProbabilityDistributionForTileMold(const problem::Da
     row_offset += tile_aahr_mold.Max()[0];
     cur_r_group += 1; 
   }
-  
-  if (!zero_occupancy_only)
+  std::map<std::uint64_t, double> probability_lookup = {};
+  for (auto iter = occupancy_count.begin(); iter != occupancy_count.end(); iter++)
   {
-
-    //
-    // sanity check for occupancy calaculation
-    //
-    // std::cout << "point set mold occupancy eval: "
-    // << tile_aahr_mold << std::endl;
-
-    // std::cout << "num col groups: " << num_col_groups 
-    // << "  num row groups: " << num_row_groups 
-    // << "  num warm up row groups: " <<  num_warm_up_row_groups 
-    // << "  num steady state row groups: " << num_steady_state_groups
-    // << std::endl;
-    
-    // populate lookup table for this new tile
-    cur_tile_probability_lookup_table_.clear();
-    for (auto iter = occupancy_count.begin(); iter != occupancy_count.end(); iter++)
-    {
-      double prob = (double)iter->second/(num_row_groups * num_col_groups);
-      // std::cout <<"occu: " << iter->first  << " count: " << iter->second << " prob: " << prob << std::endl;
-      cur_tile_probability_lookup_table_[iter->first] = prob;
-    }
-    // record what tile mold is this table for
-    cur_tile_dims_.clear();
-    cur_tile_dims_.reserve(tile_aahr_mold.Max().Order());
-    for (unsigned i = 0; i < tile_aahr_mold.Max().Order(); i++)
-    {
-      cur_tile_dims_.emplace_back(tile_aahr_mold.Max()[i]);
-    }
+    double prob = (double)iter->second/(num_row_groups * num_col_groups);
+   probability_lookup[iter->first] = prob;
   }
+  //
+  // Sanity check for occupancy calaculation
+  //
+ 
+  // if (!zero_occupancy_only)
+  // {
+  //   std::cout << "point set mold occupancy eval: "
+  //   << tile_aahr_mold << std::endl;
+
+  //   std::cout << "num col groups: " << num_col_groups 
+  //   << "  num row groups: " << num_row_groups 
+  //   << "  num warm up row groups: " <<  num_warm_up_row_groups 
+  //   << "  num steady state row groups: " << num_steady_state_groups
+  //   << std::endl;
+  //   
+  //   for (auto iter = occupancy_count.begin(); iter != occupancy_count.end(); iter++)
+  //   {
+  //     // std::cout <<"occu: " << iter->first  << " count: " << iter->second << " prob: " << prob << std::endl;
+  //   }
+  // }
+  
+  return probability_lookup;
  }
-
-bool BandedDistribution::UseLookUpTable(const problem::DataSpace& point_set_mold)
-{
-  
-  assert(point_set_mold.numAAHRs()==1);
-  auto aahr_mold = point_set_mold.GetAAHRs()[0];
-  
-  bool use_look_up_table = aahr_mold.Max().Order() == cur_tile_dims_.size() ? true : false;
-  for (unsigned i = 0; use_look_up_table && i < aahr_mold.Max().Order(); i++)
-  {
-    if (aahr_mold.Max()[i] != cur_tile_dims_[i]) 
-    {
-      use_look_up_table = false;
-    }
-  }
-  return use_look_up_table;
-}
 
 std::uint64_t BandedDistribution::GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
                                                                        const double confidence) 
@@ -345,11 +313,11 @@ std::uint64_t BandedDistribution::GetMaxTileOccupancyByConfidence(const tiling::
   
   // more irregular tiles (check if we can use saved lookup table)
   auto tile_point_set = tile.GetPointSetRepr();
-  if (!UseLookUpTable(tile_point_set)) GetProbabilityDistributionForTileMold(tile_point_set);
+  auto probability_lookup = GetProbabilityDistributionForTileMold(tile_point_set);
  
   double accumulated_confidence = 1.0;
-  auto iter = cur_tile_probability_lookup_table_.rbegin();
-  while (iter != cur_tile_probability_lookup_table_.rend() && accumulated_confidence > confidence)
+  auto iter = probability_lookup.rbegin();
+  while (iter != probability_lookup.rend() && accumulated_confidence > confidence)
   {
     iter++;
     accumulated_confidence -= iter->second;
@@ -388,9 +356,67 @@ double BandedDistribution::GetMinTileDensity(const tiling::CoordinateSpaceTileIn
 
   // more irregular tiles (check if we can use saved lookup table)
   auto tile_point_set = tile.GetPointSetRepr();
-  if (!UseLookUpTable(tile_point_set)) GetProbabilityDistributionForTileMold(tile_point_set);
-  std::uint64_t min_occupancy = cur_tile_probability_lookup_table_.begin()->first;
+  auto probability_lookup = GetProbabilityDistributionForTileMold(tile_point_set);
+  std::uint64_t min_occupancy = probability_lookup.begin()->first;
   return (double)min_occupancy/tile.GetShape();
+}
+
+
+PointSet BandedDistribution::GetReprPointSetForTileOccupancy(const PointSet& point_set_mold,
+                                                             const std::uint64_t occupancy)
+{
+ 
+  // do not support multi-AAHR cases yet
+  assert(point_set_mold.numAAHRs() == 1);
+  auto tile_aahr_mold = point_set_mold.GetAAHRs()[0];
+  
+  for (unsigned i = 0; i < tile_aahr_mold.Max().Order(); i++) 
+    assert(workload_dim_bounds_[i] % tile_aahr_mold.Max()[i] == 0);
+  
+  int num_col_groups = workload_dim_bounds_[1] / tile_aahr_mold.Max()[1] ;
+  int num_row_groups = workload_dim_bounds_[0] / tile_aahr_mold.Max()[0] ;
+  
+  int num_warm_up_row_groups = ceil((double)specs_.band_width/tile_aahr_mold.Max()[0]);
+
+  int row_offset, cur_r_group;
+  row_offset = 0; 
+  cur_r_group = 0;
+
+  while(cur_r_group < num_warm_up_row_groups + 1 && cur_r_group < num_row_groups)
+  {
+    int col_offset = 0;
+    for (int cur_c_group = 0; cur_c_group < num_col_groups;cur_c_group++)
+    {
+      if (col_offset > row_offset + tile_aahr_mold.Max()[0] - 1 + int(specs_.band_width))
+      {
+        std::vector<Coordinate> min_coordinates = {tile_aahr_mold.Min()[0] + row_offset, tile_aahr_mold.Min()[1] + col_offset};
+        std::vector<Coordinate> max_coordinates = {tile_aahr_mold.Max()[0] + row_offset, tile_aahr_mold.Max()[1] + col_offset};
+        
+        PointSet point_set(tile_aahr_mold.Min().Order(), Point(min_coordinates), Point(max_coordinates));
+        if (occupancy == 0) return point_set;
+        else break;
+      }
+      else
+      {
+        // construct exact point set
+        // we have not yet reached steady state yet, so it is not possible for a tile to be empty 
+        std::vector<Coordinate> min_coordinates = {tile_aahr_mold.Min()[0] + row_offset, tile_aahr_mold.Min()[1] + col_offset};
+        std::vector<Coordinate> max_coordinates = {tile_aahr_mold.Max()[0] + row_offset, tile_aahr_mold.Max()[1] + col_offset};
+        PointSet point_set(tile_aahr_mold.Min().Order(), Point(min_coordinates), Point(max_coordinates));
+        
+        std::uint64_t point_set_occupancy = ComputeNNZForSpecificTile(point_set);
+        if (point_set_occupancy == occupancy) return point_set;
+      }
+      col_offset += tile_aahr_mold.Max()[1];
+    }
+    // reset to first column
+    col_offset = 0;
+    row_offset += tile_aahr_mold.Max()[0];
+    cur_r_group += 1; 
+  }
+
+  std::cerr << "ERROR: cannot find representative occupancy: "<< occupancy << " for tile mold: " << point_set_mold << std::endl;
+  assert(false); 
 }
 
 double BandedDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
@@ -406,15 +432,17 @@ double BandedDistribution::GetTileOccupancyProbability(const tiling::CoordinateS
   if (tile.HasExtraConstraintInfo())
   {
     auto extra_constraint_info = tile.GetExtraConstraintInfo();
-    problem::DataSpace constraint_repr_mold = extra_constraint_info.GetPointSetMold();
-    assert(occupancy == 0);
-    prob = GetZeroOccupancyProbForConstrainedTileMold(tile_point_set, constraint_repr_mold);
+    PointSet constraint_point_set = GetReprPointSetForTileOccupancy(extra_constraint_info.GetPointSetMold(), 
+                                                                    extra_constraint_info.GetOccupancy());
+    //FIXME: although there would not be any calls that invovle nonzero occupancy inquery, we still need to be more general 
+    assert(occupancy == 0); 
+    prob = GetZeroOccupancyProbForConstrainedTileMold(tile_point_set, constraint_point_set);
   }
   else
   {
-    if (!UseLookUpTable(tile_point_set)) GetProbabilityDistributionForTileMold(tile_point_set);  
-    if (cur_tile_probability_lookup_table_.find(occupancy) != cur_tile_probability_lookup_table_.end())
-      prob = cur_tile_probability_lookup_table_.at(occupancy);
+    std::map<std::uint64_t, double> probability_lookup = GetProbabilityDistributionForTileMold(tile_point_set);  
+    if (probability_lookup.find(occupancy) != probability_lookup.end())
+      prob = probability_lookup.at(occupancy);
     else
     {
       // if occupancy not recorded, then the probability is zero
@@ -431,28 +459,5 @@ double BandedDistribution::GetExpectedTileOccupancy (const tiling::CoordinateSpa
   return tile.GetShape() * global_density_level_;
 }
 
-bool BandedDistribution::OccupancyMoldNeeded()
-{
-  return true;
-}
-
-problem::DataSpace BandedDistribution::GetOccupancyMold(const std::uint64_t occupancy) const
-{
-  
-  if (representative_point_set_.find(occupancy) == representative_point_set_.end())
-  {
-    std::cout << "occupancy mold not found: " << occupancy << std::endl;
-    assert(false);
-  }
-  
-  Point min_point = Point(representative_point_set_.at(occupancy)[0]);
-  Point max_point = Point(representative_point_set_.at(occupancy)[1]);
-  problem::DataSpace repr_point_set = problem::DataSpace(min_point.Order(), min_point, max_point);
-
-  // std::cout << "banded distribution: representative mold for occupancy: " << occupancy << "   ";
-  // repr_point_set.Print(std::cout);
-  // std::cout << std::endl;
-  return repr_point_set; 
-}
 
 }

@@ -91,7 +91,7 @@ CoordinateSpaceTileInfo DataMovementInfo::GetChildTileCoordinateSpaceInfo() cons
     assert(coord_space_info.mold_set_);
     std::uint32_t point_set_order = problem::GetShape()->DataSpaceOrder.at(dataspace_id);
     Point unit(point_set_order);
-    problem::DataSpace scalar_point_set(point_set_order, unit);
+    PointSet scalar_point_set(point_set_order, unit);
     CoordinateSpaceTileInfo singleton_tile;
     singleton_tile.Set(scalar_point_set, dataspace_id);
     return singleton_tile;
@@ -223,8 +223,7 @@ MetaDataTileOccupancy DataMovementInfo::GetMaxMetaDataTileOccupancyByConfidence(
     
     ExtraTileConstraintInfo extra_tile_constraint_info;
     extra_tile_constraint_info.Set(shape, max_tile_occupancy);
-    if( tile_density->OccupancyMoldNeeded() )
-      extra_tile_constraint_info.SetMold(tile_density->GetOccupancyMold(max_tile_occupancy));
+    extra_tile_constraint_info.SetMold(coord_space_info.GetPointSetRepr());
     
     CoordinateSpaceTileInfo cur_coord_tile;
     cur_coord_tile.Set(*coord_space_info.tile_point_set_mold_, dataspace_id, extra_tile_constraint_info);

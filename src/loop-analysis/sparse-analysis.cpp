@@ -2762,7 +2762,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
 
 bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
                             const std::vector <loop::Descriptor>& singleton_metadata_subnest,
-                            const std::vector<problem::DataSpace>& singleton_metadata_subtile_point_set,
+                            const std::vector<PointSet>& singleton_metadata_subtile_point_set,
                             const sparse::PerDataSpaceCompressionInfo& pv_compression_info,
                             tiling::DataMovementInfo& pv_data_movement_info)
 {
@@ -2781,8 +2781,8 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
   
   std::uint32_t point_set_order = problem::GetShape()->DataSpaceOrder.at(pv_data_movement_info.dataspace_id);
   Point unit(point_set_order);
-  problem::DataSpace scalar_point_set(point_set_order, unit);
-  problem::DataSpace corresponding_tile_point_set = scalar_point_set;
+  PointSet scalar_point_set(point_set_order, unit);
+  PointSet corresponding_tile_point_set = scalar_point_set;
 
   // std::cout << "total number of ranks: " << cur_level_num_ranks
   // << "  inner rank id: " << inner_rank_id
@@ -2942,7 +2942,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
 
 bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
                             const std::vector <loop::Descriptor>& singleton_metadata_subnest,
-                            const std::vector<problem::DataSpace>& singleton_metadata_subtile_point_set,
+                            const std::vector<PointSet>& singleton_metadata_subtile_point_set,
                             const sparse::PerDataSpaceCompressionInfo& pv_compression_info,
                             tiling::DataMovementInfo& pv_data_movement_info)
 {
@@ -2962,9 +2962,9 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
   
   auto point_set_order = problem::GetShape()->DataSpaceOrder.at(pv_data_movement_info.dataspace_id);
   Point unit(point_set_order);
-  problem::DataSpace scalar_point_set(point_set_order, unit);
+  PointSet scalar_point_set(point_set_order, unit);
   
-  problem::DataSpace corresponding_tile_point_set = scalar_point_set;
+  PointSet corresponding_tile_point_set = scalar_point_set;
   
   //std::cout << "total number of ranks: " << cur_level_num_ranks
   //<< "  inner rank id: " << inner_rank_id
@@ -3246,7 +3246,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
 
       // singleton subnests for current level and bypassed level
       std::vector <loop::Descriptor> singleton_metadata_subnest;
-      std::vector <problem::DataSpace> singleton_metadata_subtile_point_set;
+      std::vector <PointSet> singleton_metadata_subtile_point_set;
       problem::OperationPoint origin;
       problem::OperationSpace scalar_mold(state.workload_, origin, origin);
       
@@ -3579,7 +3579,6 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
         std::uint64_t abs_min_tile_occupancy = pv_data_movement_info.GetMinDataTileOccupancy();
 
         std::vector<double> occupancy_probabilities;
-        std::vector<problem::DataSpace> occupancy_molds = {};
         
         std::vector<bool> exist_masks; // mask possible occupancies to reudce size of occupancy probabilities vector
         exist_masks.reserve(abs_max_tile_occupancy - abs_min_tile_occupancy + 1);
@@ -3593,13 +3592,6 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
           if (p != 0)
           {
             occupancy_probabilities.emplace_back(p);
-            if( pv_data_movement_info.GetTileDensityModel()->OccupancyMoldNeeded() )
-            {
-              auto occupancy_mold = pv_data_movement_info.GetTileDensityModel()->GetOccupancyMold(possible_occupancy);
-              occupancy_molds.emplace_back(occupancy_mold);
-              // std::cout << "possible occupancy: " << possible_occupancy << " mold: " 
-              //   << occupancy_mold << "  size: " << occupancy_mold.size() <<std::endl;
-            }
           }
         }
  
@@ -3625,9 +3617,7 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
  
               tiling::ExtraTileConstraintInfo extra_constraint_info;
               extra_constraint_info.Set(pv_data_movement_info.shape, possible_occupancy);
-
-              if (occupancy_molds.size() > equivalent_i)
-                extra_constraint_info.SetMold(occupancy_molds.at(equivalent_i));
+              extra_constraint_info.SetMold(*pv_data_movement_info.coord_space_info.tile_point_set_mold_);
 
               tiling::CoordinateSpaceTileInfo possible_coord_tile;
               possible_coord_tile.Set(*pv_data_movement_info.coord_space_info.tile_point_set_mold_, pv, extra_constraint_info);
