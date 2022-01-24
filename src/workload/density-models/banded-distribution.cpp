@@ -26,6 +26,7 @@
  */
 
 #include "workload/density-models/banded-distribution.hpp"
+#include <mutex>
 
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
@@ -53,8 +54,13 @@ BandedDistribution::Specs BandedDistribution::ParseSpecs(config::CompoundConfigN
   return specs;
 }
 
+std::mutex mtx;
+
 void BandedDistribution::SetWorkloadTensorSize(const PointSet& point_set)
 {
+  if (workload_tensor_set_) return;
+
+  
   // do not support multi-AAHR cases yet
   assert(point_set.numAAHRs() == 1);
   
@@ -64,8 +70,9 @@ void BandedDistribution::SetWorkloadTensorSize(const PointSet& point_set)
   // only support 2D matrix
   assert(workload_aahr.Max().Order()==2 && workload_aahr.Min().Order()==2);
   
+  mtx.lock();
+  
   // record workload information per dimension and generate global density level information
-  workload_tensor_size_ = workload_aahr.size();
   int min_dim_bound = workload_aahr.Max()[0];
   for (unsigned i= 0; i < workload_aahr.Max().Order(); i++)
   {
@@ -78,8 +85,12 @@ void BandedDistribution::SetWorkloadTensorSize(const PointSet& point_set)
   std::uint64_t total_nnzs = min_dim_bound;
   for (std::uint64_t ud = 1; ud <= specs_.band_width; ud++)
     total_nnzs += (min_dim_bound - ud) * 2;
- 
+  
+  workload_tensor_size_ = workload_aahr.size(); 
   global_density_level_ = (double)total_nnzs/workload_tensor_size_;
+  workload_tensor_set_ = true;
+  
+  mtx.unlock();
   // std::cout << "total nnzs: " << total_nnzs << "  density: " << global_density_level_ << std::endl;
 }
 
@@ -88,7 +99,7 @@ std::uint64_t BandedDistribution::GetWorkloadTensorSize() const { return workloa
 std::string BandedDistribution::GetDistributionType() const { return specs_.type; }
 
 
-std::uint64_t BandedDistribution::ComputeNNZForSpecificTile(const PointSet& point_set)
+std::uint64_t BandedDistribution::ComputeNNZForSpecificTile(const PointSet& point_set) const
 {
   // do not support multi-AAHR cases yet
   assert(point_set.numAAHRs() == 1);
@@ -189,15 +200,15 @@ double BandedDistribution::GetZeroOccupancyProbForConstrainedTileMold(const Poin
 
 std::map<std::uint64_t, double> 
 BandedDistribution::GetProbabilityDistributionForTileMold(const PointSet& point_set_mold,
-                                                          const bool zero_occupancy_only)
+                                                          const bool zero_occupancy_only) const
 {
   
   // do not support multi-AAHR cases yet
   assert(point_set_mold.numAAHRs() == 1);
   auto tile_aahr_mold = point_set_mold.GetAAHRs()[0];
   
-  for (unsigned i = 0; i < tile_aahr_mold.Max().Order(); i++) 
-    assert(workload_dim_bounds_[i] % tile_aahr_mold.Max()[i] == 0);
+  // for (unsigned i = 0; i < tile_aahr_mold.Max().Order(); i++) 
+  //   assert(workload_dim_bounds_[i] % tile_aahr_mold.Max()[i] == 0);
   
   int num_col_groups = workload_dim_bounds_[1] / tile_aahr_mold.Max()[1] ;
   int num_row_groups = workload_dim_bounds_[0] / tile_aahr_mold.Max()[0] ;
@@ -332,12 +343,21 @@ std::uint64_t BandedDistribution::GetMaxNumElementByConfidence(const tiling::Coo
                                                                const tiling::CoordinateSpaceTileInfo& element_tile,
                                                                const double confidence)
 {
-  std::cerr << "Not implemented error" << std::endl;
-  assert(false);
-  (void) fiber_tile;
-  (void) element_tile;
-  (void) confidence;
-  return 0;
+  
+  assert( fiber_tile.GetShape() % element_tile.GetShape() == 0);
+  
+  std::uint64_t max_occupancy = GetMaxTileOccupancyByConfidence(fiber_tile, confidence);
+  tiling::ExtraTileConstraintInfo new_constraint;
+  new_constraint.Set(fiber_tile.GetShape(), max_occupancy);
+  new_constraint.SetMold(fiber_tile.GetPointSetRepr());
+  
+  auto new_element_tile = element_tile;
+  new_element_tile.extra_tile_constraint_= new_constraint;
+
+  double prob_empty_element = GetTileOccupancyProbability(new_element_tile, 0);
+  std::uint64_t max_num_element = ceil(fiber_tile.GetShape()/element_tile.GetShape() * prob_empty_element); 
+  
+  return max_num_element;
 }
 
 

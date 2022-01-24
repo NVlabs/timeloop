@@ -83,10 +83,11 @@ class BandedDistribution : public DensityDistribution
   std::uint64_t workload_tensor_size_;
   std::vector<std::uint64_t> workload_dim_bounds_;
   double global_density_level_;
+  bool workload_tensor_set_ = false;
 
-  std::uint64_t ComputeNNZForSpecificTile(const PointSet& point_set);
+  std::uint64_t ComputeNNZForSpecificTile(const PointSet& point_set) const;
   std::map<std::uint64_t, double> GetProbabilityDistributionForTileMold
-      (const PointSet& point_set_mold, const bool zero_occupancy_only = false);
+      (const PointSet& point_set_mold, const bool zero_occupancy_only = false) const;
   double GetZeroOccupancyProbForConstrainedTileMold(const PointSet& point_set_mold,
                                                     const PointSet& constraint_point_mold);
   PointSet GetReprPointSetForTileOccupancy(const PointSet& piont_set_mold, const std::uint64_t occupancy);
