@@ -1822,11 +1822,10 @@ void BufferLevel::Print(std::ostream& out) const
         out << indent + indent << "Tile density distribution                                   : " << stats.tile_density_distribution.at(pv) << std::endl;
         out << indent + indent << "Data tile shape                                             : " << stats.tile_shape.at(pv) << std::endl;
         out << indent + indent << "Max utilized data storage capacity                          : " << stats.utilized_capacity.at(pv) << std::endl;
-        // out << indent + indent << "Max Data tile size                                          : " << stats.data_tile_size.at(pv) << std::endl;
-        out << indent + indent << "Metadata format                                             : " << stats.metadata_format.at(pv) << std::endl;
-        //out << indent + indent << "Max metadata tile size                                      : " << stats.metadata_tile_size.at(pv) << std::endl;
-        //out << indent + indent << "Max utilized metadata storage capacity                      : " << stats.utilized_md_capacity.at(pv) << std::endl;
-        out << indent + indent << "Max utilized metadata storage capacity                      "  << std::endl;
+        out << indent + indent << "Representation format                                       : " << stats.metadata_format.at(pv) << std::endl;
+        out << indent + indent << "Max utilized Repr format storage capacity                   "  ;
+        if (stats.metadata_format.at(pv) == "none") out << ": 0" << std::endl;
+        else out << std::endl;
         for (int rid = stats.random_format_reads.at(pv).size()-1; rid >=0; rid--)
         {
         out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.metadata_tile_size.at(pv).at(rid)[0] 
@@ -1953,8 +1952,8 @@ void BufferLevel::Print(std::ostream& out) const
         }
         }
         }
-        out << indent + indent << "Scalar decompression counts (per-cluster)                   : " << stats.fine_grained_scalar_accesses.at(pv).at("decompression_count") << std::endl;
-        out << indent + indent << "Scalar compression counts (per-cluster)                     : " << stats.fine_grained_scalar_accesses.at(pv).at("compression_count") << std::endl;
+        //out << indent + indent << "Scalar decompression counts (per-cluster)                   : " << stats.fine_grained_scalar_accesses.at(pv).at("decompression_count") << std::endl;
+        //out << indent + indent << "Scalar compression counts (per-cluster)                     : " << stats.fine_grained_scalar_accesses.at(pv).at("compression_count") << std::endl;
 
         out << indent + indent << "Temporal reductions (per-instance)                          : " << stats.temporal_reductions.at(pv) << std::endl;
         out << indent + indent << "Address generations (per-cluster)                           : " << stats.address_generations.at(pv) << std::endl;
