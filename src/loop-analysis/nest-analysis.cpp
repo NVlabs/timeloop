@@ -58,6 +58,9 @@ bool gExtrapolateUniformTemporal =
 bool gExtrapolateUniformSpatial =
   (getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION") == NULL) ||
   (strcmp(getenv("TIMELOOP_DISABLE_SPATIAL_EXTRAPOLATION"), "0") == 0);
+bool gDisableFirstElementOnlySpatialExtrapolation =
+  (getenv("TIMELOOP_DISABLE_FIRST_ELEMENT_ONLY_SPATIAL_EXTRAPOLATION") != NULL) &&
+  (strcmp(getenv("TIMELOOP_DISABLE_FIRST_ELEMENT_ONLY_SPATIAL_EXTRAPOLATION"), "0") != 0);
 bool gEnableTracing =
   (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
@@ -1255,7 +1258,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
     unsigned iterations_to_run =
       (gExtrapolateUniformSpatial && !problem::GetShape()->UsesFlattening)
-      ? 1 : num_iterations;
+      ? (gDisableFirstElementOnlySpatialExtrapolation ? 3 : 1) : num_iterations;
 
     if (loop::IsSpatial(next->descriptor.spacetime_dimension))
     {
@@ -1361,8 +1364,26 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       //
 
       // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
-      auto translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
+      problem::PerDataSpace<Point> translation_vectors;
 
+      if(!gDisableFirstElementOnlySpatialExtrapolation) 
+      {
+        translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
+      }
+      else
+      {
+        auto last_skewed_index = skew_table.at(base_index + indices_[level] - extrapolation_stride);
+        auto secondlast_skewed_index = skew_table.at(base_index + indices_[level] - 2*extrapolation_stride);
+
+        auto& opspace_lastrun = spatial_deltas.at(last_skewed_index);
+        auto& opspace_secondlastrun = spatial_deltas.at(secondlast_skewed_index);
+
+        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+        {
+          translation_vectors[pv] =
+            opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv));
+        }
+      }
       // Iterations #num_iterations_to_run through #last.
       for (;
            indices_[level] < end;
@@ -1560,7 +1581,7 @@ void NestAnalysis::CompareSpatioTemporalDeltas(
     const std::uint64_t cur_spatial_index,
     const std::uint64_t prev_spatial_index,
     std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse,
-    const problem::PerDataSpace<bool>& ignore_dims)
+    const problem::PerDataSpace<bool>& ignore_dataspaces)
 {
   //PrintSpaceTimeStamp();
   //std::cout << "comparing " << cur_spatial_index << " vs " << prev_spatial_index << std::endl;
@@ -1581,7 +1602,7 @@ void NestAnalysis::CompareSpatioTemporalDeltas(
 
   for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
   {
-    if (!ignore_dims[pv] && !cur_delta.IsEmpty(pv))
+    if (!ignore_dataspaces[pv] && !cur_delta.IsEmpty(pv))
     {
       if (cur_delta.CheckEquality(prev_delta, pv))
       {
