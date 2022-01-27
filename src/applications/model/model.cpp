@@ -243,9 +243,9 @@ Application::Stats Application::Run()
   if (engine.IsEvaluated())
   {
     std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
-              << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+              << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().AlgorithmicComputes()
-              << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << engine.Energy() /
+              << " | pJ/Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().ActualComputes() << std::endl;
 
     std::ofstream map_txt_file(map_txt_file_name);

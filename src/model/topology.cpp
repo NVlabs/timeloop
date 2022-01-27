@@ -195,11 +195,11 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
           // only check the user-defined networks
           auto networkSpec = GetNetwork(i);
           if (networkSpec->Type() == "SimpleMulticast" && networkSpec->name == componentName){
-            assert(false); // FIXME: why is the name of a network class exposed in this file?
-            // if (std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)){
-            //   // std::cout << "simple multicast component identified: " << componentName << std::endl;
-            //   std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
-            // }
+            //assert(false); // FIXME: why is the name of a network class exposed in this file?
+            if (std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)){
+              // std::cout << "simple multicast component identified: " << componentName << std::endl;
+              std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
+            }
           }
       }
       // Find the level that matches this name and see what type it is
@@ -364,7 +364,7 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   // Save ios format state.
   std::ios state(NULL);
   state.copyfmt(out);
-  out << std::fixed << std::setprecision(2);
+  out << std::fixed << LOG_FLOAT_PRECISION;
 
   //
   // Detailed specs and stats.

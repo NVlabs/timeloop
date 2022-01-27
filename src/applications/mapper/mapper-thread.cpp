@@ -305,7 +305,7 @@ void MapperThread::Run()
       if (valid_mappings > 0)
       {
         msg << std::setw(10) << std::fixed << std::setprecision(2) << (stats_.thread_best.stats.utilization * 100) << "%"
-            << std::setw(11) << std::fixed << std::setprecision(3) << stats_.thread_best.stats.energy /
+            << std::setw(11) << std::fixed << PRINTFLOAT_PRECISION << stats_.thread_best.stats.energy /
           stats_.thread_best.stats.algorithmic_computes;
       }
 
@@ -536,8 +536,8 @@ void MapperThread::Run()
       mutex_->lock();
       log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
                   << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                  << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.algorithmic_computes
-                  << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3) << stats.energy / stats.actual_computes
+                  << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
+                  << " | pJ/Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
                   << std::endl;
       mutex_->unlock();
@@ -563,9 +563,9 @@ void MapperThread::Run()
         mutex_->lock();
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
                     << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization
-                    << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << std::setprecision(3)
+                    << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION
                     << stats.energy / stats.algorithmic_computes
-                    << " | pJ/Compute = " << std::setw(8) << std::fixed << std::setprecision(3)
+                    << " | pJ/Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION
                     << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
                     << std::endl;
