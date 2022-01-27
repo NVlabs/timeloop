@@ -51,7 +51,6 @@ void ParseUserDatatypeBypassSettings(config::CompoundConfigNode constraint,
                                      unsigned level,
                                      problem::PerDataSpace<std::string>& user_bypass_strings);
 loop::Nest::SkewDescriptor ParseUserSkew(config::CompoundConfigNode directive);
-problem::PerDataSpace<bool> ParseBooleanTypePerDataSpace(config::CompoundConfigNode directive);
 
 //
 // Parse mapping in libconfig format and generate data structure.
@@ -148,6 +147,61 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
         std::uint32_t user_split = unsigned(problem::GetShape()->NumFlattenedDimensions);
         directive.lookupValue("split", user_split);
         user_spatial_splits[level_id] = user_split;
+
+        // No link transfer
+        if (directive.exists("no_link_transfer"))
+        {
+          auto storage_level = arch_props_.TilingToStorage(level_id);
+          std::vector<std::string> datatype_strings;
+          if (directive.lookupArrayValue("no_link_transfer", datatype_strings))
+          {
+            no_link_transfer[storage_level] = problem::PerDataSpace<bool>();
+            
+            for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+              no_link_transfer[storage_level][pv] = 0;
+            for (const std::string& datatype_string: datatype_strings)
+            {
+              try
+              {
+                no_link_transfer[storage_level].at(
+                  problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+              }
+              catch (std::out_of_range& oor)
+              {
+                std::cerr << "ERROR: parsing no_link_transfer setting: data-space " << datatype_string
+                          << " not found in problem shape." << std::endl;
+                exit(1);
+              }
+            }
+          }
+        }
+
+        // No multicast no reduction
+        if (directive.exists("no_multicast_no_reduction"))
+        {
+          auto storage_level = arch_props_.TilingToStorage(level_id);
+          std::vector<std::string> datatype_strings;
+          if (directive.lookupArrayValue("no_multicast_no_reduction", datatype_strings))
+          {
+            no_multicast[storage_level] = problem::PerDataSpace<bool>();
+            for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+              no_multicast[storage_level][pv] = 0;
+            for (const std::string& datatype_string: datatype_strings)
+            {
+              try
+              {
+                no_multicast[storage_level].at(
+                  problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+              }
+              catch (std::out_of_range& oor)
+              {
+                std::cerr << "ERROR: parsing no_multicast_no_reduction setting: data-space " << datatype_string
+                          << " not found in problem shape." << std::endl;
+                exit(1);
+              }
+            }
+          }
+        }
       }
     }
     else if (type == "datatype" || type == "bypass")
@@ -162,45 +216,6 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       // Note: skews are stored by storage level id, not tiling level id.
       auto storage_level_id = FindTargetStorageLevel(directive);
       user_skews[storage_level_id] = ParseUserSkew(directive);
-    }
-    else if (type == "no_link_transfer")
-    {
-      // Note: no_link_transfer is stored by storage level id, not tiling level id.
-      auto storage_level_id = FindTargetStorageLevel(directive);
-      if(no_link_transfer.find(storage_level_id) != no_link_transfer.end())
-      {
-        std::cerr << "ERROR: Repeated no-link-transfer directive for storage level " << storage_level_id << std::endl;
-        std::exit(1);
-      }
-      no_link_transfer[storage_level_id] = ParseBooleanTypePerDataSpace(directive);
-    }
-    else if (type == "no_multicast" || type == "no_reduction" || type == "no_multicast_no_reduction")
-    {
-      // Note: no_multicast are stored by storage level id, not tiling level id.
-      auto storage_level_id = FindTargetStorageLevel(directive);
-      auto new_directives = ParseBooleanTypePerDataSpace(directive);
-      
-      // Populate if not present
-      if(no_multicast.find(storage_level_id) == no_multicast.end())
-      {
-        no_multicast[storage_level_id] = new_directives;
-      }
-      // Update
-      for(unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-      {
-        if(!new_directives[pvi]) continue;
-        if(type == "no_multicast" &&  problem::GetShape()->IsReadWriteDataSpace.at(pvi))
-        {
-          std::cerr << "ERROR: no_multicast directive for read-write data space " << problem::GetShape()->DataSpaceIDToName.at(pvi) << std::endl;
-          std::exit(1);
-        }
-        if(type == "no_reduction" &&  !problem::GetShape()->IsReadWriteDataSpace.at(pvi))
-        {
-          std::cerr << "ERROR: no_reduction directive for read-only data space " << problem::GetShape()->DataSpaceIDToName.at(pvi) << std::endl;
-          std::exit(1);
-        }
-        no_multicast[storage_level_id][pvi] = new_directives[pvi] || no_multicast[storage_level_id][pvi];
-      }
     }
     else
     {
@@ -613,25 +628,6 @@ void ParseUserDatatypeBypassSettings(config::CompoundConfigNode directive,
     }
   }
 }
-
-//
-// Parse a boolean value per data space
-//
-problem::PerDataSpace<bool> ParseBooleanTypePerDataSpace(config::CompoundConfigNode directive)
-{
-  // Datatypes to "keep" at this level.
-  std::vector<std::string> datatype_strings;
-  directive.lookupArrayValue("datatypes", datatype_strings);
-  problem::PerDataSpace<bool> retval;
-  for (const std::string& datatype_string: datatype_strings)
-  {
-    auto datatype = problem::GetShape()->DataSpaceNameToID.at(datatype_string);
-    retval.at(datatype) = true;
-  }
-  return retval;
-}
-
-
 
 //
 // Parse user skew.
