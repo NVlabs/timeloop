@@ -1392,7 +1392,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
         loop_gists_spatial_.at(dim).index = indices_[level];
 
         std::uint64_t dst_delta_index = ApplySkew(base_index + indices_[level]);
-        std::uint64_t src_delta_index = skew_table.at(dst_delta_index - extrapolation_stride);
+        std::uint64_t src_delta_index = skew_table.at(base_index + indices_[level] - extrapolation_stride);
         skew_table[base_index + indices_[level]] = dst_delta_index;
 
         // If the following assertions fail, it means there's a collision in the
