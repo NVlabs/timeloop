@@ -26,14 +26,14 @@
  */
 
 #pragma once
-
 #include <cmath>
 
 #include "model/level.hpp"
 #include "mapping/mapping.hpp"
-#include "tiling-tile-info.hpp"
+#include "loop-analysis/tiling-tile-info.hpp"
 #include "model/sparse-optimization-info.hpp"
 #include "model/topology.hpp"
+
 
 namespace sparse
 {
@@ -121,20 +121,4 @@ struct SparseAnalysisState
   friend std::ostream &operator<<(std::ostream &out, const SparseAnalysisState &n);
 };
 
-//
-// Sparse Analysis API
-//
-bool PerformSparseProcessing(problem::Workload *workload,
-                             Mapping &mapping,
-                             tiling::CompoundTileNest &compound_tile_nest,
-                             SparseOptimizationInfo *sparse_optimization_info,
-                             const model::Topology::Specs &topology_specs,
-                             std::vector <model::EvalStatus> &eval_status,
-                             const bool break_on_failure);
-
-bool CheckFormatModelsAndMapping(const tiling::NestOfCompoundMasks &masks,
-                                 sparse::CompressionInfo &compression_info,
-                                 const model::Topology::Specs &topology_specs,
-                                 std::vector <model::EvalStatus> &eval_status,
-                                 const bool break_on_failure);
 }

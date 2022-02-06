@@ -32,7 +32,7 @@
 #include "model/topology.hpp"
 #include "model/network-legacy.hpp"
 #include "model/network-factory.hpp"
-#include "loop-analysis/sparse-analysis.hpp"
+#include "sparse-analysis/sparse-analysis.hpp"
 #include "workload/workload.hpp"
 
 namespace model

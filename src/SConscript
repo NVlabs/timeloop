@@ -119,7 +119,12 @@ loop-analysis/point-set-multi-aahr.cpp
 loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/aahr-carve.cpp
-loop-analysis/sparse-analysis.cpp
+sparse-analysis/state.cpp
+sparse-analysis/sparse-analysis.cpp
+sparse-analysis/compute-gs-analyzer.cpp
+sparse-analysis/storage-gs-analyzer.cpp
+sparse-analysis/representation-analyzer.cpp
+sparse-analysis/storage-optimization-combiner.cpp
 loop-analysis/operation-type.cpp
 pat/pat.cpp
 mapping/loop.cpp
