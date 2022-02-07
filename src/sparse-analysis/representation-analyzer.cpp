@@ -141,29 +141,48 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
 
       if (pv_data_movement_info.shape != 0)
       {
+        
+        // std::cout << "Storage: " << topology_specs.GetStorageLevel(level)->level_name
+        // << "  dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
+        // << "  tile shape: " << pv_data_movement_info.shape << std::endl;
+        
         std::uint64_t abs_max_tile_occupancy = pv_data_movement_info.GetMaxDataTileOccupancyByConfidence(1.0);
         std::uint64_t abs_min_tile_occupancy = pv_data_movement_info.GetMinDataTileOccupancy();
 
         std::vector<double> occupancy_probabilities;
-        
         std::vector<bool> exist_masks; // mask possible occupancies to reudce size of occupancy probabilities vector
         exist_masks.reserve(abs_max_tile_occupancy - abs_min_tile_occupancy + 1);
         
-        // query density model for all probs to maximize density model reuse ( some densities model might use internal recording mechanisims)
+        // Query density model for all probs to maximize density model reuse 
+        // (some densities model might use internal recording mechanisims)
         for (std::uint64_t possible_occupancy = abs_min_tile_occupancy;
              possible_occupancy <= abs_max_tile_occupancy; possible_occupancy++)
         {
           double p = pv_data_movement_info.GetDataTileOccupancyProbability(possible_occupancy);
-            exist_masks.emplace_back(p != 0);
-          if (p != 0)
-          {
-            occupancy_probabilities.emplace_back(p);
-          }
+          exist_masks.emplace_back(p != 0);
+          if (p != 0) occupancy_probabilities.emplace_back(p);
         }
- 
-        // std::cout << "Storage: " << topology_specs.GetStorageLevel(level)->level_name
-        // << "  dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
-        // << "  tile shape: " << pv_data_movement_info.shape << std::endl;
+
+        // Determine the average utilized intances
+        //   If parent level has metdata about this level, empty tiles would not be transferred
+        //   Thus, only instances that are supposed to hold non-empty tiles is utlilized
+        //   Of course, without spatial skipping, the required number of instances is still the same as dense
+        if (pv_data_movement_info.parent_level!= std::numeric_limits<unsigned>::max() &&
+            compound_data_movement_nest[pv][pv_data_movement_info.parent_level].has_metadata &&
+            abs_min_tile_occupancy == 0 )
+        {
+          // Adjust average utilized isntances to account for the empty tiles
+          pv_data_movement_info.avg_replication_factor *= (1.0 - occupancy_probabilities[0]); 
+
+          // We only want to capture the nonempty occupancies
+          // Thus, scale the probabilities based on the nonempty tile condition
+          double conditional_scale_given_nonempty = (1 - occupancy_probabilities[0])/1;
+          for (auto& entry: occupancy_probabilities)
+            entry /= conditional_scale_given_nonempty; 
+          
+          // Reset record to disregard empty tiles
+          occupancy_probabilities[0] = 0;
+        }
 
         unsigned equivalent_i = 0;
         for (unsigned i = 0; i < exist_masks.size(); i++)

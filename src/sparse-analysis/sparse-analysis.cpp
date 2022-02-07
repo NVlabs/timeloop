@@ -110,9 +110,9 @@ void InitializeFineGrainedAccesses(tiling::CompoundTileNest& compound_tile_nest,
   compute_info.fine_grained_accesses["random_compute"] = compute_info.accesses * compute_info.replication_factor;
 }
 
-void InitializeMappingSpatialExpansion(tiling::CompoundTileNest& compound_tile_nest,
-                                       const model::Topology::Specs& topology_specs,
-                                       Mapping mapping)
+void InitializeMaxRequiredSpatialExpansion(tiling::CompoundTileNest& compound_tile_nest,
+                                           const model::Topology::Specs& topology_specs,
+                                           Mapping mapping)
 {
   
   int tiling_level = topology_specs.NumStorageLevels() - 1;
@@ -136,14 +136,13 @@ void InitializeMappingSpatialExpansion(tiling::CompoundTileNest& compound_tile_n
       std::uint64_t storage_level = tiling_level;
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
-        compound_tile_nest.compound_data_movement_info_nest[pv][storage_level].max_x_expansion = max_x_expansion;
-        compound_tile_nest.compound_data_movement_info_nest[pv][storage_level].max_y_expansion = max_y_expansion;
+        // By default, we require dense number of instances for sparse worloads
+        auto& datamovement_record = compound_tile_nest.compound_data_movement_info_nest[pv][storage_level];
+        datamovement_record.max_x_expansion = max_x_expansion;
+        datamovement_record.max_y_expansion = max_y_expansion;
       }
-      // std::cout << "hw mesh x: " << topology_specs.GetStorageLevel(storage_level)->meshX
-      //   << "  mesh y: " << topology_specs.GetStorageLevel(storage_level)->meshY << std::endl;
-      // std::cout <<"max x expansion: " << max_x_expansion << "  max y expansion: " << max_y_expansion << "\n" << std::endl;
 
-      // update tiling level and the boundary loop to next level
+      // Update tiling level and the boundary loop to next level
       // if this is the innermost storage level, the boundary is outside all the loops, i.e., -1
       tiling_level--;
       boundary_loop_id = tiling_level >= 0 ? mapping.loop_nest.storage_tiling_boundaries.at(tiling_level) : -1;
@@ -176,7 +175,7 @@ void InitializeMappingSpatialExpansion(tiling::CompoundTileNest& compound_tile_n
 void InitializeSparsityRelatedEntries(const problem::Workload* workload,
                                       tiling::CompoundTileNest& compound_tile_nest)
 {
-  // initialize all tile density models and metadata representation related entries in tile info
+  // Initialize all tile density models and metadata representation related entries in tile info
   //    if default dense, then the tile has a fixed density of 1.0 and empty other entries
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;
   // all datatypes must have same number of tiling levels, take that of the first dataspace
@@ -185,24 +184,17 @@ void InitializeSparsityRelatedEntries(const problem::Workload* workload,
   {
     for (unsigned level = 0; level < num_levels; level++)
     {
-      // the commented out lines are initialized in tile info initialization
       // TODO: might want to have a new data structure for post processed sparse traffic,
       //       now we are carrying both dense and sparse in tile info
       compound_data_movement_nest[pv][level].expected_density = 1.0;
       compound_data_movement_nest[pv][level].SetDensityModel(workload->GetDensity(pv));
-      //compound_data_movement_nest[pv][level].metadata_subnest = {}; // only useful if has metadata
-      //compound_data_movement_nest[pv][level].metadata_subtile_shape = {}; // only useful if has metadata
-      //compound_data_movement_nest[pv][level].fiber_shape = {}; // only useful if has metadata
       compound_data_movement_nest[pv][level].expected_data_occupancy = compound_data_movement_nest[pv][level].shape;
-      // compound_data_movement_nest[pv][level].expected_metadata_occupancy = {};
-      // compound_data_movement_nest[pv][level].effective_replication_factor = compound_data_movement_nest[pv][level].replication_factor;
       compound_data_movement_nest[pv][level].avg_replication_factor = compound_data_movement_nest[pv][level].replication_factor;
     }
   }
 
   auto& compute_info_nest = compound_tile_nest.compute_info_nest;
   auto& compute_info = compute_info_nest[0];
-  // compute_info.effective_replication_factor = compute_info.replication_factor;
   compute_info.avg_replication_factor = compute_info.replication_factor;
 }
 
@@ -327,17 +319,14 @@ bool PerformSparseProcessing(problem::Workload* workload,
   // Initialize necessary tile info
   //
 
-  // Initialize tile density models
+  // Initialize All Entries to Default Dense 
   InitializeSparsityRelatedEntries(workload, compound_tile_nest);
-
-  // Initialize fine grained access counts
   InitializeFineGrainedAccesses(compound_tile_nest, topology_specs);
-
-  InitializeMappingSpatialExpansion(compound_tile_nest, topology_specs, mapping);
- 
+  InitializeMaxRequiredSpatialExpansion(compound_tile_nest, topology_specs, mapping);
+  
+  // Perform quick check on if sparse anlaysis is needed
   SparseAnalysisState state;
-  bool sparse_analysis_needed;
-  sparse_analysis_needed = state.Init(sparse_optimization_info, workload, mapping, topology_specs.NumStorageLevels());
+  bool sparse_analysis_needed = state.Init(sparse_optimization_info, workload, mapping, topology_specs.NumStorageLevels());
   if (!sparse_analysis_needed) return success;
  
   auto& compound_data_movement_nest = compound_tile_nest.compound_data_movement_info_nest;

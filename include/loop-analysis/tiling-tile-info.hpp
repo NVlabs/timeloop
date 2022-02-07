@@ -176,7 +176,6 @@ struct DataMovementInfo
     format_reads = {};
     format_updates = {};
     metadata_subnest.clear();
-    //metadata_subtile_shape.clear();
     metadata_subtile_point_set.clear();
     fiber_shape.clear();
     coord_space_info.Clear();

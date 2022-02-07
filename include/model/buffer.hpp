@@ -197,7 +197,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<std::uint64_t> utilized_capacity;
     problem::PerDataSpace<std::uint64_t> utilized_md_capacity_bits;
     problem::PerDataSpace<std::uint64_t> tile_size;
-    problem::PerDataSpace<std::uint64_t> utilized_instances;
+    problem::PerDataSpace<double> utilized_instances;
     problem::PerDataSpace<std::uint64_t> utilized_x_expansion;
     problem::PerDataSpace<std::uint64_t> utilized_y_expansion;
     problem::PerDataSpace<std::uint64_t> utilized_clusters;
