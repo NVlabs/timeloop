@@ -49,7 +49,7 @@ extern const unsigned kDataSpaceWeight;
 extern const unsigned kDataSpaceInput;
 extern const unsigned kDataSpaceOutput;
 
-Workload::Bounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
+Workload::FactorizedBounds GetLayerBounds(std::string layer_name, bool pad_primes=true);
 Workload::Densities GetLayerDensities(std::string layer_name);
 void ReadDensities(std::string filename);
 void DumpDensities(std::string filename);

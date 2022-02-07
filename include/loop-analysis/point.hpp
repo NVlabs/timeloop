@@ -27,8 +27,9 @@
 
 #pragma once
 
-#include <vector>
+#include <cstdint>
 #include <iostream>
+#include <vector>
 
 typedef std::int32_t Coordinate;
 
@@ -39,13 +40,20 @@ class Point
   std::vector<Coordinate> coordinates_;
 
  public:
-  Point() = delete;
+  // We really wanted to delete this constructor, but that would mean we can't
+  // use DynamicArray<Point> (and consequently PerDataSpace<Point>).
+  Point();
   Point(const Point& p);
   Point(std::uint32_t order);
   
   // Copy-and-swap idiom.
   Point& operator = (Point other);
   friend void swap(Point& first, Point& second);
+
+  bool operator == (const Point& other);
+
+  Point DiscardTopRank() const;
+  void AddTopRank(Coordinate x);
 
   void Reset();
 
@@ -62,4 +70,5 @@ class Point
   void Scale(unsigned factor);
 
   std::ostream& Print(std::ostream& out = std::cout) const;
+  friend std::ostream& operator << (std::ostream& out, const Point& p);
 };

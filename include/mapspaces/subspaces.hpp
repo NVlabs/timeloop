@@ -45,20 +45,20 @@ namespace mapspace
 class IndexFactorizationSpace
 {
  private:
-  problem::PerProblemDimension<Factors> dimension_factors_;
+  problem::PerFlattenedDimension<Factors> dimension_factors_;
   CartesianCounterDynamic tiling_counter_;
 
  public:
   IndexFactorizationSpace();
 
   void Init(const problem::Workload &workload,
-            std::map<problem::Shape::DimensionID, std::uint64_t> cofactors_order,
-            std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> prefactors =
-            std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>>(),
-            std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> maxfactors =
-            std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>>());
+            std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
+            std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors =
+            std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>>(),
+            std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors =
+            std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>>());
 
-  unsigned long GetFactor(uint128_t nest_id, problem::Shape::DimensionID dim, unsigned level);
+  unsigned long GetFactor(uint128_t nest_id, problem::Shape::FlattenedDimensionID dim, unsigned level);
 
   uint128_t Size() const;
 };
@@ -73,23 +73,23 @@ class PermutationSpace
   std::uint64_t num_levels_;
   struct Pattern
   {
-    std::vector<problem::Shape::DimensionID> baked_prefix;
-    std::vector<problem::Shape::DimensionID> permutable_suffix;
+    std::vector<problem::Shape::FlattenedDimensionID> baked_prefix;
+    std::vector<problem::Shape::FlattenedDimensionID> permutable_suffix;
   };
   std::map<unsigned, Pattern> patterns_;
-  std::vector<problem::Shape::DimensionID> canonical_pattern_;
+  std::vector<problem::Shape::FlattenedDimensionID> canonical_pattern_;
   std::map<unsigned, std::uint64_t> size_;    
-  Factoradic<problem::Shape::DimensionID> factoradic_;
+  Factoradic<problem::Shape::FlattenedDimensionID> factoradic_;
 
  public:
   PermutationSpace();
 
   void Init(uint64_t num_levels);
   void InitLevelCanonical(uint64_t level);
-  void InitLevel(uint64_t level, std::vector<problem::Shape::DimensionID> user_prefix,
-                 std::vector<problem::Shape::DimensionID> pruned_dimensions = {});
+  void InitLevel(uint64_t level, std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
+                 std::vector<problem::Shape::FlattenedDimensionID> pruned_dimensions = {});
 
-  std::vector<std::vector<problem::Shape::DimensionID>> GetPatterns(uint128_t id);
+  std::vector<std::vector<problem::Shape::FlattenedDimensionID>> GetPatterns(uint128_t id);
 
   uint128_t Size() const;
 };

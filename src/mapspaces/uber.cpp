@@ -125,20 +125,20 @@ void Uber::InitIndexFactorizationSpace()
   // split up into. In other words, this is the order of the cofactors vector for each
   // problem dimension.
     
-  std::map<problem::Shape::DimensionID, std::uint64_t> cofactors_order;
-  for (unsigned i = 0; i < unsigned(problem::GetShape()->NumDimensions); i++)
+  std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order;
+  for (unsigned i = 0; i < unsigned(problem::GetShape()->NumFlattenedDimensions); i++)
   {
     // Factorize each problem dimension into num_tiling_levels partitions.
-    cofactors_order[problem::Shape::DimensionID(i)] = arch_props_.TilingLevels();
+    cofactors_order[problem::Shape::FlattenedDimensionID(i)] = arch_props_.TilingLevels();
   }
 
   // Next, for each problem dimension, we need to tell the index_factorization_space_
   // object if any of the cofactors have been given a fixed, min or max value by
   // the user. 
 
-  std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> prefactors;
-  std::map<problem::Shape::DimensionID, std::map<unsigned, unsigned long>> maxfactors;
-  std::vector<bool> exhausted_um_loops(int(problem::GetShape()->NumDimensions), false);
+  std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors;
+  std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors;
+  std::vector<bool> exhausted_um_loops(int(problem::GetShape()->NumFlattenedDimensions), false);
 
   // Find user-specified fixed factors.
   for (unsigned level = 0; level < arch_props_.TilingLevels(); level++)
@@ -190,7 +190,7 @@ void Uber::InitIndexFactorizationSpace()
 //
 // InitLoopPermutationSpace()
 //
-void Uber::InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shape::DimensionID>> pruned_dimensions)
+void Uber::InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> pruned_dimensions)
 {
   auto user_permutations = constraints_.Permutations();
 
@@ -199,7 +199,7 @@ void Uber::InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shap
   for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
   {
     // Extract the user-provided pattern for this level.
-    std::vector<problem::Shape::DimensionID> user_prefix;
+    std::vector<problem::Shape::FlattenedDimensionID> user_prefix;
     auto it = user_permutations.find(level);
     if (it != user_permutations.end())
     {
@@ -398,7 +398,7 @@ void Uber::InitPruned(uint128_t index_factorization_id)
   uint128_t mapping_index_factorization_id = index_factorization_id * num_parent_splits_ + split_id_;
 
   // Create a set of pruned dimensions (one per tiling level).
-  std::map<unsigned, std::vector<problem::Shape::DimensionID>> pruned_dimensions;
+  std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> pruned_dimensions;
   std::map<unsigned, unsigned> unit_factors;
 
   // Extract the index factors resulting from this ID for all loops at all levels.
@@ -410,9 +410,9 @@ void Uber::InitPruned(uint128_t index_factorization_id)
     // a smarter way to do this, but we'll use the easy way out for now.
     if (user_spatial_splits.find(level) == user_spatial_splits.end())
     {
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
       { 
-        auto dim = problem::Shape::DimensionID(idim);
+        auto dim = problem::Shape::FlattenedDimensionID(idim);
         auto factor = index_factorization_space_.GetFactor(
           mapping_index_factorization_id, dim, level);
         if (factor == 1)
@@ -560,7 +560,7 @@ std::vector<Status> Uber::ConstructMapping(
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
-    for (int dim = 0; dim < int(problem::GetShape()->NumDimensions); dim++)
+    for (int dim = 0; dim < int(problem::GetShape()->NumFlattenedDimensions); dim++)
     {
       // Ignore trivial factors
       // This reduces computation time by 1.5x on average.
@@ -577,7 +577,7 @@ std::vector<Status> Uber::ConstructMapping(
       {
         // Add a trivial temporal nest to make sure
         // we have at least one subnest in each level.
-        mapping->loop_nest.AddLoop(problem::Shape::DimensionID(int(problem::GetShape()->NumDimensions) - 1),
+        mapping->loop_nest.AddLoop(problem::Shape::FlattenedDimensionID(int(problem::GetShape()->NumFlattenedDimensions) - 1),
                                    0, 1, 1, spacetime::Dimension::Time);
       }
       mapping->loop_nest.AddStorageTilingBoundary();
@@ -587,9 +587,10 @@ std::vector<Status> Uber::ConstructMapping(
   }
 
   mapping->confidence_thresholds = constraints_.ConfidenceThresholds();
-
-  // Finalize mapping.
   mapping->id = mapping_id.Integer();
+  mapping->fanoutX_map = arch_props_.FanoutX();
+  mapping->fanoutY_map = arch_props_.FanoutY();
+  mapping->loop_nest.skew_descriptors = constraints_.Skews();
     
   return status;
 }
@@ -609,11 +610,11 @@ void Uber::InitSubnests(loop::NestConfig& subnests)
       ? spacetime::Dimension::SpaceX // Placeholder.
       : spacetime::Dimension::Time;
         
-    // Each partition has problem::GetShape()->NumDimensions loops.
-    for (int idim = 0; idim < int(problem::GetShape()->NumDimensions); idim++)
+    // Each partition has problem::GetShape()->NumFlattenedDimensions loops.
+    for (int idim = 0; idim < int(problem::GetShape()->NumFlattenedDimensions); idim++)
     {
       loop::Descriptor loop;
-      loop.dimension = problem::Shape::DimensionID(idim); // Placeholder.
+      loop.dimension = problem::Shape::FlattenedDimensionID(idim); // Placeholder.
       loop.start = 0;
       loop.end = 0;                              // Placeholder.
       loop.residual_end = 0;                     // Placeholder.

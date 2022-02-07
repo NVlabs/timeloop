@@ -69,6 +69,8 @@ class ArchProperties
   std::uint64_t FanoutX(unsigned storage_level_id);
   std::uint64_t FanoutY(unsigned storage_level_id);
   std::uint64_t Fanout(unsigned storage_level_id);
+  const std::map<unsigned, std::uint64_t>& FanoutX() const;
+  const std::map<unsigned, std::uint64_t>& FanoutY() const;
   
   const unsigned& TemporalToTiling(const unsigned l) const;
   const unsigned& SpatialToTiling(const unsigned l) const;

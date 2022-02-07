@@ -48,6 +48,8 @@ if GetOption('link_static'):
 
 env.Append(LINKFLAGS = ['-std=c++11', '-static-libgcc', '-static-libstdc++', '-pthread'])
 env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses'])
+if GetOption('with_isl'):
+    env.Append(LIBS = ['isl', 'barvinok', 'ntl', 'pthread', 'polylibgmp'])
 
 if GetOption('link_static'):
     print("Using static linking.")
@@ -87,6 +89,16 @@ if "NCURSESPATH" in os.environ:
     env.Append(LIBPATH = [NCURSESPATH + '/lib'])
     env.Append(CPPFLAGS = ['-I' + NCURSESPATH + '/include'])
 
+if "BARVINOKPATH" in os.environ:
+    BARVINOKPATH = os.environ["BARVINOKPATH"]
+    env.Append(LIBPATH = [BARVINOKPATH + '/lib'])
+    env.Append(CPPFLAGS = ['-I' + BARVINOKPATH + '/include'])
+
+if "NTLPATH" in os.environ:
+    NTLPATH = os.environ["NTLPATH"]
+    env.Append(LIBPATH = [NTLPATH + '/lib'])
+    env.Append(CPPFLAGS = ['-I' + NTLPATH + '/include'])
+
 if GetOption('use_accelergy'):
     env["CPPDEFINES"] += [('USE_ACCELERGY')]
 
@@ -103,8 +115,10 @@ loop-analysis/tiling.cpp
 loop-analysis/tiling-tile-info.cpp
 loop-analysis/point.cpp
 loop-analysis/point-set-aahr.cpp
+loop-analysis/point-set-multi-aahr.cpp
 loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
+loop-analysis/aahr-carve.cpp
 loop-analysis/sparse-analysis.cpp
 loop-analysis/operation-type.cpp
 pat/pat.cpp
@@ -143,6 +157,9 @@ workload/format-models/coordinate-payload.cpp
 workload/format-models/uncompressed-bitmask.cpp
 compound-config/compound-config.cpp
 """)
+
+if GetOption('with_isl'):
+    common_sources = common_sources + ['loop-analysis/point-set-isl.cpp']
 
 modellib_sources = common_sources + Split("""
 data/cnn/cnn-layers.cpp

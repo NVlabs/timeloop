@@ -39,6 +39,7 @@
 
 namespace problem
 {
+
 //---------------------------------------//
 //   API with sparse modeling step       //
 //---------------------------------------//
@@ -129,7 +130,7 @@ struct MetaDataFormatSpecs
 
   virtual const std::string Name() const = 0;
   virtual bool RankCompressed() const = 0;
-  virtual std::vector<problem::Shape::DimensionID> DimensionIDs() const = 0;
+  virtual std::vector<problem::Shape::FactorizedDimensionID> DimensionIDs() const = 0;
 
   std::string name = "UNSET";
 
@@ -162,7 +163,7 @@ class MetaDataFormat
   virtual PerRankMetaDataTileOccupancy GetOccupancy(const MetaDataOccupancyQuery& query) const = 0;
   virtual bool RankCompressed() const = 0;
   virtual bool CoordinatesImplicit() const = 0;
-  virtual std::vector<problem::Shape::DimensionID> GetDimensionIDs() const = 0;
+  virtual std::vector<problem::Shape::FactorizedDimensionID> GetDimensionIDs() const = 0;
   virtual std::string GetFormatName() const = 0;
   virtual bool MetaDataImplicitAsLowestRank() const = 0;
 

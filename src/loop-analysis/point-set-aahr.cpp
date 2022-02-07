@@ -74,6 +74,20 @@ void Gradient::Print(std::ostream& out) const
   out << ">";
 }
 
+std::ostream& operator << (std::ostream& out, const Gradient& g)
+{
+  out << "< ";
+  for (unsigned i = 0; i < g.order; i++)
+  {
+    if (i == g.dimension)
+      out << g.value << " ";
+    else
+      out << "0 ";
+  }
+  out << ">";
+  return out;
+}
+
 // ---------------------------------------------
 //        AAHR Point Set implementation
 // ---------------------------------------------
@@ -103,6 +117,14 @@ AxisAlignedHyperRectangle::AxisAlignedHyperRectangle(std::uint32_t order, const 
 {
   min_ = min;
   max_ = max;
+}
+
+AxisAlignedHyperRectangle::AxisAlignedHyperRectangle(std::uint32_t order, const std::vector<std::pair<Point, Point>> corner_sets) :
+    AxisAlignedHyperRectangle(order)
+{
+  ASSERT(corner_sets.size() == 1);
+  min_ = corner_sets.front().first;
+  max_ = corner_sets.front().second;
 }
 
 AxisAlignedHyperRectangle::AxisAlignedHyperRectangle(const AxisAlignedHyperRectangle& a) :
@@ -402,53 +424,217 @@ AxisAlignedHyperRectangle AxisAlignedHyperRectangle::operator - (const AxisAlign
   // Calculate the delta.
   AxisAlignedHyperRectangle delta(*this);
 
-#define RESET_ON_GRADIENT_CHANGE
-#ifdef RESET_ON_GRADIENT_CHANGE
-  auto g = delta.Subtract(s);
+  if (gResetOnStrideChange)
+  {
+    auto g = delta.Subtract(s);
     
-  // Now check if the newly-calculated gradient is different from the gradient
-  // of the operand. UGH, this is ugly. This code shouldn't be in the math
-  // library, it should be outside.
-  if (s.gradient_.value == 0)
-  {
-    // Gradient was zero. Use newly-computed gradient.
-    gradient_ = g;
-  }
-  else if (g.value == 0 && delta.size() == 0)
-  {
-    // Note the delta size check. We need that because the gradient can
-    // be zero in two cases:
-    // - The set difference really yielded a 0 (the case we're capturing here).
-    // - There was no intersection and therefore gradient was invalid (we'll
-    //   default to the final else.
-    // FIXME: UGH UGH UGH.
-    gradient_ = g;
-  }
-  else if (s.gradient_.dimension == g.dimension &&
-           s.gradient_.Sign() == g.Sign())
-  {
-    // New gradient is in the same direction as current gradient.
-    gradient_ = g;
+    // Now check if the newly-calculated gradient is different from the gradient
+    // of the operand. UGH, this is ugly. This code shouldn't be in the math
+    // library, it should be outside.
+    if (s.gradient_.value == 0)
+    {
+      // Gradient was zero. Use newly-computed gradient.
+      gradient_ = g;
+    }
+    else if (g.value == 0 && delta.size() == 0)
+    {
+      // Note the delta size check. We need that because the gradient can
+      // be zero in two cases:
+      // - The set difference really yielded a 0 (the case we're capturing here).
+      // - There was no intersection and therefore gradient was invalid (we'll
+      //   default to the final else.
+      // FIXME: UGH UGH UGH.
+      gradient_ = g;
+    }
+    else if (s.gradient_.dimension == g.dimension &&
+             s.gradient_.Sign() == g.Sign())
+    {
+      // New gradient is in the same direction as current gradient.
+      gradient_ = g;
+    }
+    else
+    {
+      // New gradient is either in a different dimension, or a different
+      // direction (+/-) in the same dimension. Discard my residual state,
+      // and re-initialize gradient.
+      delta = *this;
+      gradient_ = Gradient(order_);
+    }
   }
   else
   {
-    // New gradient is either in a different dimension, or a different
-    // direction (+/-) in the same dimension. Discard my residual state,
-    // and re-initialize gradient.
-    delta = *this;
-    gradient_ = Gradient(order_);
+    delta.Subtract(s);
   }
-
-#else
-
-  delta.Subtract(s);
-    
-#endif
     
   // The delta itself doesn't carry a gradient.
   delta.gradient_ = Gradient(order_);
 
   return delta;
+}
+
+std::vector<AxisAlignedHyperRectangle> AxisAlignedHyperRectangle::MultiSubtract(const AxisAlignedHyperRectangle& b)
+{
+  // Quick check: if there's no overlap in even a single rank, return a.
+  for (unsigned rank = 0; rank < order_; rank++)
+  {
+    if (max_[rank] <= b.min_[rank] || b.max_[rank] <= min_[rank])
+      return { *this };
+  }
+
+  // There's an intersection.
+  std::vector<AxisAlignedHyperRectangle> retval;
+
+  AxisAlignedHyperRectangle middle(*this);
+
+  for (unsigned rank = 0; rank < order_; rank++)
+  {
+    // Left slice.
+    if (middle.min_[rank] < b.min_[rank])
+    {
+      AxisAlignedHyperRectangle left(middle);
+      left.max_[rank] = b.min_[rank];                
+      retval.push_back(left);
+
+      // Advance middle.min_ to discard the slice we just created.
+      middle.min_[rank] = b.min_[rank];
+    }
+
+    // Right slice.
+    if (b.max_[rank] < middle.max_[rank])
+    {
+      AxisAlignedHyperRectangle right(middle);
+      right.min_[rank] = b.max_[rank];                
+      retval.push_back(right);
+
+      // Regress middle.max_ to discard the slice we just created.
+      middle.max_[rank] = b.max_[rank];
+    }
+  }
+
+  // if (retval.size() > 1)
+  // {
+  //   std::cout << "a: "; this->Print(); std::cout << std::endl;
+  //   std::cout << "b: "; b.Print(); std::cout << std::endl;
+  //   std::cout << "diffs:\n";
+  //   for (auto& x: retval)
+  //   {
+  //     std::cout << "  "; x.Print(); std::cout << std::endl;
+  //   }
+
+  //   std::cout << "Replaying...\n";
+
+  //   std::vector<AxisAlignedHyperRectangle> retval;
+  //   AxisAlignedHyperRectangle middle(*this);
+
+  //   for (unsigned rank = 0; rank < order_; rank++)
+  //   {
+  //     std::cout << "BEGIN rank " << rank << std::endl;
+  //     // Left slice.
+  //     if (middle.min_[rank] < b.min_[rank])
+  //     {
+  //       AxisAlignedHyperRectangle left(middle);
+  //       left.max_[rank] = b.min_[rank];
+  //       std::cout << "  adding left slice: "; left.Print(); std::cout << std::endl;
+  //       retval.push_back(left);
+
+  //       // Advance middle.min_ to discard the slice we just created.
+  //       std::cout << "  advancing middle min from " << middle.min_[rank] << " to " << b.min_[rank] << std::endl;
+  //       middle.min_[rank] = b.min_[rank];
+  //     }
+
+  //     // Right slice.
+  //     if (b.max_[rank] < middle.max_[rank])
+  //     {
+  //       AxisAlignedHyperRectangle right(middle);
+  //       right.min_[rank] = b.max_[rank];                
+  //       std::cout << "  adding right slice: "; right.Print(); std::cout << std::endl;
+  //       retval.push_back(right);
+
+  //       // Regress middle.max_ to discard the slice we just created.
+  //       std::cout << "  regressing middle max from " << middle.max_[rank] << " to " << b.max_[rank] << std::endl;
+  //       middle.max_[rank] = b.max_[rank];
+  //     }
+  //   }
+  // }
+
+  return retval;    
+}
+
+bool AxisAlignedHyperRectangle::Contains(const Point& p) const
+{
+  ASSERT(p.Order() == order_);
+
+  for (unsigned rank = 0; rank < order_; rank++)
+  {
+    if (p[rank] < min_[rank] || p[rank] >= max_[rank])
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool AxisAlignedHyperRectangle::MergeIfAdjacent(const Point& p)
+{
+  ASSERT(p.Order() == order_);
+
+  if (empty())
+  {
+    min_ = p;
+    max_ = p;
+    max_.IncrementAllDimensions();
+    return true;
+  }
+
+  // This only works for an AAHR that exists only along 1 rank.
+  bool success = true;
+  bool match = false;
+  unsigned matching_rank;
+
+  for (unsigned rank = 0; rank < order_; rank++)
+  {
+    if (p[rank] == min_[rank]-1 || p[rank] == max_[rank])
+    {
+      // Matching rank found.
+      if (match)
+      {
+        // Oops, cannot match twice.
+        success = false;
+        break;
+      }
+      else
+      {
+        match = true;
+        matching_rank = rank;
+      }
+    }
+    else if (p[rank] == min_[rank] && min_[rank]+1 == max_[rank])
+    {
+      // All good, p is aligned with AAHR.
+    }
+    else
+    {
+      success = false;
+      break;
+    }
+  }
+
+  success &= match;
+
+  if (success)
+  {
+    if (p[matching_rank] == min_[matching_rank]-1)
+    {
+      min_[matching_rank]--;
+    }
+    else if (p[matching_rank] == max_[matching_rank])
+    {
+      max_[matching_rank]++;
+    }
+  }
+
+  return success;
 }
 
 bool AxisAlignedHyperRectangle::operator == (const AxisAlignedHyperRectangle& s) const
@@ -463,6 +649,16 @@ bool AxisAlignedHyperRectangle::operator == (const AxisAlignedHyperRectangle& s)
     }
   }
   return true;
+}
+
+std::vector<double> AxisAlignedHyperRectangle::Centroid() const
+{
+  std::vector<double> centroid(order_);
+  for (unsigned rank = 0; rank < order_; rank++)
+  {
+    centroid[rank] = min_[rank] + double(max_[rank] - 1 - min_[rank]) / 2;
+  }
+  return centroid;
 }
 
 Point AxisAlignedHyperRectangle::GetTranslation(const AxisAlignedHyperRectangle& s) const
@@ -513,4 +709,24 @@ void AxisAlignedHyperRectangle::Print(std::ostream& out) const
   out << ")";
   // out << " gradient = ";
   // gradient_.Print(out);
+}
+
+std::ostream& operator << (std::ostream& out, const AxisAlignedHyperRectangle& x)
+{
+  out << "["; 
+  for (unsigned dim = 0; dim < x.order_-1; dim++)
+  {
+    out << x.min_[dim] << ",";
+  }
+  out << x.min_[x.order_-1];
+  out << ":";
+  for (unsigned dim = 0; dim < x.order_-1; dim++)
+  {
+    out << x.max_[dim] << ",";
+  }
+  out << x.max_[x.order_-1];
+  out << ")";
+  // out << " gradient = ";
+  // gradient_.Print(out);
+  return out;
 }

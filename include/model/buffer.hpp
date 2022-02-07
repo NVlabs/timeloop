@@ -329,6 +329,8 @@ class BufferLevel : public Level
   Stats stats_;
   Specs specs_;
 
+  bool populate_energy_per_op = false;
+
   // Network endpoints.
   std::shared_ptr<Network> network_read_;
   std::shared_ptr<Network> network_fill_;
@@ -392,6 +394,8 @@ class BufferLevel : public Level
   static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n_elements,
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
+
+  void PopulateEnergyPerOp(unsigned num_ops);
 
   Specs& GetSpecs() { return specs_; }
   Stats& GetStats() { return stats_;}

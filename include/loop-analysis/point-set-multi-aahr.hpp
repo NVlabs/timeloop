@@ -25,51 +25,48 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "loop-analysis/loop-state.hpp"
+#pragma once
 
-namespace analysis
+#include "util/misc.hpp"
+#include "point-set-aahr.hpp"
+
+class MultiAAHR
 {
+ protected:
 
-// ---------------------------------------------------------------
-// Live state for a single spatial element in a single loop level.
-// ---------------------------------------------------------------
+  std::uint32_t order_;
 
-ElementState::ElementState()
-{
-  Reset();
-}
+  // All AAHRs in the set are guaranteed to be disjoint.
+  // This property must be maintained at all times.
+  std::vector<AxisAlignedHyperRectangle> aahrs_;
 
-void ElementState::Reset()
-{
-  last_point_set.Reset();
-  last_translations.fill(Point(0));
-  max_size.fill(0);
-  access_stats.clear();
-  for (auto& it : delta_histograms)
-  {
-    it.clear();
-  }
-  link_transfers.fill(0);
-  prev_spatial_deltas.clear();
-}
+ public:
 
-// -----------------------------------------------------------------
-// Live state for a single loop level (across all spatial elements).
-// -----------------------------------------------------------------
+  MultiAAHR() = delete;
+  MultiAAHR(std::uint32_t order);
+  MultiAAHR(std::uint32_t order, const Point unit);
+  MultiAAHR(std::uint32_t order, const Point min, const Point max);
+  MultiAAHR(std::uint32_t order, const std::vector<std::pair<Point, Point>> corner_sets);
+  MultiAAHR(const MultiAAHR& a);
 
-LoopState::LoopState()
-{
-}
+  // Copy-and-swap idiom.
+  MultiAAHR& operator = (MultiAAHR other);
+  friend void swap(MultiAAHR& first, MultiAAHR& second);
 
-template <class Archive>
-void LoopState::serialize(Archive& ar, const unsigned int version)
-{
-  if (version == 0)
-  {
-    ar& BOOST_SERIALIZATION_NVP(level);
-    ar& BOOST_SERIALIZATION_NVP(descriptor);
-  }
-}
+  std::size_t size() const;
+  bool empty() const;
 
+  void Reset();
 
-} // namespace analysis
+  void Subtract(const MultiAAHR& other);
+  MultiAAHR& operator += (const Point& p);
+  MultiAAHR& operator += (const MultiAAHR& s);
+  MultiAAHR operator - (const MultiAAHR& other);
+  bool operator == (const MultiAAHR& s) const;
+
+  Point GetTranslation(const MultiAAHR& s) const;
+  void Translate(const Point& p);
+
+  friend std::ostream& operator << (std::ostream& out, const MultiAAHR& m);
+};
+

@@ -157,6 +157,16 @@ std::uint64_t ArchProperties::Fanout(unsigned storage_level_id)
   return fanoutX_map_.at(storage_level_id) * fanoutY_map_.at(storage_level_id);
 }
   
+const std::map<unsigned, std::uint64_t>& ArchProperties::FanoutX() const
+{
+  return fanoutX_map_;
+}
+  
+const std::map<unsigned, std::uint64_t>& ArchProperties::FanoutY() const
+{
+  return fanoutY_map_;
+}
+    
 const unsigned& ArchProperties::TemporalToTiling(const unsigned l) const
 {
   return temporal_to_tiling_map_.at(l);

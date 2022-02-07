@@ -29,10 +29,10 @@
 #include <csignal>
 #include <cstring>
 
+#include "applications/mapper/mapper.hpp"
 #include "util/banner.hpp"
 #include "util/args.hpp"
 #include "compound-config/compound-config.hpp"
-#include "applications/mapper/mapper.hpp"
 
 bool gTerminate = false;
 bool gTerminateEval = false;

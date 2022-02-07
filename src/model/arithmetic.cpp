@@ -259,7 +259,6 @@ void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
   }
 }
 
-
 // Connect networks.
 
 void ArithmeticUnits::ConnectOperand(std::shared_ptr<Network> network)

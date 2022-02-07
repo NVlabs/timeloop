@@ -46,6 +46,8 @@ struct Mapping
   loop::Nest complete_loop_nest; // loop nest that includes all trivial loops
   tiling::CompoundMaskNest datatype_bypass_nest;
   std::map<unsigned, double> confidence_thresholds;
+  std::map<unsigned, std::uint64_t> fanoutX_map;
+  std::map<unsigned, std::uint64_t> fanoutY_map;  
   
   // Serialization
   friend class boost::serialization::access;
@@ -64,6 +66,8 @@ struct Mapping
   }
 
   void FormatAsConstraints(libconfig::Setting& mapspace);
+
+  void FormatAsLibConfig(libconfig::Setting& mapping, const std::vector<std::string>& storage_level_names);
   
   void PrintAsConstraints(std::string filename);
 

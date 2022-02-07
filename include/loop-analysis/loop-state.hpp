@@ -27,10 +27,13 @@
 
 #pragma once
 
+#include <unordered_map>
+
 #include "mapping/loop.hpp"
 #include "workload/shape-models/problem-shape.hpp"
 #include "workload/shape-models/operation-space.hpp"
 #include "workload/workload.hpp"
+#include "nest-analysis-tile-info.hpp"
 
 namespace analysis
 {
@@ -41,13 +44,12 @@ namespace analysis
 struct ElementState
 {
   problem::OperationSpace last_point_set;
+  problem::PerDataSpace<Point> last_translations;
   problem::PerDataSpace<std::size_t> max_size;
 
   // Multicast functionality
   // Stores accesses with various multicast factors for each data type
-  problem::PerDataSpace<std::vector<unsigned long>> accesses;
-  problem::PerDataSpace<std::vector<unsigned long>> scatter_factors;
-  problem::PerDataSpace<std::vector<double>> cumulative_hops;
+  problem::PerDataSpace<AccessStatMatrix> access_stats;
   problem::PerDataSpace<std::map<unsigned long, unsigned long>> delta_histograms;
 
   // PE activity
@@ -57,7 +59,9 @@ struct ElementState
   // One for each spatial element in next level
 
   // time * element_id
-  std::vector<std::vector<problem::OperationSpace>> prev_point_sets;
+  std::unordered_map<std::uint64_t, problem::OperationSpace> prev_spatial_deltas;
+  //std::vector<std::unordered_map<std::uint64_t, problem::OperationSpace>> prev_spatial_deltas;
+  // std::vector<std::vector<problem::OperationSpace>> prev_spatial_deltas;
 
   // Number of transfers using links between spatial elements
   problem::PerDataSpace<unsigned long> link_transfers;
@@ -78,7 +82,8 @@ class LoopState
  public:
   int level;
   loop::Descriptor descriptor;
-  std::vector<ElementState> live_state; // one for each spatial element
+  // std::vector<ElementState> live_state; // one for each spatial element
+  std::map<std::vector<unsigned>, ElementState> live_state;
 
   LoopState();
 

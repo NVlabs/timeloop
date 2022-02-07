@@ -122,6 +122,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
 
   // Block size.
   std::uint32_t block_size;
+  bool block_size_specified = false;
   specs.block_size = 1;
   if (buffer.lookupValue("block-size", block_size) ||
       buffer.lookupValue("block_size", block_size) ||
@@ -129,7 +130,8 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   {
     specs.block_size = block_size;
     assert(block_size != 0);
-  }
+    block_size_specified = true;
+  } 
 
   // we currently consider metadata and data storages always form a pair
   // metadata data width is important to get a realistic size for the metadata
@@ -212,23 +214,25 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   specs.decompression_supported = false; // from parent to child
   if (buffer.lookupValue("decompression_supported", supported))
   {
-	specs.decompression_supported = supported;
+    specs.decompression_supported = supported;
   }
 
   // compression from child to parent
   specs.compression_supported = false;
   if (buffer.lookupValue("compression_supported", supported))
   {
-	specs.compression_supported = supported;
+    specs.compression_supported = supported;
   }
 
   // Cluster size.
   std::uint32_t cluster_size;
   specs.cluster_size = 1;
   std::uint32_t width;
+  bool cluster_size_specified = false;
   if (buffer.lookupValue("cluster-size", cluster_size))
   {
     specs.cluster_size = cluster_size;
+    cluster_size_specified = true;
   }
   else if (buffer.lookupValue("width", width)||
            buffer.lookupValue("memory_width", width) ||
@@ -240,7 +244,30 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
       std::cout << "ERROR: data storage width: " << width << "  block_size: " << block_size << "  word_bits: " << word_bits << std::endl;
     }
     assert(width % (word_bits * block_size)  == 0);
-    specs.cluster_size = width / (word_bits * block_size);
+
+    if (block_size_specified && cluster_size_specified)
+    {
+       if (block_size * word_bits * cluster_size != width) 
+       {
+         std::cout << "ERROR: " << specs.level_name  << "  block_size * word_bits * cluster_size != storage width" << std::endl;
+         exit(1);
+       }
+    }
+    else if (cluster_size_specified)
+    {
+      specs.block_size = width / cluster_size / word_bits; 
+    }
+    else if (block_size_specified) 
+    {
+      specs.cluster_size = width / (word_bits * block_size);
+    }
+    else
+    {
+      specs.block_size = width / word_bits;
+      specs.cluster_size = 1;
+      std::cout << "Warning: neither block size nor cluster size specified, set according to specified storage width: block size: " 
+        << specs.block_size << "  cluster-size: " << specs.cluster_size << std::endl;
+    }
   }
 
   // Size.
@@ -583,6 +610,52 @@ void BufferLevel::ValidateTopology(BufferLevel::Specs& specs)
   }
 }
 
+
+void BufferLevel::PopulateEnergyPerOp(unsigned num_ops){
+
+  if (! populate_energy_per_op){
+
+    double ert_energy_per_op;
+    bool  ert_energy_found;
+    std::vector<std::string> ert_action_names;
+    std::string op_name;
+
+    for (unsigned op_id = 0; op_id < num_ops; op_id++){
+      // go through all op types
+      ert_energy_per_op = 0;
+      ert_energy_found = false;
+      op_name = tiling::storageOperationTypes[op_id];
+
+     // initialize to the pat values or zero in case no mapping is found
+      if (op_name.find("random_read") != std::string::npos
+          || op_name.find("random_fill") != std::string::npos
+          || op_name.find("random_update") != std::string::npos){
+            // use the max if no mapping is found for regular memory actions
+            ert_energy_per_op = specs_.vector_access_energy.Get();
+      } else {
+          // use zero if no mapping is found for matadata/gated/skipped/decompression/compression actions
+          ert_energy_per_op = 0;
+      }
+
+      // go through ERT entries and look for appopriate energy values
+      // std::cout <<"operation name: " << op_name << std::endl;
+      ert_action_names = model::storageOperationMappings.at(op_name);
+      for (auto it = ert_action_names.begin(); it != ert_action_names.end(); it++){
+        if(specs_.ERT_entries.count(*it)>0 && (!ert_energy_found)){
+          ert_energy_per_op = specs_.ERT_entries.at(*it);
+          ert_energy_found = true;
+        }
+      }
+      // populate the op_energy_map data structure for easier future energy search
+      specs_.op_energy_map[op_name] = ert_energy_per_op;
+  }
+  populate_energy_per_op = true;
+
+ }
+
+}
+
+
 // PreEvaluationCheck(): allows for a very fast capacity-check
 // based on given working-set sizes that can be trivially derived
 // by the caller. The more powerful Evaluate() function also
@@ -715,8 +788,6 @@ void BufferLevel::ConnectDrain(std::shared_ptr<Network> network)
 {
   network_drain_ = network;
 }
-
-
 
 std::uint64_t BufferLevel::ComputeMetaDataTileSizeInBit(const tiling::MetaDataTileOccupancy metadata_occupancy) const
 {
@@ -1073,12 +1144,14 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   if (specs_.size.IsSpecified())
   {
     double address_range = std::ceil(static_cast<double>(specs_.size.Get() / specs_.block_size.Get()));
+    address_range = std::max(address_range, 1.0);
     specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
   }
   else if (specs_.technology.Get() == Technology::SRAM)
   {
     // Use utilized capacity as proxy for size.
     double address_range = std::ceil(static_cast<double>(total_utilized_capacity / specs_.block_size.Get()));
+    address_range = std::max(address_range, 1.0);
     specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
   }
   else // DRAM.
@@ -1089,6 +1162,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
 #else
     // Use utilized capacity as proxy for size.
     double address_range = std::ceil(static_cast<double>(total_utilized_capacity / specs_.block_size.Get()));
+    address_range = std::max(address_range, 1.0);
     specs_.addr_gen_bits = static_cast<unsigned long>(std::ceil(std::log2(address_range)));
 #endif
   }

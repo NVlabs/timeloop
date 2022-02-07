@@ -43,12 +43,15 @@ problem::Workload workload_;
 //
 // Forward declarations.
 //
+unsigned FindTargetStorageLevel(config::CompoundConfigNode directive);
 unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type);
-std::map<problem::Shape::DimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode constraint);
-std::vector<problem::Shape::DimensionID> ParseUserPermutations(config::CompoundConfigNode constraint);
+std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode constraint);
+std::vector<problem::Shape::FlattenedDimensionID> ParseUserPermutations(config::CompoundConfigNode constraint);
 void ParseUserDatatypeBypassSettings(config::CompoundConfigNode constraint,
                                      unsigned level,
                                      problem::PerDataSpace<std::string>& user_bypass_strings);
+loop::Nest::SkewDescriptor ParseUserSkew(config::CompoundConfigNode directive);
+
 //
 // Parse mapping in libconfig format and generate data structure.
 //
@@ -61,11 +64,12 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
 
   workload_ = workload;
   
-  std::map<unsigned, std::map<problem::Shape::DimensionID, std::pair<int,int>>> user_factors;
-  std::map<unsigned, std::vector<problem::Shape::DimensionID>> user_permutations;
+  std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>>> user_factors;
+  std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> user_permutations;
   std::map<unsigned, std::uint32_t> user_spatial_splits;
   problem::PerDataSpace<std::string> user_bypass_strings;
   std::map<unsigned, double> confidence_thresholds;
+  std::unordered_map<unsigned, loop::Nest::SkewDescriptor> user_skews;
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
@@ -95,41 +99,73 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     std::string type;
     assert(directive.lookupValue("type", type));
 
-    auto level_id = FindTargetTilingLevel(directive, type);
-
     if (type == "temporal" || type == "spatial")
     {
-      auto level_factors = ParseUserFactors(directive);
-      if (level_factors.size() > 0)
-      {
-        user_factors[level_id] = level_factors;
-      }
+      auto level_id = FindTargetTilingLevel(directive, type);
+
+      user_factors[level_id] = ParseUserFactors(directive);
+
+      // The following logic was moved to the next per-level block of code.
+
+      // auto level_factors = ParseUserFactors(directive);
+      // if (level_factors.size() > 0)
+      // {
+      //   // Fill in missing factors with default = 1.
+      //   for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      //   {
+      //     auto dim = problem::Shape::FlattenedDimensionID(idim);
+      //     if (level_factors.find(dim) == level_factors.end())
+      //     {
+      //       level_factors[dim] = std::make_pair<>(1, 1);
+      //     }
+      //   }
+      //   user_factors[level_id] = level_factors;
+      // }
         
-      auto level_permutations = ParseUserPermutations(directive);
-      if (level_permutations.size() > 0)
-      {
-        user_permutations[level_id] = level_permutations;
-      }
+      user_permutations[level_id] = ParseUserPermutations(directive);
+
+      // The following logic was moved to the next per-level block of code.
+
+      // auto level_permutations = ParseUserPermutations(directive);
+      // if (level_permutations.size() > 0)
+      // {
+      //   // Fill in missing dimensions with an undetermined order.
+      //   for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      //   {
+      //     auto dim = problem::Shape::FlattenedDimensionID(idim);
+      //     if (std::find(level_permutations.begin(), level_permutations.end(), dim) == level_permutations.end())
+      //       level_permutations.push_back(dim);
+      //   }
+      //   user_permutations[level_id] = level_permutations;
+      // }
 
       if (type == "spatial")
       {
         // Initialize user spatial splits to map all dimensions to the hardware X-axis.
-        std::uint32_t user_split = unsigned(problem::GetShape()->NumDimensions);
+        std::uint32_t user_split = unsigned(problem::GetShape()->NumFlattenedDimensions);
         directive.lookupValue("split", user_split);
         user_spatial_splits[level_id] = user_split;
       }
     }
     else if (type == "datatype" || type == "bypass")
     {
+      auto level_id = FindTargetTilingLevel(directive, type);
       ParseUserDatatypeBypassSettings(directive,
                                       arch_props_.TilingToStorage(level_id),
                                       user_bypass_strings);
     }
+    else if (type == "skew")
+    {
+      // Note: skews are stored by storage level id, not tiling level id.
+      auto storage_level_id = FindTargetStorageLevel(directive);
+      user_skews[storage_level_id] = ParseUserSkew(directive);
+    }
     else
     {
-      assert(false);
+      std::cerr << "ERROR: illegal mapping directive type: " << type << std::endl;
+      std::exit(1);
     }
-  }
+  } // Done iterating through user-provided directives.
 
   // Construct the mapping from the parsed sub-structures.
   // A set of subnests, one for each tiling level.
@@ -142,33 +178,65 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     auto permutation = user_permutations.find(level);
     if (permutation == user_permutations.end())
     {
-      std::cerr << "ERROR: parsing mapping: permutation not found for level: "
+      std::cerr << "WARNING: parsing mapping: permutation not found for level: "
                 << arch_props_.TilingLevelName(level) << std::endl;
-      exit(1);
+      user_permutations[level];
+      permutation = user_permutations.find(level);
     }
-    if (permutation->second.size() != std::size_t(problem::GetShape()->NumDimensions))
+
+    if (permutation->second.size() != std::size_t(problem::GetShape()->NumFlattenedDimensions))
     {
-      std::cerr << "ERROR: parsing mapping: permutation contains insufficient dimensions at level: "
-                << arch_props_.TilingLevelName(level) << std::endl;
-      exit(1);
+      // Fill in missing dimensions with an undetermined order.
+      std::cerr << "WARNING: parsing mapping: permutation contains insufficient dimensions at level: "
+                << arch_props_.TilingLevelName(level) << ", padding with arbitrary order." << std::endl;
+
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      {
+        auto dim = problem::Shape::FlattenedDimensionID(idim);
+        if (std::find(permutation->second.begin(), permutation->second.end(), dim) == permutation->second.end())
+          permutation->second.push_back(dim);
+      }
     }
       
     auto factors = user_factors.find(level);
     if (factors == user_factors.end())
     {
-      std::cerr << "ERROR: parsing mapping: factors not found for level: "
+      std::cerr << "WARNING: parsing mapping: factors not found for level: "
                 << arch_props_.TilingLevelName(level) << std::endl;
-      exit(1);
-    }
-    if (factors->second.size() != std::size_t(problem::GetShape()->NumDimensions))
-    {
-      std::cerr << "ERROR: parsing mapping: factors not provided for all dimensions at level: "
-                << arch_props_.TilingLevelName(level) << std::endl;
-      exit(1);
+      user_factors[level];
+      factors = user_factors.find(level);
     }
 
-    // Each partition has problem::GetShape()->NumDimensions loops.
-    for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumDimensions); idim++)
+    if (factors->second.size() != std::size_t(problem::GetShape()->NumFlattenedDimensions))
+    {
+      // Fill in missing factors with default = 1.
+      std::cerr << "WARNING: parsing mapping: factors not provided for all dimensions at level: "
+                << arch_props_.TilingLevelName(level) << ", setting to 1." << std::endl;
+
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      {
+        auto dim = problem::Shape::FlattenedDimensionID(idim);
+        if (factors->second.find(dim) == factors->second.end())
+        {
+          factors->second[dim] = std::make_pair<>(1, 1);
+        }
+      }
+    }
+
+    auto split = user_spatial_splits.find(level);
+    if (arch_props_.IsSpatial(level))
+    {
+      if (split == user_spatial_splits.end())
+      {
+        std::cerr << "WARNING: parsing mapping: split not found for spatial level: "
+                  << arch_props_.TilingLevelName(level) << ", setting to all-X." << std::endl;
+        user_spatial_splits[level] = unsigned(problem::GetShape()->NumFlattenedDimensions);
+        split = user_spatial_splits.find(level);
+      }
+    }
+
+    // Each partition has problem::GetShape()->NumFlattenedDimensions loops.
+    for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
     {
       loop::Descriptor loop;
       loop.dimension = permutation->second.at(idim);
@@ -177,7 +245,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       loop.residual_end = factors->second.at(loop.dimension).second;
       loop.stride = 1; // FIXME.
       loop.spacetime_dimension = arch_props_.IsSpatial(level)
-        ? (idim < user_spatial_splits.at(level) ? spacetime::Dimension::SpaceX : spacetime::Dimension::SpaceY)
+        ? (idim < split->second ? spacetime::Dimension::SpaceX : spacetime::Dimension::SpaceY)
         : spacetime::Dimension::Time;
       subnests.at(level).push_back(loop);
     }
@@ -185,8 +253,8 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   }
 
   // Validity checks.
-  std::map<problem::Shape::DimensionID, int> prod;
-  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+  std::map<problem::Shape::FlattenedDimensionID, int> prod;
+  for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
     prod[dim] = 0;
 
   // (((resP3-1)*P2 + (resP2-1))*P1 + (resP1-1))*P0 + resP0  
@@ -196,19 +264,19 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       prod[loop.dimension] = prod[loop.dimension]*loop.end + loop.residual_end-1;
   }
 
-  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+  for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
     prod[dim]++;
 
   // All user-provided factors must multiply-up to the dimension size.
   bool fault = false;
-  for (unsigned dim = 0; dim < problem::GetShape()->NumDimensions; dim++)
+  for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
   {
-    if (prod[dim] != workload_.GetBound(dim))
+    if (prod[dim] != workload_.GetFlattenedBound(dim))
     {
       std::cerr << "ERROR: parsing mapping: product of all factors of dimension "
-                << problem::GetShape()->DimensionIDToName.at(dim) << " is "
+                << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " is "
                 << prod[dim] << ", which is not equal to "
-                << "the dimension size of the workload " << workload_.GetBound(dim)
+                << "the dimension size of the workload " << workload_.GetFlattenedBound(dim)
                 << "." << std::endl;
       fault = true;
     }
@@ -225,7 +293,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
-    for (int dim = 0; dim < int(problem::GetShape()->NumDimensions); dim++)
+    for (int dim = 0; dim < int(problem::GetShape()->NumFlattenedDimensions); dim++)
     {
       // Ignore trivial factors
       // This reduces computation time by 1.5x on average.
@@ -242,7 +310,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       {
         // Add a trivial temporal nest to make sure
         // we have at least one subnest in each level.
-        mapping.loop_nest.AddLoop(problem::Shape::DimensionID(int(problem::GetShape()->NumDimensions) - 1),
+        mapping.loop_nest.AddLoop(problem::Shape::FlattenedDimensionID(int(problem::GetShape()->NumFlattenedDimensions) - 1),
                                    0, 1, 1, spacetime::Dimension::Time);
       }
       mapping.loop_nest.AddStorageTilingBoundary();
@@ -289,17 +357,18 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   } // for (pvi)
 
   mapping.confidence_thresholds = confidence_thresholds;
-
-    // Finalize mapping.
+  mapping.loop_nest.skew_descriptors = user_skews;
   mapping.id = 0;
+  mapping.fanoutX_map = arch_props_.FanoutX();
+  mapping.fanoutY_map = arch_props_.FanoutY();
 
   return mapping;
 }
 
 //
-// FindTargetTilingLevel()
+// FindTargetStorageLevel()
 //
-unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string type)
+unsigned FindTargetStorageLevel(config::CompoundConfigNode directive)
 {
   auto num_storage_levels = arch_props_.StorageLevels();
     
@@ -332,6 +401,16 @@ unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string
   }
 
   assert(storage_level_id < num_storage_levels);
+
+  return storage_level_id;
+}
+
+//
+// FindTargetTilingLevel()
+//
+unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string type)
+{
+  unsigned storage_level_id = FindTargetStorageLevel(directive);
 
   //
   // Translate this storage ID to a tiling ID.
@@ -376,9 +455,9 @@ unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string
 //
 // Parse user factors.
 //
-std::map<problem::Shape::DimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode directive)
+std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode directive)
 {
-  std::map<problem::Shape::DimensionID, std::pair<int,int>> retval;
+  std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> retval;
     
   std::string buffer;
   if (directive.lookupValue("factors", buffer))
@@ -390,10 +469,10 @@ std::map<problem::Shape::DimensionID, std::pair<int,int>> ParseUserFactors(confi
     while (std::regex_search(str, sm, re))
     {
       std::string dimension_name = sm[1];
-      problem::Shape::DimensionID dimension;
+      problem::Shape::FlattenedDimensionID dimension;
       try
       {
-        dimension = problem::GetShape()->DimensionNameToID.at(dimension_name);
+        dimension = problem::GetShape()->FlattenedDimensionNameToID.at(dimension_name);
       }
       catch (const std::out_of_range& oor)
       {
@@ -406,7 +485,7 @@ std::map<problem::Shape::DimensionID, std::pair<int,int>> ParseUserFactors(confi
       if (end == 0)
       {
         std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-        end = workload_.GetBound(dimension);
+        end = workload_.GetFlattenedBound(dimension);
       }
       // else if (end > workload_.GetBound(dimension))
       // {
@@ -440,9 +519,9 @@ std::map<problem::Shape::DimensionID, std::pair<int,int>> ParseUserFactors(confi
 //
 // Parse user permutations.
 //
-std::vector<problem::Shape::DimensionID> ParseUserPermutations(config::CompoundConfigNode directive)
+std::vector<problem::Shape::FlattenedDimensionID> ParseUserPermutations(config::CompoundConfigNode directive)
 {
-  std::vector<problem::Shape::DimensionID> retval;
+  std::vector<problem::Shape::FlattenedDimensionID> retval;
     
   std::string buffer;
   if (directive.lookupValue("permutation", buffer))
@@ -451,7 +530,7 @@ std::vector<problem::Shape::DimensionID> ParseUserPermutations(config::CompoundC
     char token;
     while (iss >> token)
     {
-      auto dimension = problem::GetShape()->DimensionNameToID.at(std::string(1, token)); // note: can fault.
+      auto dimension = problem::GetShape()->FlattenedDimensionNameToID.at(std::string(1, token)); // note: can fault.
       retval.push_back(dimension);
     }
   }
@@ -489,6 +568,83 @@ void ParseUserDatatypeBypassSettings(config::CompoundConfigNode directive,
       user_bypass_strings.at(datatype).at(level) = '0';
     }
   }
+}
+
+//
+// Parse user skew.
+//
+loop::Nest::SkewDescriptor ParseUserSkew(config::CompoundConfigNode directive)
+{
+  loop::Nest::SkewDescriptor skew_descriptor;
+
+  if (!directive.lookupValue("modulo", skew_descriptor.modulo))
+  {
+    std::cerr << "ERROR: parsing skew directive: no modulo specified." << std::endl;
+    std::exit(1);
+  }
+
+  if (!directive.exists("terms"))
+  {
+    std::cerr << "ERROR: parsing skew directive: no terms specified." << std::endl;
+    std::exit(1);
+  }
+
+  auto expr_cfg = directive.lookup("terms");
+  assert(expr_cfg.isList());
+  
+  int len = expr_cfg.getLength();
+  for (int i = 0; i < len; i ++)
+  {
+    loop::Nest::SkewDescriptor::Term term;
+    auto term_cfg = expr_cfg[i];
+
+    if (term_cfg.exists("constant"))
+    {
+      term_cfg.lookupValue("constant", term.constant);
+    }
+
+    if (term_cfg.exists("variable"))
+    {
+      auto variable = term_cfg.lookup("variable");
+      std::string buffer;
+      variable.lookupValue("dimension", buffer);
+      term.variable.dimension = problem::GetShape()->FlattenedDimensionNameToID.at(buffer);
+
+      variable.lookupValue("type", buffer);
+      if (buffer == "spatial")
+        term.variable.is_spatial = true;
+      else if (buffer == "temporal")
+        term.variable.is_spatial = false;
+      else
+      {
+        std::cerr << "ERROR: skew variable type must be spatial or temporal." << std::endl;
+        std::exit(1);
+      }
+    }
+
+    if (term_cfg.exists("bound"))
+    {
+      auto bound = term_cfg.lookup("bound");
+      std::string buffer;
+      bound.lookupValue("dimension", buffer);
+      term.bound.dimension = problem::GetShape()->FlattenedDimensionNameToID.at(buffer);
+
+      bound.lookupValue("type", buffer);
+      if (buffer == "spatial")
+        term.bound.is_spatial = true;
+      else if (buffer == "temporal")
+        term.bound.is_spatial = false;
+      else
+      {
+        std::cerr << "ERROR: skew bound type must be spatial or temporal." << std::endl;
+        std::exit(1);
+      }
+    }
+
+    skew_descriptor.terms.push_back(term);
+  }
+
+  return skew_descriptor;
 }
 
 } // namespace mapping

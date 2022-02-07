@@ -88,7 +88,7 @@ class Uber : public MapSpace
   
   void Init(config::CompoundConfigNode config, config::CompoundConfigNode arch_constraints);  
   void InitIndexFactorizationSpace();
-  void InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shape::DimensionID>> pruned_dimensions = {});
+  void InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> pruned_dimensions = {});
   void InitSpatialSpace(std::map<unsigned, unsigned> unit_factors = {});
   void InitDatatypeBypassNestSpace();
   void InitPruned(uint128_t index_factorization_id);

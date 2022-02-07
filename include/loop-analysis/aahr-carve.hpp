@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,51 +25,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "loop-analysis/loop-state.hpp"
+#pragma once
 
-namespace analysis
-{
+#include <vector>
+#include <utility>
 
-// ---------------------------------------------------------------
-// Live state for a single spatial element in a single loop level.
-// ---------------------------------------------------------------
+#include "point.hpp"
 
-ElementState::ElementState()
-{
-  Reset();
-}
+void Increment(Point& point, unsigned rank, const Point& shape);
 
-void ElementState::Reset()
-{
-  last_point_set.Reset();
-  last_translations.fill(Point(0));
-  max_size.fill(0);
-  access_stats.clear();
-  for (auto& it : delta_histograms)
-  {
-    it.clear();
-  }
-  link_transfers.fill(0);
-  prev_spatial_deltas.clear();
-}
+void Decrement(Point& point, unsigned rank, const Point& shape);
 
-// -----------------------------------------------------------------
-// Live state for a single loop level (across all spatial elements).
-// -----------------------------------------------------------------
-
-LoopState::LoopState()
-{
-}
-
-template <class Archive>
-void LoopState::serialize(Archive& ar, const unsigned int version)
-{
-  if (version == 0)
-  {
-    ar& BOOST_SERIALIZATION_NVP(level);
-    ar& BOOST_SERIALIZATION_NVP(descriptor);
-  }
-}
-
-
-} // namespace analysis
+std::vector<std::pair<Point, Point>> Carve(Point base, Point bound, const Point& shape);

@@ -350,6 +350,150 @@ class CartesianCounterDynamic
 };
 
 //------------------------------------
+//    Cartesian Counter (generic)
+//------------------------------------
+
+template<typename T>
+class CartesianCounterGeneric
+{
+ private:
+  // Note: base is variable for each position!
+  int order_;
+  std::vector<T> base_;
+  std::vector<T> value_;
+  T integer_;
+  T endint_;
+
+  bool IncrementRecursive_(int position)
+  {
+    if (value_[position] < base_[position] - 1)
+    {
+      value_[position]++;
+      return true;
+    }
+    else if (position < order_ - 1)
+    {
+      value_[position] = 0;
+      return IncrementRecursive_(position + 1);
+    }
+    else
+    {
+      // Overflow! We could do one of 3 things:
+      // (a) Throw an exception.
+      // (b) Wrap-around to 0.
+      // (c) Saturate and return a code.
+      // We choose (c) for this implementation.
+      return false;
+    }
+  }
+
+  void UpdateIntegerFromValue()
+  {
+    integer_ = 0;
+    T base = 1;
+    for (int i = 0; i < order_; i++)
+    {
+      integer_ += (T(value_[i]) * base);
+      base *= base_[i];
+    }
+  }
+
+  void UpdateValueFromInteger()
+  {
+    T n = integer_;
+    for (int i = 0; i < order_; i++)
+    {
+      value_[i] = n % base_[i];
+      n = n / base_[i];
+    }
+  }
+
+ public:
+  CartesianCounterGeneric() = delete;
+
+  CartesianCounterGeneric(unsigned order) :
+      order_(order)
+  {
+    base_.resize(order_);
+    value_.resize(order_);
+  }
+  
+  CartesianCounterGeneric(std::vector<T> base) :
+      CartesianCounterGeneric(base.size())
+  {
+    Init(base);
+  }
+
+  template<typename S>
+  void Init(S base)
+  {
+    integer_ = 0;
+    endint_ = 1;
+    for (int i = 0; i < order_; i++)
+    {
+      base_[i] = base[i];
+      endint_ *= T(base_[i]);
+      value_[i] = 0;
+    }
+  }
+
+  bool Increment()
+  {
+    integer_++;
+    return IncrementRecursive_(0);
+  }
+
+  std::vector<T> Read() const
+  {
+    return value_;
+  }
+
+  std::vector<T> Base() const
+  {
+    return base_;
+  }
+
+  T operator[] (int dim)
+  {
+    return value_[dim];
+  }
+
+  void Set(T n)
+  {
+    assert(order_ != 0);
+    assert(T(n) < endint_);
+    integer_ = n;
+    UpdateValueFromInteger();
+  }
+
+  void Set(int dim, T v)
+  {
+    assert(dim < order_);
+    value_[dim] = v;
+    UpdateIntegerFromValue();
+    assert(integer_ < endint_);
+  }
+
+  void Set(std::vector<T> v)
+  {
+    order_ = v.size();
+    value_ = v;
+    UpdateIntegerFromValue();
+    assert(integer_ < endint_);
+  }
+
+  T EndInteger() const
+  {
+    return endint_;
+  }
+
+  T Integer() const
+  {
+    return integer_;
+  }
+};
+
+//------------------------------------
 //             Factoradic
 //------------------------------------
 

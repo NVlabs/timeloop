@@ -45,14 +45,14 @@ public:
     std::string name = "cp";  // coordinate payload
     bool rank_compressed = true;
     bool coordinates_implicit = false;
-    std::vector<problem::Shape::DimensionID> dimension_ids;
+    std::vector<problem::Shape::FactorizedDimensionID> dimension_ids;
     int metadata_width;
     int payload_width;
 
 
     const std::string Name() const override { return name; }
     bool RankCompressed() const override {return rank_compressed;}
-    std::vector<problem::Shape::DimensionID> DimensionIDs() const override {return dimension_ids;}
+    std::vector<problem::Shape::FactorizedDimensionID> DimensionIDs() const override {return dimension_ids;}
 
 
     // Serialization
@@ -111,7 +111,7 @@ public:
   PerRankMetaDataTileOccupancy GetOccupancy(const MetaDataOccupancyQuery& query) const;
   bool RankCompressed () const;
   bool CoordinatesImplicit() const;
-  std::vector<problem::Shape::DimensionID> GetDimensionIDs() const;
+  std::vector<problem::Shape::FactorizedDimensionID> GetDimensionIDs() const;
   std::string GetFormatName() const;
   bool MetaDataImplicitAsLowestRank() const {return false;}
 }; // class CoordinatePayload

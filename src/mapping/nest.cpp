@@ -71,7 +71,7 @@ void Nest::AddLoop(Descriptor descriptor)
   loops.push_back(descriptor);
 }
 
-void Nest::AddLoop(problem::Shape::DimensionID dimension, int start, int end, int stride,
+void Nest::AddLoop(problem::Shape::FlattenedDimensionID dimension, int start, int end, int stride,
                    spacetime::Dimension spacetime_dimension, int residual_end)
 {
   AddLoop(loop::Descriptor(dimension, start, end, stride, spacetime_dimension, residual_end));
@@ -183,7 +183,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
 
   // Prepare a set of "sensitive" dimensions for each tensor.
-  std::vector<std::unordered_set<problem::Shape::DimensionID>> sensitive_dims(problem::GetShape()->NumDataSpaces);
+  std::vector<std::unordered_set<problem::Shape::FlattenedDimensionID>> sensitive_dims(problem::GetShape()->NumDataSpaces);
   for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
     auto d = problem::Shape::DataSpaceID(pvi);
@@ -192,11 +192,15 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
     // Prepare a set of problem-space dimensions that this data-space is sensitive to.
     for (unsigned data_space_dim = 0; data_space_dim < problem::GetShape()->DataSpaceOrder.at(d); data_space_dim++)
       for (auto& term: problem::GetShape()->Projections.at(d).at(data_space_dim))
-        sensitive_dims.at(d).insert(term.second);
+      {
+        // We have a factorized ID. We need to find the flattened ID it is contributing towards.
+        auto& flattened_id = problem::GetShape()->FactorizedToFlattened.at(term.second);
+        sensitive_dims.at(d).insert(flattened_id);
+      }
   }
 
   // Process each loop and generate var names, dim names etc.
-  std::vector<problem::Shape::DimensionID> dimids;
+  std::vector<problem::Shape::FlattenedDimensionID> dimids;
   std::vector<std::string> dimnames;
   std::vector<int> dimbounds;
   std::vector<std::string> varnames;
@@ -219,7 +223,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
     auto& loop = loops.at(loop_level);
 
     // std::locale loc;
-    std::string dimname = problem::GetShape()->DimensionIDToName.at(loop.dimension);
+    std::string dimname = problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
     std::string varname = dimname;
 
     for (unsigned i = 0; i < dimname.length(); i++)

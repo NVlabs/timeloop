@@ -27,6 +27,13 @@
 
 #include "loop-analysis/point.hpp"
 
+// We really wanted to delete this constructor, but that would mean we can't
+// use DynamicArray<Point> (and consequently PerDataSpace<Point>).
+Point::Point() :
+      order_(0)
+{
+}
+
 Point::Point(const Point& p) :
     order_(p.order_),
     coordinates_(p.coordinates_)
@@ -52,6 +59,34 @@ void swap(Point& first, Point& second)
   using std::swap;
   swap(first.order_, second.order_);
   swap(first.coordinates_, second.coordinates_);
+}
+
+bool Point::operator == (const Point& other)
+{
+  if (order_ != other.order_)
+    return false;
+
+  for (unsigned rank = 0; rank < order_; rank++)
+  {
+    if (coordinates_.at(rank) != other.coordinates_.at(rank))
+      return false;
+  }
+
+  return true;
+}
+
+Point Point::DiscardTopRank() const
+{
+  Point p = *this;
+  p.coordinates_.pop_back();
+  p.order_--;
+  return p;
+}
+
+void Point::AddTopRank(Coordinate x)
+{
+  order_++;
+  coordinates_.push_back(x);
 }
 
 void Point::Reset()
@@ -99,6 +134,14 @@ std::ostream& Point::Print(std::ostream& out) const
 {
   out << "[" << order_ << "]: ";
   for (auto& c : coordinates_)
+    out << c << " ";
+  return out;
+}
+
+std::ostream& operator << (std::ostream& out, const Point& p)
+{
+  out << "[" << p.order_ << "]: ";
+  for (auto& c : p.coordinates_)
     out << c << " ";
   return out;
 }

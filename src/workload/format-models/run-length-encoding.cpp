@@ -74,7 +74,7 @@ bool RunLengthEncoding::CoordinatesImplicit() const
   return specs_.coordinates_implicit;
 }
 
-std::vector<problem::Shape::DimensionID> RunLengthEncoding::GetDimensionIDs() const
+std::vector<problem::Shape::FactorizedDimensionID> RunLengthEncoding::GetDimensionIDs() const
 {
   assert(is_specced_);
   return specs_.dimension_ids;

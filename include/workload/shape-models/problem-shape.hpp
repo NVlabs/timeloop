@@ -39,11 +39,20 @@ namespace problem
 class Shape
 {
  public:
-  typedef unsigned DimensionID;
+  typedef unsigned FactorizedDimensionID;
   
-  unsigned NumDimensions;
-  std::map<DimensionID, std::string> DimensionIDToName;
-  std::map<std::string, DimensionID> DimensionNameToID;
+  unsigned NumFactorizedDimensions;
+  std::map<FactorizedDimensionID, std::string> FactorizedDimensionIDToName;
+  std::map<std::string, FactorizedDimensionID> FactorizedDimensionNameToID;
+
+  typedef unsigned FlattenedDimensionID;
+
+  bool UsesFlattening;
+  unsigned NumFlattenedDimensions;
+  std::map<FlattenedDimensionID, std::string> FlattenedDimensionIDToName;
+  std::map<std::string, FlattenedDimensionID> FlattenedDimensionNameToID;
+  std::vector<std::vector<FactorizedDimensionID>> FlattenedToFactorized;
+  std::map<FactorizedDimensionID, FlattenedDimensionID> FactorizedToFlattened;
 
   typedef int Coefficient;
   typedef unsigned CoefficientID;
@@ -66,18 +75,24 @@ class Shape
   //                 Sum-Of-Products where each Product is the product of a
   //                 Coefficient and a Dimension. This is fairly restrictive
   //                 but efficient. We can generalize later if needed.
-  typedef std::pair<CoefficientID, DimensionID> ProjectionTerm;
+  typedef std::pair<CoefficientID, FactorizedDimensionID> ProjectionTerm;
   typedef std::list<ProjectionTerm> ProjectionExpression;
   typedef std::vector<ProjectionExpression> Projection;
 
+  // Projection from an flattened iteration-space dimension to an un-flattened
+  // problem dimension. Because its form is a simple linear expression, we can
+  // hard-code the projection functions. All we need to record here is an
+  // *ordered* list of all problem dimensions that flatten into each flattened
+  // dimension. During parsing we also need to make sure that each problem
+  // dimension is flattened into at most one flattened dimension.
   std::vector<Projection> Projections;
 
-  std::vector<std::set<DimensionID>> DataSpaceIDToDimensionIDVector;
+  std::vector<std::set<FlattenedDimensionID>> DataSpaceIDToDimensionIDVector;
 
  public: 
   void Parse(config::CompoundConfigNode config);
-  std::set<DimensionID> GetCoIteratedDimensions(const std::vector<DataSpaceID> dataspace_pair) const;
-  std::set<DimensionID> GetFullyContractedDimensions() const;
+  std::set<FlattenedDimensionID> GetCoIteratedDimensions(const std::vector<DataSpaceID> dataspace_pair) const;
+  std::set<FlattenedDimensionID> GetFullyContractedDimensions() const;
 };
 
 } // namespace problem

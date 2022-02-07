@@ -44,11 +44,11 @@ void Shape::Parse(config::CompoundConfigNode shape)
   std::string name = "";
   shape.lookupValue("name", name);
 
-  // Dimensions.
+  // FactorizedDimensions.
   config::CompoundConfigNode dimensions = shape.lookup("dimensions");
   assert(dimensions.isArray());
 
-  NumDimensions = 0;
+  NumFactorizedDimensions = 0;
   std::vector<std::string> dim_names;
   shape.lookupArrayValue("dimensions", dim_names);
   for (const std::string& dim_name : dim_names )
@@ -58,9 +58,9 @@ void Shape::Parse(config::CompoundConfigNode shape)
       std::cerr << "ERROR: unfortunately, dimension names can only be 1 character in length. To remove this limitation, improve the constraint-parsing code in ParseUserPermutations() and ParseUserFactors() in mapping/parser.cpp and mapspaces/uber.hpp." << std::endl;
       exit(1);
     }
-    DimensionIDToName[NumDimensions] = dim_name;
-    DimensionNameToID[dim_name] = NumDimensions;
-    NumDimensions++;
+    FactorizedDimensionIDToName[NumFactorizedDimensions] = dim_name;
+    FactorizedDimensionNameToID[dim_name] = NumFactorizedDimensions;
+    NumFactorizedDimensions++;
   }
 
   // Coefficients (optional).
@@ -84,7 +84,72 @@ void Shape::Parse(config::CompoundConfigNode shape)
       NumCoefficients++;
     }
   }
-  
+
+  // Flattening (optional).
+  NumFlattenedDimensions = 0;
+  UsesFlattening = false;
+  std::set<FactorizedDimensionID> unused_factorized_dims;
+  for (unsigned dim = 0; dim < NumFactorizedDimensions; dim++)
+    unused_factorized_dims.insert(FactorizedDimensionID(dim));
+
+  if (shape.exists("flatten"))
+  {
+    UsesFlattening = true;
+    config::CompoundConfigNode flattened_list = shape.lookup("flatten");
+    assert(flattened_list.isList());
+    for (int f = 0; f < flattened_list.getLength(); f++)
+    {
+      auto flattened = flattened_list[f];
+      std::string flattened_name;
+      assert(flattened.lookupValue("name", flattened_name));
+
+      std::vector<FactorizedDimensionID> flat_to_factorized;
+      std::vector<std::string> factorized_names;
+      flattened.lookupArrayValue("dimensions", factorized_names);
+      for (const std::string& factorized_name : factorized_names)
+      {
+        auto& factorized_id = FactorizedDimensionNameToID.at(factorized_name);
+        flat_to_factorized.push_back(factorized_id);
+
+        assert(FactorizedToFlattened.find(factorized_id) == FactorizedToFlattened.end());
+        FactorizedToFlattened[factorized_id] = NumFlattenedDimensions;
+
+        assert(unused_factorized_dims.find(factorized_id) !=
+               unused_factorized_dims.end());
+        unused_factorized_dims.erase(factorized_id);
+      }
+
+      FlattenedDimensionIDToName[NumFlattenedDimensions] = flattened_name;
+      FlattenedDimensionNameToID[flattened_name] = NumFlattenedDimensions;
+      FlattenedToFactorized.push_back(flat_to_factorized);
+      NumFlattenedDimensions++;
+    }
+  }
+
+  // For each factorized dimension that was never used in a user-specified
+  // flattened dimension, create a 1:1 flattened dimension.
+  for (auto& factorized_id: unused_factorized_dims)
+  {
+    auto& flattened_name = FactorizedDimensionIDToName.at(factorized_id);
+    FlattenedDimensionIDToName[NumFlattenedDimensions] = flattened_name;
+    FlattenedDimensionNameToID[flattened_name] = NumFlattenedDimensions;
+    FlattenedToFactorized.push_back({ factorized_id });
+    FactorizedToFlattened[factorized_id] = NumFlattenedDimensions;
+    NumFlattenedDimensions++;
+  }
+
+  // Sanity checks.
+  if (!UsesFlattening)
+  {
+    assert(NumFactorizedDimensions == NumFlattenedDimensions);
+    for (unsigned dim = 0; dim < NumFactorizedDimensions; dim++)
+    {
+      auto& factorized_name = FactorizedDimensionIDToName.at(dim);
+      auto& flattened_name = FlattenedDimensionIDToName.at(dim);
+      assert(factorized_name == flattened_name);
+    }
+  }
+
   // Data Spaces.
   config::CompoundConfigNode data_spaces = shape.lookup("data-spaces");
   assert(data_spaces.isList());
@@ -113,8 +178,8 @@ void Shape::Parse(config::CompoundConfigNode shape)
       DataSpaceIDToDimensionIDVector.push_back({});
       for (const std::string& dim_name : dim_names)
       {
-        auto& dim_id = DimensionNameToID.at(dim_name);
-        projection.push_back({{ NumCoefficients, dim_id }});
+        auto& dim_id = FactorizedDimensionNameToID.at(dim_name);
+        projection.push_back({{ NumCoefficients, dim_id }});        
         DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
         DataSpaceOrder[NumDataSpaces]++;
       }
@@ -140,18 +205,18 @@ void Shape::Parse(config::CompoundConfigNode shape)
           if (term.getLength() == 1)
           {
             const std::string& dim_name = nameAndCoeff[0];
-            auto& dim_id = DimensionNameToID.at(dim_name);
+            auto& dim_id = FactorizedDimensionNameToID.at(dim_name);
             expression.push_back({ NumCoefficients, dim_id });
-            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
+            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(FactorizedToFlattened.at(dim_id));
           }
           else if (term.getLength() == 2)
           {
             const std::string& dim_name = nameAndCoeff[0];
             const std::string& coeff_name = nameAndCoeff[1];
-            auto& dim_id = DimensionNameToID.at(dim_name);
+            auto& dim_id = FactorizedDimensionNameToID.at(dim_name);
             auto& coeff_id = CoefficientNameToID.at(coeff_name);
             expression.push_back({ coeff_id, dim_id });
-            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(dim_id);
+            DataSpaceIDToDimensionIDVector[NumDataSpaces].insert(FactorizedToFlattened.at(dim_id));
           }
           else
           {
@@ -173,11 +238,11 @@ void Shape::Parse(config::CompoundConfigNode shape)
   }
 }
 
-std::set <Shape::DimensionID> Shape::GetFullyContractedDimensions() const
+std::set <Shape::FlattenedDimensionID> Shape::GetFullyContractedDimensions() const
 {
   // criteria for contracted dimensions: in read dataspace but not in read-write dataspace
 
-  std::set <DimensionID> contracted_dims;
+  std::set <FactorizedDimensionID> contracted_dims;
   DataSpaceID pv;
 
   // find the read write dataspace
@@ -208,9 +273,9 @@ std::set <Shape::DimensionID> Shape::GetFullyContractedDimensions() const
   return contracted_dims;
 }
 
-std::set <Shape::DimensionID> Shape::GetCoIteratedDimensions(const std::vector <Shape::DataSpaceID> dataspace_pair) const
+std::set <Shape::FlattenedDimensionID> Shape::GetCoIteratedDimensions(const std::vector <Shape::DataSpaceID> dataspace_pair) const
 {
-  std::set <DimensionID> contracted_dims;
+  std::set <FactorizedDimensionID> contracted_dims;
   auto dataspace_a_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[0]];
   auto dataspae_b_dims = DataSpaceIDToDimensionIDVector[dataspace_pair[1]];
 
