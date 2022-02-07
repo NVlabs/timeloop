@@ -87,6 +87,94 @@ uint128_t IndexFactorizationSpace::Size() const
 }
 
 //--------------------------------------------//
+//      ResidualIndexFactorizationSpace       //
+//--------------------------------------------//
+
+ResidualIndexFactorizationSpace::ResidualIndexFactorizationSpace() :
+    tiling_counter_(problem::GetShape()->NumFlattenedDimensions)
+{ }
+
+void ResidualIndexFactorizationSpace::Init(const problem::Workload &workload,
+          std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
+          std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
+          std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors,
+          std::vector<unsigned long int> s_fan,
+          std::vector<unsigned long int> s_index)
+{
+  problem::PerFlattenedDimension<uint128_t> counter_base;
+  for (int idim = 0; idim < int(problem::GetShape()->NumFlattenedDimensions); idim++)
+  {
+    auto dim = problem::Shape::FlattenedDimensionID(idim);
+
+
+    std::vector<unsigned long int> s_send;
+    std::vector<unsigned long int> s_in_send;
+
+    for(auto x: s_fan){
+      s_send.push_back(x);
+    }
+    
+    for(auto x: s_index){
+      s_in_send.push_back(x);
+    }
+    if (prefactors.find(dim) != prefactors.end()){
+      for(unsigned i = s_in_send.size(); i > 0; i--){
+        for(auto& pref : prefactors[dim]){
+          if(pref.first == s_in_send[i-1]) {
+            s_send.erase(s_send.begin()+i-1);
+            s_in_send.erase(s_in_send.begin()+i-1);
+            // i++;
+          }  //index
+        }
+      }
+      dimension_factors_[idim] = ResidualFactors(workload.GetFlattenedBound(dim), cofactors_order[dim], s_send, s_in_send, prefactors[dim]);
+    }
+    else{
+      dimension_factors_[idim] = ResidualFactors(workload.GetFlattenedBound(dim), cofactors_order[dim], s_send, s_in_send, {});
+    }
+
+
+      for(unsigned i = s_in_send.size(); i > 0; i--){
+            std::cout << "SPATIAL LEVELS: " << s_send[i] << ", " << s_in_send[i] << std::endl;
+      }
+
+
+    if (maxfactors.find(dim) != maxfactors.end())
+ 
+
+    counter_base[idim] = dimension_factors_[idim].size();
+  }
+
+  tiling_counter_.Init(counter_base);
+
+  std::cout << "Initializing Index Factorization subspace." << std::endl;
+  for (int dim = 0; dim < int(problem::GetShape()->NumFlattenedDimensions); dim++)
+  {
+    std::cout << "  Factorization options along problem dimension "
+              << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " = "
+              << counter_base[dim] << std::endl;
+  }
+}
+
+std::vector<unsigned long> ResidualIndexFactorizationSpace::GetFactor(uint128_t nest_id, problem::Shape::FlattenedDimensionID dim, unsigned level)
+{
+  std::vector<unsigned long> ret;
+  auto idim = unsigned(dim);
+  tiling_counter_.Set(nest_id);
+  auto cartesian_idx = tiling_counter_.Read();
+  auto a = dimension_factors_[idim][std::uint64_t(cartesian_idx[idim])];
+  ret.push_back(a[0][level]);
+  ret.push_back(a[1][level]);
+  
+  return ret;
+}
+
+uint128_t ResidualIndexFactorizationSpace::Size() const
+{
+  return tiling_counter_.EndInteger();
+}
+
+//--------------------------------------------//
 //              PermutationSpace              //
 //--------------------------------------------//
 

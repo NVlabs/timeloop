@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <map>
 #include <random>
+#include <set>
 #include <boost/multiprecision/cpp_int.hpp>
 
 using namespace boost::multiprecision;
@@ -76,6 +77,57 @@ class Factors
   friend std::ostream& operator<<(std::ostream& out, const Factors& f);
 };
 
+//------------------------------------
+//              ResidualFactors
+//------------------------------------
+
+typedef std::pair<unsigned long, int> Factor;
+
+class ResidualFactors
+{
+ private:
+  unsigned long n_;
+  std::vector<unsigned long> spatial_factors_;
+  std::vector<unsigned long> spatial_ix_;
+  std::set<unsigned long> all_factors_;
+  std::vector<std::vector<unsigned long>> pruned_product_factors_;
+  std::vector<std::vector<unsigned long>> pruned_residual_factors_;
+  std::vector<std::vector<unsigned long>> cofactors_;
+  std::vector<std::vector<unsigned long>> rfactors_;
+  std::vector<std::vector<unsigned long>> replicated_factors_;
+  
+
+  unsigned long ISqrt_(unsigned long x);
+
+  void ClearAllFactors_();
+
+  void CalculateAllFactors_();
+
+  void CalculateSpatialFactors_();
+  std::vector<std::vector<unsigned long>> cart_product (const std::vector<std::vector<unsigned long>> v);
+
+  void GenerateFactorProduct_(const unsigned long n, const int order);
+  void GenerateResidual_(const unsigned long n, const int order);
+  void EquationSolver_(const unsigned long n, std::map<unsigned, unsigned long> given);
+
+  // Return a vector of all order-way cofactor sets of n.
+
+ public:
+  ResidualFactors();
+  ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> spatial, std::vector<unsigned long> spatial_indices);
+  ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> spatial, std::vector<unsigned long> spatial_indices, std::map<unsigned, unsigned long> given);
+
+
+  std::vector<std::vector<unsigned long>> operator[](int index);
+
+  std::size_t size();
+
+  void Print();
+  void PrintAllFactors();
+  void PrintCoFactors();
+
+  friend std::ostream& operator<<(std::ostream& out, const ResidualFactors& f);
+};
 //------------------------------------
 //        Cartesian Counter
 //------------------------------------

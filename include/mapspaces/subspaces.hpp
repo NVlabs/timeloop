@@ -64,6 +64,32 @@ class IndexFactorizationSpace
 };
 
 //--------------------------------------------//
+//      ResidualIndexFactorizationSpace       //
+//--------------------------------------------//
+
+class ResidualIndexFactorizationSpace
+{
+ private:
+  problem::PerFlattenedDimension<ResidualFactors> dimension_factors_;
+  CartesianCounterDynamic tiling_counter_;
+
+ public:
+  ResidualIndexFactorizationSpace();
+
+  void Init(const problem::Workload &workload,
+            std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
+            std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
+            std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors,
+            std::vector<unsigned long int> s_fan = {},
+            std::vector<unsigned long int> s_index = {}
+            );
+
+  std::vector<unsigned long> GetFactor(uint128_t nest_id, problem::Shape::FlattenedDimensionID dim, unsigned level);
+
+  uint128_t Size() const;
+};
+
+//--------------------------------------------//
 //              PermutationSpace              //
 //--------------------------------------------//
 
