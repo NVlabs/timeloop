@@ -76,6 +76,8 @@ class Nest
   std::vector<Descriptor> loops;
   std::vector<uint64_t> storage_tiling_boundaries;
   std::unordered_map<unsigned, SkewDescriptor> skew_descriptors;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast;
 
  public:
   Nest();

@@ -125,6 +125,9 @@ class NestAnalysis
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> skew_descriptors_; // per loop level.
   loop::Nest::SkewDescriptor* cur_skew_descriptor_ = nullptr;
 
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast_;
+
   // Other state.
 
   bool working_sets_computed_ = false;
@@ -150,7 +153,9 @@ class NestAnalysis
 
   problem::OperationPoint IndexToOperationPoint_(const std::vector<int>& indices) const;
   bool IsLastGlobalIteration_(int level, problem::Shape::FlattenedDimensionID dim) const;
-  
+  problem::OperationSpace GetCurrentWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur);
+  problem::PerDataSpace<Point> GetCurrentTranslationVectors(std::vector<analysis::LoopState>::reverse_iterator cur);
+
   problem::OperationSpace ComputeDeltas(std::vector<analysis::LoopState>::reverse_iterator cur);
 
   void ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur,
@@ -162,7 +167,8 @@ class NestAnalysis
                          std::unordered_map<std::uint64_t, std::uint64_t>& skew_table,
                          std::uint64_t base_index,
                          int depth,
-                         int extrapolation_stride);
+                         int extrapolation_stride,
+                         std::vector<analysis::LoopState>::reverse_iterator extrapolation_level);
 
   std::uint64_t ApplySkew(std::uint64_t unskewed_index);
 
@@ -183,7 +189,8 @@ class NestAnalysis
     const std::unordered_map<std::uint64_t, problem::OperationSpace>& prev_spatial_deltas,
     const std::uint64_t cur_spatial_index,
     const std::uint64_t prev_spatial_index,
-    std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse);
+    std::vector<problem::PerDataSpace<bool>>& inter_elem_reuse,
+    const problem::PerDataSpace<bool>& ignore_dataspaces);
   
   void ComputeDataDensity();
   void PrintSpaceTimeStamp();
