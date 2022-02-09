@@ -179,6 +179,8 @@ void Ruby::InitIndexFactorizationSpace()
       }
     }
   }
+
+  //Find spatial levels and their fanouts
   std::vector<unsigned long int> s_index;
   std::vector<unsigned long int> s_fan;
   for (unsigned long level = arch_props_.TilingLevels()-1; level > 0; level--)

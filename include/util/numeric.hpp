@@ -104,7 +104,7 @@ class ResidualFactors
   void CalculateAllFactors_();
 
   void CalculateSpatialFactors_();
-  std::vector<std::vector<unsigned long>> cart_product (const std::vector<std::vector<unsigned long>> v);
+  std::vector<std::vector<unsigned long>> CartProduct_ (const std::vector<std::vector<unsigned long>> v);
 
   void GenerateFactorProduct_(const unsigned long n, const int order);
   void GenerateResidual_(const unsigned long n, const int order);

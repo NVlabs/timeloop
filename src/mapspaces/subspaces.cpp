@@ -110,6 +110,8 @@ void ResidualIndexFactorizationSpace::Init(const problem::Workload &workload,
     std::vector<unsigned long int> s_send;
     std::vector<unsigned long int> s_in_send;
 
+
+    //Preparse spatial factors to see if they're already given by user
     for(auto x: s_fan){
       s_send.push_back(x);
     }
@@ -123,8 +125,7 @@ void ResidualIndexFactorizationSpace::Init(const problem::Workload &workload,
           if(pref.first == s_in_send[i-1]) {
             s_send.erase(s_send.begin()+i-1);
             s_in_send.erase(s_in_send.begin()+i-1);
-            // i++;
-          }  //index
+          }
         }
       }
       dimension_factors_[idim] = ResidualFactors(workload.GetFlattenedBound(dim), cofactors_order[dim], s_send, s_in_send, prefactors[dim]);
@@ -132,12 +133,6 @@ void ResidualIndexFactorizationSpace::Init(const problem::Workload &workload,
     else{
       dimension_factors_[idim] = ResidualFactors(workload.GetFlattenedBound(dim), cofactors_order[dim], s_send, s_in_send, {});
     }
-
-
-      for(unsigned i = s_in_send.size(); i > 0; i--){
-            std::cout << "SPATIAL LEVELS: " << s_send[i] << ", " << s_in_send[i] << std::endl;
-      }
-
 
     if (maxfactors.find(dim) != maxfactors.end())
  

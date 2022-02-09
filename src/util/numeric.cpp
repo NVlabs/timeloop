@@ -363,12 +363,7 @@ void ResidualFactors::CalculateSpatialFactors_()
   }
 }
 
-std::vector<std::vector<unsigned long>> ResidualFactors::cart_product (const std::vector<std::vector<unsigned long>> v) {
-  // for(auto x: v){
-  //   for (auto y: x){
-  //     std:: cout << y;
-  //   }
-  // }
+std::vector<std::vector<unsigned long>> ResidualFactors::CartProduct_ (const std::vector<std::vector<unsigned long>> v) {
   std::vector<std::vector<unsigned long>> s = {{}};
   for (const auto u : v) {
       std::vector<std::vector<unsigned long>> r;
@@ -376,24 +371,15 @@ std::vector<std::vector<unsigned long>> ResidualFactors::cart_product (const std
           for (const auto y : u) {
               r.push_back(x);
               r.back().push_back(y);
-    
-              // break;
           }
-          // break;
       }
-
       s = r;
-
-      // break;
   }
   return s;
 }
 
 void ResidualFactors::GenerateFactorProduct_(const unsigned long n, const int order)
 {
-
-
-  // std::vector<unsigned long> v(all_factors_.begin(), all_factors_.end());
   for(auto rec = 0; rec < order; rec++){
     std::vector<std::vector<unsigned long>> inter_factors;
     std::vector<std::vector<unsigned long>> product_factors;
@@ -414,7 +400,7 @@ void ResidualFactors::GenerateFactorProduct_(const unsigned long n, const int or
 
     std::swap(inter_factors[0], inter_factors[rec]);
 
-    product_factors = cart_product(inter_factors);
+    product_factors = CartProduct_(inter_factors);
     replicated_factors_.reserve(replicated_factors_.size() + product_factors.size());
     replicated_factors_.insert(replicated_factors_.end(), product_factors.begin(), product_factors.end());
   }
@@ -439,15 +425,6 @@ void ResidualFactors::GenerateFactorProduct_(const unsigned long n, const int or
 void ResidualFactors::GenerateResidual_(const unsigned long n, const int order)
 {
   std::vector<std::vector<unsigned long>> residual_factors;
-  // for (auto i = 0; i < order-1; i++)
-  // {
-  //   std::vector<unsigned long> r;
-  //   for(unsigned j = 1; j <= n+(unsigned)order; j++)
-  //   {
-  //     r.push_back(j);
-  //   }
-  //   residual_factors.push_back(r);
-  // }
 
   for (auto i : spatial_factors_){
     std::vector<unsigned long> r;
@@ -457,7 +434,7 @@ void ResidualFactors::GenerateResidual_(const unsigned long n, const int order)
     residual_factors.push_back(r);
   }
 
-  residual_factors = cart_product(residual_factors);
+  residual_factors = CartProduct_(residual_factors);
 
   for(auto t : residual_factors){
     unsigned long sum = 0;
@@ -486,11 +463,9 @@ void ResidualFactors::EquationSolver_(const unsigned long n, std::map<unsigned, 
     }
 
 
-    // std::reverse(im_prod[i].begin(), im_prod[i].end());
-    // std::reverse(im_res[i].begin(), im_res[i].end());
   }
+  
   for(auto f : pruned_product_factors_){
-    // std::reverse(f.begin(), f.end());
     for(auto r : pruned_residual_factors_){
       std::vector<unsigned long> valid_residual_factors;
       int s_i = 0;
@@ -508,6 +483,7 @@ void ResidualFactors::EquationSolver_(const unsigned long n, std::map<unsigned, 
         }
       }
 
+      //Solve for generic is L_{n} = L{n+1}*P{n} + R_{n} - 1
       unsigned long equation_answer = 0;
       for(unsigned j = (f.size()); j > 0; j--){ 
           equation_answer = f.at(j-1)*equation_answer + (valid_residual_factors.at(j-1) - 1);
@@ -528,7 +504,6 @@ void ResidualFactors::EquationSolver_(const unsigned long n, std::map<unsigned, 
 
 }
 
-// Return a vector of all order-way cofactor sets of n.
 
 
 ResidualFactors::ResidualFactors() : n_(0) {}
