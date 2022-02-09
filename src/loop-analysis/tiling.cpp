@@ -754,7 +754,7 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
   tiling::CompoundTileNest solution;
   solution.compound_data_movement_info_nest = collapsed_compound_data_nest;
   solution.compute_info_nest = collapsed_compound_compute_nest;
-  solution.compute_info_nest[0].compute_cycles = solution.compute_info_nest[0].accesses;
+  solution.compute_info_nest[0].compute_cycles = solution.compute_info_nest[0].compute_cycles;
   return solution;
 }
 
@@ -769,6 +769,7 @@ ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_ti
       // compute info is only valid for the inner most level
       collapsed_tile.replication_factor = tiles[0].replication_factor;
       collapsed_tile.accesses = tiles[0].accesses;
+      collapsed_tile.compute_cycles = tiles[0].compute_cycles;
     } else {
       collapsed_tile.replication_factor = 0;
       collapsed_tile.accesses = 0;

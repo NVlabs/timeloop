@@ -267,7 +267,7 @@ struct ComputeInfo
   {
     replication_factor = 0;
     accesses = 0;
-    compute_cycles = 0;
+    compute_cycles = 1;
   }
 };
 
