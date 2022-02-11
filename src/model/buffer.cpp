@@ -1726,61 +1726,63 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << "-----" << std::endl;
 
 // flag to print verbose sparse stats or dense stats
-#define PRINT_SPARSE_STATS
-#ifdef PRINT_SPARSE_STATS
-  out << indent << indent << "Technology                   : " << specs.technology << std::endl;
-  out << indent << indent << "Data storage size            : " << specs.size << std::endl;
-  out << indent << indent << "Data word bits               : " << specs.word_bits << std::endl;
-  out << indent << indent << "Data block size              : " << specs.block_size << std::endl;
-  out << indent << indent << "Metadata storage width(bits) : " << specs.metadata_storage_width << std::endl;
-  out << indent << indent << "Metadata storage depth       : " << specs.metadata_storage_depth << std::endl;
-  //out << indent << indent << "Metadata word bits           : " << specs.default_md_word_bits.Get() << std::endl;
-  //out << indent << indent << "Metadata block size          : " << specs.default_md_block_size.Get() << std::endl;
-  out << indent << indent << "Cluster size                 : " << specs.cluster_size << std::endl;
-  out << indent << indent << "Instances                    : " << specs.instances << " ("
-      << specs.meshX << "*" << specs.meshY << ")" << std::endl;
-  out << indent << indent << "Read bandwidth               : " << specs.read_bandwidth << std::endl;    
-  out << indent << indent << "Write bandwidth              : " << specs.write_bandwidth << std::endl;    
-  out << indent << indent << "Multiple buffering           : " << specs.multiple_buffering << std::endl;
-//  out << indent << indent << "Allow overbooking            : " << specs.allow_overbooking << std::endl;
-  out << indent << indent << "Effective data storage size  : " << specs.effective_size << std::endl;
-  out << indent << indent << "Min utilization              : " << specs.min_utilization << std::endl;
-//  out << indent << indent << "Vector access energy(max)    : " << specs.vector_access_energy << " pJ" << std::endl;
-//  out << indent << indent << "Vector gated read energy     : " << specs.op_energy_map.at("gated_read") << " pJ" << std::endl;
-//  out << indent << indent << "Vector skipped read energy   : " << specs.op_energy_map.at("skipped_read") << " pJ" << std::endl;
-  out << indent << indent << "Vector read energy           : " << specs.op_energy_map.at("random_read") << " pJ" << std::endl;
-//  out << indent << indent << "Vector gated write energy    : " << specs.op_energy_map.at("gated_fill") << " pJ" << std::endl;
-//  out << indent << indent << "Vector skipped write energy  : " << specs.op_energy_map.at("skipped_fill") << " pJ" << std::endl;
-  out << indent << indent << "Vector write energy          : " << specs.op_energy_map.at("random_fill") << " pJ" << std::endl;
-//  out << indent << indent << "Vector gated update energy   : " << specs.op_energy_map.at("gated_update") << " pJ" << std::endl;
-//  out << indent << indent << "Vector skipped update energy : " << specs.op_energy_map.at("skipped_update") << " pJ" << std::endl;
-//  out << indent << indent << "Vector random update energy  : " << specs.op_energy_map.at("random_update") << " pJ" << std::endl;
-  out << indent << indent << "Vector metadata read energy  : " << specs.op_energy_map.at("random_metadata_read") << " pJ" << std::endl;
-  out << indent << indent << "Vector metadata write energy : " << specs.op_energy_map.at("random_metadata_fill") << " pJ" << std::endl;
-  out << indent << indent << "(De)compression energy       : " << specs.op_energy_map.at("decompression_count") << " pJ" << std::endl;
-  out << indent << indent << "Area                         : " << specs.storage_area << " um^2" << std::endl;
+  if (specs_.is_sparse_module.Get())
+  {
+  
+    out << indent << indent << "Technology                   : " << specs.technology << std::endl;
+    out << indent << indent << "Data storage size            : " << specs.size << std::endl;
+    out << indent << indent << "Data word bits               : " << specs.word_bits << std::endl;
+    out << indent << indent << "Data block size              : " << specs.block_size << std::endl;
+    out << indent << indent << "Metadata storage width(bits) : " << specs.metadata_storage_width << std::endl;
+    out << indent << indent << "Metadata storage depth       : " << specs.metadata_storage_depth << std::endl;
+    //out << indent << indent << "Metadata word bits           : " << specs.default_md_word_bits.Get() << std::endl;
+    //out << indent << indent << "Metadata block size          : " << specs.default_md_block_size.Get() << std::endl;
+    out << indent << indent << "Cluster size                 : " << specs.cluster_size << std::endl;
+    out << indent << indent << "Instances                    : " << specs.instances << " ("
+        << specs.meshX << "*" << specs.meshY << ")" << std::endl;
+    out << indent << indent << "Read bandwidth               : " << specs.read_bandwidth << std::endl;    
+    out << indent << indent << "Write bandwidth              : " << specs.write_bandwidth << std::endl;    
+    out << indent << indent << "Multiple buffering           : " << specs.multiple_buffering << std::endl;
+    //out << indent << indent << "Allow overbooking            : " << specs.allow_overbooking << std::endl;
+    out << indent << indent << "Effective data storage size  : " << specs.effective_size << std::endl;
+    out << indent << indent << "Min utilization              : " << specs.min_utilization << std::endl;
+    //out << indent << indent << "Vector access energy(max)    : " << specs.vector_access_energy << " pJ" << std::endl;
+    //out << indent << indent << "Vector gated read energy     : " << specs.op_energy_map.at("gated_read") << " pJ" << std::endl;
+    //out << indent << indent << "Vector skipped read energy   : " << specs.op_energy_map.at("skipped_read") << " pJ" << std::endl;
+    out << indent << indent << "Vector read energy           : " << specs.op_energy_map.at("random_read") << " pJ" << std::endl;
+    //out << indent << indent << "Vector gated write energy    : " << specs.op_energy_map.at("gated_fill") << " pJ" << std::endl;
+    //out << indent << indent << "Vector skipped write energy  : " << specs.op_energy_map.at("skipped_fill") << " pJ" << std::endl;
+    out << indent << indent << "Vector write energy          : " << specs.op_energy_map.at("random_fill") << " pJ" << std::endl;
+    //out << indent << indent << "Vector gated update energy   : " << specs.op_energy_map.at("gated_update") << " pJ" << std::endl;
+    //out << indent << indent << "Vector skipped update energy : " << specs.op_energy_map.at("skipped_update") << " pJ" << std::endl;
+    //out << indent << indent << "Vector random update energy  : " << specs.op_energy_map.at("random_update") << " pJ" << std::endl;
+    out << indent << indent << "Vector metadata read energy  : " << specs.op_energy_map.at("random_metadata_read") << " pJ" << std::endl;
+    out << indent << indent << "Vector metadata write energy : " << specs.op_energy_map.at("random_metadata_fill") << " pJ" << std::endl;
+    out << indent << indent << "(De)compression energy       : " << specs.op_energy_map.at("decompression_count") << " pJ" << std::endl;
+    out << indent << indent << "Area                         : " << specs.storage_area << " um^2" << std::endl;
 
-  out << std::endl;
+    out << std::endl;
+  }
+  else
+  {
+    out << indent << indent << "Technology           : " << specs.technology << std::endl;
+    out << indent << indent << "Size                 : " << specs.size << std::endl;
+    out << indent << indent << "Word bits            : " << specs.word_bits << std::endl;
+    out << indent << indent << "Block size           : " << specs.block_size << std::endl;
+    out << indent << indent << "Cluster size         : " << specs.cluster_size << std::endl;
+    out << indent << indent << "Instances            : " << specs.instances << " ("
+        << specs.meshX << "*" << specs.meshY << ")" << std::endl;
+    out << indent << indent << "Read bandwidth       : " << specs.read_bandwidth << std::endl;
+    out << indent << indent << "Write bandwidth      : " << specs.write_bandwidth << std::endl;
+    out << indent << indent << "Multiple buffering   : " << specs.multiple_buffering << std::endl;
+    out << indent << indent << "Effective size       : " << specs.effective_size << std::endl;
+    out << indent << indent << "Min utilization      : " << specs.min_utilization << std::endl;
+    out << indent << indent << "Vector access energy : " << specs.vector_access_energy << " pJ" << std::endl;
+    out << indent << indent << "Area                 : " << specs.storage_area << " um^2" << std::endl;
 
-#else
-  out << indent << indent << "Technology           : " << specs.technology << std::endl;
-  out << indent << indent << "Size                 : " << specs.size << std::endl;
-  out << indent << indent << "Word bits            : " << specs.word_bits << std::endl;
-  out << indent << indent << "Block size           : " << specs.block_size << std::endl;
-  out << indent << indent << "Cluster size         : " << specs.cluster_size << std::endl;
-  out << indent << indent << "Instances            : " << specs.instances << " ("
-      << specs.meshX << "*" << specs.meshY << ")" << std::endl;
-  out << indent << indent << "Read bandwidth       : " << specs.read_bandwidth << std::endl;
-  out << indent << indent << "Write bandwidth      : " << specs.write_bandwidth << std::endl;
-  out << indent << indent << "Multiple buffering   : " << specs.multiple_buffering << std::endl;
-  out << indent << indent << "Effective size       : " << specs.effective_size << std::endl;
-  out << indent << indent << "Min utilization      : " << specs.min_utilization << std::endl;
-  out << indent << indent << "Vector access energy : " << specs.vector_access_energy << " pJ" << std::endl;
-  out << indent << indent << "Area                 : " << specs.storage_area << " um^2" << std::endl;
-
-  out << std::endl;
-#endif
-
+    out << std::endl;
+  }
+  
   // If the buffer hasn't been evaluated on a specific mapping yet, return.
   if (!IsEvaluated())
   {
@@ -1819,9 +1821,6 @@ void BufferLevel::Print(std::ostream& out) const
     {
       out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
-// flag to print verbose sparse stats or dense stats
-// #define PRINT_SPARSE_STATS
-// #ifdef PRINT_SPARSE_STATS
       if (specs_.is_sparse_module.Get())
       {
         out << indent + indent << "Partition size                                              : " << stats.partition_size.at(pv) << std::endl;
@@ -1986,7 +1985,6 @@ void BufferLevel::Print(std::ostream& out) const
         out << indent + indent + indent << "Breakdown (Data, Format): (" << 100 * (1 - stats.format_write_bandwidth_ratio.at(pv)) << "%, " << 100 * (stats.format_write_bandwidth_ratio.at(pv)) << "%)"<< std::endl;
         out << indent + indent << "Write Bandwidth (total)                                     : " << stats.write_bandwidth.at(pv) * stats.utilized_x_expansion.at(pv) * stats.utilized_y_expansion.at(pv) << " words/cycle" << std::endl;
       }
-// #else
       else
       {
         out << indent + indent << "Partition size                           : " << stats.partition_size.at(pv) << std::endl;
@@ -2011,7 +2009,6 @@ void BufferLevel::Print(std::ostream& out) const
         out << indent + indent << "Write Bandwidth (per-instance)           : " << stats.write_bandwidth.at(pv) << " words/cycle" << std::endl;
         out << indent + indent << "Write Bandwidth (total)                  : " << stats.write_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
       }
-// #endif
     }
   }
 

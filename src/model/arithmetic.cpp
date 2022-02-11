@@ -325,32 +325,15 @@ void ArithmeticUnits::Print(std::ostream& out) const
   // Print specs.
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
-// #define PRINT_SPARSE_STATS
-// #ifdef PRINT_SPARSE_STATS
-  if (specs_.is_sparse_module.Get())
-  {
-    out << indent << "Word bits             : " << specs_.word_bits << std::endl;
-    out << indent << "Instances             : " << specs_.instances << " ("
-        << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
-    out << indent << "Compute energy        : " << specs_.op_energy_map.at("random_compute") << " pJ" << std::endl;
-    out << std::endl;
-  }
-// #else
-  else
-  {
-    out << indent << "Word bits             : " << specs_.word_bits << std::endl;
-    out << indent << "Instances             : " << specs_.instances << " ("
-        << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
-    out << indent << "Energy-per-op         : " << specs_.energy_per_op << " pJ" << std::endl;
-    out << std::endl;
-  }
-//#endif
+  out << indent << "Word bits             : " << specs_.word_bits << std::endl;
+  out << indent << "Instances             : " << specs_.instances << " ("
+      << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
+  out << indent << "Compute energy        : " << specs_.op_energy_map.at("random_compute") << " pJ" << std::endl;
+  out << std::endl;
 
   // Print stats.
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
-// #define PRINT_SPARSE_STATS
-// #ifdef PRINT_SPARSE_STATS
   if (specs_.is_sparse_module.Get())
   {  
     out << indent << "Utilized instances (max)     : " << UtilizedInstances() << std::endl;
@@ -364,7 +347,6 @@ void ArithmeticUnits::Print(std::ostream& out) const
     out << indent << "Area (total)                 : " << Area() << " um^2" << std::endl;
     out << std::endl;
   }
-// #else
  else
  {
   out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
@@ -373,7 +355,6 @@ void ArithmeticUnits::Print(std::ostream& out) const
   out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
   out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
  }
-//#endif
 }
 
 } // namespace model
