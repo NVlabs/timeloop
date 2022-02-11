@@ -1,5 +1,5 @@
 /* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -99,8 +99,8 @@ void PerRankMetaDataTileOccupancy::SetEmpty()
 {
   metadata_units = 0;
   payload_units = 0;
-  metadata_width = -1;
-  payload_width = -1;
+  metadata_word_bits = 0;
+  payload_word_bits = 0;
 }
 
 void PerRankMetaDataTileOccupancy::SetPayloadUnits(const std::uint64_t units)
@@ -119,14 +119,14 @@ double PerRankMetaDataTileOccupancy::PayloadUnits() const
   return payload_units;
 }
 
-int PerRankMetaDataTileOccupancy::MetaDataWidth() const
+std::uint32_t PerRankMetaDataTileOccupancy::MetaDataWordBits() const
 {
-  return metadata_width;
+  return metadata_word_bits;
 }
 
-int PerRankMetaDataTileOccupancy::PayloadWidth() const
+std::uint32_t PerRankMetaDataTileOccupancy::PayloadWordBits() const
 {
-  return payload_width;
+  return payload_word_bits;
 }
 
 double PerRankMetaDataTileOccupancy::TotalMetDataAndPayloadUnits() const
@@ -142,6 +142,12 @@ void PerRankMetaDataTileOccupancy::Scale(double s)
 
 void PerRankMetaDataTileOccupancy::Add(PerRankMetaDataTileOccupancy m)
 {
+
+  if (metadata_units != 0 && m.metadata_units != 0)
+    assert(metadata_word_bits == m.metadata_word_bits);
+  if (payload_units != 0 && m.payload_units != 0)
+    assert(payload_word_bits == m.payload_word_bits);
+
   metadata_units += m.MetaDataUnits();
   payload_units += m.PayloadUnits();
 }

@@ -35,7 +35,7 @@ namespace model
 //--------------------------------------------//
 
 // Parse network type and instantiate a Spec object of that network type.
-std::shared_ptr<NetworkSpecs> NetworkFactory::ParseSpecs(config::CompoundConfigNode network, uint32_t n_elements)
+std::shared_ptr<NetworkSpecs> NetworkFactory::ParseSpecs(config::CompoundConfigNode network, uint32_t n_elements, bool is_sparse_module)
 {
   std::shared_ptr<NetworkSpecs> specs;
 
@@ -44,20 +44,19 @@ std::shared_ptr<NetworkSpecs> NetworkFactory::ParseSpecs(config::CompoundConfigN
   {
     if (network_class.compare("XY_NoC") == 0 || network_class.compare("Legacy") == 0)
     {
-      auto legacy_specs = LegacyNetwork::ParseSpecs(network, n_elements);
+      auto legacy_specs = LegacyNetwork::ParseSpecs(network, n_elements, is_sparse_module);
       specs = std::make_shared<LegacyNetwork::Specs>(legacy_specs);
     }
     else if (network_class.compare("ReductionTree") == 0)
     {
-      auto reduction_tree_specs = ReductionTreeNetwork::ParseSpecs(network, n_elements);
+      auto reduction_tree_specs = ReductionTreeNetwork::ParseSpecs(network, n_elements, is_sparse_module);
       specs = std::make_shared<ReductionTreeNetwork::Specs>(reduction_tree_specs);
     }
     else if (network_class.compare("SimpleMulticast") == 0)
     {
-      auto simple_multicast_specs = SimpleMulticastNetwork::ParseSpecs(network, n_elements);
+      auto simple_multicast_specs = SimpleMulticastNetwork::ParseSpecs(network, n_elements, is_sparse_module);
       specs = std::make_shared<SimpleMulticastNetwork::Specs>(simple_multicast_specs);
     }
-
     else
     {
       std::cerr << "ERROR: unrecognized network class: " << network_class << std::endl;

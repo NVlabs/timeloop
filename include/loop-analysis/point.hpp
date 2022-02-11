@@ -45,6 +45,7 @@ class Point
   Point();
   Point(const Point& p);
   Point(std::uint32_t order);
+  Point(std::vector<Coordinate> coordinates);
   
   // Copy-and-swap idiom.
   Point& operator = (Point other);
@@ -58,6 +59,7 @@ class Point
   void Reset();
 
   std::uint32_t Order() const;
+  std::vector<Coordinate> GetCoordinates() const;
 
   Coordinate& operator[] (std::uint32_t i);
   const Coordinate& operator[] (std::uint32_t i) const;

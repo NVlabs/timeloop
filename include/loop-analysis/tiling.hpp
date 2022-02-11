@@ -59,5 +59,6 @@ ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_ti
 
 NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles);
 NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks);
+bool CheckMaskValidity(const CompoundMaskNest& masks);
 
 }  // namespace tiling

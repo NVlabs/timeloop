@@ -82,9 +82,8 @@ struct PerRankMetaDataTileOccupancy
 {
   double metadata_units;
   double payload_units;
-  // if any of the datawidth is -1, it means unspecified but needed, will thus use the hardware attribute later
-  int metadata_width;  // user-specified metadata payload width ( e.g., runlength width for RLE)
-  int payload_width;   // user-specified payload width (memory pointers)
+  std::uint32_t metadata_word_bits;  // user-specified metadata word bits ( e.g., runlength width for RLE)
+  std::uint32_t payload_word_bits;   // user-specified payload word bits (memory pointers)
 
   // Setters
   void SetEmpty();
@@ -93,8 +92,8 @@ struct PerRankMetaDataTileOccupancy
   // API
   double MetaDataUnits() const;
   double PayloadUnits() const;
-  int MetaDataWidth() const;
-  int PayloadWidth() const;
+  std::uint32_t MetaDataWordBits() const;
+  std::uint32_t PayloadWordBits() const;
   double TotalMetDataAndPayloadUnits() const;
 
   void Scale(double s);
@@ -111,8 +110,8 @@ struct PerRankMetaDataTileOccupancy
     {
       ar& BOOST_SERIALIZATION_NVP(payload_units);
       ar& BOOST_SERIALIZATION_NVP(metadata_units);
-      ar& BOOST_SERIALIZATION_NVP(payload_width);
-      ar& BOOST_SERIALIZATION_NVP(metadata_width);
+      ar& BOOST_SERIALIZATION_NVP(payload_word_bits);
+      ar& BOOST_SERIALIZATION_NVP(metadata_word_bits);
     }
   }
 };
@@ -130,9 +129,16 @@ struct MetaDataFormatSpecs
 
   virtual const std::string Name() const = 0;
   virtual bool RankCompressed() const = 0;
-  virtual std::vector<problem::Shape::FactorizedDimensionID> DimensionIDs() const = 0;
+  virtual std::vector<problem::Shape::FlattenedDimensionID> DimensionIDs() const = 0;
 
+  virtual std::uint32_t MetaDataWordBits() const = 0;
+  virtual std::uint32_t PayloadWordBits() const = 0;
+  virtual void SetMetaDataWordBits(std::uint32_t word_bits) = 0;
+  virtual void SetPayloadWordBits(std::uint32_t word_bits) = 0;
+  
   std::string name = "UNSET";
+  std::uint32_t payload_word_bits = std::numeric_limits<std::uint32_t>::max();
+  std::uint32_t metadata_word_bits = std::numeric_limits<std::uint32_t>::max();
 
   // Serialization
   friend class boost::serialization::access;
@@ -150,12 +156,12 @@ BOOST_SERIALIZATION_ASSUME_ABSTRACT(MetaDataFormatSpecs)
 
 
 //-------------------------------------------------//
-//          MetaDataFormat (base class)            //
+//      MetaDataFormat (base class)                //
 //-------------------------------------------------//
 
-class MetaDataFormat
-{
- public:
+class MetaDataFormat{
+
+public:
   // destructor
   virtual ~MetaDataFormat();
 
@@ -163,7 +169,7 @@ class MetaDataFormat
   virtual PerRankMetaDataTileOccupancy GetOccupancy(const MetaDataOccupancyQuery& query) const = 0;
   virtual bool RankCompressed() const = 0;
   virtual bool CoordinatesImplicit() const = 0;
-  virtual std::vector<problem::Shape::FactorizedDimensionID> GetDimensionIDs() const = 0;
+  virtual std::vector<problem::Shape::FlattenedDimensionID> GetDimensionIDs() const = 0;
   virtual std::string GetFormatName() const = 0;
   virtual bool MetaDataImplicitAsLowestRank() const = 0;
 

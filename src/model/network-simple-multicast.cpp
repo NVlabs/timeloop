@@ -53,7 +53,7 @@ SimpleMulticastNetwork::SimpleMulticastNetwork(const Specs& specs) :
 SimpleMulticastNetwork::~SimpleMulticastNetwork()
 { }
 
-SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements)
+SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module)
 {
   (void) n_elements; // FIXME.
 
@@ -64,6 +64,9 @@ SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::Compoun
   std::string name;
   network.lookupValue("name", name);
   specs.name = name;
+  
+  // Sparse Architecture's Module 
+  specs.is_sparse_module = is_sparse_module;
 
   if (network.exists("attributes"))
   {

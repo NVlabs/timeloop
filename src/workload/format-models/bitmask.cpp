@@ -25,23 +25,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "workload/format-models/coordinate-payload.hpp"
+#include "workload/format-models/bitmask.hpp"
 
 namespace problem
 {
 
-CoordinatePayload::~CoordinatePayload() {}
-CoordinatePayload::CoordinatePayload() {}
-CoordinatePayload::CoordinatePayload(const Specs& specs) : specs_(specs){ is_specced_ = true;}
+Bitmask::Bitmask() {}
+Bitmask::Bitmask(const Specs& specs) : specs_(specs){ is_specced_ = true;}
+Bitmask::~Bitmask(){}
 
-
-CoordinatePayload::Specs CoordinatePayload::ParseSpecs(config::CompoundConfigNode format_specs)
+Bitmask::Specs Bitmask::ParseSpecs(config::CompoundConfigNode format_specs)
 {
-
-  CoordinatePayload::Specs specs;
+  Bitmask::Specs specs;
   // by default, no special attributes need to be set manually by the users
   specs.payload_word_bits = std::numeric_limits<std::uint32_t>::max();
-  specs.metadata_word_bits = std::numeric_limits<std::uint32_t>::max();
+  specs.metadata_word_bits = 1; // default to 1 bit
 
   if (format_specs.exists("payload-word-bits"))
   {
@@ -56,7 +54,7 @@ CoordinatePayload::Specs CoordinatePayload::ParseSpecs(config::CompoundConfigNod
   return specs;
 }
 
-PerRankMetaDataTileOccupancy CoordinatePayload::GetOccupancy(const MetaDataOccupancyQuery& query) const
+PerRankMetaDataTileOccupancy Bitmask::GetOccupancy(const MetaDataOccupancyQuery& query) const
 {
 
   double prob_empty_fibers = query.TileDensityPtr()->GetTileOccupancyProbability(query.CurRankCoordTile(), 0);
@@ -67,34 +65,41 @@ PerRankMetaDataTileOccupancy CoordinatePayload::GetOccupancy(const MetaDataOccup
   PerRankMetaDataTileOccupancy occupancy;
   occupancy.payload_word_bits = specs_.payload_word_bits;
   occupancy.metadata_word_bits = specs_.metadata_word_bits;
-  occupancy.metadata_units = number_of_nnz_coord_per_fiber * number_of_fibers;
-  occupancy.payload_units =  occupancy.metadata_units;
+  occupancy.metadata_units = number_of_fibers * query.CurRankFiberShape();
+  occupancy.payload_units = number_of_fibers * number_of_nnz_coord_per_fiber;
 
   return occupancy;
 }
 
-bool CoordinatePayload::RankCompressed() const
+bool Bitmask::RankCompressed() const
 {
   assert(is_specced_);
   return specs_.rank_compressed;
 }
 
-bool CoordinatePayload::CoordinatesImplicit() const
+bool Bitmask::CoordinatesImplicit() const
 {
   assert(is_specced_);
   return specs_.coordinates_implicit;
 }
 
-std::vector<problem::Shape::FlattenedDimensionID> CoordinatePayload::GetDimensionIDs() const
+
+std::vector<problem::Shape::FlattenedDimensionID> Bitmask::GetDimensionIDs() const
 {
   assert(is_specced_);
   return specs_.dimension_ids;
 }
 
-std::string CoordinatePayload::GetFormatName() const
+std::string Bitmask::GetFormatName() const
 {
   assert(is_specced_);
   return specs_.name;
+}
+
+const MetaDataFormatSpecs& Bitmask::GetSpecs() const
+{
+  assert(is_specced_);
+  return  specs_;
 }
 
 } // namespace problem

@@ -89,7 +89,9 @@ Application::Application(config::CompoundConfig* config,
   {
     arch = rootNode.lookup("architecture");
   }
-  arch_specs_ = model::Engine::ParseSpecs(arch);
+  
+  bool is_sparse_topology = rootNode.exists("sparse_optimizations");
+  arch_specs_ = model::Engine::ParseSpecs(arch, is_sparse_topology);
 
   if (rootNode.exists("ERT"))
   {
@@ -128,6 +130,17 @@ Application::Application(config::CompoundConfig* config,
 #endif
   }
 
+  // Sparse optimizations
+  config::CompoundConfigNode sparse_optimizations;
+  if (is_sparse_topology)
+    sparse_optimizations = rootNode.lookup("sparse_optimizations");
+      sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
+  // characterize workload on whether it has metadata
+  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
+  
+  if (verbose_)
+    std::cout << "Sparse optimization configuration complete." << std::endl;
+
   arch_props_ = new ArchProperties(arch_specs_);
   // Architecture constraints.
   config::CompoundConfigNode arch_constraints;
@@ -157,16 +170,6 @@ Application::Application(config::CompoundConfig* config,
     std::cerr << "ERROR: mapping violates architecture constraints." << std::endl;
     exit(1);
   }
-
-  // Sparse optimizations
-  config::CompoundConfigNode sparse_optimizations;
-  if (rootNode.exists("sparse_optimizations"))
-    sparse_optimizations = rootNode.lookup("sparse_optimizations");
-  sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
-
-  // characterize workload on whether it has metadata
-  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
-
 }
 
 Application::~Application()
@@ -242,12 +245,20 @@ Application::Stats Application::Run()
 
   if (engine.IsEvaluated())
   {
-    std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
+    if (!sparse_optimizations_->no_optimization_applied)
+    {   
+      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
               << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().AlgorithmicComputes()
               << " | pJ/Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().ActualComputes() << std::endl;
-
+    }
+    else
+    {
+      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
+                 << " | pJ/Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << engine.Energy() /
+      engine.GetTopology().ActualComputes() << std::endl;
+    }
     std::ofstream map_txt_file(map_txt_file_name);
     mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());
     map_txt_file.close();

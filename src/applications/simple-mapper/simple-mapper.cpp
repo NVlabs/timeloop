@@ -47,7 +47,9 @@ Application::Application(config::CompoundConfig* config)
   // Architecture configuration.
   config::CompoundConfigNode arch;
   arch = rootNode.lookup("architecture");
-  arch_specs_ = model::Engine::ParseSpecs(arch);
+  
+  bool is_sparse_topology = rootNode.exists("sparse_optimizations");
+  arch_specs_ = model::Engine::ParseSpecs(arch, is_sparse_topology);
 
 #ifdef USE_ACCELERGY
   if (arch.exists("subtree") || arch.exists("local"))
@@ -88,7 +90,7 @@ Application::Application(config::CompoundConfig* config)
     
   // Sparse optimizations
   config::CompoundConfigNode sparse_optimizations;
-  if (rootNode.exists("sparse_optimizations"))
+  if (is_sparse_topology)
     sparse_optimizations = rootNode.lookup("sparse_optimizations");
 	sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
 
@@ -192,13 +194,26 @@ void Application::Run()
     stats_file.close();
 
     std::cout << std::endl;
-    std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
-    std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
-              << best_engine.Utilization() << " | pJ/Algorithmic-Compute = " << std::setw(8)
-              << std::fixed << PRINTFLOAT_PRECISION << best_engine.Energy() /
-      best_engine.GetTopology().AlgorithmicComputes() << " | pJ/Compute = " << std::setw(8)
-              << std::fixed << PRINTFLOAT_PRECISION << best_engine.Energy() /
-      best_engine.GetTopology().ActualComputes() << std::endl;
+    
+    if (!sparse_optimizations_->no_optimization_applied)
+    {
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
+      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
+                << best_engine.Utilization() << " | pJ/Algorithmic-Compute = " << std::setw(8)
+                << std::fixed << PRINTFLOAT_PRECISION << best_engine.Energy() /
+        best_engine.GetTopology().AlgorithmicComputes() << " | pJ/Compute = " << std::setw(8)
+                << std::fixed << PRINTFLOAT_PRECISION << best_engine.Energy() /
+        best_engine.GetTopology().ActualComputes() << std::endl;
+    }
+    else
+    {
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
+      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
+                << std::fixed << PRINTFLOAT_PRECISION << best_engine.Energy() /
+        best_engine.GetTopology().AlgorithmicComputes() << " | pJ/Compute = " << std::setw(8)
+                << std::fixed << PRINTFLOAT_PRECISION << best_engine.Energy() /
+        best_engine.GetTopology().ActualComputes() << std::endl;
+    }
   }
   else
   {

@@ -119,7 +119,12 @@ loop-analysis/point-set-multi-aahr.cpp
 loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/aahr-carve.cpp
-loop-analysis/sparse-analysis.cpp
+sparse-analysis/state.cpp
+sparse-analysis/sparse-analysis.cpp
+sparse-analysis/compute-gs-analyzer.cpp
+sparse-analysis/storage-gs-analyzer.cpp
+sparse-analysis/representation-analyzer.cpp
+sparse-analysis/storage-optimization-combiner.cpp
 loop-analysis/operation-type.cpp
 pat/pat.cpp
 mapping/loop.cpp
@@ -149,12 +154,14 @@ workload/density-models/density-distribution.cpp
 workload/density-models/density-distribution-factory.cpp
 workload/density-models/fixed-structured-distribution.cpp
 workload/density-models/hypergeometric-distribution.cpp
+workload/density-models/banded-distribution.cpp
 workload/format-models/metadata-format.cpp
 workload/format-models/metadata-format-factory.cpp
 workload/format-models/run-length-encoding.cpp
 workload/format-models/uncompressed-offset-pair.cpp
 workload/format-models/coordinate-payload.cpp
 workload/format-models/uncompressed-bitmask.cpp
+workload/format-models/bitmask.cpp
 compound-config/compound-config.cpp
 """)
 

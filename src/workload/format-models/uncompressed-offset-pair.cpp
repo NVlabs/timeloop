@@ -34,27 +34,36 @@ UncompressedOffsetPair::UncompressedOffsetPair() {}
 UncompressedOffsetPair::UncompressedOffsetPair(const Specs& specs) : specs_(specs){ is_specced_ = true;}
 UncompressedOffsetPair::~UncompressedOffsetPair(){}
 
-UncompressedOffsetPair::Specs UncompressedOffsetPair::ParseSpecs(config::CompoundConfigNode metadata_specs)
+UncompressedOffsetPair::Specs UncompressedOffsetPair::ParseSpecs(config::CompoundConfigNode format_specs)
 {
   UncompressedOffsetPair::Specs specs;
-  // by default, no special attributes need to be set manually by the users
-  (void) metadata_specs;
-  specs.payload_width = -1;
-  specs.metadata_width = -1;
+  specs.payload_word_bits = std::numeric_limits<std::uint32_t>::max();
+  specs.metadata_word_bits = std::numeric_limits<std::uint32_t>::max();
+
+  if (format_specs.exists("payload-word-bits"))
+  {
+    format_specs.lookupValue("payload-word-bits", specs.payload_word_bits);
+  }
+
+  if (format_specs.exists("metadata-word-bits"))
+  {
+    format_specs.lookupValue("metadata-word-bits", specs.metadata_word_bits);
+  }
   return specs;
 }
 
 PerRankMetaDataTileOccupancy UncompressedOffsetPair::GetOccupancy(const MetaDataOccupancyQuery& query) const
 {
 
-  std::uint64_t number_of_fibers = query.MaxNumFibers();
+  double prob_empty_fibers = query.TileDensityPtr()->GetTileOccupancyProbability(query.CurRankCoordTile(), 0);
+  double number_of_fibers = query.MaxNumFibers() * (1-prob_empty_fibers);
   // follow the most conventional definition to of CSR-upper rank
   // TODO: should we assume we can play simple hardware ticks to get rid of the need to include one extra offset needed in the end
   //    e.g., PGEN always start from the value saved in a register
   std::uint64_t number_of_payloads_per_fiber =  query.CurRankFiberShape() + 1;
   PerRankMetaDataTileOccupancy occupancy;
-  occupancy.payload_width = specs_.payload_width;
-  occupancy.metadata_width = specs_.metadata_width;
+  occupancy.payload_word_bits = specs_.payload_word_bits;
+  occupancy.metadata_word_bits = specs_.metadata_word_bits;
   occupancy.metadata_units = 0;
   occupancy.payload_units = number_of_fibers * number_of_payloads_per_fiber;
 
@@ -74,7 +83,7 @@ bool UncompressedOffsetPair::CoordinatesImplicit() const
 }
 
 
-std::vector<problem::Shape::FactorizedDimensionID> UncompressedOffsetPair::GetDimensionIDs() const
+std::vector<problem::Shape::FlattenedDimensionID> UncompressedOffsetPair::GetDimensionIDs() const
 {
   assert(is_specced_);
   return specs_.dimension_ids;
@@ -84,6 +93,12 @@ std::string UncompressedOffsetPair::GetFormatName() const
 {
   assert(is_specced_);
   return specs_.name;
+}
+
+const MetaDataFormatSpecs& UncompressedOffsetPair::GetSpecs() const
+{
+  assert(is_specced_);
+  return  specs_;
 }
 
 } // namespace problem

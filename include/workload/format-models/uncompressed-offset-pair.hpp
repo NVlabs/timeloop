@@ -45,13 +45,17 @@ public:
     std::string name = "uop";  // uncompressed offset pair
     bool rank_compressed = false;
     bool coordinates_implicit = true;
-    std::vector<problem::Shape::FactorizedDimensionID> dimension_ids;
-    int metadata_width;
-    int payload_width;
+    std::vector<problem::Shape::FlattenedDimensionID> dimension_ids;
+    std::uint32_t metadata_word_bits;
+    std::uint32_t payload_word_bits;
 
     const std::string Name() const override { return name; }
     bool RankCompressed() const override {return rank_compressed;}
-    std::vector<problem::Shape::FactorizedDimensionID> DimensionIDs() const override {return dimension_ids;}
+    std::vector<problem::Shape::FlattenedDimensionID> DimensionIDs() const override {return dimension_ids;}
+    std::uint32_t MetaDataWordBits() const override { return metadata_word_bits; }
+    std::uint32_t PayloadWordBits() const override { return payload_word_bits; }
+    void SetMetaDataWordBits(std::uint32_t word_bits) override { metadata_word_bits = word_bits; }
+    void SetPayloadWordBits(std::uint32_t word_bits) override { payload_word_bits = word_bits; }
 
     // Serialization
     friend class boost::serialization::access;
@@ -109,9 +113,12 @@ public:
   PerRankMetaDataTileOccupancy GetOccupancy(const MetaDataOccupancyQuery& query) const;
   bool RankCompressed () const;
   bool CoordinatesImplicit() const;
-  std::vector<problem::Shape::FactorizedDimensionID> GetDimensionIDs() const;
+  std::vector<problem::Shape::FlattenedDimensionID> GetDimensionIDs() const;
   std::string GetFormatName() const;
   bool MetaDataImplicitAsLowestRank() const {return false;}
+  const MetaDataFormatSpecs& GetSpecs() const; 
+
+
 }; // class UncompressedOffsetPair
 
 } // namespace problem

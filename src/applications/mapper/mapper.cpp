@@ -76,7 +76,9 @@ Application::Application(config::CompoundConfig* config,
   {
     arch = rootNode.lookup("architecture");
   }
-  arch_specs_ = model::Engine::ParseSpecs(arch);
+  
+  bool is_sparse_topology = rootNode.exists("sparse_optimizations");
+  arch_specs_ = model::Engine::ParseSpecs(arch, is_sparse_topology);
 
   if (rootNode.exists("ERT"))
   {
@@ -112,6 +114,17 @@ Application::Application(config::CompoundConfig* config,
   }
 
   std::cout << "Architecture configuration complete." << std::endl;
+
+  // Sparse optimizations
+  config::CompoundConfigNode sparse_optimizations;
+  if (is_sparse_topology)
+    sparse_optimizations = rootNode.lookup("sparse_optimizations");
+  
+  sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
+  // characterize workload on whether it has metadata
+  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
+  
+  std::cout << "Sparse optimization configuration complete." << std::endl;
 
   // Mapper (this application) configuration. (the rest)
 
@@ -209,7 +222,8 @@ Application::Application(config::CompoundConfig* config,
   //   exit(1);
   // }
 
-  mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_constraints, arch_specs_, workload_);
+  bool filter_spatial_fanout = sparse_optimizations_->action_spatial_skipping_info.size() == 0;
+  mapspace_ = mapspace::ParseAndConstruct(mapspace, arch_constraints, arch_specs_, workload_, filter_spatial_fanout);
   split_mapspaces_ = mapspace_->Split(num_threads_);
 
   std::cout << "Mapspace construction complete." << std::endl;
@@ -235,14 +249,6 @@ Application::Application(config::CompoundConfig* config,
     cfg_string_ = nullptr;
   }
 
-  // Sparse optimizations
-  config::CompoundConfigNode sparse_optimizations;
-  if (rootNode.exists("sparse_optimizations"))
-    sparse_optimizations = rootNode.lookup("sparse_optimizations");
-	sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
-
-  // characterize workload on whether it has metadata
-  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
 }
 
 Application::~Application()
@@ -500,15 +506,28 @@ void Application::Run()
       map_cpp_file.close();
     }
 
-    std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
-    std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
-              << global_best_.stats.utilization << " | pJ/Algorithmic-Compute = " << std::setw(8)
-              << std::fixed << PRINTFLOAT_PRECISION << global_best_.stats.energy /
-      global_best_.stats.algorithmic_computes
-              << " | pJ/Compute = " << std::setw(8)
-              << std::fixed << PRINTFLOAT_PRECISION << global_best_.stats.energy /
-      global_best_.stats.actual_computes << std::endl;
-
+    std::cout << std::endl;
+    if (!sparse_optimizations_->no_optimization_applied)
+    {
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
+      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
+                << global_best_.stats.utilization << " | pJ/Algorithmic-Compute = " << std::setw(8)
+                << std::fixed << PRINTFLOAT_PRECISION << global_best_.stats.energy /
+        global_best_.stats.algorithmic_computes
+                << " | pJ/Compute = " << std::setw(8)
+                << std::fixed << PRINTFLOAT_PRECISION << global_best_.stats.energy /
+        global_best_.stats.actual_computes << std::endl;
+    }
+    else
+    {
+      std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
+      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
+                << global_best_.stats.utilization
+                << " | pJ/Compute = " << std::setw(8)
+                << std::fixed << PRINTFLOAT_PRECISION << global_best_.stats.energy /
+        global_best_.stats.actual_computes << std::endl;
+    }
+    
     // Print the engine stats and mapping to an XML file
     std::ofstream ofs(xml_file_name);
     boost::archive::xml_oarchive ar(ofs);

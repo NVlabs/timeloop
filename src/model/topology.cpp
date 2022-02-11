@@ -32,7 +32,7 @@
 #include "model/topology.hpp"
 #include "model/network-legacy.hpp"
 #include "model/network-factory.hpp"
-#include "loop-analysis/sparse-analysis.hpp"
+#include "sparse-analysis/sparse-analysis.hpp"
 #include "workload/workload.hpp"
 
 namespace model
@@ -447,10 +447,21 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
     std::string indent = "    ";
     int align = max_name_length + 1;
 
-    std::vector<std::string> all_titles = {"Algorithmic Computes", "Actual Computes"};
-    std::vector<std::uint64_t> all_num_computes = {topology.stats_.algorithmic_computes, topology.stats_.actual_computes};
-    std::vector<std::string> all_units = {"pJ/Algorithmic-Compute", "pJ/Compute"};
-
+    std::vector<std::string> all_titles, all_units;
+    std::vector<std::uint64_t> all_num_computes;
+    if (topology.GetSpecs().GetArithmeticLevel()->is_sparse_module.Get())
+    {
+      all_titles = {"Algorithmic Computes", "Actual Computes"};
+      all_num_computes = {topology.stats_.algorithmic_computes, topology.stats_.actual_computes};
+      all_units = {"pJ/Algorithmic-Compute", "pJ/Compute"};
+    }
+    else
+    {
+      all_titles = {"Computes"};
+      all_num_computes = {topology.stats_.actual_computes};
+      all_units = {"pJ/Compute"};
+    }
+    
     for (unsigned i = 0; i < all_titles.size(); i++)
     {
       out << std::endl;
@@ -753,28 +764,29 @@ void Topology::Spec(const Topology::Specs& specs)
 // This function implements the "classic" hierarchical topology
 // with arithmetic units at level 0 and storage units at level 1+.
 Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
-                                     config::CompoundConfigNode arithmetic)
+                                     config::CompoundConfigNode arithmetic,
+                                     bool is_sparse_topology)
 {
   Specs specs;
   
   assert(storage.isList());
-
+ 
   // Level 0: arithmetic.
   // Use multiplication factor == 0 to ensure .instances attribute is set
-  auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic, 0));
+  auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic, 0, is_sparse_topology));
   specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
 
   // Storage levels.
   int num_storage_levels = storage.getLength();
   for (int i = 0; i < num_storage_levels; i++)
   {
-    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i], 0));
+    auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(storage[i], 0, is_sparse_topology));
     specs.AddLevel(i, std::static_pointer_cast<LevelSpecs>(level_specs_p));
 
     // For each storage level, parse and extract an inferred network spec from the storage config.
     // A network object corresponding to this spec will only be instantiated if a user-specified
     // network is missing between any two topology levels.
-    auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(storage[i], 0));
+    auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(storage[i], 0, is_sparse_topology));
     specs.AddInferredNetwork(inferred_network_specs_p);
   }
 
@@ -784,11 +796,11 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
 // This function implements the "tree-like" hierarchical architecture description
 // used in Accelergy v0.2. The lowest level is level 0 and should have
 // arithmetic units, while other level are level 1+ with some buffer/storage units
-Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
+Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, bool is_sparse_topology)
 {
   Specs specs;
   auto curNode = designRoot;
-
+ 
   std::vector<std::shared_ptr<LevelSpecs>> storages; // serialize all storages
   std::vector<std::shared_ptr<LegacyNetwork::Specs>> inferred_networks;
   std::vector<std::shared_ptr<NetworkSpecs>> networks;
@@ -830,24 +842,24 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot)
         if (isBufferClass(cClass))
         {
           // Create a buffer spec.
-          auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements));
+          auto level_specs_p = std::make_shared<BufferLevel::Specs>(BufferLevel::ParseSpecs(curLocal[c], nElements, is_sparse_topology));
           localStorages.push_back(level_specs_p);
 
           // Create an inferred network spec.
           // A network object corresponding to this spec will only be instantiated if a user-specified
           // network is missing between any two topology levels.
-          auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(curLocal[c], nElements));
+          auto inferred_network_specs_p = std::make_shared<LegacyNetwork::Specs>(LegacyNetwork::ParseSpecs(curLocal[c], nElements, is_sparse_topology));
           localInferredNetworks.push_back(inferred_network_specs_p);
         }
         else if (isComputeClass(cClass))
         {
           // Create arithmetic.
-          auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements));
+          auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(curLocal[c], nElements, is_sparse_topology));
           specs.AddLevel(0, std::static_pointer_cast<LevelSpecs>(level_specs_p));
         }
         else if (isNetworkClass(cClass))
         {
-          auto network_specs_p = NetworkFactory::ParseSpecs(curLocal[c], nElements);
+          auto network_specs_p = NetworkFactory::ParseSpecs(curLocal[c], nElements, is_sparse_topology);
           localNetworks.push_back(network_specs_p);
         }
         else
@@ -948,53 +960,50 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
                                                      sparse::SparseOptimizationInfo* sparse_optimizations,
                                                      bool break_on_failure)
 {
+  
+  std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
+  bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest);
+  if (!valid) 
+  { 
+    // invalid bypassing setup
+    std::fill(eval_status.begin(), eval_status.end(),
+              EvalStatus({ .success = false, .fail_reason = "one of the tensors is bypassed in all storage levels"}));
+    return eval_status; 
+  }
+
   auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
   auto working_set_sizes = analysis->GetWorkingSetSizes_LTW();
   sparse::CompressionInfo storage_compression_info = sparse_optimizations->compression_info;
 
   problem::Workload* workload = analysis->GetWorkload();
 
-  std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     sparse::PerStorageLevelCompressionInfo per_level_compression_info = {};
     storage_compression_info.GetStorageLevelCompressionInfo(storage_level_id, per_level_compression_info);
     auto level_id = specs_.StorageMap(storage_level_id);
-    auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
+    try
+    {
+      auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
       working_set_sizes.at(storage_level_id), masks.at(storage_level_id), workload,
       per_level_compression_info, mapping.confidence_thresholds.at(storage_level_id),
       break_on_failure);
-    eval_status.at(level_id) = s;
-    if (break_on_failure && !s.success)
-      break;
+      eval_status.at(level_id) = s;
+     
+      if (break_on_failure && !s.success)
+        break;
+    }
+    catch (problem::DensityModelIncapability& e)
+    {
+      std::fill(eval_status.begin(), eval_status.end(),
+                EvalStatus({ .success = false, .fail_reason = "density model incapable of evaluating a specific request" }));
+      return eval_status;
+    }
   }
 
   return eval_status;
 }
 
-
-//void PopulateCompressedSizeAndConfidence(tiling::NestOfCompoundTiles tiles, problem::Workload* workload){
-//  for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++){
-//    auto storage_level = GetStorageLevel(storage_level_id);
-//    auto storage_level_effective_capacity = storage_level->GetSpecs().effective_size.Get();
-//
-//    for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++){
-//      uint64_t tile_shape = tiles[storage_level_id].data_movement_info.at(pv).size;
-//      double confidence = workload->GetDensity(pv).GetTileConfidence(tile_shape, storage_level_effective_capacity);
-//      uint64_t compressed_size;
-//      if (storage_level_effective_capacity >= tile_shape){
-//        compressed_size = tile_shape;
-//      }
-//
-//    }
-//
-//
-//
-//
-//    // set confidence according to
-//  }
-//
-//
 
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            analysis::NestAnalysis* analysis,
@@ -1005,9 +1014,9 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   Reset();
   assert(!is_evaluated_);
 
-  //std::cout << "\n ==================================================== " << std::endl;
-  //std::cout << mapping.PrintCompact() << std::endl;
-  //std::cout << " ====================================================  " << std::endl;
+  // std::cout << "\n ==================================================== " << std::endl;
+  // std::cout << mapping.PrintCompact() << std::endl;
+  // std::cout << " ====================================================  " << std::endl;
 
   // ==================================================================
   // TODO: connect buffers to networks based on bypass mask in mapping.
@@ -1019,12 +1028,21 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
   //   storage_level->ConnectNetwork(network);
   //   network->ConnectBuffer(storage_level);
-  // }  
+  // } 
+  //
 
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
+  bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest);
+  if (!valid) 
+  { 
+    // invalid bypassing setup
+    std::fill(eval_status.begin(), eval_status.end(),
+              EvalStatus({ .success = false, .fail_reason = "one of the tensors is bypassed in all storage levels"}));
+    return eval_status; 
+  }
+  
   bool success_accum = true;
   bool success = true;
-
 
   // Transpose the datatype bypass nest into level->datatype structure.
   auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
@@ -1079,15 +1097,24 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                                mapping.datatype_bypass_nest,
                                                distribution_supported,
                                                analysis->GetWorkload());
-
-  success = sparse::PerformSparseProcessing(analysis->GetWorkload(),
-                                            mapping,
-                                            collapsed_tiles,
-                                            sparse_optimizations,
-                                            specs_,
-                                            eval_status,
-                                            break_on_failure);
-  if (break_on_failure && !success) { return eval_status; }
+  
+  try
+  {
+    success = sparse::PerformSparseProcessing(analysis->GetWorkload(),
+                                              mapping,
+                                              collapsed_tiles,
+                                              sparse_optimizations,
+                                              specs_,
+                                              eval_status,
+                                              break_on_failure);
+    if (break_on_failure && !success) { return eval_status; }
+  }
+  catch (problem::DensityModelIncapability& e)
+  {
+    std::fill(eval_status.begin(), eval_status.end(),
+              EvalStatus({ .success = false, .fail_reason = "density model incapable of evaluating a specific request" }));
+    return eval_status;
+  }
 
   // Transpose the tiles into level->datatype/level->optype structure.
   auto tiles = tiling::TransposeTiles(collapsed_tiles);
@@ -1100,10 +1127,17 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                             compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
+
+    if (break_on_failure && !s.success)
+      return eval_status;
+    
   }
 
   // update the dense compute cycles to be sparse compute cycles (actual compute cycles + gated compute cycles)
-  compute_cycles = GetArithmeticLevel()->Cycles();
+  // will only get the correct number of cycles if the eval of compute level is successful
+  if (success_accum)
+    compute_cycles = GetArithmeticLevel()->Cycles();
+
 
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
@@ -1201,7 +1235,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   {
     is_evaluated_ = true;
   }
-
+  
   return eval_status;
 }
 

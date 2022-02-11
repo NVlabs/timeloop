@@ -1,4 +1,4 @@
-/* Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@
 namespace problem
 {
 
-class FixedStructuredDistribution : public DensityDistribution
+class BandedDistribution : public DensityDistribution
 {
 
  public:
@@ -46,9 +46,7 @@ class FixedStructuredDistribution : public DensityDistribution
   {
 
     std::string type;
-    double fixed_density;
-    std::uint64_t workload_tensor_size;
-    
+    std::uint32_t band_width;
 
     const std::string Type() const override
     { return type; }
@@ -59,12 +57,10 @@ class FixedStructuredDistribution : public DensityDistribution
     template<class Archive>
     void serialize(Archive& ar, const unsigned int version = 0)
     {
-
       ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(DensityDistributionSpecs);
       if (version == 0)
       {
         ar & BOOST_SERIALIZATION_NVP(type);
-        ar & BOOST_SERIALIZATION_NVP(fixed_density);
       }
     }
 
@@ -83,11 +79,19 @@ class FixedStructuredDistribution : public DensityDistribution
  private:
   Specs specs_;
   bool is_specced_;
-  bool workload_tensor_size_set_;
 
-  // private functions
-  std::uint64_t GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
-                                             const double confidence);
+  std::uint64_t workload_tensor_size_;
+  std::vector<std::uint64_t> workload_dim_bounds_;
+  double global_density_level_;
+  bool workload_tensor_set_ = false;
+
+  std::uint64_t ComputeNNZForSpecificTile(const PointSet& point_set) const;
+  std::map<std::uint64_t, double> GetProbabilityDistributionForTileMold
+      (const PointSet& point_set_mold, const bool zero_occupancy_only = false) const;
+  double GetZeroOccupancyProbForConstrainedTileMold(const PointSet& point_set_mold,
+                                                    const PointSet& constraint_point_mold);
+  PointSet GetReprPointSetForTileOccupancy(const PointSet& piont_set_mold, const std::uint64_t occupancy);
+
  public:
   // Serialization
   friend class boost::serialization::access;
@@ -107,16 +111,16 @@ class FixedStructuredDistribution : public DensityDistribution
   //
 
   // constructor and destructors
-  FixedStructuredDistribution();
+  BandedDistribution();
 
-  FixedStructuredDistribution(const Specs& specs);
+  BandedDistribution(const Specs& specs);
 
-  ~FixedStructuredDistribution();
+  ~BandedDistribution();
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
   void SetWorkloadTensorSize(const PointSet& point_set);
-  
+
   std::uint64_t GetWorkloadTensorSize() const;
   std::string GetDistributionType() const;
   std::uint64_t GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tensor,
@@ -132,6 +136,9 @@ class FixedStructuredDistribution : public DensityDistribution
   double GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
                                      const std::uint64_t occupancy);
   double GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile);
-}; // class FixedStructuredDistribution
+  
+
+
+}; // class BandedDistribution
 
 } // namespace problem

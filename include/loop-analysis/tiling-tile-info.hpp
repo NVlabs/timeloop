@@ -44,9 +44,10 @@ namespace tiling
 
 const int MaxTilingLevels = 16;
 
-// each item stands for a rank, each rank as associated metadata occupancy
+// each item stands for a rank, each rank has associated metadata occupancy
 typedef std::vector<problem::PerRankMetaDataTileOccupancy> MetaDataTileOccupancy;
-
+typedef std::vector<std::uint64_t> PerRankFormatAccessEntry; // metadata access, payload accesses
+typedef std::vector<PerRankFormatAccessEntry> PerTileFormatAccesses;
 
 //
 // DataMovementInfo
@@ -76,6 +77,7 @@ struct DataMovementInfo
   std::vector<std::shared_ptr<problem::MetaDataFormat>> metadata_models; // metadata models (if any) for each rank of the tile
   std::vector<bool> rank_compressed; // if each rank is compressed
   std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format, none for uncompressed
+  bool apply_rank_inner_to_outer;
   std::size_t size; // for backward compatibility TODO: eventually we should use shape
   std::size_t shape;
   double expected_data_occupancy;
@@ -89,16 +91,22 @@ struct DataMovementInfo
   std::uint64_t fills;
   std::uint64_t reads;
   std::uint64_t updates;
-  std::uint64_t metadata_updates;
-  std::uint64_t metadata_fills;
-  std::uint64_t metadata_reads;
+  
   double temporal_reductions;
   double link_transfers;
   double peer_accesses;           // number of accesses caused by link transfers in the previous level 
   double peer_fills;              // number of fills caused by link transfers in the previous level
 
+  PerTileFormatAccesses format_fills;
+  PerTileFormatAccesses format_reads;
+  PerTileFormatAccesses format_updates;
+  
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
+  double        avg_replication_factor;
+  std::uint64_t max_replication_factor;
+  std::uint64_t max_x_expansion;
+  std::uint64_t max_y_expansion;
   std::uint64_t fanout;                  // per-element fanout to next-level.
   std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
@@ -108,7 +116,8 @@ struct DataMovementInfo
   // Tile density
   std::shared_ptr<problem::DensityDistribution> tile_density;  // statistical representation of tile data density
   // Fine grained actions, names defined in operation-type.hpp
-  std::map<std::string, std::uint64_t> fine_grained_accesses;
+  std::map<std::string, std::uint64_t> fine_grained_data_accesses;
+  std::map<std::string, PerTileFormatAccesses> fine_grained_format_accesses;
   double expected_density;
 
   // Compression related
@@ -117,7 +126,8 @@ struct DataMovementInfo
 
   // Only needed when tile has metadata
   std::vector<std::vector<loop::Descriptor>> metadata_subnest;
-  std::vector<std::uint64_t> metadata_subtile_shape;
+  // std::vector<std::uint64_t> metadata_subtile_shape;
+  std::vector<PointSet> metadata_subtile_point_set;
   std::vector<std::uint64_t> fiber_shape;
   double child_level_metadata_occupancy_ratio;
 
@@ -147,21 +157,26 @@ struct DataMovementInfo
     peer_fills = 0;
     subnest.resize(0);
     replication_factor = 0;
+    avg_replication_factor = 0;
+    max_x_expansion = 0;
+    max_y_expansion = 0;
     fanout = 0;
     distributed_fanout = 0;
     compressed = false;
     has_metadata = false;
+    apply_rank_inner_to_outer = false; 
     parent_level = std::numeric_limits<unsigned>::max();
     child_level = std::numeric_limits<unsigned>::max();
     parent_level_ptr = NULL;
     child_level_ptr = NULL;
     child_level_metadata_occupancy_ratio = 0;
-    fine_grained_accesses.clear();
-    metadata_updates = 0;
-    metadata_fills = 0;
-    metadata_reads = 0;
+    fine_grained_data_accesses.clear();
+    fine_grained_format_accesses.clear();
+    format_fills = {};
+    format_reads = {};
+    format_updates = {};
     metadata_subnest.clear();
-    metadata_subtile_shape.clear();
+    metadata_subtile_point_set.clear();
     fiber_shape.clear();
     coord_space_info.Clear();
     tile_density = NULL;
@@ -205,9 +220,6 @@ struct DataMovementInfo
     tile_density = tile_density_ptr;
   }
 
-  //void SetSubTileShapes(std::vector<std::size_t> subtile_shapes){subtile_shapes_ = subtile_shapes;}
-  void SetTensorRepresentation(const sparse::PerDataSpaceCompressionInfo& compression_opt_spec,
-                               const std::vector<loop::Descriptor> subnests);
   void SetTensorRepresentation(const sparse::PerDataSpaceCompressionInfo& compression_opt_spec);
   void SetTensorRepresentation(); // for default dense tensors
 
@@ -256,6 +268,10 @@ struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   double accesses;
+  double avg_replication_factor;
+  std::uint64_t max_replication_factor;
+  std::uint64_t max_x_expansion;
+  std::uint64_t max_y_expansion;
   std::uint64_t compute_cycles;
 
   // fine grained actions, names defined in operation-type.hpp
@@ -266,6 +282,10 @@ struct ComputeInfo
   void Reset()
   {
     replication_factor = 0;
+    avg_replication_factor = 0;
+    max_replication_factor = 0;
+    max_x_expansion = 0;
+    max_y_expansion = 0;
     accesses = 0;
     compute_cycles = 0;
   }

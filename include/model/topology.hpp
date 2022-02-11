@@ -290,8 +290,8 @@ class Topology : public Module
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs);
-  static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot);
+  static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs, bool is_sparse_topology);
+  static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot, bool is_sparse_topology);
   
   void Spec(const Specs& specs);
   void Reset();

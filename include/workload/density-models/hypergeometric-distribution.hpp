@@ -91,17 +91,14 @@ private:
 
     // private functions
   double GetProbability(const std::uint64_t tile_shape,
-                        const std::uint64_t nnz_vals) const;
+                        const std::uint64_t nnz_vals);
 
   double GetProbability(const std::uint64_t tile_shape, const std::uint64_t nnz_vals,
                         const std::uint64_t constraint_tensor_shape,
-                        const std::uint64_t constraint_tensor_occupancy) const;
-  // double GetTileDensityByConfidence(const std::uint64_t tile_shape,
-  //                                   const double confidence,
-  //                                   const uint64_t allocated_capacity = 0) const;
+                        const std::uint64_t constraint_tensor_occupancy);
   std::uint64_t GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
-                                             const double confidence) const;
-  double GetTileExpectedDensity(const uint64_t tile_shape) const;
+                                             const double confidence);
+  double GetTileExpectedDensity(const uint64_t tile_shape);
 
 public:
   // Serialization
@@ -128,25 +125,25 @@ public:
 
   static Specs ParseSpecs(config::CompoundConfigNode density_config);
 
-
-  void SetDensity(double density) ;
-  void SetWorkloadTensorSize(std::uint64_t size);
-
+  void SetWorkloadTensorSize(const PointSet& point_set);
+  
   std::uint64_t GetWorkloadTensorSize() const;
   std::string GetDistributionType() const;
   std::uint64_t GetMaxTileOccupancyByConfidence (const tiling::CoordinateSpaceTileInfo& tensor,
-                                                 const double confidence) const;
+                                                 const double confidence);
   std::uint64_t GetMaxTileOccupancyByConfidence_LTW (const std::uint64_t tile_shape,
-                                                     const double confidence) const;
+                                                     const double confidence);
+  std::uint64_t GetMaxNumElementByConfidence(const tiling::CoordinateSpaceTileInfo& fiber_tile,
+                                             const tiling::CoordinateSpaceTileInfo& element_tile,
+                                             const double confidence);
   double GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                    const double confidence = 1.0) const;
-  double GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) const;
+                                    const double confidence = 1.0);
+  double GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile);
   double CalculateProbability(const std::uint64_t nnz_vals, const std::uint64_t r,
                               const std::uint64_t n, const std::uint64_t N) const ;
   double GetTileOccupancyProbability (const tiling::CoordinateSpaceTileInfo& tile,
-                                        const std::uint64_t occupancy) const;
-  double GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile) const;
-
+                                        const std::uint64_t occupancy);
+  double GetExpectedTileOccupancy (const tiling::CoordinateSpaceTileInfo tile);
 }; // class HypergeometricDistribution
 
 } // namespace problem

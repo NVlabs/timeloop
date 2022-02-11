@@ -212,25 +212,17 @@ NestAnalysis::GetWorkingSetSizes_LTW() const
   }
 
   ASSERT(working_set_sizes.size() == storage_tiling_boundaries_.size());
-
+  
   // set the workload_tensor sizes that were not available during parsing stage
   // this step should only happen once to a workload
   if (! workload_->IsWorkloadTensorSizesSet()){
-    // std::cout << "this should only happen once" << std::endl;
-     for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++){
-        std::uint64_t max_tensor_size = 0;
-        for (unsigned level = 0; level < storage_tiling_boundaries_.size(); level++ ){
-           if  (working_set_sizes[level][problem::Shape::DataSpaceID(pvi)] >= max_tensor_size){
-               max_tensor_size = working_set_sizes[level][problem::Shape::DataSpaceID(pvi)];
-           }
-        }
-        ASSERT(max_tensor_size != 0);
-        // set tensor size for all dataspaces
-        workload_->SetWorkloadTensorSize(problem::Shape::DataSpaceID(pvi), max_tensor_size);
-     }
-     workload_->AllTensorsSet();
+    problem::OperationPoint high = dimension_sizes;
+    high.IncrementAllDimensions(-1);
+    problem::OperationSpace maxtile(workload_, origin, high);
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+      workload_->SetWorkloadTensorSize(problem::Shape::DataSpaceID(pvi), maxtile.GetDataSpace(pvi));
+    workload_->AllTensorsSet();
   }
-
   return working_set_sizes;
 }
 
