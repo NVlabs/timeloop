@@ -593,7 +593,9 @@ std::vector<Status> Uber::ConstructMapping(
   mapping->fanoutX_map = arch_props_.FanoutX();
   mapping->fanoutY_map = arch_props_.FanoutY();
   mapping->loop_nest.skew_descriptors = constraints_.Skews();
-    
+  mapping->loop_nest.no_link_transfer = constraints_.NoLinkTransfers();
+  mapping->loop_nest.no_multicast = constraints_.NoMulticast();
+
   return status;
 }
 
