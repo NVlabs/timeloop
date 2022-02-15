@@ -54,9 +54,9 @@ namespace model
 
 // format {timeloop_action_name: [priority list of ERT action names]}
 static std::map <std::string, std::vector<std::string>> arithmeticOperationMappings
-  = {{"random_compute", {"mac_random", "mult_random", "mac", "mult"}},
-     {"skipped_compute", {"mac_skipped", "mult_skipped", "mac_gated", "mult_gated", "mac", "mult"}},
-     {"gated_compute", {"mac_gated", "mult_gated", "mac", "mult"}}
+  = {{"random_compute", {"mac_random", "mult_random", "mac", "mult", "compute"}},
+     {"skipped_compute", {"mac_skipped", "mult_skipped","compute_skipped", "mac_gated", "mult_gated", "compute_gated", "mac", "mult", "compute"}},
+     {"gated_compute", {"mac_gated", "mult_gated", "compute_gated", "mac", "mult", "compute"}}
   };
 
 static std::map <std::string, std::vector<std::string>> storageOperationMappings
