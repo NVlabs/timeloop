@@ -65,7 +65,8 @@ class SimpleMulticastNetwork : public Network
     bool per_datatype_ERT;
 
     const std::string Type() const override { return type; }
-
+    bool SupportAccelergyTables() const override { return true; }
+    
     // Serialization
     friend class boost::serialization::access;
 

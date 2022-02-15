@@ -194,12 +194,14 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       for (unsigned i = 0; i < NumNetworks(); i++) {
           // only check the user-defined networks
           auto networkSpec = GetNetwork(i);
-          if (networkSpec->Type() == "SimpleMulticast" && networkSpec->name == componentName){
-            assert(false); // FIXME: why is the name of a network class exposed in this file?
-            //if (std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)){
-            //  // std::cout << "simple multicast component identified: " << componentName << std::endl;
-            //  std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
-            //}
+          if (networkSpec->SupportAccelergyTables() && networkSpec->name == componentName){
+            // assert(false); // FIXME: why is the name of a network class exposed in this file?
+            // Only simplemulticast network support ERT parsing,
+            // Instead using the exact name, added an interface function for the check
+            if (std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)){
+              // std::cout << "NoC that supports Acceleragy tables identified: " << componentName << std::endl;
+              std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
+            }
           }
       }
       // Find the level that matches this name and see what type it is

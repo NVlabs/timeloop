@@ -66,6 +66,7 @@ class LegacyNetwork : public Network
     Attribute<bool> is_sparse_module;
     
     const std::string Type() const override { return type; }
+    bool SupportAccelergyTables() const override { return false; }
 
     // Serialization
     friend class boost::serialization::access;
