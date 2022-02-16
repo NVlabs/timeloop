@@ -105,6 +105,13 @@ ReductionTreeNetwork::Specs ReductionTreeNetwork::ParseSpecs(config::CompoundCon
   return specs;
 }
 
+void ReductionTreeNetwork::Specs::ProcessERT(const config::CompoundConfigNode& ERT)
+{
+  (void) ERT;
+  assert(false);
+}
+
+
 void ReductionTreeNetwork::ConnectSource(std::weak_ptr<Level> source)
 {
   source_ = source;

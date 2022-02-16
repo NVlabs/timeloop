@@ -66,6 +66,7 @@ class SimpleMulticastNetwork : public Network
 
     const std::string Type() const override { return type; }
     bool SupportAccelergyTables() const override { return true; }
+    void ProcessERT(const config::CompoundConfigNode& ERT) override;
     
     // Serialization
     friend class boost::serialization::access;
