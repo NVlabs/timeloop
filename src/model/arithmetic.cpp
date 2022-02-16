@@ -71,6 +71,10 @@ void ArithmeticUnits::Specs::UpdateOpEnergyViaERT(const std::map<std::string, do
   }
 }
 
+void ArithmeticUnits::Specs::UpdateAreaViaART(const double component_area)
+{
+  area = component_area;   
+}
 
 ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements, bool is_sparse_module)
 {
