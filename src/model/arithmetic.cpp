@@ -46,8 +46,12 @@ ArithmeticUnits::ArithmeticUnits(const Specs& specs) :
   area_ = specs_.area.Get();
 }
 
-void ArithmeticUnits::Specs::UpdateOpEnergyViaERT()
+void ArithmeticUnits::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double>& ert_entries, const double max_energy)
 {
+  
+  energy_per_op = max_energy;
+  ERT_entries = ert_entries;
+  
   for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++)
   {
     // go through all op types

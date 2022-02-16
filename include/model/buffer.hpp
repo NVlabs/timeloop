@@ -183,7 +183,7 @@ class BufferLevel : public Level
       return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
     }
 
-    void UpdateOpEnergyViaERT();
+    void UpdateOpEnergyViaERT(const std::map<std::string, double>& ERT_entries, const double max_energy);
 
   };
   

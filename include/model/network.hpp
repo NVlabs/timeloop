@@ -55,6 +55,7 @@ struct NetworkSpecs
 
   virtual const std::string Type() const = 0;
   virtual bool SupportAccelergyTables() const = 0;
+  virtual void ProcessERT(const config::CompoundConfigNode& ERT) = 0;
   
   std::string name = "UNSET";
   ConnectionType cType = Unused;

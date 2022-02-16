@@ -82,7 +82,7 @@ class ArithmeticUnits : public Level
 
    public:
 
-    void UpdateOpEnergyViaERT();
+    void UpdateOpEnergyViaERT(const std::map<std::string, double>& ERT_entries, const double max_energy) override;
 
     std::shared_ptr<LevelSpecs> Clone() const override
     {
