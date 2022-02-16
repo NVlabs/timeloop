@@ -75,30 +75,25 @@ void Topology::Specs::ParseAccelergyART(config::CompoundConfigNode art)
     float componentArea;
     componentART.lookupValue("area", componentArea);
     
-    // Find the level that matches this name and see what type it is
-    bool isArithmeticUnit = false;
-    bool isBuffer = false;
+    // Find the level that matches this name
     std::shared_ptr<LevelSpecs> specToUpdate;
-    for (auto level : levels) {
-      if (level->level_name == componentName) {
+    for (auto level : levels)
+    {
+      if (level->level_name == componentName)
+      {
         specToUpdate = level;
-        if (level->Type() == "BufferLevel") isBuffer = true;
-        if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
       }
     }
- 
-    // Replace the energy per action
-    if (isArithmeticUnit) {
-      //std::cout << "  Replace " << componentName << " area with area " << componentArea << std::endl;
-      auto arithmeticSpec = GetArithmeticLevel();
-      arithmeticSpec->area = componentArea;
-    } else if (isBuffer) {
-      auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
-      //std::cout << "  Replace " << componentName << " cluster area with area " << componentArea << std::endl;
-      bufferSpec->storage_area = componentArea/bufferSpec->cluster_size.Get();
-    } else {
+    
+    // Populate area  
+    if (specToUpdate)
+    {
+      specToUpdate->UpdateAreaViaART(componentArea);
+    }
+    else
+    {
       //std::cout << "  Unused component ART: "  << hierachicalName << std::endl;
-    } 
+    }
   }
 }
 
@@ -201,7 +196,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
           networkSpec->ProcessERT(componentERT);
         }
       }
-      // Find the level that matches this name and see what type it is
+      // Find the level that matches this name
       std::shared_ptr<LevelSpecs> specToUpdate;
       for (auto level : levels) 
       {

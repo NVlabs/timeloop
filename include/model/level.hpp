@@ -51,7 +51,8 @@ struct LevelSpecs
 
   virtual const std::string Type() const = 0;
   virtual void UpdateOpEnergyViaERT(const std::map<std::string, double>& ERT_entries, const double max_energy) = 0; 
-  
+  virtual void UpdateAreaViaART(const double component_area) = 0;  
+
   std::string level_name;
 
   // Serialization
