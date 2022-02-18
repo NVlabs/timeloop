@@ -287,7 +287,7 @@ void Application::Run()
   std::string stats_file_name = out_prefix_ + ".stats.txt";
   std::string xml_file_name = out_prefix_ + ".map+stats.xml";
   std::string map_txt_file_name = out_prefix_ + ".map.txt";
-  // std::string map_yaml_file_name = out_prefix_ + ".constraints.yaml";
+  std::string map_yaml_file_name = out_prefix_ + ".map.yaml";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
   std::string map_cpp_file_name = out_prefix_ + ".map.cpp";
     
@@ -555,12 +555,15 @@ void Application::Run()
     }
   }
 
-  if (!cfg_string_)  return; // empty because input was yml
-
   // Create an output cfg starting with the original cfg contents.
+  // Create an output yaml that contains the best mapping,
   libconfig::Config config;
-  config.readString(cfg_string_);
-  free(cfg_string_);
+  YAML::Emitter yaml_out;
+
+  if (cfg_string_) {
+    config.readString(cfg_string_);
+    free(cfg_string_);
+  }
   libconfig::Setting& root = config.getRoot();
 
 #ifdef EMIT_OPT_AS_CONSTRAINTS
@@ -586,7 +589,8 @@ void Application::Run()
     mapper.add("search-size", libconfig::Setting::TypeInt) = 1;
 
   // Delete the mapspace constraint.
-  root.remove("mapspace");
+  if (root.exists("mapspace"))
+    root.remove("mapspace");
 
   if (global_best_.valid)
   {
@@ -600,8 +604,11 @@ void Application::Run()
   // We used to create a set of mapper constraints to fit exactly one mapping,
   // which could then be provided to timeloop-mapper.
   // We now create a single mapping which can be fed to timeloop-model.
-  root.remove("mapper");
-  root.remove("mapspace");
+  if (root.exists("mapper"))
+    root.remove("mapper");
+
+  if (root.exists("mapspace"))
+    root.remove("mapspace");
 
   if (global_best_.valid)
   {
@@ -610,8 +617,22 @@ void Application::Run()
     
     // Format the best mapping as a libconfig spec.
     global_best_.mapping.FormatAsLibConfig(mapping, arch_specs_.topology.StorageLevelNames());
+
+    yaml_out << YAML::BeginMap;
+    yaml_out << YAML::Key << "mapping";
+    yaml_out << YAML::Value;
+    yaml_out << YAML::BeginSeq;
+    global_best_.mapping.FormatAsYaml(yaml_out, arch_specs_.topology.StorageLevelNames());
+    yaml_out << YAML::EndSeq;
+    yaml_out << YAML::EndMap;
   }
 #endif
-
-  config.writeFile(map_cfg_file_name.c_str());
+  if (!cfg_string_) {
+    std::ofstream mapping_output_file;
+    mapping_output_file.open(map_yaml_file_name.c_str());
+    mapping_output_file << yaml_out.c_str();
+    mapping_output_file.close();
+  } else {
+    config.writeFile(map_cfg_file_name.c_str());
+  }
 }

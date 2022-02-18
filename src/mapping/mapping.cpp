@@ -311,6 +311,147 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
   }
 }
 
+//
+// Print as a yaml mapping.
+//
+void Mapping::FormatAsYaml(YAML::Emitter& yaml_mapping,
+                                const std::vector<std::string>& storage_level_names)
+{
+  auto num_storage_levels = loop_nest.storage_tiling_boundaries.size();
+  
+  // Datatype Bypass.
+  auto mask_nest = tiling::TransposeMasks(datatype_bypass_nest);
+
+  for (unsigned level = 0; level < num_storage_levels; level++)
+  {
+    
+    yaml_mapping << YAML::BeginMap;
+    yaml_mapping << YAML::Key << "target" << YAML::Value << storage_level_names.at(level);
+    yaml_mapping << YAML::Key << "type" << YAML::Value << "datatype";
+   
+    auto& compound_mask = mask_nest.at(level);    
+
+    yaml_mapping << YAML::Key << "keep" << YAML::Value << YAML::BeginSeq;;
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    {
+      problem::Shape::DataSpaceID pv = problem::Shape::DataSpaceID(pvi);
+      if (compound_mask.at(pv))
+        yaml_mapping << problem::GetShape()->DataSpaceIDToName.at(pv);
+    }
+    yaml_mapping << YAML::EndSeq;
+
+
+    yaml_mapping << YAML::Key << "bypass" << YAML::Value << YAML::BeginSeq;;
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    {
+      problem::Shape::DataSpaceID pv = problem::Shape::DataSpaceID(pvi);
+      if (!compound_mask.at(pv))
+        yaml_mapping << problem::GetShape()->DataSpaceIDToName.at(pv);
+    }
+    yaml_mapping << YAML::EndSeq;
+
+    yaml_mapping << YAML::EndMap;
+  }
+
+  // Factors and Permutations.
+  unsigned loop_level = 0;
+  for (unsigned storage_level = 0; storage_level < num_storage_levels; storage_level++)
+  {
+    std::map<spacetime::Dimension, std::string> permutations;
+    std::map<spacetime::Dimension, std::map<problem::Shape::FlattenedDimensionID, unsigned>> factors;
+    unsigned spatial_split;
+
+    for (unsigned sdi = 0; sdi < unsigned(spacetime::Dimension::Num); sdi++)
+    {
+      auto sd = spacetime::Dimension(sdi);
+      permutations[sd] = "";
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+        factors[sd][problem::Shape::FlattenedDimensionID(idim)] = 1;
+    }
+
+    for (; loop_level <= loop_nest.storage_tiling_boundaries.at(storage_level); loop_level++)
+    {
+      auto& loop = loop_nest.loops.at(loop_level);
+      if (loop.end > 1)
+      {
+        factors.at(loop.spacetime_dimension).at(loop.dimension) = loop.end;
+        permutations.at(loop.spacetime_dimension) += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
+      }
+    }
+
+    // Determine X-Y split.
+    spatial_split = permutations.at(spacetime::Dimension::SpaceX).size();
+    
+    // Merge spatial X and Y factors and permutations.
+    std::string spatial_permutation =
+      permutations.at(spacetime::Dimension::SpaceX) +
+      permutations.at(spacetime::Dimension::SpaceY);
+    
+    // Only print spatial directives if there is a spatial permutation.
+    if (spatial_permutation.size() > 0)
+    {
+      std::string spatial_factor_string = "";
+
+      std::map<problem::Shape::FlattenedDimensionID, unsigned> spatial_factors;
+      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      {
+        auto dim = problem::Shape::FlattenedDimensionID(idim);
+        spatial_factors[dim] =
+          factors.at(spacetime::Dimension::SpaceX).at(dim) *
+          factors.at(spacetime::Dimension::SpaceY).at(dim);
+
+        spatial_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+        char factor[8];
+        sprintf(factor, "%d", spatial_factors.at(dim));
+        spatial_factor_string += factor;
+        if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
+          spatial_factor_string += " ";
+        
+        // If the factor is 1, concatenate it to the permutation.
+        if (spatial_factors.at(dim) == 1)
+          spatial_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+      }
+      
+      yaml_mapping << YAML::BeginMap;
+      yaml_mapping << YAML::Key << "target" << YAML::Value << storage_level_names.at(storage_level);
+      yaml_mapping << YAML::Key << "type" << YAML::Value << "spatial";
+      yaml_mapping << YAML::Key << "factors" << YAML::Value << spatial_factor_string;
+      yaml_mapping << YAML::Key << "permutation" << YAML::Value << spatial_permutation;
+      yaml_mapping << YAML::Key << "split" << YAML::Value << static_cast<int>(spatial_split);
+      yaml_mapping << YAML::EndMap;
+
+    }
+
+    auto& temporal_permutation = permutations.at(spacetime::Dimension::Time);
+    auto& temporal_factors = factors.at(spacetime::Dimension::Time);
+    std::string temporal_factor_string = "";
+    
+    // Temporal factors: if the factor is 1, concatenate it into the permutation.
+    for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+    {
+      auto dim = problem::Shape::FlattenedDimensionID(idim);
+
+      temporal_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+      char factor[8];
+      sprintf(factor, "%d", temporal_factors.at(dim));
+      temporal_factor_string += factor;
+      if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
+        temporal_factor_string += " ";
+      
+      if (temporal_factors.at(dim) == 1)
+        temporal_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+    }
+
+    yaml_mapping << YAML::BeginMap;
+    yaml_mapping << YAML::Key << "target" << YAML::Value << storage_level_names.at(storage_level);
+    yaml_mapping << YAML::Key << "type" << YAML::Value << "temporal";
+    yaml_mapping << YAML::Key << "factors" << YAML::Value << temporal_factor_string;
+    yaml_mapping << YAML::Key << "permutation" << YAML::Value << temporal_permutation;
+    yaml_mapping << YAML::EndMap;
+
+  }
+}
+
 void Mapping::PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
                           const std::vector<problem::PerDataSpace<std::uint64_t>>& utlized_capacities,
                           const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
