@@ -65,7 +65,9 @@ class SimpleMulticastNetwork : public Network
     bool per_datatype_ERT;
 
     const std::string Type() const override { return type; }
-
+    bool SupportAccelergyTables() const override { return true; }
+    void ProcessERT(const config::CompoundConfigNode& ERT) override;
+    
     // Serialization
     friend class boost::serialization::access;
 

@@ -75,30 +75,25 @@ void Topology::Specs::ParseAccelergyART(config::CompoundConfigNode art)
     float componentArea;
     componentART.lookupValue("area", componentArea);
     
-    // Find the level that matches this name and see what type it is
-    bool isArithmeticUnit = false;
-    bool isBuffer = false;
+    // Find the level that matches this name
     std::shared_ptr<LevelSpecs> specToUpdate;
-    for (auto level : levels) {
-      if (level->level_name == componentName) {
+    for (auto level : levels)
+    {
+      if (level->level_name == componentName)
+      {
         specToUpdate = level;
-        if (level->Type() == "BufferLevel") isBuffer = true;
-        if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
       }
     }
- 
-    // Replace the energy per action
-    if (isArithmeticUnit) {
-      //std::cout << "  Replace " << componentName << " area with area " << componentArea << std::endl;
-      auto arithmeticSpec = GetArithmeticLevel();
-      arithmeticSpec->area = componentArea;
-    } else if (isBuffer) {
-      auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
-      //std::cout << "  Replace " << componentName << " cluster area with area " << componentArea << std::endl;
-      bufferSpec->storage_area = componentArea/bufferSpec->cluster_size.Get();
-    } else {
+    
+    // Populate area  
+    if (specToUpdate)
+    {
+      specToUpdate->UpdateAreaViaART(componentArea);
+    }
+    else
+    {
       //std::cout << "  Unused component ART: "  << hierachicalName << std::endl;
-    } 
+    }
   }
 }
 
@@ -192,25 +187,22 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
     } else {
       // Check if the ERT describes any network associated with a storage component
       for (unsigned i = 0; i < NumNetworks(); i++) {
-          // only check the user-defined networks
-          auto networkSpec = GetNetwork(i);
-          if (networkSpec->Type() == "SimpleMulticast" && networkSpec->name == componentName){
-            assert(false); // FIXME: why is the name of a network class exposed in this file?
-            //if (std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)){
-            //  // std::cout << "simple multicast component identified: " << componentName << std::endl;
-            //  std::static_pointer_cast<SimpleMulticastNetwork::Specs>(networkSpec)->accelergyERT = componentERT;
-            //}
-          }
+        // only check the user-defined networks
+        auto networkSpec = GetNetwork(i);
+        if (networkSpec->SupportAccelergyTables() && networkSpec->name == componentName)
+        {
+          // std::cout << "NoC that supports Acceleragy tables identified: " << componentName << std::endl;
+          // Network class dependent processing  
+          networkSpec->ProcessERT(componentERT);
+        }
       }
-      // Find the level that matches this name and see what type it is
-      bool isArithmeticUnit = false;
-      bool isBuffer = false;
+      // Find the level that matches this name
       std::shared_ptr<LevelSpecs> specToUpdate;
-      for (auto level : levels) {
-        if (level->level_name == componentName) {
+      for (auto level : levels) 
+      {
+        if (level->level_name == componentName) 
+        {
           specToUpdate = level;
-          if (level->Type() == "BufferLevel") isBuffer = true;
-          if (level->Type() == "ArithmeticUnits") isArithmeticUnit = true;
         }
       }
       // Find the (most expensive) cost for each action of the component
@@ -240,19 +232,12 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
         // std::cout << "assign energy " << opEnergy << " to action: " << action << std::endl;
       }
       // Replace the energy per action
-      if (isArithmeticUnit) {
-        // std::cout << "  Replace " << componentName << " energy with energy " << opEnergy << std::endl;
-        auto arithmeticSpec = GetArithmeticLevel();
-        arithmeticSpec->energy_per_op = maxEnergy;
-        arithmeticSpec->ERT_entries = ERT_entries;
-        arithmeticSpec->UpdateOpEnergyViaERT();
-      } else if (isBuffer) {
-        auto bufferSpec = std::static_pointer_cast<BufferLevel::Specs>(specToUpdate);
-        // std::cout << "  Replace " << componentName << " VectorAccess energy with energy " << opEnergy << std::endl;
-        bufferSpec->vector_access_energy = maxEnergy/bufferSpec->cluster_size.Get();
-        bufferSpec->ERT_entries = ERT_entries;
-        bufferSpec->UpdateOpEnergyViaERT();
-      } else {
+      if (specToUpdate)
+      {
+        specToUpdate->UpdateOpEnergyViaERT(ERT_entries, maxEnergy);
+      }
+      else 
+      {
         // std::cout << "  Unused component ERT: "  << key << std::endl;
       }
     }

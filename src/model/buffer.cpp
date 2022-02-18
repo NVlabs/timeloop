@@ -62,8 +62,12 @@ BufferLevel::BufferLevel(const Specs& specs) :
 BufferLevel::~BufferLevel()
 { }
 
-void BufferLevel::Specs::UpdateOpEnergyViaERT()
+void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double>& ert_entries, double max_energy)
 {
+  
+  vector_access_energy = max_energy/cluster_size.Get();
+  ERT_entries = ert_entries;
+
   for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++)
   {
     // go through all op types
@@ -81,6 +85,12 @@ void BufferLevel::Specs::UpdateOpEnergyViaERT()
       }
     }
   }
+}
+
+
+void BufferLevel::Specs::UpdateAreaViaART(double component_area)
+{
+  storage_area = component_area;
 }
 
 

@@ -120,6 +120,11 @@ SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::Compoun
   return specs;
 }
 
+void SimpleMulticastNetwork::Specs::ProcessERT(const config::CompoundConfigNode& ERT)
+{
+  accelergyERT = ERT; 
+}
+
 void SimpleMulticastNetwork::ConnectSource(std::weak_ptr<Level> source)
 {
   source_ = source;
@@ -165,6 +170,7 @@ void SimpleMulticastNetwork::SetTileWidth(double width_um)
     specs_.tile_width = width_um;
   }
 }
+
 
 double SimpleMulticastNetwork::GetOpEnergyFromERT(std::uint64_t multicast_factor, std::string operation_name){
     double opEnergy = 0.0;

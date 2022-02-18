@@ -177,6 +177,24 @@ mapping/arch-properties.cpp
 mapping/constraints.cpp
 """)
 
+mapspace_sources = Split("""
+mapspaces/mapspace-base.cpp
+mapspaces/mapspace-factory.cpp
+mapspaces/subspaces.cpp
+mapspaces/uber.cpp
+""")
+
+search_sources = Split("""
+search/search-factory.cpp
+search/exhaustive.cpp
+search/hybrid.cpp
+search/linear-pruned.cpp
+search/random-pruned.cpp
+search/random.cpp
+""")
+
+mapperlib_sources = modellib_sources + mapspace_sources + search_sources
+
 libenv = env.Clone()
 
 if GetOption('link_static'):
@@ -186,6 +204,13 @@ else:
     lib_model_shared = libenv.SharedLibrary(target = 'timeloop-model', source = modellib_sources)
     libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared ])
 #libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared, lib_model_static ])
+
+if GetOption('link_static'):
+    lib_mapper_static = libenv.StaticLibrary(target = 'timeloop-mapper', source = mapperlib_sources)
+    libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_mapper_static ])
+else:
+    lib_mapper_shared = libenv.SharedLibrary(target = 'timeloop-mapper', source = mapperlib_sources)
+    libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_mapper_shared ])
 
 # If we are doing a dynamic build, the timeloop library must be the last
 # item in the link order.
@@ -202,22 +227,6 @@ applications/metrics/main.cpp
 model_sources = Split("""
 applications/model/model.cpp
 applications/model/main.cpp
-""")
-
-mapspace_sources = Split("""
-mapspaces/mapspace-base.cpp
-mapspaces/mapspace-factory.cpp
-mapspaces/subspaces.cpp
-mapspaces/uber.cpp
-""")
-
-search_sources = Split("""
-search/search-factory.cpp
-search/exhaustive.cpp
-search/hybrid.cpp
-search/linear-pruned.cpp
-search/random-pruned.cpp
-search/random.cpp
 """)
 
 mapper_sources = mapspace_sources + search_sources + Split("""

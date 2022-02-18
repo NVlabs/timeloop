@@ -128,6 +128,12 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   return specs;
 }
 
+void LegacyNetwork::Specs::ProcessERT(const config::CompoundConfigNode& ERT)
+{
+  (void) ERT;
+  assert(false);
+}
+
 void LegacyNetwork::ConnectSource(std::weak_ptr<Level> source)
 {
   source_ = source;
