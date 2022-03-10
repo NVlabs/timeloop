@@ -37,7 +37,7 @@ env.Append(CPPPATH = [os.path.join(env['BUILD_BASE_DIR'], 'include')])
 if GetOption('debug'):
     env.Append(CCFLAGS = ['-g', '-O0'])
 else:
-    env.Append(CCFLAGS = ['-g', '-O3'])
+    env.Append(CCFLAGS = ['-g', '-O3', '-flto'])
 env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++14', '-pthread'])
 
 env.Append(LIBPATH = ['.'])
