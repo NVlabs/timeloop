@@ -258,7 +258,7 @@ class ArithmeticUnits : public Level
         actual_computes_ = random_computes_;
       }
 
-      cycles_ = tile.compute_info.compute_cycles;
+      cycles_ = ceil(double(random_computes_ + gated_computes_)/utilized_instances_);
       algorithmic_computes_ = tile.compute_info.replication_factor * tile.compute_info.accesses;
       is_evaluated_ = true;
     }

@@ -98,8 +98,8 @@ void ResidualIndexFactorizationSpace::Init(const problem::Workload &workload,
           std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
           std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
           std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors,
-          std::vector<unsigned long int> s_fan,
-          std::vector<unsigned long int> s_index)
+          std::vector<unsigned long int> remainders,
+          std::vector<unsigned long int> remainders_ix)
 {
   problem::PerFlattenedDimension<uint128_t> counter_base;
   for (int idim = 0; idim < int(problem::GetShape()->NumFlattenedDimensions); idim++)
@@ -107,37 +107,38 @@ void ResidualIndexFactorizationSpace::Init(const problem::Workload &workload,
     auto dim = problem::Shape::FlattenedDimensionID(idim);
 
 
-    std::vector<unsigned long int> s_send;
-    std::vector<unsigned long int> s_in_send;
+    std::vector<unsigned long int> remainder_bounds;
+    std::vector<unsigned long int> remainder_ix;
 
 
     //Preparse spatial factors to see if they're already given by user
-    for(auto x: s_fan){
-      s_send.push_back(x);
+    for(auto x: remainders){
+      remainder_bounds.push_back(x);
     }
     
-    for(auto x: s_index){
-      s_in_send.push_back(x);
+    for(auto x: remainders_ix){
+      remainder_ix.push_back(x);
     }
     if (prefactors.find(dim) != prefactors.end()){
-      for(unsigned i = s_in_send.size(); i > 0; i--){
+      for(unsigned i = remainder_ix.size(); i > 0; i--){
         for(auto& pref : prefactors[dim]){
-          if(pref.first == s_in_send[i-1]) {
-            s_send.erase(s_send.begin()+i-1);
-            s_in_send.erase(s_in_send.begin()+i-1);
+          if(pref.first == remainder_ix[i-1]) {
+            remainder_bounds.erase(remainder_bounds.begin()+i-1);
+            remainder_ix.erase(remainder_ix.begin()+i-1);
           }
         }
       }
-      dimension_factors_[idim] = ResidualFactors(workload.GetFlattenedBound(dim), cofactors_order[dim], s_send, s_in_send, prefactors[dim]);
+      dimension_factors_[idim] = ResidualFactors(workload.GetFlattenedBound(dim), cofactors_order[dim], remainder_bounds, remainder_ix, prefactors[dim]);
     }
     else{
-      dimension_factors_[idim] = ResidualFactors(workload.GetFlattenedBound(dim), cofactors_order[dim], s_send, s_in_send, {});
+      dimension_factors_[idim] = ResidualFactors(workload.GetFlattenedBound(dim), cofactors_order[dim], remainder_bounds, remainder_ix, {});
     }
 
     if (maxfactors.find(dim) != maxfactors.end())
- 
+      dimension_factors_[idim].PruneMax();
 
     counter_base[idim] = dimension_factors_[idim].size();
+
   }
 
   tiling_counter_.Init(counter_base);

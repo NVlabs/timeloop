@@ -1275,9 +1275,9 @@ void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& 
 
            double total_naive_accesses;
            if (!metadata_action) {
-              total_naive_accesses = (iter->second % block_size == 0) ? iter->second / block_size : iter->second / block_size + 1;
+              total_naive_accesses = (int(ceil(iter->second)) % block_size == 0) ? iter->second / block_size : iter->second / block_size + 1;
            } else {
-              total_naive_accesses = (iter->second % metadata_block_size == 0) ? iter->second / metadata_block_size : iter->second / metadata_block_size + 1;
+              total_naive_accesses = (int(ceil(iter->second)) % metadata_block_size == 0) ? iter->second / metadata_block_size : iter->second / metadata_block_size + 1;
            }
 
            stats_.fine_grained_vector_accesses[pvi][iter->first] = total_naive_accesses * ratio;
@@ -1426,8 +1426,8 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
 
-    std::uint64_t total_read_accesses;
-    std::uint64_t total_write_accesses;
+    double total_read_accesses;
+    double total_write_accesses;
 
     total_read_accesses = stats_.fine_grained_scalar_accesses.at(pv).at("random_read")
       + stats_.fine_grained_scalar_accesses.at(pv).at("gated_read");

@@ -87,11 +87,11 @@ class ResidualFactors
 {
  private:
   unsigned long n_;
-  std::vector<unsigned long> spatial_factors_;
-  std::vector<unsigned long> spatial_ix_;
+  std::vector<unsigned long> remainder_bounds_;
+  std::vector<unsigned long> remainder_ix_;
   std::set<unsigned long> all_factors_;
   std::vector<std::vector<unsigned long>> pruned_product_factors_;
-  std::vector<std::vector<unsigned long>> pruned_residual_factors_;
+  std::vector<std::vector<unsigned long>> pruned_residuals_;
   std::vector<std::vector<unsigned long>> cofactors_;
   std::vector<std::vector<unsigned long>> rfactors_;
   std::vector<std::vector<unsigned long>> replicated_factors_;
@@ -103,20 +103,22 @@ class ResidualFactors
 
   void CalculateAllFactors_();
 
-  void CalculateSpatialFactors_();
+  void CalculateAdditionalFactors_();
   std::vector<std::vector<unsigned long>> CartProduct_ (const std::vector<std::vector<unsigned long>> v);
 
   void GenerateFactorProduct_(const unsigned long n, const int order);
   void GenerateResidual_(const unsigned long n, const int order);
-  void EquationSolver_(const unsigned long n, std::map<unsigned, unsigned long> given);
+  void ValidityChecker_(const unsigned long n, std::map<unsigned, unsigned long> given);
 
   // Return a vector of all order-way cofactor sets of n.
 
  public:
   ResidualFactors();
-  ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> spatial, std::vector<unsigned long> spatial_indices);
-  ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> spatial, std::vector<unsigned long> spatial_indices, std::map<unsigned, unsigned long> given);
+  ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> remainder_bounds, std::vector<unsigned long> remainder_ix);
+  ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> remainder_bounds, std::vector<unsigned long> remainder_ix, std::map<unsigned, unsigned long> given);
 
+
+  void PruneMax();
 
   std::vector<std::vector<unsigned long>> operator[](int index);
 

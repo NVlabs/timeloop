@@ -80,8 +80,8 @@ class ResidualIndexFactorizationSpace
             std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors,
-            std::vector<unsigned long int> s_fan = {},
-            std::vector<unsigned long int> s_index = {}
+            std::vector<unsigned long int> remainders = {},
+            std::vector<unsigned long int> remainders_ix = {}
             );
 
   std::vector<unsigned long> GetFactor(uint128_t nest_id, problem::Shape::FlattenedDimensionID dim, unsigned level);

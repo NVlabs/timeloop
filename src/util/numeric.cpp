@@ -337,15 +337,16 @@ void ResidualFactors::CalculateAllFactors_()
 }
 
 
-void ResidualFactors::CalculateSpatialFactors_()
+// Generate all additional potential factors given the remainder bounds  
+void ResidualFactors::CalculateAdditionalFactors_()
 {
-  std::vector<unsigned long> spatial_possible; 
-  for (auto& n : spatial_factors_){
+  std::vector<unsigned long> reaminder_possible; 
+  for (auto& n : remainder_bounds_){
     for(unsigned long i = 1; i <= n; i++)
-      spatial_possible.push_back(i);
+      reaminder_possible.push_back(i);
   }
 
-  for (auto& n : spatial_possible){
+  for (auto& n : reaminder_possible){
     unsigned long g = n * n_ * ceil((double)n_/(double)n);
     for (unsigned long i = 1; i <= n_; i++)
     {
@@ -378,6 +379,7 @@ std::vector<std::vector<unsigned long>> ResidualFactors::CartProduct_ (const std
   return s;
 }
 
+// Replicate all factors possibilities accross each level n, disregarding sets with that include more than dimension size n * sqrt(n)
 void ResidualFactors::GenerateFactorProduct_(const unsigned long n, const int order)
 {
   for(auto rec = 0; rec < order; rec++){
@@ -422,32 +424,36 @@ void ResidualFactors::GenerateFactorProduct_(const unsigned long n, const int or
   
 
 }
+
+// Replicate all possible residual combiniations, and remove possibilities that sum up to size greater than n
 void ResidualFactors::GenerateResidual_(const unsigned long n, const int order)
 {
-  std::vector<std::vector<unsigned long>> residual_factors;
+  std::vector<std::vector<unsigned long>> residuals;
 
-  for (auto i : spatial_factors_){
+  for (auto i : remainder_bounds_){
     std::vector<unsigned long> r;
     for (unsigned j = 1; j <= i; j++){
       r.push_back(j);
     }
-    residual_factors.push_back(r);
+    residuals.push_back(r);
   }
 
-  residual_factors = CartProduct_(residual_factors);
+  residuals = CartProduct_(residuals);
 
-  for(auto t : residual_factors){
+  for(auto t : residuals){
     unsigned long sum = 0;
     for(auto p : t){
       sum += p;
     }
     if(sum <= n+(unsigned)order){
-      pruned_residual_factors_.push_back(t);
+      pruned_residuals_.push_back(t);
     }
   }
 
 }
-void ResidualFactors::EquationSolver_(const unsigned long n, std::map<unsigned, unsigned long> given)
+
+// Replicate all possible residual combiniations, and remove possibilities that sum up to size greater than n
+void ResidualFactors::ValidityChecker_(const unsigned long n, std::map<unsigned, unsigned long> given)
 {
 
   for (unsigned i = pruned_product_factors_.size(); i > 0 ; i--)
@@ -465,37 +471,40 @@ void ResidualFactors::EquationSolver_(const unsigned long n, std::map<unsigned, 
 
   }
   
+
   for(auto f : pruned_product_factors_){
-    for(auto r : pruned_residual_factors_){
-      std::vector<unsigned long> valid_residual_factors;
+    for(auto r : pruned_residuals_){
+      std::vector<unsigned long> valid_residuals;
       int s_i = 0;
       bool valid = true;
-      for(unsigned long i = 0; i < (f.size()); i++){ 
-        if(std::count(spatial_ix_.begin(),spatial_ix_.end(), i) > 0){
-          valid_residual_factors.push_back(r.at(s_i));
+      for(unsigned long i = 0; i < (f.size()); i++){
+        if(std::count(remainder_ix_.begin(),remainder_ix_.end(), i) > 0){
+          valid_residuals.push_back(r.at(s_i));
           
-          if(f.at(i) > spatial_factors_[s_i]){
+          if(f.at(i) > remainder_bounds_[s_i]){
             valid = false;
           }
           s_i++;
         }else{
-          valid_residual_factors.push_back(f.at(i));
+          valid_residuals.push_back(f.at(i));
         }
       }
 
       //Solve for generic is L_{n} = L{n+1}*P{n} + R_{n} - 1
       unsigned long equation_answer = 0;
       for(unsigned j = (f.size()); j > 0; j--){ 
-          equation_answer = f.at(j-1)*equation_answer + (valid_residual_factors.at(j-1) - 1);
-          if (f.at(j-1) < valid_residual_factors.at(j-1))
+          equation_answer = f.at(j-1)*equation_answer + (valid_residuals.at(j-1) - 1);
+      
+          if (f.at(j-1) < valid_residuals.at(j-1))
+            valid = false;
+          if(equation_answer == 0 && valid_residuals.at(j-1) != f.at(j-1))
             valid = false;
         }
 
         if ((equation_answer + 1 == n) and valid){
 
-
           cofactors_.push_back(f);
-          rfactors_.push_back(valid_residual_factors);
+          rfactors_.push_back(valid_residuals);
 
       }
     }
@@ -504,19 +513,35 @@ void ResidualFactors::EquationSolver_(const unsigned long n, std::map<unsigned, 
 
 }
 
+void ResidualFactors::PruneMax()
+{
+  // Prune the vector of cofactor sets by removing those sets that have factors
+  // outside user-specified min/max range. We should really have done this during
+  // MultiplicativeSplitRecursive. However, the "given" map complicates things
+  // because given factors may be scattered, and we'll need a map table to
+  // find the original rank from the "compressed" rank seen by
+  // MultiplicativeSplitRecursive. Doing it now is slower but cleaner and less
+  // bug-prone.
 
+}
 
 ResidualFactors::ResidualFactors() : n_(0) {}
 
-ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> spatial, std::vector<unsigned long> spatial_indices) : n_(n), spatial_factors_(spatial), spatial_ix_(spatial_indices)
+/***
+First, we cacluate all the factors same as Uber
+Next, we add in additional factors based on user defined loop bounds and take the cross product of these (eliminating impossible mappings)
+Then, we calculate all the valid mapspace points that fit the expanded formula L_{n} = L{n+1}*P{n} + R_{n} - 1
+***/
+ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> remainder_bounds, 
+    std::vector<unsigned long> remainder_ix) : n_(n), remainder_bounds_(remainder_bounds), remainder_ix_(remainder_ix)
 {
   ClearAllFactors_();
   CalculateAllFactors_();
-  CalculateSpatialFactors_();
+  CalculateAdditionalFactors_();
   GenerateFactorProduct_(n, order);
   GenerateResidual_(n, order);
   std::map<unsigned, unsigned long> given = {{}};
-  EquationSolver_(n, given);
+  ValidityChecker_(n, given);
 
   for (unsigned i = 0; i < cofactors_.size(); i++)
   {
@@ -525,8 +550,9 @@ ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::ve
   }
 }
 
-ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> spatial, std::vector<unsigned long> spatial_indices, std::map<unsigned, unsigned long> given)
-    : n_(n), spatial_factors_(spatial), spatial_ix_(spatial_indices)
+ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> remainder_bounds, 
+    std::vector<unsigned long> remainder_ix, std::map<unsigned, unsigned long> given)
+    : n_(n), remainder_bounds_(remainder_bounds), remainder_ix_(remainder_ix)
 {
 
   const unsigned int given_size = given.size();
@@ -574,7 +600,7 @@ ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::ve
 
   ClearAllFactors_();
   CalculateAllFactors_();
-  CalculateSpatialFactors_();
+  CalculateAdditionalFactors_();
 
 
 
@@ -586,12 +612,12 @@ ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::ve
 
   // Insert the given factors at the specified indices of each of the solutions.
 
-  EquationSolver_(n, given);
+  ValidityChecker_(n, given);
 
-  spatial_factors_.resize(0);
-  spatial_ix_.resize(0);
+  remainder_bounds_.resize(0);
+  remainder_ix_.resize(0);
   pruned_product_factors_.resize(0);
-  pruned_residual_factors_.resize(0);
+  pruned_residuals_.resize(0);
   replicated_factors_.resize(0);
 
 }

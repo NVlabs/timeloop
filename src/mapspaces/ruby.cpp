@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -117,6 +117,7 @@ void Ruby::InitIndexFactorizationSpace()
 {
   auto user_factors = constraints_.Factors();
   auto user_max_factors = constraints_.MaxFactors();
+  auto user_max_remainders = constraints_.MaxRemainders();
 
   assert(user_factors.size() <= arch_props_.TilingLevels());
 
@@ -181,23 +182,22 @@ void Ruby::InitIndexFactorizationSpace()
   }
 
   //Find spatial levels and their fanouts
-  std::vector<unsigned long int> s_index;
-  std::vector<unsigned long int> s_fan;
-  for (unsigned long level = arch_props_.TilingLevels()-1; level > 0; level--)
-  {   
-    try{
-      if(arch_props_.Fanout(level) > 1){
-      s_fan.push_back(arch_props_.Fanout(level));
-  }
-  }catch(...){}
-  if(arch_props_.IsSpatial(level))
+  std::vector<unsigned long int> remainders;
+  std::vector<unsigned long int> remainders_ix;
+  for (uint64_t level = arch_props_.TilingLevels(); level >= 1; level--)
   {
-    s_index.push_back(level);
-  }
+
+    // Extract the user-provided remainders for this level.
+    auto it = user_max_remainders.find(level);
+    if (it != user_max_remainders.end())
+    {
+      remainders_ix.push_back(level);
+      remainders.push_back(it->second);
+    }
   }
 
     // We're now ready to initialize the object.
-    index_factorization_space_.Init(workload_, cofactors_order, prefactors, maxfactors, s_fan, s_index);
+    index_factorization_space_.Init(workload_, cofactors_order, prefactors, maxfactors, remainders, remainders_ix);
 
   // Update the size of the mapspace.
   size_[int(mapspace::Dimension::IndexFactorization)] = index_factorization_space_.Size();

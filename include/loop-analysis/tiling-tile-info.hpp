@@ -86,21 +86,21 @@ struct DataMovementInfo
   bool distributed_multicast;
   AccessStatMatrix access_stats;
   double content_accesses;
-  std::uint64_t fills;
-  std::uint64_t reads;
-  std::uint64_t updates;
-  std::uint64_t metadata_updates;
-  std::uint64_t metadata_fills;
-  std::uint64_t metadata_reads;
+  double fills;
+  double reads;
+  double updates;
+  double metadata_updates;
+  double metadata_fills;
+  double metadata_reads;
   double temporal_reductions;
   double link_transfers;
   double peer_accesses;           // number of accesses caused by link transfers in the previous level 
   double peer_fills;              // number of fills caused by link transfers in the previous level
 
   std::vector<loop::Descriptor> subnest;
-  std::uint64_t replication_factor;      // number of spatial elements at this level.
-  std::uint64_t fanout;                  // per-element fanout to next-level.
-  std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
+  double replication_factor;      // number of spatial elements at this level.
+  double fanout;                  // per-element fanout to next-level.
+  double distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
   bool is_master_spatial;
   //double partition_fraction;
@@ -108,7 +108,7 @@ struct DataMovementInfo
   // Tile density
   std::shared_ptr<problem::DensityDistribution> tile_density;  // statistical representation of tile data density
   // Fine grained actions, names defined in operation-type.hpp
-  std::map<std::string, std::uint64_t> fine_grained_accesses;
+  std::map<std::string, double> fine_grained_accesses;
   double expected_density;
 
   // Compression related
@@ -254,12 +254,12 @@ struct DataMovementInfo
 
 struct ComputeInfo
 {
-  std::uint64_t replication_factor;      // number of spatial elements at this level.
+  double replication_factor;      // number of spatial elements at this level.
   double accesses;
   std::uint64_t compute_cycles;
 
   // fine grained actions, names defined in operation-type.hpp
-  std::map<std::string, std::uint64_t> fine_grained_accesses; 
+  std::map<std::string, double> fine_grained_accesses; 
   
   ComputeInfo() { Reset(); }
 
@@ -267,7 +267,7 @@ struct ComputeInfo
   {
     replication_factor = 0;
     accesses = 0;
-    compute_cycles = 1;
+    compute_cycles = 0;
   }
 };
 
