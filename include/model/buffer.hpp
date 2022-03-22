@@ -98,6 +98,7 @@ class BufferLevel : public Level
     Attribute<std::uint64_t> instances;    
     Attribute<std::uint64_t> meshX;
     Attribute<std::uint64_t> meshY;
+    Attribute<double> shared_bandwidth;
     Attribute<double> read_bandwidth;
     Attribute<double> write_bandwidth;
     Attribute<double> multiple_buffering;
@@ -163,6 +164,7 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(instances);    
         ar& BOOST_SERIALIZATION_NVP(meshX);
         ar& BOOST_SERIALIZATION_NVP(meshY);
+        ar& BOOST_SERIALIZATION_NVP(shared_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(read_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(write_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(multiple_buffering);
@@ -206,6 +208,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<std::uint64_t> fills;
     problem::PerDataSpace<std::uint64_t> address_generations;
     problem::PerDataSpace<std::uint64_t> temporal_reductions;
+    problem::PerDataSpace<double> shared_bandwidth;
     problem::PerDataSpace<double> read_bandwidth;
     problem::PerDataSpace<double> write_bandwidth;
     problem::PerDataSpace<double> energy_per_algorithmic_access;
@@ -229,6 +232,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<std::string> parent_level_name;
     problem::PerDataSpace<unsigned> parent_level_id;
     problem::PerDataSpace<std::string> tile_density_distribution;
+    problem::PerDataSpace<double> format_shared_bandwidth_ratio;
     problem::PerDataSpace<double> format_read_bandwidth_ratio;
     problem::PerDataSpace<double> format_write_bandwidth_ratio;
     
@@ -329,6 +333,7 @@ class BufferLevel : public Level
 
         ar& BOOST_SERIALIZATION_NVP(address_generations);
         ar& BOOST_SERIALIZATION_NVP(temporal_reductions);
+        ar& BOOST_SERIALIZATION_NVP(shared_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(read_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(write_bandwidth);
         ar& BOOST_SERIALIZATION_NVP(energy_per_algorithmic_access);
@@ -338,7 +343,7 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(addr_gen_energy);
         ar& BOOST_SERIALIZATION_NVP(cycles);
         ar& BOOST_SERIALIZATION_NVP(slowdown);
-       
+        ar& BOOST_SERIALIZATION_NVP(format_shared_bandwidth_ratio);
         ar& BOOST_SERIALIZATION_NVP(format_read_bandwidth_ratio);
         ar& BOOST_SERIALIZATION_NVP(format_write_bandwidth_ratio);
       }
