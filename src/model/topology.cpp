@@ -391,14 +391,104 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   }
 #endif
 
-  if (topology.is_evaluated_)
-  {
-    out << "Total topology energy: " << topology.stats_.energy << " pJ" << std::endl;
-    out << "Total topology area: " << topology.stats_.area << " um^2" << std::endl;
-    out << "Max topology cycles: " << topology.stats_.cycles << std::endl;
-  }
 
-  out << std::endl;
+
+//
+// Operational intensity
+//
+out << std::endl;
+out << "Operational Intensity Stats" << std::endl;
+out << "---------------------------" << std::endl;
+std::string indent = "    ";
+// Theoretical Minimum Traffic
+
+std::vector<std::uint64_t> min_traffics;
+std::uint64_t total_min_traffic = 0;
+
+for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+{
+  auto pv = problem::Shape::DataSpaceID(pvi);
+  std::uint64_t utilized_capacity = -1;
+  for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
+  {
+    unsigned inv_storage_level = topology.NumStorageLevels() - 1 - storage_level_id;
+    utilized_capacity = topology.GetStats().utilized_capacities.at(inv_storage_level).at(pv);
+    if (utilized_capacity > 0)
+    {
+      break;
+    }
+  }
+  assert(utilized_capacity > 0);
+  total_min_traffic += utilized_capacity;
+  min_traffics.push_back(utilized_capacity);
+  std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pv);
+  // out << indent << tensor_name << ":     " << utilized_capacity << std::endl;
+}
+out << indent << std::left << std::setw(70) << "Total memory accesses required";
+out << ": " << total_min_traffic << std::endl; 
+auto mac_per_access = float(topology.stats_.actual_computes) / total_min_traffic;
+// Assume tensor width is DRAM 
+unsigned inv_storage_level = topology.NumStorageLevels() - 1;
+std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
+auto op_per_byte = float(topology.stats_.actual_computes) * 2 / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
+std::string word_bit_str = std::to_string(buffer_level->GetSpecs().word_bits.Get() / 8);
+std::string od_name = "Optimal MAC per " + word_bit_str + " B memory access";
+out << indent << std::left << std::setw(70) << od_name;
+out << ": " << mac_per_access << std::endl;
+out << indent << std::left << std::setw(70) << "Optimal Op per Byte";
+out << ": " << op_per_byte << std::endl << std::endl;
+
+std::vector<std::string> access_types = {"read", "fill", "update"};
+for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
+{
+
+  std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(i);
+  auto stats = buffer_level->GetStats();
+  out << "=== " << buffer_level->Name() << " ===" << std::endl;
+
+  uint64_t total_scalar_access = 0;
+  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  {
+    auto pv = problem::Shape::DataSpaceID(pvi);
+
+    if (stats.keep.at(pv))
+    {
+
+      // out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
+      for (auto &access_type : access_types)
+      {
+        std::string key = "random_" + access_type;
+        if (stats.fine_grained_scalar_accesses.at(pv).find(key) != stats.fine_grained_scalar_accesses.at(pv).end())
+        {
+          uint64_t scalar_access = stats.fine_grained_scalar_accesses.at(pv).at(key);
+          total_scalar_access += scalar_access;
+          // std::string access_type_str = "Actual scalar " + access_type + "s (per-instance)"; 
+          // out << indent + indent << std::left << std::setw(66) << access_type_str;                         
+          // out << ": " << scalar_access << std::endl << std::endl;
+        }
+      }
+    }
+  }
+  float mac_per_access = -1;
+  float op_per_byte = -1;
+  if (total_scalar_access > 0)
+  {
+    out << indent << std::left << std::setw(70) << "Total scalar accesses (per-instance)";
+    out << ": " << total_scalar_access << std::endl;
+    mac_per_access = float(topology.stats_.actual_computes) / total_scalar_access;
+    op_per_byte = float(topology.stats_.actual_computes) * 2 / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
+    std::string word_bit_str = std::to_string(buffer_level->GetSpecs().word_bits.Get() / 8);
+    std::string od_name = "MAC per " + word_bit_str + " B memory access";      
+    out << indent << std::left << std::setw(70) << od_name;
+    out << ": " << mac_per_access << std::endl;
+    out << indent << std::left << std::setw(70) << "Op per Byte";
+    out << ": " << op_per_byte << std::endl;
+  }
+  
+}
+
+out << std::endl
+    << std::endl;
 
   //
   // Summary stats.
@@ -408,9 +498,12 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
 
   if (topology.is_evaluated_)
   {
+    out << "GFLOPs (@1GHz): " << float(topology.stats_.actual_computes) * 2 / topology.stats_.cycles << std::endl;
     out << "Utilization: " << topology.stats_.utilization << std::endl;
     out << "Cycles: " << topology.stats_.cycles << std::endl;
     out << "Energy: " << topology.stats_.energy / 1000000 << " uJ" << std::endl;
+    out << "EDP(J*cycle): " << std::scientific << float(topology.stats_.cycles) * topology.stats_.energy / 1e12 << std::fixed << std::endl;
+
   }
   out << "Area: " << topology.stats_.area / 1000000 << " mm^2" << std::endl;
 
