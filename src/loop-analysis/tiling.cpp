@@ -32,12 +32,12 @@
 #include "workload/workload.hpp"
 #include "loop-analysis/operation-type.hpp"
 
-bool gEnableOutputBiasAddition =
-  (getenv("TIMELOOP_ENABLE_BIAS") != NULL) &&
-  (strcmp(getenv("TIMELOOP_ENABLE_BIAS"), "0") != 0);
-
 namespace tiling
 {
+
+bool gEnableFirstReadElision =
+  (getenv("ENABLE_FIRST_READ_ELISION") == NULL) ||
+  (strcmp(getenv("ENABLE_FIRST_READ_ELISION"), "0") != 0);
 
 bool gUpdatedRMW =
   (getenv("TIMELOOP_ENABLE_UPDATED_RMW") != NULL) &&
@@ -579,10 +579,11 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
 
       assert((tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses) >= tile_nest[cur].partition_size);
 
-      if (gEnableOutputBiasAddition)
-              tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
+      if (gEnableFirstReadElision)
+        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
       else
-              tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
+        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
+
       // std::cout << "TILING LEVEL = " << cur << std::endl;
       // std::cout << "  content = " << tile_nest[cur].content_accesses << std::endl;
       // std::cout << "  partition size = " << tile_nest[cur].partition_size << std::endl;
@@ -596,10 +597,10 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
       // FIXME: temporal reduction and network costs if hardware reduction isn't
       // supported appears to be wonky - network costs may need to trickle down
       // all the way to the level that has the reduction hardware.
-      if (gEnableOutputBiasAddition)
-        tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
-      else
+      if (gEnableFirstReadElision)
         tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
+      else
+        tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
       // std::cout << "tile: reads, updates, fills " 
       // << tile.reads << " " <<  tile.updates<< " " << tile.fills <<std::endl;
     }
@@ -679,10 +680,11 @@ void ComputeReadUpdateReductionAccesses_UpdatedRMW(std::vector<DataMovementInfo>
       {
         double tax = 0;
         // Second-outer: perform reductions on behalf of outermost level.
-        if(gEnableOutputBiasAddition)
-          tax = tile_nest[cur].parent_access_share;
-        else
+        if(gEnableFirstReadElision)
           tax = tile_nest[cur].parent_access_share - tile_nest[cur].partition_size;
+        else
+          tax = tile_nest[cur].parent_access_share;
+
         tile_nest[cur].fills += tax;
         tile_nest[cur].reads += tax;
         tile_nest[cur].temporal_reductions += tax;
