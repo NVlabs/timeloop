@@ -347,10 +347,10 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   }
 
   // Reduction supported
-  std::string reduction_supported;
+  bool reduction_supported;
   if (buffer.lookupValue("reduction_supported", reduction_supported))
   {
-    specs.reduction_supported = (reduction_supported.compare("yes") == 0);
+    specs.reduction_supported = reduction_supported;
   }
 
 
