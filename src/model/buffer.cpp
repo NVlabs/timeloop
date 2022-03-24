@@ -796,12 +796,11 @@ EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling:
 
 bool BufferLevel::HardwareReductionSupported()
 {
-  // FIXME: take this information from an explicit arch spec.
-  
   if (specs_.reduction_supported.IsSpecified())
   {
     return specs_.reduction_supported.Get();
   }
+ 
   return !(specs_.technology.IsSpecified() &&
            specs_.technology.Get() == Technology::DRAM);
 }
@@ -1180,13 +1179,6 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   auto total_utilized_md_capacity_bits = std::accumulate(stats_.utilized_md_capacity_bits.begin(),
                                                          stats_.utilized_md_capacity_bits.end(),
                                                          0ULL);
-  if (!HardwareReductionSupported() && std::accumulate(stats_.temporal_reductions.begin(),
-                                                                     stats_.temporal_reductions.end(),
-                                                                     0ULL) != 0)
-  {
-    success = false;
-    fail_reason << "reduction not supported ";
-  }
 
   if (!specs_.size.IsSpecified())
   {
