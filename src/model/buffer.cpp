@@ -347,10 +347,10 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   }
 
   // Reduction supported
-  std::string reduction_supported;
+  bool reduction_supported;
   if (buffer.lookupValue("reduction_supported", reduction_supported))
   {
-    specs.reduction_supported = (reduction_supported.compare("yes") == 0);
+    specs.reduction_supported = reduction_supported;
   }
 
 
@@ -370,6 +370,13 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
     std::cerr << "WARNING: bandwidth is deprecated. Assuming read_bandwidth = write_bandwidth = bandwidth/2" << std::endl;
     specs.read_bandwidth  = bandwidth / 2;
     specs.write_bandwidth = bandwidth / 2;
+  }
+
+  // Bandwidth assuming dynamic read/write sharing.
+  double shared_bandwidth;
+  if (buffer.lookupValue("shared_bandwidth", shared_bandwidth))
+  {
+    specs.shared_bandwidth  = shared_bandwidth;
   }
 
   double read_bandwidth;
@@ -789,12 +796,11 @@ EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling:
 
 bool BufferLevel::HardwareReductionSupported()
 {
-  // FIXME: take this information from an explicit arch spec.
-  
   if (specs_.reduction_supported.IsSpecified())
   {
     return specs_.reduction_supported.Get();
   }
+ 
   return !(specs_.technology.IsSpecified() &&
            specs_.technology.Get() == Technology::DRAM);
 }
@@ -1173,13 +1179,6 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   auto total_utilized_md_capacity_bits = std::accumulate(stats_.utilized_md_capacity_bits.begin(),
                                                          stats_.utilized_md_capacity_bits.end(),
                                                          0ULL);
-  if (!HardwareReductionSupported() && std::accumulate(stats_.temporal_reductions.begin(),
-                                                                     stats_.temporal_reductions.end(),
-                                                                     0ULL) != 0)
-  {
-    success = false;
-    fail_reason << "reduction not supported ";
-  }
 
   if (!specs_.size.IsSpecified())
   {
@@ -1565,6 +1564,8 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
     std::uint64_t total_read_accesses = total_data_read_accesses + ceil(total_format_read_accesses/specs_.word_bits.Get());
     std::uint64_t total_write_accesses = total_data_write_accesses + ceil(total_format_write_accesses/specs_.word_bits.Get());
    
+    stats_.format_shared_bandwidth_ratio[pv] = (total_read_accesses + total_write_accesses) == 0 ? 0.0 : double(ceil((total_format_read_accesses + total_format_write_accesses)
+        / specs_.word_bits.Get())) / (total_read_accesses + total_write_accesses);
     stats_.format_read_bandwidth_ratio[pv] = total_read_accesses == 0 ? 0.0 : double(ceil(total_format_read_accesses/specs_.word_bits.Get()))/total_read_accesses;
     stats_.format_write_bandwidth_ratio[pv] = total_write_accesses == 0 ? 0.0 : double(ceil(total_format_write_accesses/specs_.word_bits.Get()))/total_write_accesses;
     
@@ -1606,6 +1607,15 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
                specs_.write_bandwidth.Get() / total_unconstrained_write_bandwidth);
   }
 
+  if (specs_.shared_bandwidth.IsSpecified() &&
+      (specs_.shared_bandwidth.Get() < (total_unconstrained_write_bandwidth
+        + total_unconstrained_read_bandwidth)))
+  {
+    stats_.slowdown =
+      std::min(stats_.slowdown,
+               specs_.shared_bandwidth.Get() /
+               (total_unconstrained_write_bandwidth + total_unconstrained_read_bandwidth));
+  }
   //
   // Step 3:
   // Calculate real bandwidths based on worst slowdown. For shared buffers this
@@ -1617,6 +1627,8 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
     auto pv = problem::Shape::DataSpaceID(pvi);
     stats_.read_bandwidth[pv]  = stats_.slowdown * unconstrained_read_bandwidth.at(pv);
     stats_.write_bandwidth[pv] = stats_.slowdown * unconstrained_write_bandwidth.at(pv);
+    stats_.shared_bandwidth[pv] = stats_.slowdown * (unconstrained_read_bandwidth.at(pv)
+                                      + unconstrained_write_bandwidth.at(pv));
   }
 
   //
@@ -1632,6 +1644,10 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
     specs_.read_bandwidth = std::accumulate(stats_.read_bandwidth.begin(), stats_.read_bandwidth.end(), 0.0);
   if (!specs_.write_bandwidth.IsSpecified())
     specs_.write_bandwidth = std::accumulate(stats_.write_bandwidth.begin(), stats_.write_bandwidth.end(), 0.0);
+  if (!specs_.shared_bandwidth.IsSpecified())
+    specs_.shared_bandwidth = std::accumulate(stats_.read_bandwidth.begin(), stats_.read_bandwidth.end(), 0.0)
+                              + std::accumulate(stats_.write_bandwidth.begin(), stats_.write_bandwidth.end(), 0.0) ;
+
 #endif
 }
 
@@ -1750,6 +1766,7 @@ void BufferLevel::Print(std::ostream& out) const
     out << indent << indent << "Cluster size                 : " << specs.cluster_size << std::endl;
     out << indent << indent << "Instances                    : " << specs.instances << " ("
         << specs.meshX << "*" << specs.meshY << ")" << std::endl;
+    out << indent << indent << "Shared bandwidth             : " << specs.shared_bandwidth << std::endl;
     out << indent << indent << "Read bandwidth               : " << specs.read_bandwidth << std::endl;    
     out << indent << indent << "Write bandwidth              : " << specs.write_bandwidth << std::endl;    
     out << indent << indent << "Multiple buffering           : " << specs.multiple_buffering << std::endl;
@@ -1782,6 +1799,7 @@ void BufferLevel::Print(std::ostream& out) const
     out << indent << indent << "Cluster size         : " << specs.cluster_size << std::endl;
     out << indent << indent << "Instances            : " << specs.instances << " ("
         << specs.meshX << "*" << specs.meshY << ")" << std::endl;
+    out << indent << indent << "Shared bandwidth     : " << specs.shared_bandwidth << std::endl;
     out << indent << indent << "Read bandwidth       : " << specs.read_bandwidth << std::endl;
     out << indent << indent << "Write bandwidth      : " << specs.write_bandwidth << std::endl;
     out << indent << indent << "Multiple buffering   : " << specs.multiple_buffering << std::endl;
@@ -1988,6 +2006,9 @@ void BufferLevel::Print(std::ostream& out) const
 
         out << indent + indent << "Address Generation Energy (per-cluster)                     : " << stats.addr_gen_energy.at(pv) << " pJ" << std::endl;
         out << indent + indent << "Address Generation Energy (total)                           : " << stats.addr_gen_energy.at(pv) * stats.utilized_clusters.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Average Shared Bandwidth (per-instance)                     : " << stats.shared_bandwidth.at(pv) << " words/cycle" << std::endl;
+        out << indent + indent + indent << "Breakdown (Data, Format): (" << 100 * (1 - stats.format_shared_bandwidth_ratio.at(pv)) << "%, " << 100 * (stats.format_shared_bandwidth_ratio.at(pv)) << "%)"<< std::endl;
+        out << indent + indent << "Shared Bandwidth (total)                                    : " << stats.shared_bandwidth.at(pv) * stats.utilized_x_expansion.at(pv) * stats.utilized_y_expansion.at(pv) << " words/cycle" << std::endl;
         out << indent + indent << "Average Read Bandwidth (per-instance)                       : " << stats.read_bandwidth.at(pv) << " words/cycle" << std::endl;
         out << indent + indent + indent << "Breakdown (Data, Format): (" << 100 * (1 - stats.format_read_bandwidth_ratio.at(pv)) << "%, " << 100 * (stats.format_read_bandwidth_ratio.at(pv)) << "%)"<< std::endl;
         out << indent + indent << "Read Bandwidth (total)                                      : " << stats.read_bandwidth.at(pv) * stats.utilized_x_expansion.at(pv) * stats.utilized_y_expansion.at(pv) << " words/cycle" << std::endl;
@@ -2014,6 +2035,8 @@ void BufferLevel::Print(std::ostream& out) const
         out << indent + indent << "Temporal Reduction Energy (total)        : " << stats.temporal_reduction_energy.at(pv) * stats.utilized_instances.at(pv) << " pJ" << std::endl;
         out << indent + indent << "Address Generation Energy (per-cluster)  : " << stats.addr_gen_energy.at(pv) << " pJ" << std::endl;
         out << indent + indent << "Address Generation Energy (total)        : " << stats.addr_gen_energy.at(pv) * stats.utilized_clusters.at(pv) << " pJ" << std::endl;
+        out << indent + indent << "Shared Bandwidth (per-instance)          : " << stats.shared_bandwidth.at(pv) << " words/cycle" << std::endl;
+        out << indent + indent << "Shared Bandwidth (total)                 : " << stats.shared_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
         out << indent + indent << "Read Bandwidth (per-instance)            : " << stats.read_bandwidth.at(pv) << " words/cycle" << std::endl;
         out << indent + indent << "Read Bandwidth (total)                   : " << stats.read_bandwidth.at(pv) * stats.utilized_instances.at(pv) << " words/cycle" << std::endl;
         out << indent + indent << "Write Bandwidth (per-instance)           : " << stats.write_bandwidth.at(pv) << " words/cycle" << std::endl;
