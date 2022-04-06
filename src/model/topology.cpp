@@ -391,8 +391,6 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   }
 #endif
 
-
-
 //
 // Operational intensity
 //
@@ -400,76 +398,60 @@ out << std::endl;
 out << "Operational Intensity Stats" << std::endl;
 out << "---------------------------" << std::endl;
 std::string indent = "    ";
-// Theoretical Minimum Traffic
-//
-std::uint64_t total_reductions = 0;
-for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-{
-  auto pv = problem::Shape::DataSpaceID(pvi);
-  // for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
-  // {
-    unsigned storage_level_id = 0;
-    auto storage_level_stats = topology.GetStorageLevel(storage_level_id)->GetStats();
-    uint64_t temporal_reductions = storage_level_stats.temporal_reductions.at(pv);
-    auto instances = topology.GetStorageLevel(storage_level_id)->GetSpecs().instances.Get();
-    total_reductions += temporal_reductions * instances;
-  // }
-  // std::cout << instances  << "x" << temporal_reductions << std::endl;
-}
 
-for (auto& network : topology.networks_)
-{
-  auto legacynetwork = std::static_pointer_cast<model::LegacyNetwork>(network.second);
-  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-  {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-    total_reductions += legacynetwork->stats_.spatial_reductions.at(pv);
-  }
-}
-
-std::vector<std::uint64_t> min_traffics;
 std::uint64_t total_min_traffic = 0;
+std::uint64_t total_output_size = 0;
 
 for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
 {
   auto pv = problem::Shape::DataSpaceID(pvi);
+
   std::uint64_t utilized_capacity = -1;
   for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
   {
     unsigned inv_storage_level = topology.NumStorageLevels() - 1 - storage_level_id;
     utilized_capacity = topology.GetStats().utilized_capacities.at(inv_storage_level).at(pv);
+    // use the last non-bypassed level with capacity size not equal to 0
     if (utilized_capacity > 0)
     {
       break;
     }
-  }
+  }  
   assert(utilized_capacity > 0);
-  total_min_traffic += utilized_capacity;
-  min_traffics.push_back(utilized_capacity);
-  // std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pv);
-  // out << indent << tensor_name << ":     " << utilized_capacity << std::endl;
+  total_min_traffic += utilized_capacity;      
+  if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
+    total_output_size += utilized_capacity;
+  }
 }
-out << indent << std::left << std::setw(70) << "Total elementwise ops (theoritical minimum)";
-out << ": " << topology.stats_.actual_computes << std::endl; 
-out << indent << std::left << std::setw(70) << "Total reduction ops (theoritical minimum)";
-out << ": " << topology.stats_.actual_computes - 1 << std::endl; 
-out << indent << std::left << std::setw(70) << "Total memory accesses required (theoritical minimum)";
+// std::cout <<  "total_min_traffic " << total_min_traffic << std::endl;
+// std::cout <<  "total_output_size " << total_output_size << std::endl;
+
+out << indent << std::left << std::setw(70) << "Total elementwise ops";
+uint64_t total_elementwise_ops = topology.stats_.actual_computes;
+out << ": " << total_elementwise_ops << std::endl; 
+
+out << indent << std::left << std::setw(70) << "Total reduction ops";
+uint64_t total_reduction_ops = 0;
+
+if (tiling::gEnableFirstReadElision){
+  total_reduction_ops = topology.stats_.actual_computes - total_output_size;
+} else{
+  total_reduction_ops = topology.stats_.actual_computes;
+}
+out << ": " << total_reduction_ops << std::endl; 
+
+out << indent << std::left << std::setw(70) << "Total ops";
+uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
+out << ": " << total_ops << std::endl;  
+
+out << indent << std::left << std::setw(70) << "Total memory accesses required";
 out << ": " << total_min_traffic << std::endl; 
 
-// auto mac_per_access = float(topology.stats_.actual_computes) / total_min_traffic;
-// Assume tensor width is DRAM 
 unsigned inv_storage_level = topology.NumStorageLevels() - 1;
 std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
-auto op_per_byte = (float(topology.stats_.actual_computes) * 2 - 1) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
-// std::string word_bit_str = std::to_string(buffer_level->GetSpecs().word_bits.Get() / 8);
-// std::string od_name = "Optimal MAC per " + word_bit_str + " B memory access";
-// out << indent << std::left << std::setw(70) << od_name;
-// out << ": " << mac_per_access << std::endl;
+auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
 out << indent << std::left << std::setw(70) << "Optimal Op per Byte";
 out << ": " << op_per_byte << std::endl << std::endl;
-
-out << indent << std::left << std::setw(70) << "Total reduction ops (effactual)";
-out << ": " << total_reductions << std::endl; 
 
 std::vector<std::string> access_types = {"read", "fill", "update"};
 for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
@@ -508,12 +490,7 @@ for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
   {
     out << indent << std::left << std::setw(70) << "Total scalar accesses (per-instance)";
     out << ": " << total_scalar_access << std::endl;
-    // mac_per_access = float(topology.stats_.actual_computes) / total_scalar_access;
-    op_per_byte = (float(topology.stats_.actual_computes) * 2 - 1) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
-    // std::string word_bit_str = std::to_string(buffer_level->GetSpecs().word_bits.Get() / 8);
-    // std::string od_name = "MAC per " + word_bit_str + " B memory access";      
-    // out << indent << std::left << std::setw(70) << od_name;
-    // out << ": " << mac_per_access << std::endl;
+    op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
     out << indent << std::left << std::setw(70) << "Op per Byte";
     out << ": " << op_per_byte << std::endl;
   }
@@ -531,7 +508,7 @@ out << std::endl
 
   if (topology.is_evaluated_)
   {
-    out << "GFLOPs (@1GHz): " << float(topology.stats_.actual_computes) * 2 / topology.stats_.cycles << std::endl;
+    out << "GFLOPs (@1GHz): " << float(total_ops)  / topology.stats_.cycles << std::endl;
     out << "Utilization: " << topology.stats_.utilization << std::endl;
     out << "Cycles: " << topology.stats_.cycles << std::endl;
     out << "Energy: " << topology.stats_.energy / 1000000 << " uJ" << std::endl;
