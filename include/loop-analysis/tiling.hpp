@@ -40,6 +40,7 @@
 
 namespace tiling
 {
+extern bool gEnableFirstReadElision;
 
 bool operator < (const DataMovementInfo& a, const DataMovementInfo& b);
 std::ostream& operator << (std::ostream& out, const DataMovementInfo& info);
