@@ -460,7 +460,7 @@ for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
   std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(i);
   auto stats = buffer_level->GetStats();
   out << "=== " << buffer_level->Name() << " ===" << std::endl;
-
+  uint64_t instances = buffer_level->GetSpecs().instances.Get();
   uint64_t total_scalar_access = 0;
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
@@ -476,7 +476,7 @@ for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
         if (stats.fine_grained_scalar_accesses.at(pv).find(key) != stats.fine_grained_scalar_accesses.at(pv).end())
         {
           uint64_t scalar_access = stats.fine_grained_scalar_accesses.at(pv).at(key);
-          total_scalar_access += scalar_access;
+          total_scalar_access += scalar_access * instances;
           // std::string access_type_str = "Actual scalar " + access_type + "s (per-instance)"; 
           // out << indent + indent << std::left << std::setw(66) << access_type_str;                         
           // out << ": " << scalar_access << std::endl << std::endl;
@@ -488,7 +488,7 @@ for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
   float op_per_byte = -1;
   if (total_scalar_access > 0)
   {
-    out << indent << std::left << std::setw(70) << "Total scalar accesses (per-instance)";
+    out << indent << std::left << std::setw(70) << "Total scalar accesses";
     out << ": " << total_scalar_access << std::endl;
     op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
     out << indent << std::left << std::setw(70) << "Op per Byte";
