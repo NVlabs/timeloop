@@ -240,8 +240,6 @@ class Topology : public Module
 
  private:
   std::shared_ptr<Level> GetLevel(unsigned level_id) const;
-  std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
-  std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
   void FloorPlan();
   void ComputeStats(bool eval_success);
 
@@ -250,6 +248,8 @@ class Topology : public Module
   // Constructors and assignment operators.
   Topology() = default;
   ~Topology() = default;
+  std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
+  std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const; 
 
   // We need an explicit deep-copy constructor because of shared_ptrs.
   Topology(const Topology& other)

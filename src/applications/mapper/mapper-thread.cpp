@@ -516,7 +516,8 @@ void MapperThread::Run()
     }
 
     // SUCCESS!!!
-    auto stats = engine.GetTopology().GetStats();
+    auto topology =  engine.GetTopology();
+    auto stats = topology.GetStats();
     EvaluationResult result = { true, mapping, stats };
 
     valid_mappings++;
@@ -535,6 +536,135 @@ void MapperThread::Run()
     if (log_suboptimal_)
     {
       mutex_->lock();
+
+      std::cout << "---------------------------" << std::endl;
+      std::string indent = "    ";
+      std::cout << "=== Buffer Utilization ===" << std::endl;
+
+      for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
+      {
+        unsigned inv_storage_level = topology.NumStorageLevels() - 1 - storage_level_id;
+        std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);
+        std::cout << buffer_level->Name() << ":";
+        for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+        {
+          auto pv = problem::Shape::DataSpaceID(pvi);
+          auto utilized_capacity = topology.GetStats().utilized_capacities.at(inv_storage_level).at(pv); 
+          std::cout << " " << utilized_capacity;
+        }
+        std::cout << std::endl;
+      }
+      std::cout << "=== Operational Intensity ===" << std::endl;
+
+      std::uint64_t total_min_traffic = 0;
+      std::uint64_t total_output_size = 0;
+
+      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      {
+        auto pv = problem::Shape::DataSpaceID(pvi);
+
+        std::uint64_t utilized_capacity = -1;
+        for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
+        {
+          unsigned inv_storage_level = topology.NumStorageLevels() - 1 - storage_level_id;
+          utilized_capacity = topology.GetStats().utilized_capacities.at(inv_storage_level).at(pv);
+          // use the last non-bypassed level with capacity size not equal to 0
+          if (utilized_capacity > 0)
+          {
+            break;
+          }
+        }  
+        assert(utilized_capacity > 0);
+        total_min_traffic += utilized_capacity;      
+        if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
+          total_output_size += utilized_capacity;
+        }
+      }
+      // std::cout <<  "total_min_traffic " << total_min_traffic << std::endl;
+      // std::cout <<  "total_output_size " << total_output_size << std::endl;
+
+      // out << indent << std::left << std::setw(70) << "Total elementwise ops";
+      uint64_t total_elementwise_ops = topology.GetStats().actual_computes;
+      // out << ": " << total_elementwise_ops << std::endl; 
+
+      // out << indent << std::left << std::setw(70) << "Total reduction ops";
+      uint64_t total_reduction_ops = 0;
+
+      if (tiling::gEnableFirstReadElision){
+        total_reduction_ops = topology.GetStats().actual_computes - total_output_size;
+      } else{
+        total_reduction_ops = topology.GetStats().actual_computes;
+      }
+      // std::cout << ": " << total_reduction_ops << std::endl; 
+
+      std::cout << indent << std::left << std::setw(70) << "Total ops";
+      uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
+      std::cout << ": " << total_ops << std::endl;  
+
+      std::cout << indent << std::left << std::setw(70) << "Total memory accesses required";
+      std::cout << ": " << total_min_traffic << std::endl; 
+
+      unsigned inv_storage_level = topology.NumStorageLevels() - 1;
+      std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
+      auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
+      std::cout << indent << std::left << std::setw(70) << "Optimal Op per Byte";
+      std::cout << ": " << op_per_byte << std::endl;
+
+      std::vector<std::string> access_types = {"read", "fill", "update"};
+      for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
+      {
+        std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(i);
+        auto stats = buffer_level->GetStats();
+        std::cout << "--- " << buffer_level->Name() << " ---" << std::endl;
+        uint64_t instances = buffer_level->GetSpecs().instances.Get();
+        uint64_t total_scalar_access = 0;
+        for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+        {
+          auto pv = problem::Shape::DataSpaceID(pvi);
+
+          if (stats.keep.at(pv))
+          {
+
+            // out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
+            for (auto &access_type : access_types)
+            {
+              std::string key = "random_" + access_type;
+              if (stats.fine_grained_scalar_accesses.at(pv).find(key) != stats.fine_grained_scalar_accesses.at(pv).end())
+              {
+                uint64_t scalar_access = stats.fine_grained_scalar_accesses.at(pv).at(key);
+                total_scalar_access += scalar_access * instances;
+                // std::string access_type_str = "Actual scalar " + access_type + "s (per-instance)"; 
+                // out << indent + indent << std::left << std::setw(66) << access_type_str;                         
+                // out << ": " << scalar_access << std::endl << std::endl;
+              }
+            }
+          }
+        }
+        // float mac_per_access = -1;
+        float op_per_byte = -1;
+        if (total_scalar_access > 0)
+        {
+          // std::cout << indent << std::left << std::setw(70) << "Total accesses";
+          // std::cout << ": " << total_scalar_access << std::endl;
+          op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
+          // std::cout << indent << std::left << std::setw(70) << "Op per Byte";
+          std::cout <<  total_scalar_access << " " << op_per_byte << std::endl;
+        } else {  
+            std::cout << "0 -1" << std::endl;
+        }
+      }         
+      std::cout << "=== Summary ===" << std::endl;
+
+      std::cout << "GFLOPs (@1GHz): " << float(total_ops)  / topology.GetStats().cycles << std::endl;
+      std::cout << "Utilization: " << topology.GetStats().utilization << std::endl;
+      std::cout << "Cycles: " << topology.GetStats().cycles << std::endl;
+      std::cout << "Energy: " << topology.GetStats().energy / 1000000 << " uJ" << std::endl;
+      std::cout << "EDP(J*cycle): " << std::scientific << float(topology.GetStats().cycles) * topology.GetStats().energy / 1e12 << std::fixed << std::endl;
+      std::cout << "Area: " << topology.GetStats().area / 1000000 << " mm^2" << std::endl;
+      std::cout << std::endl;
+      std::cout << "=== Mapping ===" << std::endl;
+      std::cout << mapping.PrintCompact() << std::endl; 
+      std::cout << std::endl;
       if (is_sparse_topology)
       {      
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 

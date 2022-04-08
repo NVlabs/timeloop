@@ -513,7 +513,6 @@ out << std::endl
     out << "Cycles: " << topology.stats_.cycles << std::endl;
     out << "Energy: " << topology.stats_.energy / 1000000 << " uJ" << std::endl;
     out << "EDP(J*cycle): " << std::scientific << float(topology.stats_.cycles) * topology.stats_.energy / 1e12 << std::fixed << std::endl;
-
   }
   out << "Area: " << topology.stats_.area / 1000000 << " mm^2" << std::endl;
 
