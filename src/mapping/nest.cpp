@@ -533,4 +533,106 @@ std::string Nest::PrintCompact(const tiling::NestOfCompoundMasks& mask_nest)
   return retval;
 }
 
+void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& mask_nest)
+{
+  unsigned num_loops = loops.size();
+  unsigned inv_storage_level = storage_tiling_boundaries.size()-2;
+
+  std::map<problem::Shape::FlattenedDimensionID, int> temporal_bounds;
+  std::map<problem::Shape::FlattenedDimensionID, int> spatial_bounds;
+  bool has_spatial;
+  int split;
+
+  // Lambda to dump state.
+  auto dump_state = [&]()
+    {
+      out << "t" << inv_storage_level+1 << std::endl;
+      for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
+      {
+        out << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " "
+            << temporal_bounds.at(dim) << " ";
+      }
+      out << std::endl;
+
+      if (has_spatial)
+      {
+        out << "s" << inv_storage_level+1 << std::endl;
+        for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
+        {
+          out << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " "
+              << spatial_bounds.at(dim) << " ";
+        }
+        out << std::endl;
+        out << split << std::endl;
+      }
+    };
+
+  // Lambda to reset state.
+  auto reset_state = [&]()
+  {
+    for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
+    {
+      temporal_bounds[dim] = 1;
+      spatial_bounds[dim] = 1;
+    }
+    has_spatial = false;
+    split = problem::GetShape()->NumFlattenedDimensions;
+  };
+
+  // Initialize.
+  reset_state();
+   
+  for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
+  {
+    // Dump/reset state if we've reached a storage boundary OR the innermost loop.
+    if (inv_storage_level != static_cast<unsigned>(-1) &&
+        storage_tiling_boundaries.at(inv_storage_level) == loop_level)
+    {
+      // Sanity check.
+      auto& mask = mask_nest.at(inv_storage_level);
+      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      {
+        if (!mask.at(pvi))
+        {
+          std::cerr << "ERROR: Inertial does not support bypass" << std::endl;
+          std::exit(1);
+        }
+      }
+
+      // Print out the bounds collected so far.
+      dump_state();
+
+      // Reset state.
+      reset_state();
+      
+      // Next level.
+      inv_storage_level--;
+    }
+
+    // Update temporal/spatial bounds.
+    auto& loop = loops.at(loop_level);
+    if (!loop::IsSpatial(loop.spacetime_dimension))
+    {
+      // temporal.
+      temporal_bounds[loop.dimension] = loop.end;
+    }
+    else if (!loop::IsSpatialX(loop.spacetime_dimension))
+    {
+      // spatial Y.
+      has_spatial = true;
+      split--;
+      spatial_bounds[loop.dimension] = loop.end;
+    }
+    else
+    {
+      // spatial X.
+      has_spatial = true;
+      spatial_bounds[loop.dimension] = loop.end;
+    }
+  }
+
+  // Dump final state.
+  dump_state();
+}
+
 }  // namespace loop

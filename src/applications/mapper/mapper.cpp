@@ -290,6 +290,7 @@ void Application::Run()
   std::string map_yaml_file_name = out_prefix_ + ".map.yaml";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
   std::string map_cpp_file_name = out_prefix_ + ".map.cpp";
+  std::string map_inertial_file_name = out_prefix_ + ".map.inertial.txt";
     
   // Prepare live status/log stream.
   std::ofstream log_file;
@@ -535,6 +536,10 @@ void Application::Run()
     ar << boost::serialization::make_nvp("mapping", global_best_.mapping);
     const Application* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
+
+    // Print the mapping in Inertial input format.
+    std::ofstream inertial_out(map_inertial_file_name);
+    global_best_.mapping.PrintInertial(inertial_out);
   }
   else
   {

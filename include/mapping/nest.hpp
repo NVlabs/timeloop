@@ -103,6 +103,9 @@ class Nest
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances);
 
   std::string PrintCompact(const tiling::NestOfCompoundMasks& mask_nest);
+
+  void PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& mask_nest);
+
 };
 
 } // namespace loop

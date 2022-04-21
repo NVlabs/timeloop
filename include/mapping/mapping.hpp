@@ -84,6 +84,8 @@ struct Mapping
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances);
 
   std::string PrintCompact();
+
+  void PrintInertial(std::ostream& out);
 };
 
 std::ostream& operator << (std::ostream& out, const Mapping& mapping);
