@@ -540,6 +540,8 @@ void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& m
 
   std::map<problem::Shape::FlattenedDimensionID, int> temporal_bounds;
   std::map<problem::Shape::FlattenedDimensionID, int> spatial_bounds;
+  std::string temporal_permutation;
+  std::string spatial_permutation;
   bool has_spatial;
   int split;
 
@@ -554,6 +556,9 @@ void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& m
       }
       out << std::endl;
 
+      std::reverse(temporal_permutation.begin(), temporal_permutation.end());
+      out << temporal_permutation << std::endl;
+
       if (has_spatial)
       {
         out << "s" << inv_storage_level+1 << std::endl;
@@ -563,6 +568,10 @@ void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& m
               << spatial_bounds.at(dim) << " ";
         }
         out << std::endl;
+
+        std::reverse(spatial_permutation.begin(), spatial_permutation.end());
+        out << spatial_permutation << std::endl;
+
         out << split << std::endl;
       }
     };
@@ -575,6 +584,8 @@ void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& m
       temporal_bounds[dim] = 1;
       spatial_bounds[dim] = 1;
     }
+    temporal_permutation.clear();
+    spatial_permutation.clear();
     has_spatial = false;
     split = problem::GetShape()->NumFlattenedDimensions;
   };
@@ -615,6 +626,7 @@ void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& m
     {
       // temporal.
       temporal_bounds[loop.dimension] = loop.end;
+      temporal_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
     }
     else if (!loop::IsSpatialX(loop.spacetime_dimension))
     {
@@ -622,12 +634,14 @@ void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& m
       has_spatial = true;
       split--;
       spatial_bounds[loop.dimension] = loop.end;
+      spatial_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
     }
     else
     {
       // spatial X.
       has_spatial = true;
       spatial_bounds[loop.dimension] = loop.end;
+      spatial_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
     }
   }
 
