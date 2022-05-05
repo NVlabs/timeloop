@@ -48,9 +48,9 @@ class ArithmeticUnits : public Level
     const std::string Type() const override { return "ArithmeticUnits"; }
 
     Attribute<std::string> name;
-    Attribute<std::size_t> instances;
-    Attribute<std::size_t> meshX;
-    Attribute<std::size_t> meshY;
+    Attribute<std::uint64_t> instances;
+    Attribute<std::uint64_t> meshX;
+    Attribute<std::uint64_t> meshY;
     Attribute<std::uint64_t> word_bits;
     Attribute<double> energy_per_op;
     Attribute<double> area;
@@ -153,7 +153,7 @@ class ArithmeticUnits : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements, bool is_sparse_module);
+  static Specs ParseSpecs(config::CompoundConfigNode setting, std::uint64_t nElements, bool is_sparse_module);
   static void ValidateTopology(ArithmeticUnits::Specs& specs);
 
   Specs& GetSpecs() { return specs_; }
