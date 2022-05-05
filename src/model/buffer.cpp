@@ -97,7 +97,7 @@ void BufferLevel::Specs::UpdateAreaViaART(double component_area)
 // The hierarchical ParseSpecs functions are static and do not
 // affect the internal specs_ data structure, which is set by
 // the dynamic Spec() call later.
-BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uint32_t n_elements, bool is_sparse_module)
+BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std::uint64_t n_elements, bool is_sparse_module)
 {
   auto& buffer = level;
 
@@ -430,26 +430,26 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, uin
   }
 
   // Instances.
-  std::uint32_t instances;
+  unsigned long long instances;
   if (buffer.lookupValue("instances", instances))
   {
-    specs.instances = instances;
+    specs.instances = (std::uint64_t) instances;
   } else {
     specs.instances = n_elements;
   }
 
   // MeshX.
-  std::uint32_t meshX;
+  unsigned long long  meshX;
   if (buffer.lookupValue("meshX", meshX))
   {
-    specs.meshX = meshX;
+    specs.meshX = (std::uint64_t) meshX;
   }
 
   // MeshY.
-  std::uint32_t meshY;
+  unsigned long long  meshY;
   if (buffer.lookupValue("meshY", meshY))
   {
-    specs.meshY = meshY;
+    specs.meshY = (std::uint64_t) meshY;
   }
 
   // Network names;

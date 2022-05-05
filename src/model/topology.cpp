@@ -893,7 +893,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
   std::vector<std::shared_ptr<LegacyNetwork::Specs>> inferred_networks;
   std::vector<std::shared_ptr<NetworkSpecs>> networks;
 
-  uint32_t multiplication = 1;
+  std::uint64_t multiplication = 1;
 
   // Walk the tree to find each buffer and arithmetic units
   // and add them to the specs.
@@ -907,7 +907,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
     std::string curNodeName;
     curNode.lookupValue("name", curNodeName);
 
-    uint32_t subTreeSize = config::parseElementSize(curNodeName);
+    std::uint64_t subTreeSize = config::parseElementSize(curNodeName);
     multiplication *= subTreeSize;
 
     if (curNode.exists("local"))
@@ -924,8 +924,8 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
         std::string cName, cClass;
         curLocal[c].lookupValue("name", cName);
         curLocal[c].lookupValue("class", cClass);
-        uint32_t localElementSize = config::parseElementSize(cName);
-        uint32_t nElements = multiplication * localElementSize;
+        std::uint64_t localElementSize = config::parseElementSize(cName);
+        std::uint64_t nElements = multiplication * localElementSize;
 
         if (isBufferClass(cClass))
         {
