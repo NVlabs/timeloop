@@ -421,8 +421,8 @@ class BufferLevel : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the constructor when an object is actually created.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t n_elements, bool is_sparse_module);
-  static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n_elements,
+  static Specs ParseSpecs(config::CompoundConfigNode setting, std::uint64_t n_elements, bool is_sparse_module);
+  static void ParseBufferSpecs(config::CompoundConfigNode buffer, std::uint64_t n_elements,
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
 

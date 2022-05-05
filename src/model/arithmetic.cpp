@@ -76,7 +76,7 @@ void ArithmeticUnits::Specs::UpdateAreaViaART(const double component_area)
   area = component_area;   
 }
 
-ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements, bool is_sparse_module)
+ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, std::uint64_t nElements, bool is_sparse_module)
 {
   Specs specs;
 
@@ -94,7 +94,7 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   specs.is_sparse_module = is_sparse_module;
   
   // Instances.
-  std::uint32_t instances;
+  unsigned long long instances;
   if (!setting.lookupValue("instances", instances))
   {
     if (nElements == 0)
@@ -102,11 +102,11 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
       std::cerr << "instances is a required arithmetic parameter" << std::endl;
       assert(false);
     }
-    instances = nElements;
+    instances = (unsigned long long) nElements;
     //std::cout << "ArithUnit: " << specs.name << " size: " << instances << std::endl;
   }
 
-  specs.instances = instances;
+  specs.instances = (std::uint64_t) instances;
 
   // Word size (in bits).
   std::uint32_t word_bits;
@@ -121,17 +121,17 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   }
 
   // MeshX.
-  std::uint32_t mesh_x;
+  unsigned long long mesh_x;
   if (setting.lookupValue("meshX", mesh_x))
   {
-    specs.meshX = mesh_x;
+    specs.meshX = (std::uint64_t) mesh_x;
   }
 
   // MeshY.
-  std::uint32_t mesh_y;
+  unsigned long long mesh_y;
   if (setting.lookupValue("meshY", mesh_y))
   {
-    specs.meshY = mesh_y;
+    specs.meshY = (std::uint64_t) mesh_y;
   }
 
   // Network names;
