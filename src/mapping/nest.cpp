@@ -605,8 +605,7 @@ void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& m
       {
         if (!mask.at(pvi))
         {
-          std::cerr << "ERROR: Inertial does not support bypass" << std::endl;
-          std::exit(1);
+          out << "#error Inertial does not support bypass." << std::endl;
         }
       }
 
