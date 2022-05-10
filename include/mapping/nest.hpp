@@ -78,6 +78,7 @@ class Nest
   std::unordered_map<unsigned, SkewDescriptor> skew_descriptors;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse;
 
  public:
   Nest();

@@ -127,6 +127,7 @@ class NestAnalysis
 
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer_;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse_;
 
   // Other state.
 
