@@ -387,17 +387,18 @@ OperationSpace OperationSpace::operator - (const OperationSpace& p)
   return retval;
 }
 
-void OperationSpace::SaveAndSubtract(OperationSpace& prev)
+void OperationSpace::SaveAndSubtract(OperationSpace& prev, problem::PerDataSpace<bool> no_temporal_reuse)
 {
   for (unsigned i = 0; i < data_spaces_.size(); i++)
   {
+    if(no_temporal_reuse.at(i)) continue;
     auto saved = data_spaces_.at(i);
     data_spaces_.at(i).Subtract(prev.data_spaces_.at(i));
     std::swap(saved, prev.data_spaces_.at(i));
   }
 }
 
-void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<Point>& prev_translation)
+void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<Point>& prev_translation, problem::PerDataSpace<bool> no_temporal_reuse)
 {
   // The logic to detect a change in stride/gradient is sub-optimal. We are
   // comparing the raw stride vectors, but we should only check for the
@@ -409,6 +410,7 @@ void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::
 
   for (unsigned i = 0; i < data_spaces_.size(); i++)
   {
+    if(no_temporal_reuse.at(i)) continue;
     Point translation;
     if (!prev.data_spaces_.at(i).empty()) 
     {
