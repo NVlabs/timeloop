@@ -179,7 +179,7 @@ double SimpleMulticastNetwork::GetOpEnergyFromERT(std::uint64_t multicast_factor
     // use transfer as the keyword for multicast NoC action specification
     if (specs_.accelergyERT.exists(operation_name)){
         auto actionERT = specs_.accelergyERT.lookup(operation_name);
-        if (actionERT.isList()){
+        if (actionERT.isList() && actionERT.getLength() > 1){
             assert(specs_.multicast_factor_argument != "none"); // must have multicast factor argument name specified
             for(int i = 0; i < actionERT.getLength(); i ++){
                 config::CompoundConfigNode arguments = actionERT[i].lookup("arguments");
@@ -191,6 +191,8 @@ double SimpleMulticastNetwork::GetOpEnergyFromERT(std::uint64_t multicast_factor
                   actionERT[i].lookupValue("energy", opEnergy);
                 }
              }
+        } else if (actionERT.isList() && actionERT.getLength() == 1){
+            actionERT[0].lookupValue("energy", opEnergy);
         } else {
             // if there is no argument, use the available energy
             actionERT.lookupValue("energy", opEnergy);
