@@ -968,7 +968,17 @@ Constraints::ParseMaxFactors(config::CompoundConfigNode constraint)
       str = sm.suffix().str();
     }
   }
-
+  if (constraint.lookupValue("default_max_factor", buffer))
+  {
+      int max = std::stoi(buffer);
+      for(auto& it : problem::GetShape()->FlattenedDimensionNameToID)
+      {
+        if(retval.find(it.second) == retval.end())
+        {
+          retval[it.second] = max;
+        }
+      }
+  }
   return retval;
 }
 
