@@ -1368,25 +1368,28 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
       // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
       problem::PerDataSpace<Point> translation_vectors;
-
-      if(!gDisableFirstElementOnlySpatialExtrapolation) 
+      if (indices_[level] < end)
       {
-        translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
-      }
-      else
-      {
-        auto last_skewed_index = skew_table.at(base_index + indices_[level] - extrapolation_stride);
-        auto secondlast_skewed_index = skew_table.at(base_index + indices_[level] - 2*extrapolation_stride);
-
-        auto& opspace_lastrun = spatial_deltas.at(last_skewed_index);
-        auto& opspace_secondlastrun = spatial_deltas.at(secondlast_skewed_index);
-
-        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+        if(!gDisableFirstElementOnlySpatialExtrapolation) 
         {
-          translation_vectors[pv] =
-            opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv));
+          translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
+        }
+        else
+        {
+          auto last_skewed_index = skew_table.at(base_index + indices_[level] - extrapolation_stride);
+          auto secondlast_skewed_index = skew_table.at(base_index + indices_[level] - 2*extrapolation_stride);
+
+          auto& opspace_lastrun = spatial_deltas.at(last_skewed_index);
+          auto& opspace_secondlastrun = spatial_deltas.at(secondlast_skewed_index);
+
+          for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+          {
+            translation_vectors[pv] =
+              opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv));
+          }
         }
       }
+
       // Iterations #num_iterations_to_run through #last.
       for (;
            indices_[level] < end;
