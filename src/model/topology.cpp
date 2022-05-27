@@ -1374,6 +1374,12 @@ void Topology::ComputeStats(bool eval_success)
     // Last-level accesses.
     stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses();
     
+    stats_.accesses.clear();
+    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+    {
+        stats_.accesses.push_back(GetStorageLevel(storage_level_id)->Accesses());
+    }
+
   } // eval_success
 
   //

@@ -64,6 +64,8 @@ class Application
   std::uint32_t timeout_;
   std::uint32_t victory_condition_;
   uint128_t sync_interval_;
+  uint128_t log_interval_;
+
   bool log_stats_;
   bool log_suboptimal_;
   bool live_status_;
