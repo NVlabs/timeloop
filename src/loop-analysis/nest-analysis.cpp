@@ -365,7 +365,7 @@ void NestAnalysis::CollectWorkingSets()
     if (valid_level)
     {
       // Contains the collected state for this level.
-      analysis::ElementState condensed_state;
+      analysis::ElementState condensed_state(*workload_);
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         // Sanity check: All elements in a given level should
@@ -591,7 +591,9 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // PrintStamp(AllButLast(space_stamp_));
   // std::cout << std::endl;
 
-  auto& cur_state = cur->live_state[AllButLast(space_stamp_)];
+  auto cur_state_it = cur->live_state.emplace(AllButLast(space_stamp_),
+                                              ElementState(*workload_)).first;
+  auto& cur_state = cur_state_it->second;
 
   // std::cout << "CD level " << cur->level << " potentially created live state entry. Full state:\n";
   // for (auto& state: cur->live_state)
@@ -1031,7 +1033,10 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   // PrintStamp(AllButLast(space_stamp_));
   // std::cout << std::endl;
 
-  auto& cur_state = nest_state_[cur->level].live_state[AllButLast(space_stamp_)];
+  auto cur_state_it =
+      nest_state_[cur->level].live_state.emplace(AllButLast(space_stamp_),
+                                                 ElementState(*workload_)).first;
+  auto& cur_state = cur_state_it->second;
   //auto& cur_state = nest_state_[cur->level].live_state[spatial_id_];
 
   // std::cout << "CSWS level " << level << " potentially created live state entry. Full state:\n";
@@ -1236,8 +1241,10 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       // skew function.
       ASSERT(spatial_deltas.find(skewed_delta_index) == spatial_deltas.end());
 
-      spatial_deltas[skewed_delta_index] = problem::OperationSpace(workload_);
-      spatial_deltas[skewed_delta_index] += IndexToOperationPoint_(indices_);
+      spatial_deltas.emplace(skewed_delta_index,
+                             problem::OperationSpace(workload_));
+      spatial_deltas.emplace(skewed_delta_index, problem::OperationSpace(workload_));
+      spatial_deltas.at(skewed_delta_index) += IndexToOperationPoint_(indices_);
 
       space_stamp_.back() = skewed_delta_index;
       compute_info_[space_stamp_].accesses += num_epochs_;
@@ -1341,7 +1348,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
           //           << " unskewed = " << spatial_delta_index << " skewed = "
           //           << skewed_delta_index << std::endl;
 
-          spatial_deltas[skewed_delta_index] = ComputeDeltas(cur);
+          spatial_deltas.emplace(skewed_delta_index, ComputeDeltas(cur));
 
           --cur;
           cur_transform_[dim] += scale;
@@ -1408,8 +1415,11 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
         spatial_id_ = orig_spatial_id + base_index + indices_[level]; // note: unskewed.
 
-        auto& dst_temporal_delta = spatial_deltas[dst_delta_index];
-        auto& src_temporal_delta = spatial_deltas[src_delta_index];
+        auto dst_temporal_delta_it =
+            spatial_deltas.emplace(dst_delta_index,
+                                   problem::OperationSpace(workload_)).first;
+        auto& dst_temporal_delta = dst_temporal_delta_it->second;
+        auto& src_temporal_delta = spatial_deltas.at(src_delta_index);
         for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
         {
           dst_temporal_delta.GetDataSpace(pv) = src_temporal_delta.GetDataSpace(pv);

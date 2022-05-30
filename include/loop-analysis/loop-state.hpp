@@ -69,7 +69,7 @@ struct ElementState
   // Data density in each spatial element
   // problem::PerDataSpace<problem::DataDensity> data_densities;
 
-  ElementState();
+  ElementState(problem::Workload& workload);
 
   void Reset();
 };
