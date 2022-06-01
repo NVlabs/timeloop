@@ -1371,19 +1371,9 @@ void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& 
 
            double total_naive_accesses;
            if (!metadata_action) {
-<<<<<<< HEAD
-              total_naive_accesses = (int(ceil(iter->second)) % block_size == 0) ? iter->second / block_size : iter->second / block_size + 1;
-           } else {
-              total_naive_accesses = (int(ceil(iter->second)) % metadata_block_size == 0) ? iter->second / metadata_block_size : iter->second / metadata_block_size + 1;
-           }
-
-           stats_.fine_grained_vector_accesses[pvi][iter->first] = total_naive_accesses * ratio;
-
-=======
             total_naive_accesses = (iter->second % block_size == 0) ? iter->second / block_size : iter->second / block_size + 1;
             stats_.fine_grained_vector_accesses[pvi][iter->first] = total_naive_accesses * ratio;
            } 
->>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
        } else {
           // decompression counts are not related to block size
           stats_.fine_grained_vector_accesses[pvi][iter->first] = iter->second;
@@ -1553,17 +1543,9 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-<<<<<<< HEAD
-
-    double total_read_accesses;
-    double total_write_accesses;
-
-    total_read_accesses = stats_.fine_grained_scalar_accesses.at(pv).at("random_read")
-=======
     
     // Collect and aggregate fine-grained accesses
     std::uint64_t total_data_read_accesses = stats_.fine_grained_scalar_accesses.at(pv).at("random_read")
->>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
       + stats_.fine_grained_scalar_accesses.at(pv).at("gated_read");
     std::uint64_t total_data_write_accesses = stats_.fine_grained_scalar_accesses.at(pv).at("random_fill")
       + stats_.fine_grained_scalar_accesses.at(pv).at("gated_fill")

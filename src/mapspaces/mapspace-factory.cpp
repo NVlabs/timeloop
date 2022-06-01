@@ -45,19 +45,15 @@ MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
 {
   MapSpace* mapspace = nullptr;
   
-  std::string mapspace_template = "ruby";
+  std::string mapspace_template = "uber";
   config.lookupValue("template", mapspace_template);
     
   if (mapspace_template == "uber")
   {
-<<<<<<< HEAD
-    mapspace = new Uber(config, arch_constraints, arch_specs, workload);
+    mapspace = new Uber(config, arch_constraints, arch_specs, workload, filter_spatial_fanout);
   }else if (mapspace_template == "ruby")
   {
     mapspace = new Ruby(config, arch_constraints, arch_specs, workload);
-=======
-    mapspace = new Uber(config, arch_constraints, arch_specs, workload, filter_spatial_fanout);
->>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
   }
   else
   {

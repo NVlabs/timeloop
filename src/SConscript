@@ -229,7 +229,6 @@ applications/model/model.cpp
 applications/model/main.cpp
 """)
 
-<<<<<<< HEAD
 mapspace_sources = Split("""
 mapspaces/mapspace-base.cpp
 mapspaces/mapspace-factory.cpp
@@ -247,8 +246,6 @@ search/random-pruned.cpp
 search/random.cpp
 """)
 
-=======
->>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
 mapper_sources = mapspace_sources + search_sources + Split("""
 applications/mapper/mapper.cpp
 applications/mapper/mapper-thread.cpp

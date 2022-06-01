@@ -482,7 +482,7 @@ void NestAnalysis::CollectWorkingSets()
 
   // Extract body data from innermost spatial level.
   bool innermost_level_compute_info_collected = false; 
-
+  
   for (auto& cur : nest_state_)
   {
     // All spatial levels that are not a master-spatial level are not valid
@@ -499,7 +499,7 @@ void NestAnalysis::CollectWorkingSets()
         {
           avg_accesses += info.second.accesses;
         }
-        avg_accesses /= ceil(compute_info_.size());
+        avg_accesses /= compute_info_.size();
 
         compute_info.accesses = avg_accesses;
         compute_info_sets_.push_back(compute_info);
@@ -1367,28 +1367,6 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       //
 
       // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
-<<<<<<< HEAD
-      std::vector<Point> translation_vectors;
-
-      if (!IsLastGlobalIteration_(level+1, cur->descriptor.dimension))
-      { 
-        ASSERT((int(base_index) + indices_[level]) >= (2*extrapolation_stride));
-
-        // We need to find the operation spaces at the current-extrapolation_stride and
-        // current-2*extrapolation_stride indices. However, these are *unskewed* indices.
-        // Unfortunately we cannot simply use ApplySkew() because that function applies
-        // the skew to the current loop state (held in the loop gists) and cannot perform
-        // an unskewed->skewed translation. We can de-construct the loop gist from an
-        // unskewed index, but it is easier to just maintain a skew translation table
-        // as we walk through the loop. The specific entries at the table we need here
-        // are guaranteed to be populated.
-
-        auto last_skewed_index = skew_table.at(base_index + indices_[level] - extrapolation_stride);
-        auto secondlast_skewed_index = skew_table.at(base_index + indices_[level] - 2*extrapolation_stride);
-
-        auto& opspace_lastrun = spatial_deltas.at(last_skewed_index);
-        auto& opspace_secondlastrun = spatial_deltas.at(secondlast_skewed_index);
-=======
       problem::PerDataSpace<Point> translation_vectors;
       if (indices_[level] < end)
       {
@@ -1411,47 +1389,34 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
           }
         }
       }
->>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
 
-        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-        {
-          translation_vectors.push_back(
-            opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv)));
-        }
+      // Iterations #num_iterations_to_run through #last.
+      for (;
+           indices_[level] < end;
+           indices_[level] += cur->descriptor.stride, iterations_run++)
+      {
+        loop_gists_spatial_.at(dim).index = indices_[level];
 
-<<<<<<< HEAD
-        // Iterations #num_iterations_to_run through #last.
-        for (;
-            indices_[level] < end;
-            indices_[level] += cur->descriptor.stride, iterations_run++)
-        {
-          loop_gists_spatial_.at(dim).index = indices_[level];
-=======
         std::uint64_t dst_delta_index = ApplySkew(base_index + indices_[level]);
         std::uint64_t src_delta_index = skew_table.at(base_index + indices_[level] - extrapolation_stride);
         skew_table[base_index + indices_[level]] = dst_delta_index;
->>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
 
-          std::uint64_t dst_delta_index = ApplySkew(base_index + indices_[level]);
-          std::uint64_t src_delta_index = skew_table.at(dst_delta_index - extrapolation_stride);
-          skew_table[base_index + indices_[level]] = dst_delta_index;
+        // If the following assertions fail, it means there's a collision in the
+        // skew function.
+        ASSERT(spatial_deltas.find(dst_delta_index) == spatial_deltas.end());
+        ASSERT(spatial_deltas.find(src_delta_index) != spatial_deltas.end());
 
-          // If the following assertions fail, it means there's a collision in the
-          // skew function.
-          ASSERT(spatial_deltas.find(dst_delta_index) == spatial_deltas.end());
-          ASSERT(spatial_deltas.find(src_delta_index) != spatial_deltas.end());
+        spatial_id_ = orig_spatial_id + base_index + indices_[level]; // note: unskewed.
 
-          spatial_id_ = orig_spatial_id + base_index + indices_[level]; // note: unskewed.
+        auto& dst_temporal_delta = spatial_deltas[dst_delta_index];
+        auto& src_temporal_delta = spatial_deltas[src_delta_index];
+        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+        {
+          dst_temporal_delta.GetDataSpace(pv) = src_temporal_delta.GetDataSpace(pv);
+          dst_temporal_delta.GetDataSpace(pv).Translate(translation_vectors.at(pv));
+        }
+      } // extrapolated iterations
 
-          auto& dst_temporal_delta = spatial_deltas[dst_delta_index];
-          auto& src_temporal_delta = spatial_deltas[src_delta_index];
-          for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
-          {
-            dst_temporal_delta.GetDataSpace(pv) = src_temporal_delta.GetDataSpace(pv);
-            dst_temporal_delta.GetDataSpace(pv).Translate(translation_vectors.at(pv));
-          }
-        } // extrapolated iterations
-      } // not last iteration
     } // next inner loop is temporal
 
     // Restore state.

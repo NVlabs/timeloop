@@ -203,20 +203,12 @@ class BufferLevel : public Level
     problem::PerDataSpace<std::uint64_t> utilized_x_expansion;
     problem::PerDataSpace<std::uint64_t> utilized_y_expansion;
     problem::PerDataSpace<std::uint64_t> utilized_clusters;
-<<<<<<< HEAD
-    problem::PerDataSpace<double> reads;
-    problem::PerDataSpace<double> updates;
-    problem::PerDataSpace<double> fills;
-    problem::PerDataSpace<double> address_generations;
-    problem::PerDataSpace<double> temporal_reductions;
-=======
     problem::PerDataSpace<std::uint64_t> reads;
     problem::PerDataSpace<std::uint64_t> updates;
     problem::PerDataSpace<std::uint64_t> fills;
     problem::PerDataSpace<std::uint64_t> address_generations;
     problem::PerDataSpace<std::uint64_t> temporal_reductions;
     problem::PerDataSpace<double> shared_bandwidth;
->>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
     problem::PerDataSpace<double> read_bandwidth;
     problem::PerDataSpace<double> write_bandwidth;
     problem::PerDataSpace<double> energy_per_algorithmic_access;
@@ -245,37 +237,6 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> format_write_bandwidth_ratio;
     
     // fine-grained action stats
-<<<<<<< HEAD
-    problem::PerDataSpace<std::map<std::string, double>> fine_grained_scalar_accesses;
-    problem::PerDataSpace<std::map<std::string, double>> fine_grained_vector_accesses;
-    problem::PerDataSpace<double> gated_reads;
-    problem::PerDataSpace<double> skipped_reads;
-    problem::PerDataSpace<double> random_reads;
-
-    problem::PerDataSpace<double> gated_fills;
-    problem::PerDataSpace<double> skipped_fills;
-    problem::PerDataSpace<double> random_fills;
-
-    problem::PerDataSpace<double> gated_updates;
-    problem::PerDataSpace<double> skipped_updates;
-    problem::PerDataSpace<double> random_updates;
-
-    problem::PerDataSpace<double> metadata_reads;
-    problem::PerDataSpace<double> random_metadata_reads;
-    problem::PerDataSpace<double> gated_metadata_reads;
-    problem::PerDataSpace<double> skipped_metadata_reads;
-    problem::PerDataSpace<double> metadata_fills;
-    problem::PerDataSpace<double> random_metadata_fills;
-    problem::PerDataSpace<double> gated_metadata_fills;
-    problem::PerDataSpace<double> skipped_metadata_fills;
-    problem::PerDataSpace<double> metadata_updates;
-    problem::PerDataSpace<double> random_metadata_updates;
-    problem::PerDataSpace<double> gated_metadata_updates;
-    problem::PerDataSpace<double> skipped_metadata_updates;
-
-    problem::PerDataSpace<double> decompression_counts;
-    problem::PerDataSpace<double> compression_counts;
-=======
     problem::PerDataSpace<std::map<std::string, std::uint64_t>> fine_grained_scalar_accesses;
     problem::PerDataSpace<std::map<std::string, tiling::PerTileFormatAccesses>> fine_grained_format_scalar_accesses;
     problem::PerDataSpace<std::map<std::string, double>> fine_grained_vector_accesses;
@@ -321,7 +282,6 @@ class BufferLevel : public Level
 
     problem::PerDataSpace<std::uint64_t> decompression_counts;
     problem::PerDataSpace<std::uint64_t> compression_counts;
->>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
 
     std::uint64_t cycles;
     double slowdown;

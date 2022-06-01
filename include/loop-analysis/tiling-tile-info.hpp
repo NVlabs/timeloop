@@ -88,12 +88,10 @@ struct DataMovementInfo
   bool distributed_multicast;
   AccessStatMatrix access_stats;
   double content_accesses;
-  double fills;
-  double reads;
-  double updates;
-  double metadata_updates;
-  double metadata_fills;
-  double metadata_reads;
+  std::uint64_t fills;
+  std::uint64_t reads;
+  std::uint64_t updates;
+  
   double temporal_reductions;
   double link_transfers;
   double peer_accesses;           // number of accesses caused by link transfers in the previous level 
@@ -104,9 +102,13 @@ struct DataMovementInfo
   PerTileFormatAccesses format_updates;
   
   std::vector<loop::Descriptor> subnest;
-  double replication_factor;      // number of spatial elements at this level.
-  double fanout;                  // per-element fanout to next-level.
-  double distributed_fanout;      // max range of fanout if distributed multicast is used.
+  std::uint64_t replication_factor;      // number of spatial elements at this level.
+  double        avg_replication_factor;
+  std::uint64_t max_replication_factor;
+  std::uint64_t max_x_expansion;
+  std::uint64_t max_y_expansion;
+  std::uint64_t fanout;                  // per-element fanout to next-level.
+  std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
   bool is_master_spatial;
   //double partition_fraction;
@@ -264,7 +266,7 @@ struct DataMovementInfo
 
 struct ComputeInfo
 {
-  double replication_factor;      // number of spatial elements at this level.
+  std::uint64_t replication_factor;      // number of spatial elements at this level.
   double accesses;
   double avg_replication_factor;
   std::uint64_t max_replication_factor;
@@ -273,7 +275,7 @@ struct ComputeInfo
   std::uint64_t compute_cycles;
 
   // fine grained actions, names defined in operation-type.hpp
-  std::map<std::string, double> fine_grained_accesses; 
+  std::map<std::string, std::uint64_t> fine_grained_accesses; 
   
   ComputeInfo() { Reset(); }
 
