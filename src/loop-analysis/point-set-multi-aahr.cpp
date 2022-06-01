@@ -113,6 +113,12 @@ bool MultiAAHR::empty() const
   return true;
 }
 
+std::uint32_t MultiAAHR::numAAHRs() const
+{
+  return aahrs_.size();
+}
+
+
 void MultiAAHR::Reset()
 {
   aahrs_.clear();
@@ -301,6 +307,12 @@ void MultiAAHR::Translate(const Point& p)
   {
     x.Translate(p);
   }
+}
+
+std::vector<AxisAlignedHyperRectangle> MultiAAHR::GetAAHRs() const
+{
+  assert(aahrs_.size() != 0);
+  return aahrs_;
 }
 
 std::ostream& operator << (std::ostream& out, const MultiAAHR& m)

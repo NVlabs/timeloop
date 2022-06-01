@@ -45,7 +45,7 @@ class NetworkFactory
  public:
 
   // Parse network type and instantiate a Spec object of that network type.
-  static std::shared_ptr<NetworkSpecs> ParseSpecs(config::CompoundConfigNode network, uint32_t n_elements);
+  static std::shared_ptr<NetworkSpecs> ParseSpecs(config::CompoundConfigNode network, uint32_t n_elements, bool is_sparse_module);
 
   // Instantiate a network object based on a given spec.
   static std::shared_ptr<Network> Construct(std::shared_ptr<NetworkSpecs> specs);

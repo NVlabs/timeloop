@@ -66,6 +66,9 @@ class Uber : public MapSpace
   // Constraints.
   mapping::Constraints constraints_;
 
+  // Filter Fanout
+  bool filter_spatial_fanout_;
+ 
  public:
 
   //
@@ -78,6 +81,7 @@ class Uber : public MapSpace
     config::CompoundConfigNode arch_constraints,
     model::Engine::Specs arch_specs,
     const problem::Workload& workload,
+    bool filter_spatial_fanout = true,
     bool skip_init = false);
   Uber(const Uber& other) = default;
   ~Uber();

@@ -152,10 +152,9 @@ class Workload
     densities_ = densities;
   }
 
-  void SetWorkloadTensorSize(problem::Shape::DataSpaceID id, std::uint64_t tensor_size)
+  void SetWorkloadTensorSize(problem::Shape::DataSpaceID id, problem::DataSpace& point_set)
   {
-    // hypergeometric distribution specification requires workload tensor sizes
-    densities_.at(id)->SetWorkloadTensorSize(tensor_size);
+    densities_.at(id)->SetWorkloadTensorSize(point_set);
   }
 
   bool IsWorkloadTensorSizesSet()

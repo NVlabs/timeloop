@@ -48,15 +48,17 @@ class ArithmeticUnits : public Level
     const std::string Type() const override { return "ArithmeticUnits"; }
 
     Attribute<std::string> name;
-    Attribute<std::size_t> instances;
-    Attribute<std::size_t> meshX;
-    Attribute<std::size_t> meshY;
+    Attribute<std::uint64_t> instances;
+    Attribute<std::uint64_t> meshX;
+    Attribute<std::uint64_t> meshY;
     Attribute<std::uint64_t> word_bits;
     Attribute<double> energy_per_op;
     Attribute<double> area;
 
     Attribute<std::string> operand_network_name;
     Attribute<std::string> result_network_name;
+
+    Attribute<bool> is_sparse_module;
 
     // for ERT parsing
     std::map<std::string, double> ERT_entries;
@@ -80,8 +82,9 @@ class ArithmeticUnits : public Level
 
    public:
 
-    void UpdateOpEnergyViaERT();
-
+    void UpdateOpEnergyViaERT(const std::map<std::string, double>& ERT_entries, const double max_energy) override;
+    void UpdateAreaViaART(const double component_area) override;
+    
     std::shared_ptr<LevelSpecs> Clone() const override
     {
       return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
@@ -102,7 +105,10 @@ class ArithmeticUnits : public Level
   double energy_ = 0;
   double area_ = 0;
   std::uint64_t cycles_ = 0;
-  std::size_t utilized_instances_ = 0;
+  std::uint64_t utilized_instances_ = 0;
+  std::uint64_t avg_utilized_instances_ = 0;
+  std::uint64_t utilized_x_expansion_ = 0;
+  std::uint64_t utilized_y_expansion_ = 0;
   std::uint64_t algorithmic_computes_ = 0; // number of computes defined by the algorithm (loop nests)
   std::uint64_t actual_computes_ = 0; // computes that actually happened, right now, consists of random computes only
   // Fine-grained actions
@@ -126,6 +132,7 @@ class ArithmeticUnits : public Level
       ar& BOOST_SERIALIZATION_NVP(area_);
       ar& BOOST_SERIALIZATION_NVP(cycles_);
       ar& BOOST_SERIALIZATION_NVP(utilized_instances_);
+      ar& BOOST_SERIALIZATION_NVP(avg_utilized_instances_);
       ar& BOOST_SERIALIZATION_NVP(algorithmic_computes_);
       ar& BOOST_SERIALIZATION_NVP(random_computes_);
       ar& BOOST_SERIALIZATION_NVP(gated_computes_);
@@ -146,7 +153,7 @@ class ArithmeticUnits : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements);
+  static Specs ParseSpecs(config::CompoundConfigNode setting, std::uint64_t nElements, bool is_sparse_module);
   static void ValidateTopology(ArithmeticUnits::Specs& specs);
 
   Specs& GetSpecs() { return specs_; }
@@ -228,11 +235,40 @@ class ArithmeticUnits : public Level
     EvalStatus eval_status;
     eval_status.success = true;
 
-    utilized_instances_ = tile.compute_info.replication_factor;
+    utilized_instances_ = tile.compute_info.max_x_expansion * tile.compute_info.max_y_expansion;
+    avg_utilized_instances_ = tile.compute_info.avg_replication_factor;
+    utilized_x_expansion_ = tile.compute_info.max_x_expansion;
+    utilized_y_expansion_ = tile.compute_info.max_y_expansion;
+    
+    // std::cout << specs_.level_name <<": max x expansion: " << utilized_x_expansion_
+    //  << "    max y expansion: " << utilized_y_expansion_ << std::endl;
 
-    if (utilized_instances_ <= specs_.instances.Get())
+    if (utilized_instances_ > specs_.instances.Get())
     {
-
+      eval_status.success = false;
+      std::ostringstream str;
+      str << "mapped max Arithmetic instances " << utilized_instances_
+          << " exceeds hardware instances " << specs_.instances.Get();
+      eval_status.fail_reason = str.str();   
+    }
+    else if (utilized_x_expansion_ > specs_.meshX.Get())
+    {
+      eval_status.success = false;
+      std::ostringstream str;
+      str << "mapped max Arithmetic X expansion " << utilized_x_expansion_ 
+          << " exceeds hardware instances " << specs_.meshX.Get();
+      eval_status.fail_reason = str.str();   
+    }
+    else if (utilized_y_expansion_ > specs_.meshY.Get())
+    {
+      eval_status.success = false;
+      std::ostringstream str;
+      str << "mapped max Arithmetic Y expansion " << utilized_y_expansion_ 
+          << " exceeds hardware instances " << specs_.meshY.Get();
+      eval_status.fail_reason = str.str();   
+    }
+    else // legal case
+    {
       energy_ = 0;
       std::uint64_t op_accesses;
       std::string op_name;
@@ -258,17 +294,9 @@ class ArithmeticUnits : public Level
         actual_computes_ = random_computes_;
       }
 
-      cycles_ = ceil(double(random_computes_ + gated_computes_)/utilized_instances_);
+      cycles_ = ceil(double(random_computes_ + gated_computes_)/avg_utilized_instances_);
       algorithmic_computes_ = tile.compute_info.replication_factor * tile.compute_info.accesses;
       is_evaluated_ = true;
-    }
-    else
-    {
-      eval_status.success = false;
-      std::ostringstream str;
-      str << "mapped Arithmetic instances " << utilized_instances_
-          << " exceeds hardware instances " << specs_.instances.Get();
-      eval_status.fail_reason = str.str();
     }
     
     return eval_status;

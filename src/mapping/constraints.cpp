@@ -51,6 +51,9 @@ Constraints::Constraints(const ArchProperties& arch_props,
   min_parallelism_ = 0.0;
   min_parallelism_isset_ = false;
   skews_.clear();
+  no_multicast_.clear();
+  no_link_transfer_.clear();
+  no_temporal_reuse_.clear();
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
@@ -119,6 +122,24 @@ const std::unordered_map<unsigned, loop::Nest::SkewDescriptor>
 Constraints::Skews() const
 {
   return skews_;
+}
+
+const std::unordered_map<unsigned, problem::PerDataSpace<bool>>
+Constraints::NoMulticast() const
+{
+  return no_multicast_;
+}
+
+const std::unordered_map<unsigned, problem::PerDataSpace<bool>>
+Constraints::NoLinkTransfers() const
+{
+  return no_link_transfer_;
+}
+
+const std::unordered_map<unsigned, problem::PerDataSpace<bool>>
+Constraints::NoTemporalReuse() const
+{
+  return no_temporal_reuse_;
 }
 
 //
@@ -625,6 +646,107 @@ void Constraints::ParseSingleConstraint(
         }
         spatial_splits_[level_id] = split;
       }
+      // No link transfer
+      
+      if (constraint.exists("no_link_transfer"))
+      {
+        auto storage_level = arch_props_.TilingToStorage(level_id);
+        std::vector<std::string> datatype_strings;
+        constraint.lookupArrayValue("no_link_transfer", datatype_strings);
+        if (no_link_transfer_.find(storage_level) != no_link_transfer_.end())
+        {
+          std::cerr << "ERROR: re-specification of no_link_transfer at level "
+                    << arch_props_.TilingLevelName(level_id)
+                    << ". This may imply a conflict between architecture and "
+                    << "mapspace constraints." << std::endl;
+          exit(1);
+        }
+        no_link_transfer_[storage_level] = problem::PerDataSpace<bool>();
+        for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+          no_link_transfer_[storage_level][pv] = 0;        
+        for (const std::string& datatype_string: datatype_strings)
+        {
+          try
+          {
+            no_link_transfer_[storage_level].at(
+              problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+          }
+          catch (std::out_of_range& oor)
+          {
+            std::cerr << "ERROR: parsing no_link_transfer setting: data-space " << datatype_string
+                      << " not found in problem shape." << std::endl;
+            exit(1);
+          }
+        }
+      }
+      // No multicast no reduction
+      if (constraint.exists("no_multicast_no_reduction"))
+      {
+        auto storage_level = arch_props_.TilingToStorage(level_id);
+        std::vector<std::string> datatype_strings;
+        constraint.lookupArrayValue("no_multicast_no_reduction", datatype_strings);
+        if (no_multicast_.find(storage_level) != no_multicast_.end())
+        {
+          std::cerr << "ERROR: re-specification of no_multicast_no_reduction at level "
+                    << arch_props_.TilingLevelName(level_id)
+                    << ". This may imply a conflict between architecture and "
+                    << "mapspace constraints." << std::endl;
+          exit(1);
+        }
+        no_multicast_ [storage_level] = problem::PerDataSpace<bool>();
+        for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+          no_multicast_[storage_level][pv] = 0;
+        for (const std::string& datatype_string: datatype_strings)
+        {
+          try
+          {
+            no_multicast_[storage_level].at(
+              problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+          }
+          catch (std::out_of_range& oor)
+          {
+            std::cerr << "ERROR: parsing no_multicast_no_reduction setting: data-space " << datatype_string
+                      << " not found in problem shape." << std::endl;
+            exit(1);
+          }
+        }
+      }
+    }
+    if (type == "temporal")
+    {
+      // No temporal reuse
+      if (constraint.exists("no_temporal_reuse"))
+      {
+        auto storage_level = arch_props_.TilingToStorage(level_id);
+        std::vector<std::string> datatype_strings;
+        constraint.lookupArrayValue("no_temporal_reuse", datatype_strings);
+        if (no_temporal_reuse_.find(storage_level) != no_temporal_reuse_.end())
+        {
+          std::cerr << "ERROR: re-specification of no_temporal_reuse at level "
+                    << arch_props_.TilingLevelName(level_id)
+                    << ". This may imply a conflict between architecture and "
+                    << "mapspace constraints." << std::endl;
+          exit(1);
+        }
+        no_temporal_reuse_ [storage_level] = problem::PerDataSpace<bool>();
+        for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+          no_temporal_reuse_[storage_level][pv] = 0;
+        for (const std::string& datatype_string: datatype_strings)
+        {
+          try
+          {
+            no_temporal_reuse_[storage_level].at(
+              problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+          }
+          catch (std::out_of_range& oor)
+          {
+            std::cerr << "ERROR: parsing no_temporal_reuse setting: data-space " << datatype_string
+                      << " not found in problem shape." << std::endl;
+            exit(1);
+          }
+        }
+      }
+
     }
 
     std::uint32_t maxremainder;
@@ -860,7 +982,17 @@ Constraints::ParseMaxFactors(config::CompoundConfigNode constraint)
       str = sm.suffix().str();
     }
   }
-
+  if (constraint.lookupValue("default_max_factor", buffer))
+  {
+      int max = std::stoi(buffer);
+      for(auto& it : problem::GetShape()->FlattenedDimensionNameToID)
+      {
+        if(retval.find(it.second) == retval.end())
+        {
+          retval[it.second] = max;
+        }
+      }
+  }
   return retval;
 }
 

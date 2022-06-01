@@ -32,14 +32,12 @@
 #include "run-length-encoding.hpp"
 #include "coordinate-payload.hpp"
 #include "uncompressed-bitmask.hpp"
+#include "bitmask.hpp"
 #include "compound-config/compound-config.hpp"
 
 
 namespace problem
 {
-
-// list of lower-case format names
-// std::vector<std::string> rank_formats = {"u", "b", "rle", "cp", "uop", "ub"};
 
 //-------------------------------------------------//
 //              MetaData Format Factory            //

@@ -55,7 +55,8 @@ class MultiAAHR
 
   std::size_t size() const;
   bool empty() const;
-
+  std::uint32_t numAAHRs() const;
+  
   void Reset();
 
   void Subtract(const MultiAAHR& other);
@@ -67,6 +68,11 @@ class MultiAAHR
   Point GetTranslation(const MultiAAHR& s) const;
   void Translate(const Point& p);
 
+  //CHECKME: density models need an interface to get the AAHR
+  //  more specifically, the min and max points
+  //  Is this abstraction correct
+  std::vector<AxisAlignedHyperRectangle> GetAAHRs() const;
+  
   friend std::ostream& operator << (std::ostream& out, const MultiAAHR& m);
 };
 

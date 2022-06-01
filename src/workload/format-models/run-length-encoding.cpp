@@ -34,14 +34,25 @@ RunLengthEncoding::~RunLengthEncoding() {}
 RunLengthEncoding::RunLengthEncoding() {}
 RunLengthEncoding::RunLengthEncoding(const Specs& specs) : specs_(specs){ is_specced_ = true;}
 
-RunLengthEncoding::Specs RunLengthEncoding::ParseSpecs(config::CompoundConfigNode metadata_specs)
+RunLengthEncoding::Specs RunLengthEncoding::ParseSpecs(config::CompoundConfigNode format_specs)
 {
 
   RunLengthEncoding::Specs specs;
   // by default, no special attributes need to be set manually by the users
-  (void) metadata_specs;
-  specs.payload_width = -1;
-  specs.metadata_width = -1;
+  specs.payload_word_bits = std::numeric_limits<std::uint32_t>::max();
+  specs.metadata_word_bits = std::numeric_limits<std::uint32_t>::max();
+
+  if (format_specs.exists("payload-word-bits"))
+  {
+    format_specs.lookupValue("payload-word-bits", specs.payload_word_bits);
+  }
+
+  if (format_specs.exists("metadata-word-bits"))
+  {
+    format_specs.lookupValue("metadata-word-bits", specs.metadata_word_bits);
+  }
+
+
   return specs;
 }
 
@@ -54,8 +65,8 @@ PerRankMetaDataTileOccupancy RunLengthEncoding::GetOccupancy(const MetaDataOccup
   double number_of_nnz_coord_per_fiber = query.CurRankFiberShape() * (1 - prob_empty_coord);
 
   PerRankMetaDataTileOccupancy occupancy;
-  occupancy.payload_width = specs_.payload_width;
-  occupancy.metadata_width = specs_.metadata_width;
+  occupancy.payload_word_bits = specs_.payload_word_bits;
+  occupancy.metadata_word_bits = specs_.metadata_word_bits;
   occupancy.metadata_units = number_of_nnz_coord_per_fiber * number_of_fibers;
   occupancy.payload_units =  occupancy.metadata_units;
 
@@ -74,7 +85,7 @@ bool RunLengthEncoding::CoordinatesImplicit() const
   return specs_.coordinates_implicit;
 }
 
-std::vector<problem::Shape::FactorizedDimensionID> RunLengthEncoding::GetDimensionIDs() const
+std::vector<problem::Shape::FlattenedDimensionID> RunLengthEncoding::GetDimensionIDs() const
 {
   assert(is_specced_);
   return specs_.dimension_ids;

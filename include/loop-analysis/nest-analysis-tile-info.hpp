@@ -116,7 +116,7 @@ struct ComputeInfo
   double accesses;
   
   ComputeInfo();
-
+  
   void Reset();
 };
 

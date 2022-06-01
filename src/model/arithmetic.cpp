@@ -46,8 +46,12 @@ ArithmeticUnits::ArithmeticUnits(const Specs& specs) :
   area_ = specs_.area.Get();
 }
 
-void ArithmeticUnits::Specs::UpdateOpEnergyViaERT()
+void ArithmeticUnits::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double>& ert_entries, const double max_energy)
 {
+  
+  energy_per_op = max_energy;
+  ERT_entries = ert_entries;
+  
   for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++)
   {
     // go through all op types
@@ -67,8 +71,12 @@ void ArithmeticUnits::Specs::UpdateOpEnergyViaERT()
   }
 }
 
+void ArithmeticUnits::Specs::UpdateAreaViaART(const double component_area)
+{
+  area = component_area;   
+}
 
-ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements)
+ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, std::uint64_t nElements, bool is_sparse_module)
 {
   Specs specs;
 
@@ -82,8 +90,11 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
     setting = setting.lookup("attributes");
   }
 
+  // Sparse Architecture's Module 
+  specs.is_sparse_module = is_sparse_module;
+  
   // Instances.
-  std::uint32_t instances;
+  unsigned long long instances;
   if (!setting.lookupValue("instances", instances))
   {
     if (nElements == 0)
@@ -91,11 +102,11 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
       std::cerr << "instances is a required arithmetic parameter" << std::endl;
       assert(false);
     }
-    instances = nElements;
+    instances = (unsigned long long) nElements;
     //std::cout << "ArithUnit: " << specs.name << " size: " << instances << std::endl;
   }
 
-  specs.instances = instances;
+  specs.instances = (std::uint64_t) instances;
 
   // Word size (in bits).
   std::uint32_t word_bits;
@@ -110,17 +121,17 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   }
 
   // MeshX.
-  std::uint32_t mesh_x;
+  unsigned long long mesh_x;
   if (setting.lookupValue("meshX", mesh_x))
   {
-    specs.meshX = mesh_x;
+    specs.meshX = (std::uint64_t) mesh_x;
   }
 
   // MeshY.
-  std::uint32_t mesh_y;
+  unsigned long long mesh_y;
   if (setting.lookupValue("meshY", mesh_y))
   {
-    specs.meshY = mesh_y;
+    specs.meshY = (std::uint64_t) mesh_y;
   }
 
   // Network names;
@@ -322,43 +333,36 @@ void ArithmeticUnits::Print(std::ostream& out) const
   // Print specs.
   out << indent << "SPECS" << std::endl;
   out << indent << "-----" << std::endl;
-#define PRINT_SPARSE_STATS
-#ifdef PRINT_SPARSE_STATS
   out << indent << "Word bits             : " << specs_.word_bits << std::endl;
   out << indent << "Instances             : " << specs_.instances << " ("
       << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
   out << indent << "Compute energy        : " << specs_.op_energy_map.at("random_compute") << " pJ" << std::endl;
-  // out << indent << "Gated compute energy  : " << specs_.op_energy_map.at("gated_compute") << " pJ" << std::endl;
-  // out << indent << "Skipped compute energy: " << specs_.op_energy_map.at("skipped_compute") << " pJ" << std::endl;
   out << std::endl;
-#else
-  out << indent << "Word bits             : " << specs_.word_bits << std::endl;
-  out << indent << "Instances             : " << specs_.instances << " ("
-      << specs_.meshX << "*" << specs_.meshY << ")" << std::endl;
-  out << indent << "Energy-per-op         : " << specs_.energy_per_op << " pJ" << std::endl;
-  out << std::endl;
-#endif
 
   // Print stats.
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
-#define PRINT_SPARSE_STATS
-#ifdef PRINT_SPARSE_STATS
-  out << indent << "Utilized instances           : " << UtilizedInstances() << std::endl;
-  out << indent << "Cycles                       : " << Cycles() << std::endl;
-  out << indent << "Algorithmic Computes (total) : " << algorithmic_computes_ << std::endl;
-  out << indent << "Actual Computes (total)      : " << actual_computes_ << std::endl;
-  out << indent << "Gated Computes (total)       : " << gated_computes_ << std::endl;
-  out << indent << "Skipped Computes (total)     : " << skipped_computes_ << std::endl;
-  out << indent << "Energy (total)               : " << Energy() << " pJ" << std::endl;
-  out << indent << "Area (total)                 : " << Area() << " um^2" << std::endl;
-  out << std::endl;
-#else
+  if (specs_.is_sparse_module.Get())
+  {  
+    out << indent << "Utilized instances (max)     : " << UtilizedInstances() << std::endl;
+    out << indent << "Utilized instances (average) : " << avg_utilized_instances_ << std::endl;
+    out << indent << "Cycles                       : " << Cycles() << std::endl;
+    out << indent << "Algorithmic Computes (total) : " << algorithmic_computes_ << std::endl;
+    out << indent << "Actual Computes (total)      : " << actual_computes_ << std::endl;
+    out << indent << "Gated Computes (total)       : " << gated_computes_ << std::endl;
+    out << indent << "Skipped Computes (total)     : " << skipped_computes_ << std::endl;
+    out << indent << "Energy (total)               : " << Energy() << " pJ" << std::endl;
+    out << indent << "Area (total)                 : " << Area() << " um^2" << std::endl;
+    out << std::endl;
+  }
+ else
+ {
   out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
+  out << indent << "Computes (total)        : " << actual_computes_ << std::endl;
   out << indent << "Cycles                  : " << Cycles() << std::endl;
   out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
   out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
-#endif
+ }
 }
 
 } // namespace model

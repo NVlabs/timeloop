@@ -144,7 +144,7 @@ class CompoundConfig
 
 };
 
-  uint32_t parseElementSize(std::string name);
+  std::uint64_t parseElementSize(std::string name);
   std::string parseName(std::string name);
 
 } // namespace config

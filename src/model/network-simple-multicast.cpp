@@ -53,7 +53,7 @@ SimpleMulticastNetwork::SimpleMulticastNetwork(const Specs& specs) :
 SimpleMulticastNetwork::~SimpleMulticastNetwork()
 { }
 
-SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements)
+SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module)
 {
   (void) n_elements; // FIXME.
 
@@ -64,6 +64,9 @@ SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::Compoun
   std::string name;
   network.lookupValue("name", name);
   specs.name = name;
+  
+  // Sparse Architecture's Module 
+  specs.is_sparse_module = is_sparse_module;
 
   if (network.exists("attributes"))
   {
@@ -117,6 +120,11 @@ SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::Compoun
   return specs;
 }
 
+void SimpleMulticastNetwork::Specs::ProcessERT(const config::CompoundConfigNode& ERT)
+{
+  accelergyERT = ERT; 
+}
+
 void SimpleMulticastNetwork::ConnectSource(std::weak_ptr<Level> source)
 {
   source_ = source;
@@ -163,6 +171,7 @@ void SimpleMulticastNetwork::SetTileWidth(double width_um)
   }
 }
 
+
 double SimpleMulticastNetwork::GetOpEnergyFromERT(std::uint64_t multicast_factor, std::string operation_name){
     double opEnergy = 0.0;
     std::vector<std::string> actions;
@@ -170,7 +179,7 @@ double SimpleMulticastNetwork::GetOpEnergyFromERT(std::uint64_t multicast_factor
     // use transfer as the keyword for multicast NoC action specification
     if (specs_.accelergyERT.exists(operation_name)){
         auto actionERT = specs_.accelergyERT.lookup(operation_name);
-        if (actionERT.isList()){
+        if (actionERT.isList() && actionERT.getLength() > 1){
             assert(specs_.multicast_factor_argument != "none"); // must have multicast factor argument name specified
             for(int i = 0; i < actionERT.getLength(); i ++){
                 config::CompoundConfigNode arguments = actionERT[i].lookup("arguments");
@@ -182,6 +191,8 @@ double SimpleMulticastNetwork::GetOpEnergyFromERT(std::uint64_t multicast_factor
                   actionERT[i].lookupValue("energy", opEnergy);
                 }
              }
+        } else if (actionERT.isList() && actionERT.getLength() == 1){
+            actionERT[0].lookupValue("energy", opEnergy);
         } else {
             // if there is no argument, use the available energy
             actionERT.lookupValue("energy", opEnergy);

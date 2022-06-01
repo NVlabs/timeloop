@@ -45,17 +45,22 @@ DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode density_config
   {
     if (distribution_type == "fixed" || distribution_type == "fixed-structured")
     {
-      auto fixed__structured_specs = FixedStructuredDistribution::ParseSpecs(density_config);
-      specs = std::make_shared<FixedStructuredDistribution::Specs>(fixed__structured_specs);
+      auto parsed_specs = FixedStructuredDistribution::ParseSpecs(density_config);
+      specs = std::make_shared<FixedStructuredDistribution::Specs>(parsed_specs);
     }
     else if (distribution_type == "hypergeometric")
     {
-      auto hypergeo_specs = HypergeometricDistribution::ParseSpecs(density_config);
-      specs = std::make_shared<HypergeometricDistribution::Specs>(hypergeo_specs);
+      auto parsed_specs = HypergeometricDistribution::ParseSpecs(density_config);
+      specs = std::make_shared<HypergeometricDistribution::Specs>(parsed_specs);
+    }
+    else if (distribution_type == "banded" || distribution_type == "diagonal")
+    {
+      auto parsed_specs = BandedDistribution::ParseSpecs(density_config);
+      specs = std::make_shared<BandedDistribution::Specs>(parsed_specs);
     }
     else
     {
-      std::cerr << "ERROR: unrecognized density distribution type: " << specs->Type() << std::endl;
+      std::cerr << "ERROR: unrecognized density distribution type: " << distribution_type << std::endl;
       exit(1);
     }
   }
@@ -71,20 +76,26 @@ DensityDistributionFactory::Construct(std::shared_ptr<DensityDistributionSpecs> 
 
   if (specs->Type() == "fixed" || specs->Type() == "fixed-structured")
   {
-    auto fixed_specs = *std::static_pointer_cast<FixedStructuredDistribution::Specs>(specs);
-    auto fixed_density_distribution = std::make_shared<FixedStructuredDistribution>(fixed_specs);
-    density_distribution = std::static_pointer_cast<DensityDistribution>(fixed_density_distribution);
+    auto specs_ptr = *std::static_pointer_cast<FixedStructuredDistribution::Specs>(specs);
+    auto constructed_distribution = std::make_shared<FixedStructuredDistribution>(specs_ptr);
+    density_distribution = std::static_pointer_cast<DensityDistribution>(constructed_distribution);
   }
   else if (specs->Type() == "hypergeometric")
   {
-    auto hypergeo_specs = *std::static_pointer_cast<HypergeometricDistribution::Specs>(specs);
-    auto hypergeo_density_distribution = std::make_shared<HypergeometricDistribution>(hypergeo_specs);
-    density_distribution = std::static_pointer_cast<DensityDistribution>(hypergeo_density_distribution);
+    auto specs_ptr = *std::static_pointer_cast<HypergeometricDistribution::Specs>(specs);
+    auto constructed_distribution = std::make_shared<HypergeometricDistribution>(specs_ptr);
+    density_distribution = std::static_pointer_cast<DensityDistribution>(constructed_distribution);
+  }
+  else if (specs->Type().find("banded") != std::string::npos)
+  {
+    auto specs_ptr = *std::static_pointer_cast<BandedDistribution::Specs>(specs);
+    auto constructed_distribution = std::make_shared<BandedDistribution>(specs_ptr);
+    density_distribution = std::static_pointer_cast<DensityDistribution>(constructed_distribution);
   }
   else
   {
     std::cerr << "ERROR: unrecognized density distribution type: " << specs->Type() << std::endl;
-    exit(1);
+    assert(false);
   }
 
   return density_distribution;

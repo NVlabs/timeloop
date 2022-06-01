@@ -33,7 +33,7 @@ namespace model
 // The hierarchical ParseSpecs functions are static and do not
 // affect the internal specs_ data structure, which is set by
 // the dynamic Spec() call later.
-Engine::Specs Engine::ParseSpecs(config::CompoundConfigNode setting)
+Engine::Specs Engine::ParseSpecs(config::CompoundConfigNode setting, bool is_sparse_topology)
 {
   Specs specs;
   std::string version;
@@ -43,11 +43,11 @@ Engine::Specs Engine::ParseSpecs(config::CompoundConfigNode setting)
     // std::cout << "ParseSpecs" << std::endl;
     auto arithmetic = setting.lookup("arithmetic");
     auto topology = setting.lookup("storage");
-    specs.topology = Topology::ParseSpecs(topology, arithmetic);
+    specs.topology = Topology::ParseSpecs(topology, arithmetic, is_sparse_topology);
   } else {
     // format used in Accelergy v0.2/v0.3
     // std::cout << "ParseTreeSpecs" << std::endl;
-    specs.topology = Topology::ParseTreeSpecs(setting);
+    specs.topology = Topology::ParseTreeSpecs(setting, is_sparse_topology);
   }
 
   return specs;

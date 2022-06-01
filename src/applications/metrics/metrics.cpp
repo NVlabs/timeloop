@@ -43,7 +43,9 @@ Application::Application(config::CompoundConfig* config)
     } else if (rootNode.exists("architecture")) {
       arch = rootNode.lookup("architecture");
     }
-    arch_specs_ = model::Engine::ParseSpecs(arch);
+    
+    bool is_sparse_topology = rootNode.exists("sparse_optimizations");
+    arch_specs_ = model::Engine::ParseSpecs(arch, is_sparse_topology);
 
     if (rootNode.exists("ERT")) {
       auto ert = rootNode.lookup("ERT");

@@ -54,9 +54,9 @@ namespace model
 
 // format {timeloop_action_name: [priority list of ERT action names]}
 static std::map <std::string, std::vector<std::string>> arithmeticOperationMappings
-  = {{"random_compute", {"mac_random", "mult_random", "mac", "mult"}},
-     {"skipped_compute", {"mac_skipped", "mult_skipped", "mac_gated", "mult_gated", "mac", "mult"}},
-     {"gated_compute", {"mac_gated", "mult_gated", "mac", "mult"}}
+  = {{"random_compute", {"mac_random", "mult_random", "mac", "mult", "compute"}},
+     {"skipped_compute", {"mac_skipped", "mult_skipped","compute_skipped", "mac_gated", "mult_gated", "compute_gated", "mac", "mult", "compute"}},
+     {"gated_compute", {"mac_gated", "mult_gated", "compute_gated", "mac", "mult", "compute"}}
   };
 
 static std::map <std::string, std::vector<std::string>> storageOperationMappings
@@ -290,8 +290,8 @@ class Topology : public Module
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs);
-  static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot);
+  static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs, bool is_sparse_topology);
+  static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot, bool is_sparse_topology);
   
   void Spec(const Specs& specs);
   void Reset();
