@@ -40,7 +40,8 @@ namespace mapspace
 MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
                             config::CompoundConfigNode arch_constraints,
                             model::Engine::Specs& arch_specs,
-                            const problem::Workload& workload)
+                            const problem::Workload& workload,
+                            bool filter_spatial_fanout)
 {
   MapSpace* mapspace = nullptr;
   
@@ -49,10 +50,14 @@ MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
     
   if (mapspace_template == "uber")
   {
+<<<<<<< HEAD
     mapspace = new Uber(config, arch_constraints, arch_specs, workload);
   }else if (mapspace_template == "ruby")
   {
     mapspace = new Ruby(config, arch_constraints, arch_specs, workload);
+=======
+    mapspace = new Uber(config, arch_constraints, arch_specs, workload, filter_spatial_fanout);
+>>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
   }
   else
   {

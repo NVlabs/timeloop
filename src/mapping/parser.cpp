@@ -70,6 +70,9 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   problem::PerDataSpace<std::string> user_bypass_strings;
   std::map<unsigned, double> confidence_thresholds;
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> user_skews;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse;
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
@@ -145,6 +148,90 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
         std::uint32_t user_split = unsigned(problem::GetShape()->NumFlattenedDimensions);
         directive.lookupValue("split", user_split);
         user_spatial_splits[level_id] = user_split;
+
+        // No link transfer
+        if (directive.exists("no_link_transfer"))
+        {
+          auto storage_level = arch_props_.TilingToStorage(level_id);
+          std::vector<std::string> datatype_strings;
+          if (directive.lookupArrayValue("no_link_transfer", datatype_strings))
+          {
+            no_link_transfer[storage_level] = problem::PerDataSpace<bool>();
+            
+            for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+              no_link_transfer[storage_level][pv] = 0;
+            for (const std::string& datatype_string: datatype_strings)
+            {
+              try
+              {
+                no_link_transfer[storage_level].at(
+                  problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+              }
+              catch (std::out_of_range& oor)
+              {
+                std::cerr << "ERROR: parsing no_link_transfer setting: data-space " << datatype_string
+                          << " not found in problem shape." << std::endl;
+                exit(1);
+              }
+            }
+          }
+        }
+
+        // No multicast no reduction
+        if (directive.exists("no_multicast_no_reduction"))
+        {
+          auto storage_level = arch_props_.TilingToStorage(level_id);
+          std::vector<std::string> datatype_strings;
+          if (directive.lookupArrayValue("no_multicast_no_reduction", datatype_strings))
+          {
+            no_multicast[storage_level] = problem::PerDataSpace<bool>();
+            for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+              no_multicast[storage_level][pv] = 0;
+            for (const std::string& datatype_string: datatype_strings)
+            {
+              try
+              {
+                no_multicast[storage_level].at(
+                  problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+              }
+              catch (std::out_of_range& oor)
+              {
+                std::cerr << "ERROR: parsing no_multicast_no_reduction setting: data-space " << datatype_string
+                          << " not found in problem shape." << std::endl;
+                exit(1);
+              }
+            }
+          }
+        }
+      }
+      if (type == "temporal")
+      {
+        // No temporal reuse
+        if (directive.exists("no_temporal_reuse"))
+        {
+          auto storage_level = arch_props_.TilingToStorage(level_id);
+          std::vector<std::string> datatype_strings;
+          if (directive.lookupArrayValue("no_temporal_reuse", datatype_strings))
+          {
+            no_temporal_reuse[storage_level] = problem::PerDataSpace<bool>();
+            for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+              no_temporal_reuse[storage_level][pv] = 0;
+            for (const std::string& datatype_string: datatype_strings)
+            {
+              try
+              {
+                no_temporal_reuse[storage_level].at(
+                  problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+              }
+              catch (std::out_of_range& oor)
+              {
+                std::cerr << "ERROR: parsing no_temporal_reuse setting: data-space " << datatype_string
+                          << " not found in problem shape." << std::endl;
+                exit(1);
+              }
+            }
+          }
+        }
       }
     }
     else if (type == "datatype" || type == "bypass")
@@ -358,6 +445,9 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
 
   mapping.confidence_thresholds = confidence_thresholds;
   mapping.loop_nest.skew_descriptors = user_skews;
+  mapping.loop_nest.no_link_transfer = no_link_transfer;
+  mapping.loop_nest.no_multicast = no_multicast;
+  mapping.loop_nest.no_temporal_reuse = no_temporal_reuse;
   mapping.id = 0;
   mapping.fanoutX_map = arch_props_.FanoutX();
   mapping.fanoutY_map = arch_props_.FanoutY();

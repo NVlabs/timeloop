@@ -37,7 +37,7 @@ env.Append(CPPPATH = [os.path.join(env['BUILD_BASE_DIR'], 'include')])
 if GetOption('debug'):
     env.Append(CCFLAGS = ['-g', '-O0'])
 else:
-    env.Append(CCFLAGS = ['-g', '-O3'])
+    env.Append(CCFLAGS = ['-g', '-O3', '-flto'])
 env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++14', '-pthread'])
 
 env.Append(LIBPATH = ['.'])
@@ -47,7 +47,7 @@ if GetOption('link_static'):
     env.Append(LIBS = ['timeloop-model'])
 
 env.Append(LINKFLAGS = ['-std=c++11', '-static-libgcc', '-static-libstdc++', '-pthread'])
-env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses'])
+env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses', 'tinfo'])
 if GetOption('with_isl'):
     env.Append(LIBS = ['isl', 'barvinok', 'ntl', 'pthread', 'polylibgmp'])
 
@@ -119,7 +119,12 @@ loop-analysis/point-set-multi-aahr.cpp
 loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/aahr-carve.cpp
-loop-analysis/sparse-analysis.cpp
+sparse-analysis/state.cpp
+sparse-analysis/sparse-analysis.cpp
+sparse-analysis/compute-gs-analyzer.cpp
+sparse-analysis/storage-gs-analyzer.cpp
+sparse-analysis/representation-analyzer.cpp
+sparse-analysis/storage-optimization-combiner.cpp
 loop-analysis/operation-type.cpp
 pat/pat.cpp
 mapping/loop.cpp
@@ -149,12 +154,14 @@ workload/density-models/density-distribution.cpp
 workload/density-models/density-distribution-factory.cpp
 workload/density-models/fixed-structured-distribution.cpp
 workload/density-models/hypergeometric-distribution.cpp
+workload/density-models/banded-distribution.cpp
 workload/format-models/metadata-format.cpp
 workload/format-models/metadata-format-factory.cpp
 workload/format-models/run-length-encoding.cpp
 workload/format-models/uncompressed-offset-pair.cpp
 workload/format-models/coordinate-payload.cpp
 workload/format-models/uncompressed-bitmask.cpp
+workload/format-models/bitmask.cpp
 compound-config/compound-config.cpp
 """)
 
@@ -170,6 +177,24 @@ mapping/arch-properties.cpp
 mapping/constraints.cpp
 """)
 
+mapspace_sources = Split("""
+mapspaces/mapspace-base.cpp
+mapspaces/mapspace-factory.cpp
+mapspaces/subspaces.cpp
+mapspaces/uber.cpp
+""")
+
+search_sources = Split("""
+search/search-factory.cpp
+search/exhaustive.cpp
+search/hybrid.cpp
+search/linear-pruned.cpp
+search/random-pruned.cpp
+search/random.cpp
+""")
+
+mapperlib_sources = modellib_sources + mapspace_sources + search_sources
+
 libenv = env.Clone()
 
 if GetOption('link_static'):
@@ -179,6 +204,13 @@ else:
     lib_model_shared = libenv.SharedLibrary(target = 'timeloop-model', source = modellib_sources)
     libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared ])
 #libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_model_shared, lib_model_static ])
+
+if GetOption('link_static'):
+    lib_mapper_static = libenv.StaticLibrary(target = 'timeloop-mapper', source = mapperlib_sources)
+    libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_mapper_static ])
+else:
+    lib_mapper_shared = libenv.SharedLibrary(target = 'timeloop-mapper', source = mapperlib_sources)
+    libenv.Install(env["BUILD_BASE_DIR"] + '/lib', [ lib_mapper_shared ])
 
 # If we are doing a dynamic build, the timeloop library must be the last
 # item in the link order.
@@ -197,6 +229,7 @@ applications/model/model.cpp
 applications/model/main.cpp
 """)
 
+<<<<<<< HEAD
 mapspace_sources = Split("""
 mapspaces/mapspace-base.cpp
 mapspaces/mapspace-factory.cpp
@@ -214,6 +247,8 @@ search/random-pruned.cpp
 search/random.cpp
 """)
 
+=======
+>>>>>>> 8b4ff49a370bdc251d2c16bceadeba5739644cd5
 mapper_sources = mapspace_sources + search_sources + Split("""
 applications/mapper/mapper.cpp
 applications/mapper/mapper-thread.cpp

@@ -127,7 +127,10 @@ def parse_timeloop_stats(filename):
         accesses_per_instance = reads_per_instance + updates_per_instance + fills_per_instance
         
         utilized_capacity = get_stat(stats, 'utilized_capacity', int)
-        instances = get_stat(stats, 'utilized_instances', int) 
+        try:
+            instances = get_stat(stats, 'utilized_instances', int) 
+        except:
+            instances = get_stat(stats, 'utilized_instances', float) 
         clusters = get_stat(stats, 'utilized_clusters', int)   
 
         total_instances_obj = specs.findall('instances')[0].findall('t_')

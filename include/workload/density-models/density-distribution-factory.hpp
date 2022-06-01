@@ -30,6 +30,7 @@
 #include "density-distribution.hpp"
 #include "fixed-structured-distribution.hpp"
 #include "hypergeometric-distribution.hpp"
+#include "banded-distribution.hpp"
 #include "compound-config/compound-config.hpp"
 
 

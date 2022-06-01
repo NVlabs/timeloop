@@ -63,4 +63,7 @@ Type FuncName(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpace
   STAT_ACCESSOR_HEADER(Type, FuncName)                                                \
   STAT_ACCESSOR_BODY(Type, FuncName, Expression)
 
+#define PRINTFLOAT_PRECISION std::setprecision(3)
+#define LOG_FLOAT_PRECISION std::setprecision(2)
+
 } // namespace model

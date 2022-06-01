@@ -413,7 +413,7 @@ bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::str
 
   if (LNode) {
     assert(LNode->lookup(name).isArray());
-    for (const std::string& m: LNode->lookup(name))
+    for (const std::string m: LNode->lookup(name))
     {
       vectorValue.push_back(m);
     }
@@ -493,7 +493,7 @@ CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
 bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
   if (LNode) {
     assert(isArray());
-    for (const std::string& m: *LNode)
+    for (const std::string m: *LNode)
     {
       vectorValue.push_back(m);
     }
@@ -632,7 +632,7 @@ CompoundConfigNode CompoundConfig::getVariableRoot() const {
   return variableRoot;
 }
 
-uint32_t parseElementSize(std::string name) {
+std::uint64_t parseElementSize(std::string name) {
   auto posBegin = name.find("[");
   auto posEnd = name.find("]");
   auto posDots = name.find("..");
@@ -640,7 +640,7 @@ uint32_t parseElementSize(std::string name) {
     assert(posBegin < posEnd && posDots < posEnd && posBegin < posDots);
     auto beginIdx = name.substr(posBegin + 1, posDots - posBegin - 1);
     auto endIdx = name.substr(posDots + 2, posEnd - posDots - 2);
-    return std::stoi(endIdx) - std::stoi(beginIdx) + 1;
+    return std::stoul(endIdx) - std::stoul(beginIdx) + 1;
   } else {
     return 1;
   }

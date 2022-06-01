@@ -40,6 +40,7 @@
 
 namespace tiling
 {
+extern bool gEnableFirstReadElision;
 
 bool operator < (const DataMovementInfo& a, const DataMovementInfo& b);
 std::ostream& operator << (std::ostream& out, const DataMovementInfo& info);
@@ -59,5 +60,6 @@ ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_ti
 
 NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles);
 NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks);
+bool CheckMaskValidity(const CompoundMaskNest& masks);
 
 }  // namespace tiling

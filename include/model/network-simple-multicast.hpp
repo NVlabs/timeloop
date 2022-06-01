@@ -56,6 +56,8 @@ class SimpleMulticastNetwork : public Network
     // Post-floorplanning physical attributes.
     Attribute<double> tile_width; // um
 
+    Attribute<bool> is_sparse_module;
+    
     // For ERT parsing
     config::CompoundConfigNode accelergyERT;
     std::string action_name;
@@ -63,7 +65,9 @@ class SimpleMulticastNetwork : public Network
     bool per_datatype_ERT;
 
     const std::string Type() const override { return type; }
-
+    bool SupportAccelergyTables() const override { return true; }
+    void ProcessERT(const config::CompoundConfigNode& ERT) override;
+    
     // Serialization
     friend class boost::serialization::access;
 
@@ -153,7 +157,7 @@ class SimpleMulticastNetwork : public Network
     return std::static_pointer_cast<Network>(std::make_shared<SimpleMulticastNetwork>(*this));
   }
   
-  static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements);
+  static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module);
 
   void ConnectSource(std::weak_ptr<Level> source);
   void ConnectSink(std::weak_ptr<Level> sink);

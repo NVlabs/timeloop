@@ -19,7 +19,7 @@
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * PROFITS; OR BUSINESS std::uint32_tERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -45,16 +45,20 @@ public:
     std::string name = "cp";  // coordinate payload
     bool rank_compressed = true;
     bool coordinates_implicit = false;
-    std::vector<problem::Shape::FactorizedDimensionID> dimension_ids;
-    int metadata_width;
-    int payload_width;
+    std::vector<problem::Shape::FlattenedDimensionID> dimension_ids;
+    std::uint32_t metadata_word_bits;
+    std::uint32_t payload_word_bits;
 
 
     const std::string Name() const override { return name; }
     bool RankCompressed() const override {return rank_compressed;}
-    std::vector<problem::Shape::FactorizedDimensionID> DimensionIDs() const override {return dimension_ids;}
+    std::vector<problem::Shape::FlattenedDimensionID> DimensionIDs() const override {return dimension_ids;}
 
-
+    std::uint32_t MetaDataWordBits() const override { return metadata_word_bits; }
+    std::uint32_t PayloadWordBits() const override { return payload_word_bits; }
+    void SetMetaDataWordBits(std::uint32_t word_bits) override { metadata_word_bits = word_bits; }
+    void SetPayloadWordBits(std::uint32_t word_bits) override { payload_word_bits = word_bits; }
+    
     // Serialization
     friend class boost::serialization::access;
 
@@ -111,9 +115,10 @@ public:
   PerRankMetaDataTileOccupancy GetOccupancy(const MetaDataOccupancyQuery& query) const;
   bool RankCompressed () const;
   bool CoordinatesImplicit() const;
-  std::vector<problem::Shape::FactorizedDimensionID> GetDimensionIDs() const;
+  std::vector<problem::Shape::FlattenedDimensionID> GetDimensionIDs() const;
   std::string GetFormatName() const;
   bool MetaDataImplicitAsLowestRank() const {return false;}
+  const MetaDataFormatSpecs&  GetSpecs() const;
 }; // class CoordinatePayload
 
 } // namespace problem

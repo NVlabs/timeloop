@@ -78,22 +78,16 @@ HypergeometricDistribution::Specs HypergeometricDistribution::ParseSpecs(config:
   return specs;
 }
 
-void HypergeometricDistribution::SetDensity(const double density)
+void HypergeometricDistribution::SetWorkloadTensorSize(const PointSet& point_set)
 {
-  specs_.average_density = density;
-}
-
-void HypergeometricDistribution::SetWorkloadTensorSize(const std::uint64_t size)
-{
-  // setter that allows workload tensor size at a latter stage (topology.cpp, PreEvaluationCheck)
   assert(is_specced_);
-  specs_.workload_tensor_size = size;
-  specs_.total_nnzs = ceil(specs_.average_density * size);
+  specs_.workload_tensor_size = point_set.size();
+  specs_.total_nnzs = ceil(specs_.average_density * specs_.workload_tensor_size);
   workload_tensor_size_set_ = true;
 }
 
 std::uint64_t HypergeometricDistribution::GetTileOccupancyByConfidence(const std::uint64_t tile_shape,
-                                                                       const double confidence) const
+                                                                       const double confidence) 
 {
 
   std::uint64_t tile_occupancy;
@@ -119,15 +113,41 @@ std::uint64_t HypergeometricDistribution::GetTileOccupancyByConfidence(const std
   return tile_occupancy;
 }
 
+
+std::uint64_t HypergeometricDistribution::GetMaxNumElementByConfidence(const tiling::CoordinateSpaceTileInfo& fiber_tile,
+                                                                        const tiling::CoordinateSpaceTileInfo& element_tile,
+                                                                        const double confidence)
+{
+  std::uint64_t element_shape = element_tile.GetShape();
+  std::uint64_t fiber_shape = fiber_tile.GetShape();
+
+  // Sanity check
+  if (fiber_shape % element_shape != 0)
+  {
+    std::cerr << "ERROR: fiber shape not divisiable by element shape" << std::endl;
+    assert(false);
+  }
+  
+  std::uint64_t num_elements = fiber_shape / element_shape;
+  
+  // Maximum number of nonzeros in the entire fiber
+  std::uint64_t max_fiber_occupancy = GetMaxTileOccupancyByConfidence(fiber_tile, confidence);
+   
+  // Nonzeros are uniformly distributed in the elements
+  return max_fiber_occupancy > num_elements ? num_elements : max_fiber_occupancy;
+
+}
+
+
 std::uint64_t HypergeometricDistribution::GetMaxTileOccupancyByConfidence(const tiling::CoordinateSpaceTileInfo& tile,
-                                                                          const double confidence) const
+                                                                          const double confidence) 
 {
   std::uint64_t tile_shape = tile.GetShape();
   return HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
 
 std::uint64_t HypergeometricDistribution::GetMaxTileOccupancyByConfidence_LTW(const std::uint64_t tile_shape,
-                                                                              const double confidence) const
+                                                                              const double confidence) 
 {
   return HypergeometricDistribution::GetTileOccupancyByConfidence(tile_shape, confidence);
 }
@@ -144,7 +164,7 @@ std::string HypergeometricDistribution::GetDistributionType() const
 }
 
 double HypergeometricDistribution::GetMaxTileDensityByConfidence(const tiling::CoordinateSpaceTileInfo tile,
-                                                                 const double confidence) const
+                                                                 const double confidence) 
 {
 
   if (confidence == 0.5)
@@ -156,7 +176,7 @@ double HypergeometricDistribution::GetMaxTileDensityByConfidence(const tiling::C
 
 }
 
-double HypergeometricDistribution::GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) const
+double HypergeometricDistribution::GetMinTileDensity(const tiling::CoordinateSpaceTileInfo tile) 
 {
   if (tile.GetShape() <= specs_.workload_tensor_size - specs_.total_nnzs)
   {
@@ -168,7 +188,7 @@ double HypergeometricDistribution::GetMinTileDensity(const tiling::CoordinateSpa
   }
 }
 
-double HypergeometricDistribution::GetTileExpectedDensity(const uint64_t tile_shape) const
+double HypergeometricDistribution::GetTileExpectedDensity(const uint64_t tile_shape) 
 {
 
   (void)tile_shape;
@@ -206,7 +226,7 @@ double HypergeometricDistribution::CalculateProbability(const std::uint64_t nnz_
 }
 
 double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape,
-                                                  const std::uint64_t nnz_vals) const
+                                                  const std::uint64_t nnz_vals) 
 {
 
   assert(is_specced_);
@@ -238,7 +258,7 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
 
 double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape, const std::uint64_t nnz_vals,
                                                   const std::uint64_t constraint_tensor_shape,
-                                                  const std::uint64_t constraint_tensor_occupancy) const
+                                                  const std::uint64_t constraint_tensor_occupancy) 
 {
 
   std::uint64_t r = constraint_tensor_occupancy;
@@ -265,7 +285,7 @@ double HypergeometricDistribution::GetProbability(const std::uint64_t tile_shape
 }
 
 double HypergeometricDistribution::GetTileOccupancyProbability(const tiling::CoordinateSpaceTileInfo& tile,
-                                                               const std::uint64_t occupancy) const
+                                                               const std::uint64_t occupancy) 
 {
   std::uint64_t tile_shape = tile.GetShape();
   double prob;
@@ -284,7 +304,7 @@ double HypergeometricDistribution::GetTileOccupancyProbability(const tiling::Coo
   return prob;
 }
 
-double HypergeometricDistribution::GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile) const
+double HypergeometricDistribution::GetExpectedTileOccupancy(const tiling::CoordinateSpaceTileInfo tile) 
 {
 
   std::uint64_t tile_shape = tile.GetShape();

@@ -27,7 +27,7 @@
 
 #pragma once
 #include "mapping/loop.hpp"
-
+#include "workload/shape-models/data-space.hpp"
 namespace tiling
 {
 
@@ -36,13 +36,19 @@ struct ExtraTileConstraintInfo
 {
   std::uint64_t shape_;
   std::uint64_t occupancy_;
+  std::shared_ptr<PointSet> tile_point_set_mold_;
+  
   bool set_ = false;
+  bool mold_set_ = false;
 
   void Set(const std::uint64_t shape, const std::uint64_t occupancy);
+  void SetMold(const PointSet& tile_point_set_mold);
 
   std::uint64_t GetShape() const;
 
   std::uint64_t GetOccupancy() const;
+
+  PointSet GetPointSetMold() const;
 };
 
 // interface object between sparse modeling module and density models
@@ -51,25 +57,23 @@ struct CoordinateSpaceTileInfo
 {
 
   // an operation space mold for coordinate space representation needed for more precise representation
-  // problem::Operation operation_space_mold_;
-  std::vector <loop::Descriptor> subnests_;
-  std::uint64_t shape_;
   problem::Shape::DataSpaceID dspace_id_;
   ExtraTileConstraintInfo extra_tile_constraint_;
+  std::shared_ptr<PointSet> tile_point_set_mold_;
 
   // for compatibility (there are code segments that do not set the mold yet)
   // TODO: maks all usage of coord space tile include mold and remove the check
   bool mold_set_ = false;
 
+  CoordinateSpaceTileInfo();
+  
   void Clear();
 
-  void Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id);
-  void Set(std::uint64_t shape, std::vector <loop::Descriptor> subnests, problem::Shape::DataSpaceID data_space_id);
-  void Set(std::uint64_t shape, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint);
-
+  void Set(const PointSet& tile_mold_point_set, problem::Shape::DataSpaceID data_space_id, ExtraTileConstraintInfo extra_tile_constraint = ExtraTileConstraintInfo());
+  void SetMold(const PointSet& tile_mold_point_set);
+  
   std::uint64_t GetShape() const;
-
-  std::vector <loop::Descriptor> GetSubnests() const;
+  PointSet GetPointSetRepr() const;
 
   bool HasExtraConstraintInfo() const;
   ExtraTileConstraintInfo GetExtraConstraintInfo() const;

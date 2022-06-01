@@ -53,7 +53,7 @@ LegacyNetwork::LegacyNetwork(const Specs& specs) :
 LegacyNetwork::~LegacyNetwork()
 { }
 
-LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements)
+LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module)
 {
   (void) n_elements; // FIXME.
 
@@ -64,6 +64,9 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   std::string name;
   network.lookupValue("name", name);
   specs.name = name;
+  
+  // Sparse Architecture's Module 
+  specs.is_sparse_module = is_sparse_module;
 
   if (network.exists("attributes"))
   {
@@ -123,6 +126,12 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   }
 
   return specs;
+}
+
+void LegacyNetwork::Specs::ProcessERT(const config::CompoundConfigNode& ERT)
+{
+  (void) ERT;
+  assert(false);
 }
 
 void LegacyNetwork::ConnectSource(std::weak_ptr<Level> source)

@@ -39,9 +39,9 @@ UncompressedBitmask::Specs UncompressedBitmask::ParseSpecs(config::CompoundConfi
   UncompressedBitmask::Specs specs;
   // by default, no special attributes need to be set manually by the users
   (void) metadata_specs;
-  specs.payload_width = -1;
-  specs.metadata_width = -1;
-  return specs;
+  specs.payload_word_bits = std::numeric_limits<std::uint32_t>::max();
+  specs.metadata_word_bits = std::numeric_limits<std::uint32_t>::max();
+ return specs;
 }
 
 PerRankMetaDataTileOccupancy UncompressedBitmask::GetOccupancy(const MetaDataOccupancyQuery& query) const
@@ -50,8 +50,8 @@ PerRankMetaDataTileOccupancy UncompressedBitmask::GetOccupancy(const MetaDataOcc
   std::uint64_t number_of_fibers = query.MaxNumFibers();
   std::uint64_t number_of_payloads_per_fiber =  query.CurRankFiberShape();
   PerRankMetaDataTileOccupancy occupancy;
-  occupancy.payload_width = specs_.payload_width;
-  occupancy.metadata_width = specs_.metadata_width;
+  occupancy.payload_word_bits = specs_.payload_word_bits;
+  occupancy.metadata_word_bits = specs_.metadata_word_bits;
   occupancy.metadata_units = number_of_fibers * query.CurRankFiberShape();
   occupancy.payload_units = number_of_fibers * number_of_payloads_per_fiber;
 
@@ -71,7 +71,7 @@ bool UncompressedBitmask::CoordinatesImplicit() const
 }
 
 
-std::vector<problem::Shape::FactorizedDimensionID> UncompressedBitmask::GetDimensionIDs() const
+std::vector<problem::Shape::FlattenedDimensionID> UncompressedBitmask::GetDimensionIDs() const
 {
   assert(is_specced_);
   return specs_.dimension_ids;
@@ -81,6 +81,12 @@ std::string UncompressedBitmask::GetFormatName() const
 {
   assert(is_specced_);
   return specs_.name;
+}
+
+const MetaDataFormatSpecs& UncompressedBitmask::GetSpecs() const
+{
+  assert(is_specced_);
+  return  specs_;
 }
 
 } // namespace problem

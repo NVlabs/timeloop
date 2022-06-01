@@ -48,7 +48,7 @@ void PointResult::PrintEvaluationResult(std::ostream& out)
   out << config_name_ ; 
   out << ", " << result_.stats.algorithmic_computes;
   out << ", " << std::setw(4) << std::fixed << std::setprecision(2) << result_.stats.utilization;
-  out << ", " << std::setw(8) << std::fixed << std::setprecision(3) << result_.stats.energy / result_.stats.algorithmic_computes << std::endl;
+  out << ", " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << result_.stats.energy / result_.stats.algorithmic_computes << std::endl;
 }
 
 //--------------------------------------------//

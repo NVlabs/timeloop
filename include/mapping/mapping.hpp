@@ -30,6 +30,7 @@
 #include <iostream>
 #include <boost/multiprecision/cpp_int.hpp>
 #include <libconfig.h++>
+#include <yaml-cpp/yaml.h>
 
 #include "nest.hpp"
 
@@ -68,7 +69,9 @@ struct Mapping
   void FormatAsConstraints(libconfig::Setting& mapspace);
 
   void FormatAsLibConfig(libconfig::Setting& mapping, const std::vector<std::string>& storage_level_names);
-  
+
+  void FormatAsYaml(YAML::Emitter& yaml_mapping, const std::vector<std::string>& storage_level_names);
+ 
   void PrintAsConstraints(std::string filename);
 
   void PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,

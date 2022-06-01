@@ -26,14 +26,14 @@
  */
 
 #pragma once
-
 #include <cmath>
 
 #include "model/level.hpp"
 #include "mapping/mapping.hpp"
-#include "tiling-tile-info.hpp"
+#include "loop-analysis/tiling-tile-info.hpp"
 #include "model/sparse-optimization-info.hpp"
 #include "model/topology.hpp"
+
 
 namespace sparse
 {
@@ -50,6 +50,13 @@ struct SetOfOperationSpaces
   problem::Workload *workload;
 };
 
+
+struct SpatialExpansion
+{
+  std::uint64_t X = 1;
+  std::uint64_t Y = 1;
+  std::uint64_t XY = 1;
+};
 
 enum ComputeOperandState
 {
@@ -75,13 +82,19 @@ struct SparseAnalysisState
   std::vector<std::vector<loop::Descriptor>> complete_subnests_;
   std::vector<std::vector<bool>> trivial_nest_masks_;
   std::map<unsigned, std::map<DataSpaceID, double>> prob_explicitly_optimized_read_;
+  std::map<unsigned, std::map<DataSpaceID, double>> prob_explicitly_spatially_optimized_read_;
   std::map<std::string, ListOfPerDataSpaceMask> dspace_optimization_masks_;
   std::map<std::string, ListOfPerDataSpaceMask> scalar_scalar_opt_masks_;
+  std::map<unsigned, std::map<DataSpaceID, problem::OperationPoint>> cond_on_mold_highs_;
+  problem::PerDataSpace<std::vector<SpatialExpansion>> max_spatial_expansion_;   // max number of spatial instances need among all spatial passes
+  problem::PerDataSpace<std::vector<double>> avg_effective_expansion_ratio_;     // on average, ratio of sptial instances utilized per spatial pass
+
 
   // info that impact compute analysis
   std::vector<problem::Shape::FactorizedDimensionID> c_intersection_dims_;
   std::map<DataSpaceID, double> c_operand_densities_;
-  std::map<DataSpaceID, bool> scalar_storage_optimization_;
+  std::map<DataSpaceID, bool> storage_gs_saf_;
+  std::map<DataSpaceID, double> innermost_empty_cond_on_prob_;
 
   SparseAnalysisState()
   {}
@@ -108,20 +121,4 @@ struct SparseAnalysisState
   friend std::ostream &operator<<(std::ostream &out, const SparseAnalysisState &n);
 };
 
-//
-// Sparse Analysis API
-//
-bool PerformSparseProcessing(problem::Workload *workload,
-                             Mapping &mapping,
-                             tiling::CompoundTileNest &compound_tile_nest,
-                             SparseOptimizationInfo *sparse_optimization_info,
-                             const model::Topology::Specs &topology_specs,
-                             std::vector <model::EvalStatus> &eval_status,
-                             const bool break_on_failure);
-
-bool CheckFormatModelsAndMapping(const tiling::NestOfCompoundMasks &masks,
-                                 sparse::CompressionInfo &compression_info,
-                                 const model::Topology::Specs &topology_specs,
-                                 std::vector <model::EvalStatus> &eval_status,
-                                 const bool break_on_failure);
 }
