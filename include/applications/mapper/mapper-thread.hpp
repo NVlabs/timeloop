@@ -97,6 +97,7 @@ class MapperThread
   std::uint32_t victory_condition_;
   uint128_t sync_interval_;
   uint128_t log_interval_;  
+  bool log_index_factor_best_;  
   bool log_stats_;
   bool log_suboptimal_;
   std::ostream& log_stream_;
@@ -124,6 +125,7 @@ class MapperThread
     std::uint32_t victory_condition,
     uint128_t sync_interval,    
     uint128_t log_interval,
+    bool log_index_factor_best,
     bool log_stats,
     bool log_suboptimal,
     std::ostream& log_stream,
@@ -144,5 +146,7 @@ class MapperThread
   const Stats& GetStats() const;
 
   void Run();
+
+  void PrintStats(model::Topology& topology, EvaluationResult& result);  
       
 };
