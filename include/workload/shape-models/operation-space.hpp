@@ -91,6 +91,7 @@ class OperationSpace
   // API always uses flattened "Operation" points and spaces.
   // Factorized points and spaces are used internally.
 
+  OperationSpace() = delete;
   OperationSpace(const Workload* wc);
   OperationSpace(const Workload* wc,
                  const OperationPoint& flattened_low,
