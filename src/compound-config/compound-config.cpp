@@ -283,7 +283,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value
   if(lookupValueLongOnly(name, value)) return true; // Reads values of the form 123L
   unsigned int int_value;
   if(lookupValue(name, int_value)) { // Reads normal integers
-    value = (long long) int_value;
+    value = (unsigned long long) int_value;
     return true;
   }
   return false;
