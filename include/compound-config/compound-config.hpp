@@ -58,6 +58,8 @@ class CompoundConfigNode
   bool lookupValue(const char *name, bool &value) const;
   bool lookupValue(const char *name, int &value) const;
   bool lookupValue(const char *name, unsigned int &value) const;
+  bool lookupValueLongOnly(const char *name, long long &value) const; // Only for values with an L like 123L
+  bool lookupValueLongOnly(const char *name, unsigned long long &value) const; // Only for values with an L like 123L
   bool lookupValue(const char *name, long long &value) const;
   bool lookupValue(const char *name, unsigned long long &value) const;
   bool lookupValue(const char *name, double &value) const;
