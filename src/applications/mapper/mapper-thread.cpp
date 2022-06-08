@@ -51,6 +51,11 @@ static double Cost(const model::Topology::Stats& stats, const std::string metric
   {
     return stats.last_level_accesses;
   }
+  else if (metric.compare(0, 9, "accesses-") == 0)
+  {
+    unsigned level = unsigned(atoi(metric.substr(9).c_str()));
+    return stats.accesses.at(level);
+  }
   else
   {
     assert(metric == "edp");
@@ -109,13 +114,6 @@ static inline bool IsBetter(const model::Topology::Stats& candidate, const model
 {
   Betterness b = IsBetterRecursive_(candidate, incumbent, metrics.begin(), metrics.end());
   return (b == Betterness::Better || b == Betterness::SlightlyBetter);
-}
-
-static inline bool IsBetter(const model::Topology::Stats& candidate, const model::Topology::Stats& incumbent,
-                            const std::string& metric)
-{
-  std::vector<std::string> metrics = { metric };
-  return IsBetter(candidate, incumbent, metrics);
 }
 
 bool EvaluationResult::UpdateIfBetter(const EvaluationResult& other, const std::vector<std::string>& metrics)
