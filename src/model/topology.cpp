@@ -349,7 +349,7 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   // Save ios format state.
   std::ios state(NULL);
   state.copyfmt(out);
-  out << std::fixed << LOG_FLOAT_PRECISION;
+  out << OUT_FLOAT_FORMAT << LOG_FLOAT_PRECISION;
 
   //
   // Detailed specs and stats.
@@ -512,7 +512,7 @@ out << std::endl
     out << "Utilization: " << topology.stats_.utilization << std::endl;
     out << "Cycles: " << topology.stats_.cycles << std::endl;
     out << "Energy: " << topology.stats_.energy / 1000000 << " uJ" << std::endl;
-    out << "EDP(J*cycle): " << std::scientific << float(topology.stats_.cycles) * topology.stats_.energy / 1e12 << std::fixed << std::endl;
+    out << "EDP(J*cycle): " << std::scientific << float(topology.stats_.cycles) * topology.stats_.energy / 1e12 << OUT_FLOAT_FORMAT << std::endl;
 
   }
   out << "Area: " << topology.stats_.area / 1000000 << " mm^2" << std::endl;
