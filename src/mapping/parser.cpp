@@ -38,14 +38,14 @@ namespace mapping
 //
 
 ArchProperties arch_props_;
-problem::Workload workload_;
 
 //
 // Forward declarations.
 //
 unsigned FindTargetStorageLevel(config::CompoundConfigNode directive);
 unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type);
-std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode constraint);
+std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(
+  config::CompoundConfigNode constraint, const problem::Workload& workload);
 std::vector<problem::Shape::FlattenedDimensionID> ParseUserPermutations(config::CompoundConfigNode constraint);
 void ParseUserDatatypeBypassSettings(config::CompoundConfigNode constraint,
                                      unsigned level,
@@ -57,13 +57,11 @@ loop::Nest::SkewDescriptor ParseUserSkew(config::CompoundConfigNode directive);
 //
 Mapping ParseAndConstruct(config::CompoundConfigNode config,
                           model::Engine::Specs& arch_specs,
-                          problem::Workload workload)
+                          const problem::Workload& workload)
 {
   arch_props_ = ArchProperties();
   arch_props_.Construct(arch_specs);
 
-  workload_ = workload;
-  
   std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>>> user_factors;
   std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> user_permutations;
   std::map<unsigned, std::uint32_t> user_spatial_splits;
@@ -106,11 +104,11 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     {
       auto level_id = FindTargetTilingLevel(directive, type);
 
-      user_factors[level_id] = ParseUserFactors(directive);
+      user_factors[level_id] = ParseUserFactors(directive, workload);
 
       // The following logic was moved to the next per-level block of code.
 
-      // auto level_factors = ParseUserFactors(directive);
+      // auto level_factors = ParseUserFactors(directive, workload);
       // if (level_factors.size() > 0)
       // {
       //   // Fill in missing factors with default = 1.
@@ -358,12 +356,12 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   bool fault = false;
   for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
   {
-    if (prod[dim] != workload_.GetFlattenedBound(dim))
+    if (prod[dim] != workload.GetFlattenedBound(dim))
     {
       std::cerr << "ERROR: parsing mapping: product of all factors of dimension "
                 << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " is "
                 << prod[dim] << ", which is not equal to "
-                << "the dimension size of the workload " << workload_.GetFlattenedBound(dim)
+                << "the dimension size of the workload " << workload.GetFlattenedBound(dim)
                 << "." << std::endl;
       fault = true;
     }
@@ -545,7 +543,9 @@ unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string
 //
 // Parse user factors.
 //
-std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode directive)
+std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(
+  config::CompoundConfigNode directive,
+  const problem::Workload& workload)
 {
   std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> retval;
     
@@ -575,14 +575,14 @@ std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFact
       if (end == 0)
       {
         std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-        end = workload_.GetFlattenedBound(dimension);
+        end = workload.GetFlattenedBound(dimension);
       }
-      // else if (end > workload_.GetBound(dimension))
+      // else if (end > workload.GetBound(dimension))
       // {
       //   std::cerr << "WARNING: Directive " << dimension << "=" << end
       //             << " exceeds problem dimension " << dimension << "="
-      //             << workload_.GetBound(dimension) << ". Setting directive "
-      //             << dimension << "=" << workload_.GetBound(dimension) << std::endl;
+      //             << workload.GetBound(dimension) << ". Setting directive "
+      //             << dimension << "=" << workload.GetBound(dimension) << std::endl;
       //   end = workload_.GetBound(dimension);
       // }
       else

@@ -34,7 +34,8 @@ namespace analysis
 // Live state for a single spatial element in a single loop level.
 // ---------------------------------------------------------------
 
-ElementState::ElementState()
+ElementState::ElementState(problem::Workload& workload) :
+    last_point_set(&workload)
 {
   Reset();
 }

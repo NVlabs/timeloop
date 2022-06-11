@@ -35,21 +35,17 @@
 namespace problem
 {
 
-// ======================================== //
-//              Shape instance              //
-// ======================================== //
-// See comment in .hpp file.
-
-Shape shape_;
-
 const Shape* GetShape()
 {
-  return &shape_;
+  return Workload::current_shape_;
 }
 
 // ======================================== //
 //                 Workload                 //
 // ======================================== //
+
+bool Workload::workload_alive_ = false;
+const Shape* Workload::current_shape_ = nullptr;
 
 std::string ShapeFileName(const std::string shape_name)
 {
@@ -138,18 +134,18 @@ void ParseWorkload(config::CompoundConfigNode config, Workload& workload)
     std::cerr << "WARNING: found neither a problem shape description nor a string corresponding to a to a pre-existing shape description. Assuming shape: cnn-layer." << std::endl;
     config::CompoundConfig shape_config(ShapeFileName("cnn-layer").c_str());
     auto shape = shape_config.getRoot().lookup("shape");
-    shape_.Parse(shape);    
+    workload.ParseShape(shape);    
   }
   else if (config.lookupValue("shape", shape_name))
   {    
     config::CompoundConfig shape_config(ShapeFileName(shape_name).c_str());
     auto shape = shape_config.getRoot().lookup("shape");
-    shape_.Parse(shape);    
+    workload.ParseShape(shape);    
   }
   else
   {
     auto shape = config.lookup("shape");
-    shape_.Parse(shape);
+    workload.ParseShape(shape);
   }
 
   // Bounds may be specified directly (backwards-compat) or under a subkey.
