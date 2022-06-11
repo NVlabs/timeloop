@@ -54,10 +54,6 @@ OperationSpace::OperationSpace(const Workload* wc) :
     data_spaces_.push_back(DataSpace(wc->GetShape()->DataSpaceOrder.at(space_id)));
 }
 
-OperationSpace::OperationSpace() :
-    OperationSpace(nullptr)
-{ }
-
 OperationSpace::OperationSpace(const Workload* wc,
                                const OperationPoint& flattened_low,
                                const OperationPoint& flattened_high) :
