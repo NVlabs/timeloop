@@ -120,6 +120,17 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
     specs.word_bits = Specs::kDefaultWordBits;
   }
 
+  // Fill and drain latency of the MACs 
+  unsigned long long fill_drain_latency;
+  if (setting.lookupValue("fill_drain_latency", fill_drain_latency))
+  {
+    specs.fill_drain_latency = fill_drain_latency;
+  }
+  else
+  {
+    specs.fill_drain_latency = 0;
+  }
+
   // MeshX.
   unsigned long long mesh_x;
   if (setting.lookupValue("meshX", mesh_x))
