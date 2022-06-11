@@ -471,3 +471,9 @@ std::string Mapping::PrintCompact()
 {
   return loop_nest.PrintCompact(tiling::TransposeMasks(datatype_bypass_nest));
 }
+
+std::string Mapping::PrintL0Mapping()
+{
+  return loop_nest.PrintL0Mapping(tiling::TransposeMasks(datatype_bypass_nest));
+}
+

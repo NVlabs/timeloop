@@ -175,7 +175,16 @@ Application::Application(config::CompoundConfig* config,
   mapper.lookupValue("sync-interval", sync_interval);
   sync_interval_ = static_cast<uint128_t>(sync_interval);
   
+  // Inter-thread sync interval.
+  std::uint32_t log_interval = 1;
+  mapper.lookupValue("log-interval", log_interval);
+  log_interval_ = static_cast<uint128_t>(log_interval);
+  // std::cout << "log_interval: " <<  log_interval_ << std::endl; 
+
   // Misc.
+  log_index_factor_best_ = false;
+  mapper.lookupValue("log-index-factor-best", log_index_factor_best_);  
+
   log_stats_ = false;
   mapper.lookupValue("log-stats", log_stats_);    
 
@@ -339,6 +348,8 @@ void Application::Run()
                                         timeout_,
                                         victory_condition_,
                                         sync_interval_,
+                                        log_interval_,
+                                        log_index_factor_best_,
                                         log_stats_,
                                         log_suboptimal_,
                                         live_status_ ? log_file : std::cerr,
