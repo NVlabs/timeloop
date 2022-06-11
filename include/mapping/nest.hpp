@@ -85,7 +85,6 @@ class Nest
 
   bool operator == (const Nest& n) const; 
 
-  Descriptor GetLoop(unsigned loop_level);
   void AddLoop(Descriptor descriptor);
   void AddLoop(problem::Shape::FlattenedDimensionID dimension, int start, int end, int stride,
                spacetime::Dimension spacetime_dimension, int residual_end = 0);
@@ -105,7 +104,6 @@ class Nest
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances);
 
   std::string PrintCompact(const tiling::NestOfCompoundMasks& mask_nest);
-  std::string PrintL0Mapping(const tiling::NestOfCompoundMasks& mask_nest);
 };
 
 } // namespace loop

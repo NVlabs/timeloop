@@ -80,10 +80,7 @@ void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double
       if (ERT_entries.find(*it) != ERT_entries.end())
       {
         // populate the op_energy_map data structure for easier future energy search
-        // op_energy_map[op_name] = ERT_entries.at(*it);
-        if(op_energy_map[op_name]==0) {
-          op_energy_map[op_name] = ERT_entries.at(*it);
-        }
+        op_energy_map[op_name] = ERT_entries.at(*it);
         break;
       }
     }

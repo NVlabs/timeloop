@@ -47,7 +47,7 @@ if GetOption('link_static'):
     env.Append(LIBS = ['timeloop-model'])
 
 env.Append(LINKFLAGS = ['-std=c++11', '-static-libgcc', '-static-libstdc++', '-pthread'])
-env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses'])
+env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses', 'tinfo'])
 if GetOption('with_isl'):
     env.Append(LIBS = ['isl', 'barvinok', 'ntl', 'pthread', 'polylibgmp'])
 

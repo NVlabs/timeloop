@@ -75,7 +75,6 @@ class MapperThread
   struct Stats
   {
     EvaluationResult thread_best;
-    EvaluationResult index_factor_best;    
     std::map<FailClass, std::map<unsigned, FailInfo>> fail_stats;
 
     std::default_random_engine generator;
@@ -96,8 +95,6 @@ class MapperThread
   std::uint32_t timeout_;
   std::uint32_t victory_condition_;
   uint128_t sync_interval_;
-  uint128_t log_interval_;  
-  bool log_index_factor_best_;  
   bool log_stats_;
   bool log_suboptimal_;
   std::ostream& log_stream_;
@@ -123,9 +120,7 @@ class MapperThread
     uint128_t search_size,
     std::uint32_t timeout,
     std::uint32_t victory_condition,
-    uint128_t sync_interval,    
-    uint128_t log_interval,
-    bool log_index_factor_best,
+    uint128_t sync_interval,
     bool log_stats,
     bool log_suboptimal,
     std::ostream& log_stream,
@@ -146,7 +141,5 @@ class MapperThread
   const Stats& GetStats() const;
 
   void Run();
-
-  void PrintStats(model::Topology& topology, EvaluationResult& result);  
       
 };
