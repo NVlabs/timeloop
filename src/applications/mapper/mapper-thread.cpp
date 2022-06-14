@@ -564,6 +564,7 @@ void MapperThread::Run()
 
       PrintStats(topology, result);      
 
+      mutex_->lock();
       if (is_sparse_topology)
       {      
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
