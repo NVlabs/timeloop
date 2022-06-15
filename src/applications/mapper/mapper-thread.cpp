@@ -655,9 +655,10 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
       std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);
       std::cout << buffer_level->Name() << ":";
       for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-      {
+      {       
         auto pv = problem::Shape::DataSpaceID(pvi);
-        auto utilized_capacity = result.stats.utilized_capacities.at(inv_storage_level).at(pv); 
+        auto utilized_instances = result.stats.utilized_instances.at(inv_storage_level).at(pv);
+        auto utilized_capacity = result.stats.utilized_capacities.at(inv_storage_level).at(pv) * utilized_instances; 
         std::cout << " " << utilized_capacity;
       }
       std::cout << std::endl;
@@ -706,7 +707,7 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
     // std::cout << ": " << total_reduction_ops << std::endl;  
     std::cout << indent << std::left << std::setw(70) << "Total ops";
     uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
-    // std::cout << ": " << total_ops << std::endl;  
+    std::cout << ": " << total_ops << std::endl;
     // std::cout << indent << std::left << std::setw(70) << "Total memory accesses required";
     // std::cout << ": " << total_min_traffic << std::endl; 
     // unsigned inv_storage_level = topology.NumStorageLevels() - 1;
@@ -723,8 +724,6 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
       std::cout << "--- " << buffer_level->Name() << " ---" << std::endl;
 
       // uint64_t instances = buffer_level->GetSpecs().instances.Get();
-      auto utilized_instances = result.stats.utilized_instances.at(i);
-
       uint64_t total_scalar_access = result.stats.accesses.at(i);
       float op_per_byte = -1;
 
