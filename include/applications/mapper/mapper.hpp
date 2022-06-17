@@ -68,6 +68,7 @@ class Application
 
   bool log_stats_;
   bool log_index_factor_best_;  
+  bool log_oaves_;
   bool log_suboptimal_;
   bool live_status_;
   bool diagnostics_on_;

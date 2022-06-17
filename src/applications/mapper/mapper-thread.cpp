@@ -221,9 +221,11 @@ MapperThread::MapperThread(
   uint128_t sync_interval,  
   uint128_t log_interval,
   bool log_index_factor_best,
+  bool log_oaves,
   bool log_stats,
   bool log_suboptimal,
   std::ostream& log_stream,
+  std::ostream& oaves_csv_file,
   bool live_status,
   bool diagnostics_on,
   bool penalize_consecutive_bypass_fails,
@@ -242,10 +244,12 @@ MapperThread::MapperThread(
     victory_condition_(victory_condition),
     sync_interval_(sync_interval),
     log_interval_(log_interval), 
-    log_index_factor_best_(log_index_factor_best),    
+    log_index_factor_best_(log_index_factor_best),
+    log_oaves_(log_oaves),
     log_stats_(log_stats),
     log_suboptimal_(log_suboptimal),
     log_stream_(log_stream),
+    oaves_csv_file_(oaves_csv_file),
     live_status_(live_status),
     diagnostics_on_(diagnostics_on),
     penalize_consecutive_bypass_fails_(penalize_consecutive_bypass_fails),
@@ -374,17 +378,19 @@ void MapperThread::Run()
       terminate = true;
     }
 
-    if(log_index_factor_best_ && terminate && stats_.index_factor_best.valid)
+    if((log_index_factor_best_ || log_oaves_) && terminate && stats_.index_factor_best.valid)
     {
       auto topology =  engine.GetTopology();
 
       // print performance 
-      PrintStats(topology, stats_.index_factor_best);
-
+      if (log_index_factor_best_)
+        PrintStats(topology, stats_.index_factor_best);
+      if (log_oaves_)
+        PrintOAVESStats(topology, stats_.index_factor_best);
       // reset the best for next permutation/bypassing
-      stats_.index_factor_best.valid = false; 
+      stats_.index_factor_best.valid = false;
     }
-    
+
     // Terminate.
     if (terminate)
     {
@@ -541,6 +547,17 @@ void MapperThread::Run()
       // reset the best for next permutation/bypassing
       stats_.index_factor_best.valid = false;             
     }
+
+    if (log_oaves_ && total_mappings != 0 && (stats_.index_factor_best.valid && !(stats_.index_factor_best.mapping.PrintL0Mapping() == mapping.PrintL0Mapping()))) 
+    {
+      auto topology =  engine.GetTopology();
+
+      // print performance 
+      PrintOAVESStats(topology, stats_.index_factor_best);
+
+      // reset the best for next permutation/bypassing
+      stats_.index_factor_best.valid = false;             
+    }    
 
     auto topology =  engine.GetTopology();
     auto stats = topology.GetStats();
@@ -752,4 +769,76 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
     std::cout << std::endl;
     mutex_->unlock();
   }    
+}
+
+void MapperThread::PrintOAVESStats(model::Topology& topology, EvaluationResult& result)
+{
+  mutex_->lock();
+  // print performance
+  if (result.valid && topology.NumStorageLevels() > 0) {
+    unsigned storage_level_id = 0;
+    std::uint64_t total_utilization = 0;
+    std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(storage_level_id);
+
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {       
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      auto utilized_instances = result.stats.utilized_instances.at(storage_level_id).at(pv);
+      auto utilized_capacity = result.stats.utilized_capacities.at(storage_level_id).at(pv) * utilized_instances; 
+
+      auto utilized_capacity_byte = utilized_capacity * buffer_level->GetSpecs().word_bits.Get() / 8;
+      total_utilization += utilized_capacity_byte;
+    }
+
+    std::uint64_t total_min_traffic = 0;
+    std::uint64_t total_output_size = 0;
+
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+
+      std::uint64_t utilized_capacity = -1;
+      for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
+      {
+        unsigned inv_storage_level = topology.NumStorageLevels() - 1 - storage_level_id;
+        utilized_capacity = result.stats.utilized_capacities.at(inv_storage_level).at(pv);
+        // use the last non-bypassed level with capacity size not equal to 0
+        if (utilized_capacity > 0)
+        {
+          break;
+        }
+      }
+      assert(utilized_capacity > 0);
+      total_min_traffic += utilized_capacity;      
+      if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
+        total_output_size += utilized_capacity;
+      }
+    }
+    uint64_t total_elementwise_ops = result.stats.actual_computes;
+    uint64_t total_reduction_ops = 0;
+
+    if (tiling::gEnableFirstReadElision){
+      total_reduction_ops = result.stats.actual_computes - total_output_size;
+    } else{
+      total_reduction_ops = result.stats.actual_computes;
+    }
+    uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
+
+    std::vector<std::string> access_types = {"read", "fill", "update"};
+
+    // Assume the DRAM is the last level
+    auto last_storage_level = topology.NumStorageLevels() - 1;
+    buffer_level = topology.GetStorageLevel(last_storage_level);
+
+    uint64_t instances = buffer_level->GetSpecs().instances.Get();
+    uint64_t total_scalar_access = result.stats.accesses.at(last_storage_level) * instances;
+    float op_per_byte = -1;
+
+    if (total_scalar_access > 0)
+    {
+      op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
+    }
+    oaves_csv_file_ << total_utilization << "," << op_per_byte << "," << total_scalar_access << std::endl;
+    mutex_->unlock();
+  }
 }
