@@ -310,8 +310,8 @@ void MapperThread::Run()
 
       if (valid_mappings > 0)
       {
-        msg << std::setw(10) << std::fixed << std::setprecision(2) << (stats_.thread_best.stats.utilization * 100) << "%"
-            << std::setw(11) << std::fixed << PRINTFLOAT_PRECISION << stats_.thread_best.stats.energy /
+        msg << std::setw(10) << OUT_FLOAT_FORMAT << std::setprecision(2) << (stats_.thread_best.stats.utilization * 100) << "%"
+            << std::setw(11) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats_.thread_best.stats.energy /
           stats_.thread_best.stats.algorithmic_computes;
       }
 
@@ -585,17 +585,17 @@ void MapperThread::Run()
       if (is_sparse_topology)
       {      
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                  << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                  << " | pJ/Algorithmic-Compute = " << std::setw(4) << std::fixed << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
-                  << " | pJ/Compute = " << std::setw(4) << std::fixed << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
+                  << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization 
+                  << " | pJ/Algorithmic-Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
+                  << " | pJ/Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
                   << std::endl;
       }
       else
       {
         log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                  << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                  << " | pJ/Compute = " << std::setw(4) << std::fixed << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
+                  << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization 
+                  << " | pJ/Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
                   << std::endl;
       }
@@ -626,17 +626,17 @@ void MapperThread::Run()
         if (is_sparse_topology)
         {      
           log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                    << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                    << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
-                    << " | pJ/Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
+                    << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization 
+                    << " | pJ/Algorithmic-Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
+                    << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
                     << std::endl;
         }
         else
         {
           log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                    << " Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << stats.utilization 
-                    << " | pJ/Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
+                    << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization 
+                    << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
                     << std::endl;
         }        mutex_->unlock();
