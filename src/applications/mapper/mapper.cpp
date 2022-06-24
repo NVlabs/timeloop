@@ -139,17 +139,36 @@ Application::Application(config::CompoundConfig* config,
   }
 
   std::string metric;
+  std::vector<std::string> raw_metrics;
   if (mapper.lookupValue("optimization-metric", metric))
   {
-    optimization_metrics_ = { metric };
+    raw_metrics = { metric };
   }
   else if (mapper.exists("optimization-metrics"))
   {
-    mapper.lookupArrayValue("optimization-metrics", optimization_metrics_);
+    mapper.lookupArrayValue("optimization-metrics", raw_metrics);
   }
   else
   {
-    optimization_metrics_ = { "edp" };
+    raw_metrics = { "edp" };
+  }
+
+  for (auto& metric: raw_metrics)
+  {
+    // Special-case: if any metric is "ordered-accesses" expand it into a list
+    // of "access-X" strings. 
+    if (metric == "ordered-accesses")
+    {
+      auto num_levels = arch_specs_.topology.NumStorageLevels();
+      for (unsigned i = num_levels-1; i < num_levels; i--)
+      {
+        optimization_metrics_.push_back(std::string("accesses-") + std::to_string(i));
+      }
+    }
+    else
+    {
+      optimization_metrics_.push_back(metric);
+    }
   }
 
   // Search size (divide between threads).
@@ -510,21 +529,21 @@ void Application::Run()
     if (!sparse_optimizations_->no_optimization_applied)
     {
       std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
-      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
+      std::cout << "  Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2)
                 << global_best_.stats.utilization << " | pJ/Algorithmic-Compute = " << std::setw(8)
-                << std::fixed << PRINTFLOAT_PRECISION << global_best_.stats.energy /
+                << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << global_best_.stats.energy /
         global_best_.stats.algorithmic_computes
                 << " | pJ/Compute = " << std::setw(8)
-                << std::fixed << PRINTFLOAT_PRECISION << global_best_.stats.energy /
+                << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << global_best_.stats.energy /
         global_best_.stats.actual_computes << std::endl;
     }
     else
     {
       std::cout << "Summary stats for best mapping found by mapper:" << std::endl;
-      std::cout << "  Utilization = " << std::setw(4) << std::fixed << std::setprecision(2)
+      std::cout << "  Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2)
                 << global_best_.stats.utilization
                 << " | pJ/Compute = " << std::setw(8)
-                << std::fixed << PRINTFLOAT_PRECISION << global_best_.stats.energy /
+                << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << global_best_.stats.energy /
         global_best_.stats.actual_computes << std::endl;
     }
     

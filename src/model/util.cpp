@@ -25,17 +25,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#include "model/util.hpp"
+#include <string.h>
 
-#include "mapping.hpp"
-#include "model/engine.hpp"
-#include "compound-config/compound-config.hpp"
+// If both are false, fixed point is used
+bool gEnableScientificStatOutput = 
+    (getenv("TIMELOOP_OUTPUT_STAT_SCIENTIFIC") != NULL) &&
+    (strcmp(getenv("TIMELOOP_OUTPUT_STAT_SCIENTIFIC"), "0") != 0);
+bool gEnableDefaultFloatStatOutput = 
+    (getenv("TIMELOOP_OUTPUT_STAT_DEFAULT_FLOAT") != NULL) &&
+    (strcmp(getenv("TIMELOOP_OUTPUT_STAT_DEFAULT_FLOAT"), "0") != 0);
 
-namespace mapping
+namespace model
 {
 
-Mapping ParseAndConstruct(config::CompoundConfigNode config,
-                          model::Engine::Specs& arch_specs,
-                          const problem::Workload& workload);
+  bool enableScientificStatOutput = gEnableScientificStatOutput;
+  bool enableDefaultFloatStatOutput = gEnableDefaultFloatStatOutput;
 
-} // namespace mapping
+} // namespace model

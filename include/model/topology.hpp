@@ -62,22 +62,22 @@ static std::map <std::string, std::vector<std::string>> arithmeticOperationMappi
 static std::map <std::string, std::vector<std::string>> storageOperationMappings
   = {{"random_read", {"random_read", "read"}},
      {"random_fill", {"random_fill", "write"}},
-     {"random_update", {"random_fill", "write"}},
+     {"random_update", {"random_update", "random_fill", "write"}},
      {"gated_read", {"gated_read", "idle", "read"}},
-     {"gated_fill", {"gated_write", "gated_write", "idle", "write"}},
-     {"gated_update", {"gated_write", "gated_write", "idle", "write"}},
+     {"gated_fill", {"gated_fill", "gated_write", "gated_write", "idle", "write"}},
+     {"gated_update", {"gated_update", "gated_write", "gated_write", "idle", "write"}},
      {"skipped_read", {"skipped_read", "gated_read", "idle", "read"}},
      {"skipped_fill", {"skipped_fill", "skipped_write", "gated_write", "idle", "write"}},
      {"skipped_update", {"skipped_update", "skipped_write", "gated_write", "idle", "write"}},
-     {"random_metadata_read", {"metadata_read", "metadata_idle", "idle"}},
+     {"random_metadata_read", {"random_metadata_read", "metadata_read", "metadata_idle", "idle"}},
      {"gated_metadata_read", {"gated_metadata_read", "metadata_idle", "metadata_read"}},
      {"skipped_metadata_read", {"skipped_metadata_read", "metadata_idle", "metadata_read"}},
-     {"random_metadata_fill", {"metadata_write", "metadata_idle", "idle"}},
-     {"gated_metadata_fill", {"gated_metadata_write", "metadata_idle", "metadata_write"}},
-     {"skipped_metadata_fill", {"skipped_metadata_write", "metadata_idle", "metadata_write"}},
-     {"random_metadata_update", {"metadata_write", "metadata_idle", "idle"}},
-     {"gated_metadata_update", {"gated_metadata_write", "metadata_idle", "metadata_write"}},
-     {"skipped_metadata_update", {"skipped_metadata_write", "metadata_idle", "metadata_write"}},
+     {"random_metadata_fill", {"random_metadata_fill", "metadata_write", "metadata_idle", "idle"}},
+     {"gated_metadata_fill", {"gated_metadata_fill", "gated_metadata_write", "metadata_idle", "metadata_write"}},
+     {"skipped_metadata_fill", {"skipped_metadata_fill", "skipped_metadata_write", "metadata_idle", "metadata_write"}},
+     {"random_metadata_update", {"random_metadata_update", "metadata_write", "metadata_idle", "idle"}},
+     {"gated_metadata_update", {"gated_metadata_update", "gated_metadata_write", "metadata_idle", "metadata_write"}},
+     {"skipped_metadata_update", {"skipped_metadata_update", "skipped_metadata_write", "metadata_idle", "metadata_write"}},
      {"decompression_count", {"decompression_count"}},
      {"compression_count", {"compression_count"}}
   };
@@ -197,6 +197,7 @@ class Topology : public Module
     std::uint64_t algorithmic_computes;
     std::uint64_t actual_computes;
     std::uint64_t last_level_accesses;
+    std::vector<std::uint64_t> accesses;
   };
     
  private:

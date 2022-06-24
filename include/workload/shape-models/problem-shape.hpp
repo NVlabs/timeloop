@@ -41,14 +41,14 @@ class Shape
  public:
   typedef unsigned FactorizedDimensionID;
   
-  unsigned NumFactorizedDimensions;
+  unsigned NumFactorizedDimensions = 0;
   std::map<FactorizedDimensionID, std::string> FactorizedDimensionIDToName;
   std::map<std::string, FactorizedDimensionID> FactorizedDimensionNameToID;
 
   typedef unsigned FlattenedDimensionID;
 
   bool UsesFlattening;
-  unsigned NumFlattenedDimensions;
+  unsigned NumFlattenedDimensions = 0;
   std::map<FlattenedDimensionID, std::string> FlattenedDimensionIDToName;
   std::map<std::string, FlattenedDimensionID> FlattenedDimensionNameToID;
   std::vector<std::vector<FactorizedDimensionID>> FlattenedToFactorized;
@@ -58,14 +58,14 @@ class Shape
   typedef unsigned CoefficientID;
   typedef std::map<CoefficientID, int> Coefficients;
 
-  unsigned NumCoefficients;
+  unsigned NumCoefficients = 0;
   std::map<std::string, CoefficientID> CoefficientNameToID;
   std::map<CoefficientID, std::string> CoefficientIDToName;
   std::map<CoefficientID, int> DefaultCoefficients;
 
   typedef unsigned DataSpaceID;
 
-  unsigned NumDataSpaces;
+  unsigned NumDataSpaces = 0;
   std::map<std::string, DataSpaceID> DataSpaceNameToID;
   std::map<DataSpaceID, std::string> DataSpaceIDToName;
   std::map<DataSpaceID, unsigned> DataSpaceOrder;

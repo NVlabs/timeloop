@@ -25,6 +25,10 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # This should be sourced.
-MY_FILE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-MY_DIR_PATH=$(echo $MY_FILE_PATH | awk -F"/" '{ for (i = 1; i <= NF-2; i++) { printf "%s%s", $i, "/" } printf $(NF-1) }')
-export LD_LIBRARY_PATH=$MY_DIR_PATH/../lib:${LD_LIBRARY_PATH}
+export TIMELOOP_BASE_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)
+export LD_LIBRARY_PATH=$TIMELOOP_BASE_PATH/lib:$LD_LIBRARY_PATH
+
+# Obsolete.
+# MY_FILE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+# MY_DIR_PATH=$(echo $MY_FILE_PATH | awk -F"/" '{ for (i = 1; i <= NF-2; i++) { printf "%s%s", $i, "/" } printf $(NF-1) }')
+
