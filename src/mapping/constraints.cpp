@@ -47,6 +47,7 @@ Constraints::Constraints(const ArchProperties& arch_props,
   spatial_splits_.clear();
   confidence_thresholds_.clear();
   bypass_strings_.clear();
+  max_remainders_.clear();
   min_parallelism_ = 0.0;
   min_parallelism_isset_ = false;
   skews_.clear();
@@ -80,6 +81,12 @@ const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>&
   Constraints::MaxFactors() const
 {
   return max_factors_;
+}
+
+const std::map<unsigned, std::uint32_t>& 
+  Constraints::MaxRemainders() const
+{
+  return max_remainders_;
 }
 
 const std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>>&
@@ -741,6 +748,13 @@ void Constraints::ParseSingleConstraint(
       }
 
     }
+
+    std::uint32_t maxremainder;
+    if (constraint.lookupValue("remainders", maxremainder))
+    {
+      max_remainders_[level_id] = maxremainder;
+    }
+    
   }
   else if (type == "max_overbooked_proportion")
   {
