@@ -664,6 +664,7 @@ void Topology::Spec(const Topology::Specs& specs)
   // Connect levels to networks.
   // FIXME: network source and sink need to be *bound* per-dataspace at eval (mapping) time.
   //
+  uint64_t total_network_latency = 0;
   for (unsigned i = 0; i < specs.NumLevels()-1; i++)
   {
     // Note! We are linking levels[i+1] as the outer level for networks[i].
@@ -690,6 +691,12 @@ void Topology::Spec(const Topology::Specs& specs)
         exit(1);
       }
       read_fill_network = it->second;
+
+      if(typeid(*read_fill_network) == typeid(LegacyNetwork)) {
+        total_network_latency += std::static_pointer_cast<LegacyNetwork>(read_fill_network)->GetSpecs().fill_latency.Get();
+      } else if (typeid(*read_fill_network) == typeid(ReductionTreeNetwork)){
+        total_network_latency += std::static_pointer_cast<ReductionTreeNetwork>(read_fill_network)->GetSpecs().fill_latency.Get();
+      }
 
       if (!inner_is_arithmetic)
       {
@@ -723,6 +730,8 @@ void Topology::Spec(const Topology::Specs& specs)
       networks_[network_name] = network;
       read_fill_network = network;
 
+      // If network is unspecified, use the network_fill_latency/network_drain_latency specified from the outer buffer 
+      total_network_latency += std::static_pointer_cast<BufferLevel>(outer)->GetSpecs().network_fill_latency.Get();
       if (!inner_is_arithmetic)
       {
         auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
@@ -749,6 +758,12 @@ void Topology::Spec(const Topology::Specs& specs)
       }
       drain_update_network = it->second;
 
+      if(typeid(*drain_update_network) == typeid(LegacyNetwork)) {
+        total_network_latency += std::static_pointer_cast<LegacyNetwork>(drain_update_network)->GetSpecs().drain_latency.Get();
+      } else if (typeid(*drain_update_network) == typeid(ReductionTreeNetwork)){
+        total_network_latency += std::static_pointer_cast<ReductionTreeNetwork>(drain_update_network)->GetSpecs().drain_latency.Get();
+      }
+
       if (!inner_is_arithmetic)
       {
         auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
@@ -769,6 +784,7 @@ void Topology::Spec(const Topology::Specs& specs)
       // Reuse the existing read-fill network.
       assert(read_fill_network != nullptr);
       drain_update_network = read_fill_network;
+      total_network_latency += std::static_pointer_cast<BufferLevel>(outer)->GetSpecs().network_drain_latency.Get();
 
       if (!inner_is_arithmetic)
       {
@@ -843,6 +859,8 @@ void Topology::Spec(const Topology::Specs& specs)
     area += level->Area();
   }
   stats_.area = area;
+
+  total_network_latency_ = total_network_latency;
 }
 
 // The hierarchical ParseSpecs functions are static and do not
@@ -1358,7 +1376,9 @@ void Topology::ComputeStats(bool eval_success)
     {
       cycles = std::max(cycles, level->Cycles());
     }
-    stats_.cycles = cycles;
+
+    // Max cycle plus network fill and drain latency
+    stats_.cycles = cycles + total_network_latency_;
 
     // Utilization.
     // FIXME.

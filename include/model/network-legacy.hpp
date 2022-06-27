@@ -63,6 +63,10 @@ class LegacyNetwork : public Network
     Attribute<double> tile_width; // um
     Attribute<double> energy_per_hop; //pJ
 
+    // Network sum of fill and drain latency
+    Attribute<std::uint64_t> fill_latency;
+    Attribute<std::uint64_t> drain_latency;
+  
     Attribute<bool> is_sparse_module;
     
     const std::string Type() const override { return type; }
@@ -83,6 +87,8 @@ class LegacyNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(wire_energy);
         ar& BOOST_SERIALIZATION_NVP(tile_width);
         ar& BOOST_SERIALIZATION_NVP(energy_per_hop);
+        ar& BOOST_SERIALIZATION_NVP(fill_latency);
+        ar& BOOST_SERIALIZATION_NVP(drain_latency);
       }
     }
 
@@ -177,6 +183,8 @@ class LegacyNetwork : public Network
   {
     return std::static_pointer_cast<Network>(std::make_shared<LegacyNetwork>(*this));
   }
+
+  Specs& GetSpecs() { return specs_; }
 
   static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module);
 

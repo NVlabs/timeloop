@@ -121,14 +121,24 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   }
 
   // Fill and drain latency of the MACs 
-  unsigned long long fill_drain_latency;
-  if (buffer.lookupValue("fill_drain_latency", fill_drain_latency))
+  unsigned long long network_fill_latency;
+  if (buffer.lookupValue("network_fill_latency", network_fill_latency))
   {
-    specs.fill_drain_latency = fill_drain_latency;
+    specs.network_fill_latency = network_fill_latency;
   }
   else
   {
-    specs.fill_drain_latency = 0;
+    specs.network_fill_latency = 0;
+  }
+
+  unsigned long long network_drain_latency;
+  if (buffer.lookupValue("network_drain_latency", network_drain_latency))
+  {
+    specs.network_drain_latency = network_drain_latency;
+  }
+  else
+  {
+    specs.network_drain_latency = 0;
   }
 
   // Word Bits.
@@ -1645,7 +1655,7 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   //
   // Step 4: Calculate execution cycles.
   //
-  stats_.cycles = std::uint64_t(ceil(compute_cycles / stats_.slowdown)) + specs_.fill_drain_latency.Get();
+  stats_.cycles = std::uint64_t(ceil(compute_cycles / stats_.slowdown));
 
   //
   // Step 5: Update arch specs.
