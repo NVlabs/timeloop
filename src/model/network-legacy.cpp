@@ -125,6 +125,26 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
       specs.energy_per_hop = energy_per_hop;
   }
 
+  unsigned long long fill_latency;
+  if (network.lookupValue("fill_latency", fill_latency))
+  {
+    specs.fill_latency = fill_latency;
+  }
+  else
+  {
+    specs.fill_latency = 0;
+  }
+
+  unsigned long long drain_latency;
+  if (network.lookupValue("drain_latency", drain_latency))
+  {
+    specs.drain_latency = drain_latency;
+  }
+  else
+  {
+    specs.drain_latency = 0;
+  }
+
   return specs;
 }
 

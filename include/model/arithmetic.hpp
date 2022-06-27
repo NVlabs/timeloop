@@ -54,7 +54,6 @@ class ArithmeticUnits : public Level
     Attribute<std::uint64_t> word_bits;
     Attribute<double> energy_per_op;
     Attribute<double> area;
-    Attribute<std::uint64_t> fill_drain_latency;
 
     Attribute<std::string> operand_network_name;
     Attribute<std::string> result_network_name;
@@ -295,7 +294,7 @@ class ArithmeticUnits : public Level
         actual_computes_ = random_computes_;
       }
 
-      cycles_ = std::uint64_t(ceil(double(random_computes_ + gated_computes_)/avg_utilized_instances_)) + specs_.fill_drain_latency.Get();
+      cycles_ = ceil(double(random_computes_ + gated_computes_)/avg_utilized_instances_);
       algorithmic_computes_ = tile.compute_info.replication_factor * tile.compute_info.accesses;
       is_evaluated_ = true;
     }

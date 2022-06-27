@@ -221,7 +221,7 @@ class Topology : public Module
     std::shared_ptr<Network> drain_update_network;
   };
   std::map<unsigned, Connection> connection_map_;
-
+  uint64_t total_network_latency_;
   std::map<unsigned, double> tile_area_;
 
   Specs specs_;
