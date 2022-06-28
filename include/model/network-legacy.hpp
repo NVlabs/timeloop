@@ -63,7 +63,7 @@ class LegacyNetwork : public Network
     Attribute<double> tile_width; // um
     Attribute<double> energy_per_hop; //pJ
 
-    // Network sum of fill and drain latency
+    // Network fill and drain latency
     Attribute<std::uint64_t> fill_latency;
     Attribute<std::uint64_t> drain_latency;
   
@@ -115,6 +115,11 @@ class LegacyNetwork : public Network
     problem::PerDataSpace<double> energy_per_hop;
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> spatial_reduction_energy;
+
+    // Network fill and drain latency, can be set by the spec or inferred from outer buffer
+    // network_fill_latency and network_drain_latency
+    std::uint64_t fill_latency;
+    std::uint64_t drain_latency;
 
     // Redundant stats with outer buffer.
     problem::PerDataSpace<std::uint64_t> utilized_instances;    
