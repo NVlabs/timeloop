@@ -117,6 +117,27 @@ SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::Compoun
     specs.per_datatype_ERT = false;
   }
 
+  // Network fill and drain latency
+  unsigned long long fill_latency;
+  if (network.lookupValue("fill_latency", fill_latency))
+  {
+    specs.fill_latency = fill_latency;
+  }
+  else
+  {
+    specs.fill_latency = 0;
+  }
+
+  unsigned long long drain_latency;
+  if (network.lookupValue("drain_latency", drain_latency))
+  {
+    specs.drain_latency = drain_latency;
+  }
+  else
+  {
+    specs.drain_latency = 0;
+  }
+
   return specs;
 }
 

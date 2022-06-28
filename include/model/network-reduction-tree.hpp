@@ -55,6 +55,10 @@ class ReductionTreeNetwork : public Network
     Attribute<double> adder_energy; // let user overwrite the one in pat
     Attribute<double> wire_energy;
 
+    // Network fill and drain latency
+    Attribute<std::uint64_t> fill_latency;
+    Attribute<std::uint64_t> drain_latency;
+
     // Post-floorplanning physical attributes.
     Attribute<double> tile_width; // um
 
@@ -77,6 +81,8 @@ class ReductionTreeNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(adder_energy);
         ar& BOOST_SERIALIZATION_NVP(wire_energy);
         ar& BOOST_SERIALIZATION_NVP(tile_width);
+        ar& BOOST_SERIALIZATION_NVP(fill_latency);
+        ar& BOOST_SERIALIZATION_NVP(drain_latency);
       }
     }
 
@@ -96,6 +102,11 @@ class ReductionTreeNetwork : public Network
     problem::PerDataSpace<double> energy_per_hop;
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> spatial_reduction_energy;
+
+    // Network fill and drain latency, can be set by the spec or inferred from outer buffer
+    // network_fill_latency and network_drain_latency
+    std::uint64_t fill_latency;
+    std::uint64_t drain_latency;
 
     // Redundant stats with outer buffer.
     problem::PerDataSpace<std::uint64_t> utilized_instances;    
@@ -153,6 +164,8 @@ class ReductionTreeNetwork : public Network
   ReductionTreeNetwork(); // Need this to make Boost happy.
   ReductionTreeNetwork(const Specs& specs);
   ~ReductionTreeNetwork();
+
+  Specs& GetSpecs() { return specs_; }
 
   std::shared_ptr<Network> Clone() const override
   {
