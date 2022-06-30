@@ -46,6 +46,37 @@ void IndexFactorizationSpace::Init(const problem::Workload &workload,
                                    std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
                                    std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors)
 {
+  // Sanity check on input pre-factors.
+  for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+  {
+    unsigned long bound = workload.GetFlattenedBound(idim);
+
+    unsigned long product = 1;
+    for (auto& entry: prefactors.at(idim))
+    {
+      product *= entry.second;
+    }
+
+    if ((bound % product) != 0)
+    {
+      std::cerr << "ERROR: IndexFactorization: workload bound "
+                << problem::GetShape()->FlattenedDimensionIDToName.at(idim) << " = "
+                << bound << " is not divisible by product of user-provided constraint factors = "
+                << product << std::endl;
+      std::exit(1);
+    }
+
+    if ((cofactors_order.at(idim) == prefactors.at(idim).size()) && product != bound)
+    {
+      std::cerr << "ERROR: IndexFactorization: product of fully-user-provided constraint factors "
+                << product << " is not equal to workload bound "
+                << problem::GetShape()->FlattenedDimensionIDToName.at(idim) << " = "
+                << bound << std::endl;
+      std::exit(1);
+    }
+  }  
+
+  // Create factor sets.
   problem::PerFlattenedDimension<uint128_t> counter_base;
   for (int idim = 0; idim < int(problem::GetShape()->NumFlattenedDimensions); idim++)
   {

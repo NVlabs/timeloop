@@ -80,6 +80,11 @@ Factors::MultiplicativeSplitRecursive_(unsigned long n, int order)
 {
   if (order == 0)
   {
+    if (n != 1)
+    {
+      std::cerr << "ERROR: Factors: cannot split n=" << n << " into 0 cofactors." << std::endl;
+      assert(false);
+    }
     return {{}};
   }
   else if (order == 1)

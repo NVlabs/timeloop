@@ -593,6 +593,9 @@ void Constraints::ParseSingleConstraint(
         exit(1);
       }
       factors_[level_id][factor.first] = factor.second;
+      // std::cout << "Parsing factor level = " << arch_props_.TilingLevelName(level_id)
+      //           << " dim = " << problem::GetShape()->FlattenedDimensionIDToName.at(factor.first)
+      //           << " factor = " << factor.second << std::endl;
     }
 
     auto level_max_factors = ParseMaxFactors(attributes);
@@ -877,6 +880,8 @@ Constraints::ParseFactors(config::CompoundConfigNode constraint)
   std::string buffer;
   if (constraint.lookupValue("factors", buffer))
   {
+    buffer = buffer.substr(0, buffer.find("#"));
+
     std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)", std::regex::extended);
     std::smatch sm;
     std::string str = std::string(buffer);
@@ -936,6 +941,8 @@ Constraints::ParseMaxFactors(config::CompoundConfigNode constraint)
   std::string buffer;
   if (constraint.lookupValue("factors", buffer))
   {
+    buffer = buffer.substr(0, buffer.find("#"));
+
     std::regex re("([A-Za-z]+)[[:space:]]*<=[[:space:]]*([0-9]+)", std::regex::extended);
     std::smatch sm;
     std::string str = std::string(buffer);
