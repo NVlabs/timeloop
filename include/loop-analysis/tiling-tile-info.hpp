@@ -42,7 +42,7 @@
 namespace tiling
 {
 
-const int MaxTilingLevels = 16;
+const int MaxTilingLevels = 32;
 
 // each item stands for a rank, each rank has associated metadata occupancy
 typedef std::vector<problem::PerRankMetaDataTileOccupancy> MetaDataTileOccupancy;
