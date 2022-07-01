@@ -692,19 +692,9 @@ void Topology::Spec(const Topology::Specs& specs)
       }
       read_fill_network = it->second;
 
-      if (typeid(*read_fill_network) == typeid(LegacyNetwork)) {
-        auto legacy_network = std::static_pointer_cast<LegacyNetwork>(read_fill_network);
-        legacy_network->stats_.fill_latency = legacy_network->GetSpecs().fill_latency.Get();
-        total_network_latency += legacy_network->stats_.fill_latency;
-      } else if (typeid(*read_fill_network) == typeid(ReductionTreeNetwork)){
-        auto reduction_tree_network = std::static_pointer_cast<ReductionTreeNetwork>(read_fill_network);
-        reduction_tree_network->stats_.fill_latency = reduction_tree_network->GetSpecs().fill_latency.Get();
-        total_network_latency += reduction_tree_network->stats_.fill_latency;
-      } else if (typeid(*read_fill_network) == typeid(SimpleMulticastNetwork)){
-        auto simple_multicast_network = std::static_pointer_cast<SimpleMulticastNetwork>(read_fill_network);
-        simple_multicast_network->stats_.fill_latency = simple_multicast_network->GetSpecs().fill_latency.Get();
-        total_network_latency += simple_multicast_network->stats_.fill_latency;
-      } 
+      uint64_t fill_latency = read_fill_network->FillLatency();
+      total_network_latency += fill_latency;
+      read_fill_network->SetFillLatency(fill_latency);
 
       if (!inner_is_arithmetic)
       {
@@ -732,8 +722,9 @@ void Topology::Spec(const Topology::Specs& specs)
       std::shared_ptr<LegacyNetwork> legacy_network = std::make_shared<LegacyNetwork>(inferred_network_specs);
 
       // If network is unspecified, use the network_fill_latency/network_drain_latency specified from the outer buffer
-      legacy_network->stats_.fill_latency = std::static_pointer_cast<BufferLevel>(outer)->GetSpecs().network_fill_latency.Get();
-      total_network_latency += legacy_network->stats_.fill_latency;
+      uint64_t fill_latency = std::static_pointer_cast<BufferLevel>(outer)->GetSpecs().network_fill_latency.Get();
+      total_network_latency += fill_latency;
+      legacy_network->SetFillLatency(fill_latency);
 
       std::shared_ptr<Network> network = std::static_pointer_cast<Network>(legacy_network);
 
@@ -769,19 +760,9 @@ void Topology::Spec(const Topology::Specs& specs)
       }
       drain_update_network = it->second;
 
-      if (typeid(*read_fill_network) == typeid(LegacyNetwork)) {
-        auto legacy_network = std::static_pointer_cast<LegacyNetwork>(read_fill_network);
-        legacy_network->stats_.drain_latency = legacy_network->GetSpecs().drain_latency.Get();
-        total_network_latency += legacy_network->stats_.drain_latency;
-      } else if (typeid(*read_fill_network) == typeid(ReductionTreeNetwork)){
-        auto reduction_tree_network = std::static_pointer_cast<ReductionTreeNetwork>(read_fill_network);
-        reduction_tree_network->stats_.drain_latency = reduction_tree_network->GetSpecs().drain_latency.Get();
-        total_network_latency += reduction_tree_network->stats_.drain_latency;
-      } else if (typeid(*read_fill_network) == typeid(SimpleMulticastNetwork)){
-        auto simple_multicast_network = std::static_pointer_cast<SimpleMulticastNetwork>(read_fill_network);
-        simple_multicast_network->stats_.drain_latency = simple_multicast_network->GetSpecs().drain_latency.Get();
-        total_network_latency += simple_multicast_network->stats_.drain_latency;
-      }
+      uint64_t drain_latency = drain_update_network->DrainLatency();
+      total_network_latency += drain_latency;
+      drain_update_network->SetDrainLatency(drain_latency);
 
       if (!inner_is_arithmetic)
       {
@@ -806,8 +787,10 @@ void Topology::Spec(const Topology::Specs& specs)
 
       // If network is unspecified, use the network_fill_latency/network_drain_latency specified from the outer buffer
       auto legacy_network = std::static_pointer_cast<LegacyNetwork>(drain_update_network);
-      legacy_network->stats_.drain_latency = std::static_pointer_cast<BufferLevel>(outer)->GetSpecs().network_drain_latency.Get();
-      total_network_latency += legacy_network->stats_.drain_latency;
+
+      uint64_t drain_latency = std::static_pointer_cast<BufferLevel>(outer)->GetSpecs().network_drain_latency.Get();
+      total_network_latency += drain_latency;
+      legacy_network->SetDrainLatency(drain_latency);
 
       if (!inner_is_arithmetic)
       {

@@ -72,7 +72,7 @@ class LegacyNetwork : public Network
     const std::string Type() const override { return type; }
     bool SupportAccelergyTables() const override { return false; }
     void ProcessERT(const config::CompoundConfigNode& ERT) override;
-    
+
     // Serialization
     friend class boost::serialization::access;
 
@@ -214,6 +214,11 @@ class LegacyNetwork : public Network
   void ComputePerformance();
 
   std::uint64_t WordBits() const;
+  std::uint64_t FillLatency() const override { assert(is_specced_); return specs_.fill_latency.Get(); };
+  std::uint64_t DrainLatency() const override { assert(is_specced_); return specs_.fill_latency.Get(); };
+
+  void SetFillLatency(std::uint64_t fill_latency) override { stats_.fill_latency = fill_latency; };
+  void SetDrainLatency(std::uint64_t drain_latency) override { stats_.drain_latency = drain_latency; };
 
   void Print(std::ostream& out) const;
 
