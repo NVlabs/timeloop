@@ -205,6 +205,7 @@ void MapperThread::Stats::UpdateFails(FailClass fail_class, std::string fail_rea
       if (roll < prob)
       {
         fail_info_it->second.mapping = mapping;
+        fail_info_it->second.reason = fail_reason;
       }
     }
   }
