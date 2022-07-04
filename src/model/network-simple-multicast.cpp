@@ -335,6 +335,28 @@ std::uint64_t SimpleMulticastNetwork::WordBits() const
   return 0;
 }
 
+std::uint64_t SimpleMulticastNetwork::FillLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+std::uint64_t SimpleMulticastNetwork::DrainLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+void SimpleMulticastNetwork::SetFillLatency(std::uint64_t fill_latency)
+{
+  stats_.fill_latency = fill_latency;
+}
+
+void SimpleMulticastNetwork::SetDrainLatency(std::uint64_t drain_latency)
+{
+  stats_.drain_latency = drain_latency;
+}
+
 STAT_ACCESSOR(double, SimpleMulticastNetwork, Energy, stats_.energy.at(pv) * stats_.utilized_instances.at(pv))
 
 } // namespace model
