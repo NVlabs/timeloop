@@ -350,6 +350,28 @@ std::uint64_t ReductionTreeNetwork::WordBits() const
   return 0;
 }
 
+std::uint64_t ReductionTreeNetwork::FillLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+std::uint64_t ReductionTreeNetwork::DrainLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+void ReductionTreeNetwork::SetFillLatency(std::uint64_t fill_latency)
+{
+  stats_.fill_latency = fill_latency;
+}
+
+void ReductionTreeNetwork::SetDrainLatency(std::uint64_t drain_latency)
+{
+  stats_.drain_latency = drain_latency;
+}
+
 /*
 STAT_ACCESSOR(double, ReductionTreeNetwork, NetworkEnergy,
               (stats_.link_transfer_energy.at(pv) + stats_.energy.at(pv)) * stats_.utilized_instances.at(pv))

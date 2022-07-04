@@ -196,10 +196,10 @@ class ReductionTreeNetwork : public Network
 
   // Ugly abstraction-breaking probes that should be removed.
   std::uint64_t WordBits() const;
-  std::uint64_t FillLatency() const override { assert(is_specced_); return specs_.fill_latency.Get(); };
-  std::uint64_t DrainLatency() const override { assert(is_specced_); return specs_.fill_latency.Get(); };
-  void SetFillLatency(std::uint64_t fill_latency) override { stats_.fill_latency = fill_latency; };
-  void SetDrainLatency(std::uint64_t drain_latency) override { stats_.drain_latency = drain_latency; };
+  std::uint64_t FillLatency() const override;
+  std::uint64_t DrainLatency() const override;
+  void SetFillLatency(std::uint64_t fill_latency) override;
+  void SetDrainLatency(std::uint64_t drain_latency) override;
 
   STAT_ACCESSOR_HEADER(double, Energy);
 

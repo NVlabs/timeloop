@@ -494,6 +494,28 @@ std::uint64_t LegacyNetwork::WordBits() const
   return specs_.word_bits.Get();
 }
 
+std::uint64_t LegacyNetwork::FillLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+std::uint64_t LegacyNetwork::DrainLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+};
+
+void LegacyNetwork::SetFillLatency(std::uint64_t fill_latency)
+{
+  stats_.fill_latency = fill_latency;
+}
+
+void LegacyNetwork::SetDrainLatency(std::uint64_t drain_latency)
+{
+  stats_.drain_latency = drain_latency;
+}
+
 //
 // Printers.
 //
