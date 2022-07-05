@@ -37,6 +37,23 @@ enum class Betterness
   Worse
 };
 
+static std::uint64_t SumStats(problem::PerDataSpace<std::uint64_t>& data, problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces)
+{
+  if (pv != problem::GetShape()->NumDataSpaces)
+  {
+    return data.at(pv);
+  }
+  else
+  {
+    std::uint64_t stat = 0;
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    {
+      stat += SumStats(data, problem::Shape::DataSpaceID(pvi));
+    }
+    return stat;
+  }
+}
+
 static double Cost(const model::Topology::Stats& stats, const std::string metric)
 {
   if (metric == "delay")
@@ -55,15 +72,7 @@ static double Cost(const model::Topology::Stats& stats, const std::string metric
   {
     unsigned level = unsigned(atoi(metric.substr(9).c_str()));
     auto scalar_accesses_space = stats.accesses.at(level);
-
-    uint64_t total_scalar_access = 0;
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      uint64_t per_dataspace_access = scalar_accesses_space[pv];
-      total_scalar_access += per_dataspace_access;
-    }
-
+    uint64_t total_scalar_access = SumStats(scalar_accesses_space);
     return total_scalar_access;
   }
   else
@@ -546,10 +555,12 @@ void MapperThread::Run()
 
     // SUCCESS!!!
     // Output results at log interval
+    auto topology =  engine.GetTopology();
+    auto stats = topology.GetStats();
+    EvaluationResult result = { true, mapping, stats };
 
-    if (log_index_factor_best_ && total_mappings != 0 && (stats_.index_factor_best.valid && !(stats_.index_factor_best.mapping.PrintL0Mapping() == mapping.PrintL0Mapping()))) 
+    if (log_index_factor_best_ && total_mappings != 0 && (stats_.index_factor_best.valid && (SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))))
     {
-      auto topology =  engine.GetTopology();
 
       // print performance 
       PrintStats(topology, stats_.index_factor_best);
@@ -558,20 +569,14 @@ void MapperThread::Run()
       stats_.index_factor_best.valid = false;             
     }
 
-    if (log_oaves_ && total_mappings != 0 && (stats_.index_factor_best.valid && !(stats_.index_factor_best.mapping.PrintL0Mapping() == mapping.PrintL0Mapping()))) 
+    if (log_oaves_ && total_mappings != 0 && (stats_.index_factor_best.valid && (SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))))
     {
-      auto topology =  engine.GetTopology();
-
       // print performance 
       PrintOAVESStats(topology, stats_.index_factor_best);
 
       // reset the best for next permutation/bypassing
       stats_.index_factor_best.valid = false;             
-    }    
-
-    auto topology =  engine.GetTopology();
-    auto stats = topology.GetStats();
-    EvaluationResult result = { true, mapping, stats };
+    }
 
     valid_mappings++;
     if (log_stats_)
@@ -751,13 +756,7 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
       std::cout << "--- " << buffer_level->Name() << " ---" << std::endl;
 
       auto scalar_accesses_space = result.stats.accesses.at(i);
-      uint64_t total_scalar_access = 0;
-      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-      {
-        auto pv = problem::Shape::DataSpaceID(pvi);
-        uint64_t per_dataspace_access = scalar_accesses_space[pv];
-        total_scalar_access += per_dataspace_access;
-      }
+      uint64_t total_scalar_access = SumStats(scalar_accesses_space);
 
       float op_per_byte = -1;
 

@@ -84,7 +84,6 @@ struct Mapping
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances);
 
   std::string PrintCompact();
-  std::string PrintL0Mapping();
 };
 
 std::ostream& operator << (std::ostream& out, const Mapping& mapping);

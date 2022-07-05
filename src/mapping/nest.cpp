@@ -539,49 +539,4 @@ std::string Nest::PrintCompact(const tiling::NestOfCompoundMasks& mask_nest)
   return retval;
 }
 
-std::string Nest::PrintL0Mapping(const tiling::NestOfCompoundMasks& mask_nest)
-{
-  std::string retval;
-
-  unsigned num_loops = loops.size();
-  unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
-  bool is_level_0 = false;
-
-  for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
-  {
-    if (inv_storage_level != static_cast<unsigned>(-1) &&
-        storage_tiling_boundaries.at(inv_storage_level) == loop_level)
-    {
-      if (inv_storage_level == 0)
-      {
-          is_level_0 = true;
-          std::ostringstream str;
-
-          if (loop_level != num_loops-1)
-            retval += "- ";
-
-          str << "L" << inv_storage_level << "[";
-          auto& mask = mask_nest.at(inv_storage_level);
-          for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-          {
-            if (mask.at(pvi))
-            {
-              str << problem::GetShape()->DataSpaceIDToName.at(pvi)[0];
-            }
-          }
-          str << "] ";
-          retval += str.str();
-      }
-      inv_storage_level--;
-    }
-
-    if (is_level_0) {
-      retval += loops.at(loop_level).PrintCompact();
-      retval += " ";
-    }
-  }
-
-  return retval;
-}
-
 }  // namespace loop

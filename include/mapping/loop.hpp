@@ -75,7 +75,6 @@ class Descriptor
                   std::vector<std::string>& varnames) const;
 
   std::string PrintCompact() const;
-  std::string PrintL0Mapping() const;
 
   // Serialization
   friend class boost::serialization::access;
