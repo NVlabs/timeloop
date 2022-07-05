@@ -26,6 +26,7 @@
  */
 
 #pragma once
+#include <iostream>
 
 namespace model
 {
@@ -63,7 +64,16 @@ Type FuncName(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpace
   STAT_ACCESSOR_HEADER(Type, FuncName)                                                \
   STAT_ACCESSOR_BODY(Type, FuncName, Expression)
 
+extern bool enableScientificStatOutput;
+extern bool enableDefaultFloatStatOutput;
+
+
 #define PRINTFLOAT_PRECISION std::setprecision(3)
 #define LOG_FLOAT_PRECISION std::setprecision(2)
+
+#define OUT_FLOAT_FORMAT (                                                          \
+  model::enableScientificStatOutput ? std::scientific :                             \
+  model::enableDefaultFloatStatOutput ? std::defaultfloat : std::fixed              \
+)
 
 } // namespace model
