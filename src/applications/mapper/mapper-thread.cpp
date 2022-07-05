@@ -54,7 +54,17 @@ static double Cost(const model::Topology::Stats& stats, const std::string metric
   else if (metric.compare(0, 9, "accesses-") == 0)
   {
     unsigned level = unsigned(atoi(metric.substr(9).c_str()));
-    return stats.accesses.at(level);
+    auto scalar_accesses_space = stats.accesses.at(level);
+
+    uint64_t total_scalar_access = 0;
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      uint64_t per_dataspace_access = scalar_accesses_space[pv];
+      total_scalar_access += per_dataspace_access;
+    }
+
+    return total_scalar_access;
   }
   else
   {
@@ -740,8 +750,15 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
       // auto stats = buffer_level->GetStats();
       std::cout << "--- " << buffer_level->Name() << " ---" << std::endl;
 
-      // uint64_t instances = buffer_level->GetSpecs().instances.Get();
-      uint64_t total_scalar_access = result.stats.accesses.at(i);
+      auto scalar_accesses_space = result.stats.accesses.at(i);
+      uint64_t total_scalar_access = 0;
+      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      {
+        auto pv = problem::Shape::DataSpaceID(pvi);
+        uint64_t per_dataspace_access = scalar_accesses_space[pv];
+        total_scalar_access += per_dataspace_access;
+      }
+
       float op_per_byte = -1;
 
       if (total_scalar_access > 0)
@@ -776,8 +793,10 @@ void MapperThread::PrintOAVESStats(model::Topology& topology, EvaluationResult& 
   mutex_->lock();
   // print performance
   if (result.valid && topology.NumStorageLevels() > 0) {
+    // get the buffer utilization of the innermost memory level
     unsigned storage_level_id = 0;
     std::uint64_t total_utilization = 0;
+    std::vector<std::uint64_t> utilizations;
     std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(storage_level_id);
 
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
@@ -787,6 +806,7 @@ void MapperThread::PrintOAVESStats(model::Topology& topology, EvaluationResult& 
       auto utilized_capacity = result.stats.utilized_capacities.at(storage_level_id).at(pv) * utilized_instances; 
 
       auto utilized_capacity_byte = utilized_capacity * buffer_level->GetSpecs().word_bits.Get() / 8;
+      utilizations.push_back(utilized_capacity_byte);
       total_utilization += utilized_capacity_byte;
     }
 
@@ -830,15 +850,32 @@ void MapperThread::PrintOAVESStats(model::Topology& topology, EvaluationResult& 
     auto last_storage_level = topology.NumStorageLevels() - 1;
     buffer_level = topology.GetStorageLevel(last_storage_level);
 
-    uint64_t instances = buffer_level->GetSpecs().instances.Get();
-    uint64_t total_scalar_access = result.stats.accesses.at(last_storage_level) * instances;
+    auto scalar_accesses_space = result.stats.accesses.at(last_storage_level);
+    uint64_t total_scalar_access = 0;
+    std::vector<uint64_t> scalar_accesses;
+
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      uint64_t per_dataspace_access = scalar_accesses_space[pv];
+      scalar_accesses.push_back(per_dataspace_access);
+      total_scalar_access += per_dataspace_access;
+    }
+
     float op_per_byte = -1;
 
     if (total_scalar_access > 0)
     {
       op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
     }
-    oaves_csv_file_ << total_utilization << "," << op_per_byte << "," << total_scalar_access << std::endl;
+    oaves_csv_file_ << total_utilization << "," << op_per_byte << "," << total_scalar_access;
+    for (uint64_t utilization: utilizations) {
+      oaves_csv_file_<< "," << utilization;
+    }
+    for (uint64_t scalar_access: scalar_accesses) {
+      oaves_csv_file_<< "," << scalar_access;
+    }
+    oaves_csv_file_ << "," << result.mapping.PrintCompact() << std::endl;
     mutex_->unlock();
   }
 }

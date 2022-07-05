@@ -1375,15 +1375,18 @@ void Topology::ComputeStats(bool eval_success)
     stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses();
 
     // All accesses.
-    for (unsigned i = 0; i < NumStorageLevels(); i++)
-    {
-      stats_.accesses.push_back(GetStorageLevel(i)->Accesses());
-    }
-    
     stats_.accesses.clear();
     for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
     {
-        stats_.accesses.push_back(GetStorageLevel(storage_level_id)->Accesses());
+
+        problem::PerDataSpace<std::uint64_t> as;
+        for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+        {
+          auto pv = problem::Shape::DataSpaceID(pvi);
+          as[pv] = GetStorageLevel(storage_level_id)->Accesses(pv);
+
+        }
+        stats_.accesses.push_back(as);
     }
 
   } // eval_success

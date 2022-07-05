@@ -197,7 +197,7 @@ class Topology : public Module
     std::uint64_t algorithmic_computes;
     std::uint64_t actual_computes;
     std::uint64_t last_level_accesses;
-    std::vector<std::uint64_t> accesses;
+    std::vector<problem::PerDataSpace<std::uint64_t>> accesses;
   };
     
  private:
