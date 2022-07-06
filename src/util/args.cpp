@@ -55,10 +55,20 @@ bool ParseArgs(int argc, char* argv[],
         return false;
       }
     }
+    else if (arg->compare("timeloop-mapper.map.yaml") == 0)
+    {
+      std::cerr << "WARNING: found timeloop-mapper.map.yaml in input file list, ignoring."
+                << std::endl;
+    }
     else
     {
       input_files.push_back(*arg);
     }
+  }
+
+  for (auto& file: input_files)
+  {
+    std::cout << "input file: " << file << std::endl;
   }
 
   return true;

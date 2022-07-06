@@ -355,14 +355,16 @@ void ArithmeticUnits::Print(std::ostream& out) const
     out << indent << "Area (total)                 : " << Area() << " um^2" << std::endl;
     out << std::endl;
   }
- else
- {
-  out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
-  out << indent << "Computes (total)        : " << actual_computes_ << std::endl;
-  out << indent << "Cycles                  : " << Cycles() << std::endl;
-  out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
-  out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
- }
+  else
+  {
+    out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
+    out << indent << "Computes (total)        : " << actual_computes_ << std::endl;
+    out << indent << "Cycles                  : " << Cycles() << std::endl;
+    out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
+    out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
+  }
+
+  out << std::endl;
 }
 
 } // namespace model
