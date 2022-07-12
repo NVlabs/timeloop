@@ -198,6 +198,21 @@ class Topology : public Module
     std::uint64_t actual_computes;
     std::uint64_t last_level_accesses;
     std::vector<std::uint64_t> accesses;
+
+    void Reset()
+    {
+      energy = 0;
+      area = 0;
+      cycles = 0;
+      utilization = 0;
+      tile_sizes.clear();
+      utilized_capacities.clear();
+      utilized_instances.clear();
+      algorithmic_computes = 0;
+      actual_computes = 0;
+      last_level_accesses = 0;
+      accesses.clear();
+    }
   };
     
  private:

@@ -1045,6 +1045,8 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
 
 void Topology::Reset()
 {
+  stats_.Reset();
+
   for (auto & level : levels_)
   {
     level->Reset();
