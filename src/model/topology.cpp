@@ -426,11 +426,11 @@ for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
 // std::cout <<  "total_min_traffic " << total_min_traffic << std::endl;
 // std::cout <<  "total_output_size " << total_output_size << std::endl;
 
-out << indent << std::left << std::setw(70) << "Total elementwise ops";
+out << indent << std::left << std::setw(40) << "Total elementwise ops";
 uint64_t total_elementwise_ops = topology.stats_.actual_computes;
 out << ": " << total_elementwise_ops << std::endl; 
 
-out << indent << std::left << std::setw(70) << "Total reduction ops";
+out << indent << std::left << std::setw(40) << "Total reduction ops";
 uint64_t total_reduction_ops = 0;
 
 if (tiling::gEnableFirstReadElision){
@@ -440,17 +440,17 @@ if (tiling::gEnableFirstReadElision){
 }
 out << ": " << total_reduction_ops << std::endl; 
 
-out << indent << std::left << std::setw(70) << "Total ops";
+out << indent << std::left << std::setw(40) << "Total ops";
 uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
 out << ": " << total_ops << std::endl;  
 
-out << indent << std::left << std::setw(70) << "Total memory accesses required";
+out << indent << std::left << std::setw(40) << "Total memory accesses required";
 out << ": " << total_min_traffic << std::endl; 
 
 unsigned inv_storage_level = topology.NumStorageLevels() - 1;
 std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
 auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
-out << indent << std::left << std::setw(70) << "Optimal Op per Byte";
+out << indent << std::left << std::setw(40) << "Optimal Op per Byte";
 out << ": " << op_per_byte << std::endl << std::endl;
 
 std::vector<std::string> access_types = {"read", "fill", "update"};
@@ -488,10 +488,10 @@ for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
   float op_per_byte = -1;
   if (total_scalar_access > 0)
   {
-    out << indent << std::left << std::setw(70) << "Total scalar accesses";
+    out << indent << std::left << std::setw(40) << "Total scalar accesses";
     out << ": " << total_scalar_access << std::endl;
     op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
-    out << indent << std::left << std::setw(70) << "Op per Byte";
+    out << indent << std::left << std::setw(40) << "Op per Byte";
     out << ": " << op_per_byte << std::endl;
   }
   
