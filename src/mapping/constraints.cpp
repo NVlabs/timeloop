@@ -888,6 +888,8 @@ Constraints::ParseFactors(config::CompoundConfigNode constraint)
 
     while (std::regex_search(str, sm, re))
     {
+      bool fail = false;
+
       std::string dimension_name = sm[1];
       problem::Shape::FlattenedDimensionID dimension;
       try
@@ -909,19 +911,27 @@ Constraints::ParseFactors(config::CompoundConfigNode constraint)
       }
       else if (end > workload_.GetFlattenedBound(dimension))
       {
+        // std::cerr << "WARNING: Constraint " << dimension_name << "=" << end
+        //           << " exceeds problem dimension " << dimension_name << "="
+        //           << workload_.GetFlattenedBound(dimension) << ". Setting constraint "
+        //           << dimension << "=" << workload_.GetFlattenedBound(dimension) << std::endl;
+        // end = workload_.GetFlattenedBound(dimension);
         std::cerr << "WARNING: Constraint " << dimension_name << "=" << end
                   << " exceeds problem dimension " << dimension_name << "="
-                  << workload_.GetFlattenedBound(dimension) << ". Setting constraint "
-                  << dimension << "=" << workload_.GetFlattenedBound(dimension) << std::endl;
-        end = workload_.GetFlattenedBound(dimension);
+                  << workload_.GetFlattenedBound(dimension) << ", ignoring."
+                  << std::endl;
+        fail = true;
       }
       else
       {
         assert(end > 0);
       }
 
-      // Found all the information we need to setup a factor!
-      retval[dimension] = end;
+      if (!fail)
+      {
+        // Found all the information we need to setup a factor!
+        retval[dimension] = end;
+      }
 
       str = sm.suffix().str();
     }
