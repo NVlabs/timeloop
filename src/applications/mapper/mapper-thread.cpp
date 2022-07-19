@@ -72,8 +72,14 @@ static Betterness IsBetterRecursive_(const model::Topology::Stats& candidate, co
   double candidate_cost = Cost(candidate, *metric);
   double incumbent_cost = Cost(incumbent, *metric);
 
-  double relative_improvement = incumbent_cost == 0 ? 1.0 :
-    (incumbent_cost - candidate_cost) / incumbent_cost;
+  // Compute % improvement relative to incumbent. We need to
+  // special-case cost == 0 to avoid a divide-by-zero error. Note that
+  // cost == 0 is a legitimate cost for a mapping. Also note that lower
+  // cost is better.
+  double absolute_improvement = incumbent_cost - candidate_cost;
+  double relative_improvement = incumbent_cost == 0 ?
+    (candidate_cost == 0 ? 0 : absolute_improvement / candidate_cost) :
+    absolute_improvement / incumbent_cost;
 
   if (fabs(relative_improvement) > tolerance)
   {
