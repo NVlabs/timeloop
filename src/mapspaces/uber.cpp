@@ -202,20 +202,22 @@ void Uber::InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shap
   {
     // Extract the user-provided pattern for this level.
     std::vector<problem::Shape::FlattenedDimensionID> user_prefix;
+    std::vector<problem::Shape::FlattenedDimensionID> user_suffix;
     auto it = user_permutations.find(level);
     if (it != user_permutations.end())
     {
-      user_prefix = it->second;
+      user_prefix = it->second.first;
+      user_suffix = it->second.second;
     }
 
     bool use_canonical_permutation = false;
     if (arch_props_.IsSpatial(level))
     {
-      use_canonical_permutation = user_prefix.empty() && !arch_props_.IsSpatial2D(level);
+      use_canonical_permutation = user_prefix.empty() && user_suffix.empty() && !arch_props_.IsSpatial2D(level);
     }
     else
     {
-      use_canonical_permutation = (level == 0); // || level == arch_props_.TilingLevels()-1); // FIXME: last level?
+      use_canonical_permutation = (level == 0);
     }
       
     if (use_canonical_permutation)
@@ -231,9 +233,9 @@ void Uber::InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shap
       // permutation space object itself.
       auto it = pruned_dimensions.find(level);
       if (it != pruned_dimensions.end())
-        permutation_space_.InitLevel(level, user_prefix, it->second);
+        permutation_space_.InitLevel(level, user_prefix, user_suffix, it->second);
       else
-        permutation_space_.InitLevel(level, user_prefix);
+        permutation_space_.InitLevel(level, user_prefix, user_suffix);
     }
   }    
 

@@ -28,6 +28,7 @@
 #pragma once
 
 #include <map>
+#include <utility>
 
 #include "mapping/arch-properties.hpp"
 
@@ -51,7 +52,8 @@ class Constraints
   // The constraints.
   std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>> factors_;
   std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>> max_factors_;
-  std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> permutations_;
+  std::map<unsigned, std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
+                               std::vector<problem::Shape::FlattenedDimensionID>>> permutations_;
   std::map<unsigned, std::uint32_t> spatial_splits_;
   std::map<unsigned, double> confidence_thresholds_;
   problem::PerDataSpace<std::string> bypass_strings_;
@@ -70,7 +72,8 @@ class Constraints
 
   const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>& Factors() const;
   const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>& MaxFactors() const;
-  const std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>>& Permutations() const;
+  const std::map<unsigned, std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
+                                     std::vector<problem::Shape::FlattenedDimensionID>>>& Permutations() const;
   const std::map<unsigned, std::uint32_t>& SpatialSplits() const;  
   const problem::PerDataSpace<std::string>& BypassStrings() const;
   double MinParallelism() const;
@@ -108,7 +111,8 @@ class Constraints
   // Parsers.
   std::map<problem::Shape::FlattenedDimensionID, int> ParseFactors(config::CompoundConfigNode constraint);
   std::map<problem::Shape::FlattenedDimensionID, int> ParseMaxFactors(config::CompoundConfigNode constraint);
-  std::vector<problem::Shape::FlattenedDimensionID> ParsePermutations(config::CompoundConfigNode constraint);
+  std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
+            std::vector<problem::Shape::FlattenedDimensionID>> ParsePermutations(config::CompoundConfigNode constraint);
   void ParseDatatypeBypassSettings(config::CompoundConfigNode constraint, unsigned level);
 };
 

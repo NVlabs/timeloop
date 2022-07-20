@@ -82,7 +82,8 @@ const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>&
   return max_factors_;
 }
 
-const std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>>&
+const std::map<unsigned, std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
+                                   std::vector<problem::Shape::FlattenedDimensionID>>>&
   Constraints::Permutations() const
 {
   return permutations_;
@@ -214,7 +215,8 @@ void Constraints::Generate(Mapping* mapping)
 
       auto tiling_level = arch_props_.SpatialToTiling(storage_level);
       factors_[tiling_level] = spatial_factors;
-      permutations_[tiling_level] = spatial_permutation;
+      permutations_[tiling_level] = std::make_pair(spatial_permutation,
+                                                   std::vector<problem::Shape::FlattenedDimensionID>());
       spatial_splits_[tiling_level] = spatial_split;
     }
 
@@ -231,7 +233,8 @@ void Constraints::Generate(Mapping* mapping)
     
     auto tiling_level = arch_props_.TemporalToTiling(storage_level);
     factors_[tiling_level] = temporal_factors;
-    permutations_[tiling_level] = temporal_permutation;
+    permutations_[tiling_level] = std::make_pair(temporal_permutation,
+                                                 std::vector<problem::Shape::FlattenedDimensionID>());
   }
 }
   
@@ -403,7 +406,7 @@ bool Constraints::SatisfiedBy(Mapping* mapping) const
   {
     // This is tricky. We need to ignore unit-factors in other.
     unsigned level = level_entry.first;
-    auto& permutation = level_entry.second;
+    auto& permutation = level_entry.second.first; // **** FIXME **** need suffix check.
 
     auto other_factors_level_it = other.factors_.find(level);
     assert(other_factors_level_it != other.factors_.end());
@@ -411,7 +414,7 @@ bool Constraints::SatisfiedBy(Mapping* mapping) const
 
     auto other_permutation_level_it = other.permutations_.find(level);
     assert(other_permutation_level_it != other.permutations_.end());
-    auto& other_permutation = other_permutation_level_it->second;
+    auto& other_permutation = other_permutation_level_it->second.first; // Generate() only uses prefix.
       
     unsigned idx = 0, other_idx = 0;
     while (idx < permutation.size() && other_idx < other_permutation.size())
@@ -614,9 +617,9 @@ void Constraints::ParseSingleConstraint(
     }
 
     auto level_permutations = ParsePermutations(attributes);
-    if (level_permutations.size() > 0)
+    if (level_permutations.first.size() > 0 || level_permutations.second.size() > 0)
     {
-      if (permutations_[level_id].size() > 0)
+      if (permutations_[level_id].first.size() > 0 || permutations_[level_id].second.size() > 0)
       {
         std::cerr << "ERROR: re-specification of permutation at level "
                   << arch_props_.TilingLevelName(level_id)
@@ -1002,18 +1005,30 @@ Constraints::ParseMaxFactors(config::CompoundConfigNode constraint)
 //
 // Parse user permutations.
 //
-std::vector<problem::Shape::FlattenedDimensionID>
+std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
+          std::vector<problem::Shape::FlattenedDimensionID>>
 Constraints::ParsePermutations(config::CompoundConfigNode constraint)
 {
-  std::vector<problem::Shape::FlattenedDimensionID> retval;
+  std::vector<problem::Shape::FlattenedDimensionID> prefix;
+  std::vector<problem::Shape::FlattenedDimensionID> suffix;
     
   std::string buffer;
   if (constraint.lookupValue("permutation", buffer))
   {
+    buffer = buffer.substr(0, buffer.find("#"));
+
     std::istringstream iss(buffer);
     char token;
+    bool separator_seen = false;
+    char separator = '_';
     while (iss >> token)
     {
+      if (token == separator)
+      {
+        separator_seen = true;
+        continue;
+      }
+
       problem::Shape::FlattenedDimensionID dimension;
       try
       {
@@ -1025,11 +1040,15 @@ Constraints::ParsePermutations(config::CompoundConfigNode constraint)
                   << " not found in problem shape." << std::endl;
         exit(1);
       }
-      retval.push_back(dimension);
+
+      if (separator_seen)
+        suffix.push_back(dimension);
+      else
+        prefix.push_back(dimension);
     }
   }
 
-  return retval;
+  return std::make_pair<>(prefix, suffix);
 }
 
 //
