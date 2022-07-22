@@ -423,8 +423,6 @@ for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     total_output_size += utilized_capacity;
   }
 }
-// std::cout <<  "total_min_traffic " << total_min_traffic << std::endl;
-// std::cout <<  "total_output_size " << total_output_size << std::endl;
 
 out << indent << std::left << std::setw(40) << "Total elementwise ops";
 uint64_t total_elementwise_ops = topology.stats_.actual_computes;
@@ -453,38 +451,13 @@ auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() 
 out << indent << std::left << std::setw(40) << "Optimal Op per Byte";
 out << ": " << op_per_byte << std::endl << std::endl;
 
-std::vector<std::string> access_types = {"read", "fill", "update"};
 for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
 {
 
   std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(i);
   auto stats = buffer_level->GetStats();
   out << "=== " << buffer_level->Name() << " ===" << std::endl;
-  uint64_t instances = buffer_level->GetSpecs().instances.Get();
-  uint64_t total_scalar_access = 0;
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-  {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-
-    if (stats.keep.at(pv))
-    {
-
-      // out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
-      for (auto &access_type : access_types)
-      {
-        std::string key = "random_" + access_type;
-        if (stats.fine_grained_scalar_accesses.at(pv).find(key) != stats.fine_grained_scalar_accesses.at(pv).end())
-        {
-          uint64_t scalar_access = stats.fine_grained_scalar_accesses.at(pv).at(key);
-          total_scalar_access += scalar_access * instances;
-          // std::string access_type_str = "Actual scalar " + access_type + "s (per-instance)"; 
-          // out << indent + indent << std::left << std::setw(66) << access_type_str;                         
-          // out << ": " << scalar_access << std::endl << std::endl;
-        }
-      }
-    }
-  }
-  // float mac_per_access = -1;
+  uint64_t total_scalar_access = buffer_level->Accesses();
   float op_per_byte = -1;
   if (total_scalar_access > 0)
   {
@@ -494,7 +467,6 @@ for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
     out << indent << std::left << std::setw(40) << "Op per Byte";
     out << ": " << op_per_byte << std::endl;
   }
-  
 }
 
 out << std::endl
