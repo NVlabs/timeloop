@@ -198,6 +198,11 @@ class Topology : public Module
     std::uint64_t actual_computes;
     std::uint64_t last_level_accesses;
     std::vector<std::uint64_t> accesses;
+    // FIXME: the following stat should be typed
+    // std::vector<problem::PerDataSpace<std::uint64_t>>. However, we do
+    // not yet have a PyBind11 wrapper around PerDataSpace<> in PyTimeloop,
+    // which is why we are temporarily using a vector-of-vectors.
+    std::vector<std::vector<std::uint64_t>> per_tensor_accesses;
 
     void Reset()
     {
@@ -212,6 +217,7 @@ class Topology : public Module
       actual_computes = 0;
       last_level_accesses = 0;
       accesses.clear();
+      per_tensor_accesses.clear();
     }
   };
     

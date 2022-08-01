@@ -1378,6 +1378,15 @@ void Topology::ComputeStats(bool eval_success)
     // All accesses.
     for (unsigned i = 0; i < NumStorageLevels(); i++)
     {
+      // FIXME: change the following to problem::PerDataSpace<std::uint64_t>
+      // once we wrap PerDataSpace<> in PyTimeloop.
+      std::vector<std::uint64_t> pta(problem::GetShape()->NumDataSpaces); 
+      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      {
+        auto pv = problem::Shape::DataSpaceID(pvi);
+        pta[pv] = GetStorageLevel(i)->Accesses(pv);
+      }
+      stats_.per_tensor_accesses.push_back(pta);
       stats_.accesses.push_back(GetStorageLevel(i)->Accesses());
     }
     
