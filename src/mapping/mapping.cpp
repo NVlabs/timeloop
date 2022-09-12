@@ -68,7 +68,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
   auto num_storage_levels = loop_nest.storage_tiling_boundaries.size();
   
   // Datatype Bypass.
-  auto mask_nest = tiling::TransposeMasks(datatype_bypass_nest);
+  auto mask_nest = tiling::TransposeMasks(datatype_bypass_nest, workload_);
 
   for (unsigned level = 0; level < num_storage_levels; level++)
   {
@@ -194,7 +194,7 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
   auto num_storage_levels = loop_nest.storage_tiling_boundaries.size();
   
   // Datatype Bypass.
-  auto mask_nest = tiling::TransposeMasks(datatype_bypass_nest);
+  auto mask_nest = tiling::TransposeMasks(datatype_bypass_nest, workload_);
 
   for (unsigned level = 0; level < num_storage_levels; level++)
   {
@@ -315,12 +315,12 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
 // Print as a yaml mapping.
 //
 void Mapping::FormatAsYaml(YAML::Emitter& yaml_mapping,
-                                const std::vector<std::string>& storage_level_names)
+                           const std::vector<std::string>& storage_level_names)
 {
   auto num_storage_levels = loop_nest.storage_tiling_boundaries.size();
   
   // Datatype Bypass.
-  auto mask_nest = tiling::TransposeMasks(datatype_bypass_nest);
+  auto mask_nest = tiling::TransposeMasks(datatype_bypass_nest, workload_);
 
   for (unsigned level = 0; level < num_storage_levels; level++)
   {
@@ -457,17 +457,21 @@ void Mapping::PrettyPrint(std::ostream& out, const std::vector<std::string>& sto
                           const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
                           const std::string _indent)
 {
-  loop_nest.PrettyPrint(out, storage_level_names, tiling::TransposeMasks(datatype_bypass_nest), utlized_capacities, tile_sizes, _indent);
+  loop_nest.PrettyPrint(out, storage_level_names,
+                        tiling::TransposeMasks(datatype_bypass_nest, workload_),
+                        utlized_capacities, tile_sizes, _indent);
 }
 
 void Mapping::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& storage_level_names,
                              const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
                              const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances)
 {
-  loop_nest.PrintWhoopNest(out, storage_level_names, tiling::TransposeMasks(datatype_bypass_nest), tile_sizes, utilized_instances);
+  loop_nest.PrintWhoopNest(out, storage_level_names,
+                           tiling::TransposeMasks(datatype_bypass_nest, workload_),
+                           tile_sizes, utilized_instances);
 }
 
 std::string Mapping::PrintCompact()
 {
-  return loop_nest.PrintCompact(tiling::TransposeMasks(datatype_bypass_nest));
+  return loop_nest.PrintCompact(tiling::TransposeMasks(datatype_bypass_nest, workload_));
 }

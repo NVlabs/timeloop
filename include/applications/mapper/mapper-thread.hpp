@@ -44,6 +44,8 @@ struct EvaluationResult
   model::Topology::Stats stats;
 
   bool UpdateIfBetter(const EvaluationResult& other, const std::vector<std::string>& metrics);
+
+  EvaluationResult();
 };
 
 //--------------------------------------------//
@@ -63,6 +65,11 @@ struct FailInfo
   uint128_t count = 0;
   Mapping mapping;
   std::string reason;
+
+  FailInfo() :
+      mapping(nullptr)
+  {
+  }
 };
 
 //--------------------------------------------//
@@ -140,6 +147,5 @@ class MapperThread
 
   const Stats& GetStats() const;
 
-  void Run();
-      
+  void Run();     
 };

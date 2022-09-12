@@ -1047,9 +1047,10 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
                                                      sparse::SparseOptimizationInfo* sparse_optimizations,
                                                      bool break_on_failure)
 {
+  problem::Workload* workload = analysis->GetWorkload();
   
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
-  bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest);
+  bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest, workload);
   if (!valid) 
   { 
     // invalid bypassing setup
@@ -1058,11 +1059,9 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
     return eval_status; 
   }
 
-  auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
+  auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest, workload);
   auto working_set_sizes = analysis->GetWorkingSetSizes_LTW();
   sparse::CompressionInfo storage_compression_info = sparse_optimizations->compression_info;
-
-  problem::Workload* workload = analysis->GetWorkload();
 
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
@@ -1118,8 +1117,10 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   // } 
   //
 
+  problem::Workload* workload = analysis->GetWorkload();
+  
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
-  bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest);
+  bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest, workload);
   if (!valid) 
   { 
     // invalid bypassing setup
@@ -1132,7 +1133,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   bool success = true;
 
   // Transpose the datatype bypass nest into level->datatype structure.
-  auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
+  auto keep_masks = tiling::TransposeMasks(mapping.datatype_bypass_nest, workload);
   assert(keep_masks.size() >= NumStorageLevels());
 
   success = sparse::CheckFormatModelsAndMapping(keep_masks,
@@ -1204,7 +1205,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   }
 
   // Transpose the tiles into level->datatype/level->optype structure.
-  auto tiles = tiling::TransposeTiles(collapsed_tiles);
+  auto tiles = tiling::TransposeTiles(collapsed_tiles, workload);
   assert(tiles.size() == NumStorageLevels());
 
   if (!break_on_failure || success_accum)

@@ -372,7 +372,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   }
 
   // Concatenate the subnests to form the final mapping nest.
-  Mapping mapping;
+  Mapping mapping(&workload);
   
   std::uint64_t storage_level = 0;
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)

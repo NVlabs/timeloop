@@ -145,7 +145,7 @@ void Constraints::Generate(Mapping* mapping)
   auto num_storage_levels = mapping->loop_nest.storage_tiling_boundaries.size();
     
   // Data-space Bypass.
-  auto mask_nest = tiling::TransposeMasks(mapping->datatype_bypass_nest);
+  auto mask_nest = tiling::TransposeMasks(mapping->datatype_bypass_nest, &workload_);
     
   for (unsigned storage_level = 0; storage_level < num_storage_levels; storage_level++)
   {

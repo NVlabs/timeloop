@@ -137,6 +137,15 @@ bool EvaluationResult::UpdateIfBetter(const EvaluationResult& other, const std::
 }
 
 //--------------------------------------------//
+//             Evaluation Result              //
+//--------------------------------------------//
+
+EvaluationResult::EvaluationResult() :
+    mapping(nullptr)
+{
+}
+
+//--------------------------------------------//
 //              Failure Tracking              //
 //--------------------------------------------//
 
@@ -169,7 +178,9 @@ void MapperThread::Stats::UpdateFails(FailClass fail_class, std::string fail_rea
   {
     // We've never seen this fail class before.
     std::map<unsigned, FailInfo> fail_bucket;
-    fail_bucket[level] = { .count = 1, .mapping = mapping, .reason = fail_reason };
+    fail_bucket[level].count = 1;
+    fail_bucket[level].mapping = mapping;
+    fail_bucket[level].reason = fail_reason;
     fail_stats[fail_class] = fail_bucket;
   }
   else
@@ -182,7 +193,9 @@ void MapperThread::Stats::UpdateFails(FailClass fail_class, std::string fail_rea
     {
       // No, this is the first time this level has failed in
       // this fail class, create a new entry.
-      fail_bucket[level] = { .count = 1, .mapping = mapping, .reason = fail_reason };
+      fail_bucket[level].count = 1;
+      fail_bucket[level].mapping = mapping;
+      fail_bucket[level].reason = fail_reason;
     }
     else
     {
@@ -442,7 +455,7 @@ void MapperThread::Run()
     // Stage 1: Construct a mapping from the mapping ID. This step can fail
     //          because the space of *legal* mappings isn't dense (unfortunately),
     //          so a mapping ID may point to an illegal mapping.
-    Mapping mapping;
+    Mapping mapping(&workload_);
 
     auto construction_status = mapspace_->ConstructMapping(mapping_id, &mapping, !diagnostics_on_);
     success &= std::accumulate(construction_status.begin(), construction_status.end(), true,
@@ -522,7 +535,11 @@ void MapperThread::Run()
 
     // SUCCESS!!!
     auto stats = engine.GetTopology().GetStats();
-    EvaluationResult result = { true, mapping, stats };
+
+    EvaluationResult result;
+    result.valid = true;
+    result.mapping = mapping;
+    result.stats = stats;
 
     valid_mappings++;
     if (log_stats_)

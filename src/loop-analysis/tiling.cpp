@@ -64,7 +64,8 @@ std::ostream& operator << (std::ostream& out, const DataMovementInfo& info)
 namespace tiling
 {
 
-void SetParentLevel(std::vector<DataMovementInfo>& tile_nest){
+void SetParentLevel(std::vector<DataMovementInfo>& tile_nest)
+{
   unsigned num_tiling_levels = tile_nest.size();
 
   for (unsigned cur = 0; cur < num_tiling_levels; cur++)
@@ -94,10 +95,10 @@ void SetParentLevel(std::vector<DataMovementInfo>& tile_nest){
 
     tile_nest[cur].parent_level = outer;
   }
-
 }
 
-void SetChildLevel(std::vector<DataMovementInfo>& tile_nest){
+void SetChildLevel(std::vector<DataMovementInfo>& tile_nest)
+{
   unsigned num_tiling_levels = tile_nest.size();
 
   for (unsigned cur = 0; cur < num_tiling_levels; cur++)
@@ -550,7 +551,9 @@ void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
 }
 
 // FIXME: check the if logic for hardware reduction support is still in the loop
-void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv)
+void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& tile_nest,
+                                               problem::Shape::DataSpaceID pv,
+                                               const problem::Workload* workload)
 {
   // Loop through all levels and update reads, writes, updates.
   //
@@ -569,7 +572,7 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
       continue;
     }
 
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (workload->GetShape()->IsReadWriteDataSpace.at(pv))
     {
       // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
 
@@ -618,7 +621,9 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
 }
 
 // Split the accesses to read and update and generate reduction.
-void ComputeReadUpdateReductionAccesses_UpdatedRMW(std::vector<DataMovementInfo>& tile_nest, problem::Shape::DataSpaceID pv)
+void ComputeReadUpdateReductionAccesses_UpdatedRMW(std::vector<DataMovementInfo>& tile_nest,
+                                                   problem::Shape::DataSpaceID pv,
+                                                   const problem::Workload* workload)
 {
   // Loop through all levels and update reads, writes, updates.
   //
@@ -646,7 +651,7 @@ void ComputeReadUpdateReductionAccesses_UpdatedRMW(std::vector<DataMovementInfo>
 
 // #define BYPASS_LAST_UPDATE
 
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (workload->GetShape()->IsReadWriteDataSpace.at(pv))
     {
       // Start with the general case: hardware reduction supported.
       tile_nest[cur].fills = 0;
@@ -757,8 +762,8 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
                                        int num_tiling_levels,
                                        const CompoundMaskNest& tile_mask,
                                        const CompoundMaskNest& distribution_supported,
-                                       problem::Workload* workload){
-
+                                       const problem::Workload* workload)
+{
   CompoundDataMovementNest collapsed_compound_data_nest = CollapseDataMovementNest(tiles.compound_data_movement_info_nest,
                                                                                    num_tiling_levels,
                                                                                    tile_mask,
@@ -773,7 +778,8 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
 }
 
 
-ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels){
+ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels)
+{
   ComputeNest solution;
   
   for (int level=0; level < num_tiling_levels; level++){
@@ -801,15 +807,15 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
                                                   int num_tiling_levels,
                                                   const CompoundMaskNest& tile_mask,
                                                   const CompoundMaskNest& distribution_supported,
-                                                  problem::Workload* workload)
+                                                  const problem::Workload* workload)
 {
   // Constructing an array of tile nests, one for each problem::Shape::DataSpaceID.
   // From the tile data, select the size and accesses at the boundaries of each
   // storage level. Size comes from the outermost tile within the storage level,
   // and accesses comes from the innermost tile within the storage level.
   CompoundDataMovementNest solution;
-  (void) workload;
-  for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
+
+  for (int pv = 0; pv < int(workload->GetShape()->NumDataSpaces); pv++)
   {
     int processed_loop_count = 0;  // number of loops that have been collapsed
     int cur_tiling_level = 0;
@@ -911,9 +917,9 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 
     // Split the accesses to read and update and generate reduction.
     if (gUpdatedRMW)
-      ComputeReadUpdateReductionAccesses_UpdatedRMW(solution[pv], pv);
+      ComputeReadUpdateReductionAccesses_UpdatedRMW(solution[pv], pv, workload);
     else
-      ComputeReadUpdateReductionAccesses_Legacy(solution[pv], pv);
+      ComputeReadUpdateReductionAccesses_Legacy(solution[pv], pv, workload);
     
     // Find the parent and child levels for later compression/decompression logic
     SetParentLevel(solution[pv]);
@@ -927,12 +933,13 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
   return solution;
 }
 
-void SetParentChildPointers(tiling::NestOfCompoundTiles& nest_of_compound_tiles)
+void SetParentChildPointers(tiling::NestOfCompoundTiles& nest_of_compound_tiles,
+                            const problem::Workload* workload)
 {
   unsigned num_levels = nest_of_compound_tiles.size();
   for (unsigned level = 0; level < num_levels; level++)
   {
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < workload->GetShape()->NumDataSpaces; pv++)
     {
       tiling::CompoundDataMovementInfo& compound_data_movement = nest_of_compound_tiles.at(level).data_movement_info;
 
@@ -959,7 +966,8 @@ void SetParentChildPointers(tiling::NestOfCompoundTiles& nest_of_compound_tiles)
 }
 
 
-NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles)
+NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles,
+                                   const problem::Workload* workload)
 {
   NestOfCompoundTiles retval;
 
@@ -973,7 +981,7 @@ NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles)
   // transpose all the tiles
   for (unsigned level = 0; level < num_levels; level++){
     //  Datamovement
-    for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++){
+    for (int pv = 0; pv < int(workload->GetShape()->NumDataSpaces); pv++){
       tile_level.data_movement_info[pv] = data_movement_nest[pv][level];
     }
     //  Compute
@@ -982,19 +990,19 @@ NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles)
   }
 
   // set pointers inside each tile object, so that it is more convenient to perform overbooking analysis in model
-  SetParentChildPointers(retval);
+  SetParentChildPointers(retval, workload);
 
   return retval;
 }
 
-NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks)
+NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks, const problem::Workload* workload)
 {
   NestOfCompoundMasks retval;
   
   for (std::size_t level = 0; level < MaxTilingLevels; level++)
   {
     CompoundMask mask_level;
-    for (int pv = 0; pv < int(problem::GetShape()->NumDataSpaces); pv++)
+    for (int pv = 0; pv < int(workload->GetShape()->NumDataSpaces); pv++)
     {
       mask_level[pv] = masks[pv].test(level);
     }
@@ -1005,9 +1013,9 @@ NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks)
 }
 
 // check if any fo the dataspace is not stored anywhere
-bool CheckMaskValidity(const CompoundMaskNest& masks)
+bool CheckMaskValidity(const CompoundMaskNest& masks, const problem::Workload* workload)
 {
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < workload->GetShape()->NumDataSpaces; pv++)
   {
     if (masks[pv].none()) return false; 
   }

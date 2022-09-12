@@ -49,17 +49,17 @@ CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
                                int num_tiling_levels,
                                const CompoundMaskNest& tile_mask,
                                const CompoundMaskNest& distribution_supported,
-                               problem::Workload* workload);
+                               const problem::Workload* workload);
 CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovementNest& tiles, 
                                                   int num_tiling_levels,
                                                   const CompoundMaskNest& tile_mask,
                                                   const CompoundMaskNest& distribution_supported,
-                                                  problem::Workload* workload);
+                                                  const problem::Workload* workload);
 ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels);
 
 
-NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles);
-NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks);
-bool CheckMaskValidity(const CompoundMaskNest& masks);
+NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles, const problem::Workload* workload);
+NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks, const problem::Workload* workload);
+bool CheckMaskValidity(const CompoundMaskNest& masks, const problem::Workload* workload);
 
 }  // namespace tiling

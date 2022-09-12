@@ -40,16 +40,20 @@ using namespace boost::multiprecision;
 //                  Mapping                   //
 //--------------------------------------------//
 
-struct Mapping
+class Mapping
 {
+ private:
+  const problem::Workload* workload_;  
+
+ public:
   uint128_t id;
   loop::Nest loop_nest;
   loop::Nest complete_loop_nest; // loop nest that includes all trivial loops
   tiling::CompoundMaskNest datatype_bypass_nest;
   std::map<unsigned, double> confidence_thresholds;
   std::map<unsigned, std::uint64_t> fanoutX_map;
-  std::map<unsigned, std::uint64_t> fanoutY_map;  
-  
+  std::map<unsigned, std::uint64_t> fanoutY_map;
+
   // Serialization
   friend class boost::serialization::access;
   
@@ -59,26 +63,26 @@ struct Mapping
     if(version == 0)
     {
       ar << boost::serialization::make_nvp(
-        "datatype_bypass_nest",
+        "dataspace_bypass_nest_",
         boost::serialization::make_array(
           datatype_bypass_nest.data(),
           datatype_bypass_nest.size()));
     }
   }
 
+ public:
+  Mapping() = delete;
+  Mapping(const problem::Workload* w) { workload_ = w; }
+
+  // Formatting, printing, output.
   void FormatAsConstraints(libconfig::Setting& mapspace);
-
   void FormatAsLibConfig(libconfig::Setting& mapping, const std::vector<std::string>& storage_level_names);
-
   void FormatAsYaml(YAML::Emitter& yaml_mapping, const std::vector<std::string>& storage_level_names);
- 
   void PrintAsConstraints(std::string filename);
-
   void PrettyPrint(std::ostream& out, const std::vector<std::string>& storage_level_names,
                    const std::vector<problem::PerDataSpace<std::uint64_t>>& utlized_capacities = {},
                    const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes = {},
                    const std::string _indent = "");
-
   void PrintWhoopNest(std::ostream& out, const std::vector<std::string>& storage_level_names,
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& tile_sizes,
                       const std::vector<problem::PerDataSpace<std::uint64_t>>& utilized_instances);
