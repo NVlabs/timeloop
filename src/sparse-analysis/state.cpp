@@ -35,6 +35,11 @@ namespace sparse
 //
 // SparseAnalysisState Function Implementations
 //
+SparseAnalysisState::SparseAnalysisState() :
+    mapping_(nullptr)
+{
+}
+
 bool SparseAnalysisState::Init(sparse::SparseOptimizationInfo* sparse_optimization_info,
                                problem::Workload* workload,
                                Mapping mapping,

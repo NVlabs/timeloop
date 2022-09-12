@@ -161,6 +161,11 @@ std::ostream& operator << (std::ostream& out, const FailClass& fail_class)
   return out;
 }
 
+FailInfo::FailInfo() :
+      mapping(nullptr)
+{
+}
+
 //--------------------------------------------//
 //               Mapper Thread                //
 //--------------------------------------------//

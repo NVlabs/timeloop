@@ -96,9 +96,7 @@ struct SparseAnalysisState
   std::map<DataSpaceID, bool> storage_gs_saf_;
   std::map<DataSpaceID, double> innermost_empty_cond_on_prob_;
 
-  SparseAnalysisState() :
-      mapping_(nullptr)
-  {}
+  SparseAnalysisState();
 
   bool Init(sparse::SparseOptimizationInfo *sparse_optimization_info,
             problem::Workload *workload,

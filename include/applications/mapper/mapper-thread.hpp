@@ -66,10 +66,7 @@ struct FailInfo
   Mapping mapping;
   std::string reason;
 
-  FailInfo() :
-      mapping(nullptr)
-  {
-  }
+  FailInfo();
 };
 
 //--------------------------------------------//
