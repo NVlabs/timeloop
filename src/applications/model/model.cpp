@@ -221,7 +221,7 @@ Application::Stats Application::Run()
           std::cerr << "WARNING: couldn't map level " << level_names.at(level) << ": "
                     << pre_eval_status[level].fail_reason << ", auto-bypassing."
                     << std::endl;
-        for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+        for (unsigned pvi = 0; pvi < workload_.GetShape()->NumDataSpaces; pvi++)
           // Ugh... mask is offset-by-1 because level 0 is the arithmetic level.
           mapping.datatype_bypass_nest.at(pvi).reset(level-1);
       }
