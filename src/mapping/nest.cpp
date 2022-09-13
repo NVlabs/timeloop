@@ -37,6 +37,7 @@ namespace loop
 // NestConfig
 // ----------
 
+/*
 std::ostream& operator << (std::ostream& out, const NestConfig& nest)
 {
   for (auto& loopblock : nest)
@@ -44,19 +45,27 @@ std::ostream& operator << (std::ostream& out, const NestConfig& nest)
     std::string indent = "";
     for (auto& loop : loopblock)
     {
-      out << indent << loop << std::endl;
+      out << indent;
+      loop.Print(out, true);
+      out << std::endl;
       indent = indent + "  ";
     }
   }
   return out;
 }
+*/
 
 // ---------
 // Loop nest
 // ---------
 
 // All interface functions.
-Nest::Nest()
+// Nest::Nest()
+// {
+// }
+
+Nest::Nest(const std::map<problem::Shape::FlattenedDimensionID, std::string>& itn) :
+    id_to_name(itn)
 {
 }
 
@@ -110,7 +119,7 @@ std::ostream& operator << (std::ostream& out, const Nest& nest)
     }
     out << indent;
     indent += "  ";
-    nest.loops.at(loop_level).Print(out, true);
+    nest.loops.at(loop_level).Print(out, true, nest.id_to_name);
     out << std::endl;
   }
   out << std::endl;
@@ -167,7 +176,7 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
     }
     out << indent;
     indent += "  ";
-    loops.at(loop_level).Print(out, true);
+    loops.at(loop_level).Print(out, true, id_to_name);
     out << std::endl;
   }
   out << std::endl;
@@ -526,7 +535,7 @@ std::string Nest::PrintCompact(const tiling::NestOfCompoundMasks& mask_nest)
       inv_storage_level--;
 
     }
-    retval += loops.at(loop_level).PrintCompact();
+    retval += loops.at(loop_level).PrintCompact(id_to_name);
     retval += " ";
   }
 

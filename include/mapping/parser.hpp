@@ -36,6 +36,6 @@ namespace mapping
 
 Mapping ParseAndConstruct(config::CompoundConfigNode config,
                           model::Engine::Specs& arch_specs,
-                          const problem::Workload& workload);
+                          problem::Workload& workload);
 
 } // namespace mapping

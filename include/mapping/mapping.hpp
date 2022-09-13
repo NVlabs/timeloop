@@ -43,7 +43,7 @@ using namespace boost::multiprecision;
 class Mapping
 {
  private:
-  const problem::Workload* workload_;  
+  problem::Workload* workload_;
 
  public:
   uint128_t id;
@@ -60,7 +60,7 @@ class Mapping
   template <class Archive>
   void serialize(Archive& ar, const unsigned int version=0)
   {
-    if(version == 0)
+    if (version == 0)
     {
       ar << boost::serialization::make_nvp(
         "dataspace_bypass_nest_",
@@ -71,8 +71,8 @@ class Mapping
   }
 
  public:
-  Mapping() = delete;
-  Mapping(const problem::Workload* w) { workload_ = w; }
+  Mapping();
+  Mapping(problem::Workload* w);
 
   // Formatting, printing, output.
   void FormatAsConstraints(libconfig::Setting& mapspace);

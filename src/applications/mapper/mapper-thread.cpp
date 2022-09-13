@@ -137,15 +137,6 @@ bool EvaluationResult::UpdateIfBetter(const EvaluationResult& other, const std::
 }
 
 //--------------------------------------------//
-//             Evaluation Result              //
-//--------------------------------------------//
-
-EvaluationResult::EvaluationResult() :
-    mapping(nullptr)
-{
-}
-
-//--------------------------------------------//
 //              Failure Tracking              //
 //--------------------------------------------//
 
@@ -159,11 +150,6 @@ std::ostream& operator << (std::ostream& out, const FailClass& fail_class)
 {
   out << FailClassToString.at(fail_class);
   return out;
-}
-
-FailInfo::FailInfo() :
-      mapping(nullptr)
-{
 }
 
 //--------------------------------------------//

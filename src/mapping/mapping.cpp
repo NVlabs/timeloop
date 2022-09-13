@@ -43,6 +43,21 @@ std::ostream& operator << (std::ostream& out, const Mapping& mapping)
   return out;
 }
 
+Mapping::Mapping() :
+    workload_(nullptr)
+{
+  // WARNING: this is dangerous because we may try to dereference the
+  // nullptr. FIXME: change to shared_ptr.
+}
+
+Mapping::Mapping(problem::Workload* w) :
+    workload_(w),
+    loop_nest(w->GetShape()->FlattenedDimensionIDToName),
+    complete_loop_nest(w->GetShape()->FlattenedDimensionIDToName)
+{
+}
+
+
 //
 // FIXME: move to Constraints class.
 //
@@ -80,13 +95,13 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     libconfig::Setting& bypass = constraint.add("bypass", libconfig::Setting::TypeArray);
 
     auto& compound_mask = mask_nest.at(level);    
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
     {
       problem::Shape::DataSpaceID pv = problem::Shape::DataSpaceID(pvi);
       if (compound_mask.at(pv))
-        keep.add(libconfig::Setting::TypeString) = problem::GetShape()->DataSpaceIDToName.at(pv);
+        keep.add(libconfig::Setting::TypeString) = workload_->GetShape()->DataSpaceIDToName.at(pv);
       else
-        bypass.add(libconfig::Setting::TypeString) = problem::GetShape()->DataSpaceIDToName.at(pv);
+        bypass.add(libconfig::Setting::TypeString) = workload_->GetShape()->DataSpaceIDToName.at(pv);
     }
   }
 
@@ -102,7 +117,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     {
       auto sd = spacetime::Dimension(sdi);
       permutations[sd] = "";
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      for (unsigned idim = 0; idim < unsigned(workload_->GetShape()->NumFlattenedDimensions); idim++)
         factors[sd][problem::Shape::FlattenedDimensionID(idim)] = 1;
     }
 
@@ -112,7 +127,7 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
       if (loop.end > 1)
       {
         factors.at(loop.spacetime_dimension).at(loop.dimension) = loop.end;
-        permutations.at(loop.spacetime_dimension) += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
+        permutations.at(loop.spacetime_dimension) += workload_->GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
       }
     }
 
@@ -130,23 +145,23 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
       std::string spatial_factor_string = "";
 
       std::map<problem::Shape::FlattenedDimensionID, unsigned> spatial_factors;
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      for (unsigned idim = 0; idim < unsigned(workload_->GetShape()->NumFlattenedDimensions); idim++)
       {
         auto dim = problem::Shape::FlattenedDimensionID(idim);
         spatial_factors[dim] =
           factors.at(spacetime::Dimension::SpaceX).at(dim) *
           factors.at(spacetime::Dimension::SpaceY).at(dim);
 
-        spatial_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+        spatial_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
         char factor[8];
         sprintf(factor, "%d", spatial_factors.at(dim));
         spatial_factor_string += factor;
-        if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
+        if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
           spatial_factor_string += " ";
         
         // If the factor is 1, concatenate it to the permutation.
         if (spatial_factors.at(dim) == 1)
-          spatial_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+          spatial_permutation += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
       }
       
       libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);
@@ -162,19 +177,19 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
     std::string temporal_factor_string = "";
     
     // Temporal factors: if the factor is 1, concatenate it into the permutation.
-    for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+    for (unsigned idim = 0; idim < unsigned(workload_->GetShape()->NumFlattenedDimensions); idim++)
     {
       auto dim = problem::Shape::FlattenedDimensionID(idim);
 
-      temporal_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+      temporal_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
       char factor[8];
       sprintf(factor, "%d", temporal_factors.at(dim));
       temporal_factor_string += factor;
-      if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
+      if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
         temporal_factor_string += " ";
       
       if (temporal_factors.at(dim) == 1)
-        temporal_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+        temporal_permutation += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
     }
 
     libconfig::Setting& constraint = constraints.add(libconfig::Setting::TypeGroup);
@@ -206,13 +221,13 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
     libconfig::Setting& bypass = directive.add("bypass", libconfig::Setting::TypeArray);
 
     auto& compound_mask = mask_nest.at(level);    
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
     {
       problem::Shape::DataSpaceID pv = problem::Shape::DataSpaceID(pvi);
       if (compound_mask.at(pv))
-        keep.add(libconfig::Setting::TypeString) = problem::GetShape()->DataSpaceIDToName.at(pv);
+        keep.add(libconfig::Setting::TypeString) = workload_->GetShape()->DataSpaceIDToName.at(pv);
       else
-        bypass.add(libconfig::Setting::TypeString) = problem::GetShape()->DataSpaceIDToName.at(pv);
+        bypass.add(libconfig::Setting::TypeString) = workload_->GetShape()->DataSpaceIDToName.at(pv);
     }
   }
 
@@ -228,7 +243,7 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
     {
       auto sd = spacetime::Dimension(sdi);
       permutations[sd] = "";
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      for (unsigned idim = 0; idim < unsigned(workload_->GetShape()->NumFlattenedDimensions); idim++)
         factors[sd][problem::Shape::FlattenedDimensionID(idim)] = 1;
     }
 
@@ -238,7 +253,7 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
       if (loop.end > 1)
       {
         factors.at(loop.spacetime_dimension).at(loop.dimension) = loop.end;
-        permutations.at(loop.spacetime_dimension) += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
+        permutations.at(loop.spacetime_dimension) += workload_->GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
       }
     }
 
@@ -256,23 +271,23 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
       std::string spatial_factor_string = "";
 
       std::map<problem::Shape::FlattenedDimensionID, unsigned> spatial_factors;
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      for (unsigned idim = 0; idim < unsigned(workload_->GetShape()->NumFlattenedDimensions); idim++)
       {
         auto dim = problem::Shape::FlattenedDimensionID(idim);
         spatial_factors[dim] =
           factors.at(spacetime::Dimension::SpaceX).at(dim) *
           factors.at(spacetime::Dimension::SpaceY).at(dim);
 
-        spatial_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+        spatial_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
         char factor[8];
         sprintf(factor, "%d", spatial_factors.at(dim));
         spatial_factor_string += factor;
-        if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
+        if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
           spatial_factor_string += " ";
         
         // If the factor is 1, concatenate it to the permutation.
         if (spatial_factors.at(dim) == 1)
-          spatial_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+          spatial_permutation += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
       }
       
       libconfig::Setting& directive = mapping.add(libconfig::Setting::TypeGroup);
@@ -288,19 +303,19 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
     std::string temporal_factor_string = "";
     
     // Temporal factors: if the factor is 1, concatenate it into the permutation.
-    for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+    for (unsigned idim = 0; idim < unsigned(workload_->GetShape()->NumFlattenedDimensions); idim++)
     {
       auto dim = problem::Shape::FlattenedDimensionID(idim);
 
-      temporal_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+      temporal_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
       char factor[8];
       sprintf(factor, "%d", temporal_factors.at(dim));
       temporal_factor_string += factor;
-      if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
+      if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
         temporal_factor_string += " ";
       
       if (temporal_factors.at(dim) == 1)
-        temporal_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+        temporal_permutation += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
     }
 
     libconfig::Setting& directive = mapping.add(libconfig::Setting::TypeGroup);
@@ -332,21 +347,21 @@ void Mapping::FormatAsYaml(YAML::Emitter& yaml_mapping,
     auto& compound_mask = mask_nest.at(level);    
 
     yaml_mapping << YAML::Key << "keep" << YAML::Value << YAML::BeginSeq;;
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
     {
       problem::Shape::DataSpaceID pv = problem::Shape::DataSpaceID(pvi);
       if (compound_mask.at(pv))
-        yaml_mapping << problem::GetShape()->DataSpaceIDToName.at(pv);
+        yaml_mapping << workload_->GetShape()->DataSpaceIDToName.at(pv);
     }
     yaml_mapping << YAML::EndSeq;
 
 
     yaml_mapping << YAML::Key << "bypass" << YAML::Value << YAML::BeginSeq;;
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
     {
       problem::Shape::DataSpaceID pv = problem::Shape::DataSpaceID(pvi);
       if (!compound_mask.at(pv))
-        yaml_mapping << problem::GetShape()->DataSpaceIDToName.at(pv);
+        yaml_mapping << workload_->GetShape()->DataSpaceIDToName.at(pv);
     }
     yaml_mapping << YAML::EndSeq;
 
@@ -365,7 +380,7 @@ void Mapping::FormatAsYaml(YAML::Emitter& yaml_mapping,
     {
       auto sd = spacetime::Dimension(sdi);
       permutations[sd] = "";
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      for (unsigned idim = 0; idim < unsigned(workload_->GetShape()->NumFlattenedDimensions); idim++)
         factors[sd][problem::Shape::FlattenedDimensionID(idim)] = 1;
     }
 
@@ -375,7 +390,7 @@ void Mapping::FormatAsYaml(YAML::Emitter& yaml_mapping,
       if (loop.end > 1)
       {
         factors.at(loop.spacetime_dimension).at(loop.dimension) = loop.end;
-        permutations.at(loop.spacetime_dimension) += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
+        permutations.at(loop.spacetime_dimension) += workload_->GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
       }
     }
 
@@ -393,23 +408,23 @@ void Mapping::FormatAsYaml(YAML::Emitter& yaml_mapping,
       std::string spatial_factor_string = "";
 
       std::map<problem::Shape::FlattenedDimensionID, unsigned> spatial_factors;
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      for (unsigned idim = 0; idim < unsigned(workload_->GetShape()->NumFlattenedDimensions); idim++)
       {
         auto dim = problem::Shape::FlattenedDimensionID(idim);
         spatial_factors[dim] =
           factors.at(spacetime::Dimension::SpaceX).at(dim) *
           factors.at(spacetime::Dimension::SpaceY).at(dim);
 
-        spatial_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+        spatial_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
         char factor[8];
         sprintf(factor, "%d", spatial_factors.at(dim));
         spatial_factor_string += factor;
-        if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
+        if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
           spatial_factor_string += " ";
         
         // If the factor is 1, concatenate it to the permutation.
         if (spatial_factors.at(dim) == 1)
-          spatial_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+          spatial_permutation += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
       }
       
       yaml_mapping << YAML::BeginMap;
@@ -427,19 +442,19 @@ void Mapping::FormatAsYaml(YAML::Emitter& yaml_mapping,
     std::string temporal_factor_string = "";
     
     // Temporal factors: if the factor is 1, concatenate it into the permutation.
-    for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+    for (unsigned idim = 0; idim < unsigned(workload_->GetShape()->NumFlattenedDimensions); idim++)
     {
       auto dim = problem::Shape::FlattenedDimensionID(idim);
 
-      temporal_factor_string += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+      temporal_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
       char factor[8];
       sprintf(factor, "%d", temporal_factors.at(dim));
       temporal_factor_string += factor;
-      if (idim != unsigned(problem::GetShape()->NumFlattenedDimensions)-1)
+      if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
         temporal_factor_string += " ";
       
       if (temporal_factors.at(dim) == 1)
-        temporal_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(dim);
+        temporal_permutation += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
     }
 
     yaml_mapping << YAML::BeginMap;

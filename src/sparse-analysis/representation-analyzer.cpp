@@ -867,7 +867,8 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
           for (auto loop = pv_data_movement_nest[level].metadata_subnest[rank_id].begin();
         	   loop != pv_data_movement_nest[level].metadata_subnest[rank_id].end(); loop++)
           {
-            std::cout << *loop << std::endl;
+            loop->Print(std::cout, true, state.workload_->GetShape()->FlattenedDimensionIDToName);
+            std::cout << std::endl;
           }
         }
       }

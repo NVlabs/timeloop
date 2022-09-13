@@ -325,7 +325,7 @@ bool PerformSparseProcessing(problem::Workload* workload,
   InitializeMaxRequiredSpatialExpansion(compound_tile_nest, topology_specs, mapping);
   
   // Perform quick check on if sparse anlaysis is needed
-  SparseAnalysisState state;
+  SparseAnalysisState state(workload);
   bool sparse_analysis_needed = state.Init(sparse_optimization_info, workload, mapping, topology_specs.NumStorageLevels());
   if (!sparse_analysis_needed) return success;
  

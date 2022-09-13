@@ -757,9 +757,6 @@ EvalStatus BufferLevel::PreEvaluationCheck(
 
         std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
 
-        (void) workload;
-        (void) per_level_compression_info;
-
          if (per_level_compression_info.find(pvi) != per_level_compression_info.end()
              && per_level_compression_info.at(pvi).tensor_compressed)
          {
@@ -1775,7 +1772,6 @@ void BufferLevel::Print(std::ostream& out) const
 // flag to print verbose sparse stats or dense stats
   if (specs_.is_sparse_module.Get())
   {
-  
     out << indent << indent << "Technology                   : " << specs.technology << std::endl;
     out << indent << indent << "Data storage size            : " << specs.size << std::endl;
     out << indent << indent << "Data word bits               : " << specs.word_bits << std::endl;
@@ -1838,21 +1834,27 @@ void BufferLevel::Print(std::ostream& out) const
     return;
   }
 
-  // Print mapping.
-  out << indent << "MAPPING" << std::endl;
-  out << indent << "-------" << std::endl;
-  out << indent << "Loop nest:" << std::endl;
-  std::string loopindent = "  ";
-  for (auto loop = subnest_.rbegin(); loop != subnest_.rend(); loop++)
-  {
-    // Do not print loop if it's a trivial factor.
-    if ((loop->start + loop->stride) < loop->end)
-    {
-      out << indent << loopindent << *loop << std::endl;
-      loopindent += "  ";
-    }
-  }
-  out << std::endl;
+  //
+  // === FIXME === temporarily disabling subnest printing because we do not
+  //               have access to the dimension id-to-name (via workload)
+  //               data structure here.
+  // // Print mapping (subnest).
+  // out << indent << "MAPPING" << std::endl;
+  // out << indent << "-------" << std::endl;
+  // out << indent << "Loop nest:" << std::endl;
+  // std::string loopindent = "  ";
+  // for (auto loop = subnest_.rbegin(); loop != subnest_.rend(); loop++)
+  // {
+  //   // Do not print loop if it's a trivial factor.
+  //   if ((loop->start + loop->stride) < loop->end)
+  //   {
+  //     out << indent << loopindent;
+  //     loop->Print(out, true);
+  //     out << std::endl;
+  //     loopindent += "  ";
+  //   }
+  // }
+  // out << std::endl;
 
   // Print stats.
   out << indent << "STATS" << std::endl;

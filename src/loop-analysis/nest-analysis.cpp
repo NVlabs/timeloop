@@ -126,8 +126,7 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
     }
   }
 
-  gResetOnStrideChange = !workload_->GetShape()->UsesFlattening;
-  
+  gResetOnStrideChange = !workload_->GetShape()->UsesFlattening; 
 }
 
 //
@@ -257,7 +256,7 @@ std::ostream& operator << (std::ostream& out, const NestAnalysis& n)
 {
   for (auto cur = n.nest_state_.rbegin(); cur != n.nest_state_.rend(); cur++)
   {
-    cur->descriptor.Print(out, false);
+    cur->descriptor.Print(out, false, n.workload_->GetShape()->FlattenedDimensionIDToName);
   }
   out << std::endl;
   return out;
