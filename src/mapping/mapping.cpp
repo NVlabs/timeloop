@@ -52,8 +52,8 @@ Mapping::Mapping() :
 
 Mapping::Mapping(problem::Workload* w) :
     workload_(w),
-    loop_nest(w->GetShape()->FlattenedDimensionIDToName),
-    complete_loop_nest(w->GetShape()->FlattenedDimensionIDToName)
+    loop_nest(*w->GetShape()),
+    complete_loop_nest(*w->GetShape())
 {
 }
 

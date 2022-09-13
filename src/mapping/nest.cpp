@@ -33,39 +33,12 @@
 namespace loop
 {
 
-// ----------
-// NestConfig
-// ----------
-
-/*
-std::ostream& operator << (std::ostream& out, const NestConfig& nest)
-{
-  for (auto& loopblock : nest)
-  {
-    std::string indent = "";
-    for (auto& loop : loopblock)
-    {
-      out << indent;
-      loop.Print(out, true);
-      out << std::endl;
-      indent = indent + "  ";
-    }
-  }
-  return out;
-}
-*/
-
 // ---------
 // Loop nest
 // ---------
 
-// All interface functions.
-// Nest::Nest()
-// {
-// }
-
-Nest::Nest(const std::map<problem::Shape::FlattenedDimensionID, std::string>& itn) :
-    id_to_name(itn)
+Nest::Nest(const problem::Shape& shape) :
+    problem_shape(shape)
 {
 }
 
@@ -119,7 +92,7 @@ std::ostream& operator << (std::ostream& out, const Nest& nest)
     }
     out << indent;
     indent += "  ";
-    nest.loops.at(loop_level).Print(out, true, nest.id_to_name);
+    nest.loops.at(loop_level).Print(out, true, nest.problem_shape.FlattenedDimensionIDToName);
     out << std::endl;
   }
   out << std::endl;
@@ -147,11 +120,11 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
       std::ostringstream str;
       str << storage_level_names.at(inv_storage_level) << " [ ";
       auto& mask = mask_nest.at(inv_storage_level);
-      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
       {
         if (mask.at(pvi))
         {
-          str << problem::GetShape()->DataSpaceIDToName.at(pvi);
+          str << problem_shape.DataSpaceIDToName.at(pvi);
           if (tile_sizes.size() > 0)
           {
             str << ":" << tile_sizes.at(inv_storage_level).at(pvi);
@@ -176,7 +149,7 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
     }
     out << indent;
     indent += "  ";
-    loops.at(loop_level).Print(out, true, id_to_name);
+    loops.at(loop_level).Print(out, true, problem_shape.FlattenedDimensionIDToName);
     out << std::endl;
   }
   out << std::endl;
@@ -192,18 +165,18 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
 
   // Prepare a set of "sensitive" dimensions for each tensor.
-  std::vector<std::unordered_set<problem::Shape::FlattenedDimensionID>> sensitive_dims(problem::GetShape()->NumDataSpaces);
-  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+  std::vector<std::unordered_set<problem::Shape::FlattenedDimensionID>> sensitive_dims(problem_shape.NumDataSpaces);
+  for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
   {
     auto d = problem::Shape::DataSpaceID(pvi);
-    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(d);
+    std::string tensor_name = problem_shape.DataSpaceIDToName.at(d);
 
     // Prepare a set of problem-space dimensions that this data-space is sensitive to.
-    for (unsigned data_space_dim = 0; data_space_dim < problem::GetShape()->DataSpaceOrder.at(d); data_space_dim++)
-      for (auto& term: problem::GetShape()->Projections.at(d).at(data_space_dim))
+    for (unsigned data_space_dim = 0; data_space_dim < problem_shape.DataSpaceOrder.at(d); data_space_dim++)
+      for (auto& term: problem_shape.Projections.at(d).at(data_space_dim))
       {
         // We have a factorized ID. We need to find the flattened ID it is contributing towards.
-        auto& flattened_id = problem::GetShape()->FactorizedToFlattened.at(term.second);
+        auto& flattened_id = problem_shape.FactorizedToFlattened.at(term.second);
         sensitive_dims.at(d).insert(flattened_id);
       }
   }
@@ -215,8 +188,8 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   std::vector<std::string> varnames;
   std::map<std::string, int> dimname_to_bound;
 
-  std::vector<std::vector<std::string>> tiled_dimnames(problem::GetShape()->NumDataSpaces);
-  std::vector<std::vector<std::string>> tiled_varnames(problem::GetShape()->NumDataSpaces);
+  std::vector<std::vector<std::string>> tiled_dimnames(problem_shape.NumDataSpaces);
+  std::vector<std::vector<std::string>> tiled_varnames(problem_shape.NumDataSpaces);
   std::vector<problem::PerDataSpace<std::vector<std::string>>> tile_dimensions_algebraic(num_storage_levels);
   std::vector<problem::PerDataSpace<std::vector<std::string>>> spatial_instances_algebraic(num_storage_levels);
 
@@ -232,7 +205,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
     auto& loop = loops.at(loop_level);
 
     // std::locale loc;
-    std::string dimname = problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
+    std::string dimname = problem_shape.FlattenedDimensionIDToName.at(loop.dimension);
     std::string varname = dimname;
 
     for (unsigned i = 0; i < dimname.length(); i++)
@@ -267,7 +240,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
 
     // FIXME: the following is a hacky approach and does not work with sliding windows.
     // We need to maintain tile sizes in algebraic form through the nest analysis.
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
     {
       auto d = problem::Shape::DataSpaceID(pvi);
       auto it = sensitive_dims.at(d).find(loop.dimension);
@@ -281,7 +254,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
 
     if (IsSpatial(loop.spacetime_dimension) && storage_level != 0)
     {
-      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
         spatial_instances_algebraic.at(storage_level-1).at(pvi).push_back(dimname);
     }    
     
@@ -290,7 +263,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   // Tile dimensions are cumulative from inner to outer.
   for (unsigned storage_level = 1; storage_level < num_storage_levels; storage_level++)
   {
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
     {
       tile_dimensions_algebraic.at(storage_level).at(pvi).insert(
         tile_dimensions_algebraic.at(storage_level).at(pvi).end(),
@@ -303,7 +276,7 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   assert(num_storage_levels >= 2);
   for (unsigned storage_level = num_storage_levels-2; storage_level != static_cast<unsigned>(-1); storage_level--)
   {
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
     {
       spatial_instances_algebraic.at(storage_level).at(pvi).insert(
         spatial_instances_algebraic.at(storage_level).at(pvi).begin(),
@@ -335,9 +308,9 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   // Print the tensors.
   //
 
-  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+  for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
   {
-    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
+    std::string tensor_name = problem_shape.DataSpaceIDToName.at(pvi);
     out << indent << "Tensor " << tensor_name << "(\"" << tensor_name << "\");" << std::endl;
   }
   out << std::endl;
@@ -354,10 +327,10 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   //
   // Print tiled tensor sizes.
   //
-  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+  for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
   {
     auto d = problem::Shape::DataSpaceID(pvi);
-    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(d);
+    std::string tensor_name = problem_shape.DataSpaceIDToName.at(d);
 
     out << indent << tensor_name << ".Resize({ ";
     bool found_first = false;
@@ -405,9 +378,9 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
       std::string level_name = storage_level_names.at(inv_storage_level);
       std::string level_string = "\"" + level_name + "\"";
 
-      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
       {
-        std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
+        std::string tensor_name = problem_shape.DataSpaceIDToName.at(pvi);
         if (mask.at(pvi))
         {
           out << indent << tensor_name << ".AddTileLevel(";
@@ -475,15 +448,15 @@ void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& sto
   out << std::endl;
 
   out << indent << "// === COMPUTE === fill in a compute expression using the following tensors:" << std::endl;
-  for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+  for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
   {
     auto d = problem::Shape::DataSpaceID(pvi);
-    std::string tensor_name = problem::GetShape()->DataSpaceIDToName.at(d);
+    std::string tensor_name = problem_shape.DataSpaceIDToName.at(d);
     out << indent << tensor_name;
     for (auto& varname: tiled_varnames.at(d))
       out << "[" << varname << "]";
     out << ";";
-    if (problem::GetShape()->IsReadWriteDataSpace.at(d))
+    if (problem_shape.IsReadWriteDataSpace.at(d))
       out << " // read-write";
     else
       out << " // read-only";
@@ -522,11 +495,11 @@ std::string Nest::PrintCompact(const tiling::NestOfCompoundMasks& mask_nest)
 
       str << "L" << inv_storage_level << "[";
       auto& mask = mask_nest.at(inv_storage_level);
-      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      for (unsigned pvi = 0; pvi < problem_shape.NumDataSpaces; pvi++)
       {
         if (mask.at(pvi))
         {
-          str << problem::GetShape()->DataSpaceIDToName.at(pvi)[0];
+          str << problem_shape.DataSpaceIDToName.at(pvi)[0];
         }
       }
       str << "] ";
@@ -535,7 +508,7 @@ std::string Nest::PrintCompact(const tiling::NestOfCompoundMasks& mask_nest)
       inv_storage_level--;
 
     }
-    retval += loops.at(loop_level).PrintCompact(id_to_name);
+    retval += loops.at(loop_level).PrintCompact(problem_shape.FlattenedDimensionIDToName);
     retval += " ";
   }
 

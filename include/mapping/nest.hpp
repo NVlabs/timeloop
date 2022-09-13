@@ -81,11 +81,11 @@ class Nest
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse;
 
-  std::map<problem::Shape::FlattenedDimensionID, std::string> id_to_name;
+  problem::Shape problem_shape;
 
  public:
   Nest() = default;
-  Nest(const std::map<problem::Shape::FlattenedDimensionID, std::string>& itn);
+  Nest(const problem::Shape& shape);
 
   bool operator == (const Nest& n) const; 
 
