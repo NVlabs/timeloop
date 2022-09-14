@@ -46,7 +46,14 @@ Uber::Uber(
   const problem::Workload& workload,
   bool filter_spatial_fanout,
   bool skip_init) :
+    
     MapSpace(arch_specs, workload),
+
+    workload_(workload),
+    permutation_space_(workload),
+    index_factorization_space_(workload),
+    spatial_split_space_(workload),
+    
     split_id_(0),
     num_parent_splits_(0),
     arch_props_(arch_specs),
@@ -128,7 +135,7 @@ void Uber::InitIndexFactorizationSpace()
   // problem dimension.
     
   std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order;
-  for (unsigned i = 0; i < unsigned(problem::GetShape()->NumFlattenedDimensions); i++)
+  for (unsigned i = 0; i < unsigned(workload_.GetShape()->NumFlattenedDimensions); i++)
   {
     // Factorize each problem dimension into num_tiling_levels partitions.
     cofactors_order[problem::Shape::FlattenedDimensionID(i)] = arch_props_.TilingLevels();
@@ -140,7 +147,7 @@ void Uber::InitIndexFactorizationSpace()
 
   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors;
   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors;
-  std::vector<bool> exhausted_um_loops(int(problem::GetShape()->NumFlattenedDimensions), false);
+  std::vector<bool> exhausted_um_loops(int(workload_.GetShape()->NumFlattenedDimensions), false);
 
   // Find user-specified fixed factors.
   for (unsigned level = 0; level < arch_props_.TilingLevels(); level++)
@@ -183,7 +190,7 @@ void Uber::InitIndexFactorizationSpace()
   }
 
   // We're now ready to initialize the object.
-  index_factorization_space_.Init(workload_, cofactors_order, prefactors, maxfactors);
+  index_factorization_space_.Init(cofactors_order, prefactors, maxfactors);
 
   // Update the size of the mapspace.
   size_[int(mapspace::Dimension::IndexFactorization)] = index_factorization_space_.Size();
@@ -292,7 +299,7 @@ void Uber::InitDatatypeBypassNestSpace()
   // First, seed the space with a single mask with each bit set to 1.
   assert(datatype_bypass_nest_space_.empty());
   tiling::CompoundMaskNest seed_mask_nest;
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_.GetShape()->NumDataSpaces); pvi++)
   {
     for (unsigned level = 0; level < arch_specs_.topology.NumStorageLevels(); level++)
     {
@@ -302,7 +309,7 @@ void Uber::InitDatatypeBypassNestSpace()
   datatype_bypass_nest_space_.push_back(seed_mask_nest);
 
   // Now parse the user strings and edit/expand the space as necessary.
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_.GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
 
@@ -414,7 +421,7 @@ void Uber::InitPruned(uint128_t index_factorization_id)
     // a smarter way to do this, but we'll use the easy way out for now.
     if (user_spatial_splits.find(level) == user_spatial_splits.end())
     {
-      for (unsigned idim = 0; idim < unsigned(problem::GetShape()->NumFlattenedDimensions); idim++)
+      for (unsigned idim = 0; idim < unsigned(workload_.GetShape()->NumFlattenedDimensions); idim++)
       { 
         auto dim = problem::Shape::FlattenedDimensionID(idim);
         auto factor = index_factorization_space_.GetFactor(
@@ -564,7 +571,7 @@ std::vector<Status> Uber::ConstructMapping(
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
-    for (int dim = 0; dim < int(problem::GetShape()->NumFlattenedDimensions); dim++)
+    for (int dim = 0; dim < int(workload_.GetShape()->NumFlattenedDimensions); dim++)
     {
       // Ignore trivial factors
       // This reduces computation time by 1.5x on average.
@@ -581,7 +588,7 @@ std::vector<Status> Uber::ConstructMapping(
       {
         // Add a trivial temporal nest to make sure
         // we have at least one subnest in each level.
-        mapping->loop_nest.AddLoop(problem::Shape::FlattenedDimensionID(int(problem::GetShape()->NumFlattenedDimensions) - 1),
+        mapping->loop_nest.AddLoop(problem::Shape::FlattenedDimensionID(int(workload_.GetShape()->NumFlattenedDimensions) - 1),
                                    0, 1, 1, spacetime::Dimension::Time);
       }
       mapping->loop_nest.AddStorageTilingBoundary();
@@ -617,8 +624,8 @@ void Uber::InitSubnests(loop::NestConfig& subnests)
       ? spacetime::Dimension::SpaceX // Placeholder.
       : spacetime::Dimension::Time;
         
-    // Each partition has problem::GetShape()->NumFlattenedDimensions loops.
-    for (int idim = 0; idim < int(problem::GetShape()->NumFlattenedDimensions); idim++)
+    // Each partition has workload_.GetShape()->NumFlattenedDimensions loops.
+    for (int idim = 0; idim < int(workload_.GetShape()->NumFlattenedDimensions); idim++)
     {
       loop::Descriptor loop;
       loop.dimension = problem::Shape::FlattenedDimensionID(idim); // Placeholder.
