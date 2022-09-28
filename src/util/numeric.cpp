@@ -37,7 +37,7 @@ using namespace boost::multiprecision;
 
 unsigned long Factors::ISqrt_(unsigned long x)
 {
-  register unsigned long op, res, one;
+  unsigned long op, res, one;
 
   op = x;
   res = 0;

@@ -38,7 +38,7 @@ if GetOption('debug'):
     env.Append(CCFLAGS = ['-g', '-O0'])
 else:
     env.Append(CCFLAGS = ['-g', '-O3', '-flto'])
-env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++14', '-pthread'])
+env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-fmax-errors=1', '-std=c++17', '-pthread'])
 
 env.Append(LIBPATH = ['.'])
 # If we are doing a static build, the timeloop library must be the first
@@ -46,7 +46,7 @@ env.Append(LIBPATH = ['.'])
 if GetOption('link_static'):
     env.Append(LIBS = ['timeloop-model'])
 
-env.Append(LINKFLAGS = ['-std=c++11', '-static-libgcc', '-static-libstdc++', '-pthread'])
+env.Append(LINKFLAGS = ['-std=c++17', '-static-libgcc', '-static-libstdc++', '-pthread'])
 env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses', 'tinfo'])
 if GetOption('with_isl'):
     env.Append(LIBS = ['isl', 'barvinok', 'ntl', 'pthread', 'polylibgmp'])
