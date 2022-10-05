@@ -401,6 +401,8 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
         (tile_nest[inner].partition_size - 1) / outer_multicast_factor;
       tile_nest[inner].content_accesses = 1 +
         (tile_nest[inner].content_accesses - 1) / outer_multicast_factor;
+      tile_nest[inner].parent_access_share = 1 +
+        (tile_nest[inner].parent_access_share - 1) / outer_multicast_factor;
 
       // The inner tile's network accesses will now happen at a distributed-multicast
       // factor of outer_multicast_factor. These alterations will magically trigger
@@ -899,8 +901,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     // Additional step for outermost masked levels.
     ProcessOuterMaskedLevels(solution[pv], tile_mask[pv]);
 
-    // Set backing storage fill to zero
-    // place holder
+    // Set backing storage fill to zero place holder
     ResetBackingStorageFillsPlaceHolder(solution[pv]);
 
     // Perform distributed-multicast if supported.
