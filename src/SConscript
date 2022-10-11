@@ -44,7 +44,7 @@ env.Append(LIBPATH = ['.'])
 # If we are doing a static build, the timeloop library must be the first
 # item in the link order.
 if GetOption('link_static'):
-    env.Append(LIBS = ['timeloop-model'])
+    env.Append(LIBS = ['timeloop-mapper'])
 
 env.Append(LINKFLAGS = ['-std=c++17', '-static-libgcc', '-static-libstdc++', '-pthread'])
 env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses', 'tinfo'])
@@ -216,7 +216,7 @@ else:
 # If we are doing a dynamic build, the timeloop library must be the last
 # item in the link order.
 if not GetOption('link_static'):
-    env.Append(LIBS = ['timeloop-model'])
+    env.Append(LIBS = ['timeloop-mapper'])
 
 # Build the various binaries.
 
@@ -230,18 +230,18 @@ applications/model/model.cpp
 applications/model/main.cpp
 """)
 
-mapper_sources = mapspace_sources + search_sources + Split("""
+mapper_sources = Split("""
 applications/mapper/mapper.cpp
 applications/mapper/mapper-thread.cpp
 applications/mapper/main.cpp
 """)
 
-simple_mapper_sources = mapspace_sources + Split("""
+simple_mapper_sources = Split("""
 applications/simple-mapper/simple-mapper.cpp
 applications/simple-mapper/main.cpp
 """)
 
-design_space_sources = mapspace_sources + search_sources + Split("""
+design_space_sources = Split("""
 applications/mapper/mapper.cpp
 applications/mapper/mapper-thread.cpp
 applications/design-space/arch.cpp
