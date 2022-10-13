@@ -321,7 +321,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   }
   else if (buffer.lookupValue("sizeKB", size))
   {
-    specs.size = size * 1024 * 8 / specs.word_bits.Get();
+    specs.size = std::uint64_t(size) * 1024 * 8 / specs.word_bits.Get();
   }
 
   std::uint32_t metadata_storage_size = 0;
