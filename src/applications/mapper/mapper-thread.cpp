@@ -748,7 +748,6 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
     // std::cout << indent << std::left << std::setw(70) << "Optimal Op per Byte";
     // std::cout << ": " << op_per_byte << std::endl;
 
-    std::vector<std::string> access_types = {"read", "fill", "update"};
     for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
     {        
       std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(i);
@@ -842,8 +841,6 @@ void MapperThread::PrintOAVESStats(model::Topology& topology, EvaluationResult& 
       total_reduction_ops = result.stats.actual_computes;
     }
     uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
-
-    std::vector<std::string> access_types = {"read", "fill", "update"};
 
     // Assume the DRAM is the last level
     auto last_storage_level = topology.NumStorageLevels() - 1;
