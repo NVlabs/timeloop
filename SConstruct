@@ -36,5 +36,7 @@ AddOption('--d', dest='debug', default=False, action='store_true', help='Debug b
 AddOption('--with-isl', dest='with_isl', default=False, action='store_true', help='Build with ISL support (default is false)')
 
 env = Environment(ENV = os.environ)
+env.Replace(AR = "gcc-ar")
+env.Replace(RANLIB = "gcc-ranlib")
 env.Append(BUILD_BASE_DIR = Dir('.').abspath)
 env.SConscript('build/SConscript', exports='env')
