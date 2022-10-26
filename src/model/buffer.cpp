@@ -64,6 +64,10 @@ BufferLevel::~BufferLevel()
 
 void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double>& ert_entries, double max_energy)
 {
+  // don't override user-specific vector access energy
+  if (vector_access_energy.IsSpecified()) {
+    return;
+  }
   
   vector_access_energy = max_energy/cluster_size.Get();
   ERT_entries = ert_entries;
