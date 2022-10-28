@@ -287,7 +287,7 @@ struct ComputeInfo
     max_x_expansion = 0;
     max_y_expansion = 0;
     accesses = 0;
-    compute_cycles = 0;
+    compute_cycles = 1;
   }
 };
 
