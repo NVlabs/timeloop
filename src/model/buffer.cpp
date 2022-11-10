@@ -65,7 +65,7 @@ BufferLevel::~BufferLevel()
 void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double>& ert_entries, double max_energy)
 {
   // don't override user-specific vector access energy
-  if (vector_access_energy.IsSpecified()) {
+  if (vector_access_energy_user_specified) {
     return;
   }
   
@@ -550,7 +550,9 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   }
 
   // Allow user to override the access energy.
-  buffer.lookupValue("vector-access-energy", tmp_access_energy);
+  // Also store that the vector access energy is from the user rather than the PAT;
+  // this will be referenced in UpdateOpEnergyViaERT() above.
+  specs.vector_access_energy_user_specified = buffer.lookupValue("vector-access-energy", tmp_access_energy);
 
   // Allow user to override the addr gen energy.
   double tmp_addr_gen_energy = -0.1;
