@@ -65,7 +65,8 @@ BufferLevel::~BufferLevel()
 void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double>& ert_entries, double max_energy)
 {
   // don't override user-specific vector access energy
-  if (vector_access_energy_user_specified) {
+  if (access_energy_source == "user")
+  {
     return;
   }
   
@@ -89,6 +90,8 @@ void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double
       }
     }
   }
+
+  access_energy_source = "ERT";
 }
 
 
@@ -552,18 +555,38 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   // Allow user to override the access energy.
   // Also store that the vector access energy is from the user rather than the PAT;
   // this will be referenced in UpdateOpEnergyViaERT() above.
-  specs.vector_access_energy_user_specified = buffer.lookupValue("vector-access-energy", tmp_access_energy);
+  bool user_specified_access_energy = buffer.lookupValue("vector-access-energy", tmp_access_energy);
+  if (user_specified_access_energy)
+  {
+    specs.access_energy_source = "user";
+  } else 
+  {
+    specs.access_energy_source = "PAT";
+  }
 
   // Allow user to override the addr gen energy.
   double tmp_addr_gen_energy = -0.1;
-  buffer.lookupValue("addr-gen-energy", tmp_addr_gen_energy);
+  bool user_specified_addr_gen_energy = buffer.lookupValue("addr-gen-energy", tmp_addr_gen_energy);
   specs.addr_gen_energy = tmp_addr_gen_energy;
+  if (user_specified_addr_gen_energy)
+  {
+    specs.addr_gen_energy_source = "user";
+  } else 
+  {
+    specs.addr_gen_energy_source = "default";
+  }
 
   // Allow user to override the cluster area.
   double tmp_cluster_area = 0;
   buffer.lookupValue("cluster-area", tmp_cluster_area);
   if (tmp_cluster_area > 0)
+  {
     tmp_storage_area = tmp_cluster_area / specs.cluster_size.Get();
+    specs.storage_area_source = "user";
+  } else
+  {
+    specs.storage_area_source = "PAT";
+  }
 
   // Set final physical dimensions and energy.
   specs.vector_access_energy = tmp_access_energy;
@@ -1819,21 +1842,22 @@ void BufferLevel::Print(std::ostream& out) const
   }
   else
   {
-    out << indent << indent << "Technology           : " << specs.technology << std::endl;
-    out << indent << indent << "Size                 : " << specs.size << std::endl;
-    out << indent << indent << "Word bits            : " << specs.word_bits << std::endl;
-    out << indent << indent << "Block size           : " << specs.block_size << std::endl;
-    out << indent << indent << "Cluster size         : " << specs.cluster_size << std::endl;
-    out << indent << indent << "Instances            : " << specs.instances << " ("
+    out << indent << indent << "Technology                  : " << specs.technology << std::endl;
+    out << indent << indent << "Size                        : " << specs.size << std::endl;
+    out << indent << indent << "Word bits                   : " << specs.word_bits << std::endl;
+    out << indent << indent << "Block size                  : " << specs.block_size << std::endl;
+    out << indent << indent << "Cluster size                : " << specs.cluster_size << std::endl;
+    out << indent << indent << "Instances                   : " << specs.instances << " ("
         << specs.meshX << "*" << specs.meshY << ")" << std::endl;
-    out << indent << indent << "Shared bandwidth     : " << specs.shared_bandwidth << std::endl;
-    out << indent << indent << "Read bandwidth       : " << specs.read_bandwidth << std::endl;
-    out << indent << indent << "Write bandwidth      : " << specs.write_bandwidth << std::endl;
-    out << indent << indent << "Multiple buffering   : " << specs.multiple_buffering << std::endl;
-    out << indent << indent << "Effective size       : " << specs.effective_size << std::endl;
-    out << indent << indent << "Min utilization      : " << specs.min_utilization << std::endl;
-    out << indent << indent << "Vector access energy : " << specs.vector_access_energy << " pJ" << std::endl;
-    out << indent << indent << "Area                 : " << specs.storage_area << " um^2" << std::endl;
+    out << indent << indent << "Shared bandwidth            : " << specs.shared_bandwidth << std::endl;
+    out << indent << indent << "Read bandwidth              : " << specs.read_bandwidth << std::endl;
+    out << indent << indent << "Write bandwidth             : " << specs.write_bandwidth << std::endl;
+    out << indent << indent << "Multiple buffering          : " << specs.multiple_buffering << std::endl;
+    out << indent << indent << "Effective size              : " << specs.effective_size << std::endl;
+    out << indent << indent << "Min utilization             : " << specs.min_utilization << std::endl;
+    out << indent << indent << "Vector access energy        : " << specs.vector_access_energy << " pJ" << std::endl;
+    out << indent << indent << "Vector access energy source : " << specs.access_energy_source << std::endl;
+    out << indent << indent << "Area                        : " << specs.storage_area << " um^2" << std::endl;
 
     out << std::endl;
   }

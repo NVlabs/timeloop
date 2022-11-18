@@ -145,9 +145,11 @@ class BufferLevel : public Level
     // Physical Attributes (derived from technology model).
     // FIXME: move into separate struct?
     Attribute<double> vector_access_energy; // pJ
-    bool vector_access_energy_user_specified;
     Attribute<double> storage_area; // um^2
     Attribute<double> addr_gen_energy; // pJ
+    std::string access_energy_source;
+    std::string addr_gen_energy_source;
+    std::string storage_area_source;
 
     Attribute<bool> is_sparse_module;
     
