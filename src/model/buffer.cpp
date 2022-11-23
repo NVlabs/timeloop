@@ -324,7 +324,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   {
     assert(buffer.exists("sizeKB") == false);
     assert(buffer.exists("entries") == false);
-    specs.size = size * specs.block_size.Get();
+    specs.size = size * specs.block_size.Get() * specs.cluster_size.Get();
   }
   else if (buffer.lookupValue("sizeKB", size))
   {
