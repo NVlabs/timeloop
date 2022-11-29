@@ -324,7 +324,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   {
     assert(buffer.exists("sizeKB") == false);
     assert(buffer.exists("entries") == false);
-    specs.size = size * specs.block_size.Get() * specs.cluster_size.Get();
+    specs.size = size * specs.block_size.Get();
   }
   else if (buffer.lookupValue("sizeKB", size))
   {
@@ -1269,9 +1269,11 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   }
 
   assert (specs_.block_size.IsSpecified());
-    
+
   assert (specs_.cluster_size.IsSpecified());
-   
+
+  assert ((specs_.instances.Get() % specs_.cluster_size.Get()) == 0);
+
   // Compute address-generation bits.
   if (specs_.size.IsSpecified())
   {
