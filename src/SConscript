@@ -54,7 +54,7 @@ if GetOption('with_isl'):
 if GetOption('link_static'):
     print("Using static linking.")
     env.Append(LINKFLAGS = [ '-Wl,--whole-archive', '-static', '-lpthread', '-Wl,--no-whole-archive'])
-    env.Append(LIBS = ['tinfo', 'gpm'])
+    env.Append(LIBS = ['tinfo', 'gmp'])
 else:
     print("Using dynamic linking.")
 
