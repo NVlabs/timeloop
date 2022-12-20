@@ -907,7 +907,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
   // used for better distribution storage capacity to different dataspaces stored at this level
   double all_dataspace_data_tile_size = 0;
   // double all_dataspace_total_metadata_tile_size = 0;
-  double all_dataspace_metadata_tile_size_bits = 0;
+  // double all_dataspace_metadata_tile_size_bits = 0; // Not used, removing for code hygiene.
   problem::PerDataSpace<double> expected_data_tile_sizes;
   // problem::PerDataSpace<double> expected_metadata_tile_sizes;
   problem::PerDataSpace<double> expected_metadata_tile_sizes_bits;
@@ -945,7 +945,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
     }
     all_dataspace_data_tile_size += expected_data_tile_sizes[pvi];
     // all_dataspace_total_metadata_tile_size += expected_metadata_tile_sizes[pvi];
-    all_dataspace_metadata_tile_size_bits += expected_metadata_tile_sizes_bits[pvi];
+    // all_dataspace_metadata_tile_size_bits += expected_metadata_tile_sizes_bits[pvi]; // Not used, removing for code hygiene.
   }
 
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)

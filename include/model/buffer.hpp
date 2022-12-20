@@ -480,7 +480,7 @@ class BufferLevel : public Level
   std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   
   // Printers.
-  void Print(std::ostream& out) const;
+  void Print(std::ostream& out) const override;
   friend std::ostream& operator << (std::ostream& out, const BufferLevel& buffer_level);
 };
 

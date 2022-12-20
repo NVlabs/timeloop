@@ -223,7 +223,7 @@ class ArithmeticUnits : public Level
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                       const double confidence_threshold, const std::uint64_t compute_cycles,
-                      const bool break_on_failure)
+                      const bool break_on_failure) override
   {
     assert(is_specced_);
 
