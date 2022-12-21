@@ -28,9 +28,6 @@
 #include "applications/simple-mapper/simple-mapper.hpp"
 #include "compound-config/compound-config.hpp"
 
-bool gTerminate = false;
-bool gTerminateEval = false;
-
 //--------------------------------------------//
 //                    MAIN                    //
 //--------------------------------------------//

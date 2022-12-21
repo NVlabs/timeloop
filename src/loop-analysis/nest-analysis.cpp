@@ -44,7 +44,7 @@
 
 #include "loop-analysis/nest-analysis.hpp"
 
-extern bool gTerminateEval;
+bool gTerminateEval = false;
 
 bool gEnableLinkTransfers =
   (getenv("TIMELOOP_DISABLE_LINK_TRANSFERS") == NULL) ||

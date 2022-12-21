@@ -29,6 +29,8 @@
 
 #include "applications/mapper/mapper-thread.hpp"
 
+bool gTerminate = false;
+
 enum class Betterness
 {
   Better,
