@@ -85,7 +85,7 @@ class DynamicArray
     delete[] data_;
   }
 
-  size_t size() { return size_; }
+  size_t size() const { return size_; }
 
   void clear()
   {

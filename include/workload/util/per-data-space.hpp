@@ -36,8 +36,6 @@
 namespace problem
 {
 
-const size_t MAX_DATA_SPACES = 5;
-
 // Think of this as std::array<T, DataSpaceID::Num>, except that the goal is
 // to support dynamic values of DataSpaceID::Num determined by reading user input.
 template<class T>
@@ -47,6 +45,11 @@ class PerDataSpace : public DynamicArray<T>
   PerDataSpace() :
       //DynamicArray<T>(GetShape()->NumDataSpaces)
       DynamicArray<T>(0)
+  {
+  }
+
+  PerDataSpace(std::size_t num_data_spaces) :
+      DynamicArray<T>(num_data_spaces)
   {
   }
 
@@ -66,24 +69,6 @@ class PerDataSpace : public DynamicArray<T>
     //assert(pv < GetShape()->NumDataSpaces);
     return DynamicArray<T>::at(pv);
   }
-
-  // T & operator [] (DataSpaceID pv)
-  // {
-  //   return (*this)[unsigned(pv)];
-  // }
-  // const T & operator [] (DataSpaceID pv) const
-  // {
-  //   return (*this)[unsigned(pv)];
-  // }
-
-  // T & at(DataSpaceID pv)
-  // {
-  //   return (*this)[pv];
-  // }
-  // const T & at(DataSpaceID pv) const
-  // {
-  //   return (*this)[pv];
-  // }
 
   T & at(unsigned pv)
   {
@@ -112,7 +97,7 @@ class PerDataSpace : public DynamicArray<T>
     // {
     //   out << std::setw(10) << GetShape()->DataSpaceIDToName.at(pvi) << ": " << x[pvi] << std::endl;
     // }
-    for (unsigned pvi = 0; pvi < size_; pvi++)
+    for (unsigned pvi = 0; pvi < x.size(); pvi++)
     {
       out << pvi << ": " << x[pvi] << std::endl;
     }
