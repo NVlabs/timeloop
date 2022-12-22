@@ -699,7 +699,6 @@ std::vector<Status> Uber::AssignSpatialTilingDirections(uint128_t mapping_spatia
 
   std::vector<Status> status(arch_props_.Specs().topology.NumLevels(),
                              { .success = true, .fail_reason = "" });
-  bool success = true;
 
   auto spatial_splits = spatial_split_space_.GetSplits(mapping_spatial_id);
   //auto datatype_bypass_masks = tiling::TransposeMasks(datatype_bypass_nest);
@@ -732,7 +731,7 @@ std::vector<Status> Uber::AssignSpatialTilingDirections(uint128_t mapping_spatia
     else
       status.at(topology_level).fail_reason += ", " + s.fail_reason;
 
-    success &= s.success;
+    // success &= s.success;
 
     if (break_on_failure && !s.success)
       break;
@@ -754,7 +753,7 @@ std::vector<Status> Uber::AssignSpatialTilingDirections(uint128_t mapping_spatia
     else
       status.at(topology_level).fail_reason += ", " + fail_reason.str();
   }
-      
+
   return status;
 }
 

@@ -193,34 +193,34 @@ class LegacyNetwork : public Network
 
   static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module);
 
-  void ConnectSource(std::weak_ptr<Level> source);
-  void ConnectSink(std::weak_ptr<Level> sink);
-  void SetName(std::string name);
-  std::string Name() const;
-  void AddConnectionType(ConnectionType ct);
-  void ResetConnectionType();
+  void ConnectSource(std::weak_ptr<Level> source) override;
+  void ConnectSink(std::weak_ptr<Level> sink) override;
+  void SetName(std::string name) override;
+  std::string Name() const override;
+  void AddConnectionType(ConnectionType ct) override;
+  void ResetConnectionType() override;
 
-  bool DistributedMulticastSupported() const;
+  bool DistributedMulticastSupported() const override;
 
   // Floorplanner interface.
-  void SetTileWidth(double width_um);
+  void SetTileWidth(double width_um) override;
 
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                      const bool break_on_failure);
+                      const bool break_on_failure) override;
 
   EvalStatus ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const bool break_on_failure);
   void ComputeNetworkEnergy();
   void ComputeSpatialReductionEnergy();
   void ComputePerformance();
 
-  std::uint64_t WordBits() const;
+  std::uint64_t WordBits() const override;
   std::uint64_t FillLatency() const override;
   std::uint64_t DrainLatency() const override;
 
   void SetFillLatency(std::uint64_t fill_latency) override;
   void SetDrainLatency(std::uint64_t drain_latency) override;
 
-  void Print(std::ostream& out) const;
+  void Print(std::ostream& out) const override;
 
   // PAT interface.
   static double WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance, double wire_energy_override);
@@ -228,7 +228,7 @@ class LegacyNetwork : public Network
 
   STAT_ACCESSOR_HEADER(double, NetworkEnergy);
   STAT_ACCESSOR_HEADER(double, SpatialReductionEnergy);
-  STAT_ACCESSOR_HEADER(double, Energy);
+  STAT_ACCESSOR_HEADER(double, Energy) override;
 
 }; // class Network
 

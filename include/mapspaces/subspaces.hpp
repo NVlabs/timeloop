@@ -117,10 +117,6 @@ class SpatialSplitSpace
   std::map<unsigned, std::size_t> size_;
   std::map<unsigned, unsigned> unit_factors_;
 
-  uint64_t n_;
-  bool is_fixed_;
-  uint64_t fixed_;
-
   const problem::Workload& workload_;
   
  public:

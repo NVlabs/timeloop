@@ -34,8 +34,8 @@
 #include "util/args.hpp"
 #include "compound-config/compound-config.hpp"
 
-bool gTerminate = false;
-bool gTerminateEval = false;
+extern bool gTerminate;
+extern bool gTerminateEval;
 
 void handler(int s)
 {

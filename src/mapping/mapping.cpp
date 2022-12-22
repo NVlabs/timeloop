@@ -153,8 +153,8 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
           factors.at(spacetime::Dimension::SpaceY).at(dim);
 
         spatial_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
-        char factor[8];
-        sprintf(factor, "%d", spatial_factors.at(dim));
+        char factor[11];
+        snprintf(factor, 11, "%d", spatial_factors.at(dim));  // 11 = ceil(32/log2(10)) + 1 null
         spatial_factor_string += factor;
         if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
           spatial_factor_string += " ";
@@ -182,8 +182,8 @@ void Mapping::FormatAsConstraints(libconfig::Setting& mapspace)
       auto dim = problem::Shape::FlattenedDimensionID(idim);
 
       temporal_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
-      char factor[8];
-      sprintf(factor, "%d", temporal_factors.at(dim));
+      char factor[11];
+      snprintf(factor, 11, "%d", temporal_factors.at(dim)); // 11 = ceil(32/log2(10)) + 1 null
       temporal_factor_string += factor;
       if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
         temporal_factor_string += " ";
@@ -279,8 +279,8 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
           factors.at(spacetime::Dimension::SpaceY).at(dim);
 
         spatial_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
-        char factor[8];
-        sprintf(factor, "%d", spatial_factors.at(dim));
+        char factor[11];
+        snprintf(factor, 11, "%d", spatial_factors.at(dim)); // 11 = ceil(32/log2(10)) + 1 null
         spatial_factor_string += factor;
         if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
           spatial_factor_string += " ";
@@ -308,8 +308,8 @@ void Mapping::FormatAsLibConfig(libconfig::Setting& mapping,
       auto dim = problem::Shape::FlattenedDimensionID(idim);
 
       temporal_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
-      char factor[8];
-      sprintf(factor, "%d", temporal_factors.at(dim));
+      char factor[11];
+      snprintf(factor, 11, "%d", temporal_factors.at(dim)); // 11 = ceil(32/log2(10)) + 1 null
       temporal_factor_string += factor;
       if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
         temporal_factor_string += " ";
@@ -416,8 +416,8 @@ void Mapping::FormatAsYaml(YAML::Emitter& yaml_mapping,
           factors.at(spacetime::Dimension::SpaceY).at(dim);
 
         spatial_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
-        char factor[8];
-        sprintf(factor, "%d", spatial_factors.at(dim));
+        char factor[11];
+        snprintf(factor, 11, "%d", spatial_factors.at(dim)); // 11 = ceil(32/log2(10)) + 1 null
         spatial_factor_string += factor;
         if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
           spatial_factor_string += " ";
@@ -447,8 +447,8 @@ void Mapping::FormatAsYaml(YAML::Emitter& yaml_mapping,
       auto dim = problem::Shape::FlattenedDimensionID(idim);
 
       temporal_factor_string += workload_->GetShape()->FlattenedDimensionIDToName.at(dim);
-      char factor[8];
-      sprintf(factor, "%d", temporal_factors.at(dim));
+      char factor[11];
+      snprintf(factor, 11, "%d", temporal_factors.at(dim)); // 11 = ceil(32/log2(10)) + 1 null
       temporal_factor_string += factor;
       if (idim != unsigned(workload_->GetShape()->NumFlattenedDimensions)-1)
         temporal_factor_string += " ";

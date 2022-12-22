@@ -147,6 +147,9 @@ class BufferLevel : public Level
     Attribute<double> vector_access_energy; // pJ
     Attribute<double> storage_area; // um^2
     Attribute<double> addr_gen_energy; // pJ
+    std::string access_energy_source;
+    std::string addr_gen_energy_source;
+    std::string storage_area_source;
 
     Attribute<bool> is_sparse_module;
     
@@ -477,7 +480,7 @@ class BufferLevel : public Level
   std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   
   // Printers.
-  void Print(std::ostream& out) const;
+  void Print(std::ostream& out) const override;
   friend std::ostream& operator << (std::ostream& out, const BufferLevel& buffer_level);
 };
 

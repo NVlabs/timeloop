@@ -29,6 +29,8 @@
 
 #include "applications/mapper/mapper-thread.hpp"
 
+bool gTerminate = false;
+
 enum class Betterness
 {
   Better,
@@ -39,28 +41,30 @@ enum class Betterness
 
 static double Cost(const model::Topology::Stats& stats, const std::string metric)
 {
+  double cost;
   if (metric == "delay")
   {
-    return static_cast<double>(stats.cycles);
+    cost = static_cast<double>(stats.cycles);
   }
   else if (metric == "energy")
   {
-    return stats.energy;
+    cost = stats.energy;
   }
   else if (metric == "last-level-accesses")
   {
-    return stats.last_level_accesses;
+    cost = stats.last_level_accesses;
   }
   else if (metric.compare(0, 9, "accesses-") == 0)
   {
     unsigned level = unsigned(atoi(metric.substr(9).c_str()));
-    return stats.accesses.at(level);
+    cost = stats.accesses.at(level);
   }
   else
   {
     assert(metric == "edp");
-    return (stats.energy * stats.cycles);
+    cost = (stats.energy * stats.cycles);
   }
+  return cost;
 }
 
 static Betterness IsBetterRecursive_(const model::Topology::Stats& candidate, const model::Topology::Stats& incumbent,
