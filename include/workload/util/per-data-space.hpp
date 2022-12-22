@@ -43,52 +43,42 @@ class PerDataSpace : public DynamicArray<T>
 {
  public:
   PerDataSpace() :
-      DynamicArray<T>(GetShape()->NumDataSpaces)
+      //DynamicArray<T>(GetShape()->NumDataSpaces)
+      DynamicArray<T>(0)
+  {
+  }
+
+  PerDataSpace(std::size_t num_data_spaces) :
+      DynamicArray<T>(num_data_spaces)
   {
   }
 
   PerDataSpace(std::initializer_list<T> l) :
     DynamicArray<T>(l)
   {
-    assert(this->size() == GetShape()->NumDataSpaces);
+    //assert(this->size() == GetShape()->NumDataSpaces);
   }
 
   T & operator [] (unsigned pv)
   {
-    assert(pv < GetShape()->NumDataSpaces);
+    //assert(pv < GetShape()->NumDataSpaces);
     return DynamicArray<T>::at(pv);
   }
   const T & operator [] (unsigned pv) const
   {
-    assert(pv < GetShape()->NumDataSpaces);
+    //assert(pv < GetShape()->NumDataSpaces);
     return DynamicArray<T>::at(pv);
   }
 
-  // T & operator [] (DataSpaceID pv)
-  // {
-  //   return (*this)[unsigned(pv)];
-  // }
-  // const T & operator [] (DataSpaceID pv) const
-  // {
-  //   return (*this)[unsigned(pv)];
-  // }
-
-  // T & at(DataSpaceID pv)
-  // {
-  //   return (*this)[pv];
-  // }
-  // const T & at(DataSpaceID pv) const
-  // {
-  //   return (*this)[pv];
-  // }
-
   T & at(unsigned pv)
   {
-    return (*this)[pv];
+    //return (*this)[pv];
+    return DynamicArray<T>::at(pv);
   }
   const T & at(unsigned pv) const
   {
-    return (*this)[pv];
+    //return (*this)[pv];
+    return DynamicArray<T>::at(pv);
   }
 
   void clear()
@@ -103,9 +93,13 @@ class PerDataSpace : public DynamicArray<T>
 
   friend std::ostream& operator << (std::ostream& out, const PerDataSpace<T>& x)
   {
-    for (unsigned pvi = 0; pvi < GetShape()->NumDataSpaces; pvi++)
+    // for (unsigned pvi = 0; pvi < GetShape()->NumDataSpaces; pvi++)
+    // {
+    //   out << std::setw(10) << GetShape()->DataSpaceIDToName.at(pvi) << ": " << x[pvi] << std::endl;
+    // }
+    for (unsigned pvi = 0; pvi < x.size(); pvi++)
     {
-      out << std::setw(10) << GetShape()->DataSpaceIDToName.at(pvi) << ": " << x[pvi] << std::endl;
+      out << pvi << ": " << x[pvi] << std::endl;
     }
     return out;
   }

@@ -39,7 +39,8 @@ namespace mapping
 Constraints::Constraints(const ArchProperties& arch_props,
                          const problem::Workload& workload) :
     arch_props_(arch_props),
-    workload_(workload)
+    workload_(workload),
+    bypass_strings_(workload.GetShape()->NumDataSpaces)
 {
   factors_.clear();
   max_factors_.clear();

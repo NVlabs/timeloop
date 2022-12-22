@@ -85,7 +85,7 @@ class DynamicArray
     delete[] data_;
   }
 
-  size_t size() { return size_; }
+  size_t size() const { return size_; }
 
   void clear()
   {
@@ -95,10 +95,12 @@ class DynamicArray
 
   T & operator [] (size_t i)
   {
+    assert(i < size_);
     return data_[i];
   }
   const T & operator [] (size_t i) const
   {
+    assert(i < size_);
     return data_[i];
   }
 
