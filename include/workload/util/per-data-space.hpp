@@ -36,6 +36,8 @@
 namespace problem
 {
 
+const size_t MAX_DATA_SPACES = 5;
+
 // Think of this as std::array<T, DataSpaceID::Num>, except that the goal is
 // to support dynamic values of DataSpaceID::Num determined by reading user input.
 template<class T>
@@ -43,24 +45,25 @@ class PerDataSpace : public DynamicArray<T>
 {
  public:
   PerDataSpace() :
-      DynamicArray<T>(GetShape()->NumDataSpaces)
+      //DynamicArray<T>(GetShape()->NumDataSpaces)
+      DynamicArray<T>(0)
   {
   }
 
   PerDataSpace(std::initializer_list<T> l) :
     DynamicArray<T>(l)
   {
-    assert(this->size() == GetShape()->NumDataSpaces);
+    //assert(this->size() == GetShape()->NumDataSpaces);
   }
 
   T & operator [] (unsigned pv)
   {
-    assert(pv < GetShape()->NumDataSpaces);
+    //assert(pv < GetShape()->NumDataSpaces);
     return DynamicArray<T>::at(pv);
   }
   const T & operator [] (unsigned pv) const
   {
-    assert(pv < GetShape()->NumDataSpaces);
+    //assert(pv < GetShape()->NumDataSpaces);
     return DynamicArray<T>::at(pv);
   }
 
@@ -84,11 +87,13 @@ class PerDataSpace : public DynamicArray<T>
 
   T & at(unsigned pv)
   {
-    return (*this)[pv];
+    //return (*this)[pv];
+    return DynamicArray<T>::at(pv);
   }
   const T & at(unsigned pv) const
   {
-    return (*this)[pv];
+    //return (*this)[pv];
+    return DynamicArray<T>::at(pv);
   }
 
   void clear()
@@ -103,9 +108,13 @@ class PerDataSpace : public DynamicArray<T>
 
   friend std::ostream& operator << (std::ostream& out, const PerDataSpace<T>& x)
   {
-    for (unsigned pvi = 0; pvi < GetShape()->NumDataSpaces; pvi++)
+    // for (unsigned pvi = 0; pvi < GetShape()->NumDataSpaces; pvi++)
+    // {
+    //   out << std::setw(10) << GetShape()->DataSpaceIDToName.at(pvi) << ": " << x[pvi] << std::endl;
+    // }
+    for (unsigned pvi = 0; pvi < size_; pvi++)
     {
-      out << std::setw(10) << GetShape()->DataSpaceIDToName.at(pvi) << ": " << x[pvi] << std::endl;
+      out << pvi << ": " << x[pvi] << std::endl;
     }
     return out;
   }
