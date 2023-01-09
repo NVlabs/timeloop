@@ -43,7 +43,7 @@ class PerDataSpace : public DynamicArray<T>
 {
  public:
   PerDataSpace() :
-      DynamicArray<T>(0)
+      DynamicArray<T>(MAX_DATA_SPACES) // (0)
   {
   }
 

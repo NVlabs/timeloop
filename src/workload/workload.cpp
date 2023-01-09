@@ -189,19 +189,24 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
 
   // 1) shared density specification for all dataspaces
   double common_avg_density;
-  if (config.exists("commonDensity")){
+  if (config.exists("commonDensity"))
+  {
     config::CompoundConfigNode density_config;
-    if (! config.lookup("commonDensity").isMap()){
+    if (! config.lookup("commonDensity").isMap())
+    {
       config.lookupValue("commonDensity", common_avg_density);
       ynode["distribution"] = "fixed-structured";
       ynode["density"] = common_avg_density;
       density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
-    } else {
+    }
+    else
+    {
       density_config = config.lookup("commonDensity");
     }
     auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
     // assign all dataspaces the same density value
-    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
+    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
+    {
       densities[i]= DensityDistributionFactory::Construct(density_specs);
       // make sure the density model is correctly set
       assert (densities[i] != NULL);
@@ -212,7 +217,8 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
   else if (config.exists("densities"))
   {
     auto config_densities = config.lookup("densities");
-    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
+    for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++)
+    {
       double dataspace_avg_density;
       config::CompoundConfigNode density_config;
       std::string dataspace_name = GetShape()->DataSpaceIDToName.at(i);
