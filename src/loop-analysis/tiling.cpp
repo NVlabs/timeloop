@@ -815,7 +815,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
   // From the tile data, select the size and accesses at the boundaries of each
   // storage level. Size comes from the outermost tile within the storage level,
   // and accesses comes from the innermost tile within the storage level.
-  CompoundDataMovementNest solution;
+  CompoundDataMovementNest solution(workload->GetShape()->NumDataSpaces);
 
   for (int pv = 0; pv < int(workload->GetShape()->NumDataSpaces); pv++)
   {
@@ -980,9 +980,14 @@ NestOfCompoundTiles TransposeTiles(const CompoundTileNest& tiles,
   ComputeInfo compute_info = compute_nest[0];
 
   // transpose all the tiles
-  for (unsigned level = 0; level < num_levels; level++){
+  for (unsigned level = 0; level < num_levels; level++)
+  {
+    // Property re-initialize data_movement_info based on workload shape.
+    tile_level.data_movement_info = decltype(tile_level.data_movement_info)(workload->GetShape()->NumDataSpaces);
+    
     //  Datamovement
-    for (int pv = 0; pv < int(workload->GetShape()->NumDataSpaces); pv++){
+    for (int pv = 0; pv < int(workload->GetShape()->NumDataSpaces); pv++)
+    {
       tile_level.data_movement_info[pv] = data_movement_nest[pv][level];
     }
     //  Compute
@@ -1002,7 +1007,7 @@ NestOfCompoundMasks TransposeMasks(const CompoundMaskNest& masks, const problem:
   
   for (std::size_t level = 0; level < MaxTilingLevels; level++)
   {
-    CompoundMask mask_level;
+    CompoundMask mask_level(workload->GetShape()->NumDataSpaces);
     for (int pv = 0; pv < int(workload->GetShape()->NumDataSpaces); pv++)
     {
       mask_level[pv] = masks[pv].test(level);

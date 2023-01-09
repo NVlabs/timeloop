@@ -40,20 +40,19 @@ Constraints::Constraints(const ArchProperties& arch_props,
                          const problem::Workload& workload) :
     arch_props_(arch_props),
     workload_(workload),
-    bypass_strings_(workload.GetShape()->NumDataSpaces)
+    bypass_strings_(workload.GetShape()->NumDataSpaces),
+    no_link_transfer_(workload.GetShape()->NumDataSpaces),
+    no_multicast_(workload.GetShape()->NumDataSpaces),
+    no_temporal_reuse_(workload.GetShape()->NumDataSpaces)
 {
   factors_.clear();
   max_factors_.clear();
   permutations_.clear();
   spatial_splits_.clear();
   confidence_thresholds_.clear();
-  bypass_strings_.clear();
   min_parallelism_ = 0.0;
   min_parallelism_isset_ = false;
   skews_.clear();
-  no_multicast_.clear();
-  no_link_transfer_.clear();
-  no_temporal_reuse_.clear();
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   for (unsigned pvi = 0; pvi < unsigned(workload_.GetShape()->NumDataSpaces); pvi++)

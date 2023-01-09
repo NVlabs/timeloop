@@ -124,6 +124,10 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
       cur.descriptor = descriptor;
       nest_state_.push_back(cur);    
     }
+
+    // Properly size working_sets_ by re-constructing it based on now-available
+    // parsed workload information.
+    working_sets_ = decltype(working_sets_)(workload_->GetShape()->NumDataSpaces);
   }
 
   gResetOnStrideChange = !workload_->GetShape()->UsesFlattening; 
@@ -670,7 +674,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // across ancestor iterations, we apply a simple heuristic to detect this
   // behavior and simply discard any residual state if the tile shape changes
   // the magnitude or direction of its stride.
-  problem::PerDataSpace<bool> no_temporal_reuse;
+  problem::PerDataSpace<bool> no_temporal_reuse(workload_->GetShape()->NumDataSpaces);
   for(unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
   {
     no_temporal_reuse[pv] = false;
@@ -960,7 +964,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     {
       // Track accesses for only those levels that are relevant
       // in the final analysis after CollapseTiles.
-      problem::PerDataSpace<std::size_t> final_delta_sizes;
+      problem::PerDataSpace<std::size_t> final_delta_sizes(workload_->GetShape()->NumDataSpaces);
       final_delta_sizes.fill(0);
 
       auto num_deltas = temporal_delta_sizes.size();
@@ -1042,7 +1046,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   // transfers completely obliterates access to a producer level,
   // use those link transfers only.
 
-  problem::PerDataSpace<std::unordered_set<std::uint64_t>> unaccounted_delta;
+  problem::PerDataSpace<std::unordered_set<std::uint64_t>> unaccounted_delta(workload_->GetShape()->NumDataSpaces);
   for (auto& delta: spatial_deltas)
   {
     for (unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
@@ -1077,8 +1081,9 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   //   std::cout << "->" << state.second.max_size.at(0) << std::endl;
   // }
 
-  problem::PerDataSpace<AccessStatMatrix> access_stats_without_link_transfers, access_stats_with_link_transfers;
-  problem::PerDataSpace<AccessStatMatrix*> access_stats;
+  problem::PerDataSpace<AccessStatMatrix> access_stats_without_link_transfers(workload_->GetShape()->NumDataSpaces);
+  problem::PerDataSpace<AccessStatMatrix> access_stats_with_link_transfers(workload_->GetShape()->NumDataSpaces);
+  problem::PerDataSpace<AccessStatMatrix*> access_stats(workload_->GetShape()->NumDataSpaces);
 
   for (unsigned pvi = 0; pvi < workload_->GetShape()->NumDataSpaces; pvi++)
   {
@@ -1106,7 +1111,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
     //   unaccounted_delta[i].fill(true);
     // }
 
-    problem::PerDataSpace<std::uint64_t> link_transfers;
+    problem::PerDataSpace<std::uint64_t> link_transfers(workload_->GetShape()->NumDataSpaces);
 
     ComputeNetworkLinkTransfers(cur, spatial_deltas, unaccounted_delta, link_transfers);
 
@@ -1404,7 +1409,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       //
 
       // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
-      problem::PerDataSpace<Point> translation_vectors;
+      problem::PerDataSpace<Point> translation_vectors(workload_->GetShape()->NumDataSpaces);
       if (indices_[level] < end)
       {
         if(!gDisableFirstElementOnlySpatialExtrapolation) 
@@ -1481,8 +1486,8 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
   // that the current delta matches with. This will be used
   // to infer the multicast factor for a specific delta.
   // reused across loop iterations to avoid initialization overheads.
-  problem::PerDataSpace<uint64_t> num_matches;
-  problem::PerDataSpace<bool> no_multicast;
+  problem::PerDataSpace<uint64_t> num_matches(workload_->GetShape()->NumDataSpaces);
+  problem::PerDataSpace<bool> no_multicast(workload_->GetShape()->NumDataSpaces);
   for(unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
   {
     no_multicast[pv] = false;
@@ -1500,7 +1505,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     std::uint64_t scatter_factor = 0;
     double hops = 0.0;
   };
-  problem::PerDataSpace<std::unordered_map<std::uint64_t, TempAccessStats>> temp_stats;
+  problem::PerDataSpace<std::unordered_map<std::uint64_t, TempAccessStats>> temp_stats(workload_->GetShape()->NumDataSpaces);
 
   // FIXME: we should only be looking at physical dimensions here. The problem
   // is that sparse mappings may appear to exceed the physical dimensions before
@@ -1518,7 +1523,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
 
     num_matches.fill(0);
     
-    problem::PerDataSpace<std::vector<std::uint64_t>> match_set;
+    problem::PerDataSpace<std::vector<std::uint64_t>> match_set(workload_->GetShape()->NumDataSpaces);
 
     for (unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
     {
@@ -1720,7 +1725,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
   //   std::cout << "  "; prev_spatial_deltas[i].Print(pv);
   // }
   
-  problem::PerDataSpace<bool> no_link_transfer;
+  problem::PerDataSpace<bool> no_link_transfer(workload_->GetShape()->NumDataSpaces);
   for(unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
   {
     no_link_transfer[pv] = false;
@@ -1734,8 +1739,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
 
   // for each spatial elements, this array records if the data
   // needed by the element can be obtained from any of the neighboring elements.
-  std::vector<problem::PerDataSpace<bool>> inter_elem_reuse;
-  inter_elem_reuse.resize(num_spatial_elems);
+  std::vector<problem::PerDataSpace<bool>> inter_elem_reuse(num_spatial_elems, workload_->GetShape()->NumDataSpaces);
   for (int i = 0; i < num_spatial_elems; i++)
   {
     inter_elem_reuse.at(i).fill(false);
@@ -2123,7 +2127,7 @@ problem::PerDataSpace<Point> NestAnalysis::GetCurrentTranslationVectors(std::vec
   cur_transform_[dim] = saved_transform;
   
   // Calculate and return translation vectors
-  problem::PerDataSpace<Point> translation_vectors;
+  problem::PerDataSpace<Point> translation_vectors(workload_->GetShape()->NumDataSpaces);
   for (unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
   {
     translation_vectors[pv] = firstrun.GetDataSpace(pv).GetTranslation(secondrun.GetDataSpace(pv));

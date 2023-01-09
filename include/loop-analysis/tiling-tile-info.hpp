@@ -293,11 +293,12 @@ struct ComputeInfo
 
 // datatypes needed before transpose
 // indexing order: [datatype/optype, nest_level]
-typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest ; 
+typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest; 
 typedef std::vector<ComputeInfo> ComputeNest;
-struct CompoundTileNest{
-   CompoundDataMovementNest compound_data_movement_info_nest;
-   ComputeNest compute_info_nest;
+struct CompoundTileNest
+{
+  CompoundDataMovementNest compound_data_movement_info_nest;
+  ComputeNest compute_info_nest;
 };
 
 
@@ -305,7 +306,8 @@ struct CompoundTileNest{
 typedef problem::PerDataSpace<DataMovementInfo> CompoundDataMovementInfo;
 
 // indexing order: [nest_level, datatype/optype]
-struct CompoundTile{
+struct CompoundTile
+{
   CompoundDataMovementInfo data_movement_info;
   ComputeInfo compute_info;
 };

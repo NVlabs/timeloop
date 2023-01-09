@@ -35,7 +35,12 @@ namespace analysis
 // ---------------------------------------------------------------
 
 ElementState::ElementState(problem::Workload& workload) :
-    last_point_set(&workload)
+    last_point_set(&workload),
+    last_translations(workload.GetShape()->NumDataSpaces),
+    max_size(workload.GetShape()->NumDataSpaces),
+    access_stats(workload.GetShape()->NumDataSpaces),
+    delta_histograms(workload.GetShape()->NumDataSpaces),
+    link_transfers(workload.GetShape()->NumDataSpaces)
 {
   Reset();
 }

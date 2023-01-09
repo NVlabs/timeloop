@@ -43,7 +43,6 @@ class PerDataSpace : public DynamicArray<T>
 {
  public:
   PerDataSpace() :
-      //DynamicArray<T>(GetShape()->NumDataSpaces)
       DynamicArray<T>(0)
   {
   }

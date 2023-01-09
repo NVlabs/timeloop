@@ -1165,7 +1165,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   auto compute_cycles = analysis->GetComputeInfo()[0].accesses; //innermost level
 
   // Create a mask indicating which levels support distributed multicast.
-  tiling::CompoundMaskNest distribution_supported;
+  tiling::CompoundMaskNest distribution_supported(workload->GetShape()->NumDataSpaces);
   for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++)
   {
     distribution_supported[pv].reset();

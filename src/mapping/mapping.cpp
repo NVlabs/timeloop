@@ -53,7 +53,8 @@ Mapping::Mapping() :
 Mapping::Mapping(problem::Workload* w) :
     workload_(w),
     loop_nest(*w->GetShape()),
-    complete_loop_nest(*w->GetShape())
+    complete_loop_nest(*w->GetShape()),
+    datatype_bypass_nest(w->GetShape()->NumDataSpaces)
 {
 }
 

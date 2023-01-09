@@ -72,12 +72,12 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>>> user_factors;
   std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> user_permutations;
   std::map<unsigned, std::uint32_t> user_spatial_splits;
-  problem::PerDataSpace<std::string> user_bypass_strings;
+  problem::PerDataSpace<std::string> user_bypass_strings(workload.GetShape()->NumDataSpaces);
   std::map<unsigned, double> confidence_thresholds;
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> user_skews;
-  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer;
-  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast;
-  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer(workload.GetShape()->NumDataSpaces);
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast(workload.GetShape()->NumDataSpaces);
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse(workload.GetShape()->NumDataSpaces);
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
@@ -128,7 +128,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
           std::vector<std::string> datatype_strings;
           if (directive.lookupArrayValue("no_link_transfer", datatype_strings))
           {
-            no_link_transfer[storage_level] = problem::PerDataSpace<bool>();
+            no_link_transfer[storage_level] = problem::PerDataSpace<bool>(workload.GetShape()->NumDataSpaces);
             
             for(unsigned pv = 0; pv < workload.GetShape()->NumDataSpaces; pv++)
               no_link_transfer[storage_level][pv] = 0;
@@ -156,7 +156,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
           std::vector<std::string> datatype_strings;
           if (directive.lookupArrayValue("no_multicast_no_reduction", datatype_strings))
           {
-            no_multicast[storage_level] = problem::PerDataSpace<bool>();
+            no_multicast[storage_level] = problem::PerDataSpace<bool>(workload.GetShape()->NumDataSpaces);
             for(unsigned pv = 0; pv < workload.GetShape()->NumDataSpaces; pv++)
               no_multicast[storage_level][pv] = 0;
             for (const std::string& datatype_string: datatype_strings)
@@ -185,7 +185,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
           std::vector<std::string> datatype_strings;
           if (directive.lookupArrayValue("no_temporal_reuse", datatype_strings))
           {
-            no_temporal_reuse[storage_level] = problem::PerDataSpace<bool>();
+            no_temporal_reuse[storage_level] = problem::PerDataSpace<bool>(workload.GetShape()->NumDataSpaces);
             for(unsigned pv = 0; pv < workload.GetShape()->NumDataSpaces; pv++)
               no_temporal_reuse[storage_level][pv] = 0;
             for (const std::string& datatype_string: datatype_strings)
