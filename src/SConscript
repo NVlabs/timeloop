@@ -60,8 +60,9 @@ env.Append(LIBS = ['config++', 'yaml-cpp', 'ncurses'])
 if str(Platform()) != 'darwin':
   env.Append(LIBS = ['tinfo'])
 
+# barvinok needs to be before isl because it references isl functions
 if GetOption('with_isl'):
-    env.Append(LIBS = ['isl', 'barvinok', 'ntl', 'pthread', 'polylibgmp'])
+    env.Append(LIBS = ['barvinok', 'isl', 'ntl', 'pthread', 'polylibgmp'])
 
 if GetOption('link_static'):
     print("Using static linking.")
