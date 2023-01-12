@@ -292,8 +292,8 @@ std::string ArithmeticUnits::Name() const
 
 double ArithmeticUnits::Energy(problem::Shape::DataSpaceID pv) const
 {
+  (void) pv;
   assert(is_evaluated_);
-  assert(pv == problem::GetShape()->NumDataSpaces);
   return energy_;
 }
 

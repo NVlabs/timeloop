@@ -737,7 +737,6 @@ void BufferLevel::PopulateEnergyPerOp(unsigned num_ops){
 
 }
 
-
 // PreEvaluationCheck(): allows for a very fast capacity-check
 // based on given working-set sizes that can be trivially derived
 // by the caller. The more powerful Evaluate() function also
@@ -777,14 +776,14 @@ EvalStatus BufferLevel::PreEvaluationCheck(
     // Find the total capacity required by all un-masked data types.
     std::size_t required_capacity = 0;
     double confidence_constraint = ! specs_.allow_overbooking.Get() ? 1.0 : confidence_threshold;
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+    for (unsigned pvi = 0; pvi < unsigned(workload->GetShape()->NumDataSpaces); pvi++)
     {
       if (mask[pvi])
       {
         auto dense_working_set_size = working_set_sizes.at(problem::Shape::DataSpaceID(pvi));
         auto working_set_size = dense_working_set_size;
 
-        std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
+        std::string data_space_name = workload->GetShape()->DataSpaceIDToName.at(pvi);
 
          if (per_level_compression_info.find(pvi) != per_level_compression_info.end()
              && per_level_compression_info.at(pvi).tensor_compressed)
@@ -825,11 +824,18 @@ EvalStatus BufferLevel::PreEvaluationCheck(
 // Heavyweight Evaluate() function.
 // FIXME: Derive FanoutX, FanoutY, MeshX, MeshY from mapping if unspecified.
 //
-EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
-                                 const double confidence_threshold, const std::uint64_t compute_cycles,
+EvalStatus BufferLevel::Evaluate(const tiling::CompoundTile& tile,
+                                 const tiling::CompoundMask& mask,
+                                 problem::Workload* workload,
+                                 const double confidence_threshold,
+                                 const std::uint64_t compute_cycles,
                                  const bool break_on_failure)
 {
-  auto eval_status = ComputeScalarAccesses(tile.data_movement_info, mask, confidence_threshold, break_on_failure);
+  workload_ = workload;
+  auto eval_status = ComputeScalarAccesses(tile.data_movement_info,
+                                           mask,
+                                           confidence_threshold,
+                                           break_on_failure);
   if (!break_on_failure || eval_status.success)
   {
     ComputeVectorAccesses(tile.data_movement_info);
@@ -898,7 +904,8 @@ std::uint64_t BufferLevel::ComputeMetaDataTileSize(const tiling::MetaDataTileOcc
 }
 
 void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMovementInfo& tile,
-                                                    const double confidence_threshold){
+                                                    const double confidence_threshold)
+{
 
   // collect tile sizes (data + metadata) for all dataspaces stored at the storage level
   // used for better distribution storage capacity to different dataspaces stored at this level
@@ -908,7 +915,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
   problem::PerDataSpace<double> expected_data_tile_sizes;
   // problem::PerDataSpace<double> expected_metadata_tile_sizes;
   problem::PerDataSpace<double> expected_metadata_tile_sizes_bits;
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
 
     if (tile[pvi].shape == 0)
@@ -945,7 +952,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
     // all_dataspace_metadata_tile_size_bits += expected_metadata_tile_sizes_bits[pvi]; // Not used, removing for code hygiene.
   }
 
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
 
@@ -1092,7 +1099,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   // 1. Collect stats (stats are always collected per-DataSpaceID).
   //
 
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
 
@@ -1114,7 +1121,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     // the commented calculations below is now moved to tiling.cpp
     //
 
-    // if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    // if (workload_->GetShape()->IsReadWriteDataSpace.at(pv))
     // {
     //   // First epoch is an Update, all subsequent epochs are Read-Modify-Update.
 
@@ -1166,7 +1173,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     //    for gated accesses, an address to gate is necessary, so one address generation is counted for each gate
     //    for skipped access, only an address to skip to is necessary, and this address corresponds to an actual access address generation
     //      thus zero address generation is necessary
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (workload_->GetShape()->IsReadWriteDataSpace.at(pv))
       //stats_.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // FIXME? we want address generation be accounted for in energy/compound action?
       stats_.address_generations[pv] = stats_.fine_grained_scalar_accesses[pv]["random_update"]
         + stats_.fine_grained_scalar_accesses[pv]["gated_update"]
@@ -1255,10 +1262,11 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   }
 
   // check if tile confidence meets user-defined constraints
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     if (confidence_threshold > stats_.tile_confidence[pvi] ||
-       (specs_.size.IsSpecified() && total_utilized_capacity > specs_.effective_size.Get() && specs_.allow_overbooking.Get())){
+       (specs_.size.IsSpecified() && total_utilized_capacity > specs_.effective_size.Get() && specs_.allow_overbooking.Get()))
+    {
       success = false;
       fail_reason << "best tile confidence is less than constrained "
                   << "minimum tile confidence " << confidence_threshold;
@@ -1328,7 +1336,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
 
   // Compute utilized clusters.
   // FIXME: should derive this from precise spatial mapping.
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     // The following equation assumes fully condensed mapping. Do a ceil-div.
@@ -1351,13 +1359,13 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
 }
 
 
-void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& tile){
-
+void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& tile)
+{
   // calculate fine-grained vector accesses
   auto block_size = specs_.block_size.Get();
   // auto metadata_block_size = specs_.default_md_block_size.Get();
 
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     double tile_mean_density = tile[pvi].GetExpectedTileDensity();
 
@@ -1372,8 +1380,8 @@ void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& 
     //    (2) tile is dense
     //    (3) vector width is 1
     //    (4) tile shape/vector width exceed certain threshold values (see model::VectorWidthCoefficientTable)
-    if (tile[pvi].compressed && tile_shape != 0 && block_size > 1 && tile_mean_density < 1.0){
-
+    if (tile[pvi].compressed && tile_shape != 0 && block_size > 1 && tile_mean_density < 1.0)
+    {
       assert(block_size % 2 == 0);
 
       double lookup_density_idx = tile_mean_density >= 0.1 ? floor(tile_mean_density/0.1)-1 : 0; // 0.1 is at idx 0
@@ -1386,7 +1394,8 @@ void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& 
 
     // calculate the scaling factor based on the tile distribution
     double ratio = 1.0;
-    if (!data_storage_naive){
+    if (!data_storage_naive)
+    {
       // #define VALIDATE_SCNN_TIMELOOP_LITE   // ENV VAR for performing SCNN validation on timeloop-lite
       #ifdef VALIDATE_SCNN_TIMELOOP_LITE
       std::uint64_t workload_tensor_size = tile[pvi].GetTileDensityModel()->GetWorkloadTensorSize();
@@ -1458,9 +1467,11 @@ void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& 
 }
 
 // Compute buffer energy.
-void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info) {
+void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info)
+{
   // NOTE! Stats are always maintained per-DataSpaceID
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) {
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
+  {
     auto pv = problem::Shape::DataSpaceID(pvi);
     // move all original number of vector access computation to the ComputeVectorAccesses function
     // prepare for speculation energy calculation
@@ -1486,16 +1497,18 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
   }
 }
 
-void BufferLevel::ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, unsigned data_space_id){
-
+void BufferLevel::ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, unsigned data_space_id)
+{
   double cluster_access_energy_due_to_overflow = 0;
 
-  for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++) {
+  for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++)
+  {
     std::string op_name = tiling::storageOperationTypes[op_id];
 
     // random reads (of data and metadata) can be read from parent level dependent on confidence
     // (skipped and gated do not need to be propagated to parent level)
-    if (op_name.find("read") != std::string::npos && op_name.find("random") != std::string::npos) {
+    if (op_name.find("read") != std::string::npos && op_name.find("random") != std::string::npos)
+    {
       // for random data read and metadata read actions
       cluster_access_energy_due_to_overflow += child_level_stats.fine_grained_vector_accesses[data_space_id].at(op_name)
                                          * specs_.op_energy_map.at(op_name)
@@ -1505,13 +1518,13 @@ void BufferLevel::ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, 
 
   stats_.cluster_access_energy[data_space_id] += cluster_access_energy_due_to_overflow;
   stats_.cluster_access_energy_due_to_overflow[data_space_id] += cluster_access_energy_due_to_overflow;
-
 }
 
 
-void BufferLevel::FinalizeBufferEnergy() {
-
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) {
+void BufferLevel::FinalizeBufferEnergy()
+{
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
+  {
     auto pv = problem::Shape::DataSpaceID(pvi);
     auto instance_accesses = stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv);
     auto actual_accesses = stats_.fine_grained_scalar_accesses.at(pv).at("random_read") +
@@ -1520,12 +1533,15 @@ void BufferLevel::FinalizeBufferEnergy() {
     double cluster_utilization = double(stats_.utilized_x_expansion.at(pv) * stats_.utilized_y_expansion.at(pv)) /
                                  double(stats_.utilized_clusters.at(pv));
     // Spread out the cost between the utilized instances in each cluster
-    if (stats_.utilized_instances.at(pvi) > 0) {
+    if (stats_.utilized_instances.at(pvi) > 0)
+    {
       stats_.energy[pv] = stats_.cluster_access_energy.at(pv) / cluster_utilization;
       stats_.energy_per_algorithmic_access[pv] = stats_.energy.at(pv) / instance_accesses;
       stats_.energy_per_access[pv] = stats_.energy.at(pv)/actual_accesses;
       stats_.energy_due_to_overflow[pv] = stats_.cluster_access_energy_due_to_overflow.at(pv) / cluster_utilization;
-    } else {
+    }
+    else
+    {
       stats_.energy[pv] = 0;
       stats_.energy_per_access[pv] = 0;
       stats_.energy_due_to_overflow[pv] = 0;
@@ -1539,10 +1555,10 @@ void BufferLevel::FinalizeBufferEnergy() {
 void BufferLevel::ComputeReductionEnergy()
 {
   // Temporal reduction: add a value coming in on the network to a value stored locally.
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (workload_->GetShape()->IsReadWriteDataSpace.at(pv))
     {
       stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
         pat::AdderEnergy(specs_.word_bits.Get(), network_update_->WordBits());
@@ -1562,7 +1578,7 @@ void BufferLevel::ComputeAddrGenEnergy()
   // Note! Address-generation is amortized across the cluster width.
   // We compute the per-cluster energy here. When we sum across instances,
   // we need to be careful to only count each cluster once.
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     // We'll use an addr-gen-bits + addr-gen-bits adder, though
     // it's probably cheaper than that. However, we can't assume
@@ -1589,7 +1605,7 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   //
   problem::PerDataSpace<double> unconstrained_read_bandwidth;
   problem::PerDataSpace<double> unconstrained_write_bandwidth;
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     
@@ -1671,7 +1687,7 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   // ends up effectively slowing down each datatype's bandwidth by the slowdown
   // amount, which is slightly weird but appears to be harmless.
   //
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     stats_.read_bandwidth[pv]  = stats_.slowdown * unconstrained_read_bandwidth.at(pv);
@@ -1748,7 +1764,7 @@ double BufferLevel::Size() const
 double BufferLevel::CapacityUtilization() const
 {
   double utilized_capacity = 0;
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     utilized_capacity += stats_.utilized_capacity.at(pv) *
@@ -1896,13 +1912,13 @@ void BufferLevel::Print(std::ostream& out) const
   out << indent << "Bandwidth throttling : " << stats.slowdown << std::endl;
   
   // Print per-DataSpaceID stats.
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
 
     if (stats.keep.at(pv))
     {
-      out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
+      out << indent << workload_->GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
       if (specs_.is_sparse_module.Get())
       {

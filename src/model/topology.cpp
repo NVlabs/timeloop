@@ -55,19 +55,23 @@ void Topology::Specs::ParseAccelergyART(config::CompoundConfigNode art)
   // parsing 
   auto table = art.lookup("tables");
   assert(table.isList());
-  for(int i = 0; i < table.getLength(); i++){
+  for(int i = 0; i < table.getLength(); i++)
+  {
     auto componentART = table[i];
     std::string hierachicalName;
     table[i].lookupValue("name", hierachicalName);
     auto rangePos = hierachicalName.rfind("..");
     auto levelPos = hierachicalName.rfind(".");
     std::string componentName;
-    if (rangePos != std::string::npos && rangePos == levelPos - 1){
+    if (rangePos != std::string::npos && rangePos == levelPos - 1)
+    {
        std::string subName = hierachicalName.substr(0, rangePos - 2);
        levelPos = subName.rfind(".");
        componentName = subName.substr(levelPos + 1, subName.size() - levelPos - 1);
        //std::cout << "component name: " << componentName << std::endl;
-    } else {
+    }
+    else
+    {
        componentName = hierachicalName.substr(levelPos + 1, hierachicalName.size() - levelPos - 1);
        //std::cout << "component name: " << componentName << std::endl;
     }
@@ -391,86 +395,91 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   }
 #endif
 
-//
-// Operational intensity
-//
-out << std::endl;
-out << "Operational Intensity Stats" << std::endl;
-out << "---------------------------" << std::endl;
-std::string indent = "    ";
+  //
+  // Operational intensity
+  //
+  out << std::endl;
+  out << "Operational Intensity Stats" << std::endl;
+  out << "---------------------------" << std::endl;
+  std::string indent = "    ";
 
-std::uint64_t total_min_traffic = 0;
-std::uint64_t total_output_size = 0;
+  std::uint64_t total_min_traffic = 0;
+  std::uint64_t total_output_size = 0;
 
-for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-{
-  auto pv = problem::Shape::DataSpaceID(pvi);
-
-  std::uint64_t utilized_capacity = -1;
-  for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
+  for (unsigned pvi = 0; pvi < topology.workload_->GetShape()->NumDataSpaces; pvi++)
   {
-    unsigned inv_storage_level = topology.NumStorageLevels() - 1 - storage_level_id;
-    utilized_capacity = topology.GetStats().utilized_capacities.at(inv_storage_level).at(pv);
-    // use the last non-bypassed level with capacity size not equal to 0
-    if (utilized_capacity > 0)
+    auto pv = problem::Shape::DataSpaceID(pvi);
+
+    std::uint64_t utilized_capacity = -1;
+    for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
     {
-      break;
+      unsigned inv_storage_level = topology.NumStorageLevels() - 1 - storage_level_id;
+      utilized_capacity = topology.GetStats().utilized_capacities.at(inv_storage_level).at(pv);
+      // use the last non-bypassed level with capacity size not equal to 0
+      if (utilized_capacity > 0)
+      {
+        break;
+      }
     }
-  }  
-  assert(utilized_capacity > 0);
-  total_min_traffic += utilized_capacity;      
-  if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
-    total_output_size += utilized_capacity;
+    
+    assert(utilized_capacity > 0);
+    total_min_traffic += utilized_capacity;      
+    if (topology.workload_->GetShape()->IsReadWriteDataSpace.at(pv))
+    {
+      total_output_size += utilized_capacity;
+    }
   }
-}
 
-out << indent << std::left << std::setw(40) << "Total elementwise ops";
-uint64_t total_elementwise_ops = topology.stats_.actual_computes;
-out << ": " << total_elementwise_ops << std::endl; 
+  out << indent << std::left << std::setw(40) << "Total elementwise ops";
+  uint64_t total_elementwise_ops = topology.stats_.actual_computes;
+  out << ": " << total_elementwise_ops << std::endl; 
 
-out << indent << std::left << std::setw(40) << "Total reduction ops";
-uint64_t total_reduction_ops = 0;
+  out << indent << std::left << std::setw(40) << "Total reduction ops";
+  uint64_t total_reduction_ops = 0;
 
-if (tiling::gEnableFirstReadElision){
-  total_reduction_ops = topology.stats_.actual_computes - total_output_size;
-} else{
-  total_reduction_ops = topology.stats_.actual_computes;
-}
-out << ": " << total_reduction_ops << std::endl; 
-
-out << indent << std::left << std::setw(40) << "Total ops";
-uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
-out << ": " << total_ops << std::endl;  
-
-out << indent << std::left << std::setw(40) << "Total memory accesses required";
-out << ": " << total_min_traffic << std::endl; 
-
-unsigned inv_storage_level = topology.NumStorageLevels() - 1;
-std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
-auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
-out << indent << std::left << std::setw(40) << "Optimal Op per Byte";
-out << ": " << op_per_byte << std::endl << std::endl;
-
-for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
-{
-
-  std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(i);
-  auto stats = buffer_level->GetStats();
-  out << "=== " << buffer_level->Name() << " ===" << std::endl;
-  uint64_t total_scalar_access = buffer_level->Accesses();
-  float op_per_byte = -1;
-  if (total_scalar_access > 0)
+  if (tiling::gEnableFirstReadElision)
   {
-    out << indent << std::left << std::setw(40) << "Total scalar accesses";
-    out << ": " << total_scalar_access << std::endl;
-    op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
-    out << indent << std::left << std::setw(40) << "Op per Byte";
-    out << ": " << op_per_byte << std::endl;
+    total_reduction_ops = topology.stats_.actual_computes - total_output_size;
   }
-}
+  else
+  {
+    total_reduction_ops = topology.stats_.actual_computes;
+  }
+  out << ": " << total_reduction_ops << std::endl; 
 
-out << std::endl
-    << std::endl;
+  out << indent << std::left << std::setw(40) << "Total ops";
+  uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
+  out << ": " << total_ops << std::endl;  
+
+  out << indent << std::left << std::setw(40) << "Total memory accesses required";
+  out << ": " << total_min_traffic << std::endl; 
+
+  unsigned inv_storage_level = topology.NumStorageLevels() - 1;
+  std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
+  auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
+  out << indent << std::left << std::setw(40) << "Optimal Op per Byte";
+  out << ": " << op_per_byte << std::endl << std::endl;
+
+  for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
+  {
+
+    std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(i);
+    auto stats = buffer_level->GetStats();
+    out << "=== " << buffer_level->Name() << " ===" << std::endl;
+    uint64_t total_scalar_access = buffer_level->Accesses(topology.workload_->GetShape()->NumDataSpaces);
+    float op_per_byte = -1;
+    if (total_scalar_access > 0)
+    {
+      out << indent << std::left << std::setw(40) << "Total scalar accesses";
+      out << ": " << total_scalar_access << std::endl;
+      op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
+      out << indent << std::left << std::setw(40) << "Op per Byte";
+      out << ": " << op_per_byte << std::endl;
+    }
+  }
+
+  out << std::endl
+      << std::endl;
 
   //
   // Summary stats.
@@ -485,14 +494,11 @@ out << std::endl
     out << "Cycles: " << topology.stats_.cycles << std::endl;
     out << "Energy: " << topology.stats_.energy / 1000000 << " uJ" << std::endl;
     out << "EDP(J*cycle): " << std::scientific << float(topology.stats_.cycles) * topology.stats_.energy / 1e12 << OUT_FLOAT_FORMAT << std::endl;
-
   }
   out << "Area: " << topology.stats_.area / 1000000 << " mm^2" << std::endl;
 
-
   if (topology.is_evaluated_)
   {
-
     std::size_t max_name_length = 0;
     for (unsigned i = 0; i < topology.NumLevels(); i++)
     {
@@ -533,7 +539,7 @@ out << std::endl
       {
         auto level = topology.GetLevel(i);
         out << indent << std::setw(align) << std::left << level->Name() << "= "
-            << level->Energy() / num_computes << std::endl;
+            << level->Energy(topology.workload_->GetShape()->NumDataSpaces) / num_computes << std::endl;
       }
 
 #ifdef PRINT_NETWORKS_IN_LEGACY_ORDER
@@ -560,9 +566,6 @@ out << std::endl
 
   return out;
 }
-
-
-
 
 void Topology::Spec(const Topology::Specs& specs)
 {
@@ -1071,9 +1074,9 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
     try
     {
       auto s = GetStorageLevel(storage_level_id)->PreEvaluationCheck(
-      working_set_sizes.at(storage_level_id), masks.at(storage_level_id), workload,
-      per_level_compression_info, mapping.confidence_thresholds.at(storage_level_id),
-      break_on_failure);
+        working_set_sizes.at(storage_level_id), masks.at(storage_level_id), workload,
+        per_level_compression_info, mapping.confidence_thresholds.at(storage_level_id),
+        break_on_failure);
       eval_status.at(level_id) = s;
      
       if (break_on_failure && !s.success)
@@ -1118,6 +1121,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   //
 
   problem::Workload* workload = analysis->GetWorkload();
+  workload_ = workload;
   
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest, workload);
@@ -1166,7 +1170,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
   // Create a mask indicating which levels support distributed multicast.
   tiling::CompoundMaskNest distribution_supported(workload->GetShape()->NumDataSpaces);
-  for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++)
+  for (unsigned pv = 0; pv < unsigned(workload_->GetShape()->NumDataSpaces); pv++)
   {
     distribution_supported[pv].reset();
     for (unsigned storage_level = 0; storage_level < NumStorageLevels(); storage_level++)
@@ -1211,7 +1215,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   if (!break_on_failure || success_accum)
   {
     auto level_id = specs_.ArithmeticMap();
-    auto s = GetArithmeticLevel()->Evaluate(tiles[0], keep_masks[0], 0,
+    auto s = GetArithmeticLevel()->Evaluate(tiles[0], keep_masks[0], workload, 0,
                                             compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;
     success_accum &= s.success;
@@ -1236,7 +1240,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     auto level_id = specs_.StorageMap(storage_level_id);
 
     // populate parent level name for each dataspace
-    for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++)
+    for (unsigned pv = 0; pv < unsigned(workload_->GetShape()->NumDataSpaces); pv++)
     {
       unsigned parent_level_id = tiles[storage_level_id].data_movement_info.at(pv).parent_level;
       if (parent_level_id != std::numeric_limits<unsigned>::max())
@@ -1247,6 +1251,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     }
 
     auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
+                                     workload,
                                      mapping.confidence_thresholds.at(storage_level_id),
                                      compute_cycles, break_on_failure);
     eval_status.at(level_id) = s;
@@ -1264,7 +1269,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
       auto child_level_stats = storage_level->GetStats();
 
       // each dataspace can have a different parent level
-      for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+      for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
       {
         unsigned parent_storage_level_id = tiles[storage_level_id].data_movement_info.at(pvi).parent_level;
         // if there is any overbooking, add the energy cost to parent level
@@ -1292,7 +1297,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     EvalStatus s;
     if (!rf_net->IsEvaluated())
     {
-      s = rf_net->Evaluate(tiles[connection_id], break_on_failure);
+      s = rf_net->Evaluate(tiles[connection_id], workload, break_on_failure);
       eval_status.at(connection_id).success &= s.success;
       eval_status.at(connection_id).fail_reason += s.fail_reason;
       success_accum &= s.success;
@@ -1304,7 +1309,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     auto du_net = connection.drain_update_network;
     if (!du_net->IsEvaluated())
     {
-      s = du_net->Evaluate(tiles[connection_id], break_on_failure);
+      s = du_net->Evaluate(tiles[connection_id], workload, break_on_failure);
       eval_status.at(connection_id).success &= s.success;
       eval_status.at(connection_id).fail_reason += s.fail_reason;
       success_accum &= s.success;
@@ -1336,8 +1341,8 @@ void Topology::ComputeStats(bool eval_success)
     
     for (auto level : levels_)
     {
-      assert(level->Energy() >= 0);
-      energy += level->Energy();
+      assert(level->Energy(workload_->GetShape()->NumDataSpaces) >= 0);
+      energy += level->Energy(workload_->GetShape()->NumDataSpaces);
     }
 
     for (auto& network: networks_)
@@ -1374,21 +1379,21 @@ void Topology::ComputeStats(bool eval_success)
     stats_.actual_computes = GetArithmeticLevel() -> ActualComputes();
 
     // Last-level accesses.
-    stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses();
+    stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses(workload_->GetShape()->NumDataSpaces);
 
     // All accesses.
     for (unsigned i = 0; i < NumStorageLevels(); i++)
     {
       // FIXME: change the following to problem::PerDataSpace<std::uint64_t>
       // once we wrap PerDataSpace<> in PyTimeloop.
-      std::vector<std::uint64_t> pta(problem::GetShape()->NumDataSpaces); 
-      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      std::vector<std::uint64_t> pta(workload_->GetShape()->NumDataSpaces); 
+      for (unsigned pvi = 0; pvi < workload_->GetShape()->NumDataSpaces; pvi++)
       {
         auto pv = problem::Shape::DataSpaceID(pvi);
         pta[pv] = GetStorageLevel(i)->Accesses(pv);
       }
       stats_.per_tensor_accesses.push_back(pta);
-      stats_.accesses.push_back(GetStorageLevel(i)->Accesses());
+      stats_.accesses.push_back(GetStorageLevel(i)->Accesses(workload_->GetShape()->NumDataSpaces));
     }
     
   } // eval_success
@@ -1404,7 +1409,7 @@ void Topology::ComputeStats(bool eval_success)
   {
     problem::PerDataSpace<std::uint64_t> ts;
     problem::PerDataSpace<std::uint64_t> utilized_cap;
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    for (unsigned pvi = 0; pvi < workload_->GetShape()->NumDataSpaces; pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
       ts[pv] = GetStorageLevel(storage_level_id)->TileSize(pv);
@@ -1419,7 +1424,7 @@ void Topology::ComputeStats(bool eval_success)
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     problem::PerDataSpace<std::uint64_t> uc;
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    for (unsigned pvi = 0; pvi < workload_->GetShape()->NumDataSpaces; pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
       uc[pv] = GetStorageLevel(storage_level_id)->UtilizedInstances(pv);

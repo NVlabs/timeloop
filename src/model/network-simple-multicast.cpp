@@ -94,26 +94,35 @@ SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::Compoun
 
   // user-defined action name
   std::string action_name;
-  if (network.lookupValue("action_name", action_name)){
-     specs.action_name = action_name;
-  } else {
-     std::cerr << "must specify the multicast action_name to look for in ERT" << std::endl;
-     assert(false); // FIXME: perform the default multicast energy calculations
+  if (network.lookupValue("action_name", action_name))
+  {
+    specs.action_name = action_name;
+  }
+  else
+  {
+    std::cerr << "must specify the multicast action_name to look for in ERT" << std::endl;
+    assert(false); // FIXME: perform the default multicast energy calculations
   }
 
   // user-defined argument name corresponding to the multicast factor
   std::string multicast_factor_argument;
-  if (network.lookupValue("multicast_factor_argument", multicast_factor_argument)){
-     specs.multicast_factor_argument = multicast_factor_argument;
-  } else {
-     specs.multicast_factor_argument = "none";
+  if (network.lookupValue("multicast_factor_argument", multicast_factor_argument))
+  {
+    specs.multicast_factor_argument = multicast_factor_argument;
+  }
+  else
+  {
+    specs.multicast_factor_argument = "none";
   }
 
   // whether ERT specification is in terms of data types
   bool per_datatype_ERT;
-  if (network.lookupValue("per_datatype_ERT", per_datatype_ERT)){
+  if (network.lookupValue("per_datatype_ERT", per_datatype_ERT))
+  {
     specs.per_datatype_ERT = true;
-  } else {
+  }
+  else
+  {
     specs.per_datatype_ERT = false;
   }
 
@@ -193,65 +202,79 @@ void SimpleMulticastNetwork::SetTileWidth(double width_um)
 }
 
 
-double SimpleMulticastNetwork::GetOpEnergyFromERT(std::uint64_t multicast_factor, std::string operation_name){
-    double opEnergy = 0.0;
-    std::vector<std::string> actions;
-    specs_.accelergyERT.getMapKeys(actions);
-    // use transfer as the keyword for multicast NoC action specification
-    if (specs_.accelergyERT.exists(operation_name)){
-        auto actionERT = specs_.accelergyERT.lookup(operation_name);
-        if (actionERT.isList() && actionERT.getLength() > 1){
-            assert(specs_.multicast_factor_argument != "none"); // must have multicast factor argument name specified
-            for(int i = 0; i < actionERT.getLength(); i ++){
-                config::CompoundConfigNode arguments = actionERT[i].lookup("arguments");
-                unsigned int num_destinations;
-                // use num_destinations as a keyword to perform ERT search (might be updated)
-                arguments.lookupValue(specs_.multicast_factor_argument, num_destinations);
-                if (num_destinations == multicast_factor){
-                  // std::cout << "found correct num destinations" << std::endl;
-                  actionERT[i].lookupValue("energy", opEnergy);
-                }
-             }
-        } else if (actionERT.isList() && actionERT.getLength() == 1){
-            actionERT[0].lookupValue("energy", opEnergy);
-        } else {
-            // if there is no argument, use the available energy
-            actionERT.lookupValue("energy", opEnergy);
+double SimpleMulticastNetwork::GetOpEnergyFromERT(std::uint64_t multicast_factor, std::string operation_name)
+{
+  double opEnergy = 0.0;
+  std::vector<std::string> actions;
+  specs_.accelergyERT.getMapKeys(actions);
+  // use transfer as the keyword for multicast NoC action specification
+  if (specs_.accelergyERT.exists(operation_name))
+  {
+    auto actionERT = specs_.accelergyERT.lookup(operation_name);
+    if (actionERT.isList() && actionERT.getLength() > 1)
+    {
+      assert(specs_.multicast_factor_argument != "none"); // must have multicast factor argument name specified
+      for(int i = 0; i < actionERT.getLength(); i ++)
+      {
+        config::CompoundConfigNode arguments = actionERT[i].lookup("arguments");
+        unsigned int num_destinations;
+        // use num_destinations as a keyword to perform ERT search (might be updated)
+        arguments.lookupValue(specs_.multicast_factor_argument, num_destinations);
+        if (num_destinations == multicast_factor)
+        {
+          // std::cout << "found correct num destinations" << std::endl;
+          actionERT[i].lookupValue("energy", opEnergy);
         }
-    } 
-    return opEnergy;
+      }
+    }
+    else if (actionERT.isList() && actionERT.getLength() == 1)
+    {
+      actionERT[0].lookupValue("energy", opEnergy);
+    }
+    else
+    {
+      // if there is no argument, use the available energy
+      actionERT.lookupValue("energy", opEnergy);
+    }
+  } 
+  return opEnergy;
 }
 
-double SimpleMulticastNetwork::GetMulticastEnergy(std::uint64_t multicast_factor){
-    std::string operation_name = specs_.action_name;
-    double opEnergy = GetOpEnergyFromERT(multicast_factor, operation_name);
-    return opEnergy;
+double SimpleMulticastNetwork::GetMulticastEnergy(std::uint64_t multicast_factor)
+{
+  std::string operation_name = specs_.action_name;
+  double opEnergy = GetOpEnergyFromERT(multicast_factor, operation_name);
+  return opEnergy;
 }
 
 // Parse ERT to get multi-casting energy
-double SimpleMulticastNetwork::GetMulticastEnergyByDataType(std::uint64_t multicast_factor, std::string data_space_name){
-    std::string operation_name = specs_.action_name + "_" + data_space_name;
-    double opEnergy = GetOpEnergyFromERT(multicast_factor, operation_name);
-    return opEnergy;
+double SimpleMulticastNetwork::GetMulticastEnergyByDataType(std::uint64_t multicast_factor, std::string data_space_name)
+{
+  std::string operation_name = specs_.action_name + "_" + data_space_name;
+  double opEnergy = GetOpEnergyFromERT(multicast_factor, operation_name);
+  return opEnergy;
 }
 
 EvalStatus SimpleMulticastNetwork::Evaluate(const tiling::CompoundTile& tile,
-                              const bool break_on_failure)
+                                            problem::Workload* workload,
+                                            const bool break_on_failure)
 {
   (void) tile;
   (void) break_on_failure;
 
+  workload_ = workload;
+  
   tiling::CompoundDataMovementInfo data_movement = tile.data_movement_info;
   
   // Get stats from the CompoundTile
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     stats_.utilized_instances[pv] = data_movement[pvi].replication_factor;
     stats_.fanout[pv] = data_movement[pvi].fanout;
     stats_.multicast_factor[pv] = 0;
 
-    std::string data_space_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
+    std::string data_space_name = workload_->GetShape()->DataSpaceIDToName.at(pvi);
 
     // don't care what type of connection this is
     // only need to count the number of transfers
@@ -310,10 +333,10 @@ void SimpleMulticastNetwork::Print(std::ostream& out) const
 
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
+    out << indent << workload_->GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
     out << indent + indent << "Fanout                                  : "
     << stats_.fanout.at(pv) << std::endl;
     out << indent + indent << "Multicast factor                        : "

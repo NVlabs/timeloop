@@ -369,6 +369,7 @@ class BufferLevel : public Level
   Specs specs_;
 
   bool populate_energy_per_op = false;
+  problem::Workload* workload_ = nullptr;
 
   // Network endpoints.
   std::shared_ptr<Network> network_read_;
@@ -457,6 +458,7 @@ class BufferLevel : public Level
                                 const double confidence_threshold,
                                 const bool break_on_failure) override;
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                      problem::Workload* workload,
                       const double confidence_threshold, const std::uint64_t compute_cycles,
                       const bool break_on_failure) override;
 
@@ -466,18 +468,18 @@ class BufferLevel : public Level
 
   // Accessors (post-evaluation).
   
-  double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
+  double Energy(problem::Shape::DataSpaceID pv) const override;
  
   std::string Name() const override;
   double Area() const override;
   double AreaPerInstance() const override;
   double Size() const;
   std::uint64_t Cycles() const override;
-  std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
+  std::uint64_t Accesses(problem::Shape::DataSpaceID pv) const override;
   double CapacityUtilization() const override;
-  std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
-  std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
-  std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
+  std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv) const override;
+  std::uint64_t TileSize(problem::Shape::DataSpaceID pv) const override;
+  std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv) const override;
   
   // Printers.
   void Print(std::ostream& out) const override;

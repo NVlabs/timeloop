@@ -203,8 +203,10 @@ void LegacyNetwork::SetTileWidth(double width_um)
 
 // Evaluate.
 EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
-                                 const bool break_on_failure)
+                                   problem::Workload* workload,
+                                   const bool break_on_failure)
 {
+  workload_ = workload;
   auto eval_status = ComputeAccesses(tile.data_movement_info, break_on_failure);
   if (!break_on_failure || eval_status.success)
   {
@@ -215,7 +217,8 @@ EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
   return eval_status;
 }
 
-EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const bool break_on_failure)
+EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo& tile,
+                                          const bool break_on_failure)
 {
   bool success = true;
   std::ostringstream fail_reason;
@@ -223,13 +226,13 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
   //
   // 1. Collect stats (stats are always collected per-DataSpaceID).
   //
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
       
     stats_.utilized_instances[pv] = tile[pvi].replication_factor;      
 
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (workload_->GetShape()->IsReadWriteDataSpace.at(pv))
     {
       // Network access-count calculation for Read-Modify-Write datatypes depends on
       // whether the unit receiving a Read-Write datatype has the ability to do
@@ -321,7 +324,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
       {
         stats_.multicast_factor[pv] = multicast;
       }
-      if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
+      if (workload_->GetShape()->IsReadWriteDataSpace.at(pv) &&
           (specs_.cType & ConnectionType::UpdateDrain) )
       {
         stats_.spatial_reductions[pv] += (multicast-1) * x.second.accesses;
@@ -361,7 +364,7 @@ void LegacyNetwork::ComputeNetworkEnergy()
 #define MULTICAST_MODEL PROBABILISTIC_MULTICAST
   
   // NOTE! Stats are always maintained per-DataSpaceID
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     // WireEnergyPerHop checks if wire energy is 0.0 before using default pat
@@ -456,10 +459,10 @@ void LegacyNetwork::ComputeNetworkEnergy()
 void LegacyNetwork::ComputeSpatialReductionEnergy()
 {
   // Spatial reduction: add two values in the network.
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    if (problem::GetShape()->IsReadWriteDataSpace.at(pv)
+    if (workload_->GetShape()->IsReadWriteDataSpace.at(pv)
             && (specs_.cType & ConnectionType::UpdateDrain)) // also used for UpdateDrain connections
     {
       stats_.spatial_reduction_energy[pv] = stats_.spatial_reductions[pv] * 
@@ -477,7 +480,7 @@ void LegacyNetwork::ComputePerformance()
   // FIXME.
   // problem::PerDataSpace<double> unconstrained_read_bandwidth;
   // problem::PerDataSpace<double> unconstrained_write_bandwidth;
-  // for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  // for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   // {
   //   auto pv = problem::Shape::DataSpaceID(pvi);
   //   auto total_ingresses =
@@ -544,10 +547,10 @@ void LegacyNetwork::Print(std::ostream& out) const
 
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
+    out << indent << workload_->GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
     out << indent + indent << "Fanout                                  : "
         << stats_.fanout.at(pv) << std::endl;

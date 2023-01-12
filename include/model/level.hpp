@@ -89,20 +89,21 @@ class Level : public Module
                                         const double confidence_threshold,
                                         const bool break_on_failure) = 0;
   virtual EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                              problem::Workload* workload,
                               const double confidence_threshold, const std::uint64_t compute_cycles,
                               const bool break_on_failure) = 0;
-  
-  virtual double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   
   virtual std::string Name() const = 0;
   virtual double Area() const = 0;
   virtual double AreaPerInstance() const = 0;
   virtual std::uint64_t Cycles() const = 0;
-  virtual std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   virtual double CapacityUtilization() const = 0;
-  virtual std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
-  virtual std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
-  virtual std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
+  
+  virtual double Energy(problem::Shape::DataSpaceID pv) const = 0;
+  virtual std::uint64_t Accesses(problem::Shape::DataSpaceID pv) const = 0;
+  virtual std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv) const = 0;
+  virtual std::uint64_t TileSize(problem::Shape::DataSpaceID pv) const = 0;
+  virtual std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv) const = 0;
   
   virtual void Print(std::ostream& out) const = 0;
   friend std::ostream& operator << (std::ostream& out, const Level& level);

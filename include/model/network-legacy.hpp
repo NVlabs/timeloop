@@ -158,6 +158,8 @@ class LegacyNetwork : public Network
   std::weak_ptr<Level> source_;
   std::weak_ptr<Level> sink_;
 
+  problem::Workload* workload_ = nullptr;
+
  public:
   Stats stats_; // temporarily public.
 
@@ -206,6 +208,7 @@ class LegacyNetwork : public Network
   void SetTileWidth(double width_um) override;
 
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
+                      problem::Workload* workload,
                       const bool break_on_failure) override;
 
   EvalStatus ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const bool break_on_failure);
