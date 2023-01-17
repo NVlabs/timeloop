@@ -1,1 +1,3 @@
 BasedOnStyle: GNU
+PointerAlignment: Left
+SpaceBeforeParens: SBPO_ControlStatements
