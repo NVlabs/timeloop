@@ -39,9 +39,10 @@ GPATH
 GRTAGS
 GSYMS
 GTAGS
-# MacOS-specific files.
-.DS_Store
 
 ### Documentation
 .doxygen-config.bak
 docs/
+
+# If using virtual environment for testing
+venv
