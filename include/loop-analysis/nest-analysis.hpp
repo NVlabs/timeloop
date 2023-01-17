@@ -31,12 +31,71 @@
 #include <map>
 #include <unordered_set>
 
+#include <isl/map.h>
+#include <isl/set.h>
+
 #include "mapping/nest.hpp"
 #include "workload/util/per-problem-dimension.hpp"
 #include "nest-analysis-tile-info.hpp"
 
 namespace analysis
 {
+
+struct SpaceTimeToIter {
+  isl_map* space_time_to_iter;
+  size_t x_levels;
+  size_t y_levels;
+  size_t t_levels;
+
+  SpaceTimeToIter()
+  : space_time_to_iter(nullptr), x_levels(0), y_levels(0), t_levels(0) {}
+
+  SpaceTimeToIter(__isl_take isl_map* spacetime_to_iter_map,
+                  size_t x_levels,
+                  size_t y_levels,
+                  size_t t_levels)
+  : space_time_to_iter(spacetime_to_iter_map),
+    x_levels(x_levels),
+    y_levels(y_levels),
+    t_levels(t_levels)
+  {}
+
+  SpaceTimeToIter(const SpaceTimeToIter& other)
+  : space_time_to_iter(isl_map_copy(other.space_time_to_iter)),
+    x_levels(other.x_levels),
+    y_levels(other.y_levels),
+    t_levels(other.t_levels)
+  {}
+
+  SpaceTimeToIter& operator=(SpaceTimeToIter&& other)
+  {
+    space_time_to_iter = other.space_time_to_iter;
+    other.space_time_to_iter = nullptr;
+    x_levels = other.x_levels;
+    y_levels = other.y_levels;
+    t_levels = other.t_levels;
+    return *this;
+  }
+
+  size_t NumLevels(spacetime::Dimension dim_type) {
+    if (dim_type == spacetime::Dimension::SpaceX)
+    {
+      return x_levels;
+    }
+    else if (dim_type == spacetime::Dimension::SpaceY)
+    {
+      return y_levels;
+    }
+    else if (dim_type == spacetime::Dimension::Time)
+    {
+      return t_levels;
+    }
+    else
+    {
+      throw std::runtime_error("Not sure what Num is");
+    }
+  }
+};
 
 class NestAnalysis
 {
@@ -139,6 +198,12 @@ class NestAnalysis
   std::vector<unsigned> time_stamp_;
   std::vector<unsigned> space_stamp_;
 
+  // LoopTree stuff.
+  isl_set* iter_set_ = nullptr;
+  isl_map* iter_to_ops_ = nullptr;
+  std::map<problem::Shape::DataSpaceID, isl_map*> dspace_id_to_ospace_to_dspace_;
+  std::map<problem::Shape::DataSpaceID, std::set<problem::Shape::FactorizedDimensionID>> dspace_id_to_relevant_dims_;
+
   // Internal helper methods.
   void ComputeWorkingSets();
 
@@ -228,5 +293,8 @@ class NestAnalysis
 
   friend std::ostream& operator << (std::ostream& out, const NestAnalysis& n);  
 };
+
+NestAnalysis ComputeWorkingSets(const problem::Workload& workload,
+                                const loop::Nest& nest);
 
 } // namespace analysis
