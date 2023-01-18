@@ -410,8 +410,7 @@ SpaceTimeToIter SpaceTimeToIterFromNest(const loop::Nest& nest, const problem::W
       isl_map_from_multi_aff(multi_aff),
       IterSetFromNest(nest, workload)
     )),
-    x_loop_indices.size(),
-    y_loop_indices.size(),
+    {x_loop_indices.size(), y_loop_indices.size()},
     t_loop_indices.size()
   );
 }
@@ -2669,11 +2668,11 @@ SpaceTimeToIter ProjectOut(spacetime::Dimension dim_type,
   size_t dim_idx = pos;
   if (dim_type == spacetime::Dimension::SpaceY)
   {
-    dim_idx += spacetime_to_iter.x_levels;
+    dim_idx += spacetime_to_iter.s_levels[0];
   }
   else if (dim_type == spacetime::Dimension::Time)
   {
-    dim_idx += spacetime_to_iter.x_levels + spacetime_to_iter.y_levels;
+    dim_idx += spacetime_to_iter.s_levels[0] + spacetime_to_iter.s_levels[1];
   }
 
   spacetime_to_iter.space_time_to_iter = isl_map_project_out(
@@ -2685,11 +2684,11 @@ SpaceTimeToIter ProjectOut(spacetime::Dimension dim_type,
 
   if (dim_type == spacetime::Dimension::SpaceX)
   {
-    spacetime_to_iter.x_levels -= 1;
+    spacetime_to_iter.s_levels[0] -= 1;
   }
   else if (dim_type == spacetime::Dimension::SpaceY)
   {
-    spacetime_to_iter.y_levels -= 1;
+    spacetime_to_iter.s_levels[1] -= 1;
   }
   else if (dim_type == spacetime::Dimension::Time)
   {
@@ -2707,11 +2706,11 @@ SpaceTimeToIter Shift(spacetime::Dimension dim_type,
   size_t dim_idx = pos;
   if (dim_type == spacetime::Dimension::SpaceY)
   {
-    dim_idx += spacetime_to_iter.x_levels;
+    dim_idx += spacetime_to_iter.s_levels[0];
   }
   else if (dim_type == spacetime::Dimension::Time)
   {
-    dim_idx += spacetime_to_iter.x_levels + spacetime_to_iter.y_levels;
+    dim_idx += spacetime_to_iter.s_levels[0] + spacetime_to_iter.s_levels[1];
   }
 
   auto multi_aff = isl_multi_aff_zero(
@@ -2720,8 +2719,9 @@ SpaceTimeToIter Shift(spacetime::Dimension dim_type,
       isl_space_domain(isl_map_get_space(spacetime_to_iter.space_time_to_iter))
   ));
 
-  const auto n_idx = spacetime_to_iter.x_levels + spacetime_to_iter.y_levels
-                      + spacetime_to_iter.t_levels;
+  const auto n_idx = spacetime_to_iter.s_levels[0]
+                     + spacetime_to_iter.s_levels[1]
+                     + spacetime_to_iter.t_levels;
   for (size_t idx = 0; idx < n_idx; ++idx)
   {
     multi_aff = isl_multi_aff_set_aff(
@@ -2755,8 +2755,7 @@ SpaceTimeToIter Difference(SpaceTimeToIter&& a, SpaceTimeToIter&& b)
 {
   auto result = SpaceTimeToIter(
     isl_map_subtract(a.space_time_to_iter, b.space_time_to_iter),
-    a.x_levels,
-    a.y_levels,
+    {a.s_levels[0], a.s_levels[1]},
     a.t_levels
   );
 
