@@ -42,48 +42,35 @@ namespace analysis
 {
 
 struct SpaceTimeToIter {
-  struct LogicalBufferInfo {
+  struct LogicalBufferLevel {
     unsigned arch_level;
     problem::Shape::DataSpaceID dspace_id;
-    std::vector<std::pair<size_t, size_t>> spatial_begin_end;
-    std::pair<size_t, size_t> temporal_begin_end;
+    std::vector<size_t> spatial_levels;
+    size_t temporal_level;
   };
 
   isl_map* space_time_to_iter;
   std::vector<size_t> s_levels;
   size_t t_levels;
-  std::vector<LogicalBufferInfo> buffer_infos;
-  
+  std::vector<std::map<problem::Shape::DataSpaceID, LogicalBufferLevel>>
+      buffer_levels;
 
   SpaceTimeToIter(size_t spatial_dims = 2)
   : space_time_to_iter(nullptr), s_levels(spatial_dims, 0), t_levels(0) {}
 
-  SpaceTimeToIter(__isl_take isl_map* spacetime_to_iter_map,
-                  std::initializer_list<size_t> s_levels,
-                  size_t t_levels)
-  : space_time_to_iter(spacetime_to_iter_map),
-    s_levels(s_levels),
-    t_levels(t_levels)
-  {}
-
   SpaceTimeToIter(const SpaceTimeToIter& other)
   : space_time_to_iter(isl_map_copy(other.space_time_to_iter)),
     s_levels(other.s_levels),
-    t_levels(other.t_levels)
+    t_levels(other.t_levels),
+    buffer_levels(other.buffer_levels)
   {}
 
-  const LogicalBufferInfo& GetBufferInfo(unsigned arch_level, 
-                                         problem::Shape::DataSpaceID dspace_id)
+  const LogicalBufferLevel& GetBufferInfo(
+    unsigned arch_level, 
+    problem::Shape::DataSpaceID dspace_id
+  )
   {
-    for (const auto& buffer_info : buffer_infos)
-    {
-      if (arch_level == buffer_info.arch_level
-          && dspace_id == buffer_info.dspace_id)
-      {
-        return buffer_info;
-      }
-    }
-    throw std::out_of_range("not found");
+    return buffer_levels.at(arch_level).at(dspace_id);
   }
 
   SpaceTimeToIter& operator=(SpaceTimeToIter&& other)
