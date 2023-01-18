@@ -43,44 +43,54 @@ namespace analysis
 
 struct SpaceTimeToIter {
   struct LogicalBufferInfo {
-    std::string buffer;
+    unsigned arch_level;
     problem::Shape::DataSpaceID dspace_id;
     std::vector<std::pair<size_t, size_t>> spatial_begin_end;
     std::pair<size_t, size_t> temporal_begin_end;
   };
 
   isl_map* space_time_to_iter;
-  size_t x_levels;
-  size_t y_levels;
+  std::vector<size_t> s_levels;
   size_t t_levels;
+  std::vector<LogicalBufferInfo> buffer_infos;
   
 
-  SpaceTimeToIter()
-  : space_time_to_iter(nullptr), x_levels(0), y_levels(0), t_levels(0) {}
+  SpaceTimeToIter(size_t spatial_dims = 2)
+  : space_time_to_iter(nullptr), s_levels(spatial_dims, 0), t_levels(0) {}
 
   SpaceTimeToIter(__isl_take isl_map* spacetime_to_iter_map,
-                  size_t x_levels,
-                  size_t y_levels,
+                  std::initializer_list<size_t> s_levels,
                   size_t t_levels)
   : space_time_to_iter(spacetime_to_iter_map),
-    x_levels(x_levels),
-    y_levels(y_levels),
+    s_levels(s_levels),
     t_levels(t_levels)
   {}
 
   SpaceTimeToIter(const SpaceTimeToIter& other)
   : space_time_to_iter(isl_map_copy(other.space_time_to_iter)),
-    x_levels(other.x_levels),
-    y_levels(other.y_levels),
+    s_levels(other.s_levels),
     t_levels(other.t_levels)
   {}
+
+  const LogicalBufferInfo& GetBufferInfo(unsigned arch_level, 
+                                         problem::Shape::DataSpaceID dspace_id)
+  {
+    for (const auto& buffer_info : buffer_infos)
+    {
+      if (arch_level == buffer_info.arch_level
+          && dspace_id == buffer_info.dspace_id)
+      {
+        return buffer_info;
+      }
+    }
+    throw std::out_of_range("not found");
+  }
 
   SpaceTimeToIter& operator=(SpaceTimeToIter&& other)
   {
     space_time_to_iter = other.space_time_to_iter;
     other.space_time_to_iter = nullptr;
-    x_levels = other.x_levels;
-    y_levels = other.y_levels;
+    s_levels = other.s_levels;
     t_levels = other.t_levels;
     return *this;
   }
@@ -88,11 +98,11 @@ struct SpaceTimeToIter {
   size_t NumLevels(spacetime::Dimension dim_type) {
     if (dim_type == spacetime::Dimension::SpaceX)
     {
-      return x_levels;
+      return s_levels[0];
     }
     else if (dim_type == spacetime::Dimension::SpaceY)
     {
-      return y_levels;
+      return s_levels[1];
     }
     else if (dim_type == spacetime::Dimension::Time)
     {
