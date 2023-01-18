@@ -317,7 +317,14 @@ SpaceTimeToIter SpaceTimeToIterFromNest(const loop::Nest& nest, const problem::W
   size_t n_loops = loops.size();
   const auto& workload_shape = *workload.GetShape();
   const auto& ospace_dim_id_to_name = workload_shape.FlattenedDimensionIDToName;
+  std::set<decltype(nest.storage_tiling_boundaries)::value_type>
+    tiling_boundaries(nest.storage_tiling_boundaries.begin(),
+                      nest.storage_tiling_boundaries.end());
+  SpaceTimeToIter result;
 
+  // The space and domain space for the map needs to be created first
+  // TODO: there must be a way to consolidate this and the other space
+  //       generation code
   auto space = isl_space_alloc(gCtx,
                                0,
                                n_loops,
@@ -344,6 +351,7 @@ SpaceTimeToIter SpaceTimeToIterFromNest(const loop::Nest& nest, const problem::W
   std::vector<size_t> y_loop_indices;
   std::vector<size_t> t_loop_indices;
 
+  unsigned arch_level = 0;
   loop_idx = 0;
   for (const auto& loop : loops)
   {
@@ -361,8 +369,27 @@ SpaceTimeToIter SpaceTimeToIterFromNest(const loop::Nest& nest, const problem::W
     }
     else
     {
-      throw std::logic_error("I don't know what this is.");
+      throw std::logic_error("unreachable");
     }
+
+    if (tiling_boundaries.find(loop_idx) != tiling_boundaries.end())
+    {
+      std::map<problem::Shape::DataSpaceID,
+               SpaceTimeToIter::LogicalBufferLevel> levels;
+      for (const auto& [dspace_id, _] : workload_shape.DataSpaceIDToName)
+      {
+        levels[dspace_id] = SpaceTimeToIter::LogicalBufferLevel
+        {
+          .arch_level = arch_level,
+          .dspace_id = dspace_id,
+          .spatial_levels = {x_loop_indices.size(), y_loop_indices.size()},
+          .temporal_level = t_loop_indices.size()
+        };
+      }
+      result.buffer_levels.push_back(levels);
+      arch_level += 1;
+    }
+
     loop_idx += 1;
   }
 
@@ -405,14 +432,15 @@ SpaceTimeToIter SpaceTimeToIterFromNest(const loop::Nest& nest, const problem::W
     ++loop_idx;
   }
 
-  return SpaceTimeToIter(
-    isl_map_reverse(isl_map_intersect_domain(
+  result.space_time_to_iter = isl_map_reverse(isl_map_intersect_domain(
       isl_map_from_multi_aff(multi_aff),
       IterSetFromNest(nest, workload)
-    )),
-    {x_loop_indices.size(), y_loop_indices.size()},
-    t_loop_indices.size()
-  );
+    ));
+  result.s_levels.push_back(x_loop_indices.size());
+  result.s_levels.push_back(y_loop_indices.size());
+  result.t_levels = t_loop_indices.size();
+
+  return result;
 }
 
 isl_set* IterSetFromNest(const loop::Nest& nest, const problem::Workload& workload)
@@ -2753,16 +2781,11 @@ SpaceTimeToIter Shift(spacetime::Dimension dim_type,
 
 SpaceTimeToIter Difference(SpaceTimeToIter&& a, SpaceTimeToIter&& b)
 {
-  auto result = SpaceTimeToIter(
-    isl_map_subtract(a.space_time_to_iter, b.space_time_to_iter),
-    {a.s_levels[0], a.s_levels[1]},
-    a.t_levels
-  );
-
-  a.space_time_to_iter = nullptr;
+  a.space_time_to_iter = 
+    isl_map_subtract(a.space_time_to_iter, b.space_time_to_iter);
   b.space_time_to_iter = nullptr;
 
-  return result;
+  return a;
 }
 
 isl_val* ValOfConstantPwPolynomial(isl_pw_qpolynomial* qp)
