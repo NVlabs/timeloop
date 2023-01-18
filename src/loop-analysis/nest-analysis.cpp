@@ -768,6 +768,7 @@ void ComputeAggregateFills(const loop::Nest& nest,
     if (loop_level == storage_tiling_boundaries.at(tiling_level))
     {
       std::cout << loop_level << std::endl;
+      // This is where we know the fills
       for (const auto& [dspace_id, _] : result)
       {
         dspace_id_to_unfilled_buffer_idx.at(dspace_id).insert(tiling_level);

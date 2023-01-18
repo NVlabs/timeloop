@@ -42,10 +42,18 @@ namespace analysis
 {
 
 struct SpaceTimeToIter {
+  struct LogicalBufferInfo {
+    std::string buffer;
+    problem::Shape::DataSpaceID dspace_id;
+    std::vector<std::pair<size_t, size_t>> spatial_begin_end;
+    std::pair<size_t, size_t> temporal_begin_end;
+  };
+
   isl_map* space_time_to_iter;
   size_t x_levels;
   size_t y_levels;
   size_t t_levels;
+  
 
   SpaceTimeToIter()
   : space_time_to_iter(nullptr), x_levels(0), y_levels(0), t_levels(0) {}
@@ -92,10 +100,11 @@ struct SpaceTimeToIter {
     }
     else
     {
-      throw std::runtime_error("Not sure what Num is");
+      throw std::runtime_error("Unreachable");
     }
   }
 };
+
 
 class NestAnalysis
 {
