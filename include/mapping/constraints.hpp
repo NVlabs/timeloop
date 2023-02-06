@@ -55,6 +55,7 @@ class Constraints
   std::map<unsigned, std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
                                std::vector<problem::Shape::FlattenedDimensionID>>> permutations_;
   std::map<unsigned, std::uint32_t> spatial_splits_;
+  std::map<unsigned, std::uint32_t> max_remainders_;
   std::map<unsigned, double> confidence_thresholds_;
   problem::PerDataSpace<std::string> bypass_strings_;
   double min_parallelism_;
@@ -75,6 +76,7 @@ class Constraints
   const std::map<unsigned, std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
                                      std::vector<problem::Shape::FlattenedDimensionID>>>& Permutations() const;
   const std::map<unsigned, std::uint32_t>& SpatialSplits() const;  
+  const std::map<unsigned, std::uint32_t>& MaxRemainders() const;  
   const problem::PerDataSpace<std::string>& BypassStrings() const;
   double MinParallelism() const;
   const std::map<unsigned, double>& ConfidenceThresholds() const;

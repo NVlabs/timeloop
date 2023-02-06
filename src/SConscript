@@ -196,6 +196,7 @@ mapspaces/mapspace-base.cpp
 mapspaces/mapspace-factory.cpp
 mapspaces/subspaces.cpp
 mapspaces/uber.cpp
+mapspaces/ruby.cpp
 """)
 
 search_sources = Split("""
@@ -206,6 +207,7 @@ search/linear-pruned.cpp
 search/random-pruned.cpp
 search/random.cpp
 """)
+
 
 mapperlib_sources = modellib_sources + mapspace_sources + search_sources
 
@@ -241,6 +243,24 @@ applications/metrics/main.cpp
 model_sources = Split("""
 applications/model/model.cpp
 applications/model/main.cpp
+""")
+
+
+mapspace_sources = Split("""
+mapspaces/mapspace-base.cpp
+mapspaces/mapspace-factory.cpp
+mapspaces/subspaces.cpp
+mapspaces/uber.cpp
+mapspaces/ruby.cpp
+""")
+
+search_sources = Split("""
+search/search-factory.cpp
+search/exhaustive.cpp
+search/hybrid.cpp
+search/linear-pruned.cpp
+search/random-pruned.cpp
+search/random.cpp
 """)
 
 mapper_sources = Split("""

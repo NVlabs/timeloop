@@ -294,6 +294,394 @@ std::ostream& operator<<(std::ostream& out, const Factors& f)
   }
   return out;
 }
+//------------------------------------
+//              ResidualFactors
+//------------------------------------
+
+
+unsigned long ResidualFactors::ISqrt_(unsigned long x)
+{
+  unsigned long op, res, one;
+
+  op = x;
+  res = 0;
+
+  one = 1 << 30;
+  while (one > op) one >>= 2;
+
+  while (one != 0)
+  {
+    if (op >= res + one)
+    {
+      op -= res + one;
+      res += one << 1;
+    }
+    res >>= 1;
+    one >>= 2;
+  }
+  return res;
+}
+
+void ResidualFactors::ClearAllFactors_()
+{
+  all_factors_.clear();
+}
+void ResidualFactors::CalculateAllFactors_()
+{
+  for (unsigned long i = 1; i <= ISqrt_(n_); i++)
+  {
+    if (n_ % i == 0)
+    {
+      all_factors_.insert(i);
+      if (i * i != n_)
+      {
+        all_factors_.insert(n_ / i);
+      }
+    }
+  }
+}
+
+
+// Generate all additional potential factors given the remainder bounds  
+void ResidualFactors::CalculateAdditionalFactors_()
+{
+  std::vector<unsigned long> reaminder_possible; 
+  for (auto& n : remainder_bounds_){
+    for(unsigned long i = 1; i <= n; i++)
+      reaminder_possible.push_back(i);
+  }
+
+  for (auto& n : reaminder_possible){
+    unsigned long g = n * n_ * ceil((double)n_/(double)n);
+    for (unsigned long i = 1; i <= n_; i++)
+    {
+      if (g % i == 0)
+      {
+        if (i < n_)
+        all_factors_.insert(i);
+        if (i * i != g)
+        {
+          if ((g/i) < n_)
+          all_factors_.insert(g / i);
+        }
+      }
+    }
+  }
+}
+
+std::vector<std::vector<unsigned long>> ResidualFactors::CartProduct_ (const std::vector<std::vector<unsigned long>> v) {
+  std::vector<std::vector<unsigned long>> s = {{}};
+  for (const auto u : v) {
+      std::vector<std::vector<unsigned long>> r;
+      for (const auto x : s) {
+          for (const auto y : u) {
+              r.push_back(x);
+              r.back().push_back(y);
+          }
+      }
+      s = r;
+  }
+  return s;
+}
+
+// Replicate all factors possibilities accross each level n, disregarding sets with that include more than dimension size n * sqrt(n)
+void ResidualFactors::GenerateFactorProduct_(const unsigned long n, const int order)
+{
+  for(auto rec = 0; rec < order; rec++){
+    std::vector<std::vector<unsigned long>> inter_factors;
+    std::vector<std::vector<unsigned long>> product_factors;
+    for (auto i = 0; i < order; i++)
+    {
+      std::vector<unsigned long> v2;
+      for(auto a : all_factors_){
+        if (i == 0 && rec == 0){
+          v2.push_back(a);
+        }else if(a <= ((unsigned int)(pow((double)n_, 1.0/(2.0)) + 1.5)) && i > 0){
+          v2.push_back(a);
+        }else if (rec > 0 && i == 0 && a >= ((unsigned int)(pow((double)n_, 1.0/(2.0)) + 1.5))){
+          v2.push_back(a);
+        }
+      }
+      inter_factors.push_back(v2);
+    }
+
+    std::swap(inter_factors[0], inter_factors[rec]);
+
+    product_factors = CartProduct_(inter_factors);
+    replicated_factors_.reserve(replicated_factors_.size() + product_factors.size());
+    replicated_factors_.insert(replicated_factors_.end(), product_factors.begin(), product_factors.end());
+  }
+
+
+
+  for(auto t : replicated_factors_){
+
+      unsigned long product = 1;
+      for(auto p : t){
+        if (p != 1){
+          product *= (p-1);
+        }
+      }
+      if (product <= n){
+          pruned_product_factors_.push_back(t);
+      }
+  }
+  
+
+}
+
+// Replicate all possible residual combiniations, and remove possibilities that sum up to size greater than n
+void ResidualFactors::GenerateResidual_(const unsigned long n, const int order)
+{
+  std::vector<std::vector<unsigned long>> residuals;
+
+  for (auto i : remainder_bounds_){
+    std::vector<unsigned long> r;
+    for (unsigned j = 1; j <= i; j++){
+      r.push_back(j);
+    }
+    residuals.push_back(r);
+  }
+
+  residuals = CartProduct_(residuals);
+
+  for(auto t : residuals){
+    unsigned long sum = 0;
+    for(auto p : t){
+      sum += p;
+    }
+    if(sum <= n+(unsigned)order){
+      pruned_residuals_.push_back(t);
+    }
+  }
+
+}
+
+// Replicate all possible residual combiniations, and remove possibilities that sum up to size greater than n
+void ResidualFactors::ValidityChecker_(const unsigned long n, std::map<unsigned, unsigned long> given)
+{
+
+  for (unsigned i = pruned_product_factors_.size(); i > 0 ; i--)
+  {
+
+
+    for (auto it = given.begin(); it != given.end(); it++)
+    {
+      // Insert the given factor, pushing all existing factors back.
+      auto index = it->first;
+      auto value = it->second;
+      pruned_product_factors_[i-1].insert(pruned_product_factors_[i-1].begin() + index, value);
+    }
+
+
+  }
+  
+
+  for(auto f : pruned_product_factors_){
+    for(auto r : pruned_residuals_){
+      std::vector<unsigned long> valid_residuals;
+      int s_i = 0;
+      bool valid = true;
+      for(unsigned long i = 0; i < (f.size()); i++){
+        if(std::count(remainder_ix_.begin(),remainder_ix_.end(), i) > 0){
+          valid_residuals.push_back(r.at(s_i));
+          
+          if(f.at(i) > remainder_bounds_[s_i]){
+            valid = false;
+          }
+          s_i++;
+        }else{
+          valid_residuals.push_back(f.at(i));
+        }
+      }
+
+      //Solve for generic is L_{n} = L{n+1}*P{n} + R_{n} - 1
+      unsigned long equation_answer = 0;
+      for(unsigned j = (f.size()); j > 0; j--){ 
+          equation_answer = f.at(j-1)*equation_answer + (valid_residuals.at(j-1) - 1);
+      
+          if (f.at(j-1) < valid_residuals.at(j-1))
+            valid = false;
+          if(equation_answer == 0 && valid_residuals.at(j-1) != f.at(j-1))
+            valid = false;
+        }
+
+        if ((equation_answer + 1 == n) and valid){
+
+          cofactors_.push_back(f);
+          rfactors_.push_back(valid_residuals);
+
+      }
+    }
+  }
+
+
+}
+
+void ResidualFactors::PruneMax()
+{
+  // Prune the vector of cofactor sets by removing those sets that have factors
+  // outside user-specified min/max range. We should really have done this during
+  // MultiplicativeSplitRecursive. However, the "given" map complicates things
+  // because given factors may be scattered, and we'll need a map table to
+  // find the original rank from the "compressed" rank seen by
+  // MultiplicativeSplitRecursive. Doing it now is slower but cleaner and less
+  // bug-prone.
+
+}
+
+ResidualFactors::ResidualFactors() : n_(0) {}
+
+/***
+First, we cacluate all the factors same as Uber
+Next, we add in additional factors based on user defined loop bounds and take the cross product of these (eliminating impossible mappings)
+Then, we calculate all the valid mapspace points that fit the expanded formula L_{n} = L{n+1}*P{n} + R_{n} - 1
+***/
+ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> remainder_bounds, 
+    std::vector<unsigned long> remainder_ix) : n_(n), remainder_bounds_(remainder_bounds), remainder_ix_(remainder_ix)
+{
+  ClearAllFactors_();
+  CalculateAllFactors_();
+  CalculateAdditionalFactors_();
+  GenerateFactorProduct_(n, order);
+  GenerateResidual_(n, order);
+  std::map<unsigned, unsigned long> given = {{}};
+  ValidityChecker_(n, given);
+
+  for (unsigned i = 0; i < cofactors_.size(); i++)
+  {
+    std::reverse(cofactors_[i].begin(), cofactors_[i].end());
+    std::reverse(rfactors_[i].begin(), rfactors_[i].end());
+  }
+}
+
+ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> remainder_bounds, 
+    std::vector<unsigned long> remainder_ix, std::map<unsigned, unsigned long> given)
+    : n_(n), remainder_bounds_(remainder_bounds), remainder_ix_(remainder_ix)
+{
+
+  const unsigned int given_size = given.size();
+
+  assert(given_size <= std::size_t(order));
+  // If any of the given factors is not a factor of n, forcibly reset that to
+  // be a free variable, otherwise accumulate them into a partial product.
+  unsigned long partial_product = 1;
+  for (auto f = given.begin(); f != given.end(); f++)
+  {
+    auto factor = f->second;
+    if (n % (factor * partial_product) == 0)
+    {
+      partial_product *= factor;
+    }
+    else
+    {
+      std::cerr << "WARNING: cannot accept " << factor << " as a factor of " << n
+                << " with current partial product " << partial_product;
+#define SET_NONFACTOR_TO_FREE_VARIABLE
+#ifdef SET_NONFACTOR_TO_FREE_VARIABLE
+      // Ignore mapping constraint and set the factor to a free variable.
+      std::cerr << ", ignoring mapping constraint and setting to a free variable."
+                << std::endl;
+      f = given.erase(f);
+#else       
+      // Try to find the next *lower* integer that is a factor of n.
+      // FIXME: there are multiple exceptions that can cause us to be here:
+      // (a) factor doesn't divide into n.
+      // (b) factor does divide into n but causes partial product to exceed n.
+      // (c) factor does divide into n but causes partial product to not
+      //     divide into n.
+      // The following code only solves case (a).
+      std::cerr << "FIXME: please fix this code." << std::endl;
+      assert(false);
+      
+      for (; factor >= 1 && (n % factor != 0); factor--);
+      std::cerr << ", setting this to " << factor << " instead." << std::endl;
+      f->second = factor;
+      partial_product *= factor;
+#endif
+    }
+    assert(n % partial_product == 0);
+  }
+
+  ClearAllFactors_();
+  CalculateAllFactors_();
+  CalculateAdditionalFactors_();
+
+
+
+  GenerateFactorProduct_(n / partial_product, order - given.size());
+
+  GenerateResidual_(n / partial_product, order - given.size());
+  
+
+
+  // Insert the given factors at the specified indices of each of the solutions.
+
+  ValidityChecker_(n, given);
+
+  remainder_bounds_.resize(0);
+  remainder_ix_.resize(0);
+  pruned_product_factors_.resize(0);
+  pruned_residuals_.resize(0);
+  replicated_factors_.resize(0);
+
+}
+
+std::vector<std::vector<unsigned long>> ResidualFactors::operator[](int index)
+{
+  std::vector<std::vector<unsigned long>> ret;
+  std::vector<unsigned long> cfm = cofactors_.at(index);
+  std::vector<unsigned long> rfm = rfactors_.at(index);
+
+  ret.push_back(cfm);
+  ret.push_back(rfm);
+  return ret;
+}
+
+std::size_t ResidualFactors::size() { return cofactors_.size(); }
+
+
+void ResidualFactors::Print()
+{
+  PrintAllFactors();
+  PrintCoFactors();
+}
+
+void ResidualFactors::PrintAllFactors()
+{
+  std::cout << "All factors of " << n_ << ": ";
+  bool first = true;
+  for (auto f = all_factors_.begin(); f != all_factors_.end(); f++) {
+    if (first) {
+      first = false;
+    } else {
+      std::cout << ", ";
+    }
+    std::cout << (*f);
+  }
+  std::cout << std::endl;
+}
+
+void ResidualFactors::PrintCoFactors() { std::cout << *this; }
+
+std::ostream& operator<<(std::ostream& out, const ResidualFactors& f) {
+  out << "Co-factors of " << f.n_ << " are: " << std::endl;
+  for (auto cset = f.cofactors_.begin(); cset != f.cofactors_.end(); cset++) {
+    out << "    " << f.n_ << " = ";
+    bool first = true;
+    for (auto i = cset->begin(); i != cset->end(); i++) {
+      if (first) {
+        first = false;
+      } else {
+        out << " * ";
+      }
+      out << (*i);
+    }
+    out << std::endl;
+  }
+  return out;
+}
+
 
 //------------------------------------
 //        PatternGenerator128

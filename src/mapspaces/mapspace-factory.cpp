@@ -26,6 +26,7 @@
  */
 
 #include "mapspaces/uber.hpp"
+#include "mapspaces/ruby.hpp"
 
 #include "mapspaces/mapspace-factory.hpp"
 
@@ -44,12 +45,15 @@ MapSpace* ParseAndConstruct(config::CompoundConfigNode config,
 {
   MapSpace* mapspace = nullptr;
   
-  std::string mapspace_template = "uber";
+  std::string mapspace_template = "ruby";
   config.lookupValue("template", mapspace_template);
     
   if (mapspace_template == "uber")
   {
     mapspace = new Uber(config, arch_constraints, arch_specs, workload, filter_spatial_fanout);
+  }else if (mapspace_template == "ruby")
+  {
+    mapspace = new Ruby(config, arch_constraints, arch_specs, workload);
   }
   else
   {
