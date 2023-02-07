@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdexcept>
+
 #include <isl/aff.h>
 #include <isl/ctx.h>
 #include <isl/map.h>
@@ -24,9 +26,7 @@ struct IslCtx {
 struct IslSpace {
   isl_space* data;
 
-  IslSpace(IslCtx& ctx, unsigned nparam, unsigned n_in, unsigned n_out);
   IslSpace(__isl_take isl_space*&& raw) : data(raw) {}
-
   IslSpace(const IslSpace& other) : data(isl_space_copy(other.data)) {}
   IslSpace(IslSpace&& other) : data(other.data) { other.data = nullptr; }
 
@@ -36,9 +36,40 @@ struct IslSpace {
     }
   }
 
+  static IslSpace Alloc(IslCtx& ctx, unsigned nparam, unsigned n_in,
+                        unsigned n_out);
+  static IslSpace SetAlloc(IslCtx& ctx, unsigned nparam, unsigned ndim);
+  static IslSpace ParamsAlloc(IslCtx& ctx, unsigned nparam);
+
   IslSpace& SetDimName(enum isl_dim_type dim_type, unsigned pos,
-                       const char* name) {
-    data = isl_space_set_dim_name(data, dim_type, pos, name);
+                       const std::string& name) {
+    data = isl_space_set_dim_name(data, dim_type, pos, name.c_str());
+    return *this;
+  }
+};
+
+struct IslAff {
+  isl_aff* data;
+
+  IslAff(__isl_take isl_aff*&& raw) : data(raw) {}
+
+  IslAff(const IslAff& other) : data(isl_aff_copy(other.data)) {}
+
+  ~IslAff() {
+    if (data) {
+      isl_aff_free(data);
+    }
+  }
+
+  static IslAff ZeroOnDomainSpace(IslSpace&& domain_space);
+
+  IslAff& SetCoefficientSi(enum isl_dim_type dim_type, int pos, int v) {
+    data = isl_aff_set_coefficient_si(data, dim_type, pos, v);
+    return *this;
+  }
+  IslAff& SetConstantSi(int v)
+  {
+    data = isl_aff_set_constant_si(data, v);
     return *this;
   }
 };
@@ -52,6 +83,36 @@ struct IslMultiAff {
     if (data) {
       isl_multi_aff_free(data);
     }
+  }
+
+  IslAff GetAff(size_t pos) const;
+  IslMultiAff& SetAff(size_t pos, IslAff&& aff);
+
+  static IslMultiAff Identity(IslSpace&& space);
+  static IslMultiAff Zero(IslSpace&& space);
+};
+
+struct IslPwMultiAff
+{
+  isl_pw_multi_aff* data;
+
+  IslPwMultiAff(__isl_take isl_pw_multi_aff*&& raw) : data(raw) {}
+
+  IslPwMultiAff(const IslPwMultiAff& other)
+    : data(isl_pw_multi_aff_copy(other.data)) {}
+  IslPwMultiAff(IslPwMultiAff&& other) : data(other.data)
+  {
+    other.data = nullptr;
+  }
+
+  IslPwMultiAff& operator=(const IslPwMultiAff& other)
+  {
+    if (data)
+    {
+      isl_pw_multi_aff_free(data);
+    }
+    data = isl_pw_multi_aff_copy(other.data);
+    return *this;
   }
 };
 
@@ -80,11 +141,30 @@ struct IslMap {
   IslMap(const IslMap& other) : data(isl_map_copy(other.data)) {}
   IslMap(IslMap&& other) : data(other.data) { other.data = nullptr; }
 
+  IslMap& operator=(IslMap&& other)
+  {
+    if (data)
+    {
+      isl_map_free(data);
+    }
+    data = other.data;
+    other.data = nullptr;
+    return *this;
+  }
+
   ~IslMap() {
     if (data) {
       isl_map_free(data);
     }
   }
+
+  IslSpace GetSpace() const;
+
+  bool InvolvesDims(isl_dim_type dim_type, size_t first, size_t n) const;
+  size_t NumDims(isl_dim_type dim_type) const;
+
+  static IslMap FromMultiAff(IslMultiAff&& multi_aff);
+  static IslMap FromMultiAff(IslPwMultiAff&& pw_multi_aff);
 };
 
 struct IslSet {
@@ -101,21 +181,6 @@ struct IslSet {
   }
 };
 
-struct IslAff {
-  isl_aff* data;
-
-  IslAff(__isl_take isl_aff*&& raw) : data(raw) {}
-
-  ~IslAff() {
-    if (data) {
-      isl_aff_free(data);
-    }
-  }
-
-  IslAff& SetCoefficientSi(enum isl_dim_type dim_type, int pos, int v) {
-    data = isl_aff_set_coefficient_si(data, dim_type, pos, v);
-  }
-};
 
 IslSpace IslSpaceDomain(IslSpace&& space) {
   return IslSpace(isl_space_domain(space.data));
@@ -124,3 +189,43 @@ IslSpace IslSpaceDomain(IslSpace&& space) {
 IslMap IslMapReverse(IslMap&& map) {
   return IslMap(isl_map_reverse(map.data));
 }
+
+#define DEFINE_ISL_BINARY_OP(NAME)            \
+  template<typename T>                        \
+  T NAME(T&& arg1, T&& arg2)                  \
+  {                                           \
+    throw std::logic_error("unimplemented");  \
+  }
+
+#define ISL_BINARY_OP_IMPL(NAME, OP, TYPE)        \
+  TYPE NAME(TYPE&& map1, TYPE&& map2)             \
+  {                                               \
+    auto result = TYPE(OP(map1.data, map2.data)); \
+    map1.data = nullptr;                          \
+    map2.data = nullptr;                          \
+    return result;                                \
+  }
+
+#define ISL_BASIC_MAP_BINARY_OP_IMPL(NAME, SHORT_OP) \
+  ISL_BINARY_OP_IMPL(NAME, isl_basic_map_ ## SHORT_OP, IslBasicMap)
+
+#define ISL_MAP_BINARY_OP_IMPL(NAME, SHORT_OP) \
+  ISL_BINARY_OP_IMPL(NAME, isl_map_ ## SHORT_OP, IslMap)
+
+#define ISL_BOTH_MAP_BINARY_OP_IMPL(NAME, SHORT_OP) \
+  ISL_BASIC_MAP_BINARY_OP_IMPL(NAME, SHORT_OP)      \
+  ISL_MAP_BINARY_OP_IMPL(NAME, SHORT_OP)
+
+DEFINE_ISL_BINARY_OP(ApplyRange)
+ISL_BOTH_MAP_BINARY_OP_IMPL(ApplyRange, apply_range)
+
+DEFINE_ISL_BINARY_OP(Subtract)
+ISL_BINARY_OP_IMPL(Subtract, isl_map_subtract, IslMap)
+ISL_BINARY_OP_IMPL(Subtract, isl_set_subtract, IslSet)
+
+IslMap ProjectDims(IslMap&& map, isl_dim_type dim_type, size_t first,
+                   size_t n);
+IslBasicMap ProjectDims(IslBasicMap&& map, isl_dim_type dim_type, size_t first,
+                        size_t n);
+IslMap ProjectDimInAfter(IslMap&& map, size_t start);
+IslBasicMap ProjectDimInAfter(IslBasicMap&& map, size_t start);

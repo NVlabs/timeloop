@@ -40,6 +40,9 @@
 namespace problem
 {
 
+// TODO: Allow multi-kernel workload
+typedef size_t KernelID;
+
 // ======================================== //
 //              Shape instance              //
 // ======================================== //
