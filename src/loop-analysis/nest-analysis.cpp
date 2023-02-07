@@ -45,7 +45,11 @@
 //        limited to the ComputeNetworkLinkTransfers() function.
 
 #include "util/misc.hpp"
+#include "isl-wrapper/isl-wrapper.hpp"
+#include "isl-wrapper/tagged.hpp"
+#include "loop-analysis/isl-ir.hpp"
 #include "loop-analysis/nest-analysis.hpp"
+#include "mapping/fused-mapping.hpp"
 
 bool gTerminateEval = false;
 
@@ -76,28 +80,420 @@ bool gResetOnStrideChange = false;
 
 namespace analysis
 {
-using DataSpaceID = problem::Shape::DataSpaceID;
-using FactorizedDimensionID = problem::Shape::FactorizedDimensionID;
 
-SpaceTimeToIter ProjectOut(spacetime::Dimension dim_type,
-                           size_t pos,
-                           SpaceTimeToIter&& spacetime_to_iter);
+thread_local auto gCtx = IslCtx();
 
-SpaceTimeToIter Shift(spacetime::Dimension dim_type,
-                      size_t pos,
-                      int shift_amount,
-                      SpaceTimeToIter&& spacetime_to_iter);
+using Fill = TaggedMap<IslMap, spacetime::Dimension>;
+using LogicalBufFills = std::map<LogicalBuffer, Fill>;
 
-SpaceTimeToIter Difference(SpaceTimeToIter&& a, SpaceTimeToIter&& b);
+struct LinkTransferInfo
+{
+  LogicalBufTransfers link_transfers;
+  LogicalBufFills unfulfilled_fills;
+};
+
+struct LinkTransferModel
+{
+  virtual LinkTransferInfo Apply(LogicalBufFills&&) const;
+};
+
+struct MulticastInfo
+{
+  LogicalBufTransfers multicasts;
+};
+
+struct MulticastModel
+{
+  virtual MulticastInfo Apply(LogicalBufFills&&) const;
+};
+
+std::map<DataSpaceID, IslMap>
+OpsToDSpaceFromEinsum(const problem::Workload& workload)
+{
+  const auto& workload_shape = *workload.GetShape();
+
+  std::map<DataSpaceID, IslMap> dspace_id_to_ospace_to_dspace;
+
+  for (const auto& [name, dspace_id] : workload_shape.DataSpaceNameToID)
+  {
+    const auto dspace_order = workload_shape.DataSpaceOrder.at(dspace_id);
+    const auto& projection = workload_shape.Projections.at(dspace_id);
+
+    auto space = IslSpace::Alloc(gCtx,
+                                 0,
+                                 workload_shape.NumFactorizedDimensions,
+                                 dspace_order);
+    for (const auto& [ospace_dim_name, ospace_dim_id] :
+         workload_shape.FactorizedDimensionNameToID)
+    {
+      space.SetDimName(isl_dim_in, ospace_dim_id, ospace_dim_name);
+    }
+    for (unsigned dspace_dim = 0; dspace_dim < dspace_order; ++dspace_dim)
+    {
+      const auto isl_dspace_dim_name = name + "_" + std::to_string(dspace_dim);
+      space.SetDimName(isl_dim_out, dspace_dim, isl_dspace_dim_name);
+    }
+
+    auto multi_aff = IslMultiAff::Zero(IslSpace(space));
+    for (unsigned dspace_dim = 0; dspace_dim < dspace_order; ++dspace_dim)
+    {
+      auto aff = IslAff::ZeroOnDomainSpace(IslSpaceDomain(IslSpace(space)));
+      for (const auto& term : projection.at(dspace_dim))
+      {
+        const auto& coef_id = term.first;
+        const auto& factorized_dim_id = term.second;
+        if (coef_id != workload_shape.NumCoefficients)
+        {
+          aff.SetCoefficientSi(isl_dim_in,
+                               factorized_dim_id,
+                               workload.GetCoefficient(coef_id));
+        }
+        else // Last term is a constant
+        {
+          aff.SetCoefficientSi(isl_dim_in, factorized_dim_id, 1);
+        }
+        multi_aff.SetAff(dspace_dim, std::move(aff));
+      }
+    }
+    dspace_id_to_ospace_to_dspace[dspace_id] =
+        IslMap::FromMultiAff(std::move(multi_aff));
+  }
+
+  return dspace_id_to_ospace_to_dspace;
+}
+
+
+LogicalBufOccupancies
+OccupanciesFromNest(const loop::Nest& nest);
+
+LogicalBufOccupancies
+OccupanciesFromTree(const mapping::FusedMapping& tree);
+
+Fill FillFromOccupancy(Occupancy&&);
+
+LogicalBufFills
+TemporalReuseAnalysis(LogicalBufOccupancies&& occupancies);
+
+struct SpatialReuseInfo
+{
+  LinkTransfers link_transfers;
+  Multicasts multicasts;
+};
+
+SpatialReuseInfo SpatialReuseAnalysis(LogicalBufFills&&,
+                                      const LinkTransferModel&,
+                                      const MulticastModel&);
+
+IslMap MapToShifted(IslSpace&& space,
+                    size_t pos,
+                    int shift);
 
 isl_val* ValOfConstantPwPolynomial(isl_pw_qpolynomial* qp);
 
 unsigned long ValToUnsignedLong(isl_val* val);
 
-isl_map* MapToPast(spacetime::Dimension dim_type,
-                   size_t pos,
-                   int shift_amount,
-                   isl_space* space);
+BranchTiling TilingFromMapping(const mapping::FusedMapping& mapping)
+{
+  BranchTiling result;
+  for (const auto& path : GetPaths(mapping))
+  {
+    std::vector<IslAff> upper_bounds;
+    std::optional<IslPwMultiAff> explicit_tiling_spec;
+    mapping::NodeID leaf_id;
+    for (const auto& node : path)
+    {
+      std::visit(
+        [&upper_bounds, &explicit_tiling_spec, &leaf_id] (auto&& node) {
+          using NodeT = std::decay_t<decltype(node)>;
+          if constexpr (std::is_same_v<NodeT, mapping::For>
+                        || std::is_same_v<NodeT, mapping::ParFor>)
+          {
+            upper_bounds.push_back(IslAff(*node.end));
+          } else if constexpr (std::is_same_v<NodeT, mapping::Compute>)
+          {
+            explicit_tiling_spec = node.tiling_spec;
+            leaf_id = node.id;
+          }
+        },
+        node
+      );
+    }
+
+    if (explicit_tiling_spec)
+    {
+      result.emplace(std::make_pair(
+        leaf_id,
+        IslMap::FromMultiAff(std::move(*explicit_tiling_spec))
+      ));
+    } else
+    {
+      throw std::runtime_error("please implement");
+    }
+  }
+
+  return result;
+}
+
+BranchTiling TilingFromMapping(const loop::Nest& nest,
+                               const problem::Workload& workload)
+{
+  BranchTiling result;
+
+  const auto& loops = nest.loops;
+  size_t n_loops = loops.size();
+  const auto& workload_shape = *workload.GetShape();
+  const auto& ospace_dim_id_to_name =
+      workload_shape.FlattenedDimensionIDToName;
+
+  auto space = IslSpace::Alloc(gCtx, 0, n_loops, ospace_dim_id_to_name.size());
+
+  std::map<problem::Shape::FlattenedDimensionID, size_t> ospace_dim_to_coef;
+  std::map<problem::Shape::FlattenedDimensionID, IslAff> ospace_dim_to_aff;
+  for (const auto& [ospace_dim, _] : ospace_dim_id_to_name)
+  {
+    ospace_dim_to_coef[ospace_dim] = 1;
+    ospace_dim_to_aff[ospace_dim] = IslAff::ZeroOnDomainSpace(
+      IslSpaceDomain(IslSpace(space))
+    );
+  }
+  auto loop_idx = 0;
+  for (auto loop_it = loops.begin(); loop_it != loops.end(); ++loop_it)
+  {
+    const auto& ospace_dim = loop_it->dimension;
+    ospace_dim_to_aff.at(ospace_dim).SetCoefficientSi(
+      isl_dim_in,
+      loop_idx,
+      ospace_dim_to_coef.at(ospace_dim)
+    );
+    ospace_dim_to_coef.at(ospace_dim) *= loop_it->end;
+    ++loop_idx;
+  }
+
+  auto multi_aff = IslMultiAff::Zero(std::move(space));
+  for (auto& [ospace_dim, aff] : ospace_dim_to_aff)
+  {
+    multi_aff.SetAff(ospace_dim, std::move(aff));
+  }
+  result.emplace(std::make_pair(0,
+                                IslMap::FromMultiAff(std::move(multi_aff))));
+
+  return result;
+}
+
+std::vector<std::pair<LogicalBuffer, size_t>>
+BufferIterLevelsFromMapping(const mapping::Mapping& mapping)
+{
+  std::vector<std::pair<LogicalBuffer, size_t>> result;
+  for (const auto& path : GetPaths(mapping))
+  {
+    size_t iter_idx = 0;
+    std::vector<std::pair<LogicalBuffer, size_t>> new_results;
+    for (const auto& node : path)
+    {
+      std::visit(
+        [&new_results, &iter_idx] (auto&& node) {
+          using NodeT = std::decay_t<decltype(node)>;
+
+          if constexpr (std::is_same_v<NodeT, mapping::Storage>)
+          {
+            auto buffer = LogicalBuffer();
+            buffer.buffer_id = node.buffer;
+            buffer.dspace_id = node.dspace;
+            buffer.branch_leaf_id = 0;
+
+            new_results.emplace_back(
+              std::make_pair(std::move(buffer), iter_idx)
+            );
+          } else if constexpr (std::is_same_v<NodeT, mapping::For>
+                               || std::is_same_v<NodeT, mapping::ParFor>)
+          {
+            ++iter_idx;
+          } else if constexpr (std::is_same_v<NodeT, mapping::Compute>)
+          {
+            for (auto& [buf, _] : new_results)
+            {
+              buf.branch_leaf_id = node.id;
+            }
+          }
+        },
+        node
+      );
+    }
+    result.insert(result.end(), new_results.begin(), new_results.end());
+  }
+
+  return result;
+}
+
+std::vector<std::pair<LogicalBuffer, size_t>> 
+BufferIterLevelsFromMapping(const loop::Nest& nest,
+                            const problem::Workload& workload)
+{
+  std::vector<std::pair<LogicalBuffer, size_t>> result;
+
+  std::set<decltype(nest.storage_tiling_boundaries)::value_type>
+    tiling_boundaries(nest.storage_tiling_boundaries.begin(),
+                      nest.storage_tiling_boundaries.end());
+
+  // TODO: for now, buffer id in loop nest is the arch level
+  BufferID arch_level = 0;
+  auto loop_idx = 0;
+  for (const auto& loop : nest.loops)
+  {
+    if (tiling_boundaries.find(loop_idx) != tiling_boundaries.end())
+    {
+      for (const auto& [dspace_id, _] : workload.GetShape()->DataSpaceIDToName)
+      result.emplace_back(std::make_pair(
+        LogicalBuffer{.buffer_id = arch_level,
+                      .dspace_id = dspace_id,
+                      .branch_leaf_id = 0 },
+      loop_idx));
+      ++arch_level;
+    }
+    ++ loop_idx;
+  }
+
+  return result;
+}
+
+LogicalBufTiling
+LogicalBufTilingFromMapping(const mapping::Mapping& mapping)
+{
+  auto branch_tiling = TilingFromMapping(mapping);
+  auto buf_to_iter_level = BufferIterLevelsFromMapping(mapping);
+
+  LogicalBufTiling result;
+  for (auto& [buf, level] : buf_to_iter_level)
+  {
+    result.emplace(std::make_pair(
+      buf,
+      ProjectDimInAfter(IslMap(branch_tiling.at(buf.branch_leaf_id)),
+                        level)
+    ));
+  }
+
+  return result;
+}
+
+LogicalBufTiling
+LogicalBufTilingFromMapping(const loop::Nest& nest,
+                            const problem::Workload& workload)
+{
+  auto branch_tiling = TilingFromMapping(nest, workload);
+  auto buf_to_iter_level = BufferIterLevelsFromMapping(nest, workload);
+
+  LogicalBufTiling result;
+  for (auto& [buf, level] : buf_to_iter_level)
+  {
+    result.emplace(std::make_pair(
+      buf,
+      ProjectDimInAfter(IslMap(branch_tiling.at(buf.branch_leaf_id)),
+                        level)
+    ));
+  }
+
+  return result;
+}
+
+LogicalBufOccupancies
+OccupanciesFromMapping(const mapping::Mapping& tree)
+{
+
+}
+
+LogicalBufOccupancies
+OccupanciesFromMapping(const loop::Nest& nest)
+{
+
+}
+
+Fill FillFromOccupancy(Occupancy&& occupancy)
+{
+  // Clean uninvolved temporal dims first so we can get delta at lowest
+  // involved dim
+  for (auto dim_it = occupancy.in_rbegin(); dim_it != occupancy.in_rend();
+       ++dim_it)
+  {
+    auto [dim_idx, dim_type] = *dim_it;
+    if (dim_type == spacetime::Dimension::Time
+        && !occupancy.InvolvesDims(isl_dim_in, dim_idx, 1))
+    {
+      occupancy = ProjectDims(
+        std::move(occupancy),
+        isl_dim_in,
+        dim_idx,
+        1
+      );
+    }
+  }
+
+  for (auto dim_it = occupancy.in_rbegin(); dim_it != occupancy.in_rend();
+       ++dim_it)
+  {
+    const auto& [dim_idx, dim_type] = *dim_it;
+    if (dim_type == spacetime::Dimension::Time)
+    {
+      auto time_shift_map = occupancy.TagLikeThis(
+        MapToShifted(occupancy.map.GetSpace(), dim_idx, -1)
+      );
+
+      return Subtract(
+        occupancy.Copy(),
+        ApplyRange(std::move(time_shift_map),
+                   std::move(occupancy))
+      );
+    }
+  }
+
+  // If no involved temporal dimensions are left, there is only the first fill
+  return occupancy;
+}
+
+LogicalBufFills TemporalReuseAnalysis(LogicalBufOccupancies&& occupancies)
+{
+  LogicalBufFills result;
+  for (auto& [buf, occupancy] : occupancies)
+  {
+    result.emplace(std::make_pair(
+      buf,
+      FillFromOccupancy(std::move(occupancy))
+    ));
+  }
+
+  return result;
+}
+
+SpatialReuseInfo
+SpatialReuseAnalysis(LogicalBufFills&& fills,
+                     const LinkTransferModel& link_transfer_model,
+                     const MulticastModel& multicast_model)
+{
+  auto link_transfer_info = link_transfer_model.Apply(LogicalBufFills(fills));
+  auto multicast_info = multicast_model.Apply(
+    std::move(link_transfer_info.unfulfilled_fills)
+  );
+
+  return SpatialReuseInfo{
+    .link_transfers = std::move(link_transfer_info.link_transfers),
+    .multicasts = std::move(multicast_info.multicasts)
+  };
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Local Function Prototypes
 std::tuple<std::map<problem::Shape::DataSpaceID, std::set<problem::Shape::FactorizedDimensionID>>,
@@ -113,9 +509,11 @@ void ComputeAggregateFills(const loop::Nest& nest,
                            isl_map* iter_to_ops,
                            std::map<DataSpaceID, isl_map*> ops_to_dspace);
 
+std::vector<LogicalBuffer> GetLogicalBuffers(const loop::Nest& nest);
+
+
 // Global isl context
 // TODO: isl context manager maybe simply a thread_local isl context
-isl_ctx* gCtx = isl_ctx_alloc();
 
 NestAnalysis::NestAnalysis()
 {
@@ -176,134 +574,9 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
       = OpsToDSpaceFromWorkload(*wc);
   iter_to_ops_ = IterToOpsFromNest(*nest, *wc);
   iter_set_ = IterSetFromNest(*nest, *wc);
+  auto occupancies = OccupanciesFromNest(*nest);
 }
 
-std::tuple<std::map<DataSpaceID, std::set<FactorizedDimensionID>>,
-           std::map<DataSpaceID, isl_map*>>
-OpsToDSpaceFromWorkload(const problem::Workload& workload)
-{
-  const auto& workload_shape = *workload.GetShape();
-
-  std::map<DataSpaceID, std::set<FactorizedDimensionID>> dspace_id_to_relevant_dims;
-  std::map<DataSpaceID, isl_map*> dspace_id_to_ospace_to_dspace;
-  // Space: ops -> dspace
-  for (const auto& [name, dspace_id] : workload_shape.DataSpaceNameToID)
-  {
-    auto& relevant_dims = dspace_id_to_relevant_dims[dspace_id];
-    const auto dspace_order = workload_shape.DataSpaceOrder.at(dspace_id);
-    const auto& projection = workload_shape.Projections.at(dspace_id);
-
-    auto space = isl_space_alloc(gCtx,
-                                 0,
-                                 workload_shape.NumFactorizedDimensions,
-                                 dspace_order);
-    for (const auto& [ospace_dim_name, ospace_dim_id] :
-         workload_shape.FactorizedDimensionNameToID)
-    {
-      space = isl_space_set_dim_name(space,
-                                     isl_dim_in,
-                                     ospace_dim_id,
-                                     ospace_dim_name.c_str());
-    }
-    for (unsigned dspace_dim = 0; dspace_dim < dspace_order; ++dspace_dim)
-    {
-      const auto isl_dspace_dim_name =
-          (name + "_" + std::to_string(dspace_dim)).c_str();
-      space = isl_space_set_dim_name(space,
-                                     isl_dim_out,
-                                     dspace_dim,
-                                     isl_dspace_dim_name);
-    }
-
-    auto aff_list = isl_aff_list_alloc(gCtx, dspace_order);
-    for (unsigned dspace_dim = 0; dspace_dim < dspace_order; ++dspace_dim)
-    {
-      auto aff = isl_aff_zero_on_domain_space(
-                 isl_space_domain(
-                 isl_space_copy(space)));
-      for (const auto& term : projection.at(dspace_dim))
-      {
-        const auto& coef_id = term.first;
-        const auto& factorized_dim_id = term.second;
-        relevant_dims.insert(factorized_dim_id);
-        if (coef_id != workload_shape.NumCoefficients)
-        {
-          aff = isl_aff_set_coefficient_si(aff,
-                                           isl_dim_in,
-                                           factorized_dim_id,
-                                           workload.GetCoefficient(coef_id));
-        }
-        else // Last term is a constant
-        {
-          aff = isl_aff_set_coefficient_si(aff, isl_dim_in, factorized_dim_id, 1);
-        }
-      }
-      aff_list = isl_aff_list_add(aff_list, aff);
-    }
-    auto multi_aff = isl_multi_aff_from_aff_list(space, aff_list);
-    auto map = isl_basic_map_from_multi_aff(multi_aff);
-    dspace_id_to_ospace_to_dspace[dspace_id] = isl_map_from_basic_map(map);
-  }
-
-  return std::tie(dspace_id_to_relevant_dims, dspace_id_to_ospace_to_dspace);
-}
-
-isl_map* IterToOpsFromNest(const loop::Nest& nest, const problem::Workload& workload)
-{
-  const auto& loops = nest.loops;
-  size_t n_loops = loops.size();
-  const auto& workload_shape = *workload.GetShape();
-  const auto& ospace_dim_id_to_name = workload_shape.FlattenedDimensionIDToName;
-
-  auto space = isl_space_alloc(gCtx,
-                               0,
-                               n_loops,
-                               ospace_dim_id_to_name.size());
-
-  std::map<problem::Shape::FlattenedDimensionID, size_t> ospace_dim_to_iter_idx;
-  for (const auto& [ospace_dim, _] : ospace_dim_id_to_name)
-  {
-    ospace_dim_to_iter_idx[ospace_dim] = 0;
-  }
-  size_t loop_idx = 0;
-  for (auto loop_it = loops.begin(); loop_it != loops.end(); ++loop_it)
-  {
-    const auto& ospace_dim = loop_it->dimension;
-    auto iter_dim_name = ospace_dim_id_to_name.at(ospace_dim) + "_"
-        + std::to_string(ospace_dim_to_iter_idx.at(ospace_dim));
-    ospace_dim_to_iter_idx.at(ospace_dim) += 1;
-    space = isl_space_set_dim_name(space, isl_dim_in, loop_idx, iter_dim_name.c_str());
-    loop_idx += 1;
-  }
-
-  std::map<problem::Shape::FlattenedDimensionID, size_t> ospace_dim_to_coef;
-  std::map<problem::Shape::FlattenedDimensionID, isl_aff*> ospace_dim_to_aff;
-  for (const auto& [ospace_dim, _] : ospace_dim_id_to_name)
-  {
-    ospace_dim_to_coef[ospace_dim] = 1;
-    ospace_dim_to_aff[ospace_dim] = isl_aff_zero_on_domain_space(isl_space_domain(isl_space_copy(space)));
-  }
-  loop_idx = 0;
-  for (auto loop_it = loops.begin(); loop_it != loops.end(); ++loop_it)
-  {
-    const auto& ospace_dim = loop_it->dimension;
-    ospace_dim_to_aff.at(ospace_dim) =
-        isl_aff_set_coefficient_si(ospace_dim_to_aff.at(ospace_dim),
-                                   isl_dim_in,
-                                   loop_idx,
-                                   ospace_dim_to_coef.at(ospace_dim));
-    ospace_dim_to_coef.at(ospace_dim) *= loop_it->end;
-    loop_idx += 1;
-  }
-
-  auto multi_aff = isl_multi_aff_zero(space);
-  for (const auto& [ospace_dim, aff] : ospace_dim_to_aff)
-  {
-    multi_aff = isl_multi_aff_set_aff(multi_aff, ospace_dim, aff);
-  }
-
-  return isl_map_from_multi_aff(multi_aff);
-}
 
 SpaceTimeToIter SpaceTimeToIterFromNest(const loop::Nest& nest, const problem::Workload& workload)
 {
@@ -669,9 +942,6 @@ void NestAnalysis::ComputeWorkingSets()
       num_compute_units *= state.descriptor.end;
     }
   }
-  auto accesses = CountIterations(isl_set_copy(iter_set_));
-  std::cout << "LoopTree replication factor: " << std::to_string(num_compute_units) << std::endl;
-  std::cout << "Accesses: " << accesses/num_compute_units << std::endl;
 
   int dspace = 0;
   for (const auto& data_movement_nest : working_sets_)
@@ -700,114 +970,9 @@ void NestAnalysis::ComputeWorkingSets()
     dspace++;
   }
 
-  ComputeAggregateFills(cached_nest,
-                        *workload_,
-                        storage_tiling_boundaries_,
-                        iter_to_ops_,
-                        dspace_id_to_ospace_to_dspace_);
-
   // Done.
   working_sets_computed_ = true;
 }
-
-size_t CountIterations(isl_set* iter_set)
-{
-  auto accesses_qp = isl_set_card(isl_set_copy(iter_set));
-  return ValToUnsignedLong(ValOfConstantPwPolynomial(accesses_qp));
-}
-
-void ComputeAggregateFills(const loop::Nest& nest,
-                           const problem::Workload& workload,
-                           const std::vector<uint64_t>& storage_tiling_boundaries,
-                           isl_map* iter_to_ops,
-                           std::map<DataSpaceID, isl_map*> ops_to_dspace)
-{
-  auto spacetime_to_iter = SpaceTimeToIterFromNest(nest, workload);
-
-  std::map<DataSpaceID, std::vector<DataMovementInfo>> result;
-  for (const auto& [dspace_id, _] : workload.GetShape()->DataSpaceIDToName)
-  {
-    result[dspace_id] = std::vector<DataMovementInfo>(nest.loops.size());
-    for (auto& data_movement : result.at(dspace_id))
-    {
-      data_movement.Reset();
-    }
-  }
-
-  std::map<DataSpaceID, std::set<size_t>> dspace_id_to_unfilled_buffer_idx;
-  for (const auto& [dspace_id, _] : result)
-  {
-    dspace_id_to_unfilled_buffer_idx[dspace_id] = {0};
-  }
-
-  int tiling_level = 0;
-  size_t loop_level = 0;
-  for (const auto& loop: nest.loops)
-  {
-    auto shift = 
-      Shift(spacetime::Dimension::Time,
-            spacetime_to_iter.t_levels-1,
-            -1,
-            SpaceTimeToIter(spacetime_to_iter));
-
-    auto delta = Difference(
-      SpaceTimeToIter(spacetime_to_iter),
-      Shift(spacetime::Dimension::Time,
-            spacetime_to_iter.t_levels-1,
-            -1,
-            SpaceTimeToIter(spacetime_to_iter))
-    );
-
-    std::cout << "Current: " << isl_map_to_str(spacetime_to_iter.space_time_to_iter) << std::endl;
-    std::cout << "Prev: " << isl_map_to_str(shift.space_time_to_iter) << std::endl;
-    std::cout << "Delta: " << isl_map_to_str(delta.space_time_to_iter) << std::endl;
-
-    if (loop.spacetime_dimension == spacetime::Dimension::Time)
-    {
-      for (auto& [dspace_id, data_movement_nest] : result)
-      {
-        auto data_delta = 
-          isl_map_apply_range(
-            isl_map_apply_range(
-              isl_map_copy(delta.space_time_to_iter),
-              isl_map_copy(iter_to_ops)
-            ),
-            isl_map_copy(ops_to_dspace.at(dspace_id))
-          );
-        std::cout << "Op proj: " << isl_map_to_str(iter_to_ops) << std::endl;
-        std::cout << "Proj: " << isl_map_to_str(ops_to_dspace.at(dspace_id)) << std::endl;
-        std::cout << "Dspace: " << std::to_string(dspace_id) << std::endl;
-        std::cout << "Delta: " << isl_map_to_str(data_delta) << std::endl;
-        std::cout << "Cnt: " << isl_pw_qpolynomial_to_str(
-          isl_pw_qpolynomial_sum(isl_map_card(isl_map_copy(data_delta)))
-        ) << std::endl;
-
-        
-        data_movement_nest.at(loop_level)
-            .access_stats.stats[std::make_pair<std::uint64_t, std::uint64_t>(1, 1)] =
-            AccessStats{ .accesses = 0.0, .hops = 0.0 };
-      }
-    }
-    spacetime_to_iter = ProjectOut(loop.spacetime_dimension,
-                                   0,
-                                   std::move(spacetime_to_iter));
-
-    if (loop_level == storage_tiling_boundaries.at(tiling_level))
-    {
-      std::cout << loop_level << std::endl;
-      // This is where we know the fills
-      for (const auto& [dspace_id, _] : result)
-      {
-        dspace_id_to_unfilled_buffer_idx.at(dspace_id).insert(tiling_level);
-      }
-      ++tiling_level;
-    }
-    // After this, we have to handle last storage level.
-    // If spatial, handle multicasting etc.
-    ++loop_level;
-  }
-}
-
 
 // Internal helper methods
 
@@ -2776,6 +2941,13 @@ SpaceTimeToIter Shift(spacetime::Dimension dim_type,
   );
 
   return spacetime_to_iter;
+}
+
+IslMap MapToShifted(IslSpace&& space, size_t pos, int shift)
+{
+  auto multi_aff = IslMultiAff::Identity(std::move(space));
+  multi_aff.SetAff(pos, std::move(multi_aff.GetAff(pos).SetConstantSi(shift)));
+  return IslMap::FromMultiAff(std::move(multi_aff));
 }
 
 SpaceTimeToIter Difference(SpaceTimeToIter&& a, SpaceTimeToIter&& b)
