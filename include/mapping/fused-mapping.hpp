@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <variant>
+#include <optional>
 
 #include "isl-wrapper/isl-wrapper.hpp"
 #include "workload/workload.hpp"
@@ -66,8 +67,8 @@ struct Storage
   NodeID child;
 
   Storage(const NodeID& id,
-        const BufferID& buffer,
-        const problem::Shape::DataSpaceID& dspace);
+          const BufferID& buffer,
+          const problem::Shape::DataSpaceID& dspace);
 };
 
 struct Compute
@@ -100,21 +101,9 @@ using MappingNodeTypes
 class MappingNodeIterator
 {
  public:
-  MappingNodeIterator& operator++()
-  {
-    ++cur_;
-    return *this;
-  }
-
-  bool operator!=(const MappingNodeIterator& other) const
-  {
-    return cur_ != other.cur_;
-  }
-
-  MappingNodeTypes& operator*()
-  {
-    return cur_->second;
-  }
+  MappingNodeIterator& operator++();
+  bool operator!=(const MappingNodeIterator& other) const;
+  MappingNodeTypes& operator*();
 
  private:
   friend FusedMapping;
@@ -128,11 +117,7 @@ class MappingNodeIterator
 class FusedMapping
 {
  public:
-  FusedMapping()
-  {
-    nodes_.emplace(
-      std::make_pair(0, MappingNodeTypes(std::in_place_type<Root>, 0)));
-  }
+  FusedMapping();
 
   template<typename LoopT, typename... ArgsT>
   NodeID AddChild(NodeID parent_id, ArgsT... args)
@@ -144,29 +129,13 @@ class FusedMapping
     return it->first;
   }
 
-  const MappingNodeTypes& NodeAt(const NodeID& node_id) const
-  {
-    return nodes_.at(node_id);
-  }
-  MappingNodeTypes& NodeAt(const NodeID& node_id)
-  {
-    return nodes_.at(node_id);
-  }
+  const MappingNodeTypes& NodeAt(const NodeID& node_id) const;
+  MappingNodeTypes& NodeAt(const NodeID& node_id);
 
-  const Root& GetRoot() const
-  {
-    return std::get<Root>(nodes_.at(0));
-  }
+  const Root& GetRoot() const;
 
-  MappingNodeIterator begin()
-  {
-    return MappingNodeIterator(nodes_.begin());
-  }
-
-  MappingNodeIterator end()
-  {
-    return MappingNodeIterator(nodes_.end());
-  }
+  MappingNodeIterator begin();
+  MappingNodeIterator end();
 
  private:
   std::map<NodeID, MappingNodeTypes> nodes_;
