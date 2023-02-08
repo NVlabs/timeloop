@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -132,7 +132,7 @@ static Betterness IsBetterRecursive_(const model::Topology::Stats& candidate, co
         return Betterness::SlightlyBetter;
       else
         return Betterness::SlightlyWorse;
-    }      
+    }
   }
 }
 
@@ -210,7 +210,7 @@ void MapperThread::Stats::UpdateFails(FailClass fail_class, std::string fail_rea
       // This level has already failed in this class,
       // increment its count.
       fail_info_it->second.count += 1;
- 
+
       // p(x) = prob. that I switch to x when it arrives
       // p(0) = 1
 
@@ -246,7 +246,7 @@ MapperThread::MapperThread(
   uint128_t search_size,
   std::uint32_t timeout,
   std::uint32_t victory_condition,
-  uint128_t sync_interval,  
+  uint128_t sync_interval,
   uint128_t log_interval,
   bool log_index_factor_best,
   bool log_oaves,
@@ -271,7 +271,7 @@ MapperThread::MapperThread(
     timeout_(timeout),
     victory_condition_(victory_condition),
     sync_interval_(sync_interval),
-    log_interval_(log_interval), 
+    log_interval_(log_interval),
     log_index_factor_best_(log_index_factor_best),
     log_oaves_(log_oaves),
     log_stats_(log_stats),
@@ -316,7 +316,7 @@ void MapperThread::Run()
   std::uint32_t mappings_since_last_best_update = 0;
 
   const int ncurses_line_offset = 6;
-      
+
   model::Engine engine;
   engine.Spec(arch_specs_);
 
@@ -381,7 +381,7 @@ void MapperThread::Run()
       mutex_->unlock();
       terminate = true;
     }
-        
+
     if ((invalid_mappings_mapcnstr + invalid_mappings_eval) > 0 &&
         (invalid_mappings_mapcnstr + invalid_mappings_eval) == timeout_)
     {
@@ -401,7 +401,7 @@ void MapperThread::Run()
       mutex_->lock();
       log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: "
                   << "search algorithm is done, terminating search."
-                  << std::endl;        
+                  << std::endl;
       mutex_->unlock();
       terminate = true;
     }
@@ -410,7 +410,7 @@ void MapperThread::Run()
     {
       auto topology =  engine.GetTopology();
 
-      // print performance 
+      // print performance
       if (log_index_factor_best_)
         PrintStats(topology, stats_.index_factor_best);
       if (log_oaves_)
@@ -438,7 +438,7 @@ void MapperThread::Run()
     if (total_mappings != 0 && sync_interval_ > 0 && total_mappings % sync_interval_ == 0)
     {
       mutex_->lock();
-          
+
       // Sync from global best to thread_best.
       bool global_pulled = false;
       if (best_->valid)
@@ -454,7 +454,7 @@ void MapperThread::Run()
       {
         best_->UpdateIfBetter(stats_.thread_best, optimization_metrics_);
       }
-          
+
       mutex_->unlock();
     }
 
@@ -571,20 +571,20 @@ void MapperThread::Run()
     if (log_index_factor_best_ && total_mappings != 0 && (stats_.index_factor_best.valid && (SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))))
     {
 
-      // print performance 
+      // print performance
       PrintStats(topology, stats_.index_factor_best);
 
       // reset the best for next permutation/bypassing
-      stats_.index_factor_best.valid = false;             
+      stats_.index_factor_best.valid = false;
     }
 
     if (log_oaves_ && total_mappings != 0 && (stats_.index_factor_best.valid && (SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))))
     {
-      // print performance 
+      // print performance
       PrintOAVESStats(topology, stats_.index_factor_best);
 
       // reset the best for next permutation/bypassing
-      stats_.index_factor_best.valid = false;             
+      stats_.index_factor_best.valid = false;
     }
 
     valid_mappings++;
@@ -594,22 +594,22 @@ void MapperThread::Run()
       log_stream_ << "[" << thread_id_ << "] INVALID " << total_mappings << " " << valid_mappings
                   << " " << invalid_mappings_mapcnstr + invalid_mappings_eval << std::endl;
       mutex_->unlock();
-    }        
+    }
     invalid_mappings_mapcnstr = 0;
     invalid_mappings_eval = 0;
     search_->Report(search::Status::Success, Cost(stats, optimization_metrics_.at(0)));
 
     bool is_sparse_topology = !sparse_optimizations_->no_optimization_applied;
-    if (log_suboptimal_ && total_mappings != 0 && log_interval_ > 0 && total_mappings % log_interval_ == 0)    
+    if (log_suboptimal_ && total_mappings != 0 && log_interval_ > 0 && total_mappings % log_interval_ == 0)
     {
 
-      PrintStats(topology, result);      
+      PrintStats(topology, result);
 
       mutex_->lock();
       if (is_sparse_topology)
-      {      
-        log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                  << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization 
+      {
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
+                  << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization
                   << " | pJ/Algorithmic-Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
                   << " | pJ/Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
@@ -617,8 +617,8 @@ void MapperThread::Run()
       }
       else
       {
-        log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                  << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization 
+        log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
+                  << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization
                   << " | pJ/Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
                   << std::endl;
@@ -643,14 +643,14 @@ void MapperThread::Run()
                     << " " << mappings_since_last_best_update << " " << improvement << std::endl;
         mutex_->unlock();
       }
-        
+
       if (!log_suboptimal_)
       {
         mutex_->lock();
         if (is_sparse_topology)
-        {      
-          log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                    << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization 
+        {
+          log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
+                    << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization
                     << " | pJ/Algorithmic-Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
                     << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
@@ -658,8 +658,8 @@ void MapperThread::Run()
         }
         else
         {
-          log_stream_ << "[" << std::setw(3) << thread_id_ << "]" 
-                    << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization 
+          log_stream_ << "[" << std::setw(3) << thread_id_ << "]"
+                    << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization
                     << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
                     << std::endl;
@@ -684,7 +684,7 @@ void MapperThread::Run()
 void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& result)
 {
   mutex_->lock();
-  // print performance 
+  // print performance
   if (result.valid) {
     std::cout << "---------------------------" << std::endl;
     std::string indent = "    ";
@@ -696,10 +696,10 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
       std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);
       std::cout << buffer_level->Name() << ":";
       for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-      {       
+      {
         auto pv = problem::Shape::DataSpaceID(pvi);
         auto utilized_instances = result.stats.utilized_instances.at(inv_storage_level).at(pv);
-        auto utilized_capacity = result.stats.utilized_capacities.at(inv_storage_level).at(pv) * utilized_instances; 
+        auto utilized_capacity = result.stats.utilized_capacities.at(inv_storage_level).at(pv) * utilized_instances;
         std::cout << " " << utilized_capacity;
       }
       std::cout << std::endl;
@@ -723,9 +723,9 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
         {
           break;
         }
-      }  
+      }
       assert(utilized_capacity > 0);
-      total_min_traffic += utilized_capacity;      
+      total_min_traffic += utilized_capacity;
       if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
         total_output_size += utilized_capacity;
       }
@@ -735,7 +735,7 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
 
     // out << indent << std::left << std::setw(70) << "Total elementwise ops";
     uint64_t total_elementwise_ops = result.stats.actual_computes;
-    // out << ": " << total_elementwise_ops << std::endl; 
+    // out << ": " << total_elementwise_ops << std::endl;
 
     // out << indent << std::left << std::setw(70) << "Total reduction ops";
     uint64_t total_reduction_ops = 0;
@@ -745,25 +745,30 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
     } else{
       total_reduction_ops = result.stats.actual_computes;
     }
-    // std::cout << ": " << total_reduction_ops << std::endl;  
+    // std::cout << ": " << total_reduction_ops << std::endl;
     std::cout << indent << std::left << std::setw(70) << "Total ops";
     uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
     std::cout << ": " << total_ops << std::endl;
     // std::cout << indent << std::left << std::setw(70) << "Total memory accesses required";
-    // std::cout << ": " << total_min_traffic << std::endl; 
+    // std::cout << ": " << total_min_traffic << std::endl;
     // unsigned inv_storage_level = topology.NumStorageLevels() - 1;
-    // std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
+    // std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);
     // auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
     // std::cout << indent << std::left << std::setw(70) << "Optimal Op per Byte";
     // std::cout << ": " << op_per_byte << std::endl;
 
     for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
-    {        
+    {
       std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(i);
       // auto stats = buffer_level->GetStats();
       std::cout << "--- " << buffer_level->Name() << " ---" << std::endl;
 
-      auto scalar_accesses_space = result.stats.accesses.at(i);
+      auto per_tensor_access = result.stats.per_tensor_accesses.at(i);
+      problem::PerDataSpace<std::uint64_t> scalar_accesses_space;
+      for (unsigned i = 0; i < per_tensor_access.size(); i++) {
+        scalar_accesses_space.at(i) = per_tensor_access.at(i);
+      }
+
       uint64_t total_scalar_access = SumStats(scalar_accesses_space);
 
       float op_per_byte = -1;
@@ -775,10 +780,10 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
         op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
         // std::cout << indent << std::left << std::setw(70) << "Op per Byte";
         std::cout <<  total_scalar_access << " " << op_per_byte << std::endl;
-      } else {  
+      } else {
           std::cout << "0 -1" << std::endl;
       }
-    }         
+    }
     std::cout << "=== Summary ===" << std::endl;
 
     // std::cout << "GFLOPs (@1GHz): " << float(total_ops)  / result.stats.cycles << std::endl;
@@ -789,10 +794,10 @@ void MapperThread::PrintStats(model::Topology& topology, EvaluationResult& resul
     // std::cout << "Area: " << result.stats.area / 1000000 << " mm^2" << std::endl;
     // std::cout << std::endl;
     std::cout << "=== Mapping ===" << std::endl;
-    std::cout << result.mapping.PrintCompact() << std::endl; 
+    std::cout << result.mapping.PrintCompact() << std::endl;
     std::cout << std::endl;
     mutex_->unlock();
-  }    
+  }
 }
 
 void MapperThread::PrintOAVESStats(model::Topology& topology, EvaluationResult& result)
@@ -807,10 +812,10 @@ void MapperThread::PrintOAVESStats(model::Topology& topology, EvaluationResult& 
     std::shared_ptr<model::BufferLevel> buffer_level = topology.GetStorageLevel(storage_level_id);
 
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-    {       
+    {
       auto pv = problem::Shape::DataSpaceID(pvi);
       auto utilized_instances = result.stats.utilized_instances.at(storage_level_id).at(pv);
-      auto utilized_capacity = result.stats.utilized_capacities.at(storage_level_id).at(pv) * utilized_instances; 
+      auto utilized_capacity = result.stats.utilized_capacities.at(storage_level_id).at(pv) * utilized_instances;
 
       auto utilized_capacity_byte = utilized_capacity * buffer_level->GetSpecs().word_bits.Get() / 8;
       utilizations.push_back(utilized_capacity_byte);
@@ -836,7 +841,7 @@ void MapperThread::PrintOAVESStats(model::Topology& topology, EvaluationResult& 
         }
       }
       assert(utilized_capacity > 0);
-      total_min_traffic += utilized_capacity;      
+      total_min_traffic += utilized_capacity;
       if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
         total_output_size += utilized_capacity;
       }
@@ -855,14 +860,13 @@ void MapperThread::PrintOAVESStats(model::Topology& topology, EvaluationResult& 
     auto last_storage_level = topology.NumStorageLevels() - 1;
     buffer_level = topology.GetStorageLevel(last_storage_level);
 
-    auto scalar_accesses_space = result.stats.accesses.at(last_storage_level);
+    auto scalar_accesses_space = result.stats.per_tensor_accesses.at(last_storage_level);
     uint64_t total_scalar_access = 0;
     std::vector<uint64_t> scalar_accesses;
 
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      uint64_t per_dataspace_access = scalar_accesses_space[pv];
+      uint64_t per_dataspace_access = scalar_accesses_space.at(pvi);
       scalar_accesses.push_back(per_dataspace_access);
       total_scalar_access += per_dataspace_access;
     }
