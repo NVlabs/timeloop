@@ -29,6 +29,8 @@
 
 #include "applications/mapper/mapper-thread.hpp"
 
+bool gTerminate = false;
+
 enum class Betterness
 {
   Better,
@@ -56,30 +58,30 @@ static std::uint64_t SumStats(problem::PerDataSpace<std::uint64_t>& data, proble
 
 static double Cost(const model::Topology::Stats& stats, const std::string metric)
 {
+  double cost;
   if (metric == "delay")
   {
-    return static_cast<double>(stats.cycles);
+    cost = static_cast<double>(stats.cycles);
   }
   else if (metric == "energy")
   {
-    return stats.energy;
+    cost = stats.energy;
   }
   else if (metric == "last-level-accesses")
   {
-    return stats.last_level_accesses;
+    cost = stats.last_level_accesses;
   }
   else if (metric.compare(0, 9, "accesses-") == 0)
   {
     unsigned level = unsigned(atoi(metric.substr(9).c_str()));
-    auto scalar_accesses_space = stats.accesses.at(level);
-    uint64_t total_scalar_access = SumStats(scalar_accesses_space);
-    return total_scalar_access;
+    cost = stats.accesses.at(level);
   }
   else
   {
     assert(metric == "edp");
-    return (stats.energy * stats.cycles);
+    cost = (stats.energy * stats.cycles);
   }
+  return cost;
 }
 
 static Betterness IsBetterRecursive_(const model::Topology::Stats& candidate, const model::Topology::Stats& incumbent,
@@ -91,8 +93,14 @@ static Betterness IsBetterRecursive_(const model::Topology::Stats& candidate, co
   double candidate_cost = Cost(candidate, *metric);
   double incumbent_cost = Cost(incumbent, *metric);
 
-  double relative_improvement = incumbent_cost == 0 ? 1.0 :
-    (incumbent_cost - candidate_cost) / incumbent_cost;
+  // Compute % improvement relative to incumbent. We need to
+  // special-case cost == 0 to avoid a divide-by-zero error. Note that
+  // cost == 0 is a legitimate cost for a mapping. Also note that lower
+  // cost is better.
+  double absolute_improvement = incumbent_cost - candidate_cost;
+  double relative_improvement = incumbent_cost == 0 ?
+    (candidate_cost == 0 ? 0 : absolute_improvement / candidate_cost) :
+    absolute_improvement / incumbent_cost;
 
   if (fabs(relative_improvement) > tolerance)
   {
@@ -224,6 +232,7 @@ void MapperThread::Stats::UpdateFails(FailClass fail_class, std::string fail_rea
       if (roll < prob)
       {
         fail_info_it->second.mapping = mapping;
+        fail_info_it->second.reason = fail_reason;
       }
     }
   }

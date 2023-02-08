@@ -63,12 +63,16 @@ class LegacyNetwork : public Network
     Attribute<double> tile_width; // um
     Attribute<double> energy_per_hop; //pJ
 
+    // Network fill and drain latency
+    Attribute<std::uint64_t> fill_latency;
+    Attribute<std::uint64_t> drain_latency;
+  
     Attribute<bool> is_sparse_module;
     
     const std::string Type() const override { return type; }
     bool SupportAccelergyTables() const override { return false; }
     void ProcessERT(const config::CompoundConfigNode& ERT) override;
-    
+
     // Serialization
     friend class boost::serialization::access;
 
@@ -83,6 +87,8 @@ class LegacyNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(wire_energy);
         ar& BOOST_SERIALIZATION_NVP(tile_width);
         ar& BOOST_SERIALIZATION_NVP(energy_per_hop);
+        ar& BOOST_SERIALIZATION_NVP(fill_latency);
+        ar& BOOST_SERIALIZATION_NVP(drain_latency);
       }
     }
 
@@ -109,6 +115,11 @@ class LegacyNetwork : public Network
     problem::PerDataSpace<double> energy_per_hop;
     problem::PerDataSpace<double> energy;
     problem::PerDataSpace<double> spatial_reduction_energy;
+
+    // Network fill and drain latency, can be set by the spec or inferred from outer buffer
+    // network_fill_latency and network_drain_latency
+    std::uint64_t fill_latency;
+    std::uint64_t drain_latency;
 
     // Redundant stats with outer buffer.
     problem::PerDataSpace<std::uint64_t> utilized_instances;    
@@ -178,31 +189,38 @@ class LegacyNetwork : public Network
     return std::static_pointer_cast<Network>(std::make_shared<LegacyNetwork>(*this));
   }
 
+  Specs& GetSpecs() { return specs_; }
+
   static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module);
 
-  void ConnectSource(std::weak_ptr<Level> source);
-  void ConnectSink(std::weak_ptr<Level> sink);
-  void SetName(std::string name);
-  std::string Name() const;
-  void AddConnectionType(ConnectionType ct);
-  void ResetConnectionType();
+  void ConnectSource(std::weak_ptr<Level> source) override;
+  void ConnectSink(std::weak_ptr<Level> sink) override;
+  void SetName(std::string name) override;
+  std::string Name() const override;
+  void AddConnectionType(ConnectionType ct) override;
+  void ResetConnectionType() override;
 
-  bool DistributedMulticastSupported() const;
+  bool DistributedMulticastSupported() const override;
 
   // Floorplanner interface.
-  void SetTileWidth(double width_um);
+  void SetTileWidth(double width_um) override;
 
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                      const bool break_on_failure);
+                      const bool break_on_failure) override;
 
   EvalStatus ComputeAccesses(const tiling::CompoundDataMovementInfo& tile, const bool break_on_failure);
   void ComputeNetworkEnergy();
   void ComputeSpatialReductionEnergy();
   void ComputePerformance();
 
-  std::uint64_t WordBits() const;
+  std::uint64_t WordBits() const override;
+  std::uint64_t FillLatency() const override;
+  std::uint64_t DrainLatency() const override;
 
-  void Print(std::ostream& out) const;
+  void SetFillLatency(std::uint64_t fill_latency) override;
+  void SetDrainLatency(std::uint64_t drain_latency) override;
+
+  void Print(std::ostream& out) const override;
 
   // PAT interface.
   static double WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance, double wire_energy_override);
@@ -210,7 +228,7 @@ class LegacyNetwork : public Network
 
   STAT_ACCESSOR_HEADER(double, NetworkEnergy);
   STAT_ACCESSOR_HEADER(double, SpatialReductionEnergy);
-  STAT_ACCESSOR_HEADER(double, Energy);
+  STAT_ACCESSOR_HEADER(double, Energy) override;
 
 }; // class Network
 

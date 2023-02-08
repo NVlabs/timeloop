@@ -223,7 +223,7 @@ void ISLPointSet::Translate(const Point& p)
   assert(false);
 }
 
-void ISLPointSet::Print(std::ostream& out = std::cout) const
+void ISLPointSet::Print(std::ostream& out) const
 {
   (void) out;
   mutex.lock();

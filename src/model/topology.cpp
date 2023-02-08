@@ -423,14 +423,12 @@ for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     total_output_size += utilized_capacity;
   }
 }
-// std::cout <<  "total_min_traffic " << total_min_traffic << std::endl;
-// std::cout <<  "total_output_size " << total_output_size << std::endl;
 
-out << indent << std::left << std::setw(70) << "Total elementwise ops";
+out << indent << std::left << std::setw(40) << "Total elementwise ops";
 uint64_t total_elementwise_ops = topology.stats_.actual_computes;
 out << ": " << total_elementwise_ops << std::endl; 
 
-out << indent << std::left << std::setw(70) << "Total reduction ops";
+out << indent << std::left << std::setw(40) << "Total reduction ops";
 uint64_t total_reduction_ops = 0;
 
 if (tiling::gEnableFirstReadElision){
@@ -440,61 +438,35 @@ if (tiling::gEnableFirstReadElision){
 }
 out << ": " << total_reduction_ops << std::endl; 
 
-out << indent << std::left << std::setw(70) << "Total ops";
+out << indent << std::left << std::setw(40) << "Total ops";
 uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
 out << ": " << total_ops << std::endl;  
 
-out << indent << std::left << std::setw(70) << "Total memory accesses required";
+out << indent << std::left << std::setw(40) << "Total memory accesses required";
 out << ": " << total_min_traffic << std::endl; 
 
 unsigned inv_storage_level = topology.NumStorageLevels() - 1;
 std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
 auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
-out << indent << std::left << std::setw(70) << "Optimal Op per Byte";
+out << indent << std::left << std::setw(40) << "Optimal Op per Byte";
 out << ": " << op_per_byte << std::endl << std::endl;
 
-std::vector<std::string> access_types = {"read", "fill", "update"};
 for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
 {
 
   std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(i);
   auto stats = buffer_level->GetStats();
   out << "=== " << buffer_level->Name() << " ===" << std::endl;
-  uint64_t instances = buffer_level->GetSpecs().instances.Get();
-  uint64_t total_scalar_access = 0;
-  for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
-  {
-    auto pv = problem::Shape::DataSpaceID(pvi);
-
-    if (stats.keep.at(pv))
-    {
-
-      // out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
-      for (auto &access_type : access_types)
-      {
-        std::string key = "random_" + access_type;
-        if (stats.fine_grained_scalar_accesses.at(pv).find(key) != stats.fine_grained_scalar_accesses.at(pv).end())
-        {
-          uint64_t scalar_access = stats.fine_grained_scalar_accesses.at(pv).at(key);
-          total_scalar_access += scalar_access * instances;
-          // std::string access_type_str = "Actual scalar " + access_type + "s (per-instance)"; 
-          // out << indent + indent << std::left << std::setw(66) << access_type_str;                         
-          // out << ": " << scalar_access << std::endl << std::endl;
-        }
-      }
-    }
-  }
-  // float mac_per_access = -1;
+  uint64_t total_scalar_access = buffer_level->Accesses();
   float op_per_byte = -1;
   if (total_scalar_access > 0)
   {
-    out << indent << std::left << std::setw(70) << "Total scalar accesses";
+    out << indent << std::left << std::setw(40) << "Total scalar accesses";
     out << ": " << total_scalar_access << std::endl;
     op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_scalar_access / 8);
-    out << indent << std::left << std::setw(70) << "Op per Byte";
+    out << indent << std::left << std::setw(40) << "Op per Byte";
     out << ": " << op_per_byte << std::endl;
   }
-  
 }
 
 out << std::endl
@@ -664,6 +636,7 @@ void Topology::Spec(const Topology::Specs& specs)
   // Connect levels to networks.
   // FIXME: network source and sink need to be *bound* per-dataspace at eval (mapping) time.
   //
+  uint64_t total_network_latency = 0;
   for (unsigned i = 0; i < specs.NumLevels()-1; i++)
   {
     // Note! We are linking levels[i+1] as the outer level for networks[i].
@@ -691,6 +664,10 @@ void Topology::Spec(const Topology::Specs& specs)
       }
       read_fill_network = it->second;
 
+      uint64_t fill_latency = read_fill_network->FillLatency();
+      total_network_latency += fill_latency;
+      read_fill_network->SetFillLatency(fill_latency);
+
       if (!inner_is_arithmetic)
       {
         auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
@@ -715,6 +692,12 @@ void Topology::Spec(const Topology::Specs& specs)
       auto inferred_network_id = i;
       auto inferred_network_specs = *specs.GetInferredNetwork(inferred_network_id);
       std::shared_ptr<LegacyNetwork> legacy_network = std::make_shared<LegacyNetwork>(inferred_network_specs);
+
+      // If network is unspecified, use the network_fill_latency/network_drain_latency specified from the outer buffer
+      uint64_t fill_latency = std::static_pointer_cast<BufferLevel>(outer)->GetSpecs().network_fill_latency.Get();
+      total_network_latency += fill_latency;
+      legacy_network->SetFillLatency(fill_latency);
+
       std::shared_ptr<Network> network = std::static_pointer_cast<Network>(legacy_network);
 
       std::string network_name = outer->Name() + " <==> " + inner->Name();
@@ -749,6 +732,10 @@ void Topology::Spec(const Topology::Specs& specs)
       }
       drain_update_network = it->second;
 
+      uint64_t drain_latency = drain_update_network->DrainLatency();
+      total_network_latency += drain_latency;
+      drain_update_network->SetDrainLatency(drain_latency);
+
       if (!inner_is_arithmetic)
       {
         auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
@@ -769,6 +756,13 @@ void Topology::Spec(const Topology::Specs& specs)
       // Reuse the existing read-fill network.
       assert(read_fill_network != nullptr);
       drain_update_network = read_fill_network;
+
+      // If network is unspecified, use the network_fill_latency/network_drain_latency specified from the outer buffer
+      auto legacy_network = std::static_pointer_cast<LegacyNetwork>(drain_update_network);
+
+      uint64_t drain_latency = std::static_pointer_cast<BufferLevel>(outer)->GetSpecs().network_drain_latency.Get();
+      total_network_latency += drain_latency;
+      legacy_network->SetDrainLatency(drain_latency);
 
       if (!inner_is_arithmetic)
       {
@@ -843,6 +837,9 @@ void Topology::Spec(const Topology::Specs& specs)
     area += level->Area();
   }
   stats_.area = area;
+  
+  total_network_latency_ = total_network_latency;
+
 }
 
 // The hierarchical ParseSpecs functions are static and do not
@@ -1020,6 +1017,8 @@ std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
 
 void Topology::Reset()
 {
+  stats_.Reset();
+
   for (auto & level : levels_)
   {
     level->Reset();
@@ -1358,7 +1357,9 @@ void Topology::ComputeStats(bool eval_success)
     {
       cycles = std::max(cycles, level->Cycles());
     }
-    stats_.cycles = cycles;
+
+    // Max cycle plus network fill and drain latency
+    stats_.cycles = cycles + total_network_latency_;
 
     // Utilization.
     // FIXME.
@@ -1378,15 +1379,16 @@ void Topology::ComputeStats(bool eval_success)
     stats_.accesses.clear();
     for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
     {
-
-        problem::PerDataSpace<std::uint64_t> as;
-        for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-        {
-          auto pv = problem::Shape::DataSpaceID(pvi);
-          as[pv] = GetStorageLevel(storage_level_id)->Accesses(pv);
-
-        }
-        stats_.accesses.push_back(as);
+      // FIXME: change the following to problem::PerDataSpace<std::uint64_t>
+      // once we wrap PerDataSpace<> in PyTimeloop.
+      std::vector<std::uint64_t> pta(problem::GetShape()->NumDataSpaces); 
+      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      {
+        auto pv = problem::Shape::DataSpaceID(pvi);
+        pta[pv] = GetStorageLevel(i)->Accesses(pv);
+      }
+      stats_.per_tensor_accesses.push_back(pta);
+      stats_.accesses.push_back(GetStorageLevel(i)->Accesses());
     }
 
   } // eval_success

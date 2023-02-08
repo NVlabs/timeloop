@@ -35,8 +35,6 @@
 #include "model/sparse-optimization-info.hpp"
 #include "search/search.hpp"
 
-extern bool gTerminate;
-
 struct EvaluationResult
 {
   bool valid = false;

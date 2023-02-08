@@ -150,6 +150,7 @@ Application::Application(config::CompoundConfig* config,
   }
   else
   {
+    std::cerr << "WARNING: no optimization metric(s) specified, using edp as default." << std::endl;
     raw_metrics = { "edp" };
   }
 

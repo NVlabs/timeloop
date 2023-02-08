@@ -33,27 +33,20 @@
 #include "compound-config/compound-config.hpp"
 #include "util/args.hpp"
 
-bool gTerminate = false;
-bool gTerminateEval = false;
+extern bool gTerminateEval;
 
 void handler(int s)
 {
-  if (!gTerminate)
+  if (!gTerminateEval)
   {
-    std::cerr << strsignal(s) << " caught. Terminating after "
-              << "completing ongoing evaluation." << std::endl;
-    gTerminate = true;
-  }
-  else if (!gTerminateEval)
-  {
-    std::cerr << "Second " << strsignal(s) << " caught. Abandoning "
+    std::cerr << "First " << strsignal(s) << " caught. Abandoning "
               << "ongoing evaluation and terminating immediately."
               << std::endl;
     gTerminateEval = true;
   }
   else
   {
-    std::cerr << "Third " << strsignal(s) << " caught. Existing disgracefully."
+    std::cerr << "Second " << strsignal(s) << " caught. Existing disgracefully."
               << std::endl;
     exit(0);
   }

@@ -40,6 +40,8 @@ HybridSearch::HybridSearch(config::CompoundConfigNode config, mapspace::MapSpace
     eval_fail_count_(0),
     best_cost_(0)
 {
+  (void) id_;
+    
   filter_revisits_ = false;
   config.lookupValue("filter-revisits", filter_revisits_);    
     

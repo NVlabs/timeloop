@@ -102,6 +102,27 @@ ReductionTreeNetwork::Specs ReductionTreeNetwork::ParseSpecs(config::CompoundCon
   network.lookupValue("wire-energy", wire_energy);
   specs.wire_energy = wire_energy;
 
+  // Network fill and drain latency
+  unsigned long long fill_latency;
+  if (network.lookupValue("fill_latency", fill_latency))
+  {
+    specs.fill_latency = fill_latency;
+  }
+  else
+  {
+    specs.fill_latency = 0;
+  }
+
+  unsigned long long drain_latency;
+  if (network.lookupValue("drain_latency", drain_latency))
+  {
+    specs.drain_latency = drain_latency;
+  }
+  else
+  {
+    specs.drain_latency = 0;
+  }
+
   return specs;
 }
 
@@ -286,6 +307,8 @@ void ReductionTreeNetwork::Print(std::ostream& out) const
   if (specs_.wire_energy.Get() != 0.0) {
     out << indent << indent << "Wire energy     : " << specs_.wire_energy << " pJ/b/mm" << std::endl;
   }
+  out << indent << indent << "Fill latency     : " << stats_.fill_latency << std::endl;
+  out << indent << indent << "Drain latency     : " << stats_.drain_latency << std::endl;
 
 
   out << std::endl;
@@ -325,6 +348,28 @@ void ReductionTreeNetwork::Print(std::ostream& out) const
 std::uint64_t ReductionTreeNetwork::WordBits() const
 {
   return 0;
+}
+
+std::uint64_t ReductionTreeNetwork::FillLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+std::uint64_t ReductionTreeNetwork::DrainLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+void ReductionTreeNetwork::SetFillLatency(std::uint64_t fill_latency)
+{
+  stats_.fill_latency = fill_latency;
+}
+
+void ReductionTreeNetwork::SetDrainLatency(std::uint64_t drain_latency)
+{
+  stats_.drain_latency = drain_latency;
 }
 
 /*

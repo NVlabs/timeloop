@@ -46,6 +46,39 @@ void IndexFactorizationSpace::Init(const problem::Workload &workload,
                                    std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
                                    std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors)
 {
+  // Sanity check on input pre-factors.
+  for (auto& prefactor_set: prefactors)
+  {
+    auto dim = prefactor_set.first;
+
+    unsigned long product = 1;
+    for (auto& prefactor: prefactor_set.second)
+    {
+      product *= prefactor.second;
+    }
+
+    unsigned long bound = workload.GetFlattenedBound(dim);
+
+    if ((bound % product) != 0)
+    {
+      std::cerr << "ERROR: IndexFactorization: workload bound "
+                << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " = "
+                << bound << " is not divisible by product of user-provided constraint factors = "
+                << product << std::endl;
+      std::exit(1);
+    }
+
+    if ((cofactors_order.at(dim) == prefactor_set.second.size()) && product != bound)
+    {
+      std::cerr << "ERROR: IndexFactorization: product of fully-user-provided constraint factors "
+                << product << " is not equal to workload bound "
+                << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " = "
+                << bound << std::endl;
+      std::exit(1);
+    }
+  }  
+
+  // Create factor sets.
   problem::PerFlattenedDimension<uint128_t> counter_base;
   for (int idim = 0; idim < int(problem::GetShape()->NumFlattenedDimensions); idim++)
   {
@@ -107,24 +140,32 @@ void PermutationSpace::Init(uint64_t num_levels)
 
 void PermutationSpace::InitLevelCanonical(uint64_t level)
 {
-  InitLevel(level, canonical_pattern_);
+  InitLevel(level, canonical_pattern_, std::vector<problem::Shape::FlattenedDimensionID>());
 }
 
-void PermutationSpace::InitLevel(uint64_t level, std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
+void PermutationSpace::InitLevel(uint64_t level,
+                                 std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
+                                 std::vector<problem::Shape::FlattenedDimensionID> user_suffix,
                                  std::vector<problem::Shape::FlattenedDimensionID> pruned_dimensions)
 {
   assert(level < num_levels_);
 
   // Merge pruned dimensions with user prefix, with all unit factors at the
   // beginning followed by user-specified non-unit factors, i.e.,
-  // <unit-factors><user-specified-non-unit-factors><free-non-unit-factors>
-  // <unit-factors><user-specified-non-unit-factors> = baked_prefix
-  // <free-non-unit-factors> = permutable_suffix
+  // <unit-factors><user-specified-non-unit-prefix><free-non-unit-infix><user-specified-non-unit-suffix>
+  // <unit-factors><user-specified-non-unit-prefix> = baked_prefix
+  // <free-non-unit-infix> = permutable_infix
+  // <user-specified-non-unit-suffix> = baked_suffix
   std::vector<problem::Shape::FlattenedDimensionID> baked_prefix = pruned_dimensions;
+  std::vector<problem::Shape::FlattenedDimensionID> baked_suffix;
 
   for (auto dim : user_prefix)
     if (std::find(pruned_dimensions.begin(), pruned_dimensions.end(), dim) == pruned_dimensions.end())
       baked_prefix.push_back(dim);
+
+  for (auto dim : user_suffix)
+    if (std::find(pruned_dimensions.begin(), pruned_dimensions.end(), dim) == pruned_dimensions.end())
+      baked_suffix.push_back(dim);
 
   std::set<problem::Shape::FlattenedDimensionID> unspecified_dimensions;
   for (unsigned i = 0; i < unsigned(problem::GetShape()->NumFlattenedDimensions); i++)
@@ -133,14 +174,18 @@ void PermutationSpace::InitLevel(uint64_t level, std::vector<problem::Shape::Fla
   for (auto& dim : baked_prefix)
     unspecified_dimensions.erase(dim);
     
-  std::vector<problem::Shape::FlattenedDimensionID> permutable_suffix;
+  for (auto& dim : baked_suffix)
+    unspecified_dimensions.erase(dim);
+    
+  std::vector<problem::Shape::FlattenedDimensionID> permutable_infix;
   for (auto& dim : unspecified_dimensions)
-    permutable_suffix.push_back(dim);
+    permutable_infix.push_back(dim);
 
-  assert(baked_prefix.size() + permutable_suffix.size() == unsigned(problem::GetShape()->NumFlattenedDimensions));
+  assert(baked_prefix.size() + permutable_infix.size() + baked_suffix.size() ==
+         unsigned(problem::GetShape()->NumFlattenedDimensions));
 
-  patterns_[level] = { baked_prefix, permutable_suffix };
-  size_[level] = factoradic_.Factorial(permutable_suffix.size());
+  patterns_[level] = { baked_prefix, permutable_infix, baked_suffix };
+  size_[level] = factoradic_.Factorial(permutable_infix.size());
 }
 
 std::vector<std::vector<problem::Shape::FlattenedDimensionID>>
@@ -151,21 +196,18 @@ PermutationSpace::GetPatterns(uint128_t id)
   for (unsigned level = 0; level < num_levels_; level++)
   {
     auto& pattern = patterns_.at(level);
-    if (pattern.baked_prefix.size() == unsigned(problem::GetShape()->NumFlattenedDimensions))
-    {
-      retval.push_back(pattern.baked_prefix);
-    }
-    else
-    {
-      std::vector<problem::Shape::FlattenedDimensionID> permuted_suffix = pattern.permutable_suffix;
-      factoradic_.Permute(permuted_suffix.data(), permuted_suffix.size(),
-                          std::uint64_t(id % size_.at(level)));
-      id = id / size_.at(level);
-      std::vector<problem::Shape::FlattenedDimensionID> final_pattern = pattern.baked_prefix;
-      final_pattern.insert(final_pattern.end(), permuted_suffix.begin(), permuted_suffix.end());
+    std::vector<problem::Shape::FlattenedDimensionID> final_pattern = pattern.baked_prefix;
 
-      retval.push_back(final_pattern);
+    if (pattern.permutable_infix.size() > 0)
+    {
+      std::vector<problem::Shape::FlattenedDimensionID> permuted_infix = pattern.permutable_infix;
+      factoradic_.Permute(permuted_infix.data(), permuted_infix.size(), std::uint64_t(id % size_.at(level)));
+      id = id / size_.at(level);
+      final_pattern.insert(final_pattern.end(), permuted_infix.begin(), permuted_infix.end());
     }
+
+    final_pattern.insert(final_pattern.end(), pattern.baked_suffix.begin(), pattern.baked_suffix.end());
+    retval.push_back(final_pattern);
   }
 
   return retval;

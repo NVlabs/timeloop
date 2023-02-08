@@ -552,6 +552,8 @@ std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFact
   std::string buffer;
   if (directive.lookupValue("factors", buffer))
   {
+    buffer = buffer.substr(0, buffer.find("#"));
+
     std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)(,([0-9]+))?", std::regex::extended);
     std::smatch sm;
     std::string str = std::string(buffer);
