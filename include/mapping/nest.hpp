@@ -85,7 +85,6 @@ class Nest
 
   bool operator == (const Nest& n) const; 
 
-  Descriptor GetLoop(unsigned loop_level);
   void AddLoop(Descriptor descriptor);
   void AddLoop(problem::Shape::FlattenedDimensionID dimension, int start, int end, int stride,
                spacetime::Dimension spacetime_dimension, int residual_end = 0);

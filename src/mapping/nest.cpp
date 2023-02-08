@@ -66,12 +66,6 @@ bool Nest::operator == (const Nest& n) const
           storage_tiling_boundaries == n.storage_tiling_boundaries);
 }
 
-Descriptor Nest::GetLoop(unsigned loop_level)
-{
-  std::cout << "loop size: " << loops.size() << std::endl;
-  return loops.at(loop_level);
-}
-
 void Nest::AddLoop(Descriptor descriptor)
 {
   loops.push_back(descriptor);

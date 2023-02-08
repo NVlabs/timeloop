@@ -433,7 +433,7 @@ bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::str
 
   if (LNode) {
     assert(LNode->lookup(name).isArray());
-    for (const std::string& m: LNode->lookup(name))
+    for (const std::string m: LNode->lookup(name))
     {
       vectorValue.push_back(m);
     }
@@ -513,7 +513,7 @@ CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
 bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
   if (LNode) {
     assert(isArray());
-    for (const std::string& m: *LNode)
+    for (const std::string m: *LNode)
     {
       vectorValue.push_back(m);
     }
