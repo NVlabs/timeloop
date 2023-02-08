@@ -26,8 +26,8 @@ struct For
 {
   std::string iterator_name;
   problem::Shape::FlattenedDimensionID op_dim;
-  std::optional<IslAff> begin;
-  std::optional<IslAff> end;
+  std::optional<size_t> begin;
+  std::optional<size_t> end;
 
   NodeID id;
   std::optional<NodeID> child;
@@ -44,8 +44,8 @@ struct ParFor
   std::string iterator_name;
   problem::Shape::FlattenedDimensionID op_dim;
   // TODO: missing spacetime_dim
-  std::optional<IslAff> begin;
-  std::optional<IslAff> end;
+  std::optional<size_t> begin;
+  std::optional<size_t> end;
 
   NodeID id;
   NodeID child;
