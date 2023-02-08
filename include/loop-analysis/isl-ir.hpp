@@ -97,10 +97,21 @@ using LogicalBufTransfers = std::map<std::pair<LogicalBuffer, LogicalBuffer>,
  * Converter from mapping to intermediate representation
  *****************************************************************************/
 
-struct NestAnalysisIR
-{
-  
-};
+/**
+ * @brief Compute iteration -> operation map for every branch in mapping
+ * 
+ * @param nest 
+ * @return std::map<mapping::NodeID, IslMap> 
+ */
+BranchTilings TilingFromMapping(const mapping::FusedMapping& mapping);
+
+/**
+ * @brief Compute iteration -> operation map. NodeID is always 0.
+ * 
+ * @param nest 
+ * @return std::map<mapping::NodeID, IslMap> 
+ */
+BranchTilings TilingFromMapping(const Mapping& nest);
 
 /**
  * @brief Infer logical buffer occupancies from fused mapping
