@@ -122,8 +122,12 @@ if not os.path.isdir('../src/pat'):
 # Build the model library.
     
 common_sources = Split("""
+isl-wrapper/ctx-manager.cpp
+isl-wrapper/isl-wrapper.cpp
+loop-analysis/aahr-carve.cpp
 loop-analysis/coordinate-space-tile-info.cpp
 loop-analysis/loop-state.cpp
+loop-analysis/mapping-to-isl.cpp
 loop-analysis/tiling.cpp
 loop-analysis/tiling-tile-info.cpp
 loop-analysis/point.cpp
@@ -131,7 +135,6 @@ loop-analysis/point-set-aahr.cpp
 loop-analysis/point-set-multi-aahr.cpp
 loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
-loop-analysis/aahr-carve.cpp
 sparse-analysis/state.cpp
 sparse-analysis/sparse-analysis.cpp
 sparse-analysis/compute-gs-analyzer.cpp

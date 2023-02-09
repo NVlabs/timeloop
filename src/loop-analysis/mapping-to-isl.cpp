@@ -10,16 +10,17 @@
  */
 
 #include "loop-analysis/isl-ir.hpp"
+#include "isl-wrapper/ctx-manager.hpp"
 
 namespace analysis
 {
 
 /******************************************************************************
- * Local function declarations
+ * Local declarations
  *****************************************************************************/
 
 BranchTilings TilingFromMapping(const mapping::FusedMapping& mapping);
-BranchTilings TilingFromMapping(const Mapping& mapping,
+BranchTilings TilingFromMapping(const loop::Nest& nest,
                                 const problem::Workload& workload);
 
 
@@ -46,13 +47,18 @@ struct TilingCoefTracker
   std::vector<std::vector<std::optional<size_t>>> coefs_;
 };
 
-IslMap TilingCoefTrackerToMap(TilingCoefTracker&& tracker);
+IslMap TilingCoefTrackerToMap(const TilingCoefTracker& tracker);
 
 LogicalBufTiling
 LogicalBufTilingFromMapping(const mapping::FusedMapping& mapping);
 LogicalBufTiling
 LogicalBufTilingFromMapping(const loop::Nest& nest,
                             const problem::Workload& workload);
+
+LogicalBufSkews
+LogicalBufSkewsFromMapping(const mapping::FusedMapping& mapping);
+LogicalBufSkews
+LogicalBufSkewsFromMapping(const loop::Nest& mapping);
 
 std::map<DataSpaceID, IslMap>
 OpsToDSpaceFromEinsum(const problem::Workload& workload);
@@ -67,13 +73,40 @@ OccupanciesFromMapping(const mapping::FusedMapping& mapping,
 {
   auto ops_to_dspace = OpsToDSpaceFromEinsum(workload);
   auto buf_tiling = LogicalBufTilingFromMapping(mapping);
+  auto buf_skew = LogicalBufSkewsFromMapping(mapping);
 
   LogicalBufOccupancies result;
   for (auto& [buf, tiling] : buf_tiling)
   {
     result.emplace(std::make_pair(
       buf,
-      ApplyRange(std::move(tiling), IslMap(ops_to_dspace.at(buf.dspace_id)))
+      ApplyRange(
+        std::move(buf_skew.at(buf)),
+        ApplyRange(std::move(tiling), IslMap(ops_to_dspace.at(buf.dspace_id)))
+      )
+    ));
+  }
+
+  return result;
+}
+
+LogicalBufOccupancies
+OccupanciesFromMapping(const loop::Nest& mapping,
+                       const problem::Workload& workload)
+{
+  auto ops_to_dspace = OpsToDSpaceFromEinsum(workload);
+  auto buf_tiling = LogicalBufTilingFromMapping(mapping, workload);
+  auto buf_skew = LogicalBufSkewsFromMapping(mapping);
+
+  LogicalBufOccupancies result;
+  for (auto& [buf, tiling] : buf_tiling)
+  {
+    result.emplace(std::make_pair(
+      buf,
+      ApplyRange(
+        std::move(buf_skew.at(buf)),
+        ApplyRange(std::move(tiling), IslMap(ops_to_dspace.at(buf.dspace_id)))
+      )
     ));
   }
 
@@ -84,9 +117,7 @@ OccupanciesFromMapping(const mapping::FusedMapping& mapping,
  * Local function implementations
  *****************************************************************************/
 
-BranchTilings
-TilingFromMapping(const mapping::FusedMapping& mapping,
-                  const problem::Workload& workload)
+BranchTilings TilingFromMapping(const mapping::FusedMapping& mapping)
 {
   BranchTilings result;
   for (const auto& path : GetPaths(mapping))
@@ -123,10 +154,31 @@ TilingFromMapping(const mapping::FusedMapping& mapping,
     {
       result.emplace(std::make_pair(
         leaf_id,
-        TilingCoefTrackerToMap(std::move(coef_tracker))
+        TilingCoefTrackerToMap(coef_tracker)
       ));
     }
   }
+
+  return result;
+}
+
+BranchTilings
+TilingFromMapping(const loop::Nest& nest)
+{
+  const auto& loops = nest.loops;
+
+  TilingCoefTracker coef_tracker;
+  for (const auto& loop : loops)
+  {
+    const auto& ospace_dim = loop.dimension;
+    coef_tracker.NewIterDim(ospace_dim, loop.end);
+  }
+
+  BranchTilings result;
+  result.emplace(std::make_pair(
+    0,
+    TilingCoefTrackerToMap(coef_tracker)
+  ));
 
   return result;
 }
@@ -143,8 +195,7 @@ BufferIterLevelsFromMapping(const loop::Nest& nest,
 
   // TODO: for now, buffer id in loop nest is the arch level
   BufferID arch_level = 0;
-  auto loop_idx = 0;
-  for (const auto& loop : nest.loops)
+  for (std::size_t loop_idx = 0; loop_idx < nest.loops.size(); ++loop_idx)
   {
     if (tiling_boundaries.find(loop_idx) != tiling_boundaries.end())
     {
@@ -227,11 +278,10 @@ LogicalBufTilingFromMapping(const mapping::FusedMapping& mapping)
 }
 
 LogicalBufTiling
-LogicalBufTilingFromMapping(const Mapping& mapping,
+LogicalBufTilingFromMapping(const loop::Nest& nest,
                             const problem::Workload& workload)
 {
-  const auto& nest = mapping.complete_loop_nest;
-  auto branch_tiling = TilingFromMapping(mapping, workload);
+  auto branch_tiling = TilingFromMapping(nest, workload);
   auto buf_to_iter_level = BufferIterLevelsFromMapping(nest, workload);
 
   LogicalBufTiling result;
@@ -259,7 +309,7 @@ OpsToDSpaceFromEinsum(const problem::Workload& workload)
     const auto dspace_order = workload_shape.DataSpaceOrder.at(dspace_id);
     const auto& projection = workload_shape.Projections.at(dspace_id);
 
-    auto space = IslSpace::Alloc(gCtx,
+    auto space = IslSpace::Alloc(GetIslCtx(),
                                  0,
                                  workload_shape.NumFactorizedDimensions,
                                  dspace_order);
@@ -295,8 +345,10 @@ OpsToDSpaceFromEinsum(const problem::Workload& workload)
         multi_aff.SetAff(dspace_dim, std::move(aff));
       }
     }
-    dspace_id_to_ospace_to_dspace[dspace_id] =
-        IslMap::FromMultiAff(std::move(multi_aff));
+    dspace_id_to_ospace_to_dspace.emplace(std::make_pair(
+      dspace_id,
+      IslMap::FromMultiAff(std::move(multi_aff))
+    ));
   }
 
   return dspace_id_to_ospace_to_dspace;

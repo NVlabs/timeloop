@@ -72,7 +72,7 @@ using LogicalBufDataDistributions = std::map<LogicalBuffer, DataDistribution>;
  * The default is inferred from the mapping.
  * 
  */
-using Skew = IslMap;
+using Skew = TaggedMap<IslMap, spacetime::Dimension>;
 using LogicalBufSkews = std::map<LogicalBuffer, Skew>;
 
 /**
@@ -105,7 +105,8 @@ using LogicalBufTransfers = std::map<std::pair<LogicalBuffer, LogicalBuffer>,
  * @return LogicalBufOccupancies 
  */
 LogicalBufOccupancies
-OccupanciesFromMapping(const mapping::FusedMapping mapping);
+OccupanciesFromMapping(const mapping::FusedMapping mapping,
+                       const problem::Workload& workload);
 
 /**
  * @brief Infer logical buffer occupancies from loop nest mapping
@@ -113,6 +114,8 @@ OccupanciesFromMapping(const mapping::FusedMapping mapping);
  * @param nest 
  * @return LogicalBufOccupancies 
  */
-LogicalBufOccupancies OccupanciesFromMapping(const Mapping& nest);
+LogicalBufOccupancies
+OccupanciesFromMapping(const loop::Nest& nest,
+                       const problem::Workload& workload);
 
 };
