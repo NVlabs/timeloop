@@ -16,6 +16,13 @@ struct IslCtx {
   IslCtx(const IslCtx&) = delete;
   IslCtx(IslCtx&& other) : data(other.data) { other.data = nullptr; }
 
+  IslCtx& operator=(IslCtx&& other)
+  {
+    data = other.data;
+    other.data = nullptr;
+    return *this;
+  }
+
   ~IslCtx() {
     if (data) {
       isl_ctx_free(data);
@@ -182,46 +189,17 @@ struct IslSet {
 };
 
 
-IslSpace IslSpaceDomain(IslSpace&& space) {
-  return IslSpace(isl_space_domain(space.data));
-}
+IslSpace IslSpaceDomain(IslSpace&& space);
 
-IslMap IslMapReverse(IslMap&& map) {
-  return IslMap(isl_map_reverse(map.data));
-}
+IslMap IslMapReverse(IslMap&& map);
 
 #define DEFINE_ISL_BINARY_OP(NAME)            \
   template<typename T>                        \
-  T NAME(T&& arg1, T&& arg2)                  \
-  {                                           \
-    throw std::logic_error("unimplemented");  \
-  }
-
-#define ISL_BINARY_OP_IMPL(NAME, OP, TYPE)        \
-  TYPE NAME(TYPE&& map1, TYPE&& map2)             \
-  {                                               \
-    auto result = TYPE(OP(map1.data, map2.data)); \
-    map1.data = nullptr;                          \
-    map2.data = nullptr;                          \
-    return result;                                \
-  }
-
-#define ISL_BASIC_MAP_BINARY_OP_IMPL(NAME, SHORT_OP) \
-  ISL_BINARY_OP_IMPL(NAME, isl_basic_map_ ## SHORT_OP, IslBasicMap)
-
-#define ISL_MAP_BINARY_OP_IMPL(NAME, SHORT_OP) \
-  ISL_BINARY_OP_IMPL(NAME, isl_map_ ## SHORT_OP, IslMap)
-
-#define ISL_BOTH_MAP_BINARY_OP_IMPL(NAME, SHORT_OP) \
-  ISL_BASIC_MAP_BINARY_OP_IMPL(NAME, SHORT_OP)      \
-  ISL_MAP_BINARY_OP_IMPL(NAME, SHORT_OP)
+  T NAME(T&& arg1, T&& arg2);
 
 DEFINE_ISL_BINARY_OP(ApplyRange)
-ISL_BOTH_MAP_BINARY_OP_IMPL(ApplyRange, apply_range)
 
 DEFINE_ISL_BINARY_OP(Subtract)
-ISL_BINARY_OP_IMPL(Subtract, isl_map_subtract, IslMap)
-ISL_BINARY_OP_IMPL(Subtract, isl_set_subtract, IslSet)
 
 IslMap ProjectDims(IslMap&& map, isl_dim_type dim_type, size_t first,
                    size_t n);

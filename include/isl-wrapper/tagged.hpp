@@ -1,12 +1,15 @@
 #pragma once
 
 #include <vector>
+#include <stdexcept>
+
+#include <isl/space.h>
 
 template<typename T>
 class TaggedMapDimIterator
 {
  public:
-  std::pair<size_t, T> operator*()
+  std::pair<std::size_t, T> operator*()
   {
     return std::make_pair(dim_, *iterator_);
   }
@@ -27,11 +30,11 @@ class TaggedMapDimIterator
   using BaseIter = typename std::vector<T>::iterator;
 
   BaseIter iterator_;
-  size_t dim_;
-  size_t size_;
+  std::size_t dim_;
+  std::size_t size_;
 
   TaggedMapDimIterator(const BaseIter& iter,
-                       size_t start)
+                       std::size_t start)
   : iterator_(iter), dim_(start) {}
 
   static TaggedMapDimIterator start(std::vector<T>& vec)
@@ -49,7 +52,7 @@ template<typename T>
 class ReverseTaggedMapDimIterator
 {
  public:
-  std::pair<size_t, T> operator*()
+  std::pair<std::size_t, T> operator*()
   {
     return std::make_pair(dim_, *iterator_);
   }
@@ -70,11 +73,11 @@ class ReverseTaggedMapDimIterator
   using BaseIter = typename std::vector<T>::reverse_iterator;
 
   BaseIter iterator_;
-  size_t dim_;
-  size_t size_;
+  std::size_t dim_;
+  std::size_t size_;
 
   ReverseTaggedMapDimIterator(const BaseIter& iter,
-                              size_t start)
+                              std::size_t start)
   : iterator_(iter), dim_(start) {}
 
   static ReverseTaggedMapDimIterator start(std::vector<T>& vec)
@@ -138,11 +141,13 @@ struct TaggedMap
   TaggedMapDimIterator<OutTag> out_rend();
 
 
-  bool InvolvesDims(isl_dim_type dim_type, size_t first, size_t n) const
+  bool InvolvesDims(isl_dim_type dim_type,
+                    std::size_t first,
+                    std::size_t n) const
   {
     return map.InvolvesDims(dim_type, first, n);
   }
-  size_t NumDims(isl_dim_type dim_type) const
+  std::size_t NumDims(isl_dim_type dim_type) const
   {
     return map.NumDims(dim_type);
   }
@@ -179,8 +184,8 @@ template<typename MapT, typename InTagT, typename OutTagT>
 TaggedMap<MapT, InTagT, OutTagT>
 ProjectDims(TaggedMap<MapT, InTagT, OutTagT>&& map,
             isl_dim_type dim_type,
-            size_t first,
-            size_t n)
+            std::size_t first,
+            std::size_t n)
 {
   if (dim_type == isl_dim_in)
   {

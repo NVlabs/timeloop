@@ -204,12 +204,6 @@ class NestAnalysis
   std::vector<unsigned> time_stamp_;
   std::vector<unsigned> space_stamp_;
 
-  // LoopTree stuff.
-  isl_set* iter_set_ = nullptr;
-  isl_map* iter_to_ops_ = nullptr;
-  std::map<problem::Shape::DataSpaceID, isl_map*> dspace_id_to_ospace_to_dspace_;
-  std::map<problem::Shape::DataSpaceID, std::set<problem::Shape::FactorizedDimensionID>> dspace_id_to_relevant_dims_;
-
   // Internal helper methods.
   void ComputeWorkingSets();
 
