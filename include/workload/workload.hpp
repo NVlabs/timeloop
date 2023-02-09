@@ -40,9 +40,6 @@
 namespace problem
 {
 
-// TODO: Allow multi-kernel workload
-typedef size_t KernelID;
-
 // ======================================== //
 //              Shape instance              //
 // ======================================== //
@@ -68,7 +65,7 @@ class Workload
   typedef std::map<Shape::FlattenedDimensionID, Coordinate> FlattenedBounds;
   typedef std::map<Shape::CoefficientID, int> Coefficients;
   typedef std::map<Shape::DataSpaceID, std::shared_ptr<DensityDistribution>> Densities;
-  
+
  protected:
   FactorizedBounds factorized_bounds_;
   FlattenedBounds flattened_bounds_;

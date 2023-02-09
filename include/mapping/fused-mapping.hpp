@@ -6,6 +6,7 @@
 
 #include "isl-wrapper/isl-wrapper.hpp"
 #include "workload/workload.hpp"
+#include "workload/fused-workload.hpp"
 
 namespace mapping
 {
@@ -73,7 +74,7 @@ struct Storage
 
 struct Compute
 {
-  problem::KernelID kernel;
+  problem::EinsumID kernel;
   /**
    * @brief An explicit tiling specifiction. E.g., [p_1, p_0] -> [4*p_1+p_0]
    * 
@@ -84,7 +85,7 @@ struct Compute
   NodeID id;
 
   Compute(const NodeID& id,
-          const problem::KernelID& kernel,
+          const problem::EinsumID& einsum,
           const std::optional<IslPwMultiAff>&& tiling_spec);
 };
 
