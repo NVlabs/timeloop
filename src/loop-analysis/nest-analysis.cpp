@@ -45,6 +45,7 @@
 //        limited to the ComputeNetworkLinkTransfers() function.
 
 #include "util/misc.hpp"
+#include "isl-wrapper/ctx-manager.hpp"
 #include "isl-wrapper/isl-wrapper.hpp"
 #include "isl-wrapper/tagged.hpp"
 #include "loop-analysis/isl-ir.hpp"
@@ -86,9 +87,6 @@ bool gEnableImperfectCycleCount = false;
 
 namespace analysis
 {
-
-thread_local auto gCtx = IslCtx();
-
 using Fill = TaggedMap<IslMap, spacetime::Dimension>;
 using LogicalBufFills = std::map<LogicalBuffer, Fill>;
 
@@ -120,8 +118,8 @@ TemporalReuseAnalysis(LogicalBufOccupancies&& occupancies);
 
 struct SpatialReuseInfo
 {
-  LinkTransfers link_transfers;
-  Multicasts multicasts;
+  LinkTransferInfo link_transfer_info;
+  MulticastInfo multicast_info;
 };
 
 SpatialReuseInfo SpatialReuseAnalysis(LogicalBufFills&&,
@@ -203,8 +201,8 @@ SpatialReuseAnalysis(LogicalBufFills&& fills,
   );
 
   return SpatialReuseInfo{
-    .link_transfers = std::move(link_transfer_info.link_transfers),
-    .multicasts = std::move(multicast_info.multicasts)
+    .link_transfer_info = std::move(link_transfer_info),
+    .multicast_info = std::move(multicast_info)
   };
 }
 
@@ -263,201 +261,6 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
   gResetOnStrideChange = !problem::GetShape()->UsesFlattening;
   
   // LoopTree
-  std::tie(dspace_id_to_relevant_dims_, dspace_id_to_ospace_to_dspace_)
-      = OpsToDSpaceFromWorkload(*wc);
-  iter_to_ops_ = IterToOpsFromNest(*nest, *wc);
-  iter_set_ = IterSetFromNest(*nest, *wc);
-  auto occupancies = OccupanciesFromNest(*nest);
-}
-
-
-SpaceTimeToIter SpaceTimeToIterFromNest(const loop::Nest& nest, const problem::Workload& workload)
-{
-  const auto& loops = nest.loops;
-  size_t n_loops = loops.size();
-  const auto& workload_shape = *workload.GetShape();
-  const auto& ospace_dim_id_to_name = workload_shape.FlattenedDimensionIDToName;
-  std::set<decltype(nest.storage_tiling_boundaries)::value_type>
-    tiling_boundaries(nest.storage_tiling_boundaries.begin(),
-                      nest.storage_tiling_boundaries.end());
-  SpaceTimeToIter result;
-
-  // The space and domain space for the map needs to be created first
-  // TODO: there must be a way to consolidate this and the other space
-  //       generation code
-  auto space = isl_space_alloc(gCtx,
-                               0,
-                               n_loops,
-                               n_loops);
-
-  std::map<problem::Shape::FlattenedDimensionID, size_t> ospace_dim_to_iter_idx;
-  for (const auto& [ospace_dim, _] : ospace_dim_id_to_name)
-  {
-    ospace_dim_to_iter_idx[ospace_dim] = 0;
-  }
-  size_t loop_idx = 0;
-  for (const auto& loop : loops)
-  {
-    const auto& ospace_dim = loop.dimension;
-    auto iter_dim_name = ospace_dim_id_to_name.at(ospace_dim) + "_"
-        + std::to_string(ospace_dim_to_iter_idx.at(ospace_dim));
-    ospace_dim_to_iter_idx.at(ospace_dim) += 1;
-    space = isl_space_set_dim_name(space, isl_dim_in, loop_idx, iter_dim_name.c_str());
-    loop_idx += 1;
-  }
-  auto domain_space = isl_space_domain(isl_space_copy(space));
-
-  std::vector<size_t> x_loop_indices;
-  std::vector<size_t> y_loop_indices;
-  std::vector<size_t> t_loop_indices;
-
-  unsigned arch_level = 0;
-  loop_idx = 0;
-  for (const auto& loop : loops)
-  {
-    if (loop.spacetime_dimension == spacetime::Dimension::SpaceX)
-    {
-      x_loop_indices.push_back(loop_idx);
-    }
-    else if (loop.spacetime_dimension == spacetime::Dimension::SpaceY)
-    {
-      y_loop_indices.push_back(loop_idx);
-    }
-    else if (loop.spacetime_dimension == spacetime::Dimension::Time)
-    {
-      t_loop_indices.push_back(loop_idx);
-    }
-    else
-    {
-      throw std::logic_error("unreachable");
-    }
-
-    if (tiling_boundaries.find(loop_idx) != tiling_boundaries.end())
-    {
-      std::map<problem::Shape::DataSpaceID,
-               SpaceTimeToIter::LogicalBufferLevel> levels;
-      for (const auto& [dspace_id, _] : workload_shape.DataSpaceIDToName)
-      {
-        levels[dspace_id] = SpaceTimeToIter::LogicalBufferLevel
-        {
-          .arch_level = arch_level,
-          .dspace_id = dspace_id,
-          .spatial_levels = {x_loop_indices.size(), y_loop_indices.size()},
-          .temporal_level = t_loop_indices.size()
-        };
-      }
-      result.buffer_levels.push_back(levels);
-      arch_level += 1;
-    }
-
-    loop_idx += 1;
-  }
-
-  auto multi_aff = isl_multi_aff_zero(space);
-  loop_idx = 0;
-  for (const auto& x_loop_idx : x_loop_indices)
-  {
-    multi_aff = isl_multi_aff_set_aff(
-      multi_aff,
-      loop_idx,
-      isl_aff_set_coefficient_si(
-        isl_aff_zero_on_domain_space(isl_space_copy(domain_space)),
-        isl_dim_in,
-        x_loop_idx,
-        1));
-    ++loop_idx;
-  }
-  for (const auto& y_loop_idx : y_loop_indices)
-  {
-    multi_aff = isl_multi_aff_set_aff(
-      multi_aff,
-      loop_idx,
-      isl_aff_set_coefficient_si(
-        isl_aff_zero_on_domain_space(isl_space_copy(domain_space)),
-        isl_dim_in,
-        y_loop_idx,
-        1));
-    ++loop_idx;
-  }
-  for (const auto& t_loop_idx : t_loop_indices)
-  {
-    multi_aff = isl_multi_aff_set_aff(
-      multi_aff,
-      loop_idx,
-      isl_aff_set_coefficient_si(
-        isl_aff_zero_on_domain_space(isl_space_copy(domain_space)),
-        isl_dim_in,
-        t_loop_idx,
-        1));
-    ++loop_idx;
-  }
-
-  result.space_time_to_iter = isl_map_reverse(isl_map_intersect_domain(
-      isl_map_from_multi_aff(multi_aff),
-      IterSetFromNest(nest, workload)
-    ));
-  result.s_levels.push_back(x_loop_indices.size());
-  result.s_levels.push_back(y_loop_indices.size());
-  result.t_levels = t_loop_indices.size();
-
-  return result;
-}
-
-isl_set* IterSetFromNest(const loop::Nest& nest, const problem::Workload& workload)
-{
-  const auto& loops = nest.loops;
-  size_t n_loops = loops.size();
-  const auto& workload_shape = *workload.GetShape();
-  const auto& ospace_dim_id_to_name = workload_shape.FlattenedDimensionIDToName;
-
-  auto space = isl_space_set_alloc(gCtx,
-                                   0,
-                                   n_loops);
-
-  std::map<problem::Shape::FlattenedDimensionID, size_t> ospace_dim_to_iter_idx;
-  for (const auto& [ospace_dim, _] : ospace_dim_id_to_name)
-  {
-    ospace_dim_to_iter_idx[ospace_dim] = 0;
-  }
-  size_t loop_idx = 0;
-  for (const auto& loop : loops)
-  {
-    const auto& ospace_dim = loop.dimension;
-    auto iter_dim_name = ospace_dim_id_to_name.at(ospace_dim) + "_"
-        + std::to_string(ospace_dim_to_iter_idx.at(ospace_dim));
-    ospace_dim_to_iter_idx.at(ospace_dim) += 1;
-    space = isl_space_set_dim_name(space, isl_dim_set, loop_idx, iter_dim_name.c_str());
-    loop_idx += 1;
-  }
-
-  auto iter_set = isl_set_universe(space);
-  loop_idx = 0;
-  for (const auto& loop : loops)
-  {
-    auto greater_than = isl_constraint_alloc_inequality(
-                        isl_local_space_from_space(
-                        isl_set_get_space(iter_set)));
-    greater_than = isl_constraint_set_coefficient_si(greater_than,
-                                                     isl_dim_set,
-                                                     loop_idx,
-                                                     1);
-    greater_than = isl_constraint_set_constant_si(greater_than, -loop.start);
-    iter_set = isl_set_add_constraint(iter_set, greater_than);
-
-    auto lower_than = isl_constraint_alloc_inequality(
-                        isl_local_space_from_space(
-                        isl_set_get_space(iter_set)));
-    lower_than = isl_constraint_set_coefficient_si(lower_than,
-                                                   isl_dim_set,
-                                                   loop_idx,
-                                                   -1);
-    lower_than = isl_constraint_set_constant_si(lower_than, loop.end-1);
-    iter_set = isl_set_add_constraint(iter_set, lower_than);
-
-    loop_idx += 1;
-  }
-
-  return iter_set;
 }
 
 //
@@ -648,6 +451,8 @@ void NestAnalysis::ComputeWorkingSets()
     }
     dspace++;
   }
+
+  OccupanciesFromMapping(cached_nest, *workload_);
 
   // Done.
   working_sets_computed_ = true;
