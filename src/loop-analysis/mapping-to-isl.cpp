@@ -148,7 +148,7 @@ BranchTilings TilingFromMapping(const mapping::FusedMapping& mapping)
     {
       result.emplace(std::make_pair(
         leaf_id,
-        IslMap::FromMultiAff(std::move(*explicit_tiling_spec))
+        IslMap(std::move(*explicit_tiling_spec))
       ));
     } else
     {
@@ -347,7 +347,7 @@ OpsToDSpaceFromEinsum(const problem::Workload& workload)
     }
     dspace_id_to_ospace_to_dspace.emplace(std::make_pair(
       dspace_id,
-      IslMap::FromMultiAff(std::move(multi_aff))
+      IslMap(std::move(multi_aff))
     ));
   }
 
