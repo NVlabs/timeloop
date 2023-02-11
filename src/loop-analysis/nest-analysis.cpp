@@ -2424,7 +2424,7 @@ IslMap MapToShifted(IslSpace&& space, size_t pos, int shift)
 {
   auto multi_aff = IslMultiAff::Identity(std::move(space));
   multi_aff.SetAff(pos, std::move(multi_aff.GetAff(pos).SetConstantSi(shift)));
-  return IslMap::FromMultiAff(std::move(multi_aff));
+  return IslMap(std::move(multi_aff));
 }
 
 SpaceTimeToIter Difference(SpaceTimeToIter&& a, SpaceTimeToIter&& b)
