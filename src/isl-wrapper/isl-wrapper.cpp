@@ -71,6 +71,13 @@ IslAff& IslAff::SetConstantSi(int v)
   return *this;
 }
 
+IslMultiAff IslMultiAff::Identity(IslSpace&& space)
+{
+  auto maff = isl_multi_aff_identity(space.data);
+  space.data = nullptr;
+  return IslMultiAff(std::move(maff));
+}
+
 IslMultiAff IslMultiAff::Zero(IslSpace&& space)
 {
   auto maff = isl_multi_aff_zero(space.data);
@@ -134,8 +141,43 @@ IslMap& IslMap::operator=(IslMap&& other)
   return *this;
 }
 
+size_t IslMap::NumDims(isl_dim_type dim_type) const
+{
+  return isl_map_dim(data, dim_type);
+}
+
 IslMap IslMapReverse(IslMap&& map) {
-  return IslMap(isl_map_reverse(map.data));
+  auto new_map = IslMap(isl_map_reverse(map.data));
+  map.data = nullptr;
+  return new_map;
+}
+
+IslMap ProjectDims(IslMap&& map, isl_dim_type dim_type, size_t first, size_t n)
+{
+  auto result = IslMap(isl_map_project_out(map.data, dim_type, first, n));
+  map.data = nullptr;
+  return result;
+}
+
+IslBasicMap ProjectDims(IslBasicMap&& map, isl_dim_type dim_type, size_t first,
+                        size_t n)
+{
+  map.data = isl_basic_map_project_out(map.data, dim_type, first, n);
+  return map;
+}
+IslMap ProjectDimInAfter(IslMap&& map, size_t start)
+{
+  return ProjectDims(std::move(map),
+                     isl_dim_in,
+                     start,
+                     map.NumDims(isl_dim_in) - start);
+}
+IslBasicMap ProjectDimInAfter(IslBasicMap&& map, size_t start)
+{
+  return ProjectDims(std::move(map),
+                     isl_dim_in,
+                     start,
+                     map.NumDims(isl_dim_in) - start);
 }
 
 SWAP_IMPL(IslAff);
