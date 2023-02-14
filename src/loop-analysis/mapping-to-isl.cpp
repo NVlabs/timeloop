@@ -20,8 +20,7 @@ namespace analysis
  *****************************************************************************/
 
 BranchTilings TilingFromMapping(const mapping::FusedMapping& mapping);
-BranchTilings TilingFromMapping(const loop::Nest& nest,
-                                const problem::Workload& workload);
+BranchTilings TilingFromMapping(const loop::Nest& nest);
 
 
 std::vector<std::pair<LogicalBuffer, size_t>> 
@@ -38,13 +37,13 @@ struct TilingCoefTracker
   TilingCoefTracker();
 
   TilingCoefTracker&
-  NewIterDim(const problem::Shape::FlattenedDimensionID& op_dim,
-             const std::optional<size_t>& coef);
+  NewIterDim(size_t op_dim, const std::optional<size_t>& coef);
 
  private:
   friend IslMap TilingCoefTrackerToMap(TilingCoefTracker&& tracker);
 
   std::vector<std::vector<std::optional<size_t>>> coefs_;
+  size_t n_iter_dims_;
 };
 
 IslMap TilingCoefTrackerToMap(const TilingCoefTracker& tracker);
@@ -58,7 +57,8 @@ LogicalBufTilingFromMapping(const loop::Nest& nest,
 LogicalBufSkews
 LogicalBufSkewsFromMapping(const mapping::FusedMapping& mapping);
 LogicalBufSkews
-LogicalBufSkewsFromMapping(const loop::Nest& mapping);
+LogicalBufSkewsFromMapping(const loop::Nest& mapping,
+                           const problem::Workload& workload);
 
 std::map<DataSpaceID, IslMap>
 OpsToDSpaceFromEinsum(const problem::Workload& workload);
@@ -96,7 +96,7 @@ OccupanciesFromMapping(const loop::Nest& mapping,
 {
   auto ops_to_dspace = OpsToDSpaceFromEinsum(workload);
   auto buf_tiling = LogicalBufTilingFromMapping(mapping, workload);
-  auto buf_skew = LogicalBufSkewsFromMapping(mapping);
+  auto buf_skew = LogicalBufSkewsFromMapping(mapping, workload);
 
   LogicalBufOccupancies result;
   for (auto& [buf, tiling] : buf_tiling)
@@ -177,7 +177,7 @@ TilingFromMapping(const loop::Nest& nest)
   BranchTilings result;
   result.emplace(std::make_pair(
     0,
-    TilingCoefTrackerToMap(coef_tracker)
+    TilingCoefTrackerToMap(std::move(coef_tracker))
   ));
 
   return result;
@@ -281,7 +281,7 @@ LogicalBufTiling
 LogicalBufTilingFromMapping(const loop::Nest& nest,
                             const problem::Workload& workload)
 {
-  auto branch_tiling = TilingFromMapping(nest, workload);
+  auto branch_tiling = TilingFromMapping(nest);
   auto buf_to_iter_level = BufferIterLevelsFromMapping(nest, workload);
 
   LogicalBufTiling result;
@@ -291,6 +291,41 @@ LogicalBufTilingFromMapping(const loop::Nest& nest,
       buf,
       ProjectDimInAfter(IslMap(branch_tiling.at(buf.branch_leaf_id)),
                         level)
+    ));
+  }
+
+  return result;
+}
+
+LogicalBufSkews
+LogicalBufSkewsFromMapping(const loop::Nest& nest,  
+                           const problem::Workload& workload)
+{
+  auto buf_to_iter_level = BufferIterLevelsFromMapping(nest, workload);
+
+  LogicalBufSkews result;
+  for (auto& [buf, level] : buf_to_iter_level)
+  {
+    std::vector<spacetime::Dimension> tags;
+    size_t loop_idx = 0;
+    // Hardcoded for now since spacetime::Dimension has SpaceX and SpaceY.
+    // Should be inferred from architecture array spec.
+    for (const auto& loop : nest.loops)
+    {
+      tags.emplace_back(loop.spacetime_dimension);
+      if (loop_idx == level)
+      {
+        break;
+      }
+    }
+    result.emplace(std::make_pair(
+      buf,
+      TaggedMap<IslMap, spacetime::Dimension>(
+        IslMap(
+          IslMultiAff::Identity(IslSpace::Alloc(GetIslCtx(), 0, level, level))
+        ),
+        std::move(tags)
+      )
     ));
   }
 
@@ -352,6 +387,60 @@ OpsToDSpaceFromEinsum(const problem::Workload& workload)
   }
 
   return dspace_id_to_ospace_to_dspace;
+}
+
+TilingCoefTracker::TilingCoefTracker() : coefs_(), n_iter_dims_(0) {}
+
+TilingCoefTracker&
+TilingCoefTracker::NewIterDim(size_t op_dim, const std::optional<size_t>& coef)
+{
+  ++n_iter_dims_;
+
+  if (coefs_.size() < op_dim)
+  {
+    for (size_t i = 0; i < op_dim - coefs_.size(); ++i)
+    {
+      coefs_.emplace_back(n_iter_dims_, 0);
+    }
+  }
+
+  for (auto& dim_coefs : coefs_)
+  {
+    for (size_t i = dim_coefs.size(); i < n_iter_dims_; ++i)
+    {
+      dim_coefs.emplace_back(0);
+    }
+  }
+
+  coefs_.at(op_dim).back() = coef;
+
+  return *this;
+}
+
+IslMap TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
+{
+  auto multi_aff = IslMultiAff::Zero(
+    IslSpace::Alloc(GetIslCtx(),
+                    0,
+                    tracker.n_iter_dims_,
+                    tracker.coefs_.size())
+  );
+
+  for (size_t op_dim = 0; op_dim < tracker.coefs_.size(); ++op_dim)
+  {
+    auto& dim_coefs = tracker.coefs_.at(op_dim);
+    int last_coef = 1;
+    for (size_t iter_dim = 0; iter_dim < dim_coefs.size(); ++iter_dim)
+    {
+      auto& coef = dim_coefs.at(iter_dim);
+      multi_aff.GetAff(op_dim).SetCoefficientSi(isl_dim_in,
+                                                iter_dim,
+                                                last_coef);
+      last_coef *= *coef;
+    }
+  }
+
+  return IslMap(std::move(multi_aff));
 }
 
 };
