@@ -124,6 +124,10 @@ struct IslBasicMap {
   IslBasicMap(const IslBasicMap& other)
       : data(isl_basic_map_copy(other.data)) {}
   IslBasicMap(IslBasicMap&& other) : data(other.data) { data = nullptr; }
+
+  size_t NumDims(isl_dim_type dim_type) const;
+
+  friend void swap(IslBasicMap& map1, IslBasicMap& map2) noexcept;
 };
 
 struct IslMap {
