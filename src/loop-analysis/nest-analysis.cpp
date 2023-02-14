@@ -452,7 +452,11 @@ void NestAnalysis::ComputeWorkingSets()
     dspace++;
   }
 
-  OccupanciesFromMapping(cached_nest, *workload_);
+  auto result = OccupanciesFromMapping(cached_nest, *workload_);
+  for (const auto& [buf, map] : result)
+  {
+    std::cout << map << std::endl;
+  }
 
   // Done.
   working_sets_computed_ = true;

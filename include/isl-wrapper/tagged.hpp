@@ -5,6 +5,37 @@
 
 #include <isl/space.h>
 
+/******************************************************************************
+ * Macros
+ *****************************************************************************/
+#define ISL_TAGGED_MAP_BINARY_OP_IMPL(NAME)                  \
+  template<typename MapT, typename InTagT, typename OutTagT> \
+  TaggedMap<MapT, InTagT, OutTagT>                           \
+  NAME(TaggedMap<MapT, InTagT, OutTagT>&& map1,              \
+       MapT&& map2)                                          \
+  {                                                          \
+    return TaggedMap<MapT, InTagT, OutTagT>(                 \
+      NAME(std::move(map1.map), std::move(map2)),            \
+      std::move(map1.in_tags),                               \
+      std::move(map1.out_tags)                               \
+    );                                                       \
+  }                                                          \
+  template<typename MapT, typename InTagT, typename OutTagT> \
+  TaggedMap<MapT, InTagT, OutTagT>                           \
+  NAME(TaggedMap<MapT, InTagT, OutTagT>&& map1,              \
+       TaggedMap<MapT, InTagT, OutTagT>&& map2)              \
+  {                                                          \
+    return TaggedMap<MapT, InTagT, OutTagT>(                 \
+      NAME(std::move(map1.map), std::move(map2.map)),        \
+      std::move(map1.in_tags),                               \
+      std::move(map1.out_tags)                               \
+    );                                                       \
+  }
+
+/******************************************************************************
+ * Classes
+ *****************************************************************************/
+
 template<typename T>
 class TaggedMapDimIterator
 {
@@ -159,29 +190,13 @@ struct TaggedMap
   }
 };
 
-#define ISL_TAGGED_MAP_BINARY_OP_IMPL(NAME)                  \
-  template<typename MapT, typename InTagT, typename OutTagT> \
-  TaggedMap<MapT, InTagT, OutTagT>                           \
-  NAME(TaggedMap<MapT, InTagT, OutTagT>&& map1,              \
-       MapT&& map2)                                          \
-  {                                                          \
-    return TaggedMap<MapT, InTagT, OutTagT>(                 \
-      NAME(std::move(map1.map), std::move(map2)),            \
-      std::move(map1.in_tags),                               \
-      std::move(map1.out_tags)                               \
-    );                                                       \
-  }                                                          \
-  template<typename MapT, typename InTagT, typename OutTagT> \
-  TaggedMap<MapT, InTagT, OutTagT>                           \
-  NAME(TaggedMap<MapT, InTagT, OutTagT>&& map1,              \
-       TaggedMap<MapT, InTagT, OutTagT>&& map2)              \
-  {                                                          \
-    return TaggedMap<MapT, InTagT, OutTagT>(                 \
-      NAME(std::move(map1.map), std::move(map2.map)),        \
-      std::move(map1.in_tags),                               \
-      std::move(map1.out_tags)                               \
-    );                                                       \
-  }
+template<typename MapT, typename InTagT, typename OutTagT>
+std::ostream&
+operator<<(std::ostream& os, const TaggedMap<MapT, InTagT, OutTagT>& map)
+{
+  os << map.map;
+  return os;
+}
 
 ISL_TAGGED_MAP_BINARY_OP_IMPL(ApplyRange)
 ISL_TAGGED_MAP_BINARY_OP_IMPL(Subtract)

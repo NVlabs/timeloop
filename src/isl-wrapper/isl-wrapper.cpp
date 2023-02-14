@@ -1,8 +1,17 @@
 #include "isl-wrapper/isl-wrapper.hpp"
 
+#include <ostream>
+
 /******************************************************************************
  * Local declarations
  *****************************************************************************/
+
+#define ISL_STREAMOUT_IMPL(TYPE, FUNC)                                        \
+  std::ostream& operator<<(std::ostream& os, const TYPE& obj)                 \
+  {                                                                           \
+    os << FUNC(obj.data);                                                     \
+    return os;                                                                \
+  }
 
 #define ISL_BINARY_OP_IMPL(NAME, OP, TYPE)                                    \
   template<>                                                                  \
@@ -35,13 +44,6 @@
  * Global function implementations
  *****************************************************************************/
 
-IslCtx& IslCtx::operator=(IslCtx&& other)
-{
-  data = other.data;
-  other.data = nullptr;
-  return *this;
-}
-
 IslSpace IslSpace::Alloc(IslCtx& ctx, unsigned nparam, unsigned n_in,
                          unsigned n_out)
 {
@@ -49,7 +51,9 @@ IslSpace IslSpace::Alloc(IslCtx& ctx, unsigned nparam, unsigned n_in,
 }
 
 IslSpace IslSpaceDomain(IslSpace&& space) {
-  return IslSpace(isl_space_domain(space.data));
+  auto result = IslSpace(isl_space_domain(space.data));
+  space.data = nullptr;
+  return result;
 }
 
 IslAff IslAff::ZeroOnDomainSpace(IslSpace&& domain_space)
@@ -179,6 +183,12 @@ IslBasicMap ProjectDimInAfter(IslBasicMap&& map, size_t start)
                      start,
                      map.NumDims(isl_dim_in) - start);
 }
+
+ISL_STREAMOUT_IMPL(IslAff, isl_aff_to_str);
+ISL_STREAMOUT_IMPL(IslMultiAff, isl_multi_aff_to_str);
+ISL_STREAMOUT_IMPL(IslBasicMap, isl_basic_map_to_str);
+ISL_STREAMOUT_IMPL(IslMap, isl_map_to_str);
+ISL_STREAMOUT_IMPL(IslSet, isl_set_to_str);
 
 SWAP_IMPL(IslAff);
 SWAP_IMPL(IslMultiAff);
