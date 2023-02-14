@@ -6,7 +6,7 @@
  * Local declarations
  *****************************************************************************/
 
-thread_local std::optional<IslCtx> gCtx;
+thread_local IslCtx gCtx;
 std::mutex gIslMutex;
 
 /******************************************************************************
@@ -15,15 +15,10 @@ std::mutex gIslMutex;
 
 IslCtx& GetIslCtx()
 {
-  if (!gCtx)
-  {
-    std::lock_guard<std::mutex> lock(gIslMutex);
-    gCtx = IslCtx();
-  }
-  return *gCtx;
+  return gCtx;
 }
 
-const std::unique_lock<std::mutex> GetBarvinokLock()
+const std::unique_lock<std::mutex> GetIslLock()
 {
   return std::unique_lock(gIslMutex, std::try_to_lock);
 }
