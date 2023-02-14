@@ -8,20 +8,28 @@
 #include <isl/set.h>
 #include <isl/space.h>
 
+/******************************************************************************
+ * Macros
+ *****************************************************************************/
+
+#define DEFINE_ISL_BINARY_OP(NAME)                                            \
+  template<typename T>                                                        \
+  T NAME(T&& arg1, T&& arg2);
+
+#define DEFINE_ISL_STREAMOUT(TYPE)                                            \
+  std::ostream& operator<<(std::ostream& os, const TYPE& obj);
+
+/******************************************************************************
+ * Classes
+ *****************************************************************************/
+
 struct IslCtx {
   isl_ctx* data;
 
   IslCtx() : data(isl_ctx_alloc()) {}
-  IslCtx(__isl_take isl_ctx*&& raw) : data(raw) { raw = nullptr; }
-  IslCtx(const IslCtx&) = delete;
-  IslCtx(IslCtx&& other) : data(other.data) { other.data = nullptr; }
-
-  IslCtx& operator=(IslCtx&& other);
+  IslCtx(__isl_take isl_ctx* raw) : data(raw) {}
 
   ~IslCtx() {
-    if (data) {
-      isl_ctx_free(data);
-    }
   }
 };
 
@@ -167,14 +175,15 @@ struct IslSet {
   }
 };
 
+DEFINE_ISL_STREAMOUT(IslAff);
+DEFINE_ISL_STREAMOUT(IslMultiAff);
+DEFINE_ISL_STREAMOUT(IslBasicMap);
+DEFINE_ISL_STREAMOUT(IslMap);
+DEFINE_ISL_STREAMOUT(IslSet);
 
 IslSpace IslSpaceDomain(IslSpace&& space);
 
 IslMap IslMapReverse(IslMap&& map);
-
-#define DEFINE_ISL_BINARY_OP(NAME)                                            \
-  template<typename T>                                                        \
-  T NAME(T&& arg1, T&& arg2);
 
 DEFINE_ISL_BINARY_OP(ApplyRange)
 DEFINE_ISL_BINARY_OP(Subtract)

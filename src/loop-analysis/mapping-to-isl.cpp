@@ -396,12 +396,9 @@ TilingCoefTracker::NewIterDim(size_t op_dim, const std::optional<size_t>& coef)
 {
   ++n_iter_dims_;
 
-  if (coefs_.size() < op_dim)
+  while (coefs_.size() < op_dim + 1)
   {
-    for (size_t i = 0; i < op_dim - coefs_.size(); ++i)
-    {
-      coefs_.emplace_back(n_iter_dims_, 0);
-    }
+    coefs_.emplace_back(n_iter_dims_, 0);
   }
 
   for (auto& dim_coefs : coefs_)
