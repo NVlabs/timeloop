@@ -50,7 +50,7 @@ Mapping::Mapping() :
   // nullptr. FIXME: change to shared_ptr.
 }
 
-Mapping::Mapping(problem::Workload* w) :
+Mapping::Mapping(const problem::Workload* w) :
     workload_(w),
     loop_nest(*w->GetShape()),
     complete_loop_nest(*w->GetShape()),
