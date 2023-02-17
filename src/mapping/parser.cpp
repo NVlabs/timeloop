@@ -64,7 +64,7 @@ loop::Nest::SkewDescriptor ParseUserSkew(config::CompoundConfigNode directive,
 //
 Mapping ParseAndConstruct(config::CompoundConfigNode config,
                           model::Engine::Specs& arch_specs,
-                          problem::Workload& workload)
+                          const problem::Workload& workload)
 {
   arch_props_ = ArchProperties();
   arch_props_.Construct(arch_specs);

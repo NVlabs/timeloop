@@ -43,7 +43,7 @@ using namespace boost::multiprecision;
 class Mapping
 {
  private:
-  problem::Workload* workload_;
+  const problem::Workload* workload_;
 
  public:
   uint128_t id;
@@ -72,7 +72,7 @@ class Mapping
 
  public:
   Mapping();
-  Mapping(problem::Workload* w);
+  Mapping(const problem::Workload* w);
 
   // Formatting, printing, output.
   void FormatAsConstraints(libconfig::Setting& mapspace);
