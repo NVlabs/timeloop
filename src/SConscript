@@ -62,12 +62,12 @@ if str(Platform()) != 'darwin':
 
 # barvinok needs to be before isl because it references isl functions
 if GetOption('with_isl'):
-    env.Append(LIBS = ['barvinok', 'isl', 'ntl', 'pthread', 'polylibgmp'])
+    env.Append(LIBS = ['barvinok', 'isl', 'ntl', 'pthread', 'polylibgmp', 'gmp'])
 
 if GetOption('link_static'):
     print("Using static linking.")
     env.Append(LINKFLAGS = [ '-Wl,--whole-archive', '-static', '-lpthread', '-Wl,--no-whole-archive'])
-    env.Append(LIBS = ['tinfo', 'gmp'])
+    env.Append(LIBS = ['tinfo', 'gpm'])
 else:
     print("Using dynamic linking.")
 
