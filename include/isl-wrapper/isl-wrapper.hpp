@@ -12,18 +12,37 @@
  * Macros
  *****************************************************************************/
 
-#define DEFINE_ISL_BINARY_OP(NAME)                                            \
-  template<typename T>                                                        \
-  T NAME(T&& arg1, T&& arg2);
+#define DEFINE_ISL_BINARY_OP(NAME, RET_T, T1, T2)                             \
+  RET_T NAME(T1&& arg1, T2&& arg2);
 
 #define DEFINE_ISL_STREAMOUT(TYPE)                                            \
   std::ostream& operator<<(std::ostream& os, const TYPE& obj);
+
+#define DEFINE_ISL_COPY_CTR(TYPE, ISL_TYPE)                                   \
+  TYPE(const TYPE& other) : data(isl_ ## ISL_TYPE ## _copy(other.data)) {}
+
+#define DEFINE_ISL_SWAP(TYPE)                                                 \
+  friend void swap(TYPE& obj1, TYPE& obj2) noexcept;
+
+/******************************************************************************
+ * Class Prototypes
+ *****************************************************************************/
+
+struct IslCtx;
+struct IslSpace;
+struct IslAff;
+struct IslMultiAff;
+struct IslPwMultiAff;
+struct IslBasicMap;
+struct IslMap;
+struct IslSet;
 
 /******************************************************************************
  * Classes
  *****************************************************************************/
 
-struct IslCtx {
+struct IslCtx
+{
   isl_ctx* data;
 
   IslCtx() : data(isl_ctx_alloc()) {}
@@ -33,7 +52,8 @@ struct IslCtx {
   }
 };
 
-struct IslSpace {
+struct IslSpace
+{
   isl_space* data;
 
   IslSpace(__isl_take isl_space*&& raw) : data(raw) { raw = nullptr; }
@@ -58,7 +78,24 @@ struct IslSpace {
   }
 };
 
-struct IslAff {
+struct IslVal
+{
+  isl_val* data;
+
+  IslVal() : data(nullptr) {}
+  IslVal(__isl_take isl_val*&& raw) : data(raw) { raw = nullptr; }
+  DEFINE_ISL_COPY_CTR(IslVal, val)
+  IslVal(IslVal&& other) : IslVal() { swap(*this, other); }
+
+  IslVal(long v);
+  IslVal(int v);
+  IslVal(unsigned long v);
+
+  DEFINE_ISL_SWAP(IslVal)
+};
+
+struct IslAff
+{
   isl_aff* data;
 
   IslAff() : data(nullptr) {}
@@ -73,17 +110,20 @@ struct IslAff {
   }
 
   static IslAff ZeroOnDomainSpace(IslSpace&& domain_space);
+  static IslAff ValOnDomainSpace(IslSpace&& domain_space, IslVal&& val);
 
   IslAff& SetCoefficientSi(enum isl_dim_type dim_type, int pos, int v);
   IslAff& SetConstantSi(int v);
 
-  friend void swap(IslAff& aff1, IslAff& aff2) noexcept;
+  DEFINE_ISL_SWAP(IslAff)
 };
 
 struct IslMultiAff {
   isl_multi_aff* data;
 
+  IslMultiAff() : data(nullptr) {}
   IslMultiAff(__isl_take isl_multi_aff*&& raw) : data(raw) { raw = nullptr; }
+  DEFINE_ISL_COPY_CTR(IslMultiAff, multi_aff)
 
   ~IslMultiAff() {
     if (data) {
@@ -92,10 +132,16 @@ struct IslMultiAff {
   }
 
   static IslMultiAff Identity(IslSpace&& space);
+  static IslMultiAff IdentityOnDomainSpace(IslSpace&& space);
   static IslMultiAff Zero(IslSpace&& space);
+
+  IslSpace GetSpace() const;
+  IslSpace GetDomainSpace() const;
 
   IslAff GetAff(size_t pos) const;
   IslMultiAff& SetAff(size_t pos, IslAff&& aff);
+
+  DEFINE_ISL_SWAP(IslMultiAff)
 };
 
 struct IslPwMultiAff
@@ -123,6 +169,8 @@ struct IslPwMultiAff
     data = isl_pw_multi_aff_copy(other.data);
     return *this;
   }
+
+  DEFINE_ISL_SWAP(IslPwMultiAff)
 };
 
 struct IslBasicMap {
@@ -135,7 +183,7 @@ struct IslBasicMap {
 
   size_t NumDims(isl_dim_type dim_type) const;
 
-  friend void swap(IslBasicMap& map1, IslBasicMap& map2) noexcept;
+  DEFINE_ISL_SWAP(IslBasicMap)
 };
 
 struct IslMap {
@@ -153,12 +201,26 @@ struct IslMap {
 
   IslMap& operator=(IslMap&& other);
 
+  IslMap& Coalesce();
+
   IslSpace GetSpace() const;
 
   bool InvolvesDims(isl_dim_type dim_type, size_t first, size_t n) const;
   size_t NumDims(isl_dim_type dim_type) const;
 
-  friend void swap(IslMap& map1, IslMap& map2) noexcept;
+  DEFINE_ISL_SWAP(IslMap)
+};
+
+struct IslBasicSet
+{
+  isl_basic_set* data;
+
+  IslBasicSet() : data(nullptr) {}
+  IslBasicSet(__isl_take isl_basic_set*&& raw) : data(raw) { raw = nullptr; }
+  DEFINE_ISL_COPY_CTR(IslBasicSet, basic_set)
+  IslBasicSet(IslBasicSet&& other) : IslBasicSet() { swap(*this, other); }
+
+  DEFINE_ISL_SWAP(IslBasicSet)
 };
 
 struct IslSet {
@@ -173,6 +235,14 @@ struct IslSet {
       isl_set_free(data);
     }
   }
+
+  static IslSet Universe(IslSpace&& space);
+
+  IslSet& operator=(IslSet&& other);
+
+  IslSet& Coalesce();
+
+  DEFINE_ISL_SWAP(IslSet)
 };
 
 DEFINE_ISL_STREAMOUT(IslAff);
@@ -185,8 +255,15 @@ IslSpace IslSpaceDomain(IslSpace&& space);
 
 IslMap IslMapReverse(IslMap&& map);
 
-DEFINE_ISL_BINARY_OP(ApplyRange)
-DEFINE_ISL_BINARY_OP(Subtract)
+DEFINE_ISL_BINARY_OP(ApplyRange, IslMap, IslMap, IslMap)
+DEFINE_ISL_BINARY_OP(Subtract, IslMap, IslMap, IslMap)
+DEFINE_ISL_BINARY_OP(Intersect, IslMap, IslMap, IslMap)
+DEFINE_ISL_BINARY_OP(Intersect, IslSet, IslSet, IslSet)
+DEFINE_ISL_BINARY_OP(IntersectDomain, IslMap, IslMap, IslSet)
+DEFINE_ISL_BINARY_OP(GeSet, IslSet, IslAff, IslAff)
+DEFINE_ISL_BINARY_OP(LtSet, IslSet, IslAff, IslAff)
+DEFINE_ISL_BINARY_OP(LexGeSet, IslSet, IslMultiAff, IslMultiAff)
+DEFINE_ISL_BINARY_OP(LexLtSet, IslSet, IslMultiAff, IslMultiAff)
 
 IslMap ProjectDims(IslMap&& map, isl_dim_type dim_type, size_t first,
                    size_t n);

@@ -1,4 +1,5 @@
 #include "isl-wrapper/isl-wrapper.hpp"
+#include "isl-wrapper/ctx-manager.hpp"
 
 #include <ostream>
 
@@ -14,12 +15,20 @@
   }
 
 #define ISL_BINARY_OP_IMPL(NAME, OP, TYPE)                                    \
-  template<>                                                                  \
-  TYPE NAME(TYPE&& map1, TYPE&& map2)                                         \
+  TYPE NAME(TYPE&& obj1, TYPE&& obj2)                                         \
   {                                                                           \
-    auto result = TYPE(OP(map1.data, map2.data));                             \
-    map1.data = nullptr;                                                      \
-    map2.data = nullptr;                                                      \
+    auto result = TYPE(OP(obj1.data, obj2.data));                             \
+    obj1.data = nullptr;                                                      \
+    obj2.data = nullptr;                                                      \
+    return result;                                                            \
+  }
+
+#define ISL_BINARY_OP_IMPL_2(NAME, OP, RET_T, T1, T2)                         \
+  RET_T NAME(T1&& obj1, T2&& obj2)                                            \
+  {                                                                           \
+    auto result = RET_T(OP(obj1.data, obj2.data));                            \
+    obj1.data = nullptr;                                                      \
+    obj2.data = nullptr;                                                      \
     return result;                                                            \
   }
 
@@ -33,6 +42,16 @@
   ISL_BASIC_MAP_BINARY_OP_IMPL(NAME, SHORT_OP)                                \
   ISL_MAP_BINARY_OP_IMPL(NAME, SHORT_OP)
 
+#define ISL_BASIC_SET_BINARY_OP_IMPL(NAME, SHORT_OP)                          \
+  ISL_BINARY_OP_IMPL(NAME, isl_basic_set_ ## SHORT_OP, IslBasicSet)
+
+#define ISL_SET_BINARY_OP_IMPL(NAME, SHORT_OP)                                \
+  ISL_BINARY_OP_IMPL(NAME, isl_set_ ## SHORT_OP, IslSet)
+
+#define ISL_BOTH_SET_BINARY_OP_IMPL(NAME, SHORT_OP)                           \
+  ISL_BASIC_SET_BINARY_OP_IMPL(NAME, SHORT_OP)                                \
+  ISL_SET_BINARY_OP_IMPL(NAME, SHORT_OP)
+
 #define SWAP_IMPL(TYPE)                                                       \
   void swap(TYPE& obj1, TYPE& obj2) noexcept                                  \
   {                                                                           \
@@ -41,7 +60,7 @@
   }
 
 /******************************************************************************
- * Global function implementations
+ * Global class methods
  *****************************************************************************/
 
 IslSpace IslSpace::Alloc(IslCtx& ctx, unsigned nparam, unsigned n_in,
@@ -56,10 +75,25 @@ IslSpace IslSpaceDomain(IslSpace&& space) {
   return result;
 }
 
+IslVal::IslVal(long v) : data(isl_val_int_from_ui(GetIslCtx().data, v)) {}
+IslVal::IslVal(int v) : data(isl_val_int_from_ui(GetIslCtx().data, v)) {}
+IslVal::IslVal(unsigned long v) :
+  data(isl_val_int_from_ui(GetIslCtx().data, v))
+{
+}
+
 IslAff IslAff::ZeroOnDomainSpace(IslSpace&& domain_space)
 {
   auto aff = isl_aff_zero_on_domain_space(domain_space.data);
   domain_space.data = nullptr;
+  return IslAff(std::move(aff));
+}
+
+IslAff IslAff::ValOnDomainSpace(IslSpace&& domain_space, IslVal&& val)
+{
+  auto aff = isl_aff_val_on_domain_space(domain_space.data, val.data);
+  domain_space.data = nullptr;
+  val.data = nullptr;
   return IslAff(std::move(aff));
 }
 
@@ -82,11 +116,28 @@ IslMultiAff IslMultiAff::Identity(IslSpace&& space)
   return IslMultiAff(std::move(maff));
 }
 
+IslMultiAff IslMultiAff::IdentityOnDomainSpace(IslSpace&& space)
+{
+  auto maff = isl_multi_aff_identity_on_domain_space(space.data);
+  space.data = nullptr;
+  return IslMultiAff(std::move(maff));
+}
+
 IslMultiAff IslMultiAff::Zero(IslSpace&& space)
 {
   auto maff = isl_multi_aff_zero(space.data);
   space.data = nullptr;
   return IslMultiAff(std::move(maff));
+}
+
+IslSpace IslMultiAff::GetSpace() const
+{
+  return IslSpace(isl_multi_aff_get_space(data));
+}
+
+IslSpace IslMultiAff::GetDomainSpace() const
+{
+  return IslSpace(isl_multi_aff_get_domain_space(data));
 }
 
 IslAff IslMultiAff::GetAff(size_t pos) const
@@ -136,12 +187,13 @@ IslMap::~IslMap() {
 
 IslMap& IslMap::operator=(IslMap&& other)
 {
-  if (data)
-  {
-    isl_map_free(data);
-  }
-  data = other.data;
-  other.data = nullptr;
+  swap(*this, other);
+  return *this;
+}
+
+IslMap& IslMap::Coalesce()
+{
+  data = isl_map_coalesce(data);
   return *this;
 }
 
@@ -149,6 +201,29 @@ size_t IslMap::NumDims(isl_dim_type dim_type) const
 {
   return isl_map_dim(data, dim_type);
 }
+
+IslSet& IslSet::operator=(IslSet&& other)
+{
+  swap(*this, other);
+  return *this;
+}
+
+IslSet IslSet::Universe(IslSpace&& space)
+{
+  auto set = isl_set_universe(space.data);
+  space.data = nullptr;
+  return IslSet(std::move(set));
+}
+
+IslSet& IslSet::Coalesce()
+{
+  data = isl_set_coalesce(data);
+  return *this;
+}
+
+/******************************************************************************
+ * Global function implementations
+ *****************************************************************************/
 
 IslMap IslMapReverse(IslMap&& map) {
   auto new_map = IslMap(isl_map_reverse(map.data));
@@ -190,13 +265,45 @@ ISL_STREAMOUT_IMPL(IslBasicMap, isl_basic_map_to_str);
 ISL_STREAMOUT_IMPL(IslMap, isl_map_to_str);
 ISL_STREAMOUT_IMPL(IslSet, isl_set_to_str);
 
-SWAP_IMPL(IslAff);
-SWAP_IMPL(IslMultiAff);
-SWAP_IMPL(IslPwMultiAff);
-SWAP_IMPL(IslBasicMap);
-SWAP_IMPL(IslMap);
+SWAP_IMPL(IslAff)
+SWAP_IMPL(IslMultiAff)
+SWAP_IMPL(IslPwMultiAff)
+SWAP_IMPL(IslBasicMap)
+SWAP_IMPL(IslMap)
+SWAP_IMPL(IslBasicSet)
+SWAP_IMPL(IslSet)
 
 ISL_BOTH_MAP_BINARY_OP_IMPL(ApplyRange, apply_range)
+ISL_BOTH_MAP_BINARY_OP_IMPL(Intersect, intersect)
+ISL_BOTH_SET_BINARY_OP_IMPL(Intersect, intersect)
+
+ISL_BINARY_OP_IMPL_2(IntersectDomain,
+                     isl_map_intersect_domain,
+                     IslMap,
+                     IslMap,
+                     IslSet)
+
+ISL_BINARY_OP_IMPL_2(GeSet,
+                     isl_aff_ge_set,
+                     IslSet,
+                     IslAff,
+                     IslAff)
+ISL_BINARY_OP_IMPL_2(LtSet,
+                     isl_aff_lt_set,
+                     IslSet,
+                     IslAff,
+                     IslAff)
+
+ISL_BINARY_OP_IMPL_2(LexGeSet,
+                     isl_multi_aff_lex_ge_set,
+                     IslSet,
+                     IslMultiAff,
+                     IslMultiAff)
+ISL_BINARY_OP_IMPL_2(LexLtSet,
+                     isl_multi_aff_lex_lt_set,
+                     IslSet,
+                     IslMultiAff,
+                     IslMultiAff)
 
 ISL_BINARY_OP_IMPL(Subtract, isl_map_subtract, IslMap)
 ISL_BINARY_OP_IMPL(Subtract, isl_set_subtract, IslSet)
