@@ -37,13 +37,14 @@ struct TilingCoefTracker
   TilingCoefTracker();
 
   TilingCoefTracker&
-  NewIterDim(size_t op_dim, const std::optional<size_t>& coef);
+  NewIterDim(size_t op_dim, const std::optional<size_t>& iter_dim_end);
 
  private:
   friend IslMap TilingCoefTrackerToMap(TilingCoefTracker&& tracker);
 
   std::vector<std::vector<std::optional<size_t>>> coefs_;
   size_t n_iter_dims_;
+
 };
 
 IslMap TilingCoefTrackerToMap(const TilingCoefTracker& tracker);
@@ -101,6 +102,10 @@ OccupanciesFromMapping(const loop::Nest& mapping,
   LogicalBufOccupancies result;
   for (auto& [buf, tiling] : buf_tiling)
   {
+    std::cout << "proj: " << ops_to_dspace.at(buf.dspace_id) << std::endl;
+    std::cout << "tiling: " << tiling << std::endl;
+    std::cout << "skew: " << buf_skew.at(buf) << std::endl;
+
     result.emplace(std::make_pair(
       buf,
       ApplyRange(
@@ -197,17 +202,31 @@ BufferIterLevelsFromMapping(const loop::Nest& nest,
   BufferID arch_level = 0;
   for (std::size_t loop_idx = 0; loop_idx < nest.loops.size(); ++loop_idx)
   {
-    if (tiling_boundaries.find(loop_idx) != tiling_boundaries.end())
+    if (tiling_boundaries.find(loop_idx) != tiling_boundaries.end()
+        || loop_idx == 0)
     {
       for (const auto& [dspace_id, _] : workload.GetShape()->DataSpaceIDToName)
-      result.emplace_back(std::make_pair(
-        LogicalBuffer{.buffer_id = arch_level,
-                      .dspace_id = dspace_id,
-                      .branch_leaf_id = 0 },
-      loop_idx));
+      {
+        std::cout << arch_level << ", " << dspace_id << std::endl;
+        result.emplace_back(std::make_pair(
+          LogicalBuffer{.buffer_id = arch_level,
+                        .dspace_id = dspace_id,
+                        .branch_leaf_id = 0 },
+          loop_idx
+        ));
+      }
       ++arch_level;
     }
-    ++ loop_idx;
+  }
+
+  // Last one is compute and the level is defined differently
+  // (under instead of above loop idx)
+  for (auto& [buf, level] : result)
+  {
+    if (buf.buffer_id == arch_level - 1)
+    {
+      ++level;
+    }
   }
 
   return result;
@@ -283,6 +302,8 @@ LogicalBufTilingFromMapping(const loop::Nest& nest,
 {
   auto branch_tiling = TilingFromMapping(nest);
   auto buf_to_iter_level = BufferIterLevelsFromMapping(nest, workload);
+
+  std::cout << branch_tiling.begin()->second << std::endl;
 
   LogicalBufTiling result;
   for (auto& [buf, level] : buf_to_iter_level)
@@ -392,7 +413,8 @@ OpsToDSpaceFromEinsum(const problem::Workload& workload)
 TilingCoefTracker::TilingCoefTracker() : coefs_(), n_iter_dims_(0) {}
 
 TilingCoefTracker&
-TilingCoefTracker::NewIterDim(size_t op_dim, const std::optional<size_t>& coef)
+TilingCoefTracker::NewIterDim(size_t op_dim,
+                              const std::optional<size_t>& iter_dim_end)
 {
   ++n_iter_dims_;
 
@@ -409,35 +431,62 @@ TilingCoefTracker::NewIterDim(size_t op_dim, const std::optional<size_t>& coef)
     }
   }
 
-  coefs_.at(op_dim).back() = coef;
+  coefs_.at(op_dim).back() = iter_dim_end;
 
   return *this;
 }
 
 IslMap TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
 {
-  auto multi_aff = IslMultiAff::Zero(
+  auto eq_maff = IslMultiAff::Zero(
     IslSpace::Alloc(GetIslCtx(),
                     0,
                     tracker.n_iter_dims_,
                     tracker.coefs_.size())
   );
+  auto iter_set = IslSet::Universe(eq_maff.GetDomainSpace());
+  auto identity = IslMultiAff::IdentityOnDomainSpace(eq_maff.GetDomainSpace());
 
   for (size_t op_dim = 0; op_dim < tracker.coefs_.size(); ++op_dim)
   {
     auto& dim_coefs = tracker.coefs_.at(op_dim);
     int last_coef = 1;
-    for (size_t iter_dim = 0; iter_dim < dim_coefs.size(); ++iter_dim)
+
+    auto eq_aff = eq_maff.GetAff(op_dim);
+    for (size_t iter_dim = 0; iter_dim < tracker.n_iter_dims_; ++iter_dim)
     {
-      auto& coef = dim_coefs.at(iter_dim);
-      multi_aff.GetAff(op_dim).SetCoefficientSi(isl_dim_in,
-                                                iter_dim,
-                                                last_coef);
-      last_coef *= *coef;
+      auto& coef_opt = dim_coefs.at(iter_dim);
+      auto& coef = *coef_opt;
+      if (coef != 0)
+      {
+        auto reversed_iter_dim = tracker.n_iter_dims_ - iter_dim - 1;
+        eq_aff.SetCoefficientSi(isl_dim_in,
+                                reversed_iter_dim,
+                                last_coef);
+        iter_set = Intersect(
+          IslSet(iter_set),
+          GeSet(identity.GetAff(reversed_iter_dim),
+                IslAff::ValOnDomainSpace(identity.GetDomainSpace(), IslVal(0)))
+        );
+        iter_set = Intersect(
+          IslSet(iter_set),
+          LtSet(identity.GetAff(reversed_iter_dim),
+                IslAff::ValOnDomainSpace(identity.GetDomainSpace(),
+                                         IslVal(coef)))
+        );
+        last_coef *= coef;
+      }
     }
+    eq_maff.SetAff(op_dim, std::move(eq_aff));
   }
 
-  return IslMap(std::move(multi_aff));
+  std::cout << "eq maff: " << eq_maff << std::endl;
+  std::cout << "iter set: " << iter_set << std::endl;
+
+  auto map = IntersectDomain(IslMap(std::move(eq_maff)), std::move(iter_set));
+  std::cout << "map: " << map << std::endl;
+
+  return map;
 }
 
 };
