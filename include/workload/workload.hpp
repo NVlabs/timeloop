@@ -82,9 +82,6 @@ class Workload
 
  public:
   Workload() {
-    if (workload_alive_) {
-      throw std::runtime_error("Only one Workload instance allowed at any point.");
-    }
     workload_alive_ = true;
     current_shape_ = &shape_;
   }
