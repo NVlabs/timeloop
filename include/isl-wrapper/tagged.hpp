@@ -77,6 +77,9 @@ class TaggedMapDimIterator
   {
     return TaggedMapDimIterator(vec.end(), 0UL);
   }
+
+  template<typename MapT, typename InTagT, typename OutTagT>
+  friend class TaggedMap;
 };
 
 template<typename T>
@@ -88,7 +91,7 @@ class ReverseTaggedMapDimIterator
     return std::make_pair(dim_, *iterator_);
   }
 
-  TaggedMapDimIterator<T>& operator++()
+  ReverseTaggedMapDimIterator<T>& operator++()
   {
     ++iterator_;
     --dim_;
@@ -120,6 +123,9 @@ class ReverseTaggedMapDimIterator
   {
     return ReverseTaggedMapDimIterator(vec.rend(), 0UL);
   }
+
+  template<typename MapT, typename InTagT, typename OutTagT>
+  friend class TaggedMap;
 };
 
 struct NoTag
@@ -164,18 +170,50 @@ struct TaggedMap
     return *this;
   }
 
-  TaggedMap<MapT, InTag, OutTag> Copy() const;
-  TaggedMap<MapT, InTag, OutTag> TagLikeThis(MapT&& map) const;
+  TaggedMap<MapT, InTag, OutTag> Copy() const
+  {
+    return TaggedMap(*this);
+  }
+  TaggedMap<MapT, InTag, OutTag> TagLikeThis(MapT&& map) const
+  {
+    return TaggedMap(std::move(map),
+                     std::vector<InTag>(in_tags),
+                     std::vector<OutTag>(out_tags));
+  }
 
-  TaggedMapDimIterator<InTag> in_begin();
-  TaggedMapDimIterator<InTag> in_end();
-  TaggedMapDimIterator<InTag> in_rbegin();
-  TaggedMapDimIterator<InTag> in_rend();
+  TaggedMapDimIterator<InTag> in_begin()
+  {
+    return TaggedMapDimIterator<InTag>::start(in_tags);
+  }
+  TaggedMapDimIterator<InTag> in_end()
+  {
+    return TaggedMapDimIterator<InTag>::end(in_tags);
+  }
+  ReverseTaggedMapDimIterator<InTag> in_rbegin()
+  {
+    return ReverseTaggedMapDimIterator<InTag>::start(in_tags);
+  }
+  ReverseTaggedMapDimIterator<InTag> in_rend()
+  {
+    return ReverseTaggedMapDimIterator<InTag>::end(in_tags);
+  }
 
-  TaggedMapDimIterator<OutTag> out_begin();
-  TaggedMapDimIterator<OutTag> out_end();
-  TaggedMapDimIterator<OutTag> out_rbegin();
-  TaggedMapDimIterator<OutTag> out_rend();
+  TaggedMapDimIterator<OutTag> out_begin()
+  {
+    return TaggedMapDimIterator<OutTag>::start(out_tags);
+  }
+  TaggedMapDimIterator<OutTag> out_end()
+  {
+    return TaggedMapDimIterator<OutTag>::end(out_tags);
+  }
+  ReverseTaggedMapDimIterator<OutTag> out_rbegin()
+  {
+    return ReverseTaggedMapDimIterator<OutTag>::start(out_tags);
+  }
+  ReverseTaggedMapDimIterator<OutTag> out_rend()
+  {
+    return ReverseTaggedMapDimIterator<OutTag>::end(out_tags);
+  }
 
 
   bool InvolvesDims(isl_dim_type dim_type,
