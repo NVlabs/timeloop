@@ -138,19 +138,21 @@ Fill FillFromOccupancy(Occupancy&& occupancy)
 {
   // Clean uninvolved temporal dims first so we can get delta at lowest
   // involved dim
-  for (auto dim_it = occupancy.in_rbegin(); dim_it != occupancy.in_rend();
-       ++dim_it)
+  bool try_again = true;
+  while (try_again)
   {
-    auto [dim_idx, dim_type] = *dim_it;
-    if (dim_type == spacetime::Dimension::Time
-        && !occupancy.InvolvesDims(isl_dim_in, dim_idx, 1))
+    try_again = false;
+    for (auto dim_it = occupancy.in_rbegin(); dim_it != occupancy.in_rend();
+        ++dim_it)
     {
-      occupancy = ProjectDims(
-        std::move(occupancy),
-        isl_dim_in,
-        dim_idx,
-        1
-      );
+      auto [dim_idx, dim_type] = *dim_it;
+      if (dim_type == spacetime::Dimension::Time
+          && !occupancy.InvolvesDims(isl_dim_in, dim_idx, 1))
+      {
+        occupancy = ProjectDims(std::move(occupancy), isl_dim_in, dim_idx, 1);
+        try_again = true;
+        break;
+      }
     }
   }
 
@@ -452,10 +454,15 @@ void NestAnalysis::ComputeWorkingSets()
     dspace++;
   }
 
-  auto result = OccupanciesFromMapping(cached_nest, *workload_);
-  for (const auto& [buf, map] : result)
+  auto occupancies = OccupanciesFromMapping(cached_nest, *workload_);
+  for (const auto& [buf, map] : occupancies)
   {
-    std::cout << map << std::endl;
+    std::cout << "occ: " << map << std::endl;
+  }
+  auto fills = TemporalReuseAnalysis(std::move(occupancies));
+  for (const auto& [buf, map] : fills)
+  {
+    std::cout << "fills: " << map << std::endl;
   }
 
   // Done.
