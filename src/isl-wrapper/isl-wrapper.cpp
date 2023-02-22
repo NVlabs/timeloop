@@ -197,6 +197,16 @@ IslMap& IslMap::Coalesce()
   return *this;
 }
 
+IslSpace IslMap::GetSpace() const
+{
+  return IslSpace(isl_map_get_space(data));
+}
+
+bool IslMap::InvolvesDims(isl_dim_type dim_type, size_t first, size_t n) const
+{
+  return isl_map_involves_dims(data, dim_type, first, n);
+}
+
 size_t IslMap::NumDims(isl_dim_type dim_type) const
 {
   return isl_map_dim(data, dim_type);
