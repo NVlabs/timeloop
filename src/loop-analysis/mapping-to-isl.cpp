@@ -333,11 +333,12 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
     // Should be inferred from architecture array spec.
     for (const auto& loop : nest.loops)
     {
-      tags.emplace_back(loop.spacetime_dimension);
       if (loop_idx == level)
       {
         break;
       }
+      tags.emplace_back(loop.spacetime_dimension);
+      ++loop_idx;
     }
     result.emplace(std::make_pair(
       buf,
