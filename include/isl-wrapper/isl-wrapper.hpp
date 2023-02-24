@@ -204,6 +204,7 @@ struct IslMap {
   IslMap& Coalesce();
 
   IslSpace GetSpace() const;
+  IslSpace GetDomainSpace() const;
 
   bool InvolvesDims(isl_dim_type dim_type, size_t first, size_t n) const;
   size_t NumDims(isl_dim_type dim_type) const;
