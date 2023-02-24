@@ -201,6 +201,10 @@ IslSpace IslMap::GetSpace() const
 {
   return IslSpace(isl_map_get_space(data));
 }
+IslSpace IslMap::GetDomainSpace() const
+{
+  return IslSpace(isl_space_domain(isl_map_get_space(data)));
+}
 
 bool IslMap::InvolvesDims(isl_dim_type dim_type, size_t first, size_t n) const
 {

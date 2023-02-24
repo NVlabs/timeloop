@@ -2,8 +2,11 @@
 
 #include <vector>
 #include <stdexcept>
+#include <ostream>
 
 #include <isl/space.h>
+
+#include "isl-wrapper/isl-wrapper.hpp"
 
 /******************************************************************************
  * Macros
@@ -62,7 +65,6 @@ class TaggedMapDimIterator
 
   BaseIter iterator_;
   std::size_t dim_;
-  std::size_t size_;
 
   TaggedMapDimIterator(const BaseIter& iter,
                        std::size_t start)
@@ -108,7 +110,6 @@ class ReverseTaggedMapDimIterator
 
   BaseIter iterator_;
   std::size_t dim_;
-  std::size_t size_;
 
   ReverseTaggedMapDimIterator(const BaseIter& iter,
                               std::size_t start)
@@ -131,6 +132,8 @@ class ReverseTaggedMapDimIterator
 struct NoTag
 {
 };
+
+std::ostream& operator<<(std::ostream& os, const NoTag& n);
 
 template<typename MapT, typename InTagT, typename OutTagT = NoTag>
 struct TaggedMap
@@ -168,6 +171,15 @@ struct TaggedMap
     in_tags = std::move(other.in_tags);
     out_tags = std::move(other.out_tags);
     return *this;
+  }
+
+  IslSpace GetDomainSpace() const
+  {
+    return map.GetDomainSpace();
+  }
+  IslSpace GetSpace() const
+  {
+    return map.GetSpace();
   }
 
   TaggedMap<MapT, InTag, OutTag> Copy() const
@@ -232,7 +244,31 @@ template<typename MapT, typename InTagT, typename OutTagT>
 std::ostream&
 operator<<(std::ostream& os, const TaggedMap<MapT, InTagT, OutTagT>& map)
 {
-  os << map.map;
+  os << "in: ";
+  bool first_item = true;
+  for (const auto& in_tag : map.in_tags)
+  {
+    if (!first_item)
+    {
+      os << ", ";
+    }
+    first_item = false;
+    os << in_tag;
+  }
+
+  os << "; out: ";
+  first_item = true;
+  for (const auto& out_tag : map.out_tags)
+  {
+    if (!first_item)
+    {
+      os << ", ";
+    }
+    first_item = false;
+    os << out_tag;
+  }
+
+  os << "; " << map.map;
   return os;
 }
 
@@ -249,13 +285,13 @@ ProjectDims(TaggedMap<MapT, InTagT, OutTagT>&& map,
   if (dim_type == isl_dim_in)
   {
     auto first_it = map.in_tags.begin() + first;
-    auto last_it = map.in_tags.begin() + first + n;
+    auto last_it = first_it + n;
     map.in_tags.erase(first_it, last_it);
   }
   else if (dim_type == isl_dim_out)
   {
     auto first_it = map.out_tags.begin() + first;
-    auto last_it = map.out_tags.begin() + first + n;
+    auto last_it = first_it + n;
     map.out_tags.erase(first_it, last_it);
   }
   else

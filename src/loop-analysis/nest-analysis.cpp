@@ -144,6 +144,8 @@ Fill FillFromOccupancy(Occupancy&& occupancy)
           && !occupancy.InvolvesDims(isl_dim_in, dim_idx, 1))
       {
         occupancy = ProjectDims(std::move(occupancy), isl_dim_in, dim_idx, 1);
+        std::cout << "occ: " << occupancy << std::endl;
+        std::cout << "dim size: " << occupancy.in_tags.size() << std::endl;
         try_again = true;
         break;
       }
@@ -156,9 +158,13 @@ Fill FillFromOccupancy(Occupancy&& occupancy)
     const auto& [dim_idx, dim_type] = *dim_it;
     if (dim_type == spacetime::Dimension::Time)
     {
+      std::cout << "occ before shift: " << occupancy << std::endl;
+      std::cout << "dim size before: " << occupancy.in_tags.size() << std::endl;
+      std::cout << dim_idx << std::endl;
       auto time_shift_map = occupancy.TagLikeThis(
-        MapToShifted(occupancy.map.GetSpace(), dim_idx, -1)
+        MapToShifted(occupancy.GetDomainSpace(), dim_idx, -1)
       );
+      std::cout << "time shift: " << time_shift_map << std::endl;
 
       return Subtract(
         occupancy.Copy(),
@@ -2431,9 +2437,9 @@ SpaceTimeToIter Shift(spacetime::Dimension dim_type,
   return spacetime_to_iter;
 }
 
-IslMap MapToShifted(IslSpace&& space, size_t pos, int shift)
+IslMap MapToShifted(IslSpace&& domain_space, size_t pos, int shift)
 {
-  auto multi_aff = IslMultiAff::Identity(std::move(space));
+  auto multi_aff = IslMultiAff::IdentityOnDomainSpace(std::move(domain_space));
   multi_aff.SetAff(pos, std::move(multi_aff.GetAff(pos).SetConstantSi(shift)));
   return IslMap(std::move(multi_aff));
 }
