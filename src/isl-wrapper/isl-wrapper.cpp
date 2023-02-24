@@ -52,6 +52,58 @@
   ISL_BASIC_SET_BINARY_OP_IMPL(NAME, SHORT_OP)                                \
   ISL_SET_BINARY_OP_IMPL(NAME, SHORT_OP)
 
+#define DEFAULT_CTOR_IMPL(TYPE, ISL_TYPE)                                     \
+  TYPE::TYPE() : data(nullptr) {}
+
+#define COPY_CTOR_IMPL(TYPE, ISL_TYPE)                                        \
+  TYPE::TYPE(const TYPE& other) :                                             \
+    data(isl_ ## ISL_TYPE ## _copy(other.data)) {}
+
+#define MOVE_CTOR_IMPL(TYPE, ISL_TYPE)                                        \
+  TYPE::TYPE(TYPE&& other) : TYPE() { swap(*this, other); }
+
+#define RAW_PTR_CTOR_IMPL(TYPE, ISL_TYPE)                                     \
+  TYPE::TYPE(__isl_take isl_ ## ISL_TYPE*&& raw) :                            \
+    data(raw)                                                                 \
+  {                                                                           \
+    raw = nullptr;                                                            \
+  }
+
+#define CTOR_IMPL(TYPE, ISL_TYPE)                                             \
+  DEFAULT_CTOR_IMPL(TYPE, ISL_TYPE)                                           \
+  COPY_CTOR_IMPL(TYPE, ISL_TYPE)                                              \
+  MOVE_CTOR_IMPL(TYPE, ISL_TYPE)                                              \
+  RAW_PTR_CTOR_IMPL(TYPE, ISL_TYPE)                                           \
+
+#define DTOR_IMPL(TYPE, ISL_TYPE)                                             \
+  TYPE::~TYPE()                                                               \
+  {                                                                           \
+    if (data)                                                                 \
+    {                                                                         \
+      isl_ ## ISL_TYPE ## _free(data);                                        \
+    }                                                                         \
+  }
+
+#define CTOR_DTOR_IMPL(TYPE, ISL_TYPE)                                        \
+  CTOR_IMPL(TYPE, ISL_TYPE)                                                   \
+  DTOR_IMPL(TYPE, ISL_TYPE)
+
+#define COPY_ASSIGN_IMPL(TYPE, ISL_TYPE)                                      \
+  TYPE& TYPE::operator=(const TYPE& other)                                    \
+  {                                                                           \
+    data = isl_ ## ISL_TYPE ## _copy(other.data);                             \
+  }
+
+#define MOVE_ASSIGN_IMPL(TYPE, ISL_TYPE)                                      \
+  TYPE& TYPE::operator=(TYPE&& other)                                         \
+  {                                                                           \
+    swap(*this, other);                                                       \
+  }
+
+#define ASSIGN_IMPL(TYPE, ISL_TYPE)                                           \
+  COPY_ASSIGN_IMPL(TYPE, ISL_TYPE)                                            \
+  MOVE_ASSIGN_IMPL(TYPE, ISL_TYPE)
+
 #define SWAP_IMPL(TYPE)                                                       \
   void swap(TYPE& obj1, TYPE& obj2) noexcept                                  \
   {                                                                           \
@@ -59,9 +111,37 @@
     swap(obj1.data, obj2.data);                                               \
   }
 
+#define CTOR_DTOR_ASSIGN_SWAP_IMPL(TYPE, ISL_TYPE)                            \
+  CTOR_DTOR_IMPL(TYPE, ISL_TYPE)                                              \
+  ASSIGN_IMPL(TYPE, ISL_TYPE)                                                 \
+  SWAP_IMPL(TYPE)
+
 /******************************************************************************
  * Global class methods
  *****************************************************************************/
+
+IslCtx::IslCtx() : data(isl_ctx_alloc()) {}
+IslCtx::IslCtx(__isl_take isl_ctx*&& raw) : data(raw) { raw = nullptr; }
+
+IslCtx::~IslCtx()
+{
+  // TODO: figure out the RAII part here
+}
+
+CTOR_DTOR_ASSIGN_SWAP_IMPL(IslSpace, space)
+
+IslSpace::~IslSpace()
+{
+  if (data) {
+    isl_space_free(data);
+  }
+}
+
+IslSpace& IslSpace::SetDimName(isl_dim_type dim_type, unsigned pos,
+                               const std::string& name) {
+  data = isl_space_set_dim_name(data, dim_type, pos, name.c_str());
+  return *this;
+}
 
 IslSpace IslSpace::Alloc(IslCtx& ctx, unsigned nparam, unsigned n_in,
                          unsigned n_out)
@@ -75,12 +155,16 @@ IslSpace IslSpaceDomain(IslSpace&& space) {
   return result;
 }
 
+CTOR_DTOR_ASSIGN_SWAP_IMPL(IslVal, val)
+
 IslVal::IslVal(long v) : data(isl_val_int_from_ui(GetIslCtx().data, v)) {}
 IslVal::IslVal(int v) : data(isl_val_int_from_ui(GetIslCtx().data, v)) {}
 IslVal::IslVal(unsigned long v) :
   data(isl_val_int_from_ui(GetIslCtx().data, v))
 {
 }
+
+CTOR_DTOR_ASSIGN_SWAP_IMPL(IslAff, aff)
 
 IslAff IslAff::ZeroOnDomainSpace(IslSpace&& domain_space)
 {
@@ -108,6 +192,8 @@ IslAff& IslAff::SetConstantSi(int v)
   data = isl_aff_set_constant_si(data, v);
   return *this;
 }
+
+CTOR_DTOR_ASSIGN_SWAP_IMPL(IslMultiAff, multi_aff)
 
 IslMultiAff IslMultiAff::Identity(IslSpace&& space)
 {
@@ -152,22 +238,12 @@ IslMultiAff& IslMultiAff::SetAff(size_t pos, IslAff&& aff)
   return *this;
 }
 
-IslMap::IslMap() : data(nullptr)
-{
-}
-IslMap::IslMap(__isl_take isl_map*&& raw) :
-    data(raw)
-{
-}
-IslMap::IslMap(const IslMap& other) :
-    data(isl_map_copy(other.data))
-{
-}
-IslMap::IslMap(IslMap&& other) :
-    IslMap()
-{
-  swap(*this, other);
-}
+CTOR_DTOR_ASSIGN_SWAP_IMPL(IslPwMultiAff, pw_multi_aff)
+
+CTOR_DTOR_ASSIGN_SWAP_IMPL(IslBasicMap, basic_map)
+
+CTOR_DTOR_ASSIGN_SWAP_IMPL(IslMap, map)
+
 IslMap::IslMap(IslMultiAff&& multi_aff) :
     data(isl_map_from_multi_aff(multi_aff.data))
 {
@@ -183,12 +259,6 @@ IslMap::~IslMap() {
   if (data) {
     isl_map_free(data);
   }
-}
-
-IslMap& IslMap::operator=(IslMap&& other)
-{
-  swap(*this, other);
-  return *this;
 }
 
 IslMap& IslMap::Coalesce()
@@ -216,11 +286,9 @@ size_t IslMap::NumDims(isl_dim_type dim_type) const
   return isl_map_dim(data, dim_type);
 }
 
-IslSet& IslSet::operator=(IslSet&& other)
-{
-  swap(*this, other);
-  return *this;
-}
+CTOR_DTOR_ASSIGN_SWAP_IMPL(IslBasicSet, basic_set)
+
+CTOR_DTOR_ASSIGN_SWAP_IMPL(IslSet, set)
 
 IslSet IslSet::Universe(IslSpace&& space)
 {
@@ -278,14 +346,6 @@ ISL_STREAMOUT_IMPL(IslMultiAff, isl_multi_aff_to_str);
 ISL_STREAMOUT_IMPL(IslBasicMap, isl_basic_map_to_str);
 ISL_STREAMOUT_IMPL(IslMap, isl_map_to_str);
 ISL_STREAMOUT_IMPL(IslSet, isl_set_to_str);
-
-SWAP_IMPL(IslAff)
-SWAP_IMPL(IslMultiAff)
-SWAP_IMPL(IslPwMultiAff)
-SWAP_IMPL(IslBasicMap)
-SWAP_IMPL(IslMap)
-SWAP_IMPL(IslBasicSet)
-SWAP_IMPL(IslSet)
 
 ISL_BOTH_MAP_BINARY_OP_IMPL(ApplyRange, apply_range)
 ISL_BOTH_MAP_BINARY_OP_IMPL(Intersect, intersect)
