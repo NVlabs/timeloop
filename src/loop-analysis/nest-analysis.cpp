@@ -101,6 +101,21 @@ struct LinkTransferModel
   virtual LinkTransferInfo Apply(LogicalBufFills&&) const;
 };
 
+class SimpleLinkTransferModel : public LinkTransferModel
+{
+ public:
+  SimpleLinkTransferModel() :
+   connectivity("[x, y] -> [x', y'] : (x'=x-1 or x'=x+1) "
+                                      "and (y'=y-1 or y'=y+1) }")
+  {
+  }
+
+  LinkTransferInfo Apply(LogicalBufFills&& fills) const override;
+
+ private:
+  IslMap connectivity;
+};
+
 struct MulticastInfo
 {
   LogicalBufTransfers multicasts;
@@ -171,12 +186,11 @@ Fill FillFromOccupancy(Occupancy&& occupancy)
         MapToShifted(occupancy.GetDomainSpace(), dim_idx, -1)
       );
       std::cout << "time shift: " << time_shift_map << std::endl;
+      auto occ_before = ApplyRange(std::move(time_shift_map),
+                               occupancy.Copy());
+      std::cout << "before: " << occ_before << std::endl;
 
-      return Subtract(
-        occupancy.Copy(),
-        ApplyRange(std::move(time_shift_map),
-                   std::move(occupancy))
-      );
+      return Subtract(std::move(occupancy), std::move(occ_before));
     }
   }
 

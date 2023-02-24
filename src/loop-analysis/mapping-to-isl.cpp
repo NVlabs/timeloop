@@ -340,6 +340,8 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
       tags.emplace_back(loop.spacetime_dimension);
       ++loop_idx;
     }
+    std::reverse(std::begin(tags), std::end(tags));
+
     result.emplace(std::make_pair(
       buf,
       TaggedMap<IslMap, spacetime::Dimension>(

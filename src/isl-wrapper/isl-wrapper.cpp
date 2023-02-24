@@ -69,11 +69,16 @@
     raw = nullptr;                                                            \
   }
 
+#define STR_CTOR_IMPL(TYPE, ISL_TYPE)                                         \
+  TYPE::TYPE(const std::string& str) :                                        \
+    data(isl_ ## ISL_TYPE ## _read_from_str(GetIslCtx().data, str.c_str())) {}
+
 #define CTOR_IMPL(TYPE, ISL_TYPE)                                             \
   DEFAULT_CTOR_IMPL(TYPE, ISL_TYPE)                                           \
   COPY_CTOR_IMPL(TYPE, ISL_TYPE)                                              \
   MOVE_CTOR_IMPL(TYPE, ISL_TYPE)                                              \
   RAW_PTR_CTOR_IMPL(TYPE, ISL_TYPE)                                           \
+  STR_CTOR_IMPL(TYPE, ISL_TYPE)
 
 #define DTOR_IMPL(TYPE, ISL_TYPE)                                             \
   TYPE::~TYPE()                                                               \
@@ -92,12 +97,14 @@
   TYPE& TYPE::operator=(const TYPE& other)                                    \
   {                                                                           \
     data = isl_ ## ISL_TYPE ## _copy(other.data);                             \
+    return *this;                                                             \
   }
 
 #define MOVE_ASSIGN_IMPL(TYPE, ISL_TYPE)                                      \
   TYPE& TYPE::operator=(TYPE&& other)                                         \
   {                                                                           \
     swap(*this, other);                                                       \
+    return *this;                                                             \
   }
 
 #define ASSIGN_IMPL(TYPE, ISL_TYPE)                                           \
@@ -129,13 +136,6 @@ IslCtx::~IslCtx()
 }
 
 CTOR_DTOR_ASSIGN_SWAP_IMPL(IslSpace, space)
-
-IslSpace::~IslSpace()
-{
-  if (data) {
-    isl_space_free(data);
-  }
-}
 
 IslSpace& IslSpace::SetDimName(isl_dim_type dim_type, unsigned pos,
                                const std::string& name) {
@@ -253,12 +253,6 @@ IslMap::IslMap(IslPwMultiAff&& multi_aff) :
     data(isl_map_from_pw_multi_aff(multi_aff.data))
 {
   multi_aff.data = nullptr;
-}
-
-IslMap::~IslMap() {
-  if (data) {
-    isl_map_free(data);
-  }
 }
 
 IslMap& IslMap::Coalesce()
