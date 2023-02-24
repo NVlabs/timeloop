@@ -26,6 +26,7 @@
   TYPE(const TYPE& other);                                                    \
   TYPE(TYPE&& other);                                                         \
   TYPE(isl_ ## ISL_TYPE*&& raw);                                              \
+  TYPE(const std::string& str);                                               \
   ~TYPE();                                                                    \
   TYPE& operator=(const TYPE& other);                                         \
   TYPE& operator=(TYPE&& other);                                              \
