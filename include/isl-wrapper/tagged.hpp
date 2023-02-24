@@ -244,7 +244,7 @@ template<typename MapT, typename InTagT, typename OutTagT>
 std::ostream&
 operator<<(std::ostream& os, const TaggedMap<MapT, InTagT, OutTagT>& map)
 {
-  os << "in: ";
+  os << "in: [";
   bool first_item = true;
   for (const auto& in_tag : map.in_tags)
   {
@@ -256,7 +256,7 @@ operator<<(std::ostream& os, const TaggedMap<MapT, InTagT, OutTagT>& map)
     os << in_tag;
   }
 
-  os << "; out: ";
+  os << "]; out: [";
   first_item = true;
   for (const auto& out_tag : map.out_tags)
   {
@@ -268,7 +268,7 @@ operator<<(std::ostream& os, const TaggedMap<MapT, InTagT, OutTagT>& map)
     os << out_tag;
   }
 
-  os << "; " << map.map;
+  os << "]; map: " << map.map;
   return os;
 }
 
