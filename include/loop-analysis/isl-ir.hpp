@@ -34,11 +34,44 @@ struct LogicalBuffer
   DataSpaceID dspace_id;
   mapping::NodeID branch_leaf_id;
 
+  LogicalBuffer(BufferID buffer_id,
+                DataSpaceID dspace_id,
+                mapping::NodeID branch_leaf_id) :
+    buffer_id(buffer_id), dspace_id(dspace_id), branch_leaf_id(branch_leaf_id)
+  {
+  }
+
+  LogicalBuffer(const LogicalBuffer& other) :
+    buffer_id(other.buffer_id), dspace_id(other.dspace_id),
+    branch_leaf_id(other.branch_leaf_id)
+  {
+  }
+
   bool operator<(const LogicalBuffer& other) const
   {
-    return buffer_id < other.buffer_id;
+    if (buffer_id < other.buffer_id)
+    {
+      return true;
+    }
+    else if (buffer_id == other.buffer_id && dspace_id < other.dspace_id)
+    {
+      return true;
+    }
+    else if (buffer_id == other.buffer_id && dspace_id == other.dspace_id)
+    {
+      return branch_leaf_id < other.branch_leaf_id;
+    }
+    return false;
+  }
+
+  bool operator==(const LogicalBuffer& other) const
+  {
+    return buffer_id == other.buffer_id && dspace_id == other.dspace_id
+           && branch_leaf_id == other.branch_leaf_id;
   }
 };
+
+std::ostream& operator<<(std::ostream& os, const LogicalBuffer& buf);
 
 /**
  * @brief Iteration -> Operation relation that specifies the tiling.

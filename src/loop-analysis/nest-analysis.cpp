@@ -164,6 +164,7 @@ Fill FillFromOccupancy(Occupancy&& occupancy)
       if (dim_type == spacetime::Dimension::Time
           && !occupancy.InvolvesDims(isl_dim_in, dim_idx, 1))
       {
+        std::cout << dim_idx << std::endl;
         occupancy = ProjectDims(std::move(occupancy), isl_dim_in, dim_idx, 1);
         std::cout << "occ: " << occupancy << std::endl;
         std::cout << "dim size: " << occupancy.in_tags.size() << std::endl;
