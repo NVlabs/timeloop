@@ -9,6 +9,8 @@
  * 
  */
 
+#include <stdexcept>
+
 #include "loop-analysis/isl-ir.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
 
@@ -102,6 +104,7 @@ OccupanciesFromMapping(const loop::Nest& mapping,
   LogicalBufOccupancies result;
   for (auto& [buf, tiling] : buf_tiling)
   {
+    std::cout << buf << std::endl;
     std::cout << "proj: " << ops_to_dspace.at(buf.dspace_id) << std::endl;
     std::cout << "tiling: " << tiling << std::endl;
     std::cout << "skew: " << buf_skew.at(buf) << std::endl;
@@ -209,9 +212,7 @@ BufferIterLevelsFromMapping(const loop::Nest& nest,
       {
         std::cout << arch_level << ", " << dspace_id << std::endl;
         result.emplace_back(std::make_pair(
-          LogicalBuffer{.buffer_id = arch_level,
-                        .dspace_id = dspace_id,
-                        .branch_leaf_id = 0 },
+          LogicalBuffer(arch_level, dspace_id, 0),
           loop_idx
         ));
       }
@@ -248,11 +249,7 @@ BufferIterLevelsFromMapping(const mapping::FusedMapping& mapping)
 
           if constexpr (std::is_same_v<NodeT, mapping::Storage>)
           {
-            auto buffer = LogicalBuffer();
-            buffer.buffer_id = node.buffer;
-            buffer.dspace_id = node.dspace;
-            buffer.branch_leaf_id = 0;
-
+            auto buffer = LogicalBuffer(node.buffer, node.dspace, 0);
             new_results.emplace_back(
               std::make_pair(std::move(buffer), iter_idx)
             );
@@ -304,15 +301,21 @@ LogicalBufTilingFromMapping(const loop::Nest& nest,
   auto buf_to_iter_level = BufferIterLevelsFromMapping(nest, workload);
 
   std::cout << branch_tiling.begin()->second << std::endl;
+  std::cout << buf_to_iter_level.size() << std::endl;
 
   LogicalBufTiling result;
   for (auto& [buf, level] : buf_to_iter_level)
   {
-    result.emplace(std::make_pair(
-      buf,
+    auto [_, inserted] = result.emplace(std::make_pair(
+      LogicalBuffer(buf.buffer_id, buf.dspace_id, buf.branch_leaf_id),
       ProjectDimInAfter(IslMap(branch_tiling.at(buf.branch_leaf_id)),
                         level)
     ));
+    if (!inserted)
+    {
+      throw
+        std::logic_error("LogicalBufTilingFromMapping: insertion failed");
+    }
   }
 
   return result;
@@ -328,19 +331,13 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
   for (auto& [buf, level] : buf_to_iter_level)
   {
     std::vector<spacetime::Dimension> tags;
-    size_t loop_idx = 0;
     // Hardcoded for now since spacetime::Dimension has SpaceX and SpaceY.
     // Should be inferred from architecture array spec.
-    for (const auto& loop : nest.loops)
+    auto end_it = nest.loops.rbegin() + level;
+    for (auto it = nest.loops.rbegin(); it != end_it; ++it)
     {
-      if (loop_idx == level)
-      {
-        break;
-      }
-      tags.emplace_back(loop.spacetime_dimension);
-      ++loop_idx;
+      tags.emplace_back(it->spacetime_dimension);
     }
-    std::reverse(std::begin(tags), std::end(tags));
 
     result.emplace(std::make_pair(
       buf,
