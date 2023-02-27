@@ -202,9 +202,6 @@ Application::Application(config::CompoundConfig* config,
   // std::cout << "log_interval: " <<  log_interval_ << std::endl; 
 
   // Misc.
-  log_index_factor_best_ = false;
-  mapper.lookupValue("log-index-factor-best", log_index_factor_best_);  
-
   log_oaves_ = false;
   mapper.lookupValue("log-oaves", log_oaves_);
 
@@ -373,7 +370,6 @@ void Application::Run()
                                         victory_condition_,
                                         sync_interval_,
                                         log_interval_,
-                                        log_index_factor_best_,
                                         log_oaves_,
                                         log_stats_,
                                         log_suboptimal_,

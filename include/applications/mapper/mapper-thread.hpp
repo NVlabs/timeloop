@@ -95,7 +95,6 @@ class MapperThread
   std::uint32_t victory_condition_;
   uint128_t sync_interval_;
   uint128_t log_interval_;  
-  bool log_index_factor_best_;  
   bool log_oaves_;
   bool log_stats_;
   bool log_suboptimal_;
@@ -125,7 +124,6 @@ class MapperThread
     std::uint32_t victory_condition,
     uint128_t sync_interval,    
     uint128_t log_interval,
-    bool log_index_factor_best,
     bool log_oaves,
     bool log_stats,
     bool log_suboptimal,

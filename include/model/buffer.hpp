@@ -478,7 +478,8 @@ class BufferLevel : public Level
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
-  
+  std::uint64_t TotalUtilizedBytes(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+
   // Printers.
   void Print(std::ostream& out) const override;
   friend std::ostream& operator << (std::ostream& out, const BufferLevel& buffer_level);

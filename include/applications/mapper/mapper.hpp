@@ -67,7 +67,6 @@ class Application
   uint128_t log_interval_;
 
   bool log_stats_;
-  bool log_index_factor_best_;  
   bool log_oaves_;
   bool log_suboptimal_;
   bool live_status_;
