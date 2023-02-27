@@ -127,6 +127,7 @@ isl-wrapper/isl-wrapper.cpp
 isl-wrapper/tagged.cpp
 loop-analysis/aahr-carve.cpp
 loop-analysis/coordinate-space-tile-info.cpp
+loop-analysis/logical-buffer.cpp
 loop-analysis/loop-state.cpp
 loop-analysis/mapping-to-isl.cpp
 loop-analysis/tiling.cpp
