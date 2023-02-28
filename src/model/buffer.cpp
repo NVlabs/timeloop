@@ -1512,15 +1512,6 @@ void BufferLevel::ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, 
 }
 
 
-double BufferLevel::OperationalIntensity(std::uint64_t total_ops) {
-  if (Accesses() > 0) {
-    return double(total_ops) / double((Accesses() * specs_.word_bits.Get() / 8));
-  } else {
-    return -1;
-  }
-}
-
-
 void BufferLevel::FinalizeBufferEnergy() {
 
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) {
@@ -1728,7 +1719,6 @@ STAT_ACCESSOR(std::uint64_t, BufferLevel, Accesses, stats_.utilized_instances.at
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedCapacity, stats_.utilized_capacity.at(pv))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, TileSize, stats_.tile_size.at(pv))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedInstances, stats_.utilized_instances.at(pv))
-STAT_ACCESSOR(std::uint64_t, BufferLevel, TotalUtilizedBytes, stats_.utilized_capacity.at(pv) * stats_.utilized_instances.at(pv) * specs_.word_bits.Get() / 8)
 
 std::string BufferLevel::Name() const
 {
