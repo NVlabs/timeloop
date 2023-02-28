@@ -11,6 +11,8 @@
 /******************************************************************************
  * Macros
  *****************************************************************************/
+#define DEFINE_ISL_UNARY_OP(NAME, RET_T, T)                                   \
+  RET_T NAME(T&& arg);
 
 #define DEFINE_ISL_BINARY_OP(NAME, RET_T, T1, T2)                             \
   RET_T NAME(T1&& arg1, T2&& arg2);
@@ -176,6 +178,11 @@ IslSpace IslSpaceDomain(IslSpace&& space);
 
 IslMap IslMapReverse(IslMap&& map);
 
+DEFINE_ISL_UNARY_OP(Range, IslBasicSet, IslBasicMap)
+DEFINE_ISL_UNARY_OP(Range, IslSet, IslMap)
+DEFINE_ISL_UNARY_OP(IsEmpty, bool, IslBasicSet)
+DEFINE_ISL_UNARY_OP(IsEmpty, bool, IslSet)
+
 DEFINE_ISL_BINARY_OP(ApplyRange, IslMap, IslMap, IslMap)
 DEFINE_ISL_BINARY_OP(Subtract, IslMap, IslMap, IslMap)
 DEFINE_ISL_BINARY_OP(Intersect, IslMap, IslMap, IslMap)
@@ -185,6 +192,10 @@ DEFINE_ISL_BINARY_OP(GeSet, IslSet, IslAff, IslAff)
 DEFINE_ISL_BINARY_OP(LtSet, IslSet, IslAff, IslAff)
 DEFINE_ISL_BINARY_OP(LexGeSet, IslSet, IslMultiAff, IslMultiAff)
 DEFINE_ISL_BINARY_OP(LexLtSet, IslSet, IslMultiAff, IslMultiAff)
+
+IslBasicMap FixSi(IslBasicMap&& map, isl_dim_type dim_type, size_t pos,
+                  int value);
+IslMap FixSi(IslMap&& map, isl_dim_type dim_type, size_t pos, int value);
 
 IslMap ProjectDims(IslMap&& map, isl_dim_type dim_type, size_t first,
                    size_t n);

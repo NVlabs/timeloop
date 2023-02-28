@@ -279,8 +279,8 @@ template<typename MapT, typename InTagT, typename OutTagT>
 TaggedMap<MapT, InTagT, OutTagT>
 ProjectDims(TaggedMap<MapT, InTagT, OutTagT>&& map,
             isl_dim_type dim_type,
-            std::size_t first,
-            std::size_t n)
+            size_t first,
+            size_t n)
 {
   if (dim_type == isl_dim_in)
   {
@@ -304,4 +304,24 @@ ProjectDims(TaggedMap<MapT, InTagT, OutTagT>&& map,
     std::move(map.in_tags),
     std::move(map.out_tags)
   );
+}
+
+template<typename MapT, typename InTagT, typename OutTagT>
+TaggedMap<MapT, InTagT, OutTagT>
+FixSi(TaggedMap<MapT, InTagT, OutTagT>&& map,
+      isl_dim_type dim_type,
+      size_t pos,
+      int value)
+{
+  return TaggedMap<MapT, InTagT, OutTagT>(
+    FixSi(std::move(map.map), dim_type, pos, value),
+    std::move(map.in_tags),
+    std::move(map.out_tags)
+  );
+}
+
+template<typename MapT, typename InTagT, typename OutTagT>
+IslSet Range(TaggedMap<MapT, InTagT, OutTagT>&& map)
+{
+  return Range(std::move(map.map));
 }
