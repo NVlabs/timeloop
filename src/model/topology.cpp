@@ -50,7 +50,7 @@ void Topology::Specs::ParseAccelergyART(config::CompoundConfigNode art)
   double artVersion;
   // check the version of the ART
   art.lookupValue("version", artVersion);
-  assert(artVersion==0.3);
+  assert(artVersion==0.3 || artVersion==0.4);
     
   // parsing 
   auto table = art.lookup("tables");
@@ -110,7 +110,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
   if (ertVersion == 0.2) {
     // no additional formatting needed
     formattedErt = ert;
-  } else if (ertVersion == 0.3) {
+  } else if (ertVersion == 0.3 || ertVersion == 0.4) {
     auto table = ert.lookup("tables");
     assert(table.isList());
     YAML::Node root;

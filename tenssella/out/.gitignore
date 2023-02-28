@@ -1,0 +1,7 @@
+out.cpp
+out.ast
+emulator.cpp
+*.log
+log.txt
+*.txt
+emulator

@@ -1,0 +1,16 @@
+t3
+R 1 S 1 P 1 Q 1 C 1 K 1 N 1 
+N
+t2
+R 1 S 1 P 1 Q 1 C 3 K 1 N 1 
+C
+s2
+R 1 S 1 P 1 Q 1 C 1 K 16 N 1 
+K
+7
+t1
+R 1 S 1 P 1 Q 1 C 5 K 1 N 1 
+C
+t0
+R 1 S 1 P 1 Q 1 C 1 K 1 N 1 
+N
