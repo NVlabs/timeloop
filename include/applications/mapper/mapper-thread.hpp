@@ -147,7 +147,4 @@ class MapperThread
 
   void Run();
 
-  void PrintStats(model::Topology& topology, EvaluationResult& result);
-
-  void PrintOAVESStats(model::Topology& topology, EvaluationResult& result);
 };
