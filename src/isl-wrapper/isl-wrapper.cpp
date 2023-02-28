@@ -14,6 +14,14 @@
     return os;                                                                \
   }
 
+#define ISL_UNARY_OP_IMPL(NAME, OP, RET_T, TYPE)                              \
+  RET_T NAME(TYPE&& obj)                                                      \
+  {                                                                           \
+    auto result = RET_T(OP(obj.data));                                        \
+    obj.data = nullptr;                                                       \
+    return result;                                                            \
+  }
+
 #define ISL_BINARY_OP_IMPL(NAME, OP, TYPE)                                    \
   TYPE NAME(TYPE&& obj1, TYPE&& obj2)                                         \
   {                                                                           \
@@ -307,6 +315,20 @@ IslMap IslMapReverse(IslMap&& map) {
   return new_map;
 }
 
+IslBasicMap FixSi(IslBasicMap&& map, isl_dim_type dim_type, size_t pos,
+                  int value)
+{
+  auto result = isl_basic_map_fix_si(map.data, dim_type, pos, value);
+  map.data = nullptr;
+  return IslBasicMap(std::move(result));
+}
+IslMap FixSi(IslMap&& map, isl_dim_type dim_type, size_t pos, int value)
+{
+  auto result = isl_map_fix_si(map.data, dim_type, pos, value);
+  map.data = nullptr;
+  return IslMap(std::move(result));
+}
+
 IslMap ProjectDims(IslMap&& map, isl_dim_type dim_type, size_t first, size_t n)
 {
   auto result = IslMap(isl_map_project_out(map.data, dim_type, first, n));
@@ -375,3 +397,9 @@ ISL_BINARY_OP_IMPL_2(LexLtSet,
 
 ISL_BINARY_OP_IMPL(Subtract, isl_map_subtract, IslMap)
 ISL_BINARY_OP_IMPL(Subtract, isl_set_subtract, IslSet)
+
+ISL_UNARY_OP_IMPL(Range, isl_basic_map_range, IslBasicSet, IslBasicMap)
+ISL_UNARY_OP_IMPL(Range, isl_map_range, IslSet, IslMap)
+
+ISL_UNARY_OP_IMPL(IsEmpty, isl_basic_set_is_empty, bool, IslBasicSet)
+ISL_UNARY_OP_IMPL(IsEmpty, isl_set_is_empty, bool, IslSet)

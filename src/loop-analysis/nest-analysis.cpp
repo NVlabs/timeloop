@@ -145,8 +145,11 @@ unsigned long ValToUnsignedLong(isl_val* val);
 
 Fill FillFromOccupancy(Occupancy&& occupancy)
 {
-  // Clean uninvolved temporal dims first so we can get delta at lowest
-  // involved dim
+  /**
+   * Compute fill by iteratively going through temporal loops and
+   * computing delta, only stopping when delta is non-zero at time 1.
+   */
+
   bool try_again = true;
   while (try_again)
   {
@@ -155,41 +158,31 @@ Fill FillFromOccupancy(Occupancy&& occupancy)
         ++dim_it)
     {
       auto [dim_idx, dim_type] = *dim_it;
-      if (dim_type == spacetime::Dimension::Time
-          && !occupancy.InvolvesDims(isl_dim_in, dim_idx, 1))
+      if (dim_type == spacetime::Dimension::Time)
       {
-        std::cout << dim_idx << std::endl;
-        occupancy = ProjectDims(std::move(occupancy), isl_dim_in, dim_idx, 1);
-        std::cout << "occ: " << occupancy << std::endl;
-        std::cout << "dim size: " << occupancy.in_tags.size() << std::endl;
-        try_again = true;
+        auto time_shift_map = occupancy.TagLikeThis(
+          MapToShifted(occupancy.GetDomainSpace(), dim_idx, -1)
+        );
+        auto occ_before = ApplyRange(std::move(time_shift_map),
+                                     occupancy.Copy());
+        auto fill = FixSi(
+          Subtract(occupancy.Copy(), std::move(occ_before)),
+          isl_dim_in, dim_idx, 1
+        );
+        std::cout << "fill: " << fill << std::endl;
+        if (IsEmpty(Range(std::move(fill))))
+        {
+          occupancy = ProjectDims(std::move(occupancy),
+                                  isl_dim_in,
+                                  dim_idx,
+                                  1);
+          try_again = true;
+        }
         break;
       }
     }
   }
 
-  for (auto dim_it = occupancy.in_rbegin(); dim_it != occupancy.in_rend();
-       ++dim_it)
-  {
-    const auto& [dim_idx, dim_type] = *dim_it;
-    if (dim_type == spacetime::Dimension::Time)
-    {
-      std::cout << "occ before shift: " << occupancy << std::endl;
-      std::cout << "dim size before: " << occupancy.in_tags.size() << std::endl;
-      std::cout << dim_idx << std::endl;
-      auto time_shift_map = occupancy.TagLikeThis(
-        MapToShifted(occupancy.GetDomainSpace(), dim_idx, -1)
-      );
-      std::cout << "time shift: " << time_shift_map << std::endl;
-      auto occ_before = ApplyRange(std::move(time_shift_map),
-                               occupancy.Copy());
-      std::cout << "before: " << occ_before << std::endl;
-
-      return Subtract(std::move(occupancy), std::move(occ_before));
-    }
-  }
-
-  // If no involved temporal dimensions are left, there is only the first fill
   return occupancy;
 }
 
