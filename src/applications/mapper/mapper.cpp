@@ -195,7 +195,16 @@ Application::Application(config::CompoundConfig* config,
   mapper.lookupValue("sync-interval", sync_interval);
   sync_interval_ = static_cast<uint128_t>(sync_interval);
   
+  // Inter-thread sync interval.
+  std::uint32_t log_interval = 1;
+  mapper.lookupValue("log-interval", log_interval);
+  log_interval_ = static_cast<uint128_t>(log_interval);
+  // std::cout << "log_interval: " <<  log_interval_ << std::endl; 
+
   // Misc.
+  log_oaves_ = false;
+  mapper.lookupValue("log-oaves", log_oaves_);
+
   log_stats_ = false;
   mapper.lookupValue("log-stats", log_stats_);    
 
@@ -310,9 +319,10 @@ void Application::Run()
   std::string map_yaml_file_name = out_prefix_ + ".map.yaml";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
   std::string map_cpp_file_name = out_prefix_ + ".map.cpp";
-    
+  std::string oaves_csv_file_name = out_prefix_ + ".oaves.csv";
   // Prepare live status/log stream.
   std::ofstream log_file;
+  std::ofstream oaves_csv_file(oaves_csv_file_name);
 
   // std::streambuf* streambuf_cout = std::cout.rdbuf(); 
   std::streambuf* streambuf_cerr = std::cerr.rdbuf();
@@ -359,9 +369,12 @@ void Application::Run()
                                         timeout_,
                                         victory_condition_,
                                         sync_interval_,
+                                        log_interval_,
+                                        log_oaves_,
                                         log_stats_,
                                         log_suboptimal_,
                                         live_status_ ? log_file : std::cerr,
+                                        oaves_csv_file,
                                         live_status_,
                                         diagnostics_on_,
                                         penalize_consecutive_bypass_fails_,
@@ -516,6 +529,7 @@ void Application::Run()
     std::ofstream stats_file(stats_file_name);
     stats_file << engine << std::endl;
     stats_file.close();
+    oaves_csv_file.close();
 
     if (emit_whoop_nest_)
     {

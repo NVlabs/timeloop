@@ -464,8 +464,10 @@ class BufferLevel : public Level
   void ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, unsigned data_space_id);
   void FinalizeBufferEnergy();
 
+  // Operational intensity calculation function
+  double OperationalIntensity(std::uint64_t total_ops);
+
   // Accessors (post-evaluation).
-  
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
  
   std::string Name() const override;
@@ -478,7 +480,8 @@ class BufferLevel : public Level
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
-  
+  std::uint64_t TotalUtilizedBytes(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+
   // Printers.
   void Print(std::ostream& out) const override;
   friend std::ostream& operator << (std::ostream& out, const BufferLevel& buffer_level);
