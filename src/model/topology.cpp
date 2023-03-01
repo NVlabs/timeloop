@@ -562,6 +562,63 @@ out << std::endl
 }
 
 
+void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping) const {
+
+  if (NumStorageLevels() > 0)
+  {
+    // Get the buffer utilization of the innermost memory level
+    unsigned first_storage_level_id = 0;
+    std::uint64_t total_utilization = GetStorageLevel(first_storage_level_id)->TotalUtilizedBytes();
+
+    // Get the total output tensor size for calculating the total operations
+    std::uint64_t total_output_size = 0;
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+      {
+        std::uint64_t utilized_capacity = -1;
+        for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+        {
+          unsigned inv_storage_level = NumStorageLevels() - 1 - storage_level_id;
+          utilized_capacity = stats_.utilized_capacities.at(inv_storage_level).at(pv);
+          // Use the last non-bypassed level with capacity size not equal to 0
+          if (utilized_capacity > 0) break;
+        }
+        total_output_size += utilized_capacity;
+      }
+    }
+    uint64_t total_elementwise_ops = stats_.actual_computes;
+    uint64_t total_reduction_ops = 0;
+
+    if (tiling::gEnableFirstReadElision)
+    {
+      total_reduction_ops = stats_.actual_computes - total_output_size;
+    }
+    else
+    {
+      total_reduction_ops = stats_.actual_computes;
+    }
+    uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
+
+    // Assume the DRAM is the last level
+    auto last_storage_level_id = NumStorageLevels() - 1;
+    double op_per_byte = GetStorageLevel(last_storage_level_id)->OperationalIntensity(total_ops);
+
+    out << total_utilization << "," << op_per_byte << "," << GetStorageLevel(last_storage_level_id)->Accesses();
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      out << "," << GetStorageLevel(first_storage_level_id)->TotalUtilizedBytes(pv);
+    }
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      out << "," << GetStorageLevel(last_storage_level_id)->Accesses(pv);
+    }
+    out << "," << mapping.PrintCompact() << std::endl;
+  }
+}
 
 
 void Topology::Spec(const Topology::Specs& specs)
