@@ -1,0 +1,421 @@
+/* Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of NVIDIA CORPORATION nor the names of its
+ *    contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#pragma once
+
+#include "architecture.hpp"
+
+class Arch_2D_3L : public Architecture
+{
+ private:
+
+ public:
+  Arch_2D_3L(isl_ctx* context) :
+      Architecture(3, context)
+  {
+    //
+    // The indices appear to be off-by-1 because we wanted to be consistent
+    // with the SpaceTime hierarchy used in the T functions.
+    //
+
+    char buf[256];
+
+    // Level 3: find the GlobalBuffer.
+    sprintf(buf,
+            "{ SpaceTime_3[0] -> GlobalBuffer[0,0] }"
+            );
+    mem_instance_map_[3]["GlobalBuffer"]["GEMM0"] = isl_map_read_from_str(context_, buf);
+
+    // Level 2: find a PE Buffer.
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[s,t]] -> RegFile[s,t] }"
+            );
+    mem_instance_map_[2]["RegFile"]["GEMM0"] = isl_map_read_from_str(context_, buf);
+
+    // Level 1: find the Operand/Result ports.
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandA[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandA"]["GEMM0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandB[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandB"]["GEMM0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> Result[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["Result"]["GEMM0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{  [[[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> SpaceTime_0[]] -> MAC[s,t2,t1] }"
+            );
+    comp_instance_map_[0]["GEMM0"] = isl_map_read_from_str(context_, buf);
+  }
+};
+
+
+class Arch_2D_3L_CONV2D : public Architecture
+{
+ private:
+
+ public:
+  Arch_2D_3L_CONV2D(isl_ctx* context) :
+      Architecture(3, context)
+  {
+    //
+    // The indices appear to be off-by-1 because we wanted to be consistent
+    // with the SpaceTime hierarchy used in the T functions.
+    //
+
+    char buf[256];
+
+    // Level 3: find the GlobalBuffer.
+    sprintf(buf,
+            "{ SpaceTime_3[0] -> GlobalBuffer[0,0] }"
+            );
+    mem_instance_map_[3]["GlobalBuffer"]["CONV2D0"] = isl_map_read_from_str(context_, buf);
+
+    // Level 2: find a PE Buffer.
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[s,t]] -> RegFile[s,t] }"
+            );
+    mem_instance_map_[2]["RegFile"]["CONV2D0"] = isl_map_read_from_str(context_, buf);
+
+    // Level 1: find the Operand/Result ports.
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandA[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandA"]["CONV2D0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandB[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandB"]["CONV2D0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> Result[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["Result"]["CONV2D0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{  [[[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> SpaceTime_0[]] -> MAC[s,t2,t1] }"
+            );
+    comp_instance_map_[0]["CONV2D0"] = isl_map_read_from_str(context_, buf);
+  }
+};
+
+class Arch_2D_3L_MV: public Architecture
+{
+ private:
+
+ public:
+  Arch_2D_3L_MV(isl_ctx* context) :
+      Architecture(3, context)
+  {
+    //
+    // The indices appear to be off-by-1 because we wanted to be consistent
+    // with the SpaceTime hierarchy used in the T functions.
+    //
+
+    char buf[256];
+
+    // Level 3: find the GlobalBuffer.
+    sprintf(buf,
+            "{ SpaceTime_3[0] -> GlobalBuffer[0,0] }"
+            );
+    mem_instance_map_[3]["GlobalBuffer"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    // Level 2: find a PE Buffer.
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[s,t]] -> RegFile[s,t] }"
+            );
+    mem_instance_map_[2]["RegFile"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    // Level 1: find the Operand/Result ports.
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandA[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandA"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandB[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandB"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> Result[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["Result"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{  [[[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> SpaceTime_0[]] -> MAC[s,t2,t1] }"
+            );
+    comp_instance_map_[0]["MV0"] = isl_map_read_from_str(context_, buf);
+  }
+};
+
+class Arch_2D_3L_MV_Fuse_Seq: public Architecture
+{
+ private:
+
+ public:
+  Arch_2D_3L_MV_Fuse_Seq(isl_ctx* context) :
+      Architecture(3, context)
+  {
+    //
+    // The indices appear to be off-by-1 because we wanted to be consistent
+    // with the SpaceTime hierarchy used in the T functions.
+    //
+
+    char buf[256];
+
+    // Level 3: find the GlobalBuffer.
+    sprintf(buf,
+            "{ SpaceTime_3[0] -> GlobalBuffer[0,0] }"
+            );
+    mem_instance_map_[3]["GlobalBuffer"]["MV0"] = isl_map_read_from_str(context_, buf);
+    mem_instance_map_[3]["GlobalBuffer"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    // Level 2: .FIXME use BindingFQ to index the instance map
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[0,t,0]] -> RegFile[0,2*t] }"
+            );
+    mem_instance_map_[2]["RegFile"]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[0,t,1]] -> RegFile[0,2*t+1] }"
+            );
+    mem_instance_map_[2]["RegFile"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    // Level 1: find the Operand/Result ports.
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[0,t2,0]] -> SpaceTime_1[s,t1]] -> OperandA[s,2*t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandA"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[0,t2,0]] -> SpaceTime_1[s,t1]] -> OperandB[s,2*t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandB"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[0,t2,0]] -> SpaceTime_1[s,t1]] -> Result[s,2*t2,t1] }"
+            );
+    mem_instance_map_[1]["Result"]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[0,t2,1]] -> SpaceTime_1[s,t1]] -> OperandA[s,2*t2+1,t1] }"
+            );
+    mem_instance_map_[1]["OperandA"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[0,t2,1]] -> SpaceTime_1[s,t1]] -> OperandB[s,2*t2+1,t1] }"
+            );
+    mem_instance_map_[1]["OperandB"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[0,t2,1]] -> SpaceTime_1[s,t1]] -> Result[s,2*t2+1,t1] }"
+            );
+    mem_instance_map_[1]["Result"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    //Level 0
+    sprintf(buf,
+            "{  [[[ SpaceTime_3[0] -> SpaceTime_2[0,t2,0]] -> SpaceTime_1[s,t1]] -> SpaceTime_0[]] -> MAC[s,2*t2,t1] }"
+            );
+    comp_instance_map_[0]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{  [[[ SpaceTime_3[0] -> SpaceTime_2[0,t2,1]] -> SpaceTime_1[s,t1]] -> SpaceTime_0[]] -> MAC[s,2*t2+1,t1] }"
+            );
+    comp_instance_map_[0]["MV1"] = isl_map_read_from_str(context_, buf);
+  }
+};
+
+class Arch_2D_3L_MV_Fuse: public Architecture
+{
+ private:
+
+ public:
+  Arch_2D_3L_MV_Fuse(isl_ctx* context) :
+      Architecture(3, context)
+  {
+    //
+    // The indices appear to be off-by-1 because we wanted to be consistent
+    // with the SpaceTime hierarchy used in the T functions.
+    //
+
+    char buf[256];
+
+    // Level 3: find the GlobalBuffer.
+    sprintf(buf,
+            "{ SpaceTime_3[0] -> GlobalBuffer[0,0] }"
+            );
+    mem_instance_map_[3]["GlobalBuffer"]["MV0"] = isl_map_read_from_str(context_, buf);
+    mem_instance_map_[3]["GlobalBuffer"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    // Level 2: .FIXME use BindingFQ to index the instance map
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[s,t,0]] -> InRegFile[s,t] }"
+            );
+    mem_instance_map_[2]["InRegFile"]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[s,t,1]] -> InRegFile[s,t] }"
+            );
+    mem_instance_map_[2]["InRegFile"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[s,t,1]] -> TmpRegFile[s,2*t+1] }"
+            );
+    mem_instance_map_[2]["TmpRegFile"]["MV1"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[s,t,0]] -> TmpRegFile[s,2*t] }"
+            );
+    mem_instance_map_[2]["TmpRegFile"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[s,t,1]] -> OutRegFile[s,t] }"
+            );
+    mem_instance_map_[2]["OutRegFile"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    // Level 1: find the Operand/Result ports.
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2,0]] -> SpaceTime_1[0,t1]] -> OperandA[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandA"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2,0]] -> SpaceTime_1[0,t1]] -> OperandB[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandB"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2,0]] -> SpaceTime_1[0,t1]] -> Result[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["Result"]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2,1]] -> SpaceTime_1[0,t1]] -> OperandA[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandA"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2,1]] -> SpaceTime_1[0,t1]] -> OperandB[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandB"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2,1]] -> SpaceTime_1[0,t1]] -> Result[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["Result"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    //Level 0
+    sprintf(buf,
+            "{  [[[ SpaceTime_3[0] -> SpaceTime_2[s,t2,0]] -> SpaceTime_1[0,t1]] -> SpaceTime_0[]] -> MAC[s,t2,t1] }"
+            );
+    comp_instance_map_[0]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{  [[[ SpaceTime_3[0] -> SpaceTime_2[s,t2,1]] -> SpaceTime_1[0,t1]] -> SpaceTime_0[]] -> MAC[s,t2,t1] }"
+            );
+    comp_instance_map_[0]["MV1"] = isl_map_read_from_str(context_, buf);
+  }
+};
+
+class Arch_2D_3L_MV_Fuse_GB: public Architecture
+{
+ private:
+
+ public:
+  Arch_2D_3L_MV_Fuse_GB(isl_ctx* context) :
+      Architecture(3, context)
+  {
+    //
+    // The indices appear to be off-by-1 because we wanted to be consistent
+    // with the SpaceTime hierarchy used in the T functions.
+    //
+
+    char buf[256];
+
+    // Level 3: find the GlobalBuffer.
+    sprintf(buf,
+            "{ SpaceTime_3[0] -> GlobalBuffer[0,0] }"
+            );
+    mem_instance_map_[3]["GlobalBuffer"]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{ SpaceTime_3[1] -> GlobalBuffer[0,1] }"
+            );
+    mem_instance_map_[3]["GlobalBuffer"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    // Level 2: .FIXME use BindingFQ to index the instance map
+    sprintf(buf,
+            "{ [ SpaceTime_3[0] -> SpaceTime_2[s,t]] -> RegFile[s,t] }"
+            );
+    mem_instance_map_[2]["RegFile"]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{ [ SpaceTime_3[1] -> SpaceTime_2[s,t]] -> RegFile[s,t] }"
+            );
+    mem_instance_map_[2]["RegFile"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+
+    // Level 1: find the Operand/Result ports.
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandA[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandA"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandB[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandB"]["MV0"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> Result[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["Result"]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{ [[ SpaceTime_3[1] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandA[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandA"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[1] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> OperandB[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["OperandB"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    sprintf(buf,
+            "{ [[ SpaceTime_3[1] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> Result[s,t2,t1] }"
+            );
+    mem_instance_map_[1]["Result"]["MV1"] = isl_map_read_from_str(context_, buf);
+
+    //Level 0
+    sprintf(buf,
+            "{  [[[ SpaceTime_3[0] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> SpaceTime_0[]] -> MAC[s,t2,t1] }"
+            );
+    comp_instance_map_[0]["MV0"] = isl_map_read_from_str(context_, buf);
+    sprintf(buf,
+            "{  [[[ SpaceTime_3[1] -> SpaceTime_2[s,t2]] -> SpaceTime_1[0,t1]] -> SpaceTime_0[]] -> MAC[s,t2,t1] }"
+            );
+    comp_instance_map_[0]["MV1"] = isl_map_read_from_str(context_, buf);
+  }
+};

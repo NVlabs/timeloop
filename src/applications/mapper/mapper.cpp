@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -76,7 +76,7 @@ Application::Application(config::CompoundConfig* config,
   {
     arch = rootNode.lookup("architecture");
   }
-  
+
   bool is_sparse_topology = rootNode.exists("sparse_optimizations");
   arch_specs_ = model::Engine::ParseSpecs(arch, is_sparse_topology);
 
@@ -88,7 +88,7 @@ Application::Application(config::CompoundConfig* config,
     if (rootNode.exists("ART")){ // Nellie: well, if the users have the version of Accelergy that generates ART
       auto art = rootNode.lookup("ART");
       std::cout << "Found Accelergy ART (area reference table), replacing internal area model." << std::endl;
-      arch_specs_.topology.ParseAccelergyART(art);  
+      arch_specs_.topology.ParseAccelergyART(art);
     }
   }
   else
@@ -103,7 +103,7 @@ Application::Application(config::CompoundConfig* config,
       auto ert = ertConfig->getRoot().lookup("ERT");
       std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
-        
+
       std::string artPath = out_prefix_ + ".ART.yaml";
       auto artConfig = new config::CompoundConfig(artPath.c_str());
       auto art = artConfig->getRoot().lookup("ART");
@@ -119,11 +119,11 @@ Application::Application(config::CompoundConfig* config,
   config::CompoundConfigNode sparse_optimizations;
   if (is_sparse_topology)
     sparse_optimizations = rootNode.lookup("sparse_optimizations");
-  
+
   sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
   // characterize workload on whether it has metadata
   workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
-  
+
   std::cout << "Sparse optimization configuration complete." << std::endl;
 
   // Mapper (this application) configuration. (the rest)
@@ -157,7 +157,7 @@ Application::Application(config::CompoundConfig* config,
   for (auto& metric: raw_metrics)
   {
     // Special-case: if any metric is "ordered-accesses" expand it into a list
-    // of "access-X" strings. 
+    // of "access-X" strings.
     if (metric == "ordered-accesses")
     {
       auto num_levels = arch_specs_.topology.NumStorageLevels();
@@ -179,7 +179,7 @@ Application::Application(config::CompoundConfig* config,
   if (search_size > 0)
     search_size = 1 + (search_size - 1) / num_threads_;
   search_size_ = static_cast<uint128_t>(search_size);
-  
+
   // Number of consecutive invalid mappings to trigger termination.
   timeout_ = 1000;
   mapper.lookupValue("timeout", timeout_);
@@ -194,12 +194,20 @@ Application::Application(config::CompoundConfig* config,
   std::uint32_t sync_interval = 0;
   mapper.lookupValue("sync-interval", sync_interval);
   sync_interval_ = static_cast<uint128_t>(sync_interval);
-  
-  // Misc.
-  log_stats_ = false;
-  mapper.lookupValue("log-stats", log_stats_);    
 
-  log_suboptimal_ = false;    
+  // Inter-thread sync interval.
+  std::uint32_t log_interval = 1;
+  mapper.lookupValue("log-interval", log_interval);
+  log_interval_ = static_cast<uint128_t>(log_interval);
+
+  // Misc.
+  log_oaves_ = false;
+  mapper.lookupValue("log-oaves", log_oaves_);
+
+  log_stats_ = false;
+  mapper.lookupValue("log-stats", log_stats_);
+
+  log_suboptimal_ = false;
   mapper.lookupValue("log-suboptimal", log_suboptimal_);
   mapper.lookupValue("log-all", log_suboptimal_); // backwards compatibility.
 
@@ -213,7 +221,7 @@ Application::Application(config::CompoundConfig* config,
   mapper.lookupValue("penalize-consecutive-bypass-fails", penalize_consecutive_bypass_fails_);
 
   emit_whoop_nest_ = false;
-  mapper.lookupValue("emit-whoop-nest", emit_whoop_nest_);    
+  mapper.lookupValue("emit-whoop-nest", emit_whoop_nest_);
 
   std::cout << "Mapper configuration complete." << std::endl;
 
@@ -310,11 +318,12 @@ void Application::Run()
   std::string map_yaml_file_name = out_prefix_ + ".map.yaml";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
   std::string map_cpp_file_name = out_prefix_ + ".map.cpp";
-    
+  std::string oaves_csv_file_name = out_prefix_ + ".oaves.csv";
   // Prepare live status/log stream.
   std::ofstream log_file;
+  std::ofstream oaves_csv_file(oaves_csv_file_name);
 
-  // std::streambuf* streambuf_cout = std::cout.rdbuf(); 
+  // std::streambuf* streambuf_cout = std::cout.rdbuf();
   std::streambuf* streambuf_cerr = std::cerr.rdbuf();
 
   if (live_status_)
@@ -322,7 +331,7 @@ void Application::Run()
     log_file.open(log_file_name);
     // std::cout.rdbuf(log_file.rdbuf());
     std::cerr.rdbuf(log_file.rdbuf());
-  
+
     initscr();
     cbreak();
     noecho();
@@ -340,10 +349,10 @@ void Application::Run()
     line5 << "--------------------------------------------------------------------------------";
     mvaddstr(0, 0, line0.str().c_str());
     mvaddstr(1, 0, line1.str().c_str());
-    mvaddstr(2, 0, line2.str().c_str());      
+    mvaddstr(2, 0, line2.str().c_str());
     mvaddstr(3, 0, line3.str().c_str());
     mvaddstr(4, 0, line4.str().c_str());
-    mvaddstr(5, 0, line5.str().c_str());      
+    mvaddstr(5, 0, line5.str().c_str());
     refresh();
   }
 
@@ -359,9 +368,12 @@ void Application::Run()
                                         timeout_,
                                         victory_condition_,
                                         sync_interval_,
+                                        log_interval_,
+                                        log_oaves_,
                                         log_stats_,
                                         log_suboptimal_,
                                         live_status_ ? log_file : std::cerr,
+                                        oaves_csv_file,
                                         live_status_,
                                         diagnostics_on_,
                                         penalize_consecutive_bypass_fails_,
@@ -401,7 +413,7 @@ void Application::Run()
   {
     // Aggregate diagnostic data from all threads.
     std::map<FailClass, std::map<unsigned, FailInfo>> fail_stats;
-      
+
     for (unsigned t = 0; t < num_threads_; t++)
     {
       for (auto& i: threads_.at(t)->GetStats().fail_stats)
@@ -418,7 +430,7 @@ void Application::Run()
         else
         {
           auto& fail_bucket = fail_bucket_it->second;
-            
+
           // We've seen this fail class. Walk through each level in this fail bucket.
           for (auto& j: thread_fail_bucket)
           {
@@ -440,7 +452,7 @@ void Application::Run()
         }
       }
     }
-        
+
 
     // Print.
     std::cout << std::endl;
@@ -452,7 +464,7 @@ void Application::Run()
     {
       auto& fail_class = i.first;
       auto& fail_bucket = i.second;
-        
+
       std::cout << "Fail class: " << fail_class << std::endl;
       for (auto& j: fail_bucket)
       {
@@ -474,7 +486,7 @@ void Application::Run()
         std::cout << std::endl;
       }
     }
-      
+
     std::cout << "-----------------------------------------------" << std::endl;
     std::cout << "                 END DIAGNOSTICS               " << std::endl;
     std::cout << "===============================================" << std::endl;
@@ -516,6 +528,7 @@ void Application::Run()
     std::ofstream stats_file(stats_file_name);
     stats_file << engine << std::endl;
     stats_file.close();
+    oaves_csv_file.close();
 
     if (emit_whoop_nest_)
     {
@@ -547,7 +560,7 @@ void Application::Run()
                 << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << global_best_.stats.energy /
         global_best_.stats.actual_computes << std::endl;
     }
-    
+
     // Print the engine stats and mapping to an XML file
     std::ofstream ofs(xml_file_name);
     boost::archive::xml_oarchive ar(ofs);
@@ -616,7 +629,7 @@ void Application::Run()
   {
     // Create a new mapspace constraint.
     libconfig::Setting& mapspace = root.add("mapspace", libconfig::Setting::TypeGroup);
-    
+
     // Format the best mapping as libconfig constraints.
     global_best_.mapping.FormatAsConstraints(mapspace);
   }
@@ -634,7 +647,7 @@ void Application::Run()
   {
     // Create a new mapping.
     libconfig::Setting& mapping = root.add("mapping", libconfig::Setting::TypeList);
-    
+
     // Format the best mapping as a libconfig spec.
     global_best_.mapping.FormatAsLibConfig(mapping, arch_specs_.topology.StorageLevelNames());
 

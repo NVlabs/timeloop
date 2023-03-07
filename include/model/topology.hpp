@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
 algorithmic contributors may be used tactual or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -220,7 +220,7 @@ class Topology : public Module
       per_tensor_accesses.clear();
     }
   };
-    
+
  private:
   std::vector<std::shared_ptr<Level>> levels_;
   std::map<std::string, std::shared_ptr<Network>> networks_;
@@ -247,7 +247,7 @@ class Topology : public Module
 
   Specs specs_;
   Stats stats_;
-  
+
   // Serialization
   friend class boost::serialization::access;
   template <class Archive>
@@ -264,6 +264,7 @@ class Topology : public Module
   std::shared_ptr<Level> GetLevel(unsigned level_id) const;
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
+
   void FloorPlan();
   void ComputeStats(bool eval_success);
 
@@ -314,7 +315,7 @@ class Topology : public Module
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs, bool is_sparse_topology);
   static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot, bool is_sparse_topology);
-  
+
   void Spec(const Specs& specs);
   void Reset();
   unsigned NumLevels() const;
@@ -339,6 +340,7 @@ class Topology : public Module
   std::uint64_t AlgorithmicComputes() const { return stats_.algorithmic_computes; }
   std::uint64_t ActualComputes() const { return stats_.actual_computes; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
+  void PrintOAVES(std::ostream& out, Mapping& mapping) const;
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };
