@@ -49,5 +49,47 @@ namespace mapping
     return MappingNodeIterator(nodes_.end());
   }
 
+  Root::Root(const NodeID& id) : id(id) {}
 
+  For::For(const NodeID& id,
+        const std::string& iterator_name,
+        const problem::Shape::FlattenedDimensionID& op_dim,
+        std::optional<IslAff>&& begin = std::nullopt,
+        std::optional<IslAff>&& end = std::nullopt):
+    id(id), 
+    iterator_name(iterator_name),
+    op_dim(op_dim) 
+  {
+    // TODO : What is IslAff's relation to size_t
+  }
+
+  ParFor::ParFor(const NodeID& id,
+         const std::string& iterator_name,
+         const problem::Shape::FlattenedDimensionID& op_dim,
+         std::optional<IslAff>&& begin = std::nullopt,
+         std::optional<IslAff>&& end = std::nullopt):
+    id(id),
+    iterator_name(iterator_name),
+    op_dim(op_dim)
+  {
+    // TODO : What is IslAff's relation to size_t
+  }
+
+  Storage::Storage(const NodeID& id,
+          const BufferID& buffer,
+          const problem::Shape::DataSpaceID& dspace):
+    id(id), buffer(buffer), dspace(dspace) {}
+  
+  Compute::Compute(const NodeID& id,
+          const problem::EinsumID& einsum,
+          const std::optional<IslPwMultiAff>&& tiling_spec):
+    id(id), kernel(einsum)
+  {
+    // TODO: std::optional<>&& ?? 
+  }
+
+  Pipeline::Pipeline(const NodeID& id) 
+  {
+    children.push_back(id);
+  }
 };
