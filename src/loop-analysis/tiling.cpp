@@ -36,8 +36,8 @@ namespace tiling
 {
 
 bool gEnableFirstReadElision =
-  (getenv("ENABLE_FIRST_READ_ELISION") == NULL) ||
-  (strcmp(getenv("ENABLE_FIRST_READ_ELISION"), "0") != 0);
+  (getenv("TIMELOOP_ENABLE_FIRST_READ_ELISION") == NULL) ||
+  (strcmp(getenv("TIMELOOP_ENABLE_FIRST_READ_ELISION"), "0") != 0);
 
 bool gUpdatedRMW =
   (getenv("TIMELOOP_ENABLE_UPDATED_RMW") != NULL) &&
