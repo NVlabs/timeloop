@@ -105,6 +105,9 @@ OccupanciesFromMapping(const loop::Nest& mapping,
   LogicalBufOccupancies result;
   for (auto& [buf, skew] : buf_skew)
   {
+    std::cout << "ops to dspace: " << ops_to_dspace.at(buf.dspace_id) << std::endl;
+    std::cout << "tiling: " << tiling << std::endl;
+    std::cout << "buf skew: " << buf_skew.at(buf) << std::endl;
     result.emplace(std::make_pair(
       buf,
       skew.apply_range(
@@ -114,6 +117,7 @@ OccupanciesFromMapping(const loop::Nest& mapping,
         )
       )
     ));
+    std::cout << result.at(buf) << std::endl;
   }
 
   return result;
