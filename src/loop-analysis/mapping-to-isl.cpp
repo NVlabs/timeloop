@@ -10,9 +10,11 @@
  */
 
 #include <stdexcept>
+#include <isl/cpp.h>
 
 #include "loop-analysis/isl-ir.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
+#include "isl-wrapper/isl-functions.hpp"
 
 namespace analysis
 {
@@ -42,14 +44,14 @@ struct TilingCoefTracker
   NewIterDim(size_t op_dim, const std::optional<size_t>& iter_dim_end);
 
  private:
-  friend IslMap TilingCoefTrackerToMap(TilingCoefTracker&& tracker);
+  friend isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker);
 
   std::vector<std::vector<std::optional<size_t>>> coefs_;
   size_t n_iter_dims_;
 
 };
 
-IslMap TilingCoefTrackerToMap(const TilingCoefTracker& tracker);
+isl::map TilingCoefTrackerToMap(const TilingCoefTracker& tracker);
 
 LogicalBufTiling
 LogicalBufTilingFromMapping(const mapping::FusedMapping& mapping);
@@ -63,7 +65,7 @@ LogicalBufSkews
 LogicalBufSkewsFromMapping(const loop::Nest& mapping,
                            const problem::Workload& workload);
 
-std::map<DataSpaceID, IslMap>
+std::map<DataSpaceID, isl::map>
 OpsToDSpaceFromEinsum(const problem::Workload& workload);
 
 /******************************************************************************
@@ -83,9 +85,8 @@ OccupanciesFromMapping(const mapping::FusedMapping& mapping,
   {
     result.emplace(std::make_pair(
       buf,
-      ApplyRange(
-        std::move(buf_skew.at(buf)),
-        ApplyRange(std::move(tiling), IslMap(ops_to_dspace.at(buf.dspace_id)))
+      buf_skew.at(buf).apply_range(
+        tiling.apply_range(ops_to_dspace.at(buf.dspace_id))
       )
     ));
   }
@@ -104,13 +105,16 @@ OccupanciesFromMapping(const loop::Nest& mapping,
   LogicalBufOccupancies result;
   for (auto& [buf, tiling] : buf_tiling)
   {
+    std::cout << "ops to dspace: " << ops_to_dspace.at(buf.dspace_id) << std::endl;
+    std::cout << "tiling: " << tiling << std::endl;
+    std::cout << "buf skew: " << buf_skew.at(buf) << std::endl;
     result.emplace(std::make_pair(
       buf,
-      ApplyRange(
-        std::move(buf_skew.at(buf)),
-        ApplyRange(std::move(tiling), IslMap(ops_to_dspace.at(buf.dspace_id)))
+      buf_skew.at(buf).apply_range(
+        tiling.apply_range(ops_to_dspace.at(buf.dspace_id))
       )
     ));
+    std::cout << result.at(buf) << std::endl;
   }
 
   return result;
@@ -126,7 +130,7 @@ BranchTilings TilingFromMapping(const mapping::FusedMapping& mapping)
   for (const auto& path : GetPaths(mapping))
   {
     TilingCoefTracker coef_tracker;
-    std::optional<IslPwMultiAff> explicit_tiling_spec;
+    std::optional<isl::pw_multi_aff> explicit_tiling_spec;
     mapping::NodeID leaf_id;
     for (const auto& node : path)
     {
@@ -151,7 +155,7 @@ BranchTilings TilingFromMapping(const mapping::FusedMapping& mapping)
     {
       result.emplace(std::make_pair(
         leaf_id,
-        IslMap(std::move(*explicit_tiling_spec))
+        isl::map_from_multi_aff(*explicit_tiling_spec)
       ));
     } else
     {
@@ -279,8 +283,8 @@ LogicalBufTilingFromMapping(const mapping::FusedMapping& mapping)
   {
     result.emplace(std::make_pair(
       buf,
-      ProjectDimInAfter(IslMap(branch_tiling.at(buf.branch_leaf_id)),
-                        level)
+      project_dim_in_after(isl::map(branch_tiling.at(buf.branch_leaf_id)),
+                           level)
     ));
   }
 
@@ -297,10 +301,11 @@ LogicalBufTilingFromMapping(const loop::Nest& nest,
   LogicalBufTiling result;
   for (auto& [buf, level] : buf_to_iter_level)
   {
+    std::cout << "branch tiling: " << branch_tiling.at(0) << std::endl;
     auto [_, inserted] = result.emplace(std::make_pair(
       LogicalBuffer(buf.buffer_id, buf.dspace_id, buf.branch_leaf_id),
-      ProjectDimInAfter(IslMap(branch_tiling.at(buf.branch_leaf_id)),
-                        level)
+      project_dim_in_after(isl::map(branch_tiling.at(buf.branch_leaf_id)),
+                           level)
     ));
     if (!inserted)
     {
@@ -332,9 +337,12 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
 
     result.emplace(std::make_pair(
       buf,
-      TaggedMap<IslMap, spacetime::Dimension>(
-        IslMap(
-          IslMultiAff::Identity(IslSpace::Alloc(GetIslCtx(), 0, level, level))
+      TaggedMap<isl::map, spacetime::Dimension>(
+        isl::map_from_multi_aff(
+          isl::multi_aff::identity_on_domain(isl::space_alloc(GetIslCtx(),
+                                                              0,
+                                                              level,
+                                                              level).domain())
         ),
         std::move(tags)
       )
@@ -344,57 +352,61 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
   return result;
 }
 
-std::map<DataSpaceID, IslMap>
+std::map<DataSpaceID, isl::map>
 OpsToDSpaceFromEinsum(const problem::Workload& workload)
 {
   const auto& workload_shape = *workload.GetShape();
 
-  std::map<DataSpaceID, IslMap> dspace_id_to_ospace_to_dspace;
+  std::map<DataSpaceID, isl::map> dspace_id_to_ospace_to_dspace;
 
   for (const auto& [name, dspace_id] : workload_shape.DataSpaceNameToID)
   {
     const auto dspace_order = workload_shape.DataSpaceOrder.at(dspace_id);
     const auto& projection = workload_shape.Projections.at(dspace_id);
 
-    auto space = IslSpace::Alloc(GetIslCtx(),
-                                 0,
-                                 workload_shape.NumFactorizedDimensions,
-                                 dspace_order);
-    for (const auto& [ospace_dim_name, ospace_dim_id] :
-         workload_shape.FactorizedDimensionNameToID)
-    {
-      space.SetDimName(isl_dim_in, ospace_dim_id, ospace_dim_name);
-    }
-    for (unsigned dspace_dim = 0; dspace_dim < dspace_order; ++dspace_dim)
-    {
-      const auto isl_dspace_dim_name = name + "_" + std::to_string(dspace_dim);
-      space.SetDimName(isl_dim_out, dspace_dim, isl_dspace_dim_name);
-    }
+    auto space = isl::space_alloc(GetIslCtx(),
+                                  0,
+                                  workload_shape.NumFactorizedDimensions,
+                                  dspace_order);
+    // for (const auto& [ospace_dim_name, ospace_dim_id] :
+    //      workload_shape.FactorizedDimensionNameToID)
+    // {
+    //   space.SetDimName(isl_dim_in, ospace_dim_id, ospace_dim_name);
+    // }
+    // for (unsigned dspace_dim = 0; dspace_dim < dspace_order; ++dspace_dim)
+    // {
+    //   const auto isl_dspace_dim_name = name + "_" + std::to_string(dspace_dim);
+    //   space.SetDimName(isl_dim_out, dspace_dim, isl_dspace_dim_name);
+    // }
 
-    auto multi_aff = IslMultiAff::Zero(IslSpace(space));
+    auto multi_aff = space.zero_multi_aff();
     for (unsigned dspace_dim = 0; dspace_dim < dspace_order; ++dspace_dim)
     {
-      auto aff = IslAff::ZeroOnDomainSpace(IslSpaceDomain(IslSpace(space)));
+      auto aff = space.domain().zero_aff_on_domain();
       for (const auto& term : projection.at(dspace_dim))
       {
         const auto& coef_id = term.first;
         const auto& factorized_dim_id = term.second;
         if (coef_id != workload_shape.NumCoefficients)
         {
-          aff.SetCoefficientSi(isl_dim_in,
-                               factorized_dim_id,
-                               workload.GetCoefficient(coef_id));
+          aff = set_coefficient_si(aff,
+                                   isl_dim_in,
+                                   factorized_dim_id,
+                                   workload.GetCoefficient(coef_id));
         }
         else // Last term is a constant
         {
-          aff.SetCoefficientSi(isl_dim_in, factorized_dim_id, 1);
+          aff = set_coefficient_si(aff,
+                                   isl_dim_in,
+                                   factorized_dim_id,
+                                   1);
         }
       }
-      multi_aff.SetAff(dspace_dim, std::move(aff));
+      multi_aff = multi_aff.set_at(dspace_dim, aff);
     }
     dspace_id_to_ospace_to_dspace.emplace(std::make_pair(
       dspace_id,
-      IslMap(std::move(multi_aff))
+      isl::map_from_multi_aff(multi_aff)
     ));
   }
 
@@ -427,23 +439,24 @@ TilingCoefTracker::NewIterDim(size_t op_dim,
   return *this;
 }
 
-IslMap TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
+isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
 {
-  auto eq_maff = IslMultiAff::Zero(
-    IslSpace::Alloc(GetIslCtx(),
-                    0,
-                    tracker.n_iter_dims_,
-                    tracker.coefs_.size())
+  auto eq_maff = isl::multi_aff::zero(
+    isl::space_alloc(GetIslCtx(),
+                     0,
+                     tracker.n_iter_dims_,
+                     tracker.coefs_.size())
   );
-  auto iter_set = IslSet::Universe(eq_maff.GetDomainSpace());
-  auto identity = IslMultiAff::IdentityOnDomainSpace(eq_maff.GetDomainSpace());
+
+  auto iter_set = isl::set::universe(eq_maff.space().domain());
+  auto identity = isl::multi_aff::identity_on_domain(eq_maff.space().domain()); 
 
   for (size_t op_dim = 0; op_dim < tracker.coefs_.size(); ++op_dim)
   {
     auto& dim_coefs = tracker.coefs_.at(op_dim);
     int last_coef = 1;
 
-    auto eq_aff = eq_maff.GetAff(op_dim);
+    auto eq_aff = eq_maff.get_at(op_dim);
     for (size_t iter_dim = 0; iter_dim < tracker.n_iter_dims_; ++iter_dim)
     {
       auto& coef_opt = dim_coefs.at(iter_dim);
@@ -451,27 +464,25 @@ IslMap TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
       if (coef != 0)
       {
         auto reversed_iter_dim = tracker.n_iter_dims_ - iter_dim - 1;
-        eq_aff.SetCoefficientSi(isl_dim_in,
-                                reversed_iter_dim,
-                                last_coef);
-        iter_set = Intersect(
-          IslSet(iter_set),
-          GeSet(identity.GetAff(reversed_iter_dim),
-                IslAff::ValOnDomainSpace(identity.GetDomainSpace(), IslVal(0)))
+        eq_aff = isl::set_coefficient_si(eq_aff,
+                                         isl_dim_in,
+                                         reversed_iter_dim,
+                                         last_coef);
+        iter_set = iter_set.intersect(
+          identity.get_at(reversed_iter_dim).ge_set(
+            isl::si_on_domain(identity.space().domain(), 0))
         );
-        iter_set = Intersect(
-          IslSet(iter_set),
-          LtSet(identity.GetAff(reversed_iter_dim),
-                IslAff::ValOnDomainSpace(identity.GetDomainSpace(),
-                                         IslVal(coef)))
+        iter_set = iter_set.intersect(
+          identity.get_at(reversed_iter_dim).lt_set(
+            isl::si_on_domain(identity.space().domain(), coef))
         );
         last_coef *= coef;
       }
     }
-    eq_maff.SetAff(op_dim, std::move(eq_aff));
+    eq_maff.set_at(op_dim, eq_aff);
   }
 
-  auto map = IntersectDomain(IslMap(std::move(eq_maff)), std::move(iter_set));
+  auto map = isl::map_from_multi_aff(eq_maff).intersect_domain(iter_set);
 
   return map;
 }

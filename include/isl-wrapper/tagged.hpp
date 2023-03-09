@@ -4,36 +4,13 @@
 #include <stdexcept>
 #include <ostream>
 
-#include <isl/space.h>
+#include <isl/cpp.h>
 
-#include "isl-wrapper/isl-wrapper.hpp"
+#include "isl-wrapper/isl-functions.hpp"
 
 /******************************************************************************
  * Macros
  *****************************************************************************/
-#define ISL_TAGGED_MAP_BINARY_OP_IMPL(NAME)                  \
-  template<typename MapT, typename InTagT, typename OutTagT> \
-  TaggedMap<MapT, InTagT, OutTagT>                           \
-  NAME(TaggedMap<MapT, InTagT, OutTagT>&& map1,              \
-       MapT&& map2)                                          \
-  {                                                          \
-    return TaggedMap<MapT, InTagT, OutTagT>(                 \
-      NAME(std::move(map1.map), std::move(map2)),            \
-      std::move(map1.in_tags),                               \
-      std::move(map1.out_tags)                               \
-    );                                                       \
-  }                                                          \
-  template<typename MapT, typename InTagT, typename OutTagT> \
-  TaggedMap<MapT, InTagT, OutTagT>                           \
-  NAME(TaggedMap<MapT, InTagT, OutTagT>&& map1,              \
-       TaggedMap<MapT, InTagT, OutTagT>&& map2)              \
-  {                                                          \
-    return TaggedMap<MapT, InTagT, OutTagT>(                 \
-      NAME(std::move(map1.map), std::move(map2.map)),        \
-      std::move(map1.in_tags),                               \
-      std::move(map1.out_tags)                               \
-    );                                                       \
-  }
 
 /******************************************************************************
  * Classes
@@ -96,8 +73,7 @@ class ReverseTaggedMapDimIterator
   ReverseTaggedMapDimIterator<T>& operator++()
   {
     ++iterator_;
-    --dim_;
-    return *this;
+    --dim_; return *this;
   }
 
   bool operator!=(const ReverseTaggedMapDimIterator& other)
@@ -173,13 +149,29 @@ struct TaggedMap
     return *this;
   }
 
-  IslSpace GetDomainSpace() const
+  inline TaggedMap<Map, InTag, NoTag>
+  apply_range(const isl::map& other_map)
   {
-    return map.GetDomainSpace();
+    return TaggedMap(map.apply_range(other_map),
+                     std::vector<InTag>(in_tags));
   }
-  IslSpace GetSpace() const
+
+  void project_dim_in(size_t pos, size_t n)
   {
-    return map.GetSpace();
+    if (pos + n <= in_tags.size())
+    {
+      map = isl::project_dim(map, isl_dim_in, pos, n);
+      in_tags.erase(in_tags.begin() + pos, in_tags.begin() + pos + n);
+    }
+    else
+    {
+      throw std::out_of_range("pos + n out of range");
+    }
+  }
+
+  inline isl::space space() const
+  {
+    return map.space();
   }
 
   TaggedMap<MapT, InTag, OutTag> Copy() const
@@ -226,18 +218,6 @@ struct TaggedMap
   {
     return ReverseTaggedMapDimIterator<OutTag>::end(out_tags);
   }
-
-
-  bool InvolvesDims(isl_dim_type dim_type,
-                    std::size_t first,
-                    std::size_t n) const
-  {
-    return map.InvolvesDims(dim_type, first, n);
-  }
-  std::size_t NumDims(isl_dim_type dim_type) const
-  {
-    return map.NumDims(dim_type);
-  }
 };
 
 template<typename MapT, typename InTagT, typename OutTagT>
@@ -270,58 +250,4 @@ operator<<(std::ostream& os, const TaggedMap<MapT, InTagT, OutTagT>& map)
 
   os << "]; map: " << map.map;
   return os;
-}
-
-ISL_TAGGED_MAP_BINARY_OP_IMPL(ApplyRange)
-ISL_TAGGED_MAP_BINARY_OP_IMPL(Subtract)
-
-template<typename MapT, typename InTagT, typename OutTagT>
-TaggedMap<MapT, InTagT, OutTagT>
-ProjectDims(TaggedMap<MapT, InTagT, OutTagT>&& map,
-            isl_dim_type dim_type,
-            size_t first,
-            size_t n)
-{
-  if (dim_type == isl_dim_in)
-  {
-    auto first_it = map.in_tags.begin() + first;
-    auto last_it = first_it + n;
-    map.in_tags.erase(first_it, last_it);
-  }
-  else if (dim_type == isl_dim_out)
-  {
-    auto first_it = map.out_tags.begin() + first;
-    auto last_it = first_it + n;
-    map.out_tags.erase(first_it, last_it);
-  }
-  else
-  {
-    throw std::logic_error("unimplemented");
-  }
-
-  return TaggedMap<MapT, InTagT, OutTagT>(
-    ProjectDims(std::move(map.map), dim_type, first, n),
-    std::move(map.in_tags),
-    std::move(map.out_tags)
-  );
-}
-
-template<typename MapT, typename InTagT, typename OutTagT>
-TaggedMap<MapT, InTagT, OutTagT>
-FixSi(TaggedMap<MapT, InTagT, OutTagT>&& map,
-      isl_dim_type dim_type,
-      size_t pos,
-      int value)
-{
-  return TaggedMap<MapT, InTagT, OutTagT>(
-    FixSi(std::move(map.map), dim_type, pos, value),
-    std::move(map.in_tags),
-    std::move(map.out_tags)
-  );
-}
-
-template<typename MapT, typename InTagT, typename OutTagT>
-IslSet Range(TaggedMap<MapT, InTagT, OutTagT>&& map)
-{
-  return Range(std::move(map.map));
 }
