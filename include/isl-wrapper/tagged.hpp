@@ -149,6 +149,11 @@ struct TaggedMap
     return *this;
   }
 
+  size_t dim(isl_dim_type dim_type) const
+  {
+    return isl_map_dim(map.get(), isl_dim_in);
+  }
+
   inline TaggedMap<Map, InTag, NoTag>
   apply_range(const isl::map& other_map)
   {
@@ -174,11 +179,25 @@ struct TaggedMap
     return map.space();
   }
 
-  TaggedMap<MapT, InTag, OutTag> Copy() const
+  TaggedMap<MapT, InTag, OutTag> intersect(MapT other) const
+  {
+    return TaggedMap(map.intersect(other),
+                     std::vector<InTag>(in_tags),
+                     std::vector<OutTag>(out_tags));
+  }
+
+  TaggedMap<MapT, InTag, OutTag> subtract(MapT other) const
+  {
+    return TaggedMap(map.subtract(other),
+                     std::vector<InTag>(in_tags),
+                     std::vector<OutTag>(out_tags));
+  }
+
+  TaggedMap<MapT, InTag, OutTag> copy() const
   {
     return TaggedMap(*this);
   }
-  TaggedMap<MapT, InTag, OutTag> TagLikeThis(MapT&& map) const
+  TaggedMap<MapT, InTag, OutTag> tag_like_this(MapT&& map) const
   {
     return TaggedMap(std::move(map),
                      std::vector<InTag>(in_tags),

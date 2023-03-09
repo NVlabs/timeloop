@@ -468,6 +468,7 @@ isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
                                          isl_dim_in,
                                          reversed_iter_dim,
                                          last_coef);
+        std::cout << "eq aff: " << eq_aff << std::endl;
         iter_set = iter_set.intersect(
           identity.get_at(reversed_iter_dim).ge_set(
             isl::si_on_domain(identity.space().domain(), 0))
@@ -479,7 +480,9 @@ isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
         last_coef *= coef;
       }
     }
-    eq_maff.set_at(op_dim, eq_aff);
+    std::cout << "eq aff: " << eq_aff << std::endl;
+    eq_maff = eq_maff.set_at(op_dim, eq_aff);
+    std::cout << "eq maff: " << eq_aff << std::endl;
   }
 
   auto map = isl::map_from_multi_aff(eq_maff).intersect_domain(iter_set);
