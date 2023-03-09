@@ -6,16 +6,20 @@
  * Local declarations
  *****************************************************************************/
 
-thread_local IslCtx gCtx;
+thread_local std::optional<isl::ctx> gCtx;
 std::mutex gIslMutex;
 
 /******************************************************************************
  * Global function implementations
  *****************************************************************************/
 
-IslCtx& GetIslCtx()
+isl::ctx& GetIslCtx()
 {
-  return gCtx;
+  if (!gCtx)
+  {
+    gCtx = isl::ctx(isl_ctx_alloc());
+  }
+  return *gCtx;
 }
 
 const std::unique_lock<std::mutex> GetIslLock()
