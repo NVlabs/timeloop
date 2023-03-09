@@ -31,6 +31,7 @@
 #include <unordered_map>
 #include <barvinok/isl.h>
 #include <isl/aff.h>
+#include <isl/cpp.h>
 #include <isl/set.h>
 #include <isl/space.h>
 
@@ -46,7 +47,7 @@
 
 #include "util/misc.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
-#include "isl-wrapper/isl-wrapper.hpp"
+#include "isl-wrapper/isl-functions.hpp"
 #include "isl-wrapper/tagged.hpp"
 #include "loop-analysis/isl-ir.hpp"
 #include "loop-analysis/nest-analysis.hpp"
@@ -81,7 +82,7 @@ bool gResetOnStrideChange = false;
 
 namespace analysis
 {
-using Fill = TaggedMap<IslMap, spacetime::Dimension>;
+using Fill = TaggedMap<isl::map, spacetime::Dimension>;
 using LogicalBufFills = std::map<LogicalBuffer, Fill>;
 
 struct LinkTransferInfo
@@ -92,22 +93,45 @@ struct LinkTransferInfo
 
 struct LinkTransferModel
 {
-  virtual LinkTransferInfo Apply(LogicalBufFills&&) const;
+  virtual LinkTransferInfo Apply(LogicalBufFills&&) const = 0;
 };
 
 class SimpleLinkTransferModel : public LinkTransferModel
 {
  public:
-  SimpleLinkTransferModel() :
-   connectivity("[x, y] -> [x', y'] : (x'=x-1 or x'=x+1) "
-                                      "and (y'=y-1 or y'=y+1) }")
+  SimpleLinkTransferModel(size_t n_dims)
   {
+    if (n_dims == 1)
+    {
+      connectivity_ = isl::map(GetIslCtx(),
+                               "{ [x] -> [x'] : x'=x-1 or x'=x+1 }");
+    }
+    else if (n_dims == 2)
+    {
+      connectivity_ = isl::map(GetIslCtx(),
+                               "{ [x, y] -> [x', y'] : "
+                               "  (x'=x-1 or x'=x+1) "
+                               "  and (y'=y-1 or y'=y+1) }");
+    }
+    else
+    {
+      throw std::logic_error("unsupported");
+    }
   }
 
-  LinkTransferInfo Apply(LogicalBufFills&& fills) const override;
+  LinkTransferInfo Apply(LogicalBufFills&& fills) const override
+  {
+    for (const auto& [buf, fill] : fills)
+    {
+      std::cout << "buf: " << buf << std::endl;
+      std::cout << "fill: " << fill << std::endl;
+    }
+
+    return LinkTransferInfo{};
+  }
 
  private:
-  IslMap connectivity;
+  isl::map connectivity_;
 };
 
 struct MulticastInfo
@@ -117,7 +141,19 @@ struct MulticastInfo
 
 struct MulticastModel
 {
-  virtual MulticastInfo Apply(LogicalBufFills&&) const;
+  virtual MulticastInfo Apply(LogicalBufFills&&) const = 0;
+};
+
+class SimpleMulticastModel : public MulticastModel
+{
+ public:
+  SimpleMulticastModel() {}
+
+  MulticastInfo Apply(LogicalBufFills&& fills) const override
+  {
+    (void) fills;
+    return MulticastInfo{};
+  }
 };
 
 Fill FillFromOccupancy(Occupancy&&);
@@ -135,9 +171,7 @@ SpatialReuseInfo SpatialReuseAnalysis(LogicalBufFills&&,
                                       const LinkTransferModel&,
                                       const MulticastModel&);
 
-IslMap MapToShifted(IslSpace&& space,
-                    size_t pos,
-                    int shift);
+isl::map MapToShifted(isl::space space, size_t pos, int shift);
 
 isl_val* ValOfConstantPwPolynomial(isl_pw_qpolynomial* qp);
 
@@ -160,22 +194,17 @@ Fill FillFromOccupancy(Occupancy&& occupancy)
       auto [dim_idx, dim_type] = *dim_it;
       if (dim_type == spacetime::Dimension::Time)
       {
+        std::cout << occupancy << std::endl;
         auto time_shift_map = occupancy.TagLikeThis(
-          MapToShifted(occupancy.GetDomainSpace(), dim_idx, -1)
+          isl::map_to_shifted(occupancy.space().domain(), dim_idx, -1)
         );
-        auto occ_before = ApplyRange(std::move(time_shift_map),
-                                     occupancy.Copy());
-        auto fill = FixSi(
-          Subtract(occupancy.Copy(), std::move(occ_before)),
-          isl_dim_in, dim_idx, 1
+        auto occ_before = time_shift_map.apply_range(occupancy.map);
+        auto fill = isl::fix_si(
+          occupancy.map.subtract(occ_before.map), isl_dim_in, dim_idx, 1
         );
-        std::cout << "fill: " << fill << std::endl;
-        if (IsEmpty(Range(std::move(fill))))
+        if (fill.range().is_empty())
         {
-          occupancy = ProjectDims(std::move(occupancy),
-                                  isl_dim_in,
-                                  dim_idx,
-                                  1);
+          occupancy.project_dim_in(dim_idx, 1);
           try_again = true;
         }
         break;
@@ -462,15 +491,10 @@ void NestAnalysis::ComputeWorkingSets()
   }
 
   auto occupancies = OccupanciesFromMapping(cached_nest, *workload_);
-  for (const auto& [buf, map] : occupancies)
-  {
-    std::cout << "occ: " << map << std::endl;
-  }
   auto fills = TemporalReuseAnalysis(std::move(occupancies));
-  for (const auto& [buf, map] : fills)
-  {
-    std::cout << "fills: " << map << std::endl;
-  }
+  auto result = SpatialReuseAnalysis(std::move(fills),
+                                     SimpleLinkTransferModel(1),
+                                     SimpleMulticastModel());
 
   // Done.
   working_sets_computed_ = true;
@@ -2443,54 +2467,6 @@ SpaceTimeToIter Shift(spacetime::Dimension dim_type,
   );
 
   return spacetime_to_iter;
-}
-
-IslMap MapToShifted(IslSpace&& domain_space, size_t pos, int shift)
-{
-  auto multi_aff = IslMultiAff::IdentityOnDomainSpace(std::move(domain_space));
-  multi_aff.SetAff(pos, std::move(multi_aff.GetAff(pos).SetConstantSi(shift)));
-  return IslMap(std::move(multi_aff));
-}
-
-SpaceTimeToIter Difference(SpaceTimeToIter&& a, SpaceTimeToIter&& b)
-{
-  a.space_time_to_iter = 
-    isl_map_subtract(a.space_time_to_iter, b.space_time_to_iter);
-  b.space_time_to_iter = nullptr;
-
-  return a;
-}
-
-isl_val* ValOfConstantPwPolynomial(isl_pw_qpolynomial* qp)
-{
-  isl_val* constant;
-  isl_pw_qpolynomial_foreach_piece(qp,
-    [](isl_set* set, isl_qpolynomial* qp, void* val)
-    {
-      (void) set;
-
-      *static_cast<isl_val**>(val)= isl_qpolynomial_get_constant_val(qp);
-
-      isl_set_free(set);
-      isl_qpolynomial_free(qp);
-
-      return isl_stat_ok;
-    },
-    static_cast<void*>(&constant));
-
-  qp = nullptr;
-
-  return constant;
-}
-
-unsigned long ValToUnsignedLong(isl_val* val)
-{
-  unsigned long numerator = isl_val_get_num_si(val);
-  unsigned long denominator = isl_val_get_den_si(val);
-
-  val = nullptr;
-
-  return numerator / denominator;
 }
 
 } // namespace analysis

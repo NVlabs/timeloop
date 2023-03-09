@@ -42,3 +42,6 @@ GTAGS
 
 # If using virtual environment for testing
 venv
+
+# Development container
+.devcontainer
