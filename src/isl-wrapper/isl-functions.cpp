@@ -49,6 +49,31 @@ isl::aff si_on_domain(isl::space space, int val)
   ));
 }
 
+isl::map add_dims(isl::map map, isl_dim_type dim_type, size_t n_dims)
+{
+  return isl::manage(isl_map_add_dims(map.release(), dim_type, n_dims));
+}
+
+isl::map insert_dims(isl::map map,
+                     isl_dim_type dim_type, size_t pos, size_t n_dims)
+{
+  return isl::manage(isl_map_insert_dims(map.release(),
+                                         dim_type, pos, n_dims));
+}
+
+isl::map move_dims(isl::map map,
+                   isl_dim_type dst_dim_type, size_t dst,
+                   isl_dim_type src_dim_type, size_t src,
+                   size_t n_dims)
+{
+  return isl::manage(
+    isl_map_move_dims(map.release(),
+                      dst_dim_type, dst,
+                      src_dim_type, src,
+                      n_dims)
+  );
+}
+
 isl::map map_to_shifted(isl::space domain_space, size_t pos, int shift)
 {
   auto p_maff = isl_multi_aff_identity_on_domain_space(domain_space.release());
