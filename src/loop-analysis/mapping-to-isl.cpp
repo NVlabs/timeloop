@@ -498,6 +498,7 @@ isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
                                          isl_dim_in,
                                          reversed_iter_dim,
                                          last_coef);
+        std::cout << "eq aff: " << eq_aff << std::endl;
         iter_set = iter_set.intersect(
           identity.get_at(reversed_iter_dim).ge_set(
             isl::si_on_domain(identity.space().domain(), 0))
