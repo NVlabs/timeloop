@@ -12,6 +12,7 @@
 #pragma once
 
 #include <map>
+#include <isl/cpp.h>
 
 #include "isl-wrapper/tagged.hpp"
 #include "mapping/fused-mapping.hpp"
@@ -83,7 +84,7 @@ std::ostream& operator<<(std::ostream& os, const LogicalBuffer& buf);
  * LoopTree. The tiling relation that goes to the nest analysis is guaranteed
  * to be fully specified.
  */
-using Tiling = IslMap;
+using Tiling = isl::map;
 using BranchTilings = std::map<mapping::NodeID, Tiling>;
 using LogicalBufTiling = std::map<LogicalBuffer, Tiling>;
 
@@ -95,7 +96,7 @@ using LogicalBufTiling = std::map<LogicalBuffer, Tiling>;
  * relationship even if spatial instances duplicate data.
  * 
  */
-using DataDistribution = IslMap;
+using DataDistribution = isl::map;
 using LogicalBufDataDistributions = std::map<LogicalBuffer, DataDistribution>;
 
 /**
@@ -105,7 +106,7 @@ using LogicalBufDataDistributions = std::map<LogicalBuffer, DataDistribution>;
  * The default is inferred from the mapping.
  * 
  */
-using Skew = TaggedMap<IslMap, spacetime::Dimension>;
+using Skew = TaggedMap<isl::map, spacetime::Dimension>;
 using LogicalBufSkews = std::map<LogicalBuffer, Skew>;
 
 /**
@@ -113,7 +114,7 @@ using LogicalBufSkews = std::map<LogicalBuffer, Skew>;
  *        data held in a logical buffer.
  * 
  */
-using Occupancy = TaggedMap<IslMap, spacetime::Dimension>;
+using Occupancy = TaggedMap<isl::map, spacetime::Dimension>;
 using LogicalBufOccupancies = std::map<LogicalBuffer, Occupancy>;
 
 /**
@@ -123,7 +124,7 @@ using LogicalBufOccupancies = std::map<LogicalBuffer, Occupancy>;
  *   - To calculate access counts which is passed to the uarch model
  *   - As input to TARDIS for code-gen
  */
-using Transfers = IslMap;
+using Transfers = isl::map;
 using LogicalBufTransfers = std::map<std::pair<LogicalBuffer, LogicalBuffer>,
                                      Transfers>;
 

@@ -3,8 +3,8 @@
 #include <memory>
 #include <variant>
 #include <optional>
+#include <isl/cpp.h>
 
-#include "isl-wrapper/isl-wrapper.hpp"
 #include "workload/workload.hpp"
 #include "workload/fused-workload.hpp"
 
@@ -36,8 +36,8 @@ struct For
   For(const NodeID& id,
       const std::string& iterator_name,
       const problem::Shape::FlattenedDimensionID& op_dim,
-      std::optional<IslAff>&& begin = std::nullopt,
-      std::optional<IslAff>&& end = std::nullopt);
+      std::optional<isl::aff>&& begin = std::nullopt,
+      std::optional<isl::aff>&& end = std::nullopt);
 };
 
 struct ParFor
@@ -54,15 +54,15 @@ struct ParFor
   ParFor(const NodeID& id,
          const std::string& iterator_name,
          const problem::Shape::FlattenedDimensionID& op_dim,
-         std::optional<IslAff>&& begin = std::nullopt,
-         std::optional<IslAff>&& end = std::nullopt);
+         std::optional<isl::aff>&& begin = std::nullopt,
+         std::optional<isl::aff>&& end = std::nullopt);
 };
 
 struct Storage
 {
   BufferID buffer;
   problem::Shape::DataSpaceID dspace;
-  std::vector<std::pair<NodeID, IslMap>> logical_buf_occupancy;
+  std::vector<std::pair<NodeID, isl::map>> logical_buf_occupancy;
 
   NodeID id;
   NodeID child;
@@ -80,13 +80,13 @@ struct Compute
    * 
    * If given, bounds are not used to infer tiling map.
    */
-  IslPwMultiAff tiling_spec;
+  isl::pw_multi_aff tiling_spec;
 
   NodeID id;
 
   Compute(const NodeID& id,
           const problem::EinsumID& einsum,
-          const std::optional<IslPwMultiAff>&& tiling_spec);
+          const std::optional<isl::pw_multi_aff>&& tiling_spec);
 };
 
 struct Pipeline
