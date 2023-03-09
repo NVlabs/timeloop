@@ -163,7 +163,7 @@ using LogicalBufOccupancies = std::map<LogicalBuffer, Occupancy>;
  *   - To calculate access counts which is passed to the uarch model
  *   - As input to TARDIS for code-gen
  */
-using Transfers = isl::map;
+using Transfers = TaggedMap<isl::map, spacetime::Dimension>;
 using LogicalBufTransfers = std::map<std::pair<LogicalBuffer, LogicalBuffer>,
                                      Transfers>;
 
