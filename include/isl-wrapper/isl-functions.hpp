@@ -32,6 +32,9 @@ isl::map move_dims(isl::map map,
 
 isl::map map_to_shifted(isl::space domain_space, size_t pos, int shift);
 
+isl::map map_to_all_after(isl::space domain_space,
+                          isl_dim_type dim_type, size_t pos);
+
 isl::map fix_si(isl::map map, isl_dim_type dim_type, size_t pos, int val);
 
 };  // namespace isl
