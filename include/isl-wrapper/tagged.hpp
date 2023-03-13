@@ -151,7 +151,7 @@ struct TaggedMap
 
   size_t dim(isl_dim_type dim_type) const
   {
-    return isl_map_dim(map.get(), isl_dim_in);
+    return isl_map_dim(map.get(), dim_type);
   }
 
   inline TaggedMap<Map, InTag, NoTag>
