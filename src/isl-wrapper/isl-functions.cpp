@@ -85,6 +85,18 @@ isl::map map_to_shifted(isl::space domain_space, size_t pos, int shift)
   return isl::manage(isl_map_from_multi_aff(p_maff));
 }
 
+isl::map map_to_all_after(isl::space domain_space,
+                          isl_dim_type dim_type, size_t pos)
+{
+  auto p_aff = isl_aff_zero_on_domain_space(domain_space.release());
+  p_aff = isl_aff_set_coefficient_si(p_aff, dim_type, pos, 1);
+  auto p_pw_aff = isl_pw_aff_from_aff(p_aff);
+  return isl::manage(isl_pw_aff_lt_map(
+    p_pw_aff,
+    isl_pw_aff_copy(p_pw_aff)
+  ));
+}
+
 isl::map fix_si(isl::map map, isl_dim_type dim_type, size_t pos, int val)
 {
   return isl::manage(isl_map_fix_si(map.release(), dim_type, pos, val));
