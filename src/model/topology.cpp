@@ -561,7 +561,7 @@ out << std::endl
   return out;
 }
 
-void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping, std::string oaves_prefix, unsigned thread_id) const {
+void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping, bool log_oaves_mappings, std::string oaves_prefix, unsigned thread_id) const {
 
   if (NumStorageLevels() > 0)
   {
@@ -616,14 +616,17 @@ void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping, std::string oave
       out << "," << GetStorageLevel(last_storage_level_id)->Accesses(pv);
     }
     out << "," << mapping.PrintCompact();
-
-    std::stringstream oaves_mapping_ss;
-    // Format the mapping filename as <utilization>_<thread_id>.yaml
-    // Note that once a better mapping with the same utilization is found by the same thread this file will be updated
-    oaves_mapping_ss << oaves_prefix << "." << total_utilization << "_" << thread_id << ".yaml";
-    std::string oaves_map_yaml_file_name = oaves_mapping_ss.str();
-    out << "," << oaves_map_yaml_file_name << std::endl;
-    OutputOAVESMappingYAML(mapping, oaves_map_yaml_file_name);
+    if (log_oaves_mappings) {
+      std::stringstream oaves_mapping_ss;
+      // Format the mapping filename as <utilization>_<thread_id>.yaml
+      // Note that once a better mapping with the same utilization is found by the same thread this file will be updated
+      oaves_mapping_ss << oaves_prefix << "." << total_utilization << "_" << thread_id << ".yaml";
+      std::string oaves_map_yaml_file_name = oaves_mapping_ss.str();
+      out << "," << oaves_map_yaml_file_name << std::endl;
+      OutputOAVESMappingYAML(mapping, oaves_map_yaml_file_name);
+    } else {
+      out << ",None" << std::endl;
+    }
   }
 }
 

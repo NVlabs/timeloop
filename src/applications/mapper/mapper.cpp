@@ -204,6 +204,9 @@ Application::Application(config::CompoundConfig* config,
   log_oaves_ = false;
   mapper.lookupValue("log-oaves", log_oaves_);
 
+  log_oaves_mappings_ = false;
+  mapper.lookupValue("log-oaves-mappings", log_oaves_mappings_);
+
   log_stats_ = false;
   mapper.lookupValue("log-stats", log_stats_);
 
@@ -372,6 +375,7 @@ void Application::Run()
                                         sync_interval_,
                                         log_interval_,
                                         log_oaves_,
+                                        log_oaves_mappings_,
                                         log_stats_,
                                         log_suboptimal_,
                                         live_status_ ? log_file : std::cerr,

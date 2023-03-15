@@ -249,6 +249,7 @@ MapperThread::MapperThread(
   uint128_t sync_interval,
   uint128_t log_interval,
   bool log_oaves,
+  bool log_oaves_mappings,
   bool log_stats,
   bool log_suboptimal,
   std::ostream& log_stream,
@@ -273,6 +274,7 @@ MapperThread::MapperThread(
     sync_interval_(sync_interval),
     log_interval_(log_interval),
     log_oaves_(log_oaves),
+    log_oaves_mappings_(log_oaves_mappings),
     log_stats_(log_stats),
     log_suboptimal_(log_suboptimal),
     log_stream_(log_stream),
@@ -414,7 +416,7 @@ void MapperThread::Run()
       auto topology = engine.GetTopology();
 
       // Print performance
-      topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, oaves_prefix_, thread_id_);
+      topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
 
       // Reset the best for next permutation/bypassing
       stats_.index_factor_best.valid = false;
@@ -578,7 +580,7 @@ void MapperThread::Run()
       auto topology = engine.GetTopology();
 
       // Print performance
-      topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, oaves_prefix_, thread_id_);
+      topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
 
       // Reset the best for next permutation/bypassing
       stats_.index_factor_best.valid = false;
