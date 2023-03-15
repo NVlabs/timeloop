@@ -5,6 +5,7 @@ import bz2
 import re
 import pandas as pd
 import numpy as np
+import os
 
 
 def construct_argparser():
@@ -30,7 +31,7 @@ def construct_argparser():
 
     return parser
 
-	
+
 def process_data(stats_file: str, output_file: str, keep_all_entry: bool = True):
     """ Process OAVES output csv file.
 
@@ -38,35 +39,52 @@ def process_data(stats_file: str, output_file: str, keep_all_entry: bool = True)
 	stats_file: The OAVES output csv file path from Timeloop run.
 	output_file: The output file path to store sorted data.
         keep_all_entry: Indicate whether to keep all different buffer sizes.
-        
-    """	
+
+    """
 
     df = pd.read_csv(stats_file, header=None)
+    generated_mapping_files = set(df.iloc[:,-1])
 
-    # col 0 is buffer size, 1 is op intensity, 2 is dram accesses
+    # Columns are defined as follows:
+    # 0 - buffer size, 1 - op intensity, 2 - dram word accesses, 3,4,5 - buffer size for each tensor, 6,7,8 - dram word accesses for each tensor, 9 - compact print of mapping, 10 - path to mapping.yaml
+
     idx = df.groupby(0)[1].idxmax()
     df = df.loc[idx]
     df = df.sort_values(by=[0])
     df = df.set_index(0)
 
     if keep_all_entry:
-        df.to_csv(output_file, header=False)
-        return
+        df_new = df
+    else:
+        max_op_int_val = 0
+        max_index = []
+        for i, row in df.iterrows():
+            cur_val = row[1]
+            if cur_val > max_op_int_val:
+                max_op_int_val = cur_val
+                max_index.append(i)
+        df_new = df.loc[max_index]
 
-    max_op_int_val = 0
-    max_index = []
-    for i, row in df.iterrows():
-        cur_val = row[1]
-        if cur_val > max_op_int_val:
-            max_op_int_val = cur_val
-            max_index.append(i)
-    
-    df_new = df.loc[max_index]
+        # Delete the non-optimal mapping yaml files
+        optimal_mapping_files = set(df_new.iloc[:,-1])
+        mapping_files_to_delete = generated_mapping_files - optimal_mapping_files
+        for mapping_file in mapping_files_to_delete:
+            if os.path.isfile(mapping_file):
+                try:
+                    os.remove(mapping_file)
+                except OSError as e:
+                    print (f"Failed to remove suboptimal mapping file {mapping_file}!")
+                    print (e.code, e.strerror)
+        # Check if all optimal mapping yamls exist
+        for mapping_file in optimal_mapping_files:
+            if not os.path.isfile(mapping_file):
+                raise Exception(f"Optimal mapping file {mapping_file} not found!")
+
     df_new.to_csv(output_file, header=False)
 
 
 if __name__ == "__main__":
     parser = construct_argparser()
     args = parser.parse_args()
-    
+
     process_data(args.stats_file, args.output_file, args.keep_all_entry)
