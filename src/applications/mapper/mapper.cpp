@@ -318,7 +318,9 @@ void Application::Run()
   std::string map_yaml_file_name = out_prefix_ + ".map.yaml";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
   std::string map_cpp_file_name = out_prefix_ + ".map.cpp";
-  std::string oaves_csv_file_name = out_prefix_ + ".oaves.csv";
+  std::string oaves_prefix = out_prefix_ + ".oaves";
+  std::string oaves_csv_file_name = oaves_prefix + ".csv";
+
   // Prepare live status/log stream.
   std::ofstream log_file;
   std::ofstream oaves_csv_file(oaves_csv_file_name);
@@ -374,6 +376,7 @@ void Application::Run()
                                         log_suboptimal_,
                                         live_status_ ? log_file : std::cerr,
                                         oaves_csv_file,
+                                        oaves_prefix,
                                         live_status_,
                                         diagnostics_on_,
                                         penalize_consecutive_bypass_fails_,
