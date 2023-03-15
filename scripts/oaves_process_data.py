@@ -77,7 +77,7 @@ def process_data(stats_file: str, output_file: str, keep_all_entry: bool = True)
                     print (e.code, e.strerror)
         # Check if all optimal mapping yamls exist
         for mapping_file in optimal_mapping_files:
-            if not os.path.isfile(mapping_file):
+            if mapping_file != 'None' and not os.path.isfile(mapping_file):
                 raise Exception(f"Optimal mapping file {mapping_file} not found!")
 
     df_new.to_csv(output_file, header=False)
