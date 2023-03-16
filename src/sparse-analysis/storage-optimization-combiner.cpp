@@ -32,7 +32,8 @@
 namespace sparse
 {
 
-void ApplyLocalStorageSAFImpact(tiling::CompoundDataMovementNest& compound_data_movement_nest,
+void ApplyLocalStorageSAFImpact(const problem::Workload* workload,
+                                tiling::CompoundDataMovementNest& compound_data_movement_nest,
                                 const double p,
                                 const unsigned pv,
                                 const unsigned l,
@@ -49,7 +50,7 @@ void ApplyLocalStorageSAFImpact(tiling::CompoundDataMovementNest& compound_data_
   auto max_format_updates = data_movement_record.fine_grained_format_accesses["random_metadata_update"];
 
   std::uint64_t delta_reads;
-  if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+  if (workload->GetShape()->IsReadWriteDataSpace.at(pv))
     delta_reads = ceil(max_reads * p); // use ceil to account for the potential rounding differences due to the RMW setup
   else
     delta_reads = floor(max_reads * p);
@@ -101,7 +102,7 @@ void ApplyLocalStorageSAFImpact(tiling::CompoundDataMovementNest& compound_data_
   //
 
   // only the updates that actually happened lead to actual temporal reductions
-  if (data_movement_record.size != 0 && problem::GetShape()->IsReadWriteDataSpace.at(pv))
+  if (data_movement_record.size != 0 && workload->GetShape()->IsReadWriteDataSpace.at(pv))
   {
     data_movement_record.temporal_reductions = ceil(
       data_movement_record.temporal_reductions * (double)data_movement_record.fine_grained_data_accesses["random_update"]
@@ -157,7 +158,7 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
     max_format_updates.push_back({});
     fine_grained_action_finalized.push_back({});    
     
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
     {
       // data representation impact already reflected in the fine grained access counts
       //    if the fibertree element is not even there due to compression, propagation impact is meaningless
@@ -179,7 +180,7 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
   // propagate the impact of explicitly applied read optimization
   // for reads and fills of lower levels in a top down fashion
 
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
   {
     for (int l = topology_specs.NumStorageLevels() - 1; l >= 0; l--)
     {
@@ -218,7 +219,7 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
           p = state.prob_explicitly_spatially_optimized_read_.at(l).at(pv);
         }
         
-        // std::cout << topology_specs.GetStorageLevel(l)->level_name << ": dspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) 
+        // std::cout << topology_specs.GetStorageLevel(l)->level_name << ": dspace: " << state.workload_->GetShape()->DataSpaceIDToName.at(pv) 
         //   << " abs opt ratio (after prop): " << p 
         //   << " has metadata: " << compound_data_movement_nest[pv][l].has_metadata << std::endl;
 
@@ -276,7 +277,7 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
             }
             else
             {
-              ApplyLocalStorageSAFImpact(compound_data_movement_nest, effective_p, pv, impacted_level_id, saf_type);
+              ApplyLocalStorageSAFImpact(state.workload_, compound_data_movement_nest, effective_p, pv, impacted_level_id, saf_type);
             }
             // fine grained access at this level is determined by its local saf
             fine_grained_action_finalized[impacted_level_id][pv] = true; 
@@ -307,12 +308,12 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
           if (!state.dspace_optimization_masks_.at("spatial_skip").at(l).at(pv))
           {
             std::string saf_type = state.dspace_optimization_masks_.at("gate").at(l).at(pv) ? "gated" : "skipped";
-            ApplyLocalStorageSAFImpact(compound_data_movement_nest, p,  pv, l, saf_type);
+            ApplyLocalStorageSAFImpact(state.workload_, compound_data_movement_nest, p,  pv, l, saf_type);
           }
         }
        
         // only the innermost level for the target gives the final impact on compute units, propagated the impact to compute
-        if (impacted_level_id < 0 && !problem::GetShape()->IsReadWriteDataSpace.at(pv))
+        if (impacted_level_id < 0 && !state.workload_->GetShape()->IsReadWriteDataSpace.at(pv))
         {
           
           max_computes[0] -= floor(max_computes[0] * p);
@@ -328,7 +329,7 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
   // finalize the levels without gating or skipping SAFs
   for (unsigned l = 0; l < topology_specs.NumStorageLevels(); l++)
   {
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
     {
       if (!state.dspace_optimization_masks_.at("gate").at(l).at(pv) && !state.dspace_optimization_masks_.at("skip").at(l).at(pv))
       {
@@ -349,7 +350,7 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
         {
           // std::cout << "!!! fine grained action counts not finalized "
           // << topology_specs.GetStorageLevel(l)->level_name << ": dspace: " 
-          // << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
+          // << state.workload_->GetShape()->DataSpaceIDToName.at(pv) << std::endl;
           assert(fine_grained_action_finalized[l][pv]);
         }
       }
@@ -362,7 +363,7 @@ void ProcessDataReprImpactOnStorageAccesses(const SparseAnalysisState& state,
                                             tiling::CompoundDataMovementNest& compound_data_movement_nest)
 {
 
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
   {
     for (int l = state.num_storage_levels_ - 1; l >= 0; l--)
     {
@@ -377,7 +378,7 @@ void ProcessDataReprImpactOnStorageAccesses(const SparseAnalysisState& state,
         access_record.fine_grained_data_accesses["random_fill"] =
           access_record.fills - floor(access_record.fills * expected_sparsity);
 
-        if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+        if (state.workload_->GetShape()->IsReadWriteDataSpace.at(pv))
         {
           access_record.fine_grained_data_accesses["random_update"] =
             access_record.updates - floor(access_record.updates * expected_sparsity);
@@ -387,13 +388,14 @@ void ProcessDataReprImpactOnStorageAccesses(const SparseAnalysisState& state,
   }
 }
 
-void CalculateDecompressionCompressionCost(const std::uint64_t num_storage_levels,
+void CalculateDecompressionCompressionCost(SparseAnalysisState& state,
+                                           const std::uint64_t num_storage_levels,
                                            tiling::CompoundDataMovementNest& compound_data_movement_nest)
 {
   // compute the compression and decompression counts
   for (int l = num_storage_levels - 1; l >= 0; l--)
   {
-    for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+    for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
     {
       if (!compound_data_movement_nest[pv][l].compressed)
       {
@@ -403,7 +405,7 @@ void CalculateDecompressionCompressionCost(const std::uint64_t num_storage_level
         if (parent_level != std::numeric_limits<unsigned>::max()
             && compound_data_movement_nest[pv][parent_level].compressed)
         {
-          if (problem::GetShape()->IsReadWriteDataSpace.at(pv))
+          if (state.workload_->GetShape()->IsReadWriteDataSpace.at(pv))
           {
             // compress at the current level and send to parent
             compound_data_movement_nest[pv][l].fine_grained_data_accesses["compression_count"] +=
@@ -434,7 +436,7 @@ void CombineStorageOptimizationImpact(SparseAnalysisState& state,
   
   ProcessDataReprImpactOnStorageAccesses(state, compound_data_movement_nest);
   PropagateImpactOfExplicitlyOptimizedRead(state, compound_tile_nest, topology_specs);
-  CalculateDecompressionCompressionCost(state.num_storage_levels_, compound_data_movement_nest);
+  CalculateDecompressionCompressionCost(state, state.num_storage_levels_, compound_data_movement_nest);
 }
 
 } // namespace
