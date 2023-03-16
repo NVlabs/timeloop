@@ -73,9 +73,11 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
                                    const model::Topology::Specs& topology_specs,
                                    std::vector <model::EvalStatus>& eval_status,
                                    const bool break_on_failure);
-void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest& compound_data_movement_nest,
+void CalculateExpectedMetaDataAccesses(const problem::Workload* workload,
+                                       tiling::CompoundDataMovementNest& compound_data_movement_nest,
                                        const model::Topology::Specs& topology_specs);
-void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_movement_nest,
+void CalculateExpectedOccupancy(const problem::Workload* workload,
+                                tiling::CompoundDataMovementNest& compound_data_movement_nest,
                                 const model::Topology::Specs& topology_specs);
 
 // Storage optimization and representation impact combiner

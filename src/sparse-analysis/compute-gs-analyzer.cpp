@@ -134,9 +134,9 @@ void CalculateFineGrainedComputeAccesses2Operand(const SparseAnalysisState& stat
   //std::map<DataSpaceID, bool> implicit_coordinates;
   std::map<DataSpaceID, bool> operand_has_metadata;
   PerDataSpaceDensityModel operand_density_models;
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
   {
-    if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (!state.workload_->GetShape()->IsReadWriteDataSpace.at(pv))
     {
       auto& pv_data_movement_nest = compound_data_movement_nest[pv];
       for (unsigned l = 0; l < state.num_storage_levels_; l++)
@@ -165,7 +165,7 @@ void CalculateFineGrainedComputeAccesses2Operand(const SparseAnalysisState& stat
   auto operand_exp_densities = GetExpectedOperandDensities(set_of_operation_spaces, operand_density_models);
   // for (auto iter = operand_exp_densities.begin(); iter != operand_exp_densities.end(); iter++)
   // {
-  //   std::cout << problem::GetShape()->DataSpaceIDToName.at(iter->first) << " density : " << iter->second << std::endl;
+  //   std::cout << state.workload_->GetShape()->DataSpaceIDToName.at(iter->first) << " density : " << iter->second << std::endl;
   // }
 
   // Calculate the probability of each possible state of the operands
@@ -452,9 +452,9 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
   //std::map<DataSpaceID, bool> implicit_coordinates;
   std::map<DataSpaceID, bool> operand_has_metadata;
   PerDataSpaceDensityModel operand_density_models;
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
   {
-    if (!problem::GetShape()->IsReadWriteDataSpace.at(pv))
+    if (!state.workload_->GetShape()->IsReadWriteDataSpace.at(pv))
     {
       auto& pv_data_movement_nest = compound_data_movement_nest[pv];
       for (unsigned l = 0; l < state.num_storage_levels_; l++)
@@ -485,7 +485,7 @@ void CalculateFineGrainedComputeAccesses(const SparseAnalysisState& state,
    
   // for (auto iter = operand_exp_densities.begin(); iter != operand_exp_densities.end(); iter++)
   // {
-  //   std::cout << problem::GetShape()->DataSpaceIDToName.at(iter->first) << " density : " << iter->second << std::endl;
+  //   std::cout << state.workload_->GetShape()->DataSpaceIDToName.at(iter->first) << " density : " << iter->second << std::endl;
   // }
 
   // Calculate the probability of each possible state of the operands
