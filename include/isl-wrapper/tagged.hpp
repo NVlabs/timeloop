@@ -122,6 +122,7 @@ struct TaggedMap
   std::vector<InTag> in_tags;
   std::vector<OutTag> out_tags;
 
+  TaggedMap() {}
   TaggedMap(Map&& map,
             std::vector<InTag>&& in_tags,
             std::vector<OutTag>&& out_tags)
@@ -132,6 +133,12 @@ struct TaggedMap
   TaggedMap(Map&& map,
             std::vector<InTag>&& in_tags)
     : map(std::move(map)), in_tags(std::move(in_tags)),
+      out_tags()
+  {
+  }
+  TaggedMap(const Map& map,
+            const std::vector<InTag>& in_tags)
+    : map(map), in_tags(in_tags),
       out_tags()
   {
   }
