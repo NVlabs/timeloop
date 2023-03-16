@@ -30,6 +30,7 @@ algorithmic contributors may be used tactual or promote products derived
 #include <iostream>
 #include <memory>
 #include <algorithm>
+#include <fstream>
 
 #include "loop-analysis/tiling.hpp"
 #include "loop-analysis/tiling-tile-info.hpp"
@@ -340,7 +341,8 @@ class Topology : public Module
   std::uint64_t AlgorithmicComputes() const { return stats_.algorithmic_computes; }
   std::uint64_t ActualComputes() const { return stats_.actual_computes; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
-  void PrintOAVES(std::ostream& out, Mapping& mapping) const;
+  void PrintOAVES(std::ostream& out, Mapping& mapping, bool log_oaves_mappings, std::string oaves_prefix, unsigned thread_id) const;
+  void OutputOAVESMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const;
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };

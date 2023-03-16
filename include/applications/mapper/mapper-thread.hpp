@@ -96,10 +96,12 @@ class MapperThread
   uint128_t sync_interval_;
   uint128_t log_interval_;
   bool log_oaves_;
+  bool log_oaves_mappings_;
   bool log_stats_;
   bool log_suboptimal_;
   std::ostream& log_stream_;
   std::ostream& oaves_csv_file_;
+  std::string oaves_prefix_;
   bool live_status_;
   bool diagnostics_on_;
   bool penalize_consecutive_bypass_fails_;
@@ -125,10 +127,12 @@ class MapperThread
     uint128_t sync_interval,
     uint128_t log_interval,
     bool log_oaves,
+    bool log_oaves_mappings,
     bool log_stats,
     bool log_suboptimal,
     std::ostream& log_stream,
     std::ostream& oaves_csv_file,
+    std::string oaves_prefix,
     bool live_status,
     bool diagnostics_on,
     bool penalize_consecutive_bypass_fails,
