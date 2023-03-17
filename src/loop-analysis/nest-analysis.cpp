@@ -413,6 +413,23 @@ SpatialReuseAnalysis(LogicalBufFills& fills,
   };
 }
 
+struct BufStat
+{
+  void reads;
+  void writes;
+  void fills;
+};
+
+using LogicalBufStats = std::map<LogicalBuffer, BufStat>;
+LogicalBufStats ComputeReadWriteFills(LinkTransferInfo, MulticastInfo);
+
+using BufStats = std::map<Buffer, BufStat>;
+BufStats ComputeBufStats(LogicalBufStats);
+
+double ComputeEnergy(BufEnergySpec, ComputeEnergySpec);
+
+double ComputePerformance(BufStats, BranchSchedule);
+
 NestAnalysis::NestAnalysis()
 {
 }
