@@ -40,68 +40,8 @@
 
 namespace analysis
 {
-
-struct SpaceTimeToIter {
-  struct LogicalBufferLevel {
-    unsigned arch_level;
-    problem::Shape::DataSpaceID dspace_id;
-    std::vector<size_t> spatial_levels;
-    size_t temporal_level;
-  };
-
-  isl_map* space_time_to_iter;
-  std::vector<size_t> s_levels;
-  size_t t_levels;
-  std::vector<std::map<problem::Shape::DataSpaceID, LogicalBufferLevel>>
-      buffer_levels;
-
-  SpaceTimeToIter(size_t spatial_dims = 2)
-  : space_time_to_iter(nullptr), s_levels(spatial_dims, 0), t_levels(0) {}
-
-  SpaceTimeToIter(const SpaceTimeToIter& other)
-  : space_time_to_iter(isl_map_copy(other.space_time_to_iter)),
-    s_levels(other.s_levels),
-    t_levels(other.t_levels),
-    buffer_levels(other.buffer_levels)
-  {}
-
-  const LogicalBufferLevel& GetBufferInfo(
-    unsigned arch_level, 
-    problem::Shape::DataSpaceID dspace_id
-  )
-  {
-    return buffer_levels.at(arch_level).at(dspace_id);
-  }
-
-  SpaceTimeToIter& operator=(SpaceTimeToIter&& other)
-  {
-    space_time_to_iter = other.space_time_to_iter;
-    other.space_time_to_iter = nullptr;
-    s_levels = other.s_levels;
-    t_levels = other.t_levels;
-    return *this;
-  }
-
-  size_t NumLevels(spacetime::Dimension dim_type) {
-    if (dim_type == spacetime::Dimension::SpaceX)
-    {
-      return s_levels[0];
-    }
-    else if (dim_type == spacetime::Dimension::SpaceY)
-    {
-      return s_levels[1];
-    }
-    else if (dim_type == spacetime::Dimension::Time)
-    {
-      return t_levels;
-    }
-    else
-    {
-      throw std::runtime_error("Unreachable");
-    }
-  }
-};
-
+using Fill = TaggedMap<isl::map, spacetime::Dimension>;
+using LogicalBufFills = std::map<LogicalBuffer, Fill>;
 
 class NestAnalysis
 {
