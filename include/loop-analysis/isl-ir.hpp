@@ -21,13 +21,19 @@
 
 namespace analysis
 {
+/******************************************************************************
+ * Intermediate representation for workload
+ *****************************************************************************/
+using EinsumID = size_t;
+using WriteDependencies = std::map<std::pair<EinsumID, DataSpaceID>, isl::map>;
+using ReadDependencies = std::map<std::pair<EinsumID, DataSpaceID>, isl::map>;
 
 /******************************************************************************
  * Intermediate representation between mapping and analysis
  *****************************************************************************/
 using DataSpaceID = problem::Shape::DataSpaceID;
 using FactorizedDimensionID = problem::Shape::FactorizedDimensionID;
-using BufferID = unsigned;
+using BufferID = size_t;
 
 struct LogicalBuffer
 {
