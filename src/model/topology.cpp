@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -46,13 +46,13 @@ void Topology::Specs::ParseAccelergyART(config::CompoundConfigNode art)
 {
   // std::cout << "Replacing area numbers..." << std::endl;
   assert(art.exists("tables"));
-  assert(art.exists("version"));  
+  assert(art.exists("version"));
   double artVersion;
   // check the version of the ART
   art.lookupValue("version", artVersion);
   assert(artVersion==0.3 || artVersion==0.4);
-    
-  // parsing 
+
+  // parsing
   auto table = art.lookup("tables");
   assert(table.isList());
   for(int i = 0; i < table.getLength(); i++){
@@ -71,10 +71,10 @@ void Topology::Specs::ParseAccelergyART(config::CompoundConfigNode art)
        componentName = hierachicalName.substr(levelPos + 1, hierachicalName.size() - levelPos - 1);
        //std::cout << "component name: " << componentName << std::endl;
     }
-    
+
     float componentArea;
     componentART.lookupValue("area", componentArea);
-    
+
     // Find the level that matches this name
     std::shared_ptr<LevelSpecs> specToUpdate;
     for (auto level : levels)
@@ -84,8 +84,8 @@ void Topology::Specs::ParseAccelergyART(config::CompoundConfigNode art)
         specToUpdate = level;
       }
     }
-    
-    // Populate area  
+
+    // Populate area
     if (specToUpdate)
     {
       specToUpdate->UpdateAreaViaART(componentArea);
@@ -102,7 +102,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
 {
   // std::cout << "Replacing energy numbers..." << std::endl;
   assert(ert.exists("tables"));
-  assert(ert.exists("version"));  
+  assert(ert.exists("version"));
   double ertVersion;
   // check the version of the ERT
   ert.lookupValue("version", ertVersion);
@@ -135,7 +135,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
     std::cout << "Invalid Accelergy ERT version: " << ertVersion << std::endl;
     assert(false);
   }
-  // parsing 
+  // parsing
   std::vector<std::string> keys;
   auto table = formattedErt.lookup("tables");
   table.getMapKeys(keys);
@@ -179,7 +179,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
           auto bufferSpec = GetStorageLevel(i);
           auto networkSpec = GetInferredNetwork(i); // (FIXME) See Nellie's UPDATE
           if (std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)){
-            std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy;   
+            std::static_pointer_cast<LegacyNetwork::Specs>(networkSpec)->wire_energy = transferEnergy;
             //std::cout << "set wire energy: " << componentName << std::endl;
           }
         }
@@ -192,15 +192,15 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
         if (networkSpec->SupportAccelergyTables() && networkSpec->name == componentName)
         {
           // std::cout << "NoC that supports Acceleragy tables identified: " << componentName << std::endl;
-          // Network class dependent processing  
+          // Network class dependent processing
           networkSpec->ProcessERT(componentERT);
         }
       }
       // Find the level that matches this name
       std::shared_ptr<LevelSpecs> specToUpdate;
-      for (auto level : levels) 
+      for (auto level : levels)
       {
-        if (level->level_name == componentName) 
+        if (level->level_name == componentName)
         {
           specToUpdate = level;
         }
@@ -214,7 +214,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       double maxEnergy = 0.0;
       for (auto action : actions) {
         opEnergy = 0.0;
-        argEnergy = 0.0; 
+        argEnergy = 0.0;
         auto actionERT = componentERT.lookup(action);
         if (actionERT.isList()) { // v2 ERT and action support argument and all v3 ERT actions
           for (int i = 0; i < actionERT.getLength(); i ++) {
@@ -236,7 +236,7 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
       {
         specToUpdate->UpdateOpEnergyViaERT(ERT_entries, maxEnergy);
       }
-      else 
+      else
       {
         // std::cout << "  Unused component ERT: "  << key << std::endl;
       }
@@ -416,9 +416,9 @@ for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
       break;
     }
-  }  
+  }
   assert(utilized_capacity > 0);
-  total_min_traffic += utilized_capacity;      
+  total_min_traffic += utilized_capacity;
   if (problem::GetShape()->IsReadWriteDataSpace.at(pv)) {
     total_output_size += utilized_capacity;
   }
@@ -426,7 +426,7 @@ for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
 
 out << indent << std::left << std::setw(40) << "Total elementwise ops";
 uint64_t total_elementwise_ops = topology.stats_.actual_computes;
-out << ": " << total_elementwise_ops << std::endl; 
+out << ": " << total_elementwise_ops << std::endl;
 
 out << indent << std::left << std::setw(40) << "Total reduction ops";
 uint64_t total_reduction_ops = 0;
@@ -436,17 +436,17 @@ if (tiling::gEnableFirstReadElision){
 } else{
   total_reduction_ops = topology.stats_.actual_computes;
 }
-out << ": " << total_reduction_ops << std::endl; 
+out << ": " << total_reduction_ops << std::endl;
 
 out << indent << std::left << std::setw(40) << "Total ops";
 uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
-out << ": " << total_ops << std::endl;  
+out << ": " << total_ops << std::endl;
 
 out << indent << std::left << std::setw(40) << "Total memory accesses required";
-out << ": " << total_min_traffic << std::endl; 
+out << ": " << total_min_traffic << std::endl;
 
 unsigned inv_storage_level = topology.NumStorageLevels() - 1;
-std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
+std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);
 auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
 out << indent << std::left << std::setw(40) << "Optimal Op per Byte";
 out << ": " << op_per_byte << std::endl << std::endl;
@@ -521,7 +521,7 @@ out << std::endl
       all_num_computes = {topology.stats_.actual_computes};
       all_units = {"pJ/Compute"};
     }
-    
+
     for (unsigned i = 0; i < all_titles.size(); i++)
     {
       out << std::endl;
@@ -561,8 +561,7 @@ out << std::endl
   return out;
 }
 
-
-void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping) const {
+void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping, bool log_oaves_mappings, std::string oaves_prefix, unsigned thread_id) const {
 
   if (NumStorageLevels() > 0)
   {
@@ -616,10 +615,38 @@ void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping) const {
       auto pv = problem::Shape::DataSpaceID(pvi);
       out << "," << GetStorageLevel(last_storage_level_id)->Accesses(pv);
     }
-    out << "," << mapping.PrintCompact() << std::endl;
+    out << "," << mapping.PrintCompact();
+    if (log_oaves_mappings) {
+      std::stringstream oaves_mapping_ss;
+      // Format the mapping filename as <utilization>_<thread_id>.yaml
+      // Note that once a better mapping with the same utilization is found by the same thread this file will be updated
+      oaves_mapping_ss << oaves_prefix << "." << total_utilization << "_" << thread_id << ".yaml";
+      std::string oaves_map_yaml_file_name = oaves_mapping_ss.str();
+      out << "," << oaves_map_yaml_file_name << std::endl;
+      OutputOAVESMappingYAML(mapping, oaves_map_yaml_file_name);
+    } else {
+      out << ",None" << std::endl;
+    }
   }
 }
 
+void  Topology::OutputOAVESMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const {
+
+  // Output the .yaml file for the mapping
+  YAML::Emitter yaml_out;
+  yaml_out << YAML::BeginMap;
+  yaml_out << YAML::Key << "mapping";
+  yaml_out << YAML::Value;
+  yaml_out << YAML::BeginSeq;
+  mapping.FormatAsYaml(yaml_out, specs_.StorageLevelNames());
+  yaml_out << YAML::EndSeq;
+  yaml_out << YAML::EndMap;
+
+  std::ofstream mapping_output_file;
+  mapping_output_file.open(map_yaml_file_name.c_str());
+  mapping_output_file << yaml_out.c_str();
+  mapping_output_file.close();
+}
 
 void Topology::Spec(const Topology::Specs& specs)
 {
@@ -682,7 +709,7 @@ void Topology::Spec(const Topology::Specs& specs)
   //
   // Construct and spec user-defined networks. Auto-inferred networks will be
   // generated on-demand as we walk through the connection code.
-  // 
+  //
   for (unsigned i = 0; i < specs.NumNetworks(); i++)
   {
     auto network = NetworkFactory::Construct(specs.GetNetwork(i));
@@ -766,12 +793,12 @@ void Topology::Spec(const Topology::Specs& specs)
       if (!inner_is_arithmetic)
       {
         auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
-        assert(!inner_buffer->GetSpecs().fill_network_name.IsSpecified());          
+        assert(!inner_buffer->GetSpecs().fill_network_name.IsSpecified());
       }
       else
       {
         auto inner_arithmetic = std::static_pointer_cast<ArithmeticUnits>(inner);
-        assert(!inner_arithmetic->GetSpecs().operand_network_name.IsSpecified());          
+        assert(!inner_arithmetic->GetSpecs().operand_network_name.IsSpecified());
       }
     }
 
@@ -894,7 +921,7 @@ void Topology::Spec(const Topology::Specs& specs)
     area += level->Area();
   }
   stats_.area = area;
-  
+
   total_network_latency_ = total_network_latency;
 
 }
@@ -910,9 +937,9 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
                                      bool is_sparse_topology)
 {
   Specs specs;
-  
+
   assert(storage.isList());
- 
+
   // Level 0: arithmetic.
   // Use multiplication factor == 0 to ensure .instances attribute is set
   auto level_specs_p = std::make_shared<ArithmeticUnits::Specs>(ArithmeticUnits::ParseSpecs(arithmetic, 0, is_sparse_topology));
@@ -942,7 +969,7 @@ Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, 
 {
   Specs specs;
   auto curNode = designRoot;
- 
+
   std::vector<std::shared_ptr<LevelSpecs>> storages; // serialize all storages
   std::vector<std::shared_ptr<LegacyNetwork::Specs>> inferred_networks;
   std::vector<std::shared_ptr<NetworkSpecs>> networks;
@@ -1104,15 +1131,15 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
                                                      sparse::SparseOptimizationInfo* sparse_optimizations,
                                                      bool break_on_failure)
 {
-  
+
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest);
-  if (!valid) 
-  { 
+  if (!valid)
+  {
     // invalid bypassing setup
     std::fill(eval_status.begin(), eval_status.end(),
               EvalStatus({ .success = false, .fail_reason = "one of the tensors is bypassed in all storage levels"}));
-    return eval_status; 
+    return eval_status;
   }
 
   auto masks = tiling::TransposeMasks(mapping.datatype_bypass_nest);
@@ -1133,7 +1160,7 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
       per_level_compression_info, mapping.confidence_thresholds.at(storage_level_id),
       break_on_failure);
       eval_status.at(level_id) = s;
-     
+
       if (break_on_failure && !s.success)
         break;
     }
@@ -1172,19 +1199,19 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
   //   storage_level->ConnectNetwork(network);
   //   network->ConnectBuffer(storage_level);
-  // } 
+  // }
   //
 
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest);
-  if (!valid) 
-  { 
+  if (!valid)
+  {
     // invalid bypassing setup
     std::fill(eval_status.begin(), eval_status.end(),
               EvalStatus({ .success = false, .fail_reason = "one of the tensors is bypassed in all storage levels"}));
-    return eval_status; 
+    return eval_status;
   }
-  
+
   bool success_accum = true;
   bool success = true;
 
@@ -1233,7 +1260,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
       }
     }
   }
-  
+
 
   // Collapse tiles into a specified number of tiling levels. The solutions are
   // received in a set of per-problem::Shape::DataSpaceID arrays.
@@ -1241,7 +1268,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                                mapping.datatype_bypass_nest,
                                                distribution_supported,
                                                analysis->GetWorkload());
-  
+
   try
   {
     success = sparse::PerformSparseProcessing(analysis->GetWorkload(),
@@ -1274,7 +1301,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
     if (break_on_failure && !s.success)
       return eval_status;
-    
+
   }
 
   // update the dense compute cycles to be sparse compute cycles (actual compute cycles + gated compute cycles)
@@ -1286,7 +1313,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     auto storage_level = GetStorageLevel(storage_level_id);
-    
+
     // Evaluate Loop Nest on hardware structures: calculate
     // primary statistics.
     auto level_id = specs_.StorageMap(storage_level_id);
@@ -1379,7 +1406,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   {
     is_evaluated_ = true;
   }
-  
+
   return eval_status;
 }
 
@@ -1389,7 +1416,7 @@ void Topology::ComputeStats(bool eval_success)
   {
     // Energy.
     double energy = 0;
-    
+
     for (auto level : levels_)
     {
       assert(level->Energy() >= 0);
@@ -1405,7 +1432,7 @@ void Topology::ComputeStats(bool eval_success)
       assert(e >= 0);
       energy += e;
     }
-    
+
     stats_.energy = energy;
 
     // Cycles.
@@ -1424,7 +1451,7 @@ void Topology::ComputeStats(bool eval_success)
     {
       stats_.utilization = GetArithmeticLevel()->IdealCycles() / stats_.cycles;
     }
-    
+
     // Computes.
     stats_.algorithmic_computes = GetArithmeticLevel()->AlgorithmicComputes();
     stats_.actual_computes = GetArithmeticLevel() -> ActualComputes();
@@ -1437,7 +1464,7 @@ void Topology::ComputeStats(bool eval_success)
     {
       // FIXME: change the following to problem::PerDataSpace<std::uint64_t>
       // once we wrap PerDataSpace<> in PyTimeloop.
-      std::vector<std::uint64_t> pta(problem::GetShape()->NumDataSpaces); 
+      std::vector<std::uint64_t> pta(problem::GetShape()->NumDataSpaces);
       for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
       {
         auto pv = problem::Shape::DataSpaceID(pvi);
@@ -1446,13 +1473,13 @@ void Topology::ComputeStats(bool eval_success)
       stats_.per_tensor_accesses.push_back(pta);
       stats_.accesses.push_back(GetStorageLevel(i)->Accesses());
     }
-    
+
   } // eval_success
 
   //
   // *** Note ***: the following stat updates are *not* gated by eval_success.
   //
-  
+
   // Tile sizes.
   stats_.tile_sizes.clear();
   stats_.utilized_capacities.clear();
@@ -1527,7 +1554,7 @@ void Topology::FloorPlan()
     auto u_network = storage_level->GetUpdateNetwork();
     u_network->SetTileWidth(inner_tile_width);
 
-  }  
+  }
 }
 
 bool isBufferClass(std::string className)

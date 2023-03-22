@@ -74,6 +74,9 @@ bool gDisableFirstElementOnlySpatialExtrapolation =
 bool gEnableTracing =
   (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
+bool gRunLastIteration =
+  (getenv("TIMELOOP_RUN_LAST_ITERATION") != NULL) &&
+  (strcmp(getenv("TIMELOOP_RUN_LAST_ITERATION"), "0") != 0);
 
 // Flattening => Multi-AAHRs
 // => Can't use per-AAHR reset-on-stride-change logic
@@ -944,7 +947,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool run_last_iteration = imperfectly_factorized_ || problem::GetShape()->UsesFlattening;
+    bool run_last_iteration = imperfectly_factorized_ || problem::GetShape()->UsesFlattening || gRunLastIteration;
     bool run_second_last_iteration = imperfectly_factorized_ && run_last_iteration;
 
     if (gExtrapolateUniformTemporal && !disable_temporal_extrapolation_.at(level))
