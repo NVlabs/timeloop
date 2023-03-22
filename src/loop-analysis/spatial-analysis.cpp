@@ -1,5 +1,15 @@
 #include "loop-analysis/spatial-analysis.hpp"
 
+#include "isl-wrapper/ctx-manager.hpp"
+#include "isl/cpp.h"
+#include "isl/map.h"
+#include "isl/polynomial.h"
+#include "barvinok/isl.h"
+#include "isl/polynomial_type.h"
+
+namespace analysis
+{
+
 SimpleLinkTransferModel::SimpleLinkTransferModel(size_t n_spatial_dims) :
   n_spatial_dims_(n_spatial_dims)
 {
@@ -24,7 +34,7 @@ SimpleLinkTransferModel::SimpleLinkTransferModel(size_t n_spatial_dims) :
 LinkTransferInfo SimpleLinkTransferModel::Apply(
   LogicalBufFills& fills,
   LogicalBufOccupancies& occupancies
-) const override
+) const
 {
   LogicalBufTransfers transfers;
   LogicalBufFills remaining_fills;
@@ -67,7 +77,7 @@ SimpleMulticastModel::SimpleMulticastModel(size_t n_spatial_dims) :
 MulticastInfo SimpleMulticastModel::Apply(
   LogicalBufFills& fills,
   LogicalBufOccupancies& occupancies
-) const override
+) const
 {
   (void) occupancies;
   if (n_spatial_dims_ == 1)
@@ -192,3 +202,5 @@ MulticastInfo SimpleMulticastModel::Apply(
 
   return MulticastInfo{};
 }
+
+} // namespace analysis

@@ -190,23 +190,6 @@ SpatialReuseAnalysis(LogicalBufFills& fills,
   };
 }
 
-struct BufStat
-{
-  void reads;
-  void writes;
-  void fills;
-};
-
-using LogicalBufStats = std::map<LogicalBuffer, BufStat>;
-LogicalBufStats ComputeReadWriteFills(LinkTransferInfo, MulticastInfo);
-
-using BufStats = std::map<Buffer, BufStat>;
-BufStats ComputeBufStats(LogicalBufStats);
-
-double ComputeEnergy(BufEnergySpec, ComputeEnergySpec);
-
-double ComputePerformance(BufStats, BranchSchedule);
-
 NestAnalysis::NestAnalysis()
 {
 }
@@ -2350,96 +2333,6 @@ problem::OperationSpace NestAnalysis::GetCurrentWorkingSet(std::vector<analysis:
                                                      mold_high_[level][dim]);
   }
   return problem::OperationSpace(workload_, low_problem_point, high_problem_point);
-}
-
-SpaceTimeToIter ProjectOut(spacetime::Dimension dim_type,
-                           size_t pos,
-                           SpaceTimeToIter&& spacetime_to_iter)
-{
-  size_t dim_idx = pos;
-  if (dim_type == spacetime::Dimension::SpaceY)
-  {
-    dim_idx += spacetime_to_iter.s_levels[0];
-  }
-  else if (dim_type == spacetime::Dimension::Time)
-  {
-    dim_idx += spacetime_to_iter.s_levels[0] + spacetime_to_iter.s_levels[1];
-  }
-
-  spacetime_to_iter.space_time_to_iter = isl_map_project_out(
-    spacetime_to_iter.space_time_to_iter,
-    isl_dim_in,
-    dim_idx,
-    1
-  );
-
-  if (dim_type == spacetime::Dimension::SpaceX)
-  {
-    spacetime_to_iter.s_levels[0] -= 1;
-  }
-  else if (dim_type == spacetime::Dimension::SpaceY)
-  {
-    spacetime_to_iter.s_levels[1] -= 1;
-  }
-  else if (dim_type == spacetime::Dimension::Time)
-  {
-    spacetime_to_iter.t_levels -= 1;
-  }
-
-  return spacetime_to_iter;
-}
-
-SpaceTimeToIter Shift(spacetime::Dimension dim_type,
-                      size_t pos,
-                      int shift_amount,
-                      SpaceTimeToIter&& spacetime_to_iter)
-{
-  size_t dim_idx = pos;
-  if (dim_type == spacetime::Dimension::SpaceY)
-  {
-    dim_idx += spacetime_to_iter.s_levels[0];
-  }
-  else if (dim_type == spacetime::Dimension::Time)
-  {
-    dim_idx += spacetime_to_iter.s_levels[0] + spacetime_to_iter.s_levels[1];
-  }
-
-  auto multi_aff = isl_multi_aff_zero(
-    isl_space_map_from_domain_and_range(
-      isl_space_domain(isl_map_get_space(spacetime_to_iter.space_time_to_iter)),
-      isl_space_domain(isl_map_get_space(spacetime_to_iter.space_time_to_iter))
-  ));
-
-  const auto n_idx = spacetime_to_iter.s_levels[0]
-                     + spacetime_to_iter.s_levels[1]
-                     + spacetime_to_iter.t_levels;
-  for (size_t idx = 0; idx < n_idx; ++idx)
-  {
-    multi_aff = isl_multi_aff_set_aff(
-      multi_aff,
-      idx,
-      isl_aff_set_constant_si(
-        isl_aff_set_coefficient_si(
-          isl_aff_zero_on_domain_space(
-            isl_space_domain(
-              isl_map_get_space(spacetime_to_iter.space_time_to_iter))),
-          isl_dim_in,
-          idx,
-          1
-        ),
-        idx == dim_idx ? shift_amount : 0
-      )
-    );
-  }
-
-  std::cout << "Shift map: " << isl_multi_aff_to_str(multi_aff) << std::endl;
-
-  spacetime_to_iter.space_time_to_iter = isl_map_apply_range(
-    isl_map_from_multi_aff(multi_aff),
-    spacetime_to_iter.space_time_to_iter
-  );
-
-  return spacetime_to_iter;
 }
 
 } // namespace analysis

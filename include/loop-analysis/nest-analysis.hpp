@@ -37,12 +37,11 @@
 #include "mapping/nest.hpp"
 #include "workload/util/per-problem-dimension.hpp"
 #include "nest-analysis-tile-info.hpp"
+#include "isl-wrapper/tagged.hpp"
+#include "loop-analysis/isl-ir.hpp"
 
 namespace analysis
 {
-using Fill = TaggedMap<isl::map, spacetime::Dimension>;
-using LogicalBufFills = std::map<LogicalBuffer, Fill>;
-
 class NestAnalysis
 {
  private:
