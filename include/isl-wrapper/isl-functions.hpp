@@ -4,6 +4,8 @@
 
 namespace isl {
 
+size_t dim(const isl::map& map, isl_dim_type dim_type);
+
 isl::map
 project_dim(isl::map map, isl_dim_type dim_type, size_t start, size_t n);
 
@@ -36,5 +38,10 @@ isl::map map_to_all_after(isl::space domain_space,
                           isl_dim_type dim_type, size_t pos);
 
 isl::map fix_si(isl::map map, isl_dim_type dim_type, size_t pos, int val);
+
+isl::map
+insert_equal_dims(isl::map map, size_t in_pos, size_t out_pos, size_t n);
+
+isl::map insert_dummy_dim_ins(isl::map map, size_t pos, size_t n);
 
 };  // namespace isl

@@ -21,13 +21,52 @@
 
 namespace analysis
 {
+/******************************************************************************
+ * Intermediate representation for workload
+ *****************************************************************************/
+using DataSpaceID = problem::Shape::DataSpaceID;
+using FactorizedDimensionID = problem::Shape::FactorizedDimensionID;
+using EinsumID = size_t;
+
+class WorkloadIR
+{
+ public:
+  using ConstIterator =
+    std::map<std::pair<EinsumID, DataSpaceID>, isl::map>::const_iterator;
+
+ public:
+  WorkloadIR();
+
+  EinsumID NewEinsum();
+  DataSpaceID NewDataSpace();
+
+  void AddReadDependency(EinsumID einsum_id, DataSpaceID dspace_id,
+                         const std::string& map_str);
+  void AddWriteDependency(EinsumID einsum_id, DataSpaceID dspace_id,
+                          const std::string& map_str);
+
+  void AddOperationSpaceBounds(EinsumID einsum_id, const std::string& set_str);
+  void AddDataSpaceBounds(DataSpaceID dspace_id, const std::string& set_str);
+
+  ConstIterator
+  GetReadDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
+  ConstIterator
+  GetWriteDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
+
+ private:
+  std::map<std::pair<EinsumID, DataSpaceID>, isl::map> reads_;
+  std::map<std::pair<EinsumID, DataSpaceID>, isl::map> writes_;
+  std::map<EinsumID, isl::set> operation_spaces_;
+  std::map<DataSpaceID, isl::set> data_spaces_;
+
+  size_t next_einsum_id_;
+  size_t next_dspace_id_;
+};
 
 /******************************************************************************
  * Intermediate representation between mapping and analysis
  *****************************************************************************/
-using DataSpaceID = problem::Shape::DataSpaceID;
-using FactorizedDimensionID = problem::Shape::FactorizedDimensionID;
-using BufferID = unsigned;
+using BufferID = size_t;
 
 struct LogicalBuffer
 {
@@ -127,6 +166,9 @@ using LogicalBufOccupancies = std::map<LogicalBuffer, Occupancy>;
 using Transfers = TaggedMap<isl::map, spacetime::Dimension>;
 using LogicalBufTransfers = std::map<std::pair<LogicalBuffer, LogicalBuffer>,
                                      Transfers>;
+
+using Fill = TaggedMap<isl::map, spacetime::Dimension>;
+using LogicalBufFills = std::map<LogicalBuffer, Fill>;
 
 /******************************************************************************
  * Converter from mapping to intermediate representation

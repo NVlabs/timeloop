@@ -1,6 +1,12 @@
 #include "isl-wrapper/isl-functions.hpp"
+#include "isl/constraint.h"
 
 namespace isl {
+
+size_t dim(const isl::map& map, isl_dim_type dim_type)
+{
+  return isl_map_dim(map.get(), dim_type);
+}
 
 isl::map
 project_dim(isl::map map, isl_dim_type dim_type, size_t start, size_t n)
@@ -100,6 +106,44 @@ isl::map map_to_all_after(isl::space domain_space,
 isl::map fix_si(isl::map map, isl_dim_type dim_type, size_t pos, int val)
 {
   return isl::manage(isl_map_fix_si(map.release(), dim_type, pos, val));
+}
+
+isl::map
+insert_equal_dims(isl::map map, size_t in_pos, size_t out_pos, size_t n)
+{
+  auto p_map = map.release();
+  p_map = isl_map_insert_dims(p_map, isl_dim_in, in_pos, n);
+  p_map = isl_map_insert_dims(p_map, isl_dim_out, out_pos, n);
+
+  auto p_ls = isl_local_space_from_space(isl_map_get_space(p_map));
+  for (size_t i = 0; i < n; ++i)
+  {
+    auto c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
+    c = isl_constraint_set_coefficient_si(c, isl_dim_in, i + in_pos, 1);
+    c = isl_constraint_set_coefficient_si(c, isl_dim_out, i + out_pos, -1);
+    p_map = isl_map_add_constraint(p_map, c);
+  }
+  isl_local_space_free(p_ls);
+  
+  return isl::manage(p_map);
+}
+
+isl::map insert_dummy_dim_ins(isl::map map, size_t pos, size_t n)
+{
+  auto p_map = map.release();
+  p_map = isl_map_insert_dims(p_map, isl_dim_in, pos, n);
+
+  auto p_ls = isl_local_space_from_space(isl_map_get_space(p_map));
+  for (size_t i = 0; i < n; ++i)
+  {
+    auto c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
+    c = isl_constraint_set_coefficient_si(c, isl_dim_in, i + pos, 1);
+    c = isl_constraint_set_constant_si(c, 0);
+    p_map = isl_map_add_constraint(p_map, c);
+  }
+  isl_local_space_free(p_ls);
+
+  return isl::manage(p_map);
 }
 
 };  // namespace isl

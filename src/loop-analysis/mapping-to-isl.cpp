@@ -99,19 +99,22 @@ OccupanciesFromMapping(const loop::Nest& mapping,
                        const problem::Workload& workload)
 {
   auto ops_to_dspace = OpsToDSpaceFromEinsum(workload);
-  auto buf_tiling = LogicalBufTilingFromMapping(mapping, workload);
+  auto branch_tiling = TilingFromMapping(mapping).at(0);
   auto buf_skew = LogicalBufSkewsFromMapping(mapping, workload);
 
   LogicalBufOccupancies result;
-  for (auto& [buf, tiling] : buf_tiling)
+  for (auto& [buf, skew] : buf_skew)
   {
     std::cout << "ops to dspace: " << ops_to_dspace.at(buf.dspace_id) << std::endl;
     std::cout << "tiling: " << tiling << std::endl;
     std::cout << "buf skew: " << buf_skew.at(buf) << std::endl;
     result.emplace(std::make_pair(
       buf,
-      buf_skew.at(buf).apply_range(
-        tiling.apply_range(ops_to_dspace.at(buf.dspace_id))
+      skew.apply_range(
+        isl::project_dim_in_after(
+          branch_tiling.apply_range(ops_to_dspace.at(buf.dspace_id)),
+          isl::dim(skew.map, isl_dim_out)
+        )
       )
     ));
     std::cout << result.at(buf) << std::endl;
@@ -291,61 +294,88 @@ LogicalBufTilingFromMapping(const mapping::FusedMapping& mapping)
   return result;
 }
 
-LogicalBufTiling
-LogicalBufTilingFromMapping(const loop::Nest& nest,
-                            const problem::Workload& workload)
-{
-  auto branch_tiling = TilingFromMapping(nest);
-  auto buf_to_iter_level = BufferIterLevelsFromMapping(nest, workload);
-
-  LogicalBufTiling result;
-  for (auto& [buf, level] : buf_to_iter_level)
-  {
-    std::cout << "branch tiling: " << branch_tiling.at(0) << std::endl;
-    auto [_, inserted] = result.emplace(std::make_pair(
-      LogicalBuffer(buf.buffer_id, buf.dspace_id, buf.branch_leaf_id),
-      project_dim_in_after(isl::map(branch_tiling.at(buf.branch_leaf_id)),
-                           level)
-    ));
-    if (!inserted)
-    {
-      throw
-        std::logic_error("LogicalBufTilingFromMapping: insertion failed");
-    }
-  }
-
-  return result;
-}
-
 LogicalBufSkews
 LogicalBufSkewsFromMapping(const loop::Nest& nest,  
                            const problem::Workload& workload)
 {
-  auto buf_to_iter_level = BufferIterLevelsFromMapping(nest, workload);
+  const auto n_loops = nest.loops.size();
+
+  std::set<decltype(nest.storage_tiling_boundaries)::value_type>
+    tiling_boundaries(nest.storage_tiling_boundaries.begin(),
+                      nest.storage_tiling_boundaries.end());
 
   LogicalBufSkews result;
-  for (auto& [buf, level] : buf_to_iter_level)
+
+  std::vector<spacetime::Dimension> tags;
+  auto map = isl::map_from_multi_aff(isl::multi_aff::identity_on_domain(
+    isl::space_alloc(GetIslCtx(), 0, 0, 0).domain()
+  ));
+  bool arch_has_spatial = false;
+  // TODO: for now, buffer id in loop nest is the arch level.
+  // Arch spec should define an ID
+  BufferID arch_level = 0;
+  auto loop_it = nest.loops.rbegin();
+  for (std::size_t loop_idx = 0; loop_idx < n_loops; ++loop_idx)
   {
-    std::vector<spacetime::Dimension> tags;
-    // Hardcoded for now since spacetime::Dimension has SpaceX and SpaceY.
-    // Should be inferred from architecture array spec.
-    auto end_it = nest.loops.rbegin() + level;
-    for (auto it = nest.loops.rbegin(); it != end_it; ++it)
+    auto spacetime_dim = loop_it->spacetime_dimension;
+
+    auto tiling_boundary_it = tiling_boundaries.find(n_loops - loop_idx - 1);
+    if (tiling_boundary_it != tiling_boundaries.end())
     {
-      tags.emplace_back(it->spacetime_dimension);
+      map = isl::insert_equal_dims(std::move(map),
+                                   isl::dim(map, isl_dim_in),
+                                   isl::dim(map, isl_dim_out),
+                                   loop_idx - isl::dim(map, isl_dim_out));
+      if (!arch_has_spatial)
+      {
+        // TODO: assumes 1D spatial array. Implement to infer from arch spec
+        const size_t n_spatial_dims = 1;
+        tags.emplace_back(spacetime::Dimension::SpaceX);
+        map = isl::insert_dummy_dim_ins(std::move(map),
+                                        isl::dim(map, isl_dim_in),
+                                        n_spatial_dims);
+      }
+
+      for (const auto& [dspace_id, _] : workload.GetShape()->DataSpaceIDToName)
+      {
+        result.emplace(std::make_pair(
+          LogicalBuffer(arch_level, dspace_id, 0),
+          TaggedMap<isl::map, spacetime::Dimension>(map, tags)
+        ));
+      }
+      ++arch_level;
+      arch_has_spatial = false;
     }
 
+    tags.emplace_back(spacetime_dim);
+    if (spacetime_dim != spacetime::Dimension::Time)
+    {
+      arch_has_spatial = true;
+    }
+
+    ++loop_it;
+  }
+
+  // Last loop index is compute level
+  map = isl::insert_equal_dims(std::move(map),
+                                isl::dim(map, isl_dim_in),
+                                isl::dim(map, isl_dim_out),
+                                n_loops - isl::dim(map, isl_dim_out));
+  if (!arch_has_spatial)
+  {
+    // TODO: assumes 1D spatial array. Implement to infer from arch spec
+    const size_t n_spatial_dims = 1;
+    tags.emplace_back(spacetime::Dimension::SpaceX);
+    map = isl::insert_dummy_dim_ins(std::move(map),
+                                    isl::dim(map, isl_dim_in),
+                                    n_spatial_dims);
+  }
+
+  for (const auto& [dspace_id, _] : workload.GetShape()->DataSpaceIDToName)
+  {
     result.emplace(std::make_pair(
-      buf,
-      TaggedMap<isl::map, spacetime::Dimension>(
-        isl::map_from_multi_aff(
-          isl::multi_aff::identity_on_domain(isl::space_alloc(GetIslCtx(),
-                                                              0,
-                                                              level,
-                                                              level).domain())
-        ),
-        std::move(tags)
-      )
+      LogicalBuffer(arch_level, dspace_id, 0),
+      TaggedMap<isl::map, spacetime::Dimension>(map, tags)
     ));
   }
 
@@ -468,7 +498,7 @@ isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
                                          isl_dim_in,
                                          reversed_iter_dim,
                                          last_coef);
-        std::cout << "eq aff: " << eq_aff << std::endl;
+
         iter_set = iter_set.intersect(
           identity.get_at(reversed_iter_dim).ge_set(
             isl::si_on_domain(identity.space().domain(), 0))
@@ -480,9 +510,7 @@ isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
         last_coef *= coef;
       }
     }
-    std::cout << "eq aff: " << eq_aff << std::endl;
     eq_maff = eq_maff.set_at(op_dim, eq_aff);
-    std::cout << "eq maff: " << eq_aff << std::endl;
   }
 
   auto map = isl::map_from_multi_aff(eq_maff).intersect_domain(iter_set);
