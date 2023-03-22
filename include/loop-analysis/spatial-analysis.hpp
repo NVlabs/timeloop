@@ -5,6 +5,9 @@
  * Interface
  *****************************************************************************/
 
+namespace analysis
+{
+
 struct LinkTransferInfo
 {
   LogicalBufTransfers link_transfers;
@@ -44,3 +47,17 @@ class SimpleLinkTransferModel : public LinkTransferModel
   size_t n_spatial_dims_;
   isl::map connectivity_;
 };
+
+class SimpleMulticastModel : public MulticastModel
+{
+ public:
+  SimpleMulticastModel(size_t n_spatial_dims);
+
+  MulticastInfo
+  Apply(LogicalBufFills& fills, LogicalBufOccupancies& occupancies) const;
+
+ private:
+  size_t n_spatial_dims_;
+  isl::map connectivity_;
+};
+}
