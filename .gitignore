@@ -39,3 +39,5 @@ GPATH
 GRTAGS
 GSYMS
 GTAGS
+# MacOS-specific files.
+.DS_Store
