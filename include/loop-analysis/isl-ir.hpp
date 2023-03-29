@@ -180,9 +180,9 @@ using LogicalBufFills = std::map<LogicalBuffer, Fill>;
  * @param mapping 
  * @return LogicalBufOccupancies 
  */
-LogicalBufOccupancies
-OccupanciesFromMapping(const mapping::FusedMapping mapping,
-                       const problem::Workload& workload);
+// LogicalBufOccupancies
+// OccupanciesFromMapping(const mapping::FusedMapping mapping,
+//                        const problem::Workload& workload);
 
 /**
  * @brief Infer logical buffer occupancies from loop nest mapping
