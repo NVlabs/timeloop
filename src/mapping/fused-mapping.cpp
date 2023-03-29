@@ -2,94 +2,108 @@
 
 namespace mapping
 {
-  MappingNodeIterator& MappingNodeIterator::operator++()
-  {
-    ++cur_;
-    return *this;
-  }
 
-  bool MappingNodeIterator::operator!=(const MappingNodeIterator& other) const
-  {
-    return cur_ != other.cur_;
-  }
+Root::Root(const NodeID& id) : id(id) {}
 
-  MappingNodeTypes& MappingNodeIterator::operator*()
-  {
-    return cur_->second;
-  }
-
-  FusedMapping::FusedMapping()
-  {
-    nodes_.emplace(
-      std::make_pair(0, MappingNodeTypes(std::in_place_type<Root>, 0)));
-  }
-
-  const MappingNodeTypes& FusedMapping::NodeAt(const NodeID& node_id) const
-  {
-    return nodes_.at(node_id);
-  }
-
-  MappingNodeTypes& FusedMapping::NodeAt(const NodeID& node_id)
-  {
-    return nodes_.at(node_id);
-  }
-
-  const Root& FusedMapping::GetRoot() const
-  {
-    return std::get<Root>(nodes_.at(0));
-  }
-
-  MappingNodeIterator FusedMapping::begin()
-  {
-    return MappingNodeIterator(nodes_.begin());
-  }
-
-  MappingNodeIterator FusedMapping::end()
-  {
-    return MappingNodeIterator(nodes_.end());
-  }
-
-  Root::Root(const NodeID& id) : id(id) {}
-
-  For::For(const NodeID& id,
-        const std::string& iterator_name,
-        const problem::Shape::FlattenedDimensionID& op_dim,
-        std::optional<IslAff>&& begin = std::nullopt,
-        std::optional<IslAff>&& end = std::nullopt):
-    id(id), 
-    iterator_name(iterator_name),
-    op_dim(op_dim) 
-  {
-    // TODO : What is IslAff's relation to size_t
-  }
-
-  ParFor::ParFor(const NodeID& id,
+For::For(const NodeID& id,
          const std::string& iterator_name,
          const problem::Shape::FlattenedDimensionID& op_dim,
-         std::optional<IslAff>&& begin = std::nullopt,
-         std::optional<IslAff>&& end = std::nullopt):
-    id(id),
-    iterator_name(iterator_name),
-    op_dim(op_dim)
-  {
-    // TODO : What is IslAff's relation to size_t
-  }
+         std::optional<isl::aff>&& begin,
+         std::optional<isl::aff>&& end) :
+  iterator_name(iterator_name),
+  op_dim(op_dim),
+  begin(begin),
+  end(end),
+  id(id)
+{
+}
 
-  Storage::Storage(const NodeID& id,
-          const BufferID& buffer,
-          const problem::Shape::DataSpaceID& dspace):
-    id(id), buffer(buffer), dspace(dspace) {}
-  
-  Compute::Compute(const NodeID& id,
-          const problem::EinsumID& einsum,
-          const std::optional<IslPwMultiAff>&& tiling_spec):
-    id(id), kernel(einsum)
-  {
-    // TODO: std::optional<>&& ?? 
-  }
+ParFor::ParFor(const NodeID& id,
+               const std::string& iterator_name,
+               const problem::Shape::FlattenedDimensionID& op_dim,
+               std::optional<isl::aff>&& begin,
+               std::optional<isl::aff>&& end) :
+  iterator_name(iterator_name),
+  op_dim(op_dim),
+  begin(begin),
+  end(end),
+  id(id)
+{
+}
 
-  Pipeline::Pipeline(const NodeID& id) 
-  {
-    children.push_back(id);
-  }
+Storage::Storage(const NodeID& id,
+        const BufferID& buffer,
+        const problem::Shape::DataSpaceID& dspace) :
+  buffer(buffer), dspace(dspace), id(id) {}
+
+Compute::Compute(const NodeID& id,
+        const problem::EinsumID& einsum,
+        const std::optional<isl::pw_multi_aff>&& tiling_spec) :
+  kernel(einsum), tiling_spec(tiling_spec), id(id)
+{
+}
+
+Pipeline::Pipeline(const NodeID& id) 
+{
+  children.push_back(id);
+}
+
+FusedMappingNodeIterator& FusedMappingNodeIterator::operator++()
+{
+  ++cur_;
+  return *this;
+}
+
+bool
+FusedMappingNodeIterator::operator!=(
+  const FusedMappingNodeIterator& other
+) const
+{
+  return cur_ != other.cur_;
+}
+
+MappingNodeTypes& FusedMappingNodeIterator::operator*()
+{
+  return cur_->second;
+}
+
+FusedMappingNodeIterator::FusedMappingNodeIterator(
+  std::map<NodeID, MappingNodeTypes>::iterator iter
+) : cur_(iter)
+{
+}
+
+FusedMapping::FusedMapping()
+{
+  nodes_.emplace(
+    std::make_pair(0, MappingNodeTypes(std::in_place_type<Root>, 0)));
+}
+
+const MappingNodeTypes& FusedMapping::NodeAt(const NodeID& node_id) const
+{
+  return nodes_.at(node_id);
+}
+
+MappingNodeTypes& FusedMapping::NodeAt(const NodeID& node_id)
+{
+  return nodes_.at(node_id);
+}
+
+const Root& FusedMapping::GetRoot() const
+{
+  return std::get<Root>(nodes_.at(0));
+}
+
+FusedMappingNodeIterator FusedMapping::begin()
+{
+  return FusedMappingNodeIterator(nodes_.begin());
+}
+
+FusedMappingNodeIterator FusedMapping::end()
+{
+  return FusedMappingNodeIterator(nodes_.end());
+}
+
+
+
 };
