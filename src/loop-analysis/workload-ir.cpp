@@ -43,15 +43,15 @@ void WorkloadIR::AddDataSpaceBounds(DataSpaceID dspace_id,
                                       isl::set(GetIslCtx(), set_str)));
 }
 
-WorkloadIR::ConstIterator
+const isl::map&
 WorkloadIR::GetReadDependency(EinsumID einsum_id, DataSpaceID dspace_id) const
 {
-  return reads_.find(std::make_pair(einsum_id, dspace_id));
+  return reads_.find(std::make_pair(einsum_id, dspace_id))->second;
 }
-WorkloadIR::ConstIterator 
+const isl::map&
 WorkloadIR::GetWriteDependency(EinsumID einsum_id, DataSpaceID dspace_id) const
 {
-  return writes_.find(std::make_pair(einsum_id, dspace_id));
+  return writes_.find(std::make_pair(einsum_id, dspace_id))->second;
 }
 
 } // namespace analysis
