@@ -94,6 +94,11 @@ const Root& FusedMapping::GetRoot() const
   return std::get<Root>(nodes_.at(0));
 }
 
+Root& FusedMapping::GetRoot()
+{
+  return std::get<Root>(nodes_.at(0));
+}
+
 FusedMappingNodeIterator FusedMapping::begin()
 {
   return FusedMappingNodeIterator(nodes_.begin());
@@ -103,7 +108,5 @@ FusedMappingNodeIterator FusedMapping::end()
 {
   return FusedMappingNodeIterator(nodes_.end());
 }
-
-
 
 };

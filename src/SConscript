@@ -151,7 +151,8 @@ pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp
 mapping/spacetime.cpp
-mapping/fused-mapping.cpp
+mapping/fused-mapping/fused-mapping.cpp
+mapping/fused-mapping/mapping-path.cpp
 model/model-base.cpp
 model/engine.cpp
 model/level.cpp
