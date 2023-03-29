@@ -13,6 +13,7 @@
 
 #include <map>
 #include <isl/cpp.h>
+#include <variant>
 
 #include "isl-wrapper/tagged.hpp"
 #include "mapping/fused-mapping.hpp"
@@ -112,6 +113,20 @@ struct LogicalBuffer
 };
 
 std::ostream& operator<<(std::ostream& os, const LogicalBuffer& buf);
+
+/**
+ * @brief Describes how time in different branches relate to each other.
+ */
+struct PipelineSchedule
+{
+  size_t top;
+  size_t bot;
+};
+struct SequentialSchedule
+{
+  size_t bot;
+};
+using BranchSchedule = std::variant<PipelineSchedule, SequentialSchedule>;
 
 /**
  * @brief Iteration -> Operation relation that specifies the tiling.
