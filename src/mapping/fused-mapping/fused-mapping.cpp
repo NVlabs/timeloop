@@ -8,8 +8,8 @@ Root::Root(const NodeID& id) : id(id) {}
 For::For(const NodeID& id,
          const std::string& iterator_name,
          const problem::Shape::FlattenedDimensionID& op_dim,
-         std::optional<isl::aff>&& begin,
-         std::optional<isl::aff>&& end) :
+         std::optional<size_t>&& begin,
+         std::optional<size_t>&& end) :
   iterator_name(iterator_name),
   op_dim(op_dim),
   begin(begin),
@@ -21,8 +21,8 @@ For::For(const NodeID& id,
 ParFor::ParFor(const NodeID& id,
                const std::string& iterator_name,
                const problem::Shape::FlattenedDimensionID& op_dim,
-               std::optional<isl::aff>&& begin,
-               std::optional<isl::aff>&& end) :
+               std::optional<size_t>&& begin,
+               std::optional<size_t>&& end) :
   iterator_name(iterator_name),
   op_dim(op_dim),
   begin(begin),

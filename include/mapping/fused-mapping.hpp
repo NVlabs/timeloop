@@ -29,8 +29,8 @@ struct For
 {
   std::string iterator_name;
   problem::Shape::FlattenedDimensionID op_dim;
-  std::optional<isl::aff> begin;
-  std::optional<isl::aff> end;
+  std::optional<size_t> begin;
+  std::optional<size_t> end;
 
   NodeID id;
   std::optional<NodeID> child;
@@ -38,8 +38,8 @@ struct For
   For(const NodeID& id,
       const std::string& iterator_name,
       const problem::Shape::FlattenedDimensionID& op_dim,
-      std::optional<isl::aff>&& begin = std::nullopt,
-      std::optional<isl::aff>&& end = std::nullopt);
+      std::optional<size_t>&& begin = std::nullopt,
+      std::optional<size_t>&& end = std::nullopt);
 };
 
 struct ParFor
@@ -47,8 +47,8 @@ struct ParFor
   std::string iterator_name;
   problem::Shape::FlattenedDimensionID op_dim;
   // TODO: missing spacetime_dim
-  std::optional<isl::aff> begin;
-  std::optional<isl::aff> end;
+  std::optional<size_t> begin;
+  std::optional<size_t> end;
 
   NodeID id;
   std::optional<NodeID> child;
@@ -56,8 +56,8 @@ struct ParFor
   ParFor(const NodeID& id,
          const std::string& iterator_name,
          const problem::Shape::FlattenedDimensionID& op_dim,
-         std::optional<isl::aff>&& begin = std::nullopt,
-         std::optional<isl::aff>&& end = std::nullopt);
+         std::optional<size_t>&& begin = std::nullopt,
+         std::optional<size_t>&& end = std::nullopt);
 };
 
 struct Storage
@@ -76,7 +76,10 @@ struct Storage
 
 struct Compute
 {
-  problem::EinsumID kernel;
+  // TODO: This should only be defined once somewhere, but can be found here
+  // and in isl-ir.hpp
+  using EinsumID = size_t;
+  EinsumID kernel;
   /**
    * @brief An explicit tiling specifiction. E.g., [p_1, p_0] -> [4*p_1+p_0]
    * 
