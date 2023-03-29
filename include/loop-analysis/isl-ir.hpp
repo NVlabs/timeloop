@@ -49,9 +49,9 @@ class WorkloadIR
   void AddOperationSpaceBounds(EinsumID einsum_id, const std::string& set_str);
   void AddDataSpaceBounds(DataSpaceID dspace_id, const std::string& set_str);
 
-  ConstIterator
+  const isl::map&
   GetReadDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
-  ConstIterator
+  const isl::map&
   GetWriteDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
 
  private:
