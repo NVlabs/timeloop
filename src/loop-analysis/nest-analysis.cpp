@@ -341,11 +341,27 @@ void NestAnalysis::ComputeWorkingSets()
   }
 
   auto occupancies = OccupanciesFromMapping(cached_nest, *workload_);
+  // occupancies.clear();
+  // occupancies.emplace(std::make_pair(
+  //   LogicalBuffer(1, 0, 0);
+  // ));
   auto [eff_occupancies, fills] = TemporalReuseAnalysis(occupancies);
   auto result = SpatialReuseAnalysis(fills,
                                      eff_occupancies,
                                      SimpleLinkTransferModel(1),
                                      SimpleMulticastModel(1));
+
+  for (auto& [buf_ab, transfers]  :
+        result.link_transfer_info.link_transfers)
+  {
+    std::cout << buf_ab.first << " " << buf_ab.second << std::endl;
+    std::cout << transfers << std::endl;
+  }
+  for (auto& [buf, fill] : result.link_transfer_info.unfulfilled_fills)
+  {
+    std::cout << buf << std::endl;
+    std::cout << fill << std::endl;
+  }
 
   // Done.
   working_sets_computed_ = true;
