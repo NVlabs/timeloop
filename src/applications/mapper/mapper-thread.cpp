@@ -143,11 +143,32 @@ static inline bool IsBetter(const model::Topology::Stats& candidate, const model
   return (b == Betterness::Better || b == Betterness::SlightlyBetter);
 }
 
+static inline bool IsBetterorEqual(const model::Topology::Stats& candidate, const model::Topology::Stats& incumbent,
+                            const std::vector<std::string>& metrics)
+{
+  Betterness b = IsBetterRecursive_(candidate, incumbent, metrics.begin(), metrics.end());
+  return (b == Betterness::Better || b == Betterness::SlightlyBetter || b == Betterness::SlightlyWorse);
+}
+
 bool EvaluationResult::UpdateIfBetter(const EvaluationResult& other, const std::vector<std::string>& metrics)
 {
   bool updated = false;
   if (other.valid &&
       (!valid || IsBetter(other.stats, stats, metrics)))
+  {
+    valid = true;
+    mapping = other.mapping;
+    stats = other.stats;
+    updated = true;
+  }
+  return updated;
+}
+
+bool EvaluationResult::UpdateIfBetterorEqual(const EvaluationResult& other, const std::vector<std::string>& metrics)
+{
+  bool updated = false;
+  if (other.valid &&
+      (!valid || IsBetterorEqual(other.stats, stats, metrics)))
   {
     valid = true;
     mapping = other.mapping;
@@ -624,7 +645,7 @@ void MapperThread::Run()
     }
 
     // update index factor best
-    stats_.index_factor_best.UpdateIfBetter(result, optimization_metrics_);
+    stats_.index_factor_best.UpdateIfBetterorEqual(result, optimization_metrics_);
 
     // Is the new mapping "better" than the previous best mapping?
     if (stats_.thread_best.UpdateIfBetter(result, optimization_metrics_))
