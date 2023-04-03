@@ -42,6 +42,7 @@ struct EvaluationResult
   model::Topology::Stats stats;
 
   bool UpdateIfBetter(const EvaluationResult& other, const std::vector<std::string>& metrics);
+  bool UpdateIfBetterorEqual(const EvaluationResult& other, const std::vector<std::string>& metrics);
 };
 
 //--------------------------------------------//

@@ -47,9 +47,10 @@ def process_data(stats_file: str, output_file: str, keep_all_entry: bool = True)
 
     # Columns are defined as follows:
     # 0 - buffer size, 1 - op intensity, 2 - dram word accesses, 3,4,5 - buffer size for each tensor, 6,7,8 - dram word accesses for each tensor, 9 - compact print of mapping, 10 - path to mapping.yaml
+    # group by the buf util index 0 and take the max values of op int at index 1 and find the idx of max values
+    idx = df.groupby(0)[1].transform(max) == df[1]
 
-    idx = df.groupby(0)[1].idxmax()
-    df = df.loc[idx]
+    df = df[idx]
     df = df.sort_values(by=[0])
     df = df.set_index(0)
 
