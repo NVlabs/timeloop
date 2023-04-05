@@ -13,6 +13,7 @@
 
 #include <map>
 #include <isl/cpp.h>
+#include <variant>
 
 #include "isl-wrapper/tagged.hpp"
 #include "mapping/fused-mapping.hpp"
@@ -48,9 +49,9 @@ class WorkloadIR
   void AddOperationSpaceBounds(EinsumID einsum_id, const std::string& set_str);
   void AddDataSpaceBounds(DataSpaceID dspace_id, const std::string& set_str);
 
-  ConstIterator
+  const isl::map&
   GetReadDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
-  ConstIterator
+  const isl::map&
   GetWriteDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
 
  private:
@@ -112,6 +113,20 @@ struct LogicalBuffer
 };
 
 std::ostream& operator<<(std::ostream& os, const LogicalBuffer& buf);
+
+/**
+ * @brief Describes how time in different branches relate to each other.
+ */
+struct PipelineSchedule
+{
+  size_t top;
+  size_t bot;
+};
+struct SequentialSchedule
+{
+  size_t bot;
+};
+using BranchSchedule = std::variant<PipelineSchedule, SequentialSchedule>;
 
 /**
  * @brief Iteration -> Operation relation that specifies the tiling.
@@ -180,9 +195,9 @@ using LogicalBufFills = std::map<LogicalBuffer, Fill>;
  * @param mapping 
  * @return LogicalBufOccupancies 
  */
-LogicalBufOccupancies
-OccupanciesFromMapping(const mapping::FusedMapping mapping,
-                       const problem::Workload& workload);
+// LogicalBufOccupancies
+// OccupanciesFromMapping(const mapping::FusedMapping mapping,
+//                        const problem::Workload& workload);
 
 /**
  * @brief Infer logical buffer occupancies from loop nest mapping

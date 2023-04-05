@@ -138,6 +138,8 @@ loop-analysis/point-set-multi-aahr.cpp
 loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/spatial-analysis.cpp
+loop-analysis/temporal-analysis.cpp
+loop-analysis/workload-ir.cpp
 sparse-analysis/state.cpp
 sparse-analysis/sparse-analysis.cpp
 sparse-analysis/compute-gs-analyzer.cpp
@@ -149,6 +151,8 @@ pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp
 mapping/spacetime.cpp
+mapping/fused-mapping/fused-mapping.cpp
+mapping/fused-mapping/mapping-path.cpp
 model/model-base.cpp
 model/engine.cpp
 model/level.cpp

@@ -10,6 +10,25 @@
 namespace analysis
 {
 
+SpatialReuseInfo
+SpatialReuseAnalysis(LogicalBufFills& fills,
+                     LogicalBufOccupancies& occupancies,
+                     const LinkTransferModel& link_transfer_model,
+                     const MulticastModel& multicast_model)
+{
+  auto link_transfer_info = link_transfer_model.Apply(fills, occupancies);
+  auto multicast_info = multicast_model.Apply(
+    link_transfer_info.unfulfilled_fills,
+    occupancies
+  );
+
+  return SpatialReuseInfo{
+    .link_transfer_info = std::move(link_transfer_info),
+    .multicast_info = std::move(multicast_info)
+  };
+}
+
+
 SimpleLinkTransferModel::SimpleLinkTransferModel(size_t n_spatial_dims) :
   n_spatial_dims_(n_spatial_dims)
 {

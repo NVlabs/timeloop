@@ -31,6 +31,17 @@ struct MulticastModel
   Apply(LogicalBufFills&, LogicalBufOccupancies&) const = 0;
 };
 
+struct SpatialReuseInfo
+{
+  LinkTransferInfo link_transfer_info;
+  MulticastInfo multicast_info;
+};
+
+SpatialReuseInfo SpatialReuseAnalysis(LogicalBufFills&,
+                                      LogicalBufOccupancies&,
+                                      const LinkTransferModel&,
+                                      const MulticastModel&);
+
 /******************************************************************************
  * Concrete Classes
  *****************************************************************************/

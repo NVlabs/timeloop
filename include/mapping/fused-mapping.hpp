@@ -14,6 +14,8 @@ using NodeID = size_t;
 using BufferID = size_t;
 
 class FusedMapping;
+class MappingPath;
+class MappingPaths;
 
 struct Root
 {
@@ -36,8 +38,8 @@ struct For
   For(const NodeID& id,
       const std::string& iterator_name,
       const problem::Shape::FlattenedDimensionID& op_dim,
-      std::optional<isl::aff>&& begin = std::nullopt,
-      std::optional<isl::aff>&& end = std::nullopt);
+      std::optional<size_t>&& begin = std::nullopt,
+      std::optional<size_t>&& end = std::nullopt);
 };
 
 struct ParFor
@@ -49,13 +51,13 @@ struct ParFor
   std::optional<size_t> end;
 
   NodeID id;
-  NodeID child;
+  std::optional<NodeID> child;
 
   ParFor(const NodeID& id,
          const std::string& iterator_name,
          const problem::Shape::FlattenedDimensionID& op_dim,
-         std::optional<isl::aff>&& begin = std::nullopt,
-         std::optional<isl::aff>&& end = std::nullopt);
+         std::optional<size_t>&& begin = std::nullopt,
+         std::optional<size_t>&& end = std::nullopt);
 };
 
 struct Storage
@@ -65,7 +67,7 @@ struct Storage
   std::vector<std::pair<NodeID, isl::map>> logical_buf_occupancy;
 
   NodeID id;
-  NodeID child;
+  std::optional<NodeID> child;
 
   Storage(const NodeID& id,
           const BufferID& buffer,
@@ -74,13 +76,16 @@ struct Storage
 
 struct Compute
 {
-  problem::EinsumID kernel;
+  // TODO: This should only be defined once somewhere, but can be found here
+  // and in isl-ir.hpp
+  using EinsumID = size_t;
+  EinsumID kernel;
   /**
    * @brief An explicit tiling specifiction. E.g., [p_1, p_0] -> [4*p_1+p_0]
    * 
    * If given, bounds are not used to infer tiling map.
    */
-  isl::pw_multi_aff tiling_spec;
+  std::optional<isl::pw_multi_aff> tiling_spec;
 
   NodeID id;
 
@@ -99,17 +104,17 @@ struct Pipeline
 using MappingNodeTypes
     = std::variant<Root, For, ParFor, Storage, Compute, Pipeline>;
 
-class MappingNodeIterator
+class FusedMappingNodeIterator
 {
  public:
-  MappingNodeIterator& operator++();
-  bool operator!=(const MappingNodeIterator& other) const;
+  FusedMappingNodeIterator& operator++();
+  bool operator!=(const FusedMappingNodeIterator& other) const;
   MappingNodeTypes& operator*();
 
  private:
   friend FusedMapping;
 
-  MappingNodeIterator(std::map<NodeID, MappingNodeTypes>::iterator iter);
+  FusedMappingNodeIterator(std::map<NodeID, MappingNodeTypes>::iterator iter);
 
  private:
   std::map<NodeID, MappingNodeTypes>::iterator cur_;
@@ -117,6 +122,9 @@ class MappingNodeIterator
 
 class FusedMapping
 {
+ public:
+  using Iterator = FusedMappingNodeIterator;
+
  public:
   FusedMapping();
 
@@ -134,42 +142,100 @@ class FusedMapping
   MappingNodeTypes& NodeAt(const NodeID& node_id);
 
   const Root& GetRoot() const;
+  Root& GetRoot();
 
-  MappingNodeIterator begin();
-  MappingNodeIterator end();
+  Iterator begin();
+  Iterator end();
 
  private:
   std::map<NodeID, MappingNodeTypes> nodes_;
 };
 
-struct MappingPathNodeIterator
+class MappingPathsIterator
 {
-  MappingNodeTypes& operator*();
-  bool operator==(const MappingPathNodeIterator& other) const;
-  bool operator!=(const MappingPathNodeIterator& other) const;
-  MappingNodeTypes& operator++();
-};
-
-struct MappingPath
-{
-  MappingPathNodeIterator begin() const;
-  MappingPathNodeIterator end() const;
-};
-
-struct MappingPathsIterator
-{
+ public:
   MappingPath operator*();
   bool operator==(const MappingPathsIterator& other) const;
   bool operator!=(const MappingPathsIterator& other) const;
-  MappingNodeTypes& operator++();
+  MappingPathsIterator& operator++();
+
+ private:
+  struct DfsRecord
+  {
+    size_t path_backtrack_idx;
+    std::reference_wrapper<MappingNodeTypes> ref_node;
+
+    DfsRecord(size_t backtrack_idx, MappingNodeTypes& node);
+  };
+
+ private:
+  FusedMapping& mapping_;
+  std::vector<DfsRecord> dfs_stack_;
+  std::vector<std::reference_wrapper<MappingNodeTypes>> path_;
+  size_t idx_;
+  bool done_;
+
+  MappingPathsIterator(FusedMapping& paths, bool done=false);
+
+ private:
+  friend MappingPaths;
 };
 
-struct MappingPaths
+class MappingPaths
 {
-  MappingPathsIterator begin() const;
-  MappingPathsIterator end() const;
+ public:
+  using Iterator = MappingPathsIterator;
+
+ public:
+  Iterator begin();
+  Iterator end();
+
+ private:
+  FusedMapping& fused_mapping_;
+
+  MappingPaths(FusedMapping& mapping);
+
+ private:
+  friend MappingPaths GetPaths(FusedMapping& mapping);
 };
 
-MappingPaths GetPaths(const FusedMapping& mapping);
+class MappingPathNodeIterator
+{
+ public:
+  MappingNodeTypes& operator*();
+  bool operator==(const MappingPathNodeIterator& other) const;
+  bool operator!=(const MappingPathNodeIterator& other) const;
+  MappingPathNodeIterator& operator++();
+ 
+ private:
+  MappingPath& path_;
+  size_t idx_;
+
+  MappingPathNodeIterator(MappingPath& path, size_t idx=0);
+
+ private:
+  friend MappingPath;
+};
+
+class MappingPath
+{
+ public:
+  using Iterator = MappingPathNodeIterator;
+
+ public:
+  Iterator begin();
+  Iterator end();
+
+ private:
+  std::vector<std::reference_wrapper<MappingNodeTypes>> ref_nodes_;
+
+  MappingPath(std::vector<std::reference_wrapper<MappingNodeTypes>> ref_nodes);
+
+ private:
+  friend MappingPathsIterator;
+  friend MappingPathNodeIterator;
+};
+
+MappingPaths GetPaths(FusedMapping& mapping);
 
 }; // namespace mapping
