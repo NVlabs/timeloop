@@ -49,12 +49,21 @@ class WorkloadIR
   void AddOperationSpaceBounds(EinsumID einsum_id, const std::string& set_str);
   void AddDataSpaceBounds(DataSpaceID dspace_id, const std::string& set_str);
 
+  const std::set<DataSpaceID>& ReadTensors(EinsumID einsum_id) const;
+  const std::set<DataSpaceID>& WriteTensors(EinsumID einsum_id) const;
+  const std::set<EinsumID>& ReadEinsums(DataSpaceID dspace_id) const;
+  const std::optional<EinsumID> WriteEinsum(DataSpaceID dspace_id) const;
+
   const isl::map&
   GetReadDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
   const isl::map&
   GetWriteDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
 
  private:
+  std::map<EinsumID, std::set<DataSpaceID>> read_tensors_;
+  std::map<EinsumID, std::set<DataSpaceID>> write_tensors_;
+  std::map<DataSpaceID, std::set<EinsumID>> read_einsums_;
+  std::map<DataSpaceID, EinsumID> write_einsums_;
   std::map<std::pair<EinsumID, DataSpaceID>, isl::map> reads_;
   std::map<std::pair<EinsumID, DataSpaceID>, isl::map> writes_;
   std::map<EinsumID, isl::set> operation_spaces_;
