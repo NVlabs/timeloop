@@ -593,9 +593,9 @@ void MapperThread::Run()
     auto stats = topology.GetStats();
     EvaluationResult result = { true, mapping, stats };
 
-    if (log_oaves_ && total_mappings != 0 && (stats_.index_factor_best.valid && (SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))))
+    if (log_oaves_ && total_mappings != 0 && stats_.index_factor_best.valid)
     {
-
+      // SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0])
       mutex_->lock();
       engine.Evaluate(stats_.index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
       auto topology = engine.GetTopology();
