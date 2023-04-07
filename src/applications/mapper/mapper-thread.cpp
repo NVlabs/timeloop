@@ -143,11 +143,11 @@ static inline bool IsBetter(const model::Topology::Stats& candidate, const model
   return (b == Betterness::Better || b == Betterness::SlightlyBetter);
 }
 
-static inline bool IsBetterorEqual(const model::Topology::Stats& candidate, const model::Topology::Stats& incumbent,
+static inline bool IsEqual(const model::Topology::Stats& candidate, const model::Topology::Stats& incumbent,
                             const std::vector<std::string>& metrics)
 {
   Betterness b = IsBetterRecursive_(candidate, incumbent, metrics.begin(), metrics.end());
-  return (b == Betterness::Better || b == Betterness::SlightlyBetter || b == Betterness::SlightlyWorse);
+  return (b == Betterness::SlightlyWorse);
 }
 
 bool EvaluationResult::UpdateIfBetter(const EvaluationResult& other, const std::vector<std::string>& metrics)
@@ -164,11 +164,11 @@ bool EvaluationResult::UpdateIfBetter(const EvaluationResult& other, const std::
   return updated;
 }
 
-bool EvaluationResult::UpdateIfBetterorEqual(const EvaluationResult& other, const std::vector<std::string>& metrics)
+bool EvaluationResult::UpdateIfEqual(const EvaluationResult& other, const std::vector<std::string>& metrics)
 {
   bool updated = false;
   if (other.valid &&
-      (!valid || IsBetterorEqual(other.stats, stats, metrics)))
+      (!valid || IsEqual(other.stats, stats, metrics)))
   {
     valid = true;
     mapping = other.mapping;
@@ -340,6 +340,7 @@ void MapperThread::Run()
 
   const int ncurses_line_offset = 6;
 
+  std::vector<EvaluationResult> index_factor_best_vec;
   model::Engine engine;
   engine.Spec(arch_specs_);
 
@@ -429,19 +430,24 @@ void MapperThread::Run()
       terminate = true;
     }
 
-    if (log_oaves_ && terminate && stats_.index_factor_best.valid)
+    if (log_oaves_ && terminate)
     {
-      mutex_->lock();
-      // Reevaluate the index_fact_best mapping to update the topology
-      engine.Evaluate(stats_.index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
-      auto topology = engine.GetTopology();
+      for (auto &index_factor_best : index_factor_best_vec)
+      {
 
-      // Print performance
-      topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
+        // Re-evaluate the mapping
+        engine.Evaluate(index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
+        auto topology = engine.GetTopology();
+
+        mutex_->lock();
+        // Print performance and log the optimal mappings
+        topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
+        mutex_->unlock();
+      }
 
       // Reset the best for next permutation/bypassing
       stats_.index_factor_best.valid = false;
-      mutex_->unlock();
+      index_factor_best_vec.clear();
     }
 
     // Terminate.
@@ -593,19 +599,31 @@ void MapperThread::Run()
     auto stats = topology.GetStats();
     EvaluationResult result = { true, mapping, stats };
 
-    if (log_oaves_ && total_mappings != 0 && stats_.index_factor_best.valid)
+    // Log the equally optimal mappings stats from the previous index factor and clear the index_factor_best_vec
+    // Need to have one valid mapping in order to get the SumStats run
+    if (log_oaves_ && total_mappings != 0 && stats_.index_factor_best.valid && SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))
     {
-      // SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0])
-      mutex_->lock();
-      engine.Evaluate(stats_.index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
-      auto topology = engine.GetTopology();
+      for (auto &index_factor_best : index_factor_best_vec)
+      {
 
-      // Print performance
-      topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
+        // Re-evaluate the mapping
+        engine.Evaluate(index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
+        auto topology = engine.GetTopology();
+
+        mutex_->lock();
+
+        // Print performance and log the optimal mappings
+        topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
+        mutex_->unlock();
+
+        // Only print one valid mapping stat if the tiling size is 0 in the inner level
+        if (SumStats(stats_.index_factor_best.stats.tile_sizes[0]) == 0)
+          break;
+      }
 
       // Reset the best for next permutation/bypassing
       stats_.index_factor_best.valid = false;
-      mutex_->unlock();
+      index_factor_best_vec.clear();
     }
 
     valid_mappings++;
@@ -644,8 +662,19 @@ void MapperThread::Run()
       mutex_->unlock();
     }
 
-    // update index factor best
-    stats_.index_factor_best.UpdateIfBetterorEqual(result, optimization_metrics_);
+    // Update index factor best
+    if (log_oaves_)
+    {
+      if (stats_.index_factor_best.UpdateIfBetter(result, optimization_metrics_))
+      {
+        index_factor_best_vec.clear();
+        index_factor_best_vec.push_back(stats_.index_factor_best);
+      }
+      else if (stats_.index_factor_best.UpdateIfEqual(result, optimization_metrics_))
+      {
+        index_factor_best_vec.push_back(stats_.index_factor_best);
+      }
+    }
 
     // Is the new mapping "better" than the previous best mapping?
     if (stats_.thread_best.UpdateIfBetter(result, optimization_metrics_))
