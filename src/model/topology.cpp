@@ -561,7 +561,8 @@ out << std::endl
   return out;
 }
 
-void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping, bool log_oaves_mappings, std::string oaves_prefix, unsigned thread_id) const {
+void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_mappings, std::string oaves_prefix, unsigned thread_id) const
+{
 
   if (NumStorageLevels() > 0)
   {
@@ -582,7 +583,8 @@ void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping, bool log_oaves_m
           unsigned inv_storage_level = NumStorageLevels() - 1 - storage_level_id;
           utilized_capacity = stats_.utilized_capacities.at(inv_storage_level).at(pv);
           // Use the last non-bypassed level with capacity size not equal to 0
-          if (utilized_capacity > 0) break;
+          if (utilized_capacity > 0)
+            break;
         }
         total_output_size += utilized_capacity;
       }
@@ -616,15 +618,19 @@ void  Topology::PrintOAVES(std::ostream& out, Mapping& mapping, bool log_oaves_m
       out << "," << GetStorageLevel(last_storage_level_id)->Accesses(pv);
     }
     out << "," << mapping.PrintCompact();
-    if (log_oaves_mappings) {
+    if (log_oaves_mappings)
+    {
       std::stringstream oaves_mapping_ss;
-      // Format the mapping filename as <utilization>_<thread_id>.yaml
-      // Note that once a better mapping with the same utilization is found by the same thread this file will be updated
-      oaves_mapping_ss << oaves_prefix << "." << total_utilization << "_" << thread_id << ".yaml";
+      // Format the mapping filename as <utilization>_<thread_id>_<mapping_hash>.yaml
+      std::hash<std::string> hasher;
+      size_t hash = hasher(mapping.PrintCompact());
+      oaves_mapping_ss << oaves_prefix << "." << total_utilization << "_" << thread_id << "_" << std::hex << hash << ".yaml";
       std::string oaves_map_yaml_file_name = oaves_mapping_ss.str();
       out << "," << oaves_map_yaml_file_name << std::endl;
       OutputOAVESMappingYAML(mapping, oaves_map_yaml_file_name);
-    } else {
+    }
+    else
+    {
       out << ",None" << std::endl;
     }
   }
