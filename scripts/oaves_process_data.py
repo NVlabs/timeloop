@@ -26,18 +26,24 @@ def construct_argparser():
     parser.add_argument('-a',
                         '--keep_all_entry',
                         action='store_true',
+                        help='keep all different buffer sizes and op',
+                        )
+    parser.add_argument('-e',
+                        '--keep_one_best_entry',
+                        action='store_true',
                         help='keep all different buffer sizes',
                         )
 
     return parser
 
 
-def process_data(stats_file: str, output_file: str, keep_all_entry: bool = True):
+def process_data(stats_file: str, output_file: str, keep_all_entry: bool = False, keep_one_best_entry: bool = False):
     """ Process OAVES output csv file.
 
     Args:
 	stats_file: The OAVES output csv file path from Timeloop run.
 	output_file: The output file path to store sorted data.
+        keep_all_entry: Indicate whether to keep all different buffer sizes.
         keep_all_entry: Indicate whether to keep all different buffer sizes.
 
     """
@@ -48,20 +54,30 @@ def process_data(stats_file: str, output_file: str, keep_all_entry: bool = True)
     # Columns are defined as follows:
     # 0 - buffer size, 1 - op intensity, 2 - dram word accesses, 3,4,5 - buffer size for each tensor, 6,7,8 - dram word accesses for each tensor, 9 - compact print of mapping, 10 - path to mapping.yaml
     # group by the buf util index 0 and take the max values of op int at index 1 and find the idx of max values
-    idx = df.groupby(0)[1].transform(max) == df[1]
 
-    df = df[idx]
+    # idx = df.groupby(0)[1].idxmax()
+    # df = df.loc[idx]
+    # print(len(df))
+    if keep_one_best_entry:
+        idx = df.groupby(0)[1].idxmax()
+        df = df.loc[idx]
+    else: # keep all equally optimal entries
+        idx = df.groupby(0)[1].transform(max) == df[1]
+        df = df[idx]
+
     df = df.sort_values(by=[0])
-    df = df.set_index(0)
+
 
     if keep_all_entry:
         df_new = df
+
+    # only save the mapping that lead to higher op intensity with higher buf utilization
     else:
         max_op_int_val = 0
         max_index = []
         for i, row in df.iterrows():
             cur_val = row[1]
-            if cur_val > max_op_int_val:
+            if cur_val >= max_op_int_val:
                 max_op_int_val = cur_val
                 max_index.append(i)
         df_new = df.loc[max_index]
@@ -81,6 +97,7 @@ def process_data(stats_file: str, output_file: str, keep_all_entry: bool = True)
             if mapping_file != 'None' and not os.path.isfile(mapping_file):
                 raise Exception(f"Optimal mapping file {mapping_file} not found!")
 
+    df_new = df_new.set_index(0)
     df_new.to_csv(output_file, header=False)
 
 
@@ -88,4 +105,4 @@ if __name__ == "__main__":
     parser = construct_argparser()
     args = parser.parse_args()
 
-    process_data(args.stats_file, args.output_file, args.keep_all_entry)
+    process_data(args.stats_file, args.output_file, args.keep_all_entry, args.keep_one_best_entry)
