@@ -38,49 +38,61 @@ isl::map ConstraintDimEquals(isl::map map, size_t n_dims)
 isl::map MapToPriorData(size_t n_in_dims, size_t top)
 {
   isl_space* p_space;
-  isl_basic_map* p_map;
+  isl_basic_map* p_tmp_map;
+  isl_map* p_map;
   isl_local_space* p_ls;
   isl_constraint* p_c;
 
   // Goal: { [i0, ..., i{n_in_dims-1}] -> [i0, ..., i{top}-1, o{top+1}, ..., o{n_in_dims}] }
   p_space = isl_space_alloc(GetIslCtx().get(), 0, n_in_dims, n_in_dims);
-  p_map = isl_basic_map_universe(isl_space_copy(p_space));
+  p_map = isl_map_universe(isl_space_copy(p_space));
   p_ls = isl_local_space_from_space(p_space);
 
-  if (top > 1)
+  if (top > 0)
   {
+    p_tmp_map = isl_basic_map_universe(isl_space_copy(p_space));
     for (size_t i = 0; i < top-1; ++i)
     {
       p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
       p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, 1);
       p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, -1);
-      p_map = isl_basic_map_add_constraint(p_map, p_c);
+      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
     }
-  }
 
-  if (top > 0)
-  {
     p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
     p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, top-1, 1);
     p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, top-1, -1);
     p_c = isl_constraint_set_constant_si(p_c, 1);
-    p_map = isl_basic_map_add_constraint(p_map, p_c);
+    p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
+
+    p_map = isl_map_intersect(p_map, isl_map_from_basic_map(p_tmp_map));
   }
 
-  if (top < n_in_dims)
+  if (top > 0 && top < n_in_dims)
   {
+    p_tmp_map = isl_basic_map_universe(isl_space_copy(p_space));
+    for (size_t i = 0; i < top; ++i)
+    {
+      p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
+      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, 1);
+      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, -1);
+      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
+    }
+
     for (auto i = top; i < n_in_dims; ++i)
     {
       p_c = isl_constraint_alloc_inequality(isl_local_space_copy(p_ls));
       p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, -1);
       p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, 1);
       p_c = isl_constraint_set_constant_si(p_c, -1);
-      p_map = isl_basic_map_add_constraint(p_map, p_c);
+      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
     }
+    p_map = isl_map_union(p_map, isl_map_from_basic_map(p_tmp_map));
   }
+
   isl_local_space_free(p_ls);
 
-  return isl::manage(isl_map_from_basic_map(p_map));
+  return isl::manage(p_map);
 }
 
 BranchTilings LoopBoundsInference(BranchTilings tilings,
@@ -94,11 +106,20 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
   {
     for (auto& [einsum_id, tiling] : inferred_tilings)
     {
-      std::cout << einsum_id << std::endl;
-      std::cout << tiling << std::endl;
+      bool complete = true;
+      auto domain = tiling.domain();
+      for (auto i = 0; i < isl_set_dim(domain.get(), isl_dim_set); ++i)
+      {
+        complete = complete &&
+                   isl_set_dim_has_lower_bound(domain.get(), isl_dim_set, i);
+      }
+      if (!complete)
+      {
+        continue;
+      }
+
       for (const auto& read_tensor : workload_ir.ReadTensors(einsum_id))
       {
-        std::cout << einsum_id << " reads " << read_tensor << std::endl;
         auto producer_einsum_opt = workload_ir.WriteEinsum(read_tensor);
         if (!producer_einsum_opt)
         {
@@ -108,20 +129,15 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
 
         // Decide how much the consumer (einsum_id) needs
         auto pruned_tiling = project_dim_in_after(tiling, pipeline_tiling_idx);
-        std::cout << pruned_tiling << std::endl;
         auto required_data = pruned_tiling.apply_range(
           workload_ir.GetReadDependency(einsum_id, read_tensor));
-        std::cout << required_data << std::endl;
 
         auto top_idx = dspace_top_idx.at(read_tensor);
         auto shifter = 
           MapToPriorData(pipeline_tiling_idx, top_idx);
-        std::cout << shifter << std::endl;
         auto buffered_data = shifter.apply_range(required_data);
 
-        std::cout << buffered_data << std::endl;
         auto computed_data = required_data.subtract(buffered_data).coalesce();
-        std::cout << computed_data << std::endl;
 
         auto producer_write_dep =
           workload_ir.GetWriteDependency(*producer_einsum_opt, read_tensor);
@@ -132,7 +148,6 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
           required_ops.apply_range(producer_tiling.reverse()),
           pipeline_tiling_idx
         );
-        std::cout << required_iters << std::endl;
 
         auto inferred_prod_tiling =
           producer_tiling.intersect_domain(required_iters.range()).coalesce();
@@ -364,13 +379,25 @@ Application::Stats Application::Run()
   branch_tilings.emplace(std::make_pair(pwise2_id, isl::map(GetIslCtx(),
                                                             pwise2_tiling)));
 
-  branch_tilings = LoopBoundsInference(std::move(branch_tilings), workload_ir,
-                                       3, dspace_top_indices);
+  const size_t PIPELINE_TILING_IDX = 3;
+
+  branch_tilings = LoopBoundsInference(std::move(branch_tilings),
+                                       workload_ir,
+                                       PIPELINE_TILING_IDX,
+                                       dspace_top_indices);
 
   for (const auto& [einsum_id, tiling] : branch_tilings)
   {
     std::cout << einsum_id << std::endl;
     std::cout << tiling << std::endl;
+    for (auto i = 0; i < isl_map_dim(tiling.get(), isl_dim_out); ++i)
+    {
+      auto pared_tiling = project_dim_in_after(tiling, PIPELINE_TILING_IDX);
+      std::cout << isl_pw_aff_to_str(isl_map_dim_min(pared_tiling.copy(), i))
+                << std::endl;
+      std::cout << isl_pw_aff_to_str(isl_map_dim_max(pared_tiling.copy(), i))
+                << std::endl;
+    }
   }
 
   // if (engine.IsEvaluated())
