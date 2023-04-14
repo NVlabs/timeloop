@@ -47,10 +47,6 @@ void WorkloadIR::AddDataSpaceBounds(DataSpaceID dspace_id,
                                       isl::set(GetIslCtx(), set_str)));
 }
 
-const isl::map&
-WorkloadIR::GetReadDependency(EinsumID einsum_id, DataSpaceID dspace_id) const
-{
-  return reads_.find(std::make_pair(einsum_id, dspace_id))->second;
 const std::set<DataSpaceID>& WorkloadIR::ReadTensors(EinsumID einsum_id) const
 {
   return read_tensors_.at(einsum_id);
