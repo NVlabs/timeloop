@@ -43,10 +43,8 @@ Compute::Compute(const NodeID& id,
 {
 }
 
-Pipeline::Pipeline(const NodeID& id) 
-{
-  children.push_back(id);
-}
+Pipeline::Pipeline(const NodeID& id) : id(id) {}
+Sequential::Sequential(const NodeID& id) : id(id) {}
 
 FusedMappingNodeIterator& FusedMappingNodeIterator::operator++()
 {
