@@ -5,13 +5,14 @@
 #include <optional>
 #include <isl/cpp.h>
 
+#include "compound-config/compound-config.hpp"
 #include "workload/workload.hpp"
 #include "workload/fused-workload.hpp"
 
 namespace mapping
 {
 using NodeID = size_t;
-using BufferID = size_t;
+using BufferID = int;
 
 class FusedMapping;
 class MappingPath;
@@ -78,8 +79,7 @@ struct Compute
 {
   // TODO: This should only be defined once somewhere, but can be found here
   // and in isl-ir.hpp
-  using EinsumID = size_t;
-  EinsumID kernel;
+  problem::EinsumID kernel;
   /**
    * @brief An explicit tiling specifiction. E.g., [p_1, p_0] -> [4*p_1+p_0]
    * 
@@ -91,18 +91,27 @@ struct Compute
 
   Compute(const NodeID& id,
           const problem::EinsumID& einsum,
-          const std::optional<isl::pw_multi_aff>&& tiling_spec);
+          const std::optional<isl::pw_multi_aff>&& tiling_spec = std::nullopt);
 };
 
 struct Pipeline
 {
+  NodeID id;
   std::vector<NodeID> children;
 
   Pipeline(const NodeID& id);
 };
 
+struct Sequential
+{
+  NodeID id;
+  std::vector<NodeID> children;
+
+  Sequential(const NodeID& id);
+};
+
 using MappingNodeTypes
-    = std::variant<Root, For, ParFor, Storage, Compute, Pipeline>;
+    = std::variant<Root, For, ParFor, Storage, Compute, Pipeline, Sequential>;
 
 class FusedMappingNodeIterator
 {
@@ -120,6 +129,24 @@ class FusedMappingNodeIterator
   std::map<NodeID, MappingNodeTypes>::iterator cur_;
 };
 
+struct AddChildToNode
+{
+  NodeID child_id_;
+  AddChildToNode(NodeID child_id) : child_id_(child_id) {}
+
+  void operator()(Root& node) { node.child = child_id_; }
+  void operator()(For& node) { node.child = child_id_; }
+  void operator()(ParFor& node) { node.child = child_id_; }
+  void operator()(Storage& node) { node.child = child_id_; }
+  void operator()(Compute& node)
+  {
+    (void) node;
+    throw std::logic_error("compute has to be leaf");
+  }
+  void operator()(Pipeline& node) { node.children.emplace_back(child_id_); }
+  void operator()(Sequential& node) { node.children.emplace_back(child_id_); }
+};
+
 class FusedMapping
 {
  public:
@@ -131,11 +158,15 @@ class FusedMapping
   template<typename LoopT, typename... ArgsT>
   NodeID AddChild(NodeID parent_id, ArgsT... args)
   {
-    auto [it, _] = nodes_.emplace(
+    auto [it, _] = nodes_.emplace(std::make_pair(
+      nodes_.size(),
       MappingNodeTypes(std::in_place_type<LoopT>, nodes_.size(), args...)
-    );
+    ));
 
-    return it->first;
+    auto child_id = it->first;
+    std::visit(AddChildToNode(child_id), NodeAt(parent_id));
+
+    return child_id;
   }
 
   const MappingNodeTypes& NodeAt(const NodeID& node_id) const;
@@ -237,5 +268,7 @@ class MappingPath
 };
 
 MappingPaths GetPaths(FusedMapping& mapping);
+
+FusedMapping ParseMapping(const config::CompoundConfig& cfg);
 
 }; // namespace mapping
