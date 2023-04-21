@@ -6,6 +6,7 @@ import re
 import pandas as pd
 import numpy as np
 import os
+import math
 
 
 def construct_argparser():
@@ -86,7 +87,10 @@ def process_data(stats_file: str, output_file: str, keep_all_entry: bool = False
         optimal_mapping_files = set(df_new.iloc[:,-1])
         mapping_files_to_delete = generated_mapping_files - optimal_mapping_files
         for mapping_file in mapping_files_to_delete:
-            if os.path.isfile(mapping_file):
+            # if mapping_file is None or math.isnan(mapping_file):
+            #     continue
+            # print(mapping_file)
+            if not math.isnan(mapping_file) and os.path.isfile(mapping_file):
                 try:
                     os.remove(mapping_file)
                 except OSError as e:
@@ -94,7 +98,7 @@ def process_data(stats_file: str, output_file: str, keep_all_entry: bool = False
                     print (e.code, e.strerror)
         # Check if all optimal mapping yamls exist
         for mapping_file in optimal_mapping_files:
-            if mapping_file != 'None' and not os.path.isfile(mapping_file):
+            if not math.isnan(mapping_file) and not os.path.isfile(mapping_file):
                 raise Exception(f"Optimal mapping file {mapping_file} not found!")
 
     df_new = df_new.set_index(0)
