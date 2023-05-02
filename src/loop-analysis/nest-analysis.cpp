@@ -91,13 +91,6 @@ bool gEnableImperfectCycleCount = false;
 namespace analysis
 {
 
-
-isl::map MapToShifted(isl::space space, size_t pos, int shift);
-
-isl_val* ValOfConstantPwPolynomial(isl_pw_qpolynomial* qp);
-
-unsigned long ValToUnsignedLong(isl_val* val);
-
 NestAnalysis::NestAnalysis()
 {
 }
@@ -151,8 +144,6 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
   }
 
   gResetOnStrideChange = !problem::GetShape()->UsesFlattening;
-  
-  // LoopTree
 }
 
 //
@@ -299,7 +290,7 @@ void NestAnalysis::ComputeWorkingSets()
     // Recursive call starting from the last element of the list.
     num_epochs_ = 1;
     ComputeDeltas(nest_state_.rbegin());
-    CollectWorkingSets();
+    // CollectWorkingSets();
   }
 
   for (const auto& compute_info : compute_info_sets_)
@@ -314,6 +305,108 @@ void NestAnalysis::ComputeWorkingSets()
     if (loop::IsSpatial(state.descriptor.spacetime_dimension))
     {
       num_compute_units *= state.descriptor.end;
+    }
+  }
+
+  auto occupancies = OccupanciesFromMapping(cached_nest, *workload_);
+  // occupancies.clear();
+  // occupancies.emplace(std::make_pair(
+  //   LogicalBuffer(1, 0, 0);
+  // ));
+  auto [eff_occupancies, fills] = TemporalReuseAnalysis(occupancies);
+  auto result = SpatialReuseAnalysis(fills,
+                                     eff_occupancies,
+                                     SimpleLinkTransferModel(1),
+                                     SimpleMulticastModel(1));
+
+  BufferID cur_buffer_id = storage_tiling_boundaries_.size()-1;
+  auto cur_buffer_dumped = false;
+  for (const auto& cur : nest_state_)
+  {
+    auto is_master_spatial = master_spatial_level_[cur.level];
+    auto is_boundary = storage_boundary_level_[cur.level];
+
+    auto should_dump = false;
+    if (cur_buffer_dumped && is_boundary)
+    {
+      // Current buffer stats already dumped with the last master spatial loop.
+      cur_buffer_dumped = false;
+    }
+    else if (cur_buffer_dumped)
+    {
+      // Nothing to do
+    }
+    else if (is_boundary)
+    {
+      // Current buffer has not been dumped.
+      should_dump = true;
+    }
+    if (is_master_spatial)
+    {
+      // Current buffer has not been dump. Dump here.
+      should_dump = true;
+      cur_buffer_dumped = true;
+    }
+
+    for (unsigned dspace_id = 0;
+         dspace_id < workload_->GetShape()->NumDataSpaces;
+         ++dspace_id)
+    {
+      DataMovementInfo tile;
+      if (should_dump)
+      {
+        std::cout << "cur buf id: " << cur_buffer_id << std::endl;
+        std::cout << "dspace: " << dspace_id << std::endl;
+        for (auto& [buf, reads] : result.multicast_info.reads)
+        {
+          if (buf.buffer_id == cur_buffer_id && buf.dspace_id == dspace_id)
+          {
+            auto p_val = isl::get_val_from_singular_qpolynomial(
+              isl::sum_map_range_card(reads)
+            );
+            p_val = isl_val_div(
+              p_val,
+              isl_val_int_from_si(GetIslCtx().get(),
+                                  num_spatial_elems_[cur.level])
+            );
+            auto accesses = isl::val_to_double(p_val);
+            auto key = std::make_pair(logical_fanouts_[cur.level], 1);
+            tile.access_stats.stats[key] = AccessStats{
+              .accesses = accesses,
+              .hops = 0.0
+            };
+          }
+        }
+
+        for (const auto& [buf_ab, transfers] :
+            result.link_transfer_info.link_transfers)
+        {
+          const auto& buf = buf_ab.first;
+          if (buf.buffer_id == cur_buffer_id && buf.dspace_id == dspace_id) 
+          {
+            auto p_val = isl::get_val_from_singular_qpolynomial(
+              isl::sum_map_range_card(transfers.map)
+            );
+            p_val = isl_val_div(
+              p_val,
+              isl_val_int_from_si(GetIslCtx().get(),
+                                  num_spatial_elems_[cur.level])
+            );
+            tile.link_transfers = isl::val_to_double(p_val);
+          }
+        }
+
+        tile.replication_factor = num_spatial_elems_[cur.level];
+        tile.fanout = logical_fanouts_[cur.level];
+        tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
+        tile.is_master_spatial = master_spatial_level_[cur.level];
+      }
+      working_sets_[dspace_id].push_back(tile);
+    }
+
+    if (should_dump)
+    {
+      --cur_buffer_id;
     }
   }
 
@@ -339,32 +432,10 @@ void NestAnalysis::ComputeWorkingSets()
       std::cout << "    Fanout: " << std::to_string(data_movement.fanout) << std::endl;
       std::cout << "    Dist. fanout: " << std::to_string(data_movement.distributed_fanout) << std::endl;
       std::cout << "    On boundary: " << std::to_string(data_movement.is_on_storage_boundary) << std::endl;
+      std::cout << "    Is master spatial: " << std::to_string(data_movement.is_master_spatial) << std::endl;
       ++idx;
     }
     dspace++;
-  }
-
-  auto occupancies = OccupanciesFromMapping(cached_nest, *workload_);
-  // occupancies.clear();
-  // occupancies.emplace(std::make_pair(
-  //   LogicalBuffer(1, 0, 0);
-  // ));
-  auto [eff_occupancies, fills] = TemporalReuseAnalysis(occupancies);
-  auto result = SpatialReuseAnalysis(fills,
-                                     eff_occupancies,
-                                     SimpleLinkTransferModel(1),
-                                     SimpleMulticastModel(1));
-
-  for (auto& [buf_ab, transfers]  :
-        result.link_transfer_info.link_transfers)
-  {
-    std::cout << buf_ab.first << " " << buf_ab.second << std::endl;
-    std::cout << transfers << std::endl;
-  }
-  for (auto& [buf, fill] : result.link_transfer_info.unfulfilled_fills)
-  {
-    std::cout << buf << std::endl;
-    std::cout << fill << std::endl;
   }
 
   // Done.
@@ -1981,15 +2052,6 @@ void NestAnalysis::InitNumSpatialElems()
     }
   }
 
-  // std::cout << "Number of spatial elements at each level" << std::endl;
-  // for (int i = num_spatial_elems_.size() - 1; i >= 0; i--)
-  // {
-  //   std::cout << num_spatial_elems_[i];
-  //   if (master_spatial_level_[i]) std::cout << "(master)";
-  //   if (linked_spatial_level_[i]) std::cout << "(linked)";
-  //   std::cout << ", ";
-  // }
-  // std::cout << std::endl;
 }
 
 void NestAnalysis::InitStorageBoundaries()

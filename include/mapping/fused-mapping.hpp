@@ -29,42 +29,54 @@ struct Root
 struct For
 {
   std::string iterator_name;
-  problem::Shape::FlattenedDimensionID op_dim;
+  problem::DimensionId op_dim;
   std::optional<size_t> begin;
   std::optional<size_t> end;
+  std::optional<size_t> tile_size;
 
   NodeID id;
   std::optional<NodeID> child;
 
   For(const NodeID& id,
       const std::string& iterator_name,
-      const problem::Shape::FlattenedDimensionID& op_dim,
+      const problem::DimensionId& op_dim,
       std::optional<size_t>&& begin = std::nullopt,
       std::optional<size_t>&& end = std::nullopt);
+
+  static For WithTileSize(const NodeID& id,
+                          const std::string& iterator_name,
+                          const problem::DimensionId& op_dim,
+                          size_t tile_size);
 };
 
 struct ParFor
 {
   std::string iterator_name;
-  problem::Shape::FlattenedDimensionID op_dim;
+  problem::DimensionId op_dim;
   // TODO: missing spacetime_dim
   std::optional<size_t> begin;
   std::optional<size_t> end;
+  std::optional<size_t> tile_size;
 
   NodeID id;
   std::optional<NodeID> child;
 
   ParFor(const NodeID& id,
          const std::string& iterator_name,
-         const problem::Shape::FlattenedDimensionID& op_dim,
+         const problem::DimensionId& op_dim,
          std::optional<size_t>&& begin = std::nullopt,
          std::optional<size_t>&& end = std::nullopt);
+
+  static ParFor WithTileSize(const NodeID& id,
+                            const std::string& iterator_name,
+                            const problem::DimensionId& op_dim,
+                            size_t tile_size);
 };
 
 struct Storage
 {
   BufferID buffer;
-  problem::Shape::DataSpaceID dspace;
+  problem::DataSpaceId dspace;
   std::vector<std::pair<NodeID, isl::map>> logical_buf_occupancy;
 
   NodeID id;
@@ -72,14 +84,14 @@ struct Storage
 
   Storage(const NodeID& id,
           const BufferID& buffer,
-          const problem::Shape::DataSpaceID& dspace);
+          const problem::DataSpaceId& dspace);
 };
 
 struct Compute
 {
   // TODO: This should only be defined once somewhere, but can be found here
   // and in isl-ir.hpp
-  problem::EinsumID kernel;
+  problem::EinsumId kernel;
   /**
    * @brief An explicit tiling specifiction. E.g., [p_1, p_0] -> [4*p_1+p_0]
    * 
@@ -90,7 +102,7 @@ struct Compute
   NodeID id;
 
   Compute(const NodeID& id,
-          const problem::EinsumID& einsum,
+          const problem::EinsumId& einsum,
           const std::optional<isl::pw_multi_aff>&& tiling_spec = std::nullopt);
 };
 
@@ -155,12 +167,12 @@ class FusedMapping
  public:
   FusedMapping();
 
-  template<typename LoopT, typename... ArgsT>
+  template<typename LoopCtorF, typename... ArgsT>
   NodeID AddChild(NodeID parent_id, ArgsT... args)
   {
     auto [it, _] = nodes_.emplace(std::make_pair(
       nodes_.size(),
-      MappingNodeTypes(std::in_place_type<LoopT>, nodes_.size(), args...)
+      MappingNodeTypes(LoopCtorF(nodes_.size(), args...))
     ));
 
     auto child_id = it->first;
@@ -269,6 +281,7 @@ class MappingPath
 
 MappingPaths GetPaths(FusedMapping& mapping);
 
-FusedMapping ParseMapping(const config::CompoundConfig& cfg);
+FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
+                          const problem::FusedWorkload& workload);
 
 }; // namespace mapping

@@ -1,5 +1,6 @@
 #pragma once
 #include "loop-analysis/isl-ir.hpp"
+#include "isl/polynomial.h"
 
 /******************************************************************************
  * Interface
@@ -22,7 +23,10 @@ struct LinkTransferModel
 
 struct MulticastInfo
 {
-  LogicalBufTransfers multicasts;
+  std::map<LogicalBuffer, isl::map> reads;
+  std::map<LogicalBuffer, isl_pw_qpolynomial*> p_hops;
+
+  ~MulticastInfo();
 };
 
 struct MulticastModel

@@ -7,6 +7,8 @@
 #include "loop-analysis/nest-analysis.hpp"
 #include "loop-analysis/isl-ir.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
+#include "mapping/fused-mapping.hpp"
+#include "workload/fused-workload.hpp"
 #include <isl/constraint.h>
 
 /**************
@@ -96,7 +98,7 @@ isl::map MapToPriorData(size_t n_in_dims, size_t top)
 }
 
 BranchTilings LoopBoundsInference(BranchTilings tilings,
-                                  const WorkloadIR& workload_ir,
+                                  const problem::FusedWorkload& workload,
                                   size_t pipeline_tiling_idx,
                                   const std::map<DataSpaceID, size_t>& dspace_top_idx)
 {
@@ -118,9 +120,9 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
         continue;
       }
 
-      for (const auto& read_tensor : workload_ir.ReadTensors(einsum_id))
+      for (const auto& read_tensor : workload.TensorsReadByEinsum(einsum_id))
       {
-        auto producer_einsum_opt = workload_ir.WriteEinsum(read_tensor);
+        auto producer_einsum_opt = workload.WriterEinsum(read_tensor);
         if (!producer_einsum_opt)
         {
           // Not an intermediate tensor
@@ -130,7 +132,7 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
         // Decide how much the consumer (einsum_id) needs
         auto pruned_tiling = project_dim_in_after(tiling, pipeline_tiling_idx);
         auto required_data = pruned_tiling.apply_range(
-          workload_ir.GetReadDependency(einsum_id, read_tensor));
+          workload.ReadAccesses(einsum_id, read_tensor));
 
         auto top_idx = dspace_top_idx.at(read_tensor);
         auto shifter = 
@@ -140,7 +142,7 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
         auto computed_data = required_data.subtract(buffered_data).coalesce();
 
         auto producer_write_dep =
-          workload_ir.GetWriteDependency(*producer_einsum_opt, read_tensor);
+          workload.WriteAccesses(*producer_einsum_opt, read_tensor);
         auto required_ops =
           computed_data.apply_range(producer_write_dep.reverse());
         auto producer_tiling = inferred_tilings.at(*producer_einsum_opt);
@@ -201,10 +203,50 @@ Application::Application(config::CompoundConfig* config,
   }
 
   // Problem configuration.
-  auto problem = rootNode.lookup("problem");
-  problem::ParseWorkload(problem, workload_);
-  if (verbose_)
-    std::cout << "Problem configuration complete." << std::endl;
+  // auto problem = rootNode.lookup("problem");
+  // problem::ParseWorkload(problem, workload_);
+  // if (verbose_)
+  //   std::cout << "Problem configuration complete." << std::endl;
+
+  auto workload = problem::ParseFusedWorkload(rootNode.lookup("problem"));
+  // auto pwise1_id = workload.NewEinsum();
+  // auto dwise1_id = workload.NewEinsum();
+  // auto pwise2_id = workload.NewEinsum();
+  // auto O1_id = workload.NewDataSpace();
+  // auto I_id = workload.NewDataSpace();
+  // auto F1_id = workload.NewDataSpace();
+  // auto O2_id = workload.NewDataSpace();
+  // auto F2_id = workload.NewDataSpace();
+  // auto O3_id = workload.NewDataSpace();
+  // auto F3_id = workload.NewDataSpace();
+
+  // workload.SetEinsumProjection(pwise1_id, O1_id, true,
+  // "{ pwise1[m1,c1,p1,q1] -> O1[m1,p1,q1] : 0 <= m1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= c1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= m1 < 32 and 0 <= c1 < 32 }"
+  // );
+  // workload.SetEinsumProjection(pwise1_id, I_id, false,
+  // "{ pwise1[m1,c1,p1,q1] -> I[c1,p1,q1] : 0 <= m1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= c1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= m1 < 32 and 0 <= c1 < 32 }"
+  // );
+  // workload.SetEinsumProjection(pwise1_id, F1_id, false,
+  // "{ pwise1[m1,c1,p1,q1] -> F1[m1,c1] : 0 <= m1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= c1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= m1 < 32 and 0 <= c1 < 32 }"
+  // );
+  // workload.SetEinsumProjection(dwise1_id,O2_id, true,
+  // "{ dwise1[m2,p2,q2,r2,s2] -> O2[m2,p2,q2] : 0 <= m2 < 32 and 0 <= p2 < 112 and 0 <= q2 < 112 and 0 <= m2 < 32 and 0 <= p2+r2 < 112 and 0 <= q2+s2 < 112 and 0 <= m2 < 32 and 0 <= r2 < 3 and 0 <= s2 < 3 }"
+  // );
+  // workload.SetEinsumProjection(dwise1_id, O1_id, false,
+  // "{ dwise1[m2,p2,q2,r2,s2] -> O1[m2,p2+r2,q2+s2] : 0 <= m2 < 32 and 0 <= p2 < 112 and 0 <= q2 < 112 and 0 <= m2 < 32 and 0 <= p2+r2 < 112 and 0 <= q2+s2 < 112 and 0 <= m2 < 32 and 0 <= r2 < 3 and 0 <= s2 < 3 }"
+  // );
+  // workload.SetEinsumProjection(dwise1_id, F2_id, false,
+  // "{ dwise1[m2,p2,q2,r2,s2] -> F2[m2,r2,s2] : 0 <= m2 < 32 and 0 <= p2 < 112 and 0 <= q2 < 112 and 0 <= m2 < 32 and 0 <= p2+r2 < 112 and 0 <= q2+s2 < 112 and 0 <= m2 < 32 and 0 <= r2 < 3 and 0 <= s2 < 3 }"
+  // );
+  // workload.SetEinsumProjection(pwise2_id,O3_id, true,
+  // "{ pwise2[m3,c3,p3,q3] -> O3[m3,p3,q3] : 0 <= m3 < 16 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= c3 < 32 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= m3 < 16 and 0 <= c3 < 32 }"
+  // );
+  // workload.SetEinsumProjection(pwise2_id, O2_id, false,
+  // "{ pwise2[m3,c3,p3,q3] -> O2[c3,p3,q3] : 0 <= m3 < 16 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= c3 < 32 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= m3 < 16 and 0 <= c3 < 32 }"
+  // );
+  // workload.SetEinsumProjection(pwise2_id, F3_id, false,
+  // "{ pwise2[m3,c3,p3,q3] -> F3[m3,c3] : 0 <= m3 < 16 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= c3 < 32 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= m3 < 16 and 0 <= c3 < 32 }"
+  // );
 
   // Architecture configuration.
   config::CompoundConfigNode arch;
@@ -284,6 +326,65 @@ Application::Application(config::CompoundConfig* config,
 
   if (verbose_)
     std::cout << "Architecture configuration complete." << std::endl;
+
+  mapping::FusedMapping mapping =
+    mapping::ParseMapping(rootNode.lookup("mapping"), workload);
+
+  auto branch_tilings = analysis::TilingFromMapping(mapping, workload);
+
+  // const std::string pwise2_tiling =
+  // "{ [q3_2, p3_1, q3_1, c3_1, m3_0, c3_0] ->"
+  // "  pwise2[m3=m3_0, c3=c3_1*16+c3_0, p3=p3_1, q3=q3_2*56+q3_1] :"
+  // "  0 <= q3_2 < 2 and 0 <= p3_1 < 112 and 0 <= q3_1 < 56 and"
+  // "  0 <= c3_1 < 2 and 0 <= m3_0 < 16 and 0 <= c3_0 < 16 }";
+
+  // const std::string dwise1_tiling =
+  // "{ [q3_2, p3_1, q3_1, p2_0, q2_0, r2_0, s2_0, m2_1, m2_0] ->"
+  // "  dwise1[m2=m2_1*16+m2_0, p2=p3_1+p2_0, q2=q3_2*56+q3_1+q2_0,"
+  //         "r2=r2_0, s2=s2_0] :"
+  // "  0 <= q3_2 < 2 and 0 <= p3_1 < 112 and 0 <= q3_1 < 56 and"
+  // "  0 <= r2_0 < 3 and 0 <= s2_0 < 3 and 0 <= m2_0 < 16 }";
+
+  // const std::string pwise1_tiling =
+  // "{ [q3_2, p3_1, q3_1, p1_0, q1_0, m1_1, c1_1, m1_0, c1_0] ->"
+  // "  pwise1[m1=m1_1*16+m1_0, c1=c1_1*16+c1_0,"
+  //         "p1=p3_1+p1_0, q1=q3_2*56+q3_1+q1_0] :"
+  // "  0 <= q3_2 < 2 and 0 <= p3_1 < 112 and 0 <= q3_1 < 56 and"
+  // "  0 <= c1_1 < 2 and 0 <= m1_0 < 16 and 0 <= c1_0 < 16 }";
+
+  // std::map<analysis::DataSpaceID, size_t> dspace_top_indices;
+  // dspace_top_indices.emplace(std::make_pair(O1_id, 2));
+  // dspace_top_indices.emplace(std::make_pair(O2_id, 3));
+
+  // // analysis::BranchTilings branch_tilings;
+  // // branch_tilings.emplace(std::make_pair(pwise1_id, isl::map(GetIslCtx(),
+  // //                                                           pwise1_tiling)));
+  // // branch_tilings.emplace(std::make_pair(dwise1_id, isl::map(GetIslCtx(),
+  // //                                                           dwise1_tiling)));
+  // // branch_tilings.emplace(std::make_pair(pwise2_id, isl::map(GetIslCtx(),
+  // //                                                           pwise2_tiling)));
+
+  // const size_t PIPELINE_TILING_IDX = 3;
+
+  // branch_tilings = analysis::LoopBoundsInference(std::move(branch_tilings),
+  //                                                workload,
+  //                                                PIPELINE_TILING_IDX,
+  //                                                dspace_top_indices);
+
+  // for (const auto& [einsum_id, tiling] : branch_tilings)
+  // {
+  //   std::cout << einsum_id << std::endl;
+  //   std::cout << tiling << std::endl;
+  //   for (auto i = 0; i < isl_map_dim(tiling.get(), isl_dim_out); ++i)
+  //   {
+  //     auto pared_tiling = project_dim_in_after(tiling, PIPELINE_TILING_IDX);
+  //     std::cout << isl_pw_aff_to_str(isl_map_dim_min(pared_tiling.copy(), i))
+  //               << std::endl;
+  //     std::cout << isl_pw_aff_to_str(isl_map_dim_max(pared_tiling.copy(), i))
+  //               << std::endl;
+  //   }
+  // }
+
 }
 
 Application::~Application()
@@ -306,99 +407,6 @@ Application::Stats Application::Run()
   engine.Spec(arch_specs_);
 
   auto level_names = arch_specs_.topology.LevelNames();
-
-  analysis::WorkloadIR workload_ir;
-  auto pwise1_id = workload_ir.NewEinsum();
-  auto dwise1_id = workload_ir.NewEinsum();
-  auto pwise2_id = workload_ir.NewEinsum();
-  auto O1_id = workload_ir.NewDataSpace();
-  auto I_id = workload_ir.NewDataSpace();
-  auto F1_id = workload_ir.NewDataSpace();
-  auto O2_id = workload_ir.NewDataSpace();
-  auto F2_id = workload_ir.NewDataSpace();
-  auto O3_id = workload_ir.NewDataSpace();
-  auto F3_id = workload_ir.NewDataSpace();
-
-  workload_ir.AddWriteDependency(pwise1_id,O1_id,
-  "{ pwise1[m1,c1,p1,q1] -> O1[m1,p1,q1] : 0 <= m1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= c1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= m1 < 32 and 0 <= c1 < 32 }"
-  );
-  workload_ir.AddReadDependency(pwise1_id, I_id,
-  "{ pwise1[m1,c1,p1,q1] -> I[c1,p1,q1] : 0 <= m1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= c1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= m1 < 32 and 0 <= c1 < 32 }"
-  );
-  workload_ir.AddReadDependency(pwise1_id, F1_id,
-  "{ pwise1[m1,c1,p1,q1] -> F1[m1,c1] : 0 <= m1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= c1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= m1 < 32 and 0 <= c1 < 32 }"
-  );
-  workload_ir.AddWriteDependency(dwise1_id,O2_id,
-  "{ dwise1[m2,p2,q2,r2,s2] -> O2[m2,p2,q2] : 0 <= m2 < 32 and 0 <= p2 < 112 and 0 <= q2 < 112 and 0 <= m2 < 32 and 0 <= p2+r2 < 112 and 0 <= q2+s2 < 112 and 0 <= m2 < 32 and 0 <= r2 < 3 and 0 <= s2 < 3 }"
-  );
-  workload_ir.AddReadDependency(dwise1_id, O1_id,
-  "{ dwise1[m2,p2,q2,r2,s2] -> O1[m2,p2+r2,q2+s2] : 0 <= m2 < 32 and 0 <= p2 < 112 and 0 <= q2 < 112 and 0 <= m2 < 32 and 0 <= p2+r2 < 112 and 0 <= q2+s2 < 112 and 0 <= m2 < 32 and 0 <= r2 < 3 and 0 <= s2 < 3 }"
-  );
-  workload_ir.AddReadDependency(dwise1_id, F2_id,
-  "{ dwise1[m2,p2,q2,r2,s2] -> F2[m2,r2,s2] : 0 <= m2 < 32 and 0 <= p2 < 112 and 0 <= q2 < 112 and 0 <= m2 < 32 and 0 <= p2+r2 < 112 and 0 <= q2+s2 < 112 and 0 <= m2 < 32 and 0 <= r2 < 3 and 0 <= s2 < 3 }"
-  );
-  workload_ir.AddWriteDependency(pwise2_id,O3_id,
-  "{ pwise2[m3,c3,p3,q3] -> O3[m3,p3,q3] : 0 <= m3 < 16 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= c3 < 32 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= m3 < 16 and 0 <= c3 < 32 }"
-  );
-  workload_ir.AddReadDependency(pwise2_id, O2_id,
-  "{ pwise2[m3,c3,p3,q3] -> O2[c3,p3,q3] : 0 <= m3 < 16 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= c3 < 32 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= m3 < 16 and 0 <= c3 < 32 }"
-  );
-  workload_ir.AddReadDependency(pwise2_id, F3_id,
-  "{ pwise2[m3,c3,p3,q3] -> F3[m3,c3] : 0 <= m3 < 16 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= c3 < 32 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= m3 < 16 and 0 <= c3 < 32 }"
-  );
-
-  const std::string pwise2_tiling =
-  "{ [q3_2, p3_1, q3_1, c3_1, m3_0, c3_0] ->"
-  "  pwise2[m3=m3_0, c3=c3_1*16+c3_0, p3=p3_1, q3=q3_2*56+q3_1] :"
-  "  0 <= q3_2 < 2 and 0 <= p3_1 < 112 and 0 <= q3_1 < 56 and"
-  "  0 <= c3_1 < 2 and 0 <= m3_0 < 16 and 0 <= c3_0 < 16 }";
-
-  const std::string dwise1_tiling =
-  "{ [q3_2, p3_1, q3_1, p2_0, q2_0, r2_0, s2_0, m2_1, m2_0] ->"
-  "  dwise1[m2=m2_1*16+m2_0, p2=p3_1+p2_0, q2=q3_2*56+q3_1+q2_0,"
-          "r2=r2_0, s2=s2_0] :"
-  "  0 <= q3_2 < 2 and 0 <= p3_1 < 112 and 0 <= q3_1 < 56 and"
-  "  0 <= r2_0 < 3 and 0 <= s2_0 < 3 and 0 <= m2_0 < 16 }";
-
-  const std::string pwise1_tiling =
-  "{ [q3_2, p3_1, q3_1, p1_0, q1_0, m1_1, c1_1, m1_0, c1_0] ->"
-  "  pwise1[m1=m1_1*16+m1_0, c1=c1_1*16+c1_0,"
-          "p1=p3_1+p1_0, q1=q3_2*56+q3_1+q1_0] :"
-  "  0 <= q3_2 < 2 and 0 <= p3_1 < 112 and 0 <= q3_1 < 56 and"
-  "  0 <= c1_1 < 2 and 0 <= m1_0 < 16 and 0 <= c1_0 < 16 }";
-
-  std::map<analysis::DataSpaceID, size_t> dspace_top_indices;
-  dspace_top_indices.emplace(std::make_pair(O1_id, 2));
-  dspace_top_indices.emplace(std::make_pair(O2_id, 3));
-
-  analysis::BranchTilings branch_tilings;
-  branch_tilings.emplace(std::make_pair(pwise1_id, isl::map(GetIslCtx(),
-                                                            pwise1_tiling)));
-  branch_tilings.emplace(std::make_pair(dwise1_id, isl::map(GetIslCtx(),
-                                                            dwise1_tiling)));
-  branch_tilings.emplace(std::make_pair(pwise2_id, isl::map(GetIslCtx(),
-                                                            pwise2_tiling)));
-
-  const size_t PIPELINE_TILING_IDX = 3;
-
-  branch_tilings = LoopBoundsInference(std::move(branch_tilings),
-                                       workload_ir,
-                                       PIPELINE_TILING_IDX,
-                                       dspace_top_indices);
-
-  for (const auto& [einsum_id, tiling] : branch_tilings)
-  {
-    std::cout << einsum_id << std::endl;
-    std::cout << tiling << std::endl;
-    for (auto i = 0; i < isl_map_dim(tiling.get(), isl_dim_out); ++i)
-    {
-      auto pared_tiling = project_dim_in_after(tiling, PIPELINE_TILING_IDX);
-      std::cout << isl_pw_aff_to_str(isl_map_dim_min(pared_tiling.copy(), i))
-                << std::endl;
-      std::cout << isl_pw_aff_to_str(isl_map_dim_max(pared_tiling.copy(), i))
-                << std::endl;
-    }
-  }
 
   // if (engine.IsEvaluated())
   // {

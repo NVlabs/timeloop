@@ -22,61 +22,15 @@
 
 namespace analysis
 {
-/******************************************************************************
- * Intermediate representation for workload
- *****************************************************************************/
-using DataSpaceID = problem::Shape::DataSpaceID;
+using DataSpaceID = problem::DataSpaceId;
 using FactorizedDimensionID = problem::Shape::FactorizedDimensionID;
 using EinsumID = size_t;
 
-class WorkloadIR
-{
- public:
-  using ConstIterator =
-    std::map<std::pair<EinsumID, DataSpaceID>, isl::map>::const_iterator;
-
- public:
-  WorkloadIR();
-
-  EinsumID NewEinsum();
-  DataSpaceID NewDataSpace();
-
-  void AddReadDependency(EinsumID einsum_id, DataSpaceID dspace_id,
-                         const std::string& map_str);
-  void AddWriteDependency(EinsumID einsum_id, DataSpaceID dspace_id,
-                          const std::string& map_str);
-
-  void AddOperationSpaceBounds(EinsumID einsum_id, const std::string& set_str);
-  void AddDataSpaceBounds(DataSpaceID dspace_id, const std::string& set_str);
-
-  const std::set<DataSpaceID>& ReadTensors(EinsumID einsum_id) const;
-  const std::set<DataSpaceID>& WriteTensors(EinsumID einsum_id) const;
-  const std::set<EinsumID>& ReadEinsums(DataSpaceID dspace_id) const;
-  const std::optional<EinsumID> WriteEinsum(DataSpaceID dspace_id) const;
-
-  const isl::map&
-  GetReadDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
-  const isl::map&
-  GetWriteDependency(EinsumID einsum_id, DataSpaceID dspace_id) const;
-
- private:
-  std::map<EinsumID, std::set<DataSpaceID>> read_tensors_;
-  std::map<EinsumID, std::set<DataSpaceID>> write_tensors_;
-  std::map<DataSpaceID, std::set<EinsumID>> read_einsums_;
-  std::map<DataSpaceID, EinsumID> write_einsums_;
-  std::map<std::pair<EinsumID, DataSpaceID>, isl::map> reads_;
-  std::map<std::pair<EinsumID, DataSpaceID>, isl::map> writes_;
-  std::map<EinsumID, isl::set> operation_spaces_;
-  std::map<DataSpaceID, isl::set> data_spaces_;
-
-  size_t next_einsum_id_;
-  size_t next_dspace_id_;
-};
 
 /******************************************************************************
  * Intermediate representation between mapping and analysis
  *****************************************************************************/
-using BufferID = size_t;
+using BufferID = mapping::BufferID;
 
 struct LogicalBuffer
 {
@@ -207,6 +161,9 @@ using LogicalBufFills = std::map<LogicalBuffer, Fill>;
 // LogicalBufOccupancies
 // OccupanciesFromMapping(const mapping::FusedMapping mapping,
 //                        const problem::Workload& workload);
+
+BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
+                                problem::FusedWorkload& workload);
 
 /**
  * @brief Infer logical buffer occupancies from loop nest mapping
