@@ -3,12 +3,19 @@
 #include "isl-wrapper/ctx-manager.hpp"
 #include "isl/cpp.h"
 #include "isl/map.h"
-#include "isl/polynomial.h"
 #include "barvinok/isl.h"
 #include "isl/polynomial_type.h"
 
 namespace analysis
 {
+
+MulticastInfo::~MulticastInfo()
+{
+  // for (auto& [_, p_hop] : p_hops)
+  // {
+  //   isl_pw_qpolynomial_free(p_hop);
+  // }
+}
 
 SpatialReuseInfo
 SpatialReuseAnalysis(LogicalBufFills& fills,
@@ -60,8 +67,6 @@ LinkTransferInfo SimpleLinkTransferModel::Apply(
 
   for (auto& [buf, fill] : fills)
   {
-    std::cout << "buf: " << buf << std::endl;
-    std::cout << "fill: " << fill << std::endl;
     auto n = fill.in_tags.size();
     if (n == 0 || fill.in_tags.back() == spacetime::Dimension::Time)
     {
@@ -99,6 +104,9 @@ MulticastInfo SimpleMulticastModel::Apply(
 ) const
 {
   (void) occupancies;
+
+  MulticastInfo multicast_info;
+
   if (n_spatial_dims_ == 1)
   {
     /**
@@ -113,8 +121,6 @@ MulticastInfo SimpleMulticastModel::Apply(
       }
       else
       {
-        std::cout << "buf: " << buf << std::endl;
-        std::cout << "fill: " << fill << std::endl;
         auto last_use = fill.subtract(
           map_to_all_after(fill.space().domain(), isl_dim_in, n-1)
             .apply_range(fill.map)
@@ -130,23 +136,25 @@ MulticastInfo SimpleMulticastModel::Apply(
         );
         auto p_count = isl_map_card(last_use.map.copy());
         auto p_hops = isl_pw_qpolynomial_mul(p_cost, p_count);
-        std::cout << "hops: " << isl_pw_qpolynomial_to_str(p_hops) << std::endl;
 
         auto p_coords = isl_map_from_multi_aff(
           isl_multi_aff_identity_on_domain_space(
             fill.map.space().domain().release()
           )
         );
-        std::cout << isl_map_to_str(p_coords) << std::endl;
         p_coords = isl_map_intersect_domain(p_coords,
                                             fill.map.domain().release());
         p_coords = isl_map_project_out(p_coords, isl_dim_in, n-1, 1);
-        std::cout << isl_map_to_str(p_coords) << std::endl;
         auto p_total_hops = isl_map_apply_pw_qpolynomial(p_coords, p_hops);
-        std::cout << "total hops: "
-                  << isl_pw_qpolynomial_to_str(p_total_hops) << std::endl;
 
-        isl_pw_qpolynomial_free(p_total_hops);
+        multicast_info.reads.emplace(std::make_pair(
+          LogicalBuffer(buf.buffer_id-1, buf.dspace_id, buf.branch_leaf_id),
+          isl::project_last_dim(fill.map)
+        ));
+        multicast_info.p_hops.emplace(std::make_pair(
+          LogicalBuffer(buf.buffer_id-1, buf.dspace_id, buf.branch_leaf_id),
+          p_total_hops
+        ));
       }
     }
   }
@@ -213,13 +221,19 @@ MulticastInfo SimpleMulticastModel::Apply(
           p_x_hops
         );
 
-        isl_pw_qpolynomial_free(p_y_total_hops);
-        isl_pw_qpolynomial_free(p_x_total_hops);
+        multicast_info.reads.emplace(std::make_pair(
+          LogicalBuffer(buf.buffer_id-1, buf.dspace_id, buf.branch_leaf_id),
+          isl::project_last_dim(isl::project_last_dim(fill.map))
+        ));
+        multicast_info.p_hops.emplace(std::make_pair(
+          LogicalBuffer(buf.buffer_id-1, buf.dspace_id, buf.branch_leaf_id),
+          isl_pw_qpolynomial_add(p_y_total_hops, p_x_total_hops)
+        ));
       }
     }
   }
 
-  return MulticastInfo{};
+  return multicast_info;
 }
 
 } // namespace analysis

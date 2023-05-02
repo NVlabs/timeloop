@@ -1,6 +1,7 @@
 #pragma once
 
 #include <isl/cpp.h>
+#include "isl/polynomial.h"
 
 namespace isl {
 
@@ -10,6 +11,8 @@ isl::map
 project_dim(isl::map map, isl_dim_type dim_type, size_t start, size_t n);
 
 isl::map project_dim_in_after(isl::map map, size_t start);
+
+isl::map project_last_dim(isl::map map);
 
 isl::map map_from_multi_aff(isl::multi_aff maff);
 isl::map map_from_multi_aff(isl::pw_multi_aff maff);
@@ -43,5 +46,11 @@ isl::map
 insert_equal_dims(isl::map map, size_t in_pos, size_t out_pos, size_t n);
 
 isl::map insert_dummy_dim_ins(isl::map map, size_t pos, size_t n);
+
+isl_pw_qpolynomial* sum_map_range_card(isl::map map);
+
+double val_to_double(isl_val* val);
+
+isl_val* get_val_from_singular_qpolynomial(isl_pw_qpolynomial* pw_qp);
 
 };  // namespace isl
