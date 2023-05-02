@@ -560,7 +560,6 @@ std::vector<Status> Uber::ConstructMapping(
   }
 
   // Concatenate the subnests to form the final mapping nest.    
-  std::uint64_t storage_level = 0;
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
@@ -586,7 +585,6 @@ std::vector<Status> Uber::ConstructMapping(
       }
       mapping->loop_nest.AddStorageTilingBoundary();
       mapping->complete_loop_nest.AddStorageTilingBoundary();
-      storage_level++;
     }
   }
 
