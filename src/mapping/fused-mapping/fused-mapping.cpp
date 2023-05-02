@@ -7,7 +7,7 @@ Root::Root(const NodeID& id) : id(id) {}
 
 For::For(const NodeID& id,
          const std::string& iterator_name,
-         const problem::Shape::FlattenedDimensionID& op_dim,
+         const problem::DimensionId& op_dim,
          std::optional<size_t>&& begin,
          std::optional<size_t>&& end) :
   iterator_name(iterator_name),
@@ -20,7 +20,7 @@ For::For(const NodeID& id,
 
 ParFor::ParFor(const NodeID& id,
                const std::string& iterator_name,
-               const problem::Shape::FlattenedDimensionID& op_dim,
+               const problem::DimensionId& op_dim,
                std::optional<size_t>&& begin,
                std::optional<size_t>&& end) :
   iterator_name(iterator_name),
@@ -33,11 +33,11 @@ ParFor::ParFor(const NodeID& id,
 
 Storage::Storage(const NodeID& id,
         const BufferID& buffer,
-        const problem::Shape::DataSpaceID& dspace) :
+        const problem::DataSpaceId& dspace) :
   buffer(buffer), dspace(dspace), id(id) {}
 
 Compute::Compute(const NodeID& id,
-        const problem::EinsumID& einsum,
+        const problem::EinsumId& einsum,
         const std::optional<isl::pw_multi_aff>&& tiling_spec) :
   kernel(einsum), tiling_spec(tiling_spec), id(id)
 {

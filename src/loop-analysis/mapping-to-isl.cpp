@@ -23,7 +23,6 @@ namespace analysis
  * Local declarations
  *****************************************************************************/
 
-BranchTilings TilingFromMapping(mapping::FusedMapping& mapping);
 BranchTilings TilingFromMapping(const loop::Nest& nest);
 
 
@@ -72,29 +71,15 @@ OpsToDSpaceFromEinsum(const problem::Workload& workload);
  * Global function implementations
  *****************************************************************************/
 
-LogicalBufOccupancies
-OccupanciesFromMapping(mapping::FusedMapping& mapping,
-                       const WorkloadIR& workload_ir)
-{
-  auto buf_tiling = LogicalBufTilingFromMapping(mapping);
-  auto buf_skew = LogicalBufSkewsFromMapping(mapping);
+// LogicalBufOccupancies
+// OccupanciesFromMapping(mapping::FusedMapping& mapping,
+//                        const problem::FusedWorkload& workload_ir)
+// {
+//   (void) workload_ir;
+//   // auto tiling = TilingFromMapping(mapping);
 
-  LogicalBufOccupancies result;
-  for (auto& [buf, tiling] : buf_tiling)
-  {
-    const auto& read_dep = workload_ir.GetReadDependency(
-      std::get<mapping::Compute>(mapping.NodeAt(buf.branch_leaf_id)).kernel,
-      buf.dspace_id
-    );
-
-    result.emplace(std::make_pair(
-      buf,
-      buf_skew.at(buf).apply_range(tiling.apply_range(read_dep))
-    ));
-  }
-
-  return result;
-}
+//   return LogicalBufOccupancies();
+// }
 
 LogicalBufOccupancies
 OccupanciesFromMapping(const loop::Nest& mapping,
@@ -126,46 +111,61 @@ OccupanciesFromMapping(const loop::Nest& mapping,
  * Local function implementations
  *****************************************************************************/
 
-BranchTilings TilingFromMapping(mapping::FusedMapping& mapping)
+BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
+                                problem::FusedWorkload& workload)
 {
   BranchTilings result;
   for (auto path : GetPaths(mapping))
   {
-    TilingCoefTracker coef_tracker;
-    std::optional<isl::pw_multi_aff> explicit_tiling_spec;
+    std::map<problem::DimensionId, std::vector<std::pair<size_t, int>>>
+    prob_id_to_expr;
+
+    size_t cur_dim_idx = 0;
+    problem::EinsumId einsum_id;
     mapping::NodeID leaf_id;
     for (const auto& node : path)
     {
       std::visit(
-        [&coef_tracker, &explicit_tiling_spec, &leaf_id] (auto&& node) {
+        [&prob_id_to_expr, &cur_dim_idx, &einsum_id, &leaf_id] (auto&& node) {
           using NodeT = std::decay_t<decltype(node)>;
           if constexpr (std::is_same_v<NodeT, mapping::For>
                         || std::is_same_v<NodeT, mapping::ParFor>)
           {
-            coef_tracker.NewIterDim(node.op_dim, node.end);
+            if (node.tile_size)
+            {
+              prob_id_to_expr[node.op_dim].emplace_back(std::make_pair(
+                cur_dim_idx,
+                *node.tile_size
+              ));
+            }
+            ++cur_dim_idx;
           } else if constexpr (std::is_same_v<NodeT, mapping::Compute>)
           {
-            explicit_tiling_spec = node.tiling_spec;
             leaf_id = node.id;
+            einsum_id = node.kernel;
           }
         },
         node
       );
     }
 
-    if (explicit_tiling_spec)
+    auto eq_maff = isl::multi_aff::zero(
+      isl::space_alloc(GetIslCtx(), 0, cur_dim_idx, prob_id_to_expr.size())
+    );
+    for (const auto& [prob_idx, expr] : prob_id_to_expr)
     {
-      result.emplace(std::make_pair(
-        leaf_id,
-        isl::map_from_multi_aff(*explicit_tiling_spec)
-      ));
-    } else
-    {
-      result.emplace(std::make_pair(
-        leaf_id,
-        TilingCoefTrackerToMap(coef_tracker)
-      ));
+      auto einsum_dim_idx = workload.EinsumDimToIdx(einsum_id, prob_idx);
+      auto eq_aff = eq_maff.get_at(einsum_dim_idx);
+
+      for (const auto& [iter_id, coef] : expr)
+      {
+        eq_aff = isl::set_coefficient_si(eq_aff, isl_dim_in, iter_id, coef);
+      }
+
+      eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
     }
+
+    result.emplace(std::make_pair(leaf_id, isl::map_from_multi_aff(eq_maff)));
   }
 
   return result;
@@ -274,24 +274,24 @@ BufferIterLevelsFromMapping(mapping::FusedMapping& mapping)
   return result;
 }
 
-LogicalBufTiling
-LogicalBufTilingFromMapping(mapping::FusedMapping& mapping)
-{
-  auto branch_tiling = TilingFromMapping(mapping);
-  auto buf_to_iter_level = BufferIterLevelsFromMapping(mapping);
+// LogicalBufTiling
+// LogicalBufTilingFromMapping(mapping::FusedMapping& mapping)
+// {
+//   // auto branch_tiling = TilingFromMapping(mapping);
+//   auto buf_to_iter_level = BufferIterLevelsFromMapping(mapping);
 
-  LogicalBufTiling result;
-  for (auto& [buf, level] : buf_to_iter_level)
-  {
-    result.emplace(std::make_pair(
-      buf,
-      project_dim_in_after(isl::map(branch_tiling.at(buf.branch_leaf_id)),
-                           level)
-    ));
-  }
+//   LogicalBufTiling result;
+//   for (auto& [buf, level] : buf_to_iter_level)
+//   {
+//     result.emplace(std::make_pair(
+//       buf,
+//       project_dim_in_after(isl::map(branch_tiling.at(buf.branch_leaf_id)),
+//                            level)
+//     ));
+//   }
 
-  return result;
-}
+//   return result;
+// }
 
 LogicalBufSkews
 LogicalBufSkewsFromMapping(const loop::Nest& nest,  
@@ -457,6 +457,31 @@ TilingCoefTracker::NewIterDim(size_t op_dim,
 
   return *this;
 }
+
+// template<typename IterT>
+// isl::map FromVectorInMap(IterT begin, IterT end,
+//                          size_t in_dims, size_t out_dims)
+// {
+//   auto eq_maff = isl::multi_aff::zero(
+//     isl::space_alloc(GetIslCtx(), 0, in_dims, out_dims)
+//   );
+
+//   for (auto it = begin; it != end; ++it)
+//   {
+//     const auto& out_dim = it->first;
+//     const auto& expr = it->second;
+
+//     auto eq_aff = eq_maff.get_at(out_dim);
+//     for (auto term_it = expr.begin(); term_it != expr.end(); ++term_it)
+//     {
+//       const auto& in_dim = term_it->first;
+//       const auto& coef = term_it->second;
+//       eq_aff = isl::set_coefficient_si(eq_aff, isl_dim_in, in_dim, coef);
+//     }
+//   }
+
+//   return isl::map_from_multi_aff(eq_maff);
+// }
 
 isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
 {

@@ -121,6 +121,11 @@ MappingPathsIterator MappingPaths::end()
   return MappingPathsIterator(fused_mapping_, true);
 }
 
+MappingPaths::MappingPaths(FusedMapping& mapping) :
+  fused_mapping_(mapping)
+{
+}
+
 MappingNodeTypes& MappingPathNodeIterator::operator*()
 {
   return path_.ref_nodes_.at(idx_).get();
