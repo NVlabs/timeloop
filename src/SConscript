@@ -139,7 +139,6 @@ loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/spatial-analysis.cpp
 loop-analysis/temporal-analysis.cpp
-loop-analysis/workload-ir.cpp
 sparse-analysis/state.cpp
 sparse-analysis/sparse-analysis.cpp
 sparse-analysis/compute-gs-analyzer.cpp
@@ -153,6 +152,7 @@ mapping/nest.cpp
 mapping/spacetime.cpp
 mapping/fused-mapping/fused-mapping.cpp
 mapping/fused-mapping/mapping-path.cpp
+mapping/fused-mapping/parser.cpp
 model/model-base.cpp
 model/engine.cpp
 model/level.cpp
@@ -173,6 +173,7 @@ util/numeric.cpp
 util/map2d.cpp
 util/accelergy_interface.cpp
 workload/shape-models/problem-shape.cpp
+workload/fused-workload.cpp
 workload/workload.cpp
 workload/shape-models/operation-space.cpp
 workload/density-models/density-distribution.cpp
@@ -274,17 +275,25 @@ applications/design-space/design-space.cpp
 applications/design-space/main.cpp
 """)
 
-bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
-bin_model = env.Program(target = 'timeloop-model', source = model_sources)
-bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
-bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
-bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
+looptree_sources = Split("""
+applications/looptree/model.cpp
+applications/looptree/main.cpp
+""")
 
-env.Install(env["BUILD_BASE_DIR"] + '/bin', [ bin_metrics,
-                                              bin_model,
-                                              bin_simple_mapper,
-                                              bin_mapper,
-                                              bin_design_space
+# bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
+bin_model = env.Program(target = 'timeloop-model', source = model_sources)
+# bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
+# bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
+# bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
+bin_looptree = env.Program(target = 'looptree', source = looptree_sources)
+
+env.Install(env["BUILD_BASE_DIR"] + '/bin', [
+                                            #   bin_metrics,
+                                            bin_model,
+                                            #   bin_simple_mapper,
+                                            #   bin_mapper,
+                                            #   bin_design_space
+                                            bin_looptree
                                             ])
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))

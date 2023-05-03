@@ -1,5 +1,6 @@
 #include "isl-wrapper/isl-functions.hpp"
 #include "isl/constraint.h"
+#include "barvinok/isl.h"
 
 namespace isl {
 
@@ -18,6 +19,12 @@ isl::map project_dim_in_after(isl::map map, size_t start)
 {
   auto n_dim_in = isl_map_dim(map.get(), isl_dim_in);
   return project_dim(map, isl_dim_in, start, n_dim_in - start);
+}
+
+isl::map project_last_dim(isl::map map)
+{
+  auto n_dim_in = isl_map_dim(map.get(), isl_dim_in);
+  return project_dim(map, isl_dim_in, n_dim_in-1, 1);
 }
 
 isl::map map_from_multi_aff(isl::multi_aff maff)
@@ -144,6 +151,29 @@ isl::map insert_dummy_dim_ins(isl::map map, size_t pos, size_t n)
   isl_local_space_free(p_ls);
 
   return isl::manage(p_map);
+}
+
+isl_pw_qpolynomial* sum_map_range_card(isl::map map)
+{
+  auto p_domain = map.domain().release();
+  auto p_count = isl_map_card(map.release());
+  return isl_set_apply_pw_qpolynomial(p_domain, p_count);
+}
+
+double val_to_double(isl_val* val)
+{
+  auto num = isl_val_get_num_si(val);
+  auto den = isl_val_get_den_si(val);
+  isl_val_free(val);
+  return (double)num / (double)den;
+}
+
+isl_val* get_val_from_singular_qpolynomial(isl_pw_qpolynomial* pw_qp)
+{
+  return isl_pw_qpolynomial_eval(
+    pw_qp,
+    isl_point_zero(isl_pw_qpolynomial_get_domain_space(pw_qp))
+  );
 }
 
 };  // namespace isl
