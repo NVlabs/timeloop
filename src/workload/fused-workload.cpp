@@ -66,6 +66,7 @@ void FusedWorkload::AddDimToDspace(DataSpaceId dspace, DimensionId dim)
   auto& dim_to_idx = dspace_dim_to_idx_[dspace];
   auto next_idx = dim_to_idx.size();
   dim_to_idx[dim] = next_idx;
+  dspace_dims_[dspace].push_back(dim);
 }
 
 void FusedWorkload::AddDimToEinsumOspace(EinsumId einsum, DimensionId dim)
@@ -73,6 +74,19 @@ void FusedWorkload::AddDimToEinsumOspace(EinsumId einsum, DimensionId dim)
   auto& dim_to_idx = einsum_dim_to_idx_[einsum];
   auto next_idx = dim_to_idx.size();
   dim_to_idx[dim] = next_idx;
+  einsum_dims_[einsum].push_back(dim);
+}
+
+const std::vector<DimensionId>&
+FusedWorkload::DataSpaceDimensions(DataSpaceId dspace) const
+{
+  return dspace_dims_.at(dspace);
+}
+
+const std::vector<DimensionId>&
+FusedWorkload::EinsumOspaceDimensions(EinsumId einsum) const
+{
+  return einsum_dims_.at(einsum);
 }
 
 size_t FusedWorkload::DspaceDimToIdx(DataSpaceId dspace, DimensionId dim) const
