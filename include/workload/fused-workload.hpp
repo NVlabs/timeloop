@@ -35,6 +35,11 @@ class FusedWorkload
   void AddDimToDspace(DataSpaceId dspace, DimensionId dspace_dim);
   void AddDimToEinsumOspace(EinsumId einsum, DimensionId dim);
 
+  const std::vector<DimensionId>&
+  DataSpaceDimensions(DataSpaceId dspace) const;
+  const std::vector<DimensionId>&
+  EinsumOspaceDimensions(EinsumId einsum) const;
+
   size_t DspaceDimToIdx(DataSpaceId dspace, DimensionId dim) const;
   size_t EinsumDimToIdx(EinsumId einsum, DimensionId dim) const;
 
@@ -64,7 +69,9 @@ class FusedWorkload
   std::map<DataSpaceId, std::set<EinsumId>> read_einsums_;
   std::map<DataSpaceId, EinsumId> write_einsums_;
 
+  std::map<DataSpaceId, std::vector<DimensionId>> dspace_dims_;
   std::map<DataSpaceId, std::map<DimensionId, size_t>> dspace_dim_to_idx_;
+  std::map<DataSpaceId, std::vector<DimensionId>> einsum_dims_;
   std::map<EinsumId, std::map<DimensionId, size_t>> einsum_dim_to_idx_;
 
   std::map<std::pair<EinsumId, DataSpaceId>, isl::map> reads_;
