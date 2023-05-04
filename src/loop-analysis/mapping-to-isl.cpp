@@ -111,6 +111,63 @@ OccupanciesFromMapping(const loop::Nest& mapping,
  * Local function implementations
  *****************************************************************************/
 
+void GatherSubsequentEinsumStrides(
+  std::map<problem::DimensionId, std::map<problem::DimensionId, int>>& strides,
+  problem::EinsumId prod_einsum,
+  problem::EinsumId cons_einsum,
+  problem::DataSpaceId dspace,
+  const problem::FusedWorkload& workload
+)
+{
+  for (auto [prod_dim, prod_dim_i] : workload.EinsumDimToIdx(prod_einsum))
+  {
+    for (auto [dspace_dim, dspace_dim_i] : workload.DspaceDimToIdx(dspace))
+    {
+      for (auto [cons_dim, cons_dim_i] : workload.EinsumDimToIdx(cons_einsum))
+      {
+        strides[prod_dim][cons_dim] =
+          isl_val_get_num_si(isl_aff_get_coefficient_val(
+            workload.ReadAccessesAff(cons_einsum, dspace)
+              .get_at(dspace_dim_i)
+              .get(),
+            isl_dim_in,
+            cons_dim_i
+          ));
+      }
+    }
+  }
+}
+
+std::map<problem::DimensionId, std::map<problem::DimensionId, int>>
+EinsumDimensionStridesFromWorkload(const problem::FusedWorkload& workload)
+{
+  std::map<problem::DimensionId, std::map<problem::DimensionId, int>> strides;
+
+  for (size_t i = 0; i < workload.EinsumNameToId().size(); ++i)
+  {
+    for (const auto& [_, cons_einsum] : workload.EinsumNameToId())
+    {
+      for (const auto& dspace : workload.TensorsReadByEinsum(cons_einsum))
+      {
+        auto prod_einsum_opt = workload.WriterEinsum(dspace);
+        if (!prod_einsum_opt)
+        {
+          continue;
+        }
+
+        const auto& prod_einsum = *prod_einsum_opt;
+        GatherSubsequentEinsumStrides(strides,
+                                      prod_einsum,
+                                      cons_einsum,
+                                      dspace,
+                                      workload);
+      }
+    }
+  }
+
+  return strides;
+}
+
 BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
                                 problem::FusedWorkload& workload)
 {
@@ -125,14 +182,17 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
     mapping::NodeID leaf_id;
     for (const auto& node : path)
     {
+      std::cout << "node type: " << node.index() << std::endl;
       std::visit(
         [&prob_id_to_expr, &cur_dim_idx, &einsum_id, &leaf_id] (auto&& node) {
           using NodeT = std::decay_t<decltype(node)>;
           if constexpr (std::is_same_v<NodeT, mapping::For>
                         || std::is_same_v<NodeT, mapping::ParFor>)
           {
+            std::cout << "prob idx: " << node.op_dim << std::endl;
             if (node.tile_size)
             {
+              std::cout << *node.tile_size << std::endl;
               prob_id_to_expr[node.op_dim].emplace_back(std::make_pair(
                 cur_dim_idx,
                 *node.tile_size
@@ -148,13 +208,17 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
         node
       );
     }
+    std::cout << "prob id size: " << prob_id_to_expr.size() << std::endl;
 
-    auto eq_maff = isl::multi_aff::zero(
-      isl::space_alloc(GetIslCtx(), 0, cur_dim_idx, prob_id_to_expr.size())
-    );
+    auto eq_maff = isl::multi_aff::zero(isl::space_alloc(
+      GetIslCtx(),
+      0,
+      cur_dim_idx,
+      workload.EinsumOspaceDimensions(einsum_id).size()
+    ));
     for (const auto& [prob_idx, expr] : prob_id_to_expr)
     {
-      auto einsum_dim_idx = workload.EinsumDimToIdx(einsum_id, prob_idx);
+      auto einsum_dim_idx = workload.EinsumDimToIdx(einsum_id).at(prob_idx);
       auto eq_aff = eq_maff.get_at(einsum_dim_idx);
 
       for (const auto& [iter_id, coef] : expr)
@@ -163,6 +227,7 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
       }
 
       eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
+      std::cout << eq_maff << std::endl;
     }
 
     result.emplace(std::make_pair(leaf_id, isl::map_from_multi_aff(eq_maff)));

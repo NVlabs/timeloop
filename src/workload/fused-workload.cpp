@@ -89,14 +89,16 @@ FusedWorkload::EinsumOspaceDimensions(EinsumId einsum) const
   return einsum_dims_.at(einsum);
 }
 
-size_t FusedWorkload::DspaceDimToIdx(DataSpaceId dspace, DimensionId dim) const
+const std::map<DimensionId, size_t>&
+FusedWorkload::DspaceDimToIdx(DataSpaceId dspace) const
 {
-  return dspace_dim_to_idx_.at(dspace).at(dim);
+  return dspace_dim_to_idx_.at(dspace);
 }
 
-size_t FusedWorkload::EinsumDimToIdx(EinsumId einsum, DimensionId dim) const
+const std::map<DimensionId, size_t>&
+FusedWorkload::EinsumDimToIdx(EinsumId einsum) const
 {
-  return einsum_dim_to_idx_.at(einsum).at(dim);
+  return einsum_dim_to_idx_.at(einsum);
 }
 
 void FusedWorkload::SetEinsumProjection(EinsumId einsum, DataSpaceId dspace,
@@ -106,6 +108,8 @@ void FusedWorkload::SetEinsumProjection(EinsumId einsum, DataSpaceId dspace,
   {
     write_einsums_[dspace] = einsum;
     write_tensors_[einsum].emplace(dspace);
+    write_exprs_.emplace(std::pair(std::pair(einsum, dspace),
+                                   isl::aff(GetIslCtx(), expr)));
     writes_.emplace(std::pair(std::pair(einsum, dspace),
                               isl::map(GetIslCtx(), expr)));
   }
@@ -113,6 +117,8 @@ void FusedWorkload::SetEinsumProjection(EinsumId einsum, DataSpaceId dspace,
   {
     read_einsums_[dspace].emplace(einsum);
     read_tensors_[einsum].emplace(dspace);
+    read_exprs_.emplace(std::pair(std::pair(einsum, dspace),
+                                  isl::aff(GetIslCtx(), expr)));
     reads_.emplace(std::pair(std::pair(einsum, dspace),
                              isl::map(GetIslCtx(), expr)));
   }
