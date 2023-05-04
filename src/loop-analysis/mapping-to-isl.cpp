@@ -101,7 +101,6 @@ OccupanciesFromMapping(const loop::Nest& mapping,
         )
       )
     ));
-    std::cout << result.at(buf) << std::endl;
   }
 
   return result;
@@ -174,6 +173,8 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
   BranchTilings result;
   for (auto path : GetPaths(mapping))
   {
+    auto strides = EinsumDimensionStridesFromWorkload(workload);
+
     std::map<problem::DimensionId, std::vector<std::pair<size_t, int>>>
     prob_id_to_expr;
 
@@ -182,17 +183,14 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
     mapping::NodeID leaf_id;
     for (const auto& node : path)
     {
-      std::cout << "node type: " << node.index() << std::endl;
       std::visit(
         [&prob_id_to_expr, &cur_dim_idx, &einsum_id, &leaf_id] (auto&& node) {
           using NodeT = std::decay_t<decltype(node)>;
           if constexpr (std::is_same_v<NodeT, mapping::For>
                         || std::is_same_v<NodeT, mapping::ParFor>)
           {
-            std::cout << "prob idx: " << node.op_dim << std::endl;
             if (node.tile_size)
             {
-              std::cout << *node.tile_size << std::endl;
               prob_id_to_expr[node.op_dim].emplace_back(std::make_pair(
                 cur_dim_idx,
                 *node.tile_size
@@ -208,7 +206,6 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
         node
       );
     }
-    std::cout << "prob id size: " << prob_id_to_expr.size() << std::endl;
 
     auto eq_maff = isl::multi_aff::zero(isl::space_alloc(
       GetIslCtx(),
@@ -218,16 +215,37 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
     ));
     for (const auto& [prob_idx, expr] : prob_id_to_expr)
     {
-      auto einsum_dim_idx = workload.EinsumDimToIdx(einsum_id).at(prob_idx);
-      auto eq_aff = eq_maff.get_at(einsum_dim_idx);
-
-      for (const auto& [iter_id, coef] : expr)
+      const auto& einsum_dim_to_idx = workload.EinsumDimToIdx(einsum_id);
+      if (einsum_dim_to_idx.find(prob_idx) != einsum_dim_to_idx.end())
       {
-        eq_aff = isl::set_coefficient_si(eq_aff, isl_dim_in, iter_id, coef);
-      }
+        auto einsum_dim_idx = einsum_dim_to_idx.at(prob_idx);
+        auto eq_aff = eq_maff.get_at(einsum_dim_idx);
 
-      eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
-      std::cout << eq_maff << std::endl;
+        for (const auto& [iter_id, coef] : expr)
+        {
+          eq_aff = isl::set_coefficient_si(eq_aff, isl_dim_in, iter_id, coef);
+        }
+
+        eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
+      }
+      else
+      {
+        for (auto [einsum_dim, einsum_dim_idx] : einsum_dim_to_idx)
+        {
+          auto stride = strides[prob_idx][einsum_dim];
+          auto eq_aff = eq_maff.get_at(einsum_dim_idx);
+
+          for (const auto& [iter_id, coef] : expr)
+          {
+            eq_aff = isl::set_coefficient_si(eq_aff,
+                                             isl_dim_in,
+                                             iter_id,
+                                             stride*coef);
+          }
+
+          eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
+          }
+      }
     }
 
     result.emplace(std::make_pair(leaf_id, isl::map_from_multi_aff(eq_maff)));

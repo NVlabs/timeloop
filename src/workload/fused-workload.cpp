@@ -109,7 +109,7 @@ void FusedWorkload::SetEinsumProjection(EinsumId einsum, DataSpaceId dspace,
     write_einsums_[dspace] = einsum;
     write_tensors_[einsum].emplace(dspace);
     write_exprs_.emplace(std::pair(std::pair(einsum, dspace),
-                                   isl::aff(GetIslCtx(), expr)));
+                                   isl::multi_aff(GetIslCtx(), expr)));
     writes_.emplace(std::pair(std::pair(einsum, dspace),
                               isl::map(GetIslCtx(), expr)));
   }
@@ -118,7 +118,7 @@ void FusedWorkload::SetEinsumProjection(EinsumId einsum, DataSpaceId dspace,
     read_einsums_[dspace].emplace(einsum);
     read_tensors_[einsum].emplace(dspace);
     read_exprs_.emplace(std::pair(std::pair(einsum, dspace),
-                                  isl::aff(GetIslCtx(), expr)));
+                                  isl::multi_aff(GetIslCtx(), expr)));
     reads_.emplace(std::pair(std::pair(einsum, dspace),
                              isl::map(GetIslCtx(), expr)));
   }
@@ -167,6 +167,18 @@ FusedWorkload::WriterEinsum(DataSpaceId dspace) const
   {
     return it->second;
   }
+}
+
+const isl::multi_aff&
+FusedWorkload::ReadAccessesAff(EinsumId einsum, DataSpaceId dspace) const
+{
+  return read_exprs_.at(std::make_pair(einsum, dspace));
+}
+
+const isl::multi_aff&
+FusedWorkload::WriteAccessesAff(EinsumId einsum, DataSpaceId dspace) const
+{
+  return write_exprs_.at(std::make_pair(einsum, dspace));
 }
 
 const isl::map&
