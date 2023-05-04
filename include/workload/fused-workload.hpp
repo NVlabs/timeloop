@@ -40,8 +40,9 @@ class FusedWorkload
   const std::vector<DimensionId>&
   EinsumOspaceDimensions(EinsumId einsum) const;
 
-  size_t DspaceDimToIdx(DataSpaceId dspace, DimensionId dim) const;
-  size_t EinsumDimToIdx(EinsumId einsum, DimensionId dim) const;
+  const std::map<DimensionId, size_t>&
+  DspaceDimToIdx(DataSpaceId dspace) const;
+  const std::map<DimensionId, size_t>& EinsumDimToIdx(EinsumId einsum) const;
 
   void SetEinsumProjection(EinsumId einsum, DataSpaceId dspace, bool is_rw,
                            const std::string& expr);
@@ -53,6 +54,10 @@ class FusedWorkload
   const std::set<EinsumId>& ReaderEinsums(DataSpaceId dspace) const;
   std::optional<EinsumId> WriterEinsum(DataSpaceId dspace) const;
 
+  const isl::multi_aff&
+  ReadAccessesAff(EinsumId einsum, DataSpaceId dspace) const;
+  const isl::multi_aff&
+  WriteAccessesAff(EinsumId einsum, DataSpaceId dspace) const;
   const isl::map& ReadAccesses(EinsumId einsum, DataSpaceId dspace) const;
   const isl::map& WriteAccesses(EinsumId einsum, DataSpaceId dspace) const;
 
@@ -75,7 +80,9 @@ class FusedWorkload
   std::map<EinsumId, std::map<DimensionId, size_t>> einsum_dim_to_idx_;
 
   std::map<std::pair<EinsumId, DataSpaceId>, isl::map> reads_;
+  std::map<std::pair<EinsumId, DataSpaceId>, isl::multi_aff> read_exprs_;
   std::map<std::pair<EinsumId, DataSpaceId>, isl::map> writes_;
+  std::map<std::pair<EinsumId, DataSpaceId>, isl::multi_aff> write_exprs_;
 
   std::map<EinsumId, isl::set> operation_spaces_;
   std::map<DataSpaceId, isl::set> data_spaces_;

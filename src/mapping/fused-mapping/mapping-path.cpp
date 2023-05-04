@@ -5,13 +5,15 @@ namespace mapping
 
 MappingPath MappingPathsIterator::operator*()
 {
+  std::cout << "returning path" << std::endl;
   return MappingPath(path_);
 }
 
 bool MappingPathsIterator::operator==(const MappingPathsIterator& other) const
 {
   // TODO: should check for the same mapping
-  return (done_ && other.done_) || (idx_ == other.idx_);
+  return (done_ && other.done_) ||
+    (idx_ == other.idx_ && !done_ && !other.done_);
 }
 
 bool MappingPathsIterator::operator!=(const MappingPathsIterator& other) const
@@ -21,10 +23,16 @@ bool MappingPathsIterator::operator!=(const MappingPathsIterator& other) const
 
 MappingPathsIterator& MappingPathsIterator::operator++()
 {
+  GetNextPath();
+  return *this;
+}
+
+void MappingPathsIterator::GetNextPath()
+{
   if (dfs_stack_.size() == 0)
   {
     done_ = true;
-    return *this;
+    return;
   }
 
   while (dfs_stack_.size() > 0)
@@ -32,6 +40,7 @@ MappingPathsIterator& MappingPathsIterator::operator++()
     auto& dfs_stack_back = dfs_stack_.back();
     auto backtrack_idx = dfs_stack_back.path_backtrack_idx;
     auto& node = dfs_stack_back.ref_node.get();
+    std::cout << "bt idx: " << backtrack_idx << std::endl;
     dfs_stack_.pop_back();
 
     path_.erase(path_.begin() + backtrack_idx, path_.end());
@@ -90,11 +99,10 @@ MappingPathsIterator& MappingPathsIterator::operator++()
 
     if (found_leaf)
     {
+      std::cout << "breaking" << std::endl;
       break;
     }
   }
-
-  return *this;
 }
 
 MappingPathsIterator::DfsRecord::DfsRecord(
@@ -109,6 +117,7 @@ MappingPathsIterator::MappingPathsIterator(FusedMapping& mapping, bool done) :
   mapping_(mapping), dfs_stack_(), path_(), idx_(0), done_(done)
 {
   dfs_stack_.emplace_back(0, mapping.NodeAt(mapping.GetRoot().id));
+  GetNextPath();
 }
 
 MappingPathsIterator MappingPaths::begin()
@@ -134,17 +143,13 @@ MappingNodeTypes& MappingPathNodeIterator::operator*()
 bool
 MappingPathNodeIterator::operator==(const MappingPathNodeIterator& other) const
 {
-  // TODO: should check if the same path as other.
-  //       Need to add operator== for MappingPath
   return idx_ == other.idx_;
 }
 
 bool
 MappingPathNodeIterator::operator!=(const MappingPathNodeIterator& other) const
 {
-  // TODO: should check if the same path as other.
-  //       Need to add operator== for MappingPath
-  return idx_ == other.idx_;
+  return idx_ != other.idx_;
 }
 
 MappingPathNodeIterator& MappingPathNodeIterator::operator++()
@@ -163,7 +168,7 @@ MappingPathNodeIterator::MappingPathNodeIterator(
 
 MappingPathNodeIterator MappingPath::begin()
 {
-  return MappingPathNodeIterator(*this);
+  return MappingPathNodeIterator(*this, 0);
 }
 
 MappingPathNodeIterator MappingPath::end()
