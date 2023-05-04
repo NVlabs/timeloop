@@ -167,12 +167,26 @@ class FusedMapping
  public:
   FusedMapping();
 
-  template<typename LoopCtorF, typename... ArgsT>
+  template<typename NodeT, typename... ArgsT>
   NodeID AddChild(NodeID parent_id, ArgsT... args)
   {
     auto [it, _] = nodes_.emplace(std::make_pair(
       nodes_.size(),
-      MappingNodeTypes(LoopCtorF(nodes_.size(), args...))
+      MappingNodeTypes(NodeT(nodes_.size(), args...))
+    ));
+
+    auto child_id = it->first;
+    std::visit(AddChildToNode(child_id), NodeAt(parent_id));
+
+    return child_id;
+  }
+
+  template<typename FactoryT, typename... ArgsT>
+  NodeID AddChild(FactoryT factory, NodeID parent_id, ArgsT... args)
+  {
+    auto [it, _] = nodes_.emplace(std::make_pair(
+      nodes_.size(),
+      MappingNodeTypes(factory(nodes_.size(), args...))
     ));
 
     auto child_id = it->first;
@@ -219,6 +233,8 @@ class MappingPathsIterator
   bool done_;
 
   MappingPathsIterator(FusedMapping& paths, bool done=false);
+
+  void GetNextPath();
 
  private:
   friend MappingPaths;

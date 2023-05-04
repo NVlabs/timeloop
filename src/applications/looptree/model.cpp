@@ -331,6 +331,13 @@ Application::Application(config::CompoundConfig* config,
     mapping::ParseMapping(rootNode.lookup("mapping"), workload);
 
   auto branch_tilings = analysis::TilingFromMapping(mapping, workload);
+  std::cout << branch_tilings.size() << std::endl;
+
+  for (const auto& [branch, map] : branch_tilings)
+  {
+    std::cout << branch << std::endl;
+    std::cout << map << std::endl;
+  }
 
   // const std::string pwise2_tiling =
   // "{ [q3_2, p3_1, q3_1, c3_1, m3_0, c3_0] ->"
