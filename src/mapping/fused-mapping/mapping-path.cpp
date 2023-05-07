@@ -5,7 +5,6 @@ namespace mapping
 
 MappingPath MappingPathsIterator::operator*()
 {
-  std::cout << "returning path" << std::endl;
   return MappingPath(path_);
 }
 
@@ -40,7 +39,6 @@ void MappingPathsIterator::GetNextPath()
     auto& dfs_stack_back = dfs_stack_.back();
     auto backtrack_idx = dfs_stack_back.path_backtrack_idx;
     auto& node = dfs_stack_back.ref_node.get();
-    std::cout << "bt idx: " << backtrack_idx << std::endl;
     dfs_stack_.pop_back();
 
     path_.erase(path_.begin() + backtrack_idx, path_.end());
@@ -99,7 +97,6 @@ void MappingPathsIterator::GetNextPath()
 
     if (found_leaf)
     {
-      std::cout << "breaking" << std::endl;
       break;
     }
   }

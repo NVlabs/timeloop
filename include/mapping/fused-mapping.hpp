@@ -125,6 +125,14 @@ struct Sequential
 using MappingNodeTypes
     = std::variant<Root, For, ParFor, Storage, Compute, Pipeline, Sequential>;
 
+template<typename T>
+inline constexpr bool IsLoopV = std::is_same_v<T, For> ||
+                                std::is_same_v<T, ParFor>;
+
+template<typename T>
+inline constexpr bool IsBranchV = std::is_same_v<T, Sequential> ||
+                                  std::is_same_v<T, Pipeline>;
+
 class FusedMappingNodeIterator
 {
  public:
