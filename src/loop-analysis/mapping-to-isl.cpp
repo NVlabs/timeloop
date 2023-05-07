@@ -278,8 +278,9 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
     }
 
     auto map = isl::map_from_multi_aff(eq_maff);
+    map = map.intersect_domain(iter_set);
 
-    result.emplace(std::make_pair(leaf_id, isl::map_from_multi_aff(eq_maff)));
+    result.emplace(std::make_pair(leaf_id, map));
   }
 
   for (const auto& [leaf_id, map] : result)
