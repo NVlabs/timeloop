@@ -193,6 +193,16 @@ FusedWorkload::WriteAccesses(EinsumId einsum, DataSpaceId dspace) const
   return writes_.at(std::make_pair(einsum, dspace));
 }
 
+const isl::set& FusedWorkload::EinsumOspaceBound(EinsumId einsum) const
+{
+  return operation_spaces_.at(einsum);
+}
+
+const isl::set& FusedWorkload::DataSpaceBound(DataSpaceId dspace) const
+{
+  return data_spaces_.at(dspace);
+}
+
 FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
 {
   (void) cfg;
@@ -275,6 +285,10 @@ FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
         proj_str
       );
     }
+
+    std::string size_str;
+    einsum_cfg.lookupValue("size", size_str);
+    workload.SetEinsumOspaceBound(einsum, size_str);
   }
 
   return workload;
