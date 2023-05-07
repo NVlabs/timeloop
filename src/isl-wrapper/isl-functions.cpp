@@ -54,6 +54,11 @@ set_coefficient_si(isl::aff aff, isl_dim_type dim_type, size_t pos, int val)
                                                 val));
 }
 
+isl::aff set_constant_si(isl::aff aff, int val)
+{
+  return isl::manage(isl_aff_set_constant_si(aff.release(), val));
+}
+
 isl::aff si_on_domain(isl::space space, int val)
 {
   return isl::manage(isl_aff_val_on_domain_space(

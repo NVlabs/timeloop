@@ -213,6 +213,8 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
       cur_dim_idx,
       workload.EinsumOspaceDimensions(einsum_id).size()
     ));
+    auto iter_set = isl::set::universe(eq_maff.domain().space());
+    auto zero_aff = isl::aff::zero_on_domain(iter_set.space());
     for (const auto& [prob_idx, expr] : prob_id_to_expr)
     {
       const auto& einsum_dim_to_idx = workload.EinsumDimToIdx(einsum_id);
@@ -221,12 +223,26 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
         auto einsum_dim_idx = einsum_dim_to_idx.at(prob_idx);
         auto eq_aff = eq_maff.get_at(einsum_dim_idx);
 
+        std::optional<decltype(expr)::value_type::second_type> last_coef;
         for (const auto& [iter_id, coef] : expr)
         {
           eq_aff = isl::set_coefficient_si(eq_aff, isl_dim_in, iter_id, coef);
+
+          auto var_aff =
+            isl::set_coefficient_si(zero_aff, isl_dim_in, iter_id, 1);
+          iter_set = iter_set.intersect(var_aff.ge_set(zero_aff));
+
+          if (last_coef)
+          {
+            auto upper_aff = isl::set_constant_si(zero_aff, *last_coef);
+            iter_set = iter_set.intersect(var_aff.lt_set(upper_aff));
+          }
+
+          last_coef = coef;
         }
 
         eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
+
       }
       else
       {
@@ -235,20 +251,45 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
           auto stride = strides[prob_idx][einsum_dim];
           auto eq_aff = eq_maff.get_at(einsum_dim_idx);
 
+          std::optional<decltype(expr)::value_type::second_type> last_coef;
           for (const auto& [iter_id, coef] : expr)
           {
             eq_aff = isl::set_coefficient_si(eq_aff,
                                              isl_dim_in,
                                              iter_id,
                                              stride*coef);
+
+            auto var_aff =
+              isl::set_coefficient_si(zero_aff, isl_dim_in, iter_id, 1);
+            iter_set = iter_set.intersect(var_aff.ge_set(zero_aff));
+
+            if (last_coef)
+            {
+              auto upper_aff = isl::set_constant_si(zero_aff, *last_coef);
+              iter_set = iter_set.intersect(var_aff.lt_set(upper_aff));
+            }
+
+            last_coef = stride*coef;
           }
 
           eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
-          }
+        }
       }
     }
 
+    auto map = isl::map_from_multi_aff(eq_maff);
+
     result.emplace(std::make_pair(leaf_id, isl::map_from_multi_aff(eq_maff)));
+  }
+
+  for (const auto& [leaf_id, map] : result)
+  {
+    const auto& node_var = mapping.NodeAt(leaf_id);
+    const auto& compute_node = std::get<mapping::Compute>(node_var);
+    const auto& ospace_bound = workload.EinsumOspaceBound(compute_node.kernel);
+    std::cout << map << std::endl;
+    std::cout << ospace_bound << std::endl;
+    result[leaf_id] = map.intersect_range(ospace_bound);
   }
 
   return result;

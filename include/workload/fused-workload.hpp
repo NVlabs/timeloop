@@ -61,6 +61,9 @@ class FusedWorkload
   const isl::map& ReadAccesses(EinsumId einsum, DataSpaceId dspace) const;
   const isl::map& WriteAccesses(EinsumId einsum, DataSpaceId dspace) const;
 
+  const isl::set& EinsumOspaceBound(EinsumId einsum) const;
+  const isl::set& DataSpaceBound(DataSpaceId dspace) const;
+
  private:
   std::vector<std::string> einsum_names_;
   std::vector<std::string> dspace_names_;

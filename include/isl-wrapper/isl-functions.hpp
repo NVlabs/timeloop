@@ -22,6 +22,7 @@ space_alloc(isl::ctx ctx, size_t n_params, size_t n_dim_in, size_t n_dim_out);
 
 isl::aff
 set_coefficient_si(isl::aff aff, isl_dim_type dim_type, size_t pos, int val);
+isl::aff set_constant_si(isl::aff aff, int val);
 
 isl::aff si_on_domain(isl::space space, int val);
 
