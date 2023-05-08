@@ -173,6 +173,11 @@ MappingPathNodeIterator MappingPath::end()
   return MappingPathNodeIterator(*this, ref_nodes_.size());
 }
 
+MappingNodeTypes& MappingPath::back()
+{
+  return ref_nodes_.back().get();
+}
+
 MappingPath::MappingPath(
   std::vector<std::reference_wrapper<MappingNodeTypes>> ref_nodes
 ) :
