@@ -207,11 +207,10 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
       );
     }
 
-    auto eq_maff = isl::multi_aff::zero(isl::space_alloc(
-      GetIslCtx(),
-      0,
-      cur_dim_idx,
-      workload.EinsumOspaceDimensions(einsum_id).size()
+    auto iter_space = isl::space_set_alloc(GetIslCtx(), 0, cur_dim_idx);
+    auto eq_maff = isl::multi_aff::zero(isl::space_from_domain_and_range(
+      isl::space_set_alloc(GetIslCtx(), 0, cur_dim_idx),
+      workload.EinsumOspaceBound(einsum_id).space()
     ));
     auto iter_set = isl::set::universe(eq_maff.domain().space());
     auto zero_aff = isl::aff::zero_on_domain(iter_set.space());
@@ -269,7 +268,7 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
               iter_set = iter_set.intersect(var_aff.lt_set(upper_aff));
             }
 
-            last_coef = stride*coef;
+            last_coef = coef;
           }
 
           eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
@@ -288,8 +287,6 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
     const auto& node_var = mapping.NodeAt(leaf_id);
     const auto& compute_node = std::get<mapping::Compute>(node_var);
     const auto& ospace_bound = workload.EinsumOspaceBound(compute_node.kernel);
-    std::cout << map << std::endl;
-    std::cout << ospace_bound << std::endl;
     result[leaf_id] = map.intersect_range(ospace_bound);
   }
 

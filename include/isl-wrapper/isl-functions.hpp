@@ -19,6 +19,8 @@ isl::map map_from_multi_aff(isl::pw_multi_aff maff);
 
 isl::space
 space_alloc(isl::ctx ctx, size_t n_params, size_t n_dim_in, size_t n_dim_out);
+isl::space space_set_alloc(isl::ctx ctx, size_t n_params, size_t n_dim_set);
+isl::space space_from_domain_and_range(isl::space domain, isl::space range);
 
 isl::aff
 set_coefficient_si(isl::aff aff, isl_dim_type dim_type, size_t pos, int val);
