@@ -45,6 +45,21 @@ space_alloc(isl::ctx ctx, size_t n_params, size_t n_dim_in, size_t n_dim_out)
                                      n_dim_out));
 }
 
+isl::space
+space_set_alloc(isl::ctx ctx, size_t n_params, size_t n_dim_set)
+{
+  return isl::manage(isl_space_set_alloc(ctx.release(), n_params, n_dim_set));
+}
+
+isl::space
+space_from_domain_and_range(isl::space domain, isl::space range)
+{
+  return isl::manage(isl_space_map_from_domain_and_range(
+    domain.release(),
+    range.release()
+  ));
+}
+
 isl::aff
 set_coefficient_si(isl::aff aff, isl_dim_type dim_type, size_t pos, int val)
 {
