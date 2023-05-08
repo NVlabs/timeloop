@@ -115,11 +115,11 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
     cfg.lookupValue("target", target);
     std::vector<std::string> dspace_names;
     cfg.lookupArrayValue("dspace", dspace_names);
-    NodeID node;
+    auto node = parent_id;
     for (const auto& dspace_name : dspace_names)
     {
       auto dspace = workload.DataSpaceNameToId().at(dspace_name);
-      node = mapping.AddChild<Storage>(parent_id, target, dspace);
+      node = mapping.AddChild<Storage>(node, target, dspace);
     }
     return node;
   }
