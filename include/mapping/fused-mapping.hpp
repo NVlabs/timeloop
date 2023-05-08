@@ -133,6 +133,8 @@ template<typename T>
 inline constexpr bool IsBranchV = std::is_same_v<T, Sequential> ||
                                   std::is_same_v<T, Pipeline>;
 
+NodeID GetNodeId(const MappingNodeTypes& node);
+
 class FusedMappingNodeIterator
 {
  public:
@@ -292,6 +294,8 @@ class MappingPath
  public:
   Iterator begin();
   Iterator end();
+
+  MappingNodeTypes& back();
 
  private:
   std::vector<std::reference_wrapper<MappingNodeTypes>> ref_nodes_;
