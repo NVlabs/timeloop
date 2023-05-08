@@ -66,6 +66,11 @@ Compute::Compute(const NodeID& id,
 Pipeline::Pipeline(const NodeID& id) : id(id) {}
 Sequential::Sequential(const NodeID& id) : id(id) {}
 
+NodeID GetNodeId(const MappingNodeTypes& node)
+{
+  return std::visit([] (auto&& arg) { return arg.id; }, node);
+}
+
 FusedMappingNodeIterator& FusedMappingNodeIterator::operator++()
 {
   ++cur_;

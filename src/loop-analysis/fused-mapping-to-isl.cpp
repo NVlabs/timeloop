@@ -41,6 +41,8 @@ void GatherSubsequentEinsumStrides(
   const problem::FusedWorkload& workload
 );
 
+LogicalBufSkews LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping);
+
 /******************************************************************************
  * Global function implementations
  *****************************************************************************/
@@ -63,7 +65,11 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
   {
     std::cout << buf << ": " << tiling << std::endl;
   }
-  // auto buf_skew = LogicalBufSkewsFromMapping(maping);
+  auto buf_skew = LogicalBufSkewsFromMapping(mapping);
+  for (const auto& [buf, skew] : buf_skew)
+  {
+    std::cout << buf << ": " << skew << std::endl;
+  }
 
   return occupancies;
 }
@@ -460,6 +466,87 @@ void GatherSubsequentEinsumStrides(
       }
     }
   }
+}
+
+LogicalBufSkews LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
+{
+  LogicalBufSkews skews;
+  std::vector<spacetime::Dimension> tags;
+  for (auto path : GetPaths(mapping))
+  {
+    const auto& leaf = path.back();
+    auto map = isl::map_from_multi_aff(isl::multi_aff::identity_on_domain(
+      isl::space_alloc(GetIslCtx(), 0, 0, 0).domain()
+    ));
+    auto cur_has_spatial = false;
+    auto new_cur_has_spatial = false;
+    auto last_buf = std::optional<BufferID>();
+    for (const auto& node : path)
+    {
+      std::visit(
+        [&tags, &map, &new_cur_has_spatial, &cur_has_spatial, &skews,
+         &last_buf, &leaf]
+        (auto&& node) {
+          using NodeT = std::decay_t<decltype(node)>;
+
+          if constexpr (std::is_same_v<NodeT, mapping::Storage>)
+          {
+            if (last_buf && node.buffer == *last_buf)
+            {
+              cur_has_spatial = new_cur_has_spatial || cur_has_spatial;
+            }
+            else
+            {
+              cur_has_spatial = new_cur_has_spatial;
+            }
+            new_cur_has_spatial = false;
+
+            if (!cur_has_spatial)
+            {
+              tags.push_back(spacetime::Dimension::SpaceX);
+
+              const size_t n_spatial_dims = 1;  // TODO: assumes 1D array
+              map = isl::insert_dummy_dim_ins(std::move(map),
+                                              isl::dim(map, isl_dim_in),
+                                              n_spatial_dims);
+
+              cur_has_spatial = true;
+            }
+
+            auto buffer = LogicalBuffer(node.buffer,
+                                        node.dspace,
+                                        GetNodeId(leaf));
+            skews.emplace(std::make_pair(
+              std::move(buffer),
+              TaggedMap<isl::map, spacetime::Dimension>(map, tags)
+            ));
+          } else if constexpr (mapping::IsLoopV<NodeT>)
+          {
+            if constexpr(std::is_same_v<NodeT, mapping::For>)
+            {
+              tags.push_back(spacetime::Dimension::Time);
+            }
+            else if constexpr (std::is_same_v<NodeT, mapping::ParFor>)
+            {
+              new_cur_has_spatial = true;
+              tags.push_back(spacetime::Dimension::SpaceX);
+            }
+            else
+            {
+              throw std::logic_error("unreachable");
+            }
+            map = isl::insert_equal_dims(std::move(map),
+                                          isl::dim(map, isl_dim_in),
+                                          isl::dim(map, isl_dim_out),
+                                          1);
+          }
+        },
+        node
+      );
+    }
+  }
+
+  return skews;
 }
 
 } // namespace analysis
