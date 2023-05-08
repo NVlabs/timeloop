@@ -139,6 +139,7 @@ loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
 loop-analysis/spatial-analysis.cpp
 loop-analysis/temporal-analysis.cpp
+loop-analysis/fused-mapping-to-isl.cpp
 sparse-analysis/state.cpp
 sparse-analysis/sparse-analysis.cpp
 sparse-analysis/compute-gs-analyzer.cpp

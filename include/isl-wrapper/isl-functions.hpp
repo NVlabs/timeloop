@@ -56,4 +56,8 @@ double val_to_double(isl_val* val);
 
 isl_val* get_val_from_singular_qpolynomial(isl_pw_qpolynomial* pw_qp);
 
+isl::map ConstraintDimEquals(isl::map map, size_t n_dims);
+
+isl::map MapToPriorData(size_t n_in_dims, size_t top);
+
 };  // namespace isl
