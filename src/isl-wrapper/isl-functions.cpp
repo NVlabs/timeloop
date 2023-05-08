@@ -1,6 +1,8 @@
-#include "isl-wrapper/isl-functions.hpp"
-#include "isl/constraint.h"
 #include "barvinok/isl.h"
+#include "isl/constraint.h"
+
+#include "isl-wrapper/ctx-manager.hpp"
+#include "isl-wrapper/isl-functions.hpp"
 
 namespace isl {
 
@@ -194,6 +196,86 @@ isl_val* get_val_from_singular_qpolynomial(isl_pw_qpolynomial* pw_qp)
     pw_qp,
     isl_point_zero(isl_pw_qpolynomial_get_domain_space(pw_qp))
   );
+}
+
+
+isl::map ConstraintDimEquals(isl::map map, size_t n_dims)
+{
+  auto p_map = map.release();
+  auto p_space = isl_map_get_space(p_map);
+  auto p_ls = isl_local_space_from_space(p_space);
+
+  isl_constraint* p_c;
+  for (size_t i = 0; i < n_dims; ++i)
+  {
+    p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
+    p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, 1);
+    p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, -1);
+    p_map = isl_map_add_constraint(p_map, p_c);
+  }
+  isl_local_space_free(p_ls);
+
+  return isl::manage(p_map);
+}
+
+isl::map MapToPriorData(size_t n_in_dims, size_t top)
+{
+  isl_space* p_space;
+  isl_basic_map* p_tmp_map;
+  isl_map* p_map;
+  isl_local_space* p_ls;
+  isl_constraint* p_c;
+
+  // Goal: { [i0, ..., i{n_in_dims-1}] -> [i0, ..., i{top}-1, o{top+1}, ..., o{n_in_dims}] }
+  p_space = isl_space_alloc(GetIslCtx().get(), 0, n_in_dims, n_in_dims);
+  p_map = isl_map_universe(isl_space_copy(p_space));
+  p_ls = isl_local_space_from_space(p_space);
+
+  if (top > 0)
+  {
+    p_tmp_map = isl_basic_map_universe(isl_space_copy(p_space));
+    for (size_t i = 0; i < top-1; ++i)
+    {
+      p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
+      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, 1);
+      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, -1);
+      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
+    }
+
+    p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
+    p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, top-1, 1);
+    p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, top-1, -1);
+    p_c = isl_constraint_set_constant_si(p_c, 1);
+    p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
+
+    p_map = isl_map_intersect(p_map, isl_map_from_basic_map(p_tmp_map));
+  }
+
+  if (top > 0 && top < n_in_dims)
+  {
+    p_tmp_map = isl_basic_map_universe(isl_space_copy(p_space));
+    for (size_t i = 0; i < top; ++i)
+    {
+      p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
+      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, 1);
+      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, -1);
+      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
+    }
+
+    for (auto i = top; i < n_in_dims; ++i)
+    {
+      p_c = isl_constraint_alloc_inequality(isl_local_space_copy(p_ls));
+      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, -1);
+      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, 1);
+      p_c = isl_constraint_set_constant_si(p_c, -1);
+      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
+    }
+    p_map = isl_map_union(p_map, isl_map_from_basic_map(p_tmp_map));
+  }
+
+  isl_local_space_free(p_ls);
+
+  return isl::manage(p_map);
 }
 
 };  // namespace isl
