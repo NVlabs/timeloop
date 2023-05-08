@@ -11,16 +11,8 @@
 #include "workload/fused-workload.hpp"
 #include <isl/constraint.h>
 #include <barvinok/isl.h>
-
-/**************
- * Prototype
- */
-
-namespace analysis
-{
-
-
-};
+#include "loop-analysis/temporal-analysis.hpp"
+#include "loop-analysis/spatial-analysis.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -147,9 +139,25 @@ Application::Application(config::CompoundConfig* config,
   mapping::FusedMapping mapping =
     mapping::ParseMapping(rootNode.lookup("mapping"), workload);
 
+  auto raw_occupancies = analysis::OccupanciesFromMapping(mapping, workload);
 
-  auto occupancies = analysis::OccupanciesFromMapping(mapping, workload);
+  auto [occupancies, fills] = analysis::TemporalReuseAnalysis(raw_occupancies);
 
+  // for (const auto& [buf, fill] : fills)
+  // {
+  //   std::cout << buf << std::endl;
+  //   auto p_fill_count = isl_map_card(fill.map.copy());
+  //   std::cout << isl_pw_qpolynomial_to_str(p_fill_count) << std::endl;
+  //   isl_pw_qpolynomial_free(p_fill_count);
+  // }
+
+  for (const auto& [buf, occ] : occupancies)
+  {
+    std::cout << buf << std::endl;
+    auto p_occ_count = isl_map_card(occ.map.copy());
+    std::cout << isl_pw_qpolynomial_to_str(p_occ_count) << std::endl;
+    isl_pw_qpolynomial_free(p_occ_count);
+  }
 }
 
 Application::~Application()

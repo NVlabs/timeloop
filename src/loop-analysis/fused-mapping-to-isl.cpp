@@ -2,6 +2,8 @@
 #include "loop-analysis/temporal-analysis.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
 
+#include <barvinok/isl.h>
+
 namespace analysis
 {
 
@@ -58,17 +60,47 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
                                                 workload,
                                                 *branch_idx,
                                                 dspace_indices);
+  for (const auto& [leaf_id, tiling] : branch_tiling)
+  {
+    std::cout << leaf_id << ": ";
+    auto p_iter_size = isl_set_card(tiling.domain().release());
+    std::cout << isl_pw_qpolynomial_to_str(p_iter_size) << std::endl;
+    isl_pw_qpolynomial_free(p_iter_size);
+  }
 
   LogicalBufOccupancies occupancies;
   auto tilings = LogicalBufTilingFromMapping(mapping, branch_tiling);
-  for (const auto& [buf, tiling] : tilings)
-  {
-    std::cout << buf << ": " << tiling << std::endl;
-  }
   auto buf_skew = LogicalBufSkewsFromMapping(mapping);
-  for (const auto& [buf, skew] : buf_skew)
+  for (auto& [buf, skew] : buf_skew)
   {
-    std::cout << buf << ": " << skew << std::endl;
+    auto einsum =
+      std::get<mapping::Compute>(mapping.NodeAt(buf.branch_leaf_id)).kernel;
+    auto dspace = buf.dspace_id;
+
+    const auto& tiling = tilings.at(buf);
+
+    auto accesses_opt = std::optional<isl::map>();
+    const auto& read_tensors = workload.TensorsReadByEinsum(einsum);
+    const auto& write_tensors = workload.TensorsWrittenByEinsum(einsum);
+    if (read_tensors.find(dspace) != read_tensors.end())
+    {
+      accesses_opt = workload.ReadAccesses(einsum, dspace);
+    }
+    else if (write_tensors.find(dspace) != write_tensors.end())
+    {
+      accesses_opt = workload.WriteAccesses(einsum, dspace);
+    }
+    else
+    {
+      continue;
+    }
+
+    auto accesses = *accesses_opt;
+    auto occupancy = skew.apply_range(
+      isl::project_dim_in_after(tiling.apply_range(accesses),
+                                isl::dim(skew.map, isl_dim_out))
+    );
+    occupancies.emplace(std::make_pair(buf, std::move(occupancy)));
   }
 
   return occupancies;
@@ -133,6 +165,10 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
 
         // Decide how much the consumer (einsum_id) needs
         auto pruned_tiling = project_dim_in_after(tiling, pipeline_tiling_idx);
+        pruned_tiling =
+          pruned_tiling.intersect_range(workload.EinsumOspaceBound(einsum_id));
+        std::cout << workload.EinsumOspaceBound(einsum_id) << std::endl;
+        std::cout << pruned_tiling << std::endl;
         auto read_accesses = workload.ReadAccesses(einsum_id, read_tensor);
         auto required_data = pruned_tiling.apply_range(read_accesses);
 
@@ -166,7 +202,6 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
             producer_tiling
             .intersect_domain(required_iters.range())
             .coalesce();
-          std::cout << inferred_prod_tiling << std::endl;
           inferred_tilings.at(leaf_id) = inferred_prod_tiling;
         }
       }
@@ -471,9 +506,9 @@ void GatherSubsequentEinsumStrides(
 LogicalBufSkews LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
 {
   LogicalBufSkews skews;
-  std::vector<spacetime::Dimension> tags;
   for (auto path : GetPaths(mapping))
   {
+    std::vector<spacetime::Dimension> tags;
     const auto& leaf = path.back();
     auto map = isl::map_from_multi_aff(isl::multi_aff::identity_on_domain(
       isl::space_alloc(GetIslCtx(), 0, 0, 0).domain()
@@ -499,6 +534,7 @@ LogicalBufSkews LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
             {
               cur_has_spatial = new_cur_has_spatial;
             }
+            last_buf = node.buffer;
             new_cur_has_spatial = false;
 
             if (!cur_has_spatial)
