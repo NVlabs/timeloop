@@ -50,7 +50,6 @@ std::pair<Occupancy, Fill> FillFromOccupancy(Occupancy occupancy)
       auto [dim_idx, dim_type] = *dim_it;
       if (dim_type == spacetime::Dimension::Time)
       {
-        std::cout << occupancy << std::endl;
         auto time_shift_map = occupancy.tag_like_this(
           isl::map_to_shifted(occupancy.space().domain(), dim_idx, -1)
         );

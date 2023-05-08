@@ -162,7 +162,7 @@ struct TaggedMap
   }
 
   inline TaggedMap<Map, InTag, NoTag>
-  apply_range(const isl::map& other_map)
+  apply_range(const isl::map& other_map) const
   {
     return TaggedMap(map.apply_range(other_map),
                      std::vector<InTag>(in_tags));

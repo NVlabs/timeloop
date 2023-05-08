@@ -227,7 +227,6 @@ FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
 
     std::string dspace_name;
     dspace_cfg.lookupValue("name", dspace_name);
-    std::cout << dspace_name << std::endl;
     auto dspace = workload.NewDataSpace(dspace_name);
 
     std::vector<std::string> dim_names;
