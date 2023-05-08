@@ -165,6 +165,10 @@ using LogicalBufFills = std::map<LogicalBuffer, Fill>;
 BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
                                 problem::FusedWorkload& workload);
 
+LogicalBufOccupancies
+OccupanciesFromMapping(mapping::FusedMapping& mapping,
+                       const problem::FusedWorkload& workload);
+
 /**
  * @brief Infer logical buffer occupancies from loop nest mapping
  * 
