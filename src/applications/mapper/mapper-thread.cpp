@@ -595,13 +595,25 @@ void MapperThread::Run()
 
     // SUCCESS!!!
     // Output results at log interval
-    auto topology =  engine.GetTopology();
+    auto topology = engine.GetTopology();
     auto stats = topology.GetStats();
     EvaluationResult result = { true, mapping, stats };
 
     // Log the equally optimal mappings stats from the previous index factor and clear the index_factor_best_vec
     // Need to have one valid mapping in order to get the SumStats run
-    if (log_oaves_ && total_mappings != 0 && stats_.index_factor_best.valid && SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))
+
+    // Log index best when there is change in total tile utilization for any memory levels
+    bool update_index_best = false;
+
+    if (log_oaves_ && total_mappings != 0 && stats_.index_factor_best.valid) {
+      for (unsigned level = 0; level < topology.NumStorageLevels()-1; level++) {
+        if (SumStats(stats_.index_factor_best.stats.tile_sizes[level]) != SumStats(stats.tile_sizes[level])) {
+          update_index_best = true;
+        }
+      }
+    }
+
+    if (log_oaves_ && total_mappings != 0 && stats_.index_factor_best.valid && update_index_best)
     {
       for (auto &index_factor_best : index_factor_best_vec)
       {
@@ -616,9 +628,15 @@ void MapperThread::Run()
         topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
         mutex_->unlock();
 
-        // Only print one valid mapping stat if the tiling size is 0 in the inner level
-        if (SumStats(stats_.index_factor_best.stats.tile_sizes[0]) == 0)
-          break;
+        // Only print one valid mapping stat if the tiling size is 0 in the inner levels
+        bool skip_logging = true;
+        for (unsigned level = 0; level < topology.NumStorageLevels()-1; level++) {
+          if (SumStats(stats_.index_factor_best.stats.tile_sizes[level]) != 0) {
+            skip_logging = false;
+            break;
+          }
+        }
+        if (skip_logging) break;
       }
 
       // Reset the best for next permutation/bypassing
