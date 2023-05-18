@@ -567,8 +567,11 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
   if (NumStorageLevels() > 0)
   {
     // Get the buffer utilization of the innermost memory level
-    unsigned first_storage_level_id = 0;
-    std::uint64_t total_utilization = GetStorageLevel(first_storage_level_id)->TotalUtilizedBytes();
+    std::uint64_t total_utilization = 0;
+
+    // Get total utilization
+    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels()-1; storage_level_id++)
+        total_utilization += GetStorageLevel(storage_level_id)->TotalUtilizedBytes();
 
     // Get the total output tensor size for calculating the total operations
     std::uint64_t total_output_size = 0;
@@ -606,17 +609,10 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
     auto last_storage_level_id = NumStorageLevels() - 1;
     double op_per_byte = GetStorageLevel(last_storage_level_id)->OperationalIntensity(total_ops);
 
+    // Output CSV columns:
+    // 0-total buffer utilization (B), 1-DRAM operation intensity (op/B), 2-DRAM accesses (word), 3-compact mapping, 4-mapping file path,
+    // 5: total operations, 6:6+m*3-per tensor utilization (B), 6+m*3:6+m*3+3-per tensor DRAM accesses (word)
     out << total_utilization << "," << op_per_byte << "," << GetStorageLevel(last_storage_level_id)->Accesses();
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      out << "," << GetStorageLevel(first_storage_level_id)->TotalUtilizedBytes(pv);
-    }
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      out << "," << GetStorageLevel(last_storage_level_id)->Accesses(pv);
-    }
     out << "," << mapping.PrintCompact();
     if (log_oaves_mappings)
     {
@@ -626,13 +622,28 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
       size_t hash = hasher(mapping.PrintCompact());
       oaves_mapping_ss << oaves_prefix << "." << total_utilization << "_" << thread_id << "_" << std::hex << hash << ".yaml";
       std::string oaves_map_yaml_file_name = oaves_mapping_ss.str();
-      out << "," << oaves_map_yaml_file_name << std::endl;
+      out << "," << oaves_map_yaml_file_name;
       OutputOAVESMappingYAML(mapping, oaves_map_yaml_file_name);
     }
     else
     {
-      out << ",None" << std::endl;
+      out << ",None";
     }
+    out << "," << total_ops;
+    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
+    {
+        for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+        {
+          auto pv = problem::Shape::DataSpaceID(pvi);
+          out << "," << GetStorageLevel(storage_level_id)->TotalUtilizedBytes(pv);
+        }
+    }
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      out << "," << GetStorageLevel(last_storage_level_id)->Accesses(pv);
+    }
+    out << std::endl;
   }
 }
 

@@ -53,6 +53,9 @@ def process_data(stats_file: str, output_file: str, keep_all_entry: bool = False
 
     # Columns are defined as follows:
     # 0 - buffer size, 1 - op intensity, 2 - dram word accesses, 3,4,5 - buffer size for each tensor, 6,7,8 - dram word accesses for each tensor, 9 - compact print of mapping, 10 - path to mapping.yaml
+    # 0-total buffer utilization (B), 1-DRAM operation intensity (op/B), 2-DRAM accesses (word), 3-compact mapping, 4-mapping file path,
+    # 5: total operations, 6:6+m*3-per tensor utilization (B), 6+m*3:6+m*3+3-per tensor DRAM accesses (word)
+
     # group by the buf util index 0 and take the max values of op int at index 1 and find the idx of max values
 
     # idx = df.groupby(0)[1].idxmax()
@@ -83,7 +86,7 @@ def process_data(stats_file: str, output_file: str, keep_all_entry: bool = False
         df_new = df.loc[max_index]
 
         # Delete the non-optimal mapping yaml files
-        optimal_mapping_files = set(df_new.iloc[:,-1])
+        optimal_mapping_files = set(df_new.iloc[:,4])
         mapping_files_to_delete = generated_mapping_files - optimal_mapping_files
         for mapping_file in mapping_files_to_delete:
             if os.path.isfile(mapping_file):
