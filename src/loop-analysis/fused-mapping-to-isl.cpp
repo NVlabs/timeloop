@@ -62,7 +62,8 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
                                                 dspace_indices);
   for (const auto& [leaf_id, tiling] : branch_tiling)
   {
-    std::cout << leaf_id << ": ";
+    std::cout << leaf_id << ":" << std::endl;
+    std::cout << tiling << std::endl;
     auto p_iter_size = isl_set_card(tiling.domain().release());
     std::cout << isl_pw_qpolynomial_to_str(p_iter_size) << std::endl;
     isl_pw_qpolynomial_free(p_iter_size);
@@ -162,13 +163,12 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
           // Not an intermediate tensor
           continue;
         }
+        auto prod_einsum = *producer_einsum_opt;
 
         // Decide how much the consumer (einsum_id) needs
         auto pruned_tiling = project_dim_in_after(tiling, pipeline_tiling_idx);
         pruned_tiling =
           pruned_tiling.intersect_range(workload.EinsumOspaceBound(einsum_id));
-        std::cout << workload.EinsumOspaceBound(einsum_id) << std::endl;
-        std::cout << pruned_tiling << std::endl;
         auto read_accesses = workload.ReadAccesses(einsum_id, read_tensor);
         auto required_data = pruned_tiling.apply_range(read_accesses);
 
@@ -182,9 +182,12 @@ BranchTilings LoopBoundsInference(BranchTilings tilings,
           computed_data.intersect_range(workload.DataSpaceBound(read_tensor));
 
         auto producer_write_dep =
-          workload.WriteAccesses(*producer_einsum_opt, read_tensor);
+          workload.WriteAccesses(prod_einsum, read_tensor);
         auto required_ops =
           computed_data.apply_range(producer_write_dep.reverse());
+        required_ops = required_ops.intersect_range(
+          workload.EinsumOspaceBound(prod_einsum)
+        );
 
         for (const auto& [leaf_id, producer_tiling] : inferred_tilings)
         {
@@ -394,38 +397,43 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
         }
 
         eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
-
       }
       else
       {
-        for (auto [einsum_dim, einsum_dim_idx] : einsum_dim_to_idx)
-        {
-          auto stride = strides[prob_idx][einsum_dim];
-          auto eq_aff = eq_maff.get_at(einsum_dim_idx);
+        // for (auto [einsum_dim, einsum_dim_idx] : einsum_dim_to_idx)
+        // {
+        //   auto stride = strides[einsum_dim][prob_idx];
+        //   // if (stride == 0)
+        //   // {
+        //   //   continue;
+        //   // }
+        //   std::cout << prob_idx << ", " << einsum_dim << ": " << stride << std::endl;
 
-          std::optional<decltype(expr)::value_type::second_type> last_coef;
-          for (const auto& [iter_id, coef] : expr)
-          {
-            eq_aff = isl::set_coefficient_si(eq_aff,
-                                             isl_dim_in,
-                                             iter_id,
-                                             stride*coef);
+        //   auto eq_aff = eq_maff.get_at(einsum_dim_idx);
 
-            auto var_aff =
-              isl::set_coefficient_si(zero_aff, isl_dim_in, iter_id, 1);
-            iter_set = iter_set.intersect(var_aff.ge_set(zero_aff));
+        //   std::optional<decltype(expr)::value_type::second_type> last_coef;
+        //   for (const auto& [iter_id, coef] : expr)
+        //   {
+        //     eq_aff = isl::set_coefficient_si(eq_aff,
+        //                                      isl_dim_in,
+        //                                      iter_id,
+        //                                      stride*coef);
 
-            if (last_coef)
-            {
-              auto upper_aff = isl::set_constant_si(zero_aff, *last_coef);
-              iter_set = iter_set.intersect(var_aff.lt_set(upper_aff));
-            }
+        //     auto var_aff =
+        //       isl::set_coefficient_si(zero_aff, isl_dim_in, iter_id, 1);
+        //     iter_set = iter_set.intersect(var_aff.ge_set(zero_aff));
 
-            last_coef = coef;
-          }
+        //     if (last_coef)
+        //     {
+        //       auto upper_aff = isl::set_constant_si(zero_aff, *last_coef);
+        //       iter_set = iter_set.intersect(var_aff.lt_set(upper_aff));
+        //     }
 
-          eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
-        }
+        //     last_coef = coef;
+        //   }
+
+        //   eq_maff = eq_maff.set_at(einsum_dim_idx, eq_aff);
+        // }
       }
     }
 
@@ -451,24 +459,43 @@ EinsumDimensionStridesFromWorkload(const problem::FusedWorkload& workload)
 {
   std::map<problem::DimensionId, std::map<problem::DimensionId, int>> strides;
 
-  for (size_t i = 0; i < workload.EinsumNameToId().size(); ++i)
+  for (const auto& [_, cons_einsum] : workload.EinsumNameToId())
   {
-    for (const auto& [_, cons_einsum] : workload.EinsumNameToId())
+    for (const auto& dspace : workload.TensorsReadByEinsum(cons_einsum))
     {
-      for (const auto& dspace : workload.TensorsReadByEinsum(cons_einsum))
+      auto prod_einsum_opt = workload.WriterEinsum(dspace);
+      if (!prod_einsum_opt)
       {
-        auto prod_einsum_opt = workload.WriterEinsum(dspace);
-        if (!prod_einsum_opt)
+        continue;
+      }
+
+      const auto& prod_einsum = *prod_einsum_opt;
+      GatherSubsequentEinsumStrides(strides,
+                                    prod_einsum,
+                                    cons_einsum,
+                                    dspace,
+                                    workload);
+    }
+  }
+
+  for (size_t i = 0; i < strides.size(); ++i)
+  {
+    for (const auto& [prod_dim, direct_strides] : strides)
+    {
+      for (const auto& [cons_dim, stride] : direct_strides)
+      {
+        if (strides.find(cons_dim) == strides.end())
         {
           continue;
         }
-
-        const auto& prod_einsum = *prod_einsum_opt;
-        GatherSubsequentEinsumStrides(strides,
-                                      prod_einsum,
-                                      cons_einsum,
-                                      dspace,
-                                      workload);
+        for (const auto& [indirect_cons_dim, indirect_stride] :
+             strides[cons_dim])
+        {
+          strides[prod_dim][indirect_cons_dim] = std::max(
+            stride*indirect_stride,
+            strides[prod_dim][indirect_cons_dim]
+          );
+        }
       }
     }
   }
