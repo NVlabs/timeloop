@@ -374,7 +374,6 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   // Concatenate the subnests to form the final mapping nest.
   Mapping mapping;
   
-  std::uint64_t storage_level = 0;
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
@@ -400,7 +399,6 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       }
       mapping.loop_nest.AddStorageTilingBoundary();
       mapping.complete_loop_nest.AddStorageTilingBoundary();
-      storage_level++;
     }
   }
 
@@ -552,6 +550,8 @@ std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFact
   std::string buffer;
   if (directive.lookupValue("factors", buffer))
   {
+    buffer = buffer.substr(0, buffer.find("#"));
+
     std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)(,([0-9]+))?", std::regex::extended);
     std::smatch sm;
     std::string str = std::string(buffer);

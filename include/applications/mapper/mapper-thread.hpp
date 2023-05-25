@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -35,8 +35,6 @@
 #include "model/sparse-optimization-info.hpp"
 #include "search/search.hpp"
 
-extern bool gTerminate;
-
 struct EvaluationResult
 {
   bool valid = false;
@@ -44,6 +42,7 @@ struct EvaluationResult
   model::Topology::Stats stats;
 
   bool UpdateIfBetter(const EvaluationResult& other, const std::vector<std::string>& metrics);
+  bool UpdateIfEqual(const EvaluationResult& other, const std::vector<std::string>& metrics);
 };
 
 //--------------------------------------------//
@@ -75,6 +74,7 @@ class MapperThread
   struct Stats
   {
     EvaluationResult thread_best;
+    EvaluationResult index_factor_best;
     std::map<FailClass, std::map<unsigned, FailInfo>> fail_stats;
 
     std::default_random_engine generator;
@@ -95,9 +95,14 @@ class MapperThread
   std::uint32_t timeout_;
   std::uint32_t victory_condition_;
   uint128_t sync_interval_;
+  uint128_t log_interval_;
+  bool log_oaves_;
+  bool log_oaves_mappings_;
   bool log_stats_;
   bool log_suboptimal_;
   std::ostream& log_stream_;
+  std::ostream& oaves_csv_file_;
+  std::string oaves_prefix_;
   bool live_status_;
   bool diagnostics_on_;
   bool penalize_consecutive_bypass_fails_;
@@ -106,11 +111,11 @@ class MapperThread
   problem::Workload &workload_;
   sparse::SparseOptimizationInfo* sparse_optimizations_;
   EvaluationResult* best_;
-    
+
   // Thread-local data (stats etc.).
   std::thread thread_;
   Stats stats_;
-  
+
  public:
   MapperThread(
     unsigned thread_id,
@@ -121,9 +126,14 @@ class MapperThread
     std::uint32_t timeout,
     std::uint32_t victory_condition,
     uint128_t sync_interval,
+    uint128_t log_interval,
+    bool log_oaves,
+    bool log_oaves_mappings,
     bool log_stats,
     bool log_suboptimal,
     std::ostream& log_stream,
+    std::ostream& oaves_csv_file,
+    std::string oaves_prefix,
     bool live_status,
     bool diagnostics_on,
     bool penalize_consecutive_bypass_fails,
@@ -141,5 +151,5 @@ class MapperThread
   const Stats& GetStats() const;
 
   void Run();
-      
+
 };

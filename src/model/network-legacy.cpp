@@ -125,6 +125,27 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
       specs.energy_per_hop = energy_per_hop;
   }
 
+  // Network fill and drain latency
+  unsigned long long fill_latency;
+  if (network.lookupValue("fill_latency", fill_latency))
+  {
+    specs.fill_latency = fill_latency;
+  }
+  else
+  {
+    specs.fill_latency = 0;
+  }
+
+  unsigned long long drain_latency;
+  if (network.lookupValue("drain_latency", drain_latency))
+  {
+    specs.drain_latency = drain_latency;
+  }
+  else
+  {
+    specs.drain_latency = 0;
+  }
+
   return specs;
 }
 
@@ -184,7 +205,6 @@ void LegacyNetwork::SetTileWidth(double width_um)
 EvalStatus LegacyNetwork::Evaluate(const tiling::CompoundTile& tile,
                                  const bool break_on_failure)
 {
-
   auto eval_status = ComputeAccesses(tile.data_movement_info, break_on_failure);
   if (!break_on_failure || eval_status.success)
   {
@@ -474,6 +494,28 @@ std::uint64_t LegacyNetwork::WordBits() const
   return specs_.word_bits.Get();
 }
 
+std::uint64_t LegacyNetwork::FillLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+std::uint64_t LegacyNetwork::DrainLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+};
+
+void LegacyNetwork::SetFillLatency(std::uint64_t fill_latency)
+{
+  stats_.fill_latency = fill_latency;
+}
+
+void LegacyNetwork::SetDrainLatency(std::uint64_t drain_latency)
+{
+  stats_.drain_latency = drain_latency;
+}
+
 //
 // Printers.
 //
@@ -494,6 +536,9 @@ void LegacyNetwork::Print(std::ostream& out) const
   out << indent << indent << "Word bits       : " << specs_.word_bits << std::endl;
   out << indent << indent << "Router energy   : " << specs_.router_energy << " pJ" << std::endl;
   out << indent << indent << "Wire energy     : " << specs_.wire_energy << " pJ/b/mm" << std::endl;
+  out << indent << indent << "Fill latency     : " << stats_.fill_latency << std::endl;
+  out << indent << indent << "Drain latency     : " << stats_.drain_latency << std::endl;
+
 
   out << std::endl;
 

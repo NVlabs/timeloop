@@ -44,7 +44,7 @@
 
 #include "loop-analysis/nest-analysis.hpp"
 
-extern bool gTerminateEval;
+bool gTerminateEval = false;
 
 bool gEnableLinkTransfers =
   (getenv("TIMELOOP_DISABLE_LINK_TRANSFERS") == NULL) ||
@@ -64,6 +64,9 @@ bool gDisableFirstElementOnlySpatialExtrapolation =
 bool gEnableTracing =
   (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
+bool gRunLastIteration =
+  (getenv("TIMELOOP_RUN_LAST_ITERATION") != NULL) &&
+  (strcmp(getenv("TIMELOOP_RUN_LAST_ITERATION"), "0") != 0);
 
 // Flattening => Multi-AAHRs
 // => Can't use per-AAHR reset-on-stride-change logic
@@ -785,8 +788,9 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool run_last_iteration = imperfectly_factorized_ || problem::GetShape()->UsesFlattening;
-      
+    bool run_last_iteration = imperfectly_factorized_ || problem::GetShape()->UsesFlattening || gRunLastIteration;
+    bool run_second_last_iteration = imperfectly_factorized_ && run_last_iteration;
+
     if (gExtrapolateUniformTemporal && !disable_temporal_extrapolation_.at(level))
     {
       // What we would like to do is to *NOT* iterate through the entire loop
@@ -828,13 +832,18 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       }
 
       // Iterations #1 through #last-1/last.
-      if ((run_last_iteration && num_iterations >= 3) ||
+      if ((run_second_last_iteration && num_iterations >= 4) ||
+          (run_last_iteration && !run_second_last_iteration && num_iterations >= 3) ||
           (!run_last_iteration && num_iterations >= 2))
       {
         // Invoke next (inner) loop level, scaling up the number of epochs
         // by the number of virtual iterations we want to simulate.
         std::uint64_t virtual_iterations =
           run_last_iteration ? num_iterations - 2 : num_iterations - 1;
+
+        // Run one fewer iteration for imperfect factor support
+        if (run_second_last_iteration)
+            virtual_iterations = virtual_iterations - 1;
 
         auto saved_epochs = num_epochs_;
         num_epochs_ *= virtual_iterations;
@@ -857,6 +866,31 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
           time_stamp_.back() += virtual_iterations;
       }
 
+      // Iteration # second last to find delta for imperfect factors
+      if (run_second_last_iteration && num_iterations >= 3)
+      {
+        // Invoke next (inner) loop level.
+        ++cur;
+        auto temporal_delta = ComputeDeltas(cur);
+        --cur;
+
+        if (num_iterations >= 4)
+        {
+          temporal_delta_scale.back()++;
+        } else {
+          temporal_delta_sizes.push_back(temporal_delta.GetSizes());
+          temporal_delta_scale.push_back(1);
+        }
+
+        cur_transform_[dim] += scale;
+
+        indices_[level] += cur->descriptor.stride;
+        loop_gists_temporal_.at(dim).index = indices_[level];
+
+        if (storage_boundary_level_[level-1] || master_spatial_level_[level-1])
+          (time_stamp_.back())++;
+      }
+
       // Iteration #last.
       if (run_last_iteration && num_iterations >= 2)
       {
@@ -869,7 +903,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         // use this returned delta, because we will receive the delta between
         // iteration #2 and #last. Instead, we just re-use the last delta by
         // increasing the #virtual iterations (scale) by 1.
-        if (num_iterations >= 3)
+        if (!run_second_last_iteration && num_iterations >= 3)
         {
           temporal_delta_scale.back()++;
         }

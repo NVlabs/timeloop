@@ -117,6 +117,27 @@ SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::Compoun
     specs.per_datatype_ERT = false;
   }
 
+  // Network fill and drain latency
+  unsigned long long fill_latency;
+  if (network.lookupValue("fill_latency", fill_latency))
+  {
+    specs.fill_latency = fill_latency;
+  }
+  else
+  {
+    specs.fill_latency = 0;
+  }
+
+  unsigned long long drain_latency;
+  if (network.lookupValue("drain_latency", drain_latency))
+  {
+    specs.drain_latency = drain_latency;
+  }
+  else
+  {
+    specs.drain_latency = 0;
+  }
+
   return specs;
 }
 
@@ -312,6 +333,28 @@ void SimpleMulticastNetwork::Print(std::ostream& out) const
 std::uint64_t SimpleMulticastNetwork::WordBits() const
 {
   return 0;
+}
+
+std::uint64_t SimpleMulticastNetwork::FillLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+std::uint64_t SimpleMulticastNetwork::DrainLatency() const
+{
+  assert(is_specced_);
+  return specs_.fill_latency.Get();
+}
+
+void SimpleMulticastNetwork::SetFillLatency(std::uint64_t fill_latency)
+{
+  stats_.fill_latency = fill_latency;
+}
+
+void SimpleMulticastNetwork::SetDrainLatency(std::uint64_t drain_latency)
+{
+  stats_.drain_latency = drain_latency;
 }
 
 STAT_ACCESSOR(double, SimpleMulticastNetwork, Energy, stats_.energy.at(pv) * stats_.utilized_instances.at(pv))

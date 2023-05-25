@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
 algorithmic contributors may be used tactual or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -30,6 +30,7 @@ algorithmic contributors may be used tactual or promote products derived
 #include <iostream>
 #include <memory>
 #include <algorithm>
+#include <fstream>
 
 #include "loop-analysis/tiling.hpp"
 #include "loop-analysis/tiling-tile-info.hpp"
@@ -198,8 +199,29 @@ class Topology : public Module
     std::uint64_t actual_computes;
     std::uint64_t last_level_accesses;
     std::vector<std::uint64_t> accesses;
+    // FIXME: the following stat should be typed
+    // std::vector<problem::PerDataSpace<std::uint64_t>>. However, we do
+    // not yet have a PyBind11 wrapper around PerDataSpace<> in PyTimeloop,
+    // which is why we are temporarily using a vector-of-vectors.
+    std::vector<std::vector<std::uint64_t>> per_tensor_accesses;
+
+    void Reset()
+    {
+      energy = 0;
+      area = 0;
+      cycles = 0;
+      utilization = 0;
+      tile_sizes.clear();
+      utilized_capacities.clear();
+      utilized_instances.clear();
+      algorithmic_computes = 0;
+      actual_computes = 0;
+      last_level_accesses = 0;
+      accesses.clear();
+      per_tensor_accesses.clear();
+    }
   };
-    
+
  private:
   std::vector<std::shared_ptr<Level>> levels_;
   std::map<std::string, std::shared_ptr<Network>> networks_;
@@ -221,12 +243,12 @@ class Topology : public Module
     std::shared_ptr<Network> drain_update_network;
   };
   std::map<unsigned, Connection> connection_map_;
-
+  uint64_t total_network_latency_;
   std::map<unsigned, double> tile_area_;
 
   Specs specs_;
   Stats stats_;
-  
+
   // Serialization
   friend class boost::serialization::access;
   template <class Archive>
@@ -243,6 +265,7 @@ class Topology : public Module
   std::shared_ptr<Level> GetLevel(unsigned level_id) const;
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
+
   void FloorPlan();
   void ComputeStats(bool eval_success);
 
@@ -293,7 +316,7 @@ class Topology : public Module
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs, bool is_sparse_topology);
   static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot, bool is_sparse_topology);
-  
+
   void Spec(const Specs& specs);
   void Reset();
   unsigned NumLevels() const;
@@ -318,6 +341,8 @@ class Topology : public Module
   std::uint64_t AlgorithmicComputes() const { return stats_.algorithmic_computes; }
   std::uint64_t ActualComputes() const { return stats_.actual_computes; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
+  void PrintOAVES(std::ostream& out, Mapping& mapping, bool log_oaves_mappings, std::string oaves_prefix, unsigned thread_id) const;
+  void OutputOAVESMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const;
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };

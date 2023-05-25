@@ -40,7 +40,8 @@ LinearPrunedSearch::LinearPrunedSearch(config::CompoundConfigNode config, mapspa
     best_cost_(0)
 {
   (void) config;
-    
+  (void) id_;
+        
   for (unsigned i = 0; i < unsigned(mapspace::Dimension::Num); i++)
   {
     iterator_[i] = 0;

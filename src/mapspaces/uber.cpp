@@ -202,20 +202,22 @@ void Uber::InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shap
   {
     // Extract the user-provided pattern for this level.
     std::vector<problem::Shape::FlattenedDimensionID> user_prefix;
+    std::vector<problem::Shape::FlattenedDimensionID> user_suffix;
     auto it = user_permutations.find(level);
     if (it != user_permutations.end())
     {
-      user_prefix = it->second;
+      user_prefix = it->second.first;
+      user_suffix = it->second.second;
     }
 
     bool use_canonical_permutation = false;
     if (arch_props_.IsSpatial(level))
     {
-      use_canonical_permutation = user_prefix.empty() && !arch_props_.IsSpatial2D(level);
+      use_canonical_permutation = user_prefix.empty() && user_suffix.empty() && !arch_props_.IsSpatial2D(level);
     }
     else
     {
-      use_canonical_permutation = (level == 0); // || level == arch_props_.TilingLevels()-1); // FIXME: last level?
+      use_canonical_permutation = (level == 0);
     }
       
     if (use_canonical_permutation)
@@ -231,9 +233,9 @@ void Uber::InitLoopPermutationSpace(std::map<unsigned, std::vector<problem::Shap
       // permutation space object itself.
       auto it = pruned_dimensions.find(level);
       if (it != pruned_dimensions.end())
-        permutation_space_.InitLevel(level, user_prefix, it->second);
+        permutation_space_.InitLevel(level, user_prefix, user_suffix, it->second);
       else
-        permutation_space_.InitLevel(level, user_prefix);
+        permutation_space_.InitLevel(level, user_prefix, user_suffix);
     }
   }    
 
@@ -558,7 +560,6 @@ std::vector<Status> Uber::ConstructMapping(
   }
 
   // Concatenate the subnests to form the final mapping nest.    
-  std::uint64_t storage_level = 0;
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
@@ -584,7 +585,6 @@ std::vector<Status> Uber::ConstructMapping(
       }
       mapping->loop_nest.AddStorageTilingBoundary();
       mapping->complete_loop_nest.AddStorageTilingBoundary();
-      storage_level++;
     }
   }
 
@@ -690,7 +690,6 @@ std::vector<Status> Uber::AssignSpatialTilingDirections(uint128_t mapping_spatia
 
   std::vector<Status> status(arch_props_.Specs().topology.NumLevels(),
                              { .success = true, .fail_reason = "" });
-  bool success = true;
 
   auto spatial_splits = spatial_split_space_.GetSplits(mapping_spatial_id);
   //auto datatype_bypass_masks = tiling::TransposeMasks(datatype_bypass_nest);
@@ -723,7 +722,7 @@ std::vector<Status> Uber::AssignSpatialTilingDirections(uint128_t mapping_spatia
     else
       status.at(topology_level).fail_reason += ", " + s.fail_reason;
 
-    success &= s.success;
+    // success &= s.success;
 
     if (break_on_failure && !s.success)
       break;
@@ -745,7 +744,7 @@ std::vector<Status> Uber::AssignSpatialTilingDirections(uint128_t mapping_spatia
     else
       status.at(topology_level).fail_reason += ", " + fail_reason.str();
   }
-      
+
   return status;
 }
 

@@ -100,7 +100,8 @@ class PermutationSpace
   struct Pattern
   {
     std::vector<problem::Shape::FlattenedDimensionID> baked_prefix;
-    std::vector<problem::Shape::FlattenedDimensionID> permutable_suffix;
+    std::vector<problem::Shape::FlattenedDimensionID> permutable_infix;
+    std::vector<problem::Shape::FlattenedDimensionID> baked_suffix;
   };
   std::map<unsigned, Pattern> patterns_;
   std::vector<problem::Shape::FlattenedDimensionID> canonical_pattern_;
@@ -112,7 +113,9 @@ class PermutationSpace
 
   void Init(uint64_t num_levels);
   void InitLevelCanonical(uint64_t level);
-  void InitLevel(uint64_t level, std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
+  void InitLevel(uint64_t level,
+                 std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
+                 std::vector<problem::Shape::FlattenedDimensionID> user_suffix,
                  std::vector<problem::Shape::FlattenedDimensionID> pruned_dimensions = {});
 
   std::vector<std::vector<problem::Shape::FlattenedDimensionID>> GetPatterns(uint128_t id);
@@ -137,10 +140,6 @@ class SpatialSplitSpace
   std::map<unsigned, std::size_t> size_;
   std::map<unsigned, unsigned> unit_factors_;
 
-  uint64_t n_;
-  bool is_fixed_;
-  uint64_t fixed_;
-  
  public:
   SpatialSplitSpace();
 

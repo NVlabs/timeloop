@@ -89,7 +89,8 @@ const std::map<unsigned, std::uint32_t>&
   return max_remainders_;
 }
 
-const std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>>&
+const std::map<unsigned, std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
+                                   std::vector<problem::Shape::FlattenedDimensionID>>>&
   Constraints::Permutations() const
 {
   return permutations_;
@@ -221,7 +222,8 @@ void Constraints::Generate(Mapping* mapping)
 
       auto tiling_level = arch_props_.SpatialToTiling(storage_level);
       factors_[tiling_level] = spatial_factors;
-      permutations_[tiling_level] = spatial_permutation;
+      permutations_[tiling_level] = std::make_pair(spatial_permutation,
+                                                   std::vector<problem::Shape::FlattenedDimensionID>());
       spatial_splits_[tiling_level] = spatial_split;
     }
 
@@ -238,7 +240,8 @@ void Constraints::Generate(Mapping* mapping)
     
     auto tiling_level = arch_props_.TemporalToTiling(storage_level);
     factors_[tiling_level] = temporal_factors;
-    permutations_[tiling_level] = temporal_permutation;
+    permutations_[tiling_level] = std::make_pair(temporal_permutation,
+                                                 std::vector<problem::Shape::FlattenedDimensionID>());
   }
 }
   
@@ -410,7 +413,7 @@ bool Constraints::SatisfiedBy(Mapping* mapping) const
   {
     // This is tricky. We need to ignore unit-factors in other.
     unsigned level = level_entry.first;
-    auto& permutation = level_entry.second;
+    auto& permutation = level_entry.second.first; // **** FIXME **** need suffix check.
 
     auto other_factors_level_it = other.factors_.find(level);
     assert(other_factors_level_it != other.factors_.end());
@@ -418,7 +421,7 @@ bool Constraints::SatisfiedBy(Mapping* mapping) const
 
     auto other_permutation_level_it = other.permutations_.find(level);
     assert(other_permutation_level_it != other.permutations_.end());
-    auto& other_permutation = other_permutation_level_it->second;
+    auto& other_permutation = other_permutation_level_it->second.first; // Generate() only uses prefix.
       
     unsigned idx = 0, other_idx = 0;
     while (idx < permutation.size() && other_idx < other_permutation.size())
@@ -600,6 +603,9 @@ void Constraints::ParseSingleConstraint(
         exit(1);
       }
       factors_[level_id][factor.first] = factor.second;
+      // std::cout << "Parsing factor level = " << arch_props_.TilingLevelName(level_id)
+      //           << " dim = " << problem::GetShape()->FlattenedDimensionIDToName.at(factor.first)
+      //           << " factor = " << factor.second << std::endl;
     }
 
     auto level_max_factors = ParseMaxFactors(attributes);
@@ -618,9 +624,9 @@ void Constraints::ParseSingleConstraint(
     }
 
     auto level_permutations = ParsePermutations(attributes);
-    if (level_permutations.size() > 0)
+    if (level_permutations.first.size() > 0 || level_permutations.second.size() > 0)
     {
-      if (permutations_[level_id].size() > 0)
+      if (permutations_[level_id].first.size() > 0 || permutations_[level_id].second.size() > 0)
       {
         std::cerr << "ERROR: re-specification of permutation at level "
                   << arch_props_.TilingLevelName(level_id)
@@ -811,6 +817,11 @@ unsigned Constraints::FindTargetTilingLevel(config::CompoundConfigNode constrain
     if (storage_level_id == num_storage_levels)
     {
       std::cerr << "ERROR: target storage level not found: " << storage_level_name << std::endl;
+      std::cerr << "  Available storage levels:" << std::endl;
+      for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++)
+      {
+        std::cerr << "  " << storage_level_id << " : " << arch_props_.StorageLevelName(storage_level_id) << std::endl;
+      }
       exit(1);
     }
   }
@@ -891,12 +902,16 @@ Constraints::ParseFactors(config::CompoundConfigNode constraint)
   std::string buffer;
   if (constraint.lookupValue("factors", buffer))
   {
+    buffer = buffer.substr(0, buffer.find("#"));
+
     std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)", std::regex::extended);
     std::smatch sm;
     std::string str = std::string(buffer);
 
     while (std::regex_search(str, sm, re))
     {
+      bool fail = false;
+
       std::string dimension_name = sm[1];
       problem::Shape::FlattenedDimensionID dimension;
       try
@@ -918,19 +933,27 @@ Constraints::ParseFactors(config::CompoundConfigNode constraint)
       }
       else if (end > workload_.GetFlattenedBound(dimension))
       {
+        // std::cerr << "WARNING: Constraint " << dimension_name << "=" << end
+        //           << " exceeds problem dimension " << dimension_name << "="
+        //           << workload_.GetFlattenedBound(dimension) << ". Setting constraint "
+        //           << dimension << "=" << workload_.GetFlattenedBound(dimension) << std::endl;
+        // end = workload_.GetFlattenedBound(dimension);
         std::cerr << "WARNING: Constraint " << dimension_name << "=" << end
                   << " exceeds problem dimension " << dimension_name << "="
-                  << workload_.GetFlattenedBound(dimension) << ". Setting constraint "
-                  << dimension << "=" << workload_.GetFlattenedBound(dimension) << std::endl;
-        end = workload_.GetFlattenedBound(dimension);
+                  << workload_.GetFlattenedBound(dimension) << ", ignoring."
+                  << std::endl;
+        fail = true;
       }
       else
       {
         assert(end > 0);
       }
 
-      // Found all the information we need to setup a factor!
-      retval[dimension] = end;
+      if (!fail)
+      {
+        // Found all the information we need to setup a factor!
+        retval[dimension] = end;
+      }
 
       str = sm.suffix().str();
     }
@@ -950,6 +973,8 @@ Constraints::ParseMaxFactors(config::CompoundConfigNode constraint)
   std::string buffer;
   if (constraint.lookupValue("factors", buffer))
   {
+    buffer = buffer.substr(0, buffer.find("#"));
+
     std::regex re("([A-Za-z]+)[[:space:]]*<=[[:space:]]*([0-9]+)", std::regex::extended);
     std::smatch sm;
     std::string str = std::string(buffer);
@@ -999,18 +1024,30 @@ Constraints::ParseMaxFactors(config::CompoundConfigNode constraint)
 //
 // Parse user permutations.
 //
-std::vector<problem::Shape::FlattenedDimensionID>
+std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
+          std::vector<problem::Shape::FlattenedDimensionID>>
 Constraints::ParsePermutations(config::CompoundConfigNode constraint)
 {
-  std::vector<problem::Shape::FlattenedDimensionID> retval;
+  std::vector<problem::Shape::FlattenedDimensionID> prefix;
+  std::vector<problem::Shape::FlattenedDimensionID> suffix;
     
   std::string buffer;
   if (constraint.lookupValue("permutation", buffer))
   {
+    buffer = buffer.substr(0, buffer.find("#"));
+
     std::istringstream iss(buffer);
     char token;
+    bool separator_seen = false;
+    char separator = '_';
     while (iss >> token)
     {
+      if (token == separator)
+      {
+        separator_seen = true;
+        continue;
+      }
+
       problem::Shape::FlattenedDimensionID dimension;
       try
       {
@@ -1022,11 +1059,15 @@ Constraints::ParsePermutations(config::CompoundConfigNode constraint)
                   << " not found in problem shape." << std::endl;
         exit(1);
       }
-      retval.push_back(dimension);
+
+      if (separator_seen)
+        suffix.push_back(dimension);
+      else
+        prefix.push_back(dimension);
     }
   }
 
-  return retval;
+  return std::make_pair<>(prefix, suffix);
 }
 
 //

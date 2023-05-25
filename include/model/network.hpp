@@ -56,7 +56,6 @@ struct NetworkSpecs
   virtual const std::string Type() const = 0;
   virtual bool SupportAccelergyTables() const = 0;
   virtual void ProcessERT(const config::CompoundConfigNode& ERT) = 0;
-  
   std::string name = "UNSET";
   ConnectionType cType = Unused;
 
@@ -108,6 +107,14 @@ class Network : public Module
 
   // Ugly abstraction-breaking probes that should be removed.
   virtual std::uint64_t WordBits() const = 0;
+
+  // Get fill drain latency spec
+  virtual std::uint64_t FillLatency() const = 0;
+  virtual std::uint64_t DrainLatency() const = 0;
+
+  // Update fill drain latency stats
+  virtual void SetFillLatency(std::uint64_t) = 0;
+  virtual void SetDrainLatency(std::uint64_t) = 0;
 
   // Serialization
   friend class boost::serialization::access;

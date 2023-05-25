@@ -35,6 +35,8 @@
 
 #include "loop-analysis/point.hpp"
 
+#define ASSERT(args...) assert(args)
+
 class ISLPointSet
 {
  protected:

@@ -64,6 +64,11 @@ BufferLevel::~BufferLevel()
 
 void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double>& ert_entries, double max_energy)
 {
+  // don't override user-specific vector access energy
+  if (access_energy_source == "user")
+  {
+    return;
+  }
   
   vector_access_energy = max_energy/cluster_size.Get();
   ERT_entries = ert_entries;
@@ -85,6 +90,8 @@ void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double
       }
     }
   }
+
+  access_energy_source = "ERT";
 }
 
 
@@ -118,6 +125,27 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   {
     buffer.lookupValue("class", className);
     buffer = buffer.lookup("attributes");
+  }
+
+  // Fill and drain latency of the MACs 
+  unsigned long long network_fill_latency;
+  if (buffer.lookupValue("network_fill_latency", network_fill_latency))
+  {
+    specs.network_fill_latency = network_fill_latency;
+  }
+  else
+  {
+    specs.network_fill_latency = 0;
+  }
+
+  unsigned long long network_drain_latency;
+  if (buffer.lookupValue("network_drain_latency", network_drain_latency))
+  {
+    specs.network_drain_latency = network_drain_latency;
+  }
+  else
+  {
+    specs.network_drain_latency = 0;
   }
 
   // Word Bits.
@@ -300,7 +328,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   }
   else if (buffer.lookupValue("sizeKB", size))
   {
-    specs.size = size * 1024 * 8 / specs.word_bits.Get();
+    specs.size = std::uint64_t(size) * 1024 * 8 / specs.word_bits.Get();
   }
 
   std::uint32_t metadata_storage_size = 0;
@@ -525,18 +553,40 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   }
 
   // Allow user to override the access energy.
-  buffer.lookupValue("vector-access-energy", tmp_access_energy);
+  // Also store that the vector access energy is from the user rather than the PAT;
+  // this will be referenced in UpdateOpEnergyViaERT() above.
+  bool user_specified_access_energy = buffer.lookupValue("vector-access-energy", tmp_access_energy);
+  if (user_specified_access_energy)
+  {
+    specs.access_energy_source = "user";
+  } else 
+  {
+    specs.access_energy_source = "PAT";
+  }
 
   // Allow user to override the addr gen energy.
   double tmp_addr_gen_energy = -0.1;
-  buffer.lookupValue("addr-gen-energy", tmp_addr_gen_energy);
+  bool user_specified_addr_gen_energy = buffer.lookupValue("addr-gen-energy", tmp_addr_gen_energy);
   specs.addr_gen_energy = tmp_addr_gen_energy;
+  if (user_specified_addr_gen_energy)
+  {
+    specs.addr_gen_energy_source = "user";
+  } else 
+  {
+    specs.addr_gen_energy_source = "default";
+  }
 
   // Allow user to override the cluster area.
   double tmp_cluster_area = 0;
   buffer.lookupValue("cluster-area", tmp_cluster_area);
   if (tmp_cluster_area > 0)
+  {
     tmp_storage_area = tmp_cluster_area / specs.cluster_size.Get();
+    specs.storage_area_source = "user";
+  } else
+  {
+    specs.storage_area_source = "PAT";
+  }
 
   // Set final physical dimensions and energy.
   specs.vector_access_energy = tmp_access_energy;
@@ -857,7 +907,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
   // used for better distribution storage capacity to different dataspaces stored at this level
   double all_dataspace_data_tile_size = 0;
   // double all_dataspace_total_metadata_tile_size = 0;
-  double all_dataspace_metadata_tile_size_bits = 0;
+  // double all_dataspace_metadata_tile_size_bits = 0; // Not used, removing for code hygiene.
   problem::PerDataSpace<double> expected_data_tile_sizes;
   // problem::PerDataSpace<double> expected_metadata_tile_sizes;
   problem::PerDataSpace<double> expected_metadata_tile_sizes_bits;
@@ -895,7 +945,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
     }
     all_dataspace_data_tile_size += expected_data_tile_sizes[pvi];
     // all_dataspace_total_metadata_tile_size += expected_metadata_tile_sizes[pvi];
-    all_dataspace_metadata_tile_size_bits += expected_metadata_tile_sizes_bits[pvi];
+    // all_dataspace_metadata_tile_size_bits += expected_metadata_tile_sizes_bits[pvi]; // Not used, removing for code hygiene.
   }
 
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
@@ -1219,9 +1269,11 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   }
 
   assert (specs_.block_size.IsSpecified());
-    
+
   assert (specs_.cluster_size.IsSpecified());
-   
+
+  assert ((specs_.instances.Get() % specs_.cluster_size.Get()) == 0);
+
   // Compute address-generation bits.
   if (specs_.size.IsSpecified())
   {
@@ -1460,6 +1512,15 @@ void BufferLevel::ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, 
 }
 
 
+double BufferLevel::OperationalIntensity(std::uint64_t total_ops) {
+  if (Accesses() > 0) {
+    return double(total_ops) / double((Accesses() * specs_.word_bits.Get() / 8));
+  } else {
+    return -1;
+  }
+}
+
+
 void BufferLevel::FinalizeBufferEnergy() {
 
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) {
@@ -1667,6 +1728,7 @@ STAT_ACCESSOR(std::uint64_t, BufferLevel, Accesses, stats_.utilized_instances.at
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedCapacity, stats_.utilized_capacity.at(pv))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, TileSize, stats_.tile_size.at(pv))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedInstances, stats_.utilized_instances.at(pv))
+STAT_ACCESSOR(std::uint64_t, BufferLevel, TotalUtilizedBytes, stats_.utilized_capacity.at(pv) * stats_.utilized_instances.at(pv) * specs_.word_bits.Get() / 8)
 
 std::string BufferLevel::Name() const
 {
@@ -1792,21 +1854,22 @@ void BufferLevel::Print(std::ostream& out) const
   }
   else
   {
-    out << indent << indent << "Technology           : " << specs.technology << std::endl;
-    out << indent << indent << "Size                 : " << specs.size << std::endl;
-    out << indent << indent << "Word bits            : " << specs.word_bits << std::endl;
-    out << indent << indent << "Block size           : " << specs.block_size << std::endl;
-    out << indent << indent << "Cluster size         : " << specs.cluster_size << std::endl;
-    out << indent << indent << "Instances            : " << specs.instances << " ("
+    out << indent << indent << "Technology                  : " << specs.technology << std::endl;
+    out << indent << indent << "Size                        : " << specs.size << std::endl;
+    out << indent << indent << "Word bits                   : " << specs.word_bits << std::endl;
+    out << indent << indent << "Block size                  : " << specs.block_size << std::endl;
+    out << indent << indent << "Cluster size                : " << specs.cluster_size << std::endl;
+    out << indent << indent << "Instances                   : " << specs.instances << " ("
         << specs.meshX << "*" << specs.meshY << ")" << std::endl;
-    out << indent << indent << "Shared bandwidth     : " << specs.shared_bandwidth << std::endl;
-    out << indent << indent << "Read bandwidth       : " << specs.read_bandwidth << std::endl;
-    out << indent << indent << "Write bandwidth      : " << specs.write_bandwidth << std::endl;
-    out << indent << indent << "Multiple buffering   : " << specs.multiple_buffering << std::endl;
-    out << indent << indent << "Effective size       : " << specs.effective_size << std::endl;
-    out << indent << indent << "Min utilization      : " << specs.min_utilization << std::endl;
-    out << indent << indent << "Vector access energy : " << specs.vector_access_energy << " pJ" << std::endl;
-    out << indent << indent << "Area                 : " << specs.storage_area << " um^2" << std::endl;
+    out << indent << indent << "Shared bandwidth            : " << specs.shared_bandwidth << std::endl;
+    out << indent << indent << "Read bandwidth              : " << specs.read_bandwidth << std::endl;
+    out << indent << indent << "Write bandwidth             : " << specs.write_bandwidth << std::endl;
+    out << indent << indent << "Multiple buffering          : " << specs.multiple_buffering << std::endl;
+    out << indent << indent << "Effective size              : " << specs.effective_size << std::endl;
+    out << indent << indent << "Min utilization             : " << specs.min_utilization << std::endl;
+    out << indent << indent << "Vector access energy        : " << specs.vector_access_energy << " pJ" << std::endl;
+    out << indent << indent << "Vector access energy source : " << specs.access_energy_source << std::endl;
+    out << indent << indent << "Area                        : " << specs.storage_area << " um^2" << std::endl;
 
     out << std::endl;
   }

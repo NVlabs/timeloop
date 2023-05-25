@@ -38,14 +38,14 @@ Engine::Specs Engine::ParseSpecs(config::CompoundConfigNode setting, bool is_spa
   Specs specs;
   std::string version;
 
-  if (!setting.exists("version") || (setting.lookupValue("version", version) && (version != "0.2" && version != "0.3"))) {
+  if (!setting.exists("version") || (setting.lookupValue("version", version) && (version != "0.2" && version != "0.3" && version != "0.4"))) {
     // format used in the ISPASS paper
     // std::cout << "ParseSpecs" << std::endl;
     auto arithmetic = setting.lookup("arithmetic");
     auto topology = setting.lookup("storage");
     specs.topology = Topology::ParseSpecs(topology, arithmetic, is_sparse_topology);
   } else {
-    // format used in Accelergy v0.2/v0.3
+    // format used in Accelergy v0.2/v0.3/v0.4
     // std::cout << "ParseTreeSpecs" << std::endl;
     specs.topology = Topology::ParseTreeSpecs(setting, is_sparse_topology);
   }

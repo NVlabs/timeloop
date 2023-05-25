@@ -11,6 +11,7 @@ timeloop-mapper.map+stats.xml
 timeloop-mapper.map.txt
 timeloop-mapper.map.cfg
 timeloop-mapper.map.cpp
+timeloop-mapper.map.yaml
 timeloop-model.log
 timeloop-model.stats.txt
 timeloop-model.map+stats.xml
@@ -38,3 +39,5 @@ GPATH
 GRTAGS
 GSYMS
 GTAGS
+# MacOS-specific files.
+.DS_Store

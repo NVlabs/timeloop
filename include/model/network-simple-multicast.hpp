@@ -53,6 +53,10 @@ class SimpleMulticastNetwork : public Network
     std::string type;
     Attribute<std::uint64_t> word_bits;
 
+    // Network fill and drain latency
+    Attribute<std::uint64_t> fill_latency;
+    Attribute<std::uint64_t> drain_latency;
+
     // Post-floorplanning physical attributes.
     Attribute<double> tile_width; // um
 
@@ -81,6 +85,8 @@ class SimpleMulticastNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(action_name);
         ar& BOOST_SERIALIZATION_NVP(multicast_factor_argument);
         ar& BOOST_SERIALIZATION_NVP(per_datatype_ERT);
+        ar& BOOST_SERIALIZATION_NVP(fill_latency);
+        ar& BOOST_SERIALIZATION_NVP(drain_latency);
       }
     }
 
@@ -99,6 +105,11 @@ class SimpleMulticastNetwork : public Network
     problem::PerDataSpace<AccessStatMatrix> ingresses;
     problem::PerDataSpace<std::uint64_t> fanout;
     problem::PerDataSpace<std::uint64_t> multicast_factor;
+
+    // Network fill and drain latency, can be set by the spec or inferred from outer buffer
+    // network_fill_latency and network_drain_latency
+    std::uint64_t fill_latency;
+    std::uint64_t drain_latency;
 
     // Serialization
     friend class boost::serialization::access;
@@ -152,6 +163,8 @@ class SimpleMulticastNetwork : public Network
   SimpleMulticastNetwork(const Specs& specs);
   ~SimpleMulticastNetwork();
 
+  Specs& GetSpecs() { return specs_; }
+
   std::shared_ptr<Network> Clone() const override
   {
     return std::static_pointer_cast<Network>(std::make_shared<SimpleMulticastNetwork>(*this));
@@ -159,17 +172,17 @@ class SimpleMulticastNetwork : public Network
   
   static Specs ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module);
 
-  void ConnectSource(std::weak_ptr<Level> source);
-  void ConnectSink(std::weak_ptr<Level> sink);
-  void SetName(std::string name);
-  std::string Name() const;
-  void AddConnectionType(ConnectionType ct);
-  void ResetConnectionType();
+  void ConnectSource(std::weak_ptr<Level> source) override;
+  void ConnectSink(std::weak_ptr<Level> sink) override;
+  void SetName(std::string name) override;
+  std::string Name() const override;
+  void AddConnectionType(ConnectionType ct) override;
+  void ResetConnectionType() override;
 
-  bool DistributedMulticastSupported() const;
+  bool DistributedMulticastSupported() const override;
 
   // Floorplanner interface.
-  void SetTileWidth(double width_um);
+  void SetTileWidth(double width_um) override;
 
   // Parse ERT to get multi-casting energy
   double GetOpEnergyFromERT(std::uint64_t multicast_factor, std::string operation_name);
@@ -177,14 +190,18 @@ class SimpleMulticastNetwork : public Network
   double GetMulticastEnergyByDataType(std::uint64_t multicast_factor, std::string data_space_name);
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
-                              const bool break_on_failure);
+                      const bool break_on_failure) override;
 
-  void Print(std::ostream& out) const;
+  void Print(std::ostream& out) const override;
 
   // Ugly abstraction-breaking probes that should be removed.
-  std::uint64_t WordBits() const;
+  std::uint64_t WordBits() const override;
+  std::uint64_t FillLatency() const override;
+  std::uint64_t DrainLatency() const override;
+  void SetFillLatency(std::uint64_t fill_latency) override;
+  void SetDrainLatency(std::uint64_t drain_latency) override;
 
-  STAT_ACCESSOR_HEADER(double, Energy);
+  STAT_ACCESSOR_HEADER(double, Energy) override;
 
 }; // class SimpleMulticastNetwork
 

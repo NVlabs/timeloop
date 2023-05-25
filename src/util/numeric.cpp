@@ -37,7 +37,7 @@ using namespace boost::multiprecision;
 
 unsigned long Factors::ISqrt_(unsigned long x)
 {
-  register unsigned long op, res, one;
+  unsigned long op, res, one;
 
   op = x;
   res = 0;
@@ -80,6 +80,11 @@ Factors::MultiplicativeSplitRecursive_(unsigned long n, int order)
 {
   if (order == 0)
   {
+    if (n != 1)
+    {
+      std::cerr << "ERROR: Factors: cannot split n=" << n << " into 0 cofactors." << std::endl;
+      assert(false);
+    }
     return {{}};
   }
   else if (order == 1)
