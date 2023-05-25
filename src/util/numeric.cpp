@@ -371,10 +371,10 @@ void ResidualFactors::CalculateAdditionalFactors_()
 
 std::vector<std::vector<unsigned long>> ResidualFactors::CartProduct_ (const std::vector<std::vector<unsigned long>> v) {
   std::vector<std::vector<unsigned long>> s = {{}};
-  for (const auto u : v) {
+  for (const auto& u : v) {
       std::vector<std::vector<unsigned long>> r;
-      for (const auto x : s) {
-          for (const auto y : u) {
+      for (const auto& x : s) {
+          for (const auto& y : u) {
               r.push_back(x);
               r.back().push_back(y);
           }
