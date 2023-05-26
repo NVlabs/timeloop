@@ -803,6 +803,11 @@ unsigned Constraints::FindTargetTilingLevel(config::CompoundConfigNode constrain
     if (storage_level_id == num_storage_levels)
     {
       std::cerr << "ERROR: target storage level not found: " << storage_level_name << std::endl;
+      std::cerr << "  Available storage levels:" << std::endl;
+      for (storage_level_id = 0; storage_level_id < num_storage_levels; storage_level_id++)
+      {
+        std::cerr << "  " << storage_level_id << " : " << arch_props_.StorageLevelName(storage_level_id) << std::endl;
+      }
       exit(1);
     }
   }

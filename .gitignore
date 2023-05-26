@@ -43,5 +43,8 @@ GTAGS
 # If using virtual environment for testing
 venv
 
-# Development container
+# Development container in VSCode
 .devcontainer
+
+# MacOS-specific files.
+.DS_Store
