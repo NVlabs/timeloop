@@ -18,6 +18,16 @@ For::For(const NodeID& id,
 {
 }
 
+For For::WithTileSize(const NodeID& id,
+                      const std::string& iterator_name,
+                      const problem::DimensionId& op_dim,
+                      size_t tile_size)
+{
+  For node(id, iterator_name, op_dim);
+  node.tile_size = tile_size;
+  return node;
+}
+
 ParFor::ParFor(const NodeID& id,
                const std::string& iterator_name,
                const problem::DimensionId& op_dim,
@@ -29,6 +39,16 @@ ParFor::ParFor(const NodeID& id,
   end(end),
   id(id)
 {
+}
+
+ParFor ParFor::WithTileSize(const NodeID& id,
+                            const std::string& iterator_name,
+                            const problem::DimensionId& op_dim,
+                            size_t tile_size)
+{
+  ParFor node(id, iterator_name, op_dim);
+  node.tile_size = tile_size;
+  return node;
 }
 
 Storage::Storage(const NodeID& id,
@@ -45,6 +65,11 @@ Compute::Compute(const NodeID& id,
 
 Pipeline::Pipeline(const NodeID& id) : id(id) {}
 Sequential::Sequential(const NodeID& id) : id(id) {}
+
+NodeID GetNodeId(const MappingNodeTypes& node)
+{
+  return std::visit([] (auto&& arg) { return arg.id; }, node);
+}
 
 FusedMappingNodeIterator& FusedMappingNodeIterator::operator++()
 {

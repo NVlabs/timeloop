@@ -125,6 +125,16 @@ struct Sequential
 using MappingNodeTypes
     = std::variant<Root, For, ParFor, Storage, Compute, Pipeline, Sequential>;
 
+template<typename T>
+inline constexpr bool IsLoopV = std::is_same_v<T, For> ||
+                                std::is_same_v<T, ParFor>;
+
+template<typename T>
+inline constexpr bool IsBranchV = std::is_same_v<T, Sequential> ||
+                                  std::is_same_v<T, Pipeline>;
+
+NodeID GetNodeId(const MappingNodeTypes& node);
+
 class FusedMappingNodeIterator
 {
  public:
@@ -167,12 +177,26 @@ class FusedMapping
  public:
   FusedMapping();
 
-  template<typename LoopCtorF, typename... ArgsT>
+  template<typename NodeT, typename... ArgsT>
   NodeID AddChild(NodeID parent_id, ArgsT... args)
   {
     auto [it, _] = nodes_.emplace(std::make_pair(
       nodes_.size(),
-      MappingNodeTypes(LoopCtorF(nodes_.size(), args...))
+      MappingNodeTypes(NodeT(nodes_.size(), args...))
+    ));
+
+    auto child_id = it->first;
+    std::visit(AddChildToNode(child_id), NodeAt(parent_id));
+
+    return child_id;
+  }
+
+  template<typename FactoryT, typename... ArgsT>
+  NodeID AddChild(FactoryT factory, NodeID parent_id, ArgsT... args)
+  {
+    auto [it, _] = nodes_.emplace(std::make_pair(
+      nodes_.size(),
+      MappingNodeTypes(factory(nodes_.size(), args...))
     ));
 
     auto child_id = it->first;
@@ -219,6 +243,8 @@ class MappingPathsIterator
   bool done_;
 
   MappingPathsIterator(FusedMapping& paths, bool done=false);
+
+  void GetNextPath();
 
  private:
   friend MappingPaths;
@@ -268,6 +294,8 @@ class MappingPath
  public:
   Iterator begin();
   Iterator end();
+
+  MappingNodeTypes& back();
 
  private:
   std::vector<std::reference_wrapper<MappingNodeTypes>> ref_nodes_;

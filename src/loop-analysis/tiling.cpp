@@ -881,6 +881,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       processed_loop_count = boundary_loop_id + 1;
       cur_tiling_level++;
     }
+    std::cout << "cur tiling level: " << cur_tiling_level << std::endl;
+    std::cout << "num tiling level: " << num_tiling_levels << std::endl;
     assert(cur_tiling_level == num_tiling_levels);
 
     // Compute partition sizes.

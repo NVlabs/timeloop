@@ -10,157 +10,10 @@
 #include "mapping/fused-mapping.hpp"
 #include "workload/fused-workload.hpp"
 #include <isl/constraint.h>
+#include <barvinok/isl.h>
+#include "loop-analysis/temporal-analysis.hpp"
+#include "loop-analysis/spatial-analysis.hpp"
 
-/**************
- * Prototype
- */
-
-namespace analysis
-{
-
-isl::map ConstraintDimEquals(isl::map map, size_t n_dims)
-{
-  auto p_map = map.release();
-  auto p_space = isl_map_get_space(p_map);
-  auto p_ls = isl_local_space_from_space(p_space);
-
-  isl_constraint* p_c;
-  for (size_t i = 0; i < n_dims; ++i)
-  {
-    p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
-    p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, 1);
-    p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, -1);
-    p_map = isl_map_add_constraint(p_map, p_c);
-  }
-  isl_local_space_free(p_ls);
-
-  return isl::manage(p_map);
-}
-
-isl::map MapToPriorData(size_t n_in_dims, size_t top)
-{
-  isl_space* p_space;
-  isl_basic_map* p_tmp_map;
-  isl_map* p_map;
-  isl_local_space* p_ls;
-  isl_constraint* p_c;
-
-  // Goal: { [i0, ..., i{n_in_dims-1}] -> [i0, ..., i{top}-1, o{top+1}, ..., o{n_in_dims}] }
-  p_space = isl_space_alloc(GetIslCtx().get(), 0, n_in_dims, n_in_dims);
-  p_map = isl_map_universe(isl_space_copy(p_space));
-  p_ls = isl_local_space_from_space(p_space);
-
-  if (top > 0)
-  {
-    p_tmp_map = isl_basic_map_universe(isl_space_copy(p_space));
-    for (size_t i = 0; i < top-1; ++i)
-    {
-      p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, 1);
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, -1);
-      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
-    }
-
-    p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
-    p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, top-1, 1);
-    p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, top-1, -1);
-    p_c = isl_constraint_set_constant_si(p_c, 1);
-    p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
-
-    p_map = isl_map_intersect(p_map, isl_map_from_basic_map(p_tmp_map));
-  }
-
-  if (top > 0 && top < n_in_dims)
-  {
-    p_tmp_map = isl_basic_map_universe(isl_space_copy(p_space));
-    for (size_t i = 0; i < top; ++i)
-    {
-      p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, 1);
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, -1);
-      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
-    }
-
-    for (auto i = top; i < n_in_dims; ++i)
-    {
-      p_c = isl_constraint_alloc_inequality(isl_local_space_copy(p_ls));
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, -1);
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, 1);
-      p_c = isl_constraint_set_constant_si(p_c, -1);
-      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
-    }
-    p_map = isl_map_union(p_map, isl_map_from_basic_map(p_tmp_map));
-  }
-
-  isl_local_space_free(p_ls);
-
-  return isl::manage(p_map);
-}
-
-BranchTilings LoopBoundsInference(BranchTilings tilings,
-                                  const problem::FusedWorkload& workload,
-                                  size_t pipeline_tiling_idx,
-                                  const std::map<DataSpaceID, size_t>& dspace_top_idx)
-{
-  BranchTilings inferred_tilings(tilings.begin(), tilings.end());
-
-  for (size_t i = 0; i < inferred_tilings.size(); ++i)
-  {
-    for (auto& [einsum_id, tiling] : inferred_tilings)
-    {
-      bool complete = true;
-      auto domain = tiling.domain();
-      for (auto i = 0; i < isl_set_dim(domain.get(), isl_dim_set); ++i)
-      {
-        complete = complete &&
-                   isl_set_dim_has_lower_bound(domain.get(), isl_dim_set, i);
-      }
-      if (!complete)
-      {
-        continue;
-      }
-
-      for (const auto& read_tensor : workload.TensorsReadByEinsum(einsum_id))
-      {
-        auto producer_einsum_opt = workload.WriterEinsum(read_tensor);
-        if (!producer_einsum_opt)
-        {
-          // Not an intermediate tensor
-          continue;
-        }
-
-        // Decide how much the consumer (einsum_id) needs
-        auto pruned_tiling = project_dim_in_after(tiling, pipeline_tiling_idx);
-        auto required_data = pruned_tiling.apply_range(
-          workload.ReadAccesses(einsum_id, read_tensor));
-
-        auto top_idx = dspace_top_idx.at(read_tensor);
-        auto shifter = 
-          MapToPriorData(pipeline_tiling_idx, top_idx);
-        auto buffered_data = shifter.apply_range(required_data);
-
-        auto computed_data = required_data.subtract(buffered_data).coalesce();
-
-        auto producer_write_dep =
-          workload.WriteAccesses(*producer_einsum_opt, read_tensor);
-        auto required_ops =
-          computed_data.apply_range(producer_write_dep.reverse());
-        auto producer_tiling = inferred_tilings.at(*producer_einsum_opt);
-        auto required_iters = ConstraintDimEquals(
-          required_ops.apply_range(producer_tiling.reverse()),
-          pipeline_tiling_idx
-        );
-
-        auto inferred_prod_tiling =
-          producer_tiling.intersect_domain(required_iters.range()).coalesce();
-        std::cout << inferred_prod_tiling << std::endl;
-        inferred_tilings.at(*producer_einsum_opt) = inferred_prod_tiling;
-      }
-    }
-  }
-  return inferred_tilings;
-}
-};
 //--------------------------------------------//
 //                Application                 //
 //--------------------------------------------//
@@ -202,51 +55,7 @@ Application::Application(config::CompoundConfig* config,
     std::cout << std::endl;
   }
 
-  // Problem configuration.
-  // auto problem = rootNode.lookup("problem");
-  // problem::ParseWorkload(problem, workload_);
-  // if (verbose_)
-  //   std::cout << "Problem configuration complete." << std::endl;
-
   auto workload = problem::ParseFusedWorkload(rootNode.lookup("problem"));
-  // auto pwise1_id = workload.NewEinsum();
-  // auto dwise1_id = workload.NewEinsum();
-  // auto pwise2_id = workload.NewEinsum();
-  // auto O1_id = workload.NewDataSpace();
-  // auto I_id = workload.NewDataSpace();
-  // auto F1_id = workload.NewDataSpace();
-  // auto O2_id = workload.NewDataSpace();
-  // auto F2_id = workload.NewDataSpace();
-  // auto O3_id = workload.NewDataSpace();
-  // auto F3_id = workload.NewDataSpace();
-
-  // workload.SetEinsumProjection(pwise1_id, O1_id, true,
-  // "{ pwise1[m1,c1,p1,q1] -> O1[m1,p1,q1] : 0 <= m1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= c1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= m1 < 32 and 0 <= c1 < 32 }"
-  // );
-  // workload.SetEinsumProjection(pwise1_id, I_id, false,
-  // "{ pwise1[m1,c1,p1,q1] -> I[c1,p1,q1] : 0 <= m1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= c1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= m1 < 32 and 0 <= c1 < 32 }"
-  // );
-  // workload.SetEinsumProjection(pwise1_id, F1_id, false,
-  // "{ pwise1[m1,c1,p1,q1] -> F1[m1,c1] : 0 <= m1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= c1 < 32 and 0 <= p1 < 112 and 0 <= q1 < 112 and 0 <= m1 < 32 and 0 <= c1 < 32 }"
-  // );
-  // workload.SetEinsumProjection(dwise1_id,O2_id, true,
-  // "{ dwise1[m2,p2,q2,r2,s2] -> O2[m2,p2,q2] : 0 <= m2 < 32 and 0 <= p2 < 112 and 0 <= q2 < 112 and 0 <= m2 < 32 and 0 <= p2+r2 < 112 and 0 <= q2+s2 < 112 and 0 <= m2 < 32 and 0 <= r2 < 3 and 0 <= s2 < 3 }"
-  // );
-  // workload.SetEinsumProjection(dwise1_id, O1_id, false,
-  // "{ dwise1[m2,p2,q2,r2,s2] -> O1[m2,p2+r2,q2+s2] : 0 <= m2 < 32 and 0 <= p2 < 112 and 0 <= q2 < 112 and 0 <= m2 < 32 and 0 <= p2+r2 < 112 and 0 <= q2+s2 < 112 and 0 <= m2 < 32 and 0 <= r2 < 3 and 0 <= s2 < 3 }"
-  // );
-  // workload.SetEinsumProjection(dwise1_id, F2_id, false,
-  // "{ dwise1[m2,p2,q2,r2,s2] -> F2[m2,r2,s2] : 0 <= m2 < 32 and 0 <= p2 < 112 and 0 <= q2 < 112 and 0 <= m2 < 32 and 0 <= p2+r2 < 112 and 0 <= q2+s2 < 112 and 0 <= m2 < 32 and 0 <= r2 < 3 and 0 <= s2 < 3 }"
-  // );
-  // workload.SetEinsumProjection(pwise2_id,O3_id, true,
-  // "{ pwise2[m3,c3,p3,q3] -> O3[m3,p3,q3] : 0 <= m3 < 16 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= c3 < 32 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= m3 < 16 and 0 <= c3 < 32 }"
-  // );
-  // workload.SetEinsumProjection(pwise2_id, O2_id, false,
-  // "{ pwise2[m3,c3,p3,q3] -> O2[c3,p3,q3] : 0 <= m3 < 16 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= c3 < 32 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= m3 < 16 and 0 <= c3 < 32 }"
-  // );
-  // workload.SetEinsumProjection(pwise2_id, F3_id, false,
-  // "{ pwise2[m3,c3,p3,q3] -> F3[m3,c3] : 0 <= m3 < 16 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= c3 < 32 and 0 <= p3 < 112 and 0 <= q3 < 112 and 0 <= m3 < 16 and 0 <= c3 < 32 }"
-  // );
 
   // Architecture configuration.
   config::CompoundConfigNode arch;
@@ -330,61 +139,25 @@ Application::Application(config::CompoundConfig* config,
   mapping::FusedMapping mapping =
     mapping::ParseMapping(rootNode.lookup("mapping"), workload);
 
-  auto branch_tilings = analysis::TilingFromMapping(mapping, workload);
+  auto raw_occupancies = analysis::OccupanciesFromMapping(mapping, workload);
 
-  // const std::string pwise2_tiling =
-  // "{ [q3_2, p3_1, q3_1, c3_1, m3_0, c3_0] ->"
-  // "  pwise2[m3=m3_0, c3=c3_1*16+c3_0, p3=p3_1, q3=q3_2*56+q3_1] :"
-  // "  0 <= q3_2 < 2 and 0 <= p3_1 < 112 and 0 <= q3_1 < 56 and"
-  // "  0 <= c3_1 < 2 and 0 <= m3_0 < 16 and 0 <= c3_0 < 16 }";
+  auto [occupancies, fills] = analysis::TemporalReuseAnalysis(raw_occupancies);
 
-  // const std::string dwise1_tiling =
-  // "{ [q3_2, p3_1, q3_1, p2_0, q2_0, r2_0, s2_0, m2_1, m2_0] ->"
-  // "  dwise1[m2=m2_1*16+m2_0, p2=p3_1+p2_0, q2=q3_2*56+q3_1+q2_0,"
-  //         "r2=r2_0, s2=s2_0] :"
-  // "  0 <= q3_2 < 2 and 0 <= p3_1 < 112 and 0 <= q3_1 < 56 and"
-  // "  0 <= r2_0 < 3 and 0 <= s2_0 < 3 and 0 <= m2_0 < 16 }";
-
-  // const std::string pwise1_tiling =
-  // "{ [q3_2, p3_1, q3_1, p1_0, q1_0, m1_1, c1_1, m1_0, c1_0] ->"
-  // "  pwise1[m1=m1_1*16+m1_0, c1=c1_1*16+c1_0,"
-  //         "p1=p3_1+p1_0, q1=q3_2*56+q3_1+q1_0] :"
-  // "  0 <= q3_2 < 2 and 0 <= p3_1 < 112 and 0 <= q3_1 < 56 and"
-  // "  0 <= c1_1 < 2 and 0 <= m1_0 < 16 and 0 <= c1_0 < 16 }";
-
-  // std::map<analysis::DataSpaceID, size_t> dspace_top_indices;
-  // dspace_top_indices.emplace(std::make_pair(O1_id, 2));
-  // dspace_top_indices.emplace(std::make_pair(O2_id, 3));
-
-  // // analysis::BranchTilings branch_tilings;
-  // // branch_tilings.emplace(std::make_pair(pwise1_id, isl::map(GetIslCtx(),
-  // //                                                           pwise1_tiling)));
-  // // branch_tilings.emplace(std::make_pair(dwise1_id, isl::map(GetIslCtx(),
-  // //                                                           dwise1_tiling)));
-  // // branch_tilings.emplace(std::make_pair(pwise2_id, isl::map(GetIslCtx(),
-  // //                                                           pwise2_tiling)));
-
-  // const size_t PIPELINE_TILING_IDX = 3;
-
-  // branch_tilings = analysis::LoopBoundsInference(std::move(branch_tilings),
-  //                                                workload,
-  //                                                PIPELINE_TILING_IDX,
-  //                                                dspace_top_indices);
-
-  // for (const auto& [einsum_id, tiling] : branch_tilings)
+  // for (const auto& [buf, fill] : fills)
   // {
-  //   std::cout << einsum_id << std::endl;
-  //   std::cout << tiling << std::endl;
-  //   for (auto i = 0; i < isl_map_dim(tiling.get(), isl_dim_out); ++i)
-  //   {
-  //     auto pared_tiling = project_dim_in_after(tiling, PIPELINE_TILING_IDX);
-  //     std::cout << isl_pw_aff_to_str(isl_map_dim_min(pared_tiling.copy(), i))
-  //               << std::endl;
-  //     std::cout << isl_pw_aff_to_str(isl_map_dim_max(pared_tiling.copy(), i))
-  //               << std::endl;
-  //   }
+  //   std::cout << buf << std::endl;
+  //   auto p_fill_count = isl_map_card(fill.map.copy());
+  //   std::cout << isl_pw_qpolynomial_to_str(p_fill_count) << std::endl;
+  //   isl_pw_qpolynomial_free(p_fill_count);
   // }
 
+  for (const auto& [buf, occ] : occupancies)
+  {
+    std::cout << buf << std::endl;
+    auto p_occ_count = isl_map_card(occ.map.copy());
+    std::cout << isl_pw_qpolynomial_to_str(p_occ_count) << std::endl;
+    isl_pw_qpolynomial_free(p_occ_count);
+  }
 }
 
 Application::~Application()

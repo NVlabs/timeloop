@@ -11,7 +11,8 @@ MappingPath MappingPathsIterator::operator*()
 bool MappingPathsIterator::operator==(const MappingPathsIterator& other) const
 {
   // TODO: should check for the same mapping
-  return (done_ && other.done_) || (idx_ == other.idx_);
+  return (done_ && other.done_) ||
+    (idx_ == other.idx_ && !done_ && !other.done_);
 }
 
 bool MappingPathsIterator::operator!=(const MappingPathsIterator& other) const
@@ -21,10 +22,16 @@ bool MappingPathsIterator::operator!=(const MappingPathsIterator& other) const
 
 MappingPathsIterator& MappingPathsIterator::operator++()
 {
+  GetNextPath();
+  return *this;
+}
+
+void MappingPathsIterator::GetNextPath()
+{
   if (dfs_stack_.size() == 0)
   {
     done_ = true;
-    return *this;
+    return;
   }
 
   while (dfs_stack_.size() > 0)
@@ -93,8 +100,6 @@ MappingPathsIterator& MappingPathsIterator::operator++()
       break;
     }
   }
-
-  return *this;
 }
 
 MappingPathsIterator::DfsRecord::DfsRecord(
@@ -109,6 +114,7 @@ MappingPathsIterator::MappingPathsIterator(FusedMapping& mapping, bool done) :
   mapping_(mapping), dfs_stack_(), path_(), idx_(0), done_(done)
 {
   dfs_stack_.emplace_back(0, mapping.NodeAt(mapping.GetRoot().id));
+  GetNextPath();
 }
 
 MappingPathsIterator MappingPaths::begin()
@@ -134,17 +140,13 @@ MappingNodeTypes& MappingPathNodeIterator::operator*()
 bool
 MappingPathNodeIterator::operator==(const MappingPathNodeIterator& other) const
 {
-  // TODO: should check if the same path as other.
-  //       Need to add operator== for MappingPath
   return idx_ == other.idx_;
 }
 
 bool
 MappingPathNodeIterator::operator!=(const MappingPathNodeIterator& other) const
 {
-  // TODO: should check if the same path as other.
-  //       Need to add operator== for MappingPath
-  return idx_ == other.idx_;
+  return idx_ != other.idx_;
 }
 
 MappingPathNodeIterator& MappingPathNodeIterator::operator++()
@@ -163,12 +165,17 @@ MappingPathNodeIterator::MappingPathNodeIterator(
 
 MappingPathNodeIterator MappingPath::begin()
 {
-  return MappingPathNodeIterator(*this);
+  return MappingPathNodeIterator(*this, 0);
 }
 
 MappingPathNodeIterator MappingPath::end()
 {
   return MappingPathNodeIterator(*this, ref_nodes_.size());
+}
+
+MappingNodeTypes& MappingPath::back()
+{
+  return ref_nodes_.back().get();
 }
 
 MappingPath::MappingPath(
