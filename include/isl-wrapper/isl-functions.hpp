@@ -50,11 +50,15 @@ insert_equal_dims(isl::map map, size_t in_pos, size_t out_pos, size_t n);
 
 isl::map insert_dummy_dim_ins(isl::map map, size_t pos, size_t n);
 
+isl_pw_qpolynomial* set_card(isl::set set);
+
 isl_pw_qpolynomial* sum_map_range_card(isl::map map);
 
 double val_to_double(isl_val* val);
 
 isl_val* get_val_from_singular_qpolynomial(isl_pw_qpolynomial* pw_qp);
+
+isl_val* get_val_from_singular_qpolynomial_fold(isl_pw_qpolynomial_fold* pwf);
 
 isl::map ConstraintDimEquals(isl::map map, size_t n_dims);
 

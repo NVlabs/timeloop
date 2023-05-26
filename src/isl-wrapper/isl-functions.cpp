@@ -182,6 +182,11 @@ isl_pw_qpolynomial* sum_map_range_card(isl::map map)
   return isl_set_apply_pw_qpolynomial(p_domain, p_count);
 }
 
+isl_pw_qpolynomial* set_card(isl::set set)
+{
+  return isl_set_card(set.release());
+}
+
 double val_to_double(isl_val* val)
 {
   auto num = isl_val_get_num_si(val);
@@ -198,6 +203,13 @@ isl_val* get_val_from_singular_qpolynomial(isl_pw_qpolynomial* pw_qp)
   );
 }
 
+isl_val* get_val_from_singular_qpolynomial_fold(isl_pw_qpolynomial_fold* pwf)
+{
+  return isl_pw_qpolynomial_fold_eval(
+    pwf,
+    isl_point_zero(isl_pw_qpolynomial_fold_get_domain_space(pwf))
+  );
+}
 
 isl::map ConstraintDimEquals(isl::map map, size_t n_dims)
 {

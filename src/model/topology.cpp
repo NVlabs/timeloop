@@ -1264,7 +1264,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
   // Collapse tiles into a specified number of tiling levels. The solutions are
   // received in a set of per-problem::Shape::DataSpaceID arrays.
-  auto collapsed_tiles = tiling::CollapseTiles(tile_info_nest, specs_.NumStorageLevels(),
+  auto collapsed_tiles = tiling::CollapseTiles(tile_info_nest,
+                                               specs_.NumStorageLevels(),
                                                mapping.datatype_bypass_nest,
                                                distribution_supported,
                                                analysis->GetWorkload());
