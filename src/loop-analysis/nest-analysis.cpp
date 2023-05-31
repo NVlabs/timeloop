@@ -55,6 +55,8 @@
 #include "loop-analysis/temporal-analysis.hpp"
 #include "mapping/fused-mapping.hpp"
 
+// #define ENABLE_NEST_ANALYSIS_COMPARISON_PRINT
+
 bool gTerminateEval = false;
 
 bool gEnableLinkTransfers =
@@ -285,12 +287,14 @@ void NestAnalysis::ComputeWorkingSets()
   {
     InitializeNestProperties();
     InitializeLiveState();
-    // DetectImperfectFactorization();
+    #ifdef ENABLE_NEST_ANALYSIS_COMPARISON_PRINT
+    DetectImperfectFactorization();
 
-    // // Recursive call starting from the last element of the list.
-    // num_epochs_ = 1;
-    // ComputeDeltas(nest_state_.rbegin());
-    // CollectWorkingSets();
+    // Recursive call starting from the last element of the list.
+    num_epochs_ = 1;
+    ComputeDeltas(nest_state_.rbegin());
+    CollectWorkingSets();
+    #endif
   }
 
   auto occupancies = OccupanciesFromMapping(cached_nest, *workload_);
@@ -407,41 +411,38 @@ void NestAnalysis::ComputeWorkingSets()
         auto& reads = result.multicast_info.reads.at(
           LogicalBuffer(cur_buffer_id, dspace_id, 0)
         );
-            auto p_val = isl::get_val_from_singular_qpolynomial(
-              isl::sum_map_range_card(reads)
-            );
-            p_val = isl_val_div(
-              p_val,
-              isl_val_int_from_si(GetIslCtx().get(),
-                                  num_spatial_elems_[cur.level])
-            );
-            auto accesses = isl::val_to_double(p_val);
-            auto key = std::make_pair(logical_fanouts_[cur.level], 1);
-            tile.access_stats.stats[key] = AccessStats{
-              .accesses = accesses,
-              .hops = 0.0
-            };
-          }
-        }
+        auto p_val = isl::get_val_from_singular_qpolynomial(
+          isl::sum_map_range_card(reads)
+        );
+        p_val = isl_val_div(
+          p_val,
+          isl_val_int_from_si(GetIslCtx().get(),
+                              num_spatial_elems_[cur.level])
+        );
+        auto accesses = isl::val_to_double(p_val);
+        auto key = std::make_pair(logical_fanouts_[cur.level], 1);
+        tile.access_stats.stats[key] = AccessStats{
+          .accesses = accesses,
+          .hops = 0.0
+        };
+      }
 
-        for (const auto& [buf_ab, transfers] :
-            result.link_transfer_info.link_transfers)
+      for (const auto& [buf_ab, transfers] :
+          result.link_transfer_info.link_transfers)
+      {
+        const auto& buf = buf_ab.first;
+        if (buf.buffer_id == cur_buffer_id && buf.dspace_id == dspace_id) 
         {
-          const auto& buf = buf_ab.first;
-          if (buf.buffer_id == cur_buffer_id && buf.dspace_id == dspace_id) 
-          {
-            auto p_val = isl::get_val_from_singular_qpolynomial(
-              isl::sum_map_range_card(transfers.map)
-            );
-            p_val = isl_val_div(
-              p_val,
-              isl_val_int_from_si(GetIslCtx().get(),
-                                  num_spatial_elems_[cur.level])
-            );
-            tile.link_transfers = isl::val_to_double(p_val);
-          }
+          auto p_val = isl::get_val_from_singular_qpolynomial(
+            isl::sum_map_range_card(transfers.map)
+          );
+          p_val = isl_val_div(
+            p_val,
+            isl_val_int_from_si(GetIslCtx().get(),
+                                num_spatial_elems_[cur.level])
+          );
+          tile.link_transfers = isl::val_to_double(p_val);
         }
-
       }
       working_sets_[dspace_id].push_back(tile);
     }
@@ -452,6 +453,7 @@ void NestAnalysis::ComputeWorkingSets()
     }
   }
 
+  #ifdef ENABLE_NEST_ANALYSIS_COMPARISON_PRINT
   int dspace = 0;
   for (const auto& data_movement_nest : working_sets_)
   {
@@ -479,6 +481,7 @@ void NestAnalysis::ComputeWorkingSets()
     }
     dspace++;
   }
+  #endif
 
   // Done.
   working_sets_computed_ = true;
