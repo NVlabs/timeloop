@@ -31,13 +31,17 @@
 #include <map>
 #include <unordered_set>
 
+#include <isl/map.h>
+#include <isl/set.h>
+
 #include "mapping/nest.hpp"
 #include "workload/util/per-problem-dimension.hpp"
 #include "nest-analysis-tile-info.hpp"
+#include "isl-wrapper/tagged.hpp"
+#include "loop-analysis/isl-ir.hpp"
 
 namespace analysis
 {
-
 class NestAnalysis
 {
  private:
@@ -228,5 +232,8 @@ class NestAnalysis
 
   friend std::ostream& operator << (std::ostream& out, const NestAnalysis& n);  
 };
+
+NestAnalysis ComputeWorkingSets(const problem::Workload& workload,
+                                const loop::Nest& nest);
 
 } // namespace analysis

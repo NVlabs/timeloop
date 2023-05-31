@@ -121,7 +121,7 @@ struct ComputeInfo
 };
 
 // compound tile info types to capture per-dataspace info
-typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest ; 
+typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest; 
 typedef std::vector<ComputeInfo> CompoundComputeNest;  // single vector, each element for a nest level, no fine-grained op type should be considered here
 struct CompoundTileNest
 {

@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include <ostream>
+
 namespace spacetime
 {
 
@@ -37,5 +39,7 @@ enum class Dimension
   SpaceY,
   Num
 };
+
+std::ostream& operator<<(std::ostream& os, const Dimension& dim);
 
 } // namespace spacetime
