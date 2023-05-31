@@ -83,7 +83,6 @@ LinkTransferInfo SimpleLinkTransferModel::Apply(
       auto available_from_neighbors =
         complete_connectivity.apply_range(occupancies.at(buf).map);
       auto fill_set = fill.intersect(available_from_neighbors);
-      std::cout << "fill set: " << fill_set << std::endl;
       auto remaining_fill = fill.subtract(fill_set.map);
 
       transfers.emplace(std::make_pair(std::make_pair(buf, buf), fill_set));
