@@ -486,6 +486,13 @@ void NestAnalysis::CollectWorkingSets()
   // Extract body data from innermost spatial level.
   bool innermost_level_compute_info_collected = false; 
   
+  uint64_t max_temporal_iterations = 1;
+  for (auto& cur : nest_state_)
+  {
+    if (!loop::IsSpatial(cur.descriptor.spacetime_dimension))
+      max_temporal_iterations *= cur.descriptor.end;
+  }
+
   for (auto& cur : nest_state_)
   {
     // All spatial levels that are not a master-spatial level are not valid
@@ -505,6 +512,7 @@ void NestAnalysis::CollectWorkingSets()
         avg_accesses /= compute_info_.size();
 
         compute_info.accesses = avg_accesses;
+        compute_info.max_temporal_iterations = max_temporal_iterations;
         compute_info_sets_.push_back(compute_info);
         innermost_level_compute_info_collected = true;
       }

@@ -34,6 +34,7 @@
 #include <cstdint>
 #include <map>
 #include <random>
+#include <set>
 #include <boost/multiprecision/cpp_int.hpp>
 
 using namespace boost::multiprecision;
@@ -76,6 +77,59 @@ class Factors
   friend std::ostream& operator<<(std::ostream& out, const Factors& f);
 };
 
+//------------------------------------
+//              ResidualFactors
+//------------------------------------
+
+typedef std::pair<unsigned long, int> Factor;
+
+class ResidualFactors
+{
+ private:
+  unsigned long n_;
+  std::vector<unsigned long> remainder_bounds_;
+  std::vector<unsigned long> remainder_ix_;
+  std::set<unsigned long> all_factors_;
+  std::vector<std::vector<unsigned long>> pruned_product_factors_;
+  std::vector<std::vector<unsigned long>> pruned_residuals_;
+  std::vector<std::vector<unsigned long>> cofactors_;
+  std::vector<std::vector<unsigned long>> rfactors_;
+  std::vector<std::vector<unsigned long>> replicated_factors_;
+  
+
+  unsigned long ISqrt_(unsigned long x);
+
+  void ClearAllFactors_();
+
+  void CalculateAllFactors_();
+
+  void CalculateAdditionalFactors_();
+  std::vector<std::vector<unsigned long>> CartProduct_ (const std::vector<std::vector<unsigned long>> v);
+
+  void GenerateFactorProduct_(const unsigned long n, const int order);
+  void GenerateResidual_(const unsigned long n, const int order);
+  void ValidityChecker_(const unsigned long n, std::map<unsigned, unsigned long> given);
+
+  // Return a vector of all order-way cofactor sets of n.
+
+ public:
+  ResidualFactors();
+  ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> remainder_bounds, std::vector<unsigned long> remainder_ix);
+  ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> remainder_bounds, std::vector<unsigned long> remainder_ix, std::map<unsigned, unsigned long> given);
+
+
+  void PruneMax();
+
+  std::vector<std::vector<unsigned long>> operator[](int index);
+
+  std::size_t size();
+
+  void Print();
+  void PrintAllFactors();
+  void PrintCoFactors();
+
+  friend std::ostream& operator<<(std::ostream& out, const ResidualFactors& f);
+};
 //------------------------------------
 //        Cartesian Counter
 //------------------------------------
