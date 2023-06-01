@@ -96,31 +96,59 @@ class ResidualIndexFactorizationSpace
 class PermutationSpace
 {
  private:
-  std::uint64_t num_levels_;
   struct Pattern
   {
     std::vector<problem::Shape::FlattenedDimensionID> baked_prefix;
     std::vector<problem::Shape::FlattenedDimensionID> permutable_infix;
     std::vector<problem::Shape::FlattenedDimensionID> baked_suffix;
   };
-  std::map<unsigned, Pattern> patterns_;
   std::vector<problem::Shape::FlattenedDimensionID> canonical_pattern_;
+
+ protected:
+  std::uint64_t num_levels_;
+  std::map<unsigned, Pattern> patterns_;
   std::map<unsigned, std::uint64_t> size_;    
   Factoradic<problem::Shape::FlattenedDimensionID> factoradic_;
-
+  
  public:
   PermutationSpace();
 
   void Init(uint64_t num_levels);
-  void InitLevelCanonical(uint64_t level);
-  void InitLevel(uint64_t level,
-                 std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
-                 std::vector<problem::Shape::FlattenedDimensionID> user_suffix,
-                 std::vector<problem::Shape::FlattenedDimensionID> pruned_dimensions = {});
+  virtual void InitLevelCanonical(uint64_t level);
+  virtual void InitLevel(uint64_t level,
+                         std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
+                         std::vector<problem::Shape::FlattenedDimensionID> user_suffix,
+                         std::vector<problem::Shape::FlattenedDimensionID> pruned_dimensions = {});
 
-  std::vector<std::vector<problem::Shape::FlattenedDimensionID>> GetPatterns(uint128_t id);
+  virtual std::vector<std::vector<problem::Shape::FlattenedDimensionID>> GetPatterns(uint128_t id);
 
   uint128_t Size() const;
+};
+
+//--------------------------------------------//
+//             RubyPermutationSpace           //
+//--------------------------------------------//
+class RubyPermutationSpace : public PermutationSpace
+{
+  private:
+   struct RubyPattern
+    {
+      std::vector<problem::Shape::FlattenedDimensionID> baked_prefix;
+      std::vector<problem::Shape::FlattenedDimensionID> permutable_suffix;
+    };
+
+    std::map<unsigned, RubyPattern> ruby_patterns_;
+
+  public:
+    RubyPermutationSpace();
+
+    void InitLevel(uint64_t level,
+                  std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
+                  std::vector<problem::Shape::FlattenedDimensionID> user_suffix,
+                  std::vector<problem::Shape::FlattenedDimensionID> pruned_dimensions = {});
+
+    std::vector<std::vector<problem::Shape::FlattenedDimensionID>> GetPatterns(uint128_t id);
+
 };
 
 //--------------------------------------------//

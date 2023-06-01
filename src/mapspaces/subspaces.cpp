@@ -307,6 +307,76 @@ uint128_t PermutationSpace::Size() const
   return product;
 }
 
+// empty constructor
+RubyPermutationSpace::RubyPermutationSpace() : PermutationSpace()
+{
+}
+
+void RubyPermutationSpace::InitLevel(uint64_t level, std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
+                                 std::vector<problem::Shape::FlattenedDimensionID> user_suffix,
+                                 std::vector<problem::Shape::FlattenedDimensionID> pruned_dimensions)
+{
+  // avoid handling user_suffix as it is useless in Ruby
+  assert((user_suffix == user_prefix) || (user_suffix.size() == 0));
+  assert(level < num_levels_);
+
+  // Merge pruned dimensions with user prefix, with all unit factors at the
+  // beginning followed by user-specified non-unit factors, i.e.,
+  // <unit-factors><user-specified-non-unit-factors><free-non-unit-factors>
+  // <unit-factors><user-specified-non-unit-factors> = baked_prefix
+  // <free-non-unit-factors> = permutable_suffix
+  std::vector<problem::Shape::FlattenedDimensionID> baked_prefix = pruned_dimensions;
+
+  for (auto dim : user_prefix)
+    if (std::find(pruned_dimensions.begin(), pruned_dimensions.end(), dim) == pruned_dimensions.end())
+      baked_prefix.push_back(dim);
+
+  std::set<problem::Shape::FlattenedDimensionID> unspecified_dimensions;
+  for (unsigned i = 0; i < unsigned(problem::GetShape()->NumFlattenedDimensions); i++)
+    unspecified_dimensions.insert(problem::Shape::FlattenedDimensionID(i));
+
+  for (auto& dim : baked_prefix)
+    unspecified_dimensions.erase(dim);
+
+  std::vector<problem::Shape::FlattenedDimensionID> permutable_suffix;
+  for (auto& dim : unspecified_dimensions)
+    permutable_suffix.push_back(dim);
+
+  assert(baked_prefix.size() + permutable_suffix.size() == unsigned(problem::GetShape()->NumFlattenedDimensions));
+
+  ruby_patterns_[level] = { baked_prefix, permutable_suffix };
+  size_[level] = factoradic_.Factorial(permutable_suffix.size());
+}
+
+std::vector<std::vector<problem::Shape::FlattenedDimensionID>>
+RubyPermutationSpace::GetPatterns(uint128_t id)
+{
+  std::vector<std::vector<problem::Shape::FlattenedDimensionID>> retval;
+
+  for (unsigned level = 0; level < num_levels_; level++)
+  {
+    auto& pattern = ruby_patterns_.at(level);
+    if (pattern.baked_prefix.size() == unsigned(problem::GetShape()->NumFlattenedDimensions))
+    {
+      retval.push_back(pattern.baked_prefix);
+    }
+    else
+    {
+      std::vector<problem::Shape::FlattenedDimensionID> permuted_suffix = pattern.permutable_suffix;
+      factoradic_.Permute(permuted_suffix.data(), permuted_suffix.size(),
+                          std::uint64_t(id % size_.at(level)));
+      id = id / size_.at(level);
+      std::vector<problem::Shape::FlattenedDimensionID> final_pattern = pattern.baked_prefix;
+      final_pattern.insert(final_pattern.end(), permuted_suffix.begin(), permuted_suffix.end());
+
+      retval.push_back(final_pattern);
+    }
+  }
+
+  return retval;
+}
+
+
 //--------------------------------------------//
 //              SpatialSplitSpace             //
 //--------------------------------------------//

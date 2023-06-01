@@ -51,7 +51,7 @@ class Ruby : public MapSpace
  protected:
 
   // Sub-spaces.
-  PermutationSpace permutation_space_;
+  RubyPermutationSpace permutation_space_;
   ResidualIndexFactorizationSpace index_factorization_space_;
   SpatialSplitSpace spatial_split_space_;
   std::vector<tiling::CompoundMaskNest> datatype_bypass_nest_space_;
