@@ -589,7 +589,10 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
       {
         tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
         tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
-        tile_nest[cur].fills = std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills - tile_nest[cur].partition_size);
+        // Special case outermost level for fill calculation: do not subtract partition size.
+        tile_nest[cur].fills = (cur == num_tiling_levels-1) ?
+          std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills) : // This is likely 0.
+          std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills - tile_nest[cur].partition_size);
       }
       else
       {
