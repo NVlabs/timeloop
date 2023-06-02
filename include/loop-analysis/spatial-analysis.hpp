@@ -50,6 +50,9 @@ SpatialReuseInfo SpatialReuseAnalysis(LogicalBufFills&,
  * Concrete Classes
  *****************************************************************************/
 
+/**
+ * @brief A link transfer model for 1- or 2-dimensional mesh interconnect.
+ */
 class SimpleLinkTransferModel : public LinkTransferModel
 {
  public:
@@ -63,6 +66,16 @@ class SimpleLinkTransferModel : public LinkTransferModel
   isl::map connectivity_;
 };
 
+/**
+ * @brief A multicast model for 1- or 2-dimensional array.
+ *
+ * @note Differs from Timeloop's original multicast model in terms of partial
+ *   tile overlap multicast. This model assumes partial overlaps can benefit
+ *   from multicasting. The original model does the opposite.
+ * @note Does not directly model distributed multicast. Uses the same methods
+ *   as the original multicast model (i.e., assumes parents have equally
+ *   distributed tiles)
+ */
 class SimpleMulticastModel : public MulticastModel
 {
  public:
