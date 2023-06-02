@@ -314,6 +314,14 @@ void NestAnalysis::ComputeWorkingSets()
   }
   // Insert innermost level with number of iterations divided by spatial elements
   BufferID innermost_buf_id = storage_tiling_boundaries_.size()-1;
+
+  uint64_t max_temporal_iterations = 1;
+  for (auto& state : nest_state_)
+  {
+    if (!loop::IsSpatial(state.descriptor.spacetime_dimension))
+      max_temporal_iterations *= state.descriptor.end;
+  }
+
   for (auto& [buf, occupancy] : occupancies)
   {
     if (buf.buffer_id == innermost_buf_id)
@@ -325,6 +333,7 @@ void NestAnalysis::ComputeWorkingSets()
           isl::set_card(occupancy.map.domain())
         )
       );
+      compute_info.max_temporal_iterations = max_temporal_iterations;
       compute_info_sets_.push_back(compute_info);
       break;
     }
