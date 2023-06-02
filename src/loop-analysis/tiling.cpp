@@ -753,8 +753,8 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
                                        int num_tiling_levels,
                                        const CompoundMaskNest& tile_mask,
                                        const CompoundMaskNest& distribution_supported,
-                                       problem::Workload* workload){
-
+                                       problem::Workload* workload)
+{
   CompoundDataMovementNest collapsed_compound_data_nest = CollapseDataMovementNest(tiles.compound_data_movement_info_nest,
                                                                                    num_tiling_levels,
                                                                                    tile_mask,
@@ -764,22 +764,34 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
   tiling::CompoundTileNest solution;
   solution.compound_data_movement_info_nest = collapsed_compound_data_nest;
   solution.compute_info_nest = collapsed_compound_compute_nest;
+
+  // -- FIXME -- we don't need both compute_cycles and max_temporal iterations.
+  // The latter is a temporary hack for Ruby. The former is needed for sparse
+  // analysis. We need to merge these.
   solution.compute_info_nest[0].compute_cycles = solution.compute_info_nest[0].accesses;
   return solution;
 }
 
 
-ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels){
+ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels)
+{
   ComputeNest solution;
   
-  for (int level=0; level < num_tiling_levels; level++){
-    
+  for (int level=0; level < num_tiling_levels; level++)
+  {  
     ComputeInfo collapsed_tile;
-    if (level == 0 ){
+    if (level == 0)
+    {
       // compute info is only valid for the inner most level
       collapsed_tile.replication_factor = tiles[0].replication_factor;
       collapsed_tile.accesses = tiles[0].accesses;
-    } else {
+      // -- FIXME -- we don't need both compute_cycles and max_temporal iterations.
+      // The latter is a temporary hack for Ruby. The former is needed for sparse
+      // analysis. We need to merge these.
+      collapsed_tile.max_temporal_iterations = tiles[0].max_temporal_iterations;
+    }
+    else
+    {
       collapsed_tile.replication_factor = 0;
       collapsed_tile.accesses = 0;
     }

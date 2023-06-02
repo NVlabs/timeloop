@@ -209,6 +209,7 @@ mapspaces/mapspace-base.cpp
 mapspaces/mapspace-factory.cpp
 mapspaces/subspaces.cpp
 mapspaces/uber.cpp
+mapspaces/ruby.cpp
 """)
 
 search_sources = Split("""
