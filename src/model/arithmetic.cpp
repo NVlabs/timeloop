@@ -35,6 +35,10 @@ BOOST_CLASS_EXPORT(model::ArithmeticUnits)
 #include "pat/pat.hpp"
 #include "model/topology.hpp"
 
+bool gEnableRubyCycleCount =
+  (getenv("TIMELOOP_ENABLE_RUBY_CYCLE_COUNT") != NULL) &&
+  (strcmp(getenv("TIMELOOP_ENABLE_RUBY_CYCLE_COUNT"), "0") != 0);
+
 namespace model
 {
 
@@ -76,7 +80,7 @@ void ArithmeticUnits::Specs::UpdateAreaViaART(const double component_area)
   area = component_area;   
 }
 
-ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, uint32_t nElements, bool is_sparse_module)
+ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, std::uint64_t nElements, bool is_sparse_module)
 {
   Specs specs;
 
@@ -94,7 +98,7 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   specs.is_sparse_module = is_sparse_module;
   
   // Instances.
-  std::uint32_t instances;
+  unsigned long long instances;
   if (!setting.lookupValue("instances", instances))
   {
     if (nElements == 0)
@@ -102,11 +106,11 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
       std::cerr << "instances is a required arithmetic parameter" << std::endl;
       assert(false);
     }
-    instances = nElements;
+    instances = (unsigned long long) nElements;
     //std::cout << "ArithUnit: " << specs.name << " size: " << instances << std::endl;
   }
 
-  specs.instances = instances;
+  specs.instances = (std::uint64_t) instances;
 
   // Word size (in bits).
   std::uint32_t word_bits;
@@ -121,17 +125,17 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   }
 
   // MeshX.
-  std::uint32_t mesh_x;
+  unsigned long long mesh_x;
   if (setting.lookupValue("meshX", mesh_x))
   {
-    specs.meshX = mesh_x;
+    specs.meshX = (std::uint64_t) mesh_x;
   }
 
   // MeshY.
-  std::uint32_t mesh_y;
+  unsigned long long mesh_y;
   if (setting.lookupValue("meshY", mesh_y))
   {
-    specs.meshY = mesh_y;
+    specs.meshY = (std::uint64_t) mesh_y;
   }
 
   // Network names;
@@ -281,7 +285,93 @@ void ArithmeticUnits::ConnectResult(std::shared_ptr<Network> network)
 {
   network_result_ = network;
 }
-  
+
+// Evaluate.
+EvalStatus ArithmeticUnits::Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                                     const double confidence_threshold, const std::uint64_t compute_cycles,
+                                     const bool break_on_failure)
+{
+  assert(is_specced_);
+
+  (void) mask;
+  (void) confidence_threshold;
+  (void) break_on_failure;
+  (void) compute_cycles;
+
+  EvalStatus eval_status;
+  eval_status.success = true;
+
+  utilized_instances_ = tile.compute_info.max_x_expansion * tile.compute_info.max_y_expansion;
+  avg_utilized_instances_ = tile.compute_info.avg_replication_factor;
+  utilized_x_expansion_ = tile.compute_info.max_x_expansion;
+  utilized_y_expansion_ = tile.compute_info.max_y_expansion;
+    
+  // std::cout << specs_.level_name <<": max x expansion: " << utilized_x_expansion_
+  //  << "    max y expansion: " << utilized_y_expansion_ << std::endl;
+
+  if (utilized_instances_ > specs_.instances.Get())
+  {
+    eval_status.success = false;
+    std::ostringstream str;
+    str << "mapped max Arithmetic instances " << utilized_instances_
+        << " exceeds hardware instances " << specs_.instances.Get();
+    eval_status.fail_reason = str.str();   
+  }
+  else if (utilized_x_expansion_ > specs_.meshX.Get())
+  {
+    eval_status.success = false;
+    std::ostringstream str;
+    str << "mapped max Arithmetic X expansion " << utilized_x_expansion_ 
+        << " exceeds hardware instances " << specs_.meshX.Get();
+    eval_status.fail_reason = str.str();   
+  }
+  else if (utilized_y_expansion_ > specs_.meshY.Get())
+  {
+    eval_status.success = false;
+    std::ostringstream str;
+    str << "mapped max Arithmetic Y expansion " << utilized_y_expansion_ 
+        << " exceeds hardware instances " << specs_.meshY.Get();
+    eval_status.fail_reason = str.str();   
+  }
+  else // legal case
+  {
+    energy_ = 0;
+    std::uint64_t op_accesses;
+    std::string op_name;
+
+    // go through the fine grained actions and reflect the special impacts
+    for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++){
+      op_name = tiling::arithmeticOperationTypes[op_id];
+      op_accesses = tile.compute_info.fine_grained_accesses.at(op_name);
+      energy_ += op_accesses * specs_.op_energy_map.at(op_name);
+
+      // collect stats...
+      if (op_name == "random_compute")
+      {
+        random_computes_ = op_accesses;
+      } else if (op_name == "gated_compute")
+      {
+        gated_computes_ = op_accesses;
+      } else if (op_name == "skipped_compute")
+      {
+        skipped_computes_ = op_accesses;
+      }
+
+      actual_computes_ = random_computes_;
+    }
+
+    if (gEnableRubyCycleCount)
+      cycles_ = tile.compute_info.max_temporal_iterations;
+    else
+      cycles_ = ceil(double(random_computes_ + gated_computes_)/avg_utilized_instances_);
+      
+    algorithmic_computes_ = tile.compute_info.replication_factor * tile.compute_info.accesses;
+    is_evaluated_ = true;
+  }
+    
+  return eval_status;
+}
+
 // Accessors.
 
 std::string ArithmeticUnits::Name() const
@@ -355,14 +445,16 @@ void ArithmeticUnits::Print(std::ostream& out) const
     out << indent << "Area (total)                 : " << Area() << " um^2" << std::endl;
     out << std::endl;
   }
- else
- {
-  out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
-  out << indent << "Computes (total)        : " << actual_computes_ << std::endl;
-  out << indent << "Cycles                  : " << Cycles() << std::endl;
-  out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
-  out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
- }
+  else
+  {
+    out << indent << "Utilized instances      : " << UtilizedInstances() << std::endl;
+    out << indent << "Computes (total)        : " << actual_computes_ << std::endl;
+    out << indent << "Cycles                  : " << Cycles() << std::endl;
+    out << indent << "Energy (total)          : " << Energy() << " pJ" << std::endl;
+    out << indent << "Area (total)            : " << Area() << " um^2" << std::endl;
+  }
+
+  out << std::endl;
 }
 
 } // namespace model

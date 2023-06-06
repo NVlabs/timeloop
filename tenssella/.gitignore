@@ -1,0 +1,10 @@
+.sconsign.dblite
+*.o
+*.log
+log.txt
+tenssella
+scratch
+backup
+bak
+junk
+core.*

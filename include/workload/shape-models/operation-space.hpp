@@ -91,7 +91,7 @@ class OperationSpace
   // API always uses flattened "Operation" points and spaces.
   // Factorized points and spaces are used internally.
 
-  OperationSpace();
+  OperationSpace() = delete;
   OperationSpace(const Workload* wc);
   OperationSpace(const Workload* wc,
                  const OperationPoint& flattened_low,
@@ -104,8 +104,8 @@ class OperationSpace
   // OperationSpace& ExtrudeAdd(const OperationSpace& s);
   OperationSpace operator-(const OperationSpace& p);
 
-  void SaveAndSubtract(OperationSpace& prev);
-  void SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<Point>& prev_translation);
+  void SaveAndSubtract(OperationSpace& prev, problem::PerDataSpace<bool> no_temporal_reuse);
+  void SaveAndSubtractIfSameStride(OperationSpace& prev, problem::PerDataSpace<Point>& prev_translation, problem::PerDataSpace<bool> no_temporal_reuse);
 
   DataSpace& GetDataSpace(Shape::DataSpaceID pv);
   PerDataSpace<std::size_t> GetSizes() const;

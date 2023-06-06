@@ -203,7 +203,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) cons
 
 }
 
-bool CompoundConfigNode::lookupValue(const char *name, long long &value) const {
+bool CompoundConfigNode::lookupValueLongOnly(const char *name, long long &value) const {
   EXCEPTION_PROLOGUE;
   if (LNode) {
     if (!LNode->lookupValue(name, value)) {
@@ -236,7 +236,17 @@ bool CompoundConfigNode::lookupValue(const char *name, long long &value) const {
   EXCEPTION_EPILOGUE;
 }
 
-bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value) const {
+bool CompoundConfigNode::lookupValue(const char *name, long long &value) const {
+  if(lookupValueLongOnly(name, value)) return true; // Reads values of the form 123L
+  int int_value;
+  if(lookupValue(name, int_value)) { // Reads normal integers
+    value = (long long) int_value;
+    return true;
+  }
+  return false;
+}
+
+bool CompoundConfigNode::lookupValueLongOnly(const char *name, unsigned long long &value) const {
   EXCEPTION_PROLOGUE;
   if (LNode) {
     if (!LNode->lookupValue(name, value)) {
@@ -267,6 +277,16 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value
     return false;
   }
   EXCEPTION_EPILOGUE;
+}
+
+bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value) const {
+  if(lookupValueLongOnly(name, value)) return true; // Reads values of the form 123L
+  unsigned int int_value;
+  if(lookupValue(name, int_value)) { // Reads normal integers
+    value = (unsigned long long) int_value;
+    return true;
+  }
+  return false;
 }
 
 bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
@@ -632,7 +652,7 @@ CompoundConfigNode CompoundConfig::getVariableRoot() const {
   return variableRoot;
 }
 
-uint32_t parseElementSize(std::string name) {
+std::uint64_t parseElementSize(std::string name) {
   auto posBegin = name.find("[");
   auto posEnd = name.find("]");
   auto posDots = name.find("..");
@@ -640,7 +660,7 @@ uint32_t parseElementSize(std::string name) {
     assert(posBegin < posEnd && posDots < posEnd && posBegin < posDots);
     auto beginIdx = name.substr(posBegin + 1, posDots - posBegin - 1);
     auto endIdx = name.substr(posDots + 2, posEnd - posDots - 2);
-    return std::stoi(endIdx) - std::stoi(beginIdx) + 1;
+    return std::stoul(endIdx) - std::stoul(beginIdx) + 1;
   } else {
     return 1;
   }

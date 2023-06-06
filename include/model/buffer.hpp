@@ -110,6 +110,11 @@ class BufferLevel : public Level
     Attribute<std::uint64_t> num_banks;
     Attribute<bool> reduction_supported;
 
+    // If the inner fill network is inferred, 
+    // use the following fill and drain latency for the network
+    Attribute<std::uint64_t> network_fill_latency;
+    Attribute<std::uint64_t> network_drain_latency;
+
     // compression related
     Attribute<bool> concordant_compressed_tile_traversal;
     Attribute<bool> tile_partition_supported;
@@ -142,6 +147,9 @@ class BufferLevel : public Level
     Attribute<double> vector_access_energy; // pJ
     Attribute<double> storage_area; // um^2
     Attribute<double> addr_gen_energy; // pJ
+    std::string access_energy_source;
+    std::string addr_gen_energy_source;
+    std::string storage_area_source;
 
     Attribute<bool> is_sparse_module;
     
@@ -421,8 +429,8 @@ class BufferLevel : public Level
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the constructor when an object is actually created.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, uint32_t n_elements, bool is_sparse_module);
-  static void ParseBufferSpecs(config::CompoundConfigNode buffer, uint32_t n_elements,
+  static Specs ParseSpecs(config::CompoundConfigNode setting, std::uint64_t n_elements, bool is_sparse_module);
+  static void ParseBufferSpecs(config::CompoundConfigNode buffer, std::uint64_t n_elements,
                                problem::Shape::DataSpaceID pv, Specs& specs);
   static void ValidateTopology(BufferLevel::Specs& specs);
 
@@ -456,8 +464,10 @@ class BufferLevel : public Level
   void ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, unsigned data_space_id);
   void FinalizeBufferEnergy();
 
+  // Operational intensity calculation function
+  double OperationalIntensity(std::uint64_t total_ops);
+
   // Accessors (post-evaluation).
-  
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
  
   std::string Name() const override;
@@ -470,9 +480,10 @@ class BufferLevel : public Level
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
-  
+  std::uint64_t TotalUtilizedBytes(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
+
   // Printers.
-  void Print(std::ostream& out) const;
+  void Print(std::ostream& out) const override;
   friend std::ostream& operator << (std::ostream& out, const BufferLevel& buffer_level);
 };
 

@@ -39,7 +39,6 @@ class ArchProperties
   model::Engine::Specs specs_;
   
   uint64_t num_temporal_tiling_levels_;
-  uint64_t num_spatial_tiling_levels_;
   uint64_t num_total_tiling_levels_;  // temporal + spatial
   
   std::vector<bool> spatial_mask_;       // across all levels

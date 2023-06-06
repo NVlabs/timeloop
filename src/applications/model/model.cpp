@@ -248,16 +248,16 @@ Application::Stats Application::Run()
   {
     if (!sparse_optimizations_->no_optimization_applied)
     {   
-      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
-              << " | pJ/Algorithmic-Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << engine.Energy() /
+      std::cout << "Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << engine.Utilization()
+              << " | pJ/Algorithmic-Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().AlgorithmicComputes()
-              << " | pJ/Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << engine.Energy() /
+              << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().ActualComputes() << std::endl;
     }
     else
     {
-      std::cout << "Utilization = " << std::setw(4) << std::fixed << std::setprecision(2) << engine.Utilization()
-                 << " | pJ/Compute = " << std::setw(8) << std::fixed << PRINTFLOAT_PRECISION << engine.Energy() /
+      std::cout << "Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << engine.Utilization()
+                 << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().ActualComputes() << std::endl;
     }
     std::ofstream map_txt_file(map_txt_file_name);

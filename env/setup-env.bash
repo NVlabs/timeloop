@@ -25,6 +25,10 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # This should be sourced.
-MY_FILE_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-MY_DIR_PATH=$(echo $MY_FILE_PATH | awk -F"/" '{ for (i = 1; i <= NF-2; i++) { printf "%s%s", $i, "/" } printf $(NF-1) }')
-export LD_LIBRARY_PATH=$MY_DIR_PATH/../lib:${LD_LIBRARY_PATH}
+export TIMELOOP_BASE_PATH=$(cd "$(dirname "${BASH_SOURCE[0]:-${(%):-%x}}")/.."; pwd)
+
+# We should separate the following depending on which OS is running.
+# We should also create separate scripts for bash and zsh. At the moment this
+# script works with both shells.
+export LD_LIBRARY_PATH=$TIMELOOP_BASE_PATH/lib:$LD_LIBRARY_PATH
+export DYLD_FALLBACK_LIBRARY_PATH=$TIMELOOP_BASE_PATH/lib:$DYLD_FALLBACK_LIBRARY_PATH

@@ -38,14 +38,14 @@ namespace mapping
 //
 
 ArchProperties arch_props_;
-problem::Workload workload_;
 
 //
 // Forward declarations.
 //
 unsigned FindTargetStorageLevel(config::CompoundConfigNode directive);
 unsigned FindTargetTilingLevel(config::CompoundConfigNode constraint, std::string type);
-std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode constraint);
+std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(
+  config::CompoundConfigNode constraint, const problem::Workload& workload);
 std::vector<problem::Shape::FlattenedDimensionID> ParseUserPermutations(config::CompoundConfigNode constraint);
 void ParseUserDatatypeBypassSettings(config::CompoundConfigNode constraint,
                                      unsigned level,
@@ -57,13 +57,11 @@ loop::Nest::SkewDescriptor ParseUserSkew(config::CompoundConfigNode directive);
 //
 Mapping ParseAndConstruct(config::CompoundConfigNode config,
                           model::Engine::Specs& arch_specs,
-                          problem::Workload workload)
+                          const problem::Workload& workload)
 {
   arch_props_ = ArchProperties();
   arch_props_.Construct(arch_specs);
 
-  workload_ = workload;
-  
   std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>>> user_factors;
   std::map<unsigned, std::vector<problem::Shape::FlattenedDimensionID>> user_permutations;
   std::map<unsigned, std::uint32_t> user_spatial_splits;
@@ -72,6 +70,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   std::unordered_map<unsigned, loop::Nest::SkewDescriptor> user_skews;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse;
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
@@ -105,11 +104,11 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
     {
       auto level_id = FindTargetTilingLevel(directive, type);
 
-      user_factors[level_id] = ParseUserFactors(directive);
+      user_factors[level_id] = ParseUserFactors(directive, workload);
 
       // The following logic was moved to the next per-level block of code.
 
-      // auto level_factors = ParseUserFactors(directive);
+      // auto level_factors = ParseUserFactors(directive, workload);
       // if (level_factors.size() > 0)
       // {
       //   // Fill in missing factors with default = 1.
@@ -196,6 +195,35 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
               catch (std::out_of_range& oor)
               {
                 std::cerr << "ERROR: parsing no_multicast_no_reduction setting: data-space " << datatype_string
+                          << " not found in problem shape." << std::endl;
+                exit(1);
+              }
+            }
+          }
+        }
+      }
+      if (type == "temporal")
+      {
+        // No temporal reuse
+        if (directive.exists("no_temporal_reuse"))
+        {
+          auto storage_level = arch_props_.TilingToStorage(level_id);
+          std::vector<std::string> datatype_strings;
+          if (directive.lookupArrayValue("no_temporal_reuse", datatype_strings))
+          {
+            no_temporal_reuse[storage_level] = problem::PerDataSpace<bool>();
+            for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+              no_temporal_reuse[storage_level][pv] = 0;
+            for (const std::string& datatype_string: datatype_strings)
+            {
+              try
+              {
+                no_temporal_reuse[storage_level].at(
+                  problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+              }
+              catch (std::out_of_range& oor)
+              {
+                std::cerr << "ERROR: parsing no_temporal_reuse setting: data-space " << datatype_string
                           << " not found in problem shape." << std::endl;
                 exit(1);
               }
@@ -328,12 +356,12 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   bool fault = false;
   for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
   {
-    if (prod[dim] != workload_.GetFlattenedBound(dim))
+    if (prod[dim] != workload.GetFlattenedBound(dim))
     {
       std::cerr << "ERROR: parsing mapping: product of all factors of dimension "
                 << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " is "
                 << prod[dim] << ", which is not equal to "
-                << "the dimension size of the workload " << workload_.GetFlattenedBound(dim)
+                << "the dimension size of the workload " << workload.GetFlattenedBound(dim)
                 << "." << std::endl;
       fault = true;
     }
@@ -346,7 +374,6 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   // Concatenate the subnests to form the final mapping nest.
   Mapping mapping;
   
-  std::uint64_t storage_level = 0;
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
@@ -372,7 +399,6 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       }
       mapping.loop_nest.AddStorageTilingBoundary();
       mapping.complete_loop_nest.AddStorageTilingBoundary();
-      storage_level++;
     }
   }
 
@@ -417,6 +443,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   mapping.loop_nest.skew_descriptors = user_skews;
   mapping.loop_nest.no_link_transfer = no_link_transfer;
   mapping.loop_nest.no_multicast = no_multicast;
+  mapping.loop_nest.no_temporal_reuse = no_temporal_reuse;
   mapping.id = 0;
   mapping.fanoutX_map = arch_props_.FanoutX();
   mapping.fanoutY_map = arch_props_.FanoutY();
@@ -514,13 +541,17 @@ unsigned FindTargetTilingLevel(config::CompoundConfigNode directive, std::string
 //
 // Parse user factors.
 //
-std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(config::CompoundConfigNode directive)
+std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFactors(
+  config::CompoundConfigNode directive,
+  const problem::Workload& workload)
 {
   std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> retval;
     
   std::string buffer;
   if (directive.lookupValue("factors", buffer))
   {
+    buffer = buffer.substr(0, buffer.find("#"));
+
     std::regex re("([A-Za-z]+)[[:space:]]*[=]*[[:space:]]*([0-9]+)(,([0-9]+))?", std::regex::extended);
     std::smatch sm;
     std::string str = std::string(buffer);
@@ -544,14 +575,14 @@ std::map<problem::Shape::FlattenedDimensionID, std::pair<int,int>> ParseUserFact
       if (end == 0)
       {
         std::cerr << "WARNING: Interpreting 0 to mean full problem dimension instead of residue." << std::endl;
-        end = workload_.GetFlattenedBound(dimension);
+        end = workload.GetFlattenedBound(dimension);
       }
-      // else if (end > workload_.GetBound(dimension))
+      // else if (end > workload.GetBound(dimension))
       // {
       //   std::cerr << "WARNING: Directive " << dimension << "=" << end
       //             << " exceeds problem dimension " << dimension << "="
-      //             << workload_.GetBound(dimension) << ". Setting directive "
-      //             << dimension << "=" << workload_.GetBound(dimension) << std::endl;
+      //             << workload.GetBound(dimension) << ". Setting directive "
+      //             << dimension << "=" << workload.GetBound(dimension) << std::endl;
       //   end = workload_.GetBound(dimension);
       // }
       else

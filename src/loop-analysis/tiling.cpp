@@ -36,8 +36,8 @@ namespace tiling
 {
 
 bool gEnableFirstReadElision =
-  (getenv("ENABLE_FIRST_READ_ELISION") == NULL) ||
-  (strcmp(getenv("ENABLE_FIRST_READ_ELISION"), "0") != 0);
+  (getenv("TIMELOOP_ENABLE_FIRST_READ_ELISION") == NULL) ||
+  (strcmp(getenv("TIMELOOP_ENABLE_FIRST_READ_ELISION"), "0") != 0);
 
 bool gUpdatedRMW =
   (getenv("TIMELOOP_ENABLE_UPDATED_RMW") != NULL) &&
@@ -401,6 +401,8 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
         (tile_nest[inner].partition_size - 1) / outer_multicast_factor;
       tile_nest[inner].content_accesses = 1 +
         (tile_nest[inner].content_accesses - 1) / outer_multicast_factor;
+      tile_nest[inner].parent_access_share = 1 +
+        (tile_nest[inner].parent_access_share - 1) / outer_multicast_factor;
 
       // The inner tile's network accesses will now happen at a distributed-multicast
       // factor of outer_multicast_factor. These alterations will magically trigger
@@ -579,30 +581,27 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
 
       assert((tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses) >= tile_nest[cur].partition_size);
 
-      if (gEnableFirstReadElision)
-        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
-      else
-        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
-
-      // std::cout << "TILING LEVEL = " << cur << std::endl;
-      // std::cout << "  content = " << tile_nest[cur].content_accesses << std::endl;
-      // std::cout << "  partition size = " << tile_nest[cur].partition_size << std::endl;
-      // std::cout << "  peer accesses = " << tile_nest[cur].peer_accesses << std::endl;
-      // std::cout << "  reads = " << tile_nest[cur].reads << std::endl << std::endl;
-
-      tile_nest[cur].updates = std::round(tile_nest[cur].content_accesses);
-      tile_nest[cur].fills = tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills;
-      //tile.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
-
       // FIXME: temporal reduction and network costs if hardware reduction isn't
       // supported appears to be wonky - network costs may need to trickle down
       // all the way to the level that has the reduction hardware.
+      tile_nest[cur].updates = std::round(tile_nest[cur].content_accesses);
       if (gEnableFirstReadElision)
+      {
+        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
         tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
+        // Special case outermost level for fill calculation: do not subtract partition size.
+        tile_nest[cur].fills = (cur == num_tiling_levels-1) ?
+          std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills) : // This is likely 0.
+          std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills - tile_nest[cur].partition_size);
+      }
       else
+      {
+        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
         tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
-      // std::cout << "tile: reads, updates, fills " 
-      // << tile.reads << " " <<  tile.updates<< " " << tile.fills <<std::endl;
+        tile_nest[cur].fills = std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills);
+      }
+
+      //tile.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
     }
     else // Read-only data type.
     {
@@ -757,8 +756,8 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
                                        int num_tiling_levels,
                                        const CompoundMaskNest& tile_mask,
                                        const CompoundMaskNest& distribution_supported,
-                                       problem::Workload* workload){
-
+                                       problem::Workload* workload)
+{
   CompoundDataMovementNest collapsed_compound_data_nest = CollapseDataMovementNest(tiles.compound_data_movement_info_nest,
                                                                                    num_tiling_levels,
                                                                                    tile_mask,
@@ -768,22 +767,34 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
   tiling::CompoundTileNest solution;
   solution.compound_data_movement_info_nest = collapsed_compound_data_nest;
   solution.compute_info_nest = collapsed_compound_compute_nest;
+
+  // -- FIXME -- we don't need both compute_cycles and max_temporal iterations.
+  // The latter is a temporary hack for Ruby. The former is needed for sparse
+  // analysis. We need to merge these.
   solution.compute_info_nest[0].compute_cycles = solution.compute_info_nest[0].accesses;
   return solution;
 }
 
 
-ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels){
+ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_tiling_levels)
+{
   ComputeNest solution;
   
-  for (int level=0; level < num_tiling_levels; level++){
-    
+  for (int level=0; level < num_tiling_levels; level++)
+  {  
     ComputeInfo collapsed_tile;
-    if (level == 0 ){
+    if (level == 0)
+    {
       // compute info is only valid for the inner most level
       collapsed_tile.replication_factor = tiles[0].replication_factor;
       collapsed_tile.accesses = tiles[0].accesses;
-    } else {
+      // -- FIXME -- we don't need both compute_cycles and max_temporal iterations.
+      // The latter is a temporary hack for Ruby. The former is needed for sparse
+      // analysis. We need to merge these.
+      collapsed_tile.max_temporal_iterations = tiles[0].max_temporal_iterations;
+    }
+    else
+    {
       collapsed_tile.replication_factor = 0;
       collapsed_tile.accesses = 0;
     }
@@ -899,8 +910,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     // Additional step for outermost masked levels.
     ProcessOuterMaskedLevels(solution[pv], tile_mask[pv]);
 
-    // Set backing storage fill to zero
-    // place holder
+    // Set backing storage fill to zero place holder
     ResetBackingStorageFillsPlaceHolder(solution[pv]);
 
     // Perform distributed-multicast if supported.

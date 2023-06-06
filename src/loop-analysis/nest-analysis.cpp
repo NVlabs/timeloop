@@ -44,7 +44,7 @@
 
 #include "loop-analysis/nest-analysis.hpp"
 
-extern bool gTerminateEval;
+bool gTerminateEval = false;
 
 bool gEnableLinkTransfers =
   (getenv("TIMELOOP_DISABLE_LINK_TRANSFERS") == NULL) ||
@@ -64,6 +64,9 @@ bool gDisableFirstElementOnlySpatialExtrapolation =
 bool gEnableTracing =
   (getenv("TIMELOOP_ENABLE_TRACING") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_TRACING"), "0") != 0);
+bool gRunLastIteration =
+  (getenv("TIMELOOP_RUN_LAST_ITERATION") != NULL) &&
+  (strcmp(getenv("TIMELOOP_RUN_LAST_ITERATION"), "0") != 0);
 
 // Flattening => Multi-AAHRs
 // => Can't use per-AAHR reset-on-stride-change logic
@@ -104,6 +107,7 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
     packed_skew_descriptors_ = nest->skew_descriptors;
     no_link_transfer_ = nest->no_link_transfer;
     no_multicast_ = nest->no_multicast;
+    no_temporal_reuse_ = nest->no_temporal_reuse;
 
     physical_fanoutX_ = fanoutX_map;
     physical_fanoutY_ = fanoutY_map;
@@ -176,6 +180,7 @@ void NestAnalysis::Reset()
 
   no_multicast_.clear();
   no_link_transfer_.clear();
+  no_temporal_reuse_.clear();
 
 }
 
@@ -363,7 +368,7 @@ void NestAnalysis::CollectWorkingSets()
     if (valid_level)
     {
       // Contains the collected state for this level.
-      analysis::ElementState condensed_state;
+      analysis::ElementState condensed_state(*workload_);
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
         // Sanity check: All elements in a given level should
@@ -481,6 +486,13 @@ void NestAnalysis::CollectWorkingSets()
   // Extract body data from innermost spatial level.
   bool innermost_level_compute_info_collected = false; 
   
+  uint64_t max_temporal_iterations = 1;
+  for (auto& cur : nest_state_)
+  {
+    if (!loop::IsSpatial(cur.descriptor.spacetime_dimension))
+      max_temporal_iterations *= cur.descriptor.end;
+  }
+
   for (auto& cur : nest_state_)
   {
     // All spatial levels that are not a master-spatial level are not valid
@@ -500,6 +512,7 @@ void NestAnalysis::CollectWorkingSets()
         avg_accesses /= compute_info_.size();
 
         compute_info.accesses = avg_accesses;
+        compute_info.max_temporal_iterations = max_temporal_iterations;
         compute_info_sets_.push_back(compute_info);
         innermost_level_compute_info_collected = true;
       }
@@ -589,7 +602,9 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // PrintStamp(AllButLast(space_stamp_));
   // std::cout << std::endl;
 
-  auto& cur_state = cur->live_state[AllButLast(space_stamp_)];
+  auto cur_state_it = cur->live_state.emplace(AllButLast(space_stamp_),
+                                              ElementState(*workload_)).first;
+  auto& cur_state = cur_state_it->second;
 
   // std::cout << "CD level " << cur->level << " potentially created live state entry. Full state:\n";
   // for (auto& state: cur->live_state)
@@ -667,10 +682,19 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // across ancestor iterations, we apply a simple heuristic to detect this
   // behavior and simply discard any residual state if the tile shape changes
   // the magnitude or direction of its stride.
+  problem::PerDataSpace<bool> no_temporal_reuse;
+  for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  {
+    no_temporal_reuse[pv] = false;
+  }
+  if(no_temporal_reuse_.find(arch_storage_level_[cur->level]) != no_temporal_reuse_.end())
+  {
+    no_temporal_reuse = no_temporal_reuse_[arch_storage_level_[cur->level]];
+  }
   if (gResetOnStrideChange)
-    point_set.SaveAndSubtractIfSameStride(cur_state.last_point_set, cur_state.last_translations);
+    point_set.SaveAndSubtractIfSameStride(cur_state.last_point_set, cur_state.last_translations, no_temporal_reuse);
   else
-    point_set.SaveAndSubtract(cur_state.last_point_set);
+    point_set.SaveAndSubtract(cur_state.last_point_set, no_temporal_reuse);
   auto& delta = point_set;
 #else
   problem::OperationSpace delta(workload_);
@@ -772,8 +796,9 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     std::vector<problem::PerDataSpace<std::size_t>> temporal_delta_sizes;
     std::vector<std::uint64_t> temporal_delta_scale;
 
-    bool run_last_iteration = imperfectly_factorized_ || problem::GetShape()->UsesFlattening;
-      
+    bool run_last_iteration = imperfectly_factorized_ || problem::GetShape()->UsesFlattening || gRunLastIteration;
+    bool run_second_last_iteration = imperfectly_factorized_ && run_last_iteration;
+
     if (gExtrapolateUniformTemporal && !disable_temporal_extrapolation_.at(level))
     {
       // What we would like to do is to *NOT* iterate through the entire loop
@@ -815,13 +840,18 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       }
 
       // Iterations #1 through #last-1/last.
-      if ((run_last_iteration && num_iterations >= 3) ||
+      if ((run_second_last_iteration && num_iterations >= 4) ||
+          (run_last_iteration && !run_second_last_iteration && num_iterations >= 3) ||
           (!run_last_iteration && num_iterations >= 2))
       {
         // Invoke next (inner) loop level, scaling up the number of epochs
         // by the number of virtual iterations we want to simulate.
         std::uint64_t virtual_iterations =
           run_last_iteration ? num_iterations - 2 : num_iterations - 1;
+
+        // Run one fewer iteration for imperfect factor support
+        if (run_second_last_iteration)
+            virtual_iterations = virtual_iterations - 1;
 
         auto saved_epochs = num_epochs_;
         num_epochs_ *= virtual_iterations;
@@ -844,6 +874,31 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
           time_stamp_.back() += virtual_iterations;
       }
 
+      // Iteration # second last to find delta for imperfect factors
+      if (run_second_last_iteration && num_iterations >= 3)
+      {
+        // Invoke next (inner) loop level.
+        ++cur;
+        auto temporal_delta = ComputeDeltas(cur);
+        --cur;
+
+        if (num_iterations >= 4)
+        {
+          temporal_delta_scale.back()++;
+        } else {
+          temporal_delta_sizes.push_back(temporal_delta.GetSizes());
+          temporal_delta_scale.push_back(1);
+        }
+
+        cur_transform_[dim] += scale;
+
+        indices_[level] += cur->descriptor.stride;
+        loop_gists_temporal_.at(dim).index = indices_[level];
+
+        if (storage_boundary_level_[level-1] || master_spatial_level_[level-1])
+          (time_stamp_.back())++;
+      }
+
       // Iteration #last.
       if (run_last_iteration && num_iterations >= 2)
       {
@@ -856,7 +911,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         // use this returned delta, because we will receive the delta between
         // iteration #2 and #last. Instead, we just re-use the last delta by
         // increasing the #virtual iterations (scale) by 1.
-        if (num_iterations >= 3)
+        if (!run_second_last_iteration && num_iterations >= 3)
         {
           temporal_delta_scale.back()++;
         }
@@ -1020,7 +1075,10 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   // PrintStamp(AllButLast(space_stamp_));
   // std::cout << std::endl;
 
-  auto& cur_state = nest_state_[cur->level].live_state[AllButLast(space_stamp_)];
+  auto cur_state_it =
+      nest_state_[cur->level].live_state.emplace(AllButLast(space_stamp_),
+                                                 ElementState(*workload_)).first;
+  auto& cur_state = cur_state_it->second;
   //auto& cur_state = nest_state_[cur->level].live_state[spatial_id_];
 
   // std::cout << "CSWS level " << level << " potentially created live state entry. Full state:\n";
@@ -1225,8 +1283,10 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
       // skew function.
       ASSERT(spatial_deltas.find(skewed_delta_index) == spatial_deltas.end());
 
-      spatial_deltas[skewed_delta_index] = problem::OperationSpace(workload_);
-      spatial_deltas[skewed_delta_index] += IndexToOperationPoint_(indices_);
+      spatial_deltas.emplace(skewed_delta_index,
+                             problem::OperationSpace(workload_));
+      spatial_deltas.emplace(skewed_delta_index, problem::OperationSpace(workload_));
+      spatial_deltas.at(skewed_delta_index) += IndexToOperationPoint_(indices_);
 
       space_stamp_.back() = skewed_delta_index;
       compute_info_[space_stamp_].accesses += num_epochs_;
@@ -1330,7 +1390,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
           //           << " unskewed = " << spatial_delta_index << " skewed = "
           //           << skewed_delta_index << std::endl;
 
-          spatial_deltas[skewed_delta_index] = ComputeDeltas(cur);
+          spatial_deltas.emplace(skewed_delta_index, ComputeDeltas(cur));
 
           --cur;
           cur_transform_[dim] += scale;
@@ -1357,25 +1417,28 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
       // Determine translation vector from #iterations_to_run-2 to #iterations_to_run-1.
       problem::PerDataSpace<Point> translation_vectors;
-
-      if(!gDisableFirstElementOnlySpatialExtrapolation) 
+      if (indices_[level] < end)
       {
-        translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
-      }
-      else
-      {
-        auto last_skewed_index = skew_table.at(base_index + indices_[level] - extrapolation_stride);
-        auto secondlast_skewed_index = skew_table.at(base_index + indices_[level] - 2*extrapolation_stride);
-
-        auto& opspace_lastrun = spatial_deltas.at(last_skewed_index);
-        auto& opspace_secondlastrun = spatial_deltas.at(secondlast_skewed_index);
-
-        for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+        if(!gDisableFirstElementOnlySpatialExtrapolation) 
         {
-          translation_vectors[pv] =
-            opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv));
+          translation_vectors = GetCurrentTranslationVectors(extrapolation_level);
+        }
+        else
+        {
+          auto last_skewed_index = skew_table.at(base_index + indices_[level] - extrapolation_stride);
+          auto secondlast_skewed_index = skew_table.at(base_index + indices_[level] - 2*extrapolation_stride);
+
+          auto& opspace_lastrun = spatial_deltas.at(last_skewed_index);
+          auto& opspace_secondlastrun = spatial_deltas.at(secondlast_skewed_index);
+
+          for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+          {
+            translation_vectors[pv] =
+              opspace_secondlastrun.GetDataSpace(pv).GetTranslation(opspace_lastrun.GetDataSpace(pv));
+          }
         }
       }
+
       // Iterations #num_iterations_to_run through #last.
       for (;
            indices_[level] < end;
@@ -1394,8 +1457,11 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
 
         spatial_id_ = orig_spatial_id + base_index + indices_[level]; // note: unskewed.
 
-        auto& dst_temporal_delta = spatial_deltas[dst_delta_index];
-        auto& src_temporal_delta = spatial_deltas[src_delta_index];
+        auto dst_temporal_delta_it =
+            spatial_deltas.emplace(dst_delta_index,
+                                   problem::OperationSpace(workload_)).first;
+        auto& dst_temporal_delta = dst_temporal_delta_it->second;
+        auto& src_temporal_delta = spatial_deltas.at(src_delta_index);
         for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
         {
           dst_temporal_delta.GetDataSpace(pv) = src_temporal_delta.GetDataSpace(pv);

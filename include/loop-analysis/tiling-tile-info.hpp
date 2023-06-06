@@ -42,7 +42,7 @@
 namespace tiling
 {
 
-const int MaxTilingLevels = 16;
+const int MaxTilingLevels = 32;
 
 // each item stands for a rank, each rank has associated metadata occupancy
 typedef std::vector<problem::PerRankMetaDataTileOccupancy> MetaDataTileOccupancy;
@@ -273,6 +273,7 @@ struct ComputeInfo
   std::uint64_t max_x_expansion;
   std::uint64_t max_y_expansion;
   std::uint64_t compute_cycles;
+  std::uint64_t max_temporal_iterations;
 
   // fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_accesses; 
@@ -288,6 +289,7 @@ struct ComputeInfo
     max_y_expansion = 0;
     accesses = 0;
     compute_cycles = 0;
+    max_temporal_iterations = 1;
   }
 };
 
@@ -295,7 +297,8 @@ struct ComputeInfo
 // indexing order: [datatype/optype, nest_level]
 typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest ; 
 typedef std::vector<ComputeInfo> ComputeNest;
-struct CompoundTileNest{
+struct CompoundTileNest
+{
    CompoundDataMovementNest compound_data_movement_info_nest;
    ComputeNest compute_info_nest;
 };
@@ -305,7 +308,8 @@ struct CompoundTileNest{
 typedef problem::PerDataSpace<DataMovementInfo> CompoundDataMovementInfo;
 
 // indexing order: [nest_level, datatype/optype]
-struct CompoundTile{
+struct CompoundTile
+{
   CompoundDataMovementInfo data_movement_info;
   ComputeInfo compute_info;
 };
