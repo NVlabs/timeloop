@@ -55,8 +55,6 @@
 #include "loop-analysis/temporal-analysis.hpp"
 #include "mapping/fused-mapping.hpp"
 
-// #define ENABLE_NEST_ANALYSIS_COMPARISON_PRINT
-
 bool gTerminateEval = false;
 
 bool gEnableLinkTransfers =
@@ -80,6 +78,12 @@ bool gEnableTracing =
 bool gRunLastIteration =
   (getenv("TIMELOOP_RUN_LAST_ITERATION") != NULL) &&
   (strcmp(getenv("TIMELOOP_RUN_LAST_ITERATION"), "0") != 0);
+bool gUseIslAnalysis =
+  (getenv("TIMELOOP_USE_ISL") != NULL) &&
+  (strcmp(getenv("TIMELOOP_USE_ISL"), "0") != 0);
+bool gDumpNestAnalysisResult =
+  (getenv("TIMELOOP_DUMP_NEST_ANALYSIS_RESULT") != NULL) &&
+  (strcmp(getenv("TIMELOOP_DUMP_NEST_ANALYSIS_RESULT"), "0") != 0);
 
 // Flattening => Multi-AAHRs
 // => Can't use per-AAHR reset-on-stride-change logic
@@ -287,210 +291,221 @@ void NestAnalysis::ComputeWorkingSets()
   {
     InitializeNestProperties();
     InitializeLiveState();
-    #ifdef ENABLE_NEST_ANALYSIS_COMPARISON_PRINT
     DetectImperfectFactorization();
-
-    // Recursive call starting from the last element of the list.
-    num_epochs_ = 1;
-    ComputeDeltas(nest_state_.rbegin());
-    CollectWorkingSets();
-    #endif
-  }
-
-  auto occupancies = OccupanciesFromMapping(cached_nest, *workload_);
-  auto [eff_occupancies, fills] = TemporalReuseAnalysis(occupancies);
-  auto result = SpatialReuseAnalysis(fills,
-                                     eff_occupancies,
-                                     SimpleLinkTransferModel(1),
-                                     SimpleMulticastModel(1));
-
-  size_t num_compute_units = 1;
-  for (const auto& state : nest_state_)
-  {
-    if (loop::IsSpatial(state.descriptor.spacetime_dimension))
+    if (!gUseIslAnalysis)
     {
-      num_compute_units *= state.descriptor.end;
+      // Recursive call starting from the last element of the list.
+      num_epochs_ = 1;
+      ComputeDeltas(nest_state_.rbegin());
+      CollectWorkingSets();
     }
   }
-  // Insert innermost level with number of iterations divided by spatial elements
-  BufferID innermost_buf_id = storage_tiling_boundaries_.size()-1;
 
-  uint64_t max_temporal_iterations = 1;
-  for (auto& state : nest_state_)
+  if (gUseIslAnalysis)
   {
-    if (!loop::IsSpatial(state.descriptor.spacetime_dimension))
-      max_temporal_iterations *= state.descriptor.end;
-  }
+    auto occupancies = OccupanciesFromMapping(cached_nest, *workload_);
+    auto [eff_occupancies, fills] = TemporalReuseAnalysis(occupancies);
+    auto result = SpatialReuseAnalysis(fills,
+                                      eff_occupancies,
+                                      SimpleLinkTransferModel(1),
+                                      SimpleMulticastModel(1));
 
-  for (auto& [buf, occupancy] : occupancies)
-  {
-    if (buf.buffer_id == innermost_buf_id)
+    size_t num_compute_units = 1;
+    for (const auto& state : nest_state_)
     {
-      auto compute_info = ComputeInfo();
-      compute_info.replication_factor = num_compute_units;
-      compute_info.accesses = isl::val_to_double(
-        isl::get_val_from_singular_qpolynomial(
-          isl::set_card(occupancy.map.domain())
-        )
-      );
-      compute_info.max_temporal_iterations = max_temporal_iterations;
-      compute_info_sets_.push_back(compute_info);
-      break;
-    }
-  }
-  for (decltype(nest_state_)::size_type i = 0; i < nest_state_.size() - 1; ++i)
-  {
-    auto compute_info = ComputeInfo();
-    compute_info_sets_.push_back(compute_info);
-  }
-
-  BufferID cur_buffer_id = storage_tiling_boundaries_.size()-1;
-  auto cur_buffer_dumped = false;
-  for (const auto& cur : nest_state_)
-  {
-    auto is_master_spatial = master_spatial_level_[cur.level];
-    auto is_boundary = storage_boundary_level_[cur.level];
-
-    auto should_dump = false;
-    if (cur_buffer_dumped && is_boundary)
-    {
-      // Current buffer stats already dumped with the last master spatial loop.
-      cur_buffer_dumped = false;
-    }
-    else if (cur_buffer_dumped)
-    {
-      // Nothing to do
-    }
-    else if (is_boundary)
-    {
-      // Current buffer has not been dumped.
-      should_dump = true;
-    }
-    if (is_master_spatial)
-    {
-      // Current buffer has not been dumped. Dump here.
-      should_dump = true;
-      cur_buffer_dumped = true;
-    }
-
-    for (unsigned dspace_id = 0;
-         dspace_id < workload_->GetShape()->NumDataSpaces;
-         ++dspace_id)
-    {
-      DataMovementInfo tile;
-      tile.link_transfers = 0;
-      tile.replication_factor = num_spatial_elems_[cur.level];
-      tile.fanout = logical_fanouts_[cur.level];
-      tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
-      tile.is_master_spatial = master_spatial_level_[cur.level];
-
-      if (is_boundary)
+      if (loop::IsSpatial(state.descriptor.spacetime_dimension))
       {
-        auto& occ = eff_occupancies.at(LogicalBuffer(cur_buffer_id,
-                                                     dspace_id,
-                                                     0));
-        auto p_occ_count = isl::get_val_from_singular_qpolynomial_fold(
-          isl_pw_qpolynomial_bound(isl_map_card(occ.map.copy()),
-                                    isl_fold_max,
-                                    nullptr)
-        );
-        tile.size = isl::val_to_double(p_occ_count);
+        num_compute_units *= state.descriptor.end;
       }
-      else if (is_master_spatial)
+    }
+    // Insert innermost level with number of iterations divided by spatial elements
+    BufferID innermost_buf_id = storage_tiling_boundaries_.size()-1;
+
+    uint64_t max_temporal_iterations = 1;
+    for (auto& state : nest_state_)
+    {
+      if (!loop::IsSpatial(state.descriptor.spacetime_dimension))
+        max_temporal_iterations *= state.descriptor.end;
+    }
+
+    for (auto& [buf, occupancy] : occupancies)
+    {
+      if (buf.buffer_id == innermost_buf_id)
       {
-        auto& occ = eff_occupancies.at(LogicalBuffer(cur_buffer_id+1,
-                                                     dspace_id,
-                                                     0));
-        auto p_occ_count = isl::get_val_from_singular_qpolynomial_fold(
-          isl_pw_qpolynomial_bound(
-            isl_map_card(isl::project_last_dim(occ.map).release()),
-            isl_fold_max,
-            nullptr
+        auto compute_info = ComputeInfo();
+        compute_info.replication_factor = num_compute_units;
+        compute_info.accesses = isl::val_to_double(
+          isl::get_val_from_singular_qpolynomial(
+            isl::set_card(occupancy.map.domain())
           )
         );
-        tile.size = isl::val_to_double(p_occ_count);
+        compute_info.max_temporal_iterations = max_temporal_iterations;
+        compute_info_sets_.push_back(compute_info);
+        break;
       }
-      else
+    }
+    for (decltype(nest_state_)::size_type i = 0; i < nest_state_.size() - 1; ++i)
+    {
+      auto compute_info = ComputeInfo();
+      compute_info_sets_.push_back(compute_info);
+    }
+
+    BufferID cur_buffer_id = storage_tiling_boundaries_.size()-1;
+    auto cur_buffer_dumped = false;
+    for (const auto& cur : nest_state_)
+    {
+      auto is_master_spatial = master_spatial_level_[cur.level];
+      auto is_boundary = storage_boundary_level_[cur.level];
+
+      auto should_dump = false;
+      if (cur_buffer_dumped && is_boundary)
       {
-        tile.size = 0;
+        // Current buffer stats already dumped with the last master spatial loop.
+        cur_buffer_dumped = false;
+      }
+      else if (cur_buffer_dumped)
+      {
+        // Nothing to do
+      }
+      else if (is_boundary)
+      {
+        // Current buffer has not been dumped.
+        should_dump = true;
+      }
+      if (is_master_spatial)
+      {
+        // Current buffer has not been dumped. Dump here.
+        should_dump = true;
+        cur_buffer_dumped = true;
       }
 
-      if (should_dump)
+      for (unsigned dspace_id = 0;
+          dspace_id < workload_->GetShape()->NumDataSpaces;
+          ++dspace_id)
       {
-        auto& reads = result.multicast_info.reads.at(
-          LogicalBuffer(cur_buffer_id, dspace_id, 0)
-        );
-        auto p_val = isl::get_val_from_singular_qpolynomial(
-          isl::sum_map_range_card(reads)
-        );
-        p_val = isl_val_div(
-          p_val,
-          isl_val_int_from_si(GetIslCtx().get(),
-                              num_spatial_elems_[cur.level])
-        );
-        auto accesses = isl::val_to_double(p_val);
-        auto key = std::make_pair(logical_fanouts_[cur.level], 1);
-        tile.access_stats.stats[key] = AccessStats{
-          .accesses = accesses,
-          .hops = 0.0
-        };
-      }
+        DataMovementInfo tile;
+        tile.link_transfers = 0;
+        tile.replication_factor = num_spatial_elems_[cur.level];
+        tile.fanout = logical_fanouts_[cur.level];
+        tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
+        tile.is_master_spatial = master_spatial_level_[cur.level];
 
-      for (const auto& [buf_ab, transfers] :
-          result.link_transfer_info.link_transfers)
-      {
-        const auto& buf = buf_ab.first;
-        if (buf.buffer_id == cur_buffer_id && buf.dspace_id == dspace_id) 
+        if (is_boundary)
         {
+          auto& occ = eff_occupancies.at(LogicalBuffer(cur_buffer_id,
+                                                      dspace_id,
+                                                      0));
+          auto p_occ_count = isl::get_val_from_singular_qpolynomial_fold(
+            isl_pw_qpolynomial_bound(isl_map_card(occ.map.copy()),
+                                      isl_fold_max,
+                                      nullptr)
+          );
+          tile.size = isl::val_to_double(p_occ_count);
+        }
+        else if (is_master_spatial)
+        {
+          auto& occ = eff_occupancies.at(LogicalBuffer(cur_buffer_id+1,
+                                                      dspace_id,
+                                                      0));
+          auto p_occ_count = isl::get_val_from_singular_qpolynomial_fold(
+            isl_pw_qpolynomial_bound(
+              isl_map_card(isl::project_last_dim(occ.map).release()),
+              isl_fold_max,
+              nullptr
+            )
+          );
+          tile.size = isl::val_to_double(p_occ_count);
+        }
+        else
+        {
+          tile.size = 0;
+        }
+
+        if (should_dump)
+        {
+          auto& reads = result.multicast_info.reads.at(
+            LogicalBuffer(cur_buffer_id, dspace_id, 0)
+          );
           auto p_val = isl::get_val_from_singular_qpolynomial(
-            isl::sum_map_range_card(transfers.map)
+            isl::sum_map_range_card(reads)
           );
           p_val = isl_val_div(
             p_val,
             isl_val_int_from_si(GetIslCtx().get(),
                                 num_spatial_elems_[cur.level])
           );
-          tile.link_transfers = isl::val_to_double(p_val);
+          auto accesses = isl::val_to_double(p_val);
+
+          auto p_hops = result.multicast_info.p_hops.at(
+            LogicalBuffer(cur_buffer_id, dspace_id, 0)
+          );
+          p_val = isl::get_val_from_singular_qpolynomial(p_hops);
+          auto hops = isl::val_to_double(p_val);
+
+          auto key = std::make_pair(logical_fanouts_[cur.level], 1);
+          tile.access_stats.stats[key] = AccessStats{
+            .accesses = accesses,
+            .hops = hops
+          };
         }
+
+        for (const auto& [buf_ab, transfers] :
+            result.link_transfer_info.link_transfers)
+        {
+          const auto& buf = buf_ab.first;
+          if (buf.buffer_id == cur_buffer_id && buf.dspace_id == dspace_id) 
+          {
+            auto p_val = isl::get_val_from_singular_qpolynomial(
+              isl::sum_map_range_card(transfers.map)
+            );
+            p_val = isl_val_div(
+              p_val,
+              isl_val_int_from_si(GetIslCtx().get(),
+                                  num_spatial_elems_[cur.level])
+            );
+            tile.link_transfers = isl::val_to_double(p_val);
+          }
+        }
+        working_sets_[dspace_id].push_back(tile);
       }
-      working_sets_[dspace_id].push_back(tile);
-    }
 
-    if (should_dump)
-    {
-      --cur_buffer_id;
-    }
-  }
-
-  #ifdef ENABLE_NEST_ANALYSIS_COMPARISON_PRINT
-  int dspace = 0;
-  for (const auto& data_movement_nest : working_sets_)
-  {
-    std::cout << "Dspace: " << std::to_string(dspace) << std::endl;
-    int idx = 0;
-    for (const auto& data_movement : data_movement_nest)
-    {
-      std::cout << "  Idx: " << std::to_string(idx) << std::endl;
-      std::cout << "    Dist. multicast: " << std::to_string(data_movement.distributed_multicast) << std::endl;
-      std::cout << "    Size: " << std::to_string(data_movement.size) << std::endl;
-      std::cout << "    Access stats: " << std::endl;
-      for (const auto& [key, access_stat] : data_movement.access_stats.stats)
+      if (should_dump)
       {
-        std::cout << "      key: (" << std::to_string(key.first) << "," << std::to_string(key.second) << ")\n";
-        std::cout << "      accesses: " << std::to_string(access_stat.accesses) << std::endl;
-        std::cout << "      hops: " << std::to_string(access_stat.hops) << std::endl;
+        --cur_buffer_id;
       }
-      std::cout << "    Link transfers: " << std::to_string(data_movement.link_transfers) << std::endl;
-      std::cout << "    Replication fact.: " << std::to_string(data_movement.replication_factor) << std::endl;
-      std::cout << "    Fanout: " << std::to_string(data_movement.fanout) << std::endl;
-      std::cout << "    Dist. fanout: " << std::to_string(data_movement.distributed_fanout) << std::endl;
-      std::cout << "    On boundary: " << std::to_string(data_movement.is_on_storage_boundary) << std::endl;
-      std::cout << "    Is master spatial: " << std::to_string(data_movement.is_master_spatial) << std::endl;
-      ++idx;
     }
-    dspace++;
   }
-  #endif
+
+  if (gDumpNestAnalysisResult)
+  {
+    int dspace = 0;
+    for (const auto& data_movement_nest : working_sets_)
+    {
+      std::cout << "Dspace: " << std::to_string(dspace) << std::endl;
+      int idx = 0;
+      for (const auto& data_movement : data_movement_nest)
+      {
+        std::cout << "  Idx: " << std::to_string(idx) << std::endl;
+        std::cout << "    Dist. multicast: " << std::to_string(data_movement.distributed_multicast) << std::endl;
+        std::cout << "    Size: " << std::to_string(data_movement.size) << std::endl;
+        std::cout << "    Access stats: " << std::endl;
+        for (const auto& [key, access_stat] : data_movement.access_stats.stats)
+        {
+          std::cout << "      key: (" << std::to_string(key.first) << "," << std::to_string(key.second) << ")\n";
+          std::cout << "      accesses: " << std::to_string(access_stat.accesses) << std::endl;
+          std::cout << "      hops: " << std::to_string(access_stat.hops) << std::endl;
+        }
+        std::cout << "    Link transfers: " << std::to_string(data_movement.link_transfers) << std::endl;
+        std::cout << "    Replication fact.: " << std::to_string(data_movement.replication_factor) << std::endl;
+        std::cout << "    Fanout: " << std::to_string(data_movement.fanout) << std::endl;
+        std::cout << "    Dist. fanout: " << std::to_string(data_movement.distributed_fanout) << std::endl;
+        std::cout << "    On boundary: " << std::to_string(data_movement.is_on_storage_boundary) << std::endl;
+        std::cout << "    Is master spatial: " << std::to_string(data_movement.is_master_spatial) << std::endl;
+        ++idx;
+      }
+      dspace++;
+    }
+  }
 
   // Done.
   working_sets_computed_ = true;
@@ -508,7 +523,14 @@ void NestAnalysis::DetectImperfectFactorization()
       gEnableImperfectCycleCount = true;
       break;
     }
-  }  
+  }
+
+  if (imperfectly_factorized_ && gUseIslAnalysis)
+  {
+    throw std::runtime_error(
+      "Imperfect factorization not supported in ISL analysis"
+    );
+  }
 }
 
 void NestAnalysis::InitializeNestProperties()
