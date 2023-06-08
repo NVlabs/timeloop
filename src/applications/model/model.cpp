@@ -194,7 +194,7 @@ Application::Stats Application::Run()
   std::string stats_file_name = out_prefix_ + ".stats.txt";
   std::string xml_file_name = out_prefix_ + ".map+stats.xml";
   std::string map_txt_file_name = out_prefix_ + ".map.txt";
-  std::string map_inertial_file_name = out_prefix_ + ".map.inertial.txt";
+  std::string map_tenssella_file_name = out_prefix_ + ".map.tenssella.txt";
 
   model::Engine engine;
   engine.Spec(arch_specs_);
@@ -277,9 +277,9 @@ Application::Stats Application::Run()
   const Application* a = this;
   ar << BOOST_SERIALIZATION_NVP(a);
 
-  // Print the mapping in Inertial input format.
-  std::ofstream inertial_out(map_inertial_file_name);
-  mapping.PrintInertial(inertial_out);
+  // Print the mapping in Tenssella input format.
+  std::ofstream tenssella_out(map_tenssella_file_name);
+  mapping.PrintTenssella(tenssella_out);
 
   Stats stats;
   stats.cycles = engine.Cycles();

@@ -533,7 +533,7 @@ std::string Nest::PrintCompact(const tiling::NestOfCompoundMasks& mask_nest)
   return retval;
 }
 
-void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& mask_nest)
+void Nest::PrintTenssella(std::ostream& out, const tiling::NestOfCompoundMasks& mask_nest)
 {
   unsigned num_loops = loops.size();
   unsigned inv_storage_level = storage_tiling_boundaries.size()-2;
@@ -605,7 +605,7 @@ void Nest::PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& m
       {
         if (!mask.at(pvi))
         {
-          out << "#error Inertial does not support bypass." << std::endl;
+          out << "#error Tenssella does not support bypass." << std::endl;
         }
       }
 

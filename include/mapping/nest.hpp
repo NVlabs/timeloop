@@ -105,7 +105,7 @@ class Nest
 
   std::string PrintCompact(const tiling::NestOfCompoundMasks& mask_nest);
 
-  void PrintInertial(std::ostream& out, const tiling::NestOfCompoundMasks& mask_nest);
+  void PrintTenssella(std::ostream& out, const tiling::NestOfCompoundMasks& mask_nest);
 
 };
 

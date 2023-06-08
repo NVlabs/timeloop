@@ -321,7 +321,7 @@ void Application::Run()
   std::string map_yaml_file_name = out_prefix_ + ".map.yaml";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
   std::string map_cpp_file_name = out_prefix_ + ".map.cpp";
-  std::string map_inertial_file_name = out_prefix_ + ".map.inertial.txt";
+  std::string map_tenssella_file_name = out_prefix_ + ".map.tenssella.txt";
   std::string oaves_prefix = out_prefix_ + ".oaves";
   std::string oaves_csv_file_name = oaves_prefix + ".csv";
 
@@ -577,9 +577,9 @@ void Application::Run()
     const Application* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
 
-    // Print the mapping in Inertial input format.
-    std::ofstream inertial_out(map_inertial_file_name);
-    global_best_.mapping.PrintInertial(inertial_out);
+    // Print the mapping in Tenssella input format.
+    std::ofstream tenssella_out(map_tenssella_file_name);
+    global_best_.mapping.PrintTenssella(tenssella_out);
   }
   else
   {

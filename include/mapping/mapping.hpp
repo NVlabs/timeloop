@@ -85,7 +85,7 @@ struct Mapping
 
   std::string PrintCompact();
 
-  void PrintInertial(std::ostream& out);
+  void PrintTenssella(std::ostream& out);
 };
 
 std::ostream& operator << (std::ostream& out, const Mapping& mapping);
