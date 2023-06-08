@@ -471,3 +471,8 @@ std::string Mapping::PrintCompact()
 {
   return loop_nest.PrintCompact(tiling::TransposeMasks(datatype_bypass_nest));
 }
+
+void Mapping::PrintTenssella(std::ostream& out)
+{
+  loop_nest.PrintTenssella(out, tiling::TransposeMasks(datatype_bypass_nest));
+}
