@@ -205,7 +205,6 @@ const isl::set& FusedWorkload::DataSpaceBound(DataSpaceId dspace) const
 
 FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
 {
-  (void) cfg;
   FusedWorkload workload;
 
   std::string type;
