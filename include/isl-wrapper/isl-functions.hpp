@@ -48,6 +48,12 @@ isl::map fix_si(isl::map map, isl_dim_type dim_type, size_t pos, int val);
 isl::map
 insert_equal_dims(isl::map map, size_t in_pos, size_t out_pos, size_t n);
 
+isl::multi_aff
+insert_equal_dims(isl::multi_aff maff, size_t in_pos, size_t out_pos, size_t n);
+
+isl_multi_aff*
+insert_equal_dims(isl_multi_aff* p_maff, int in_pos, int out_pos, int n);
+
 isl::map insert_dummy_dim_ins(isl::map map, size_t pos, size_t n);
 
 isl_pw_qpolynomial* set_card(isl::set set);
