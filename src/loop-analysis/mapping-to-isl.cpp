@@ -159,43 +159,138 @@ LogicalBufSkews
 LogicalBufSkewsFromMapping(const loop::Nest& nest,  
                            const problem::Workload& workload)
 {
-  const auto n_loops = nest.loops.size();
-
-  std::set<decltype(nest.storage_tiling_boundaries)::value_type>
+  const auto& loops = nest.loops;
+  const auto n_loops = loops.size();
+  const std::set<decltype(nest.storage_tiling_boundaries)::value_type>
     tiling_boundaries(nest.storage_tiling_boundaries.begin(),
                       nest.storage_tiling_boundaries.end());
 
   LogicalBufSkews result;
 
   std::vector<spacetime::Dimension> tags;
-  auto map = isl::map_from_multi_aff(isl::multi_aff::identity_on_domain(
-    isl::space_alloc(GetIslCtx(), 0, 0, 0).domain()
-  ));
-  bool arch_has_spatial = false;
-  // TODO: for now, buffer id in loop nest is the arch level.
-  // Arch spec should define an ID
-  BufferID arch_level = 0;
-  auto loop_it = nest.loops.rbegin();
-  for (std::size_t loop_idx = 0; loop_idx < n_loops; ++loop_idx)
+  auto p_aff_list = isl_aff_list_alloc(GetIslCtx().get(), n_loops);
+  auto p_domain_space = isl_space_set_alloc(GetIslCtx().get(), 0, n_loops);
+  int aff_list_size = 0;
+
+  std::optional<int> last_x_idx_opt = std::nullopt;
+  std::optional<int> last_y_idx_opt = std::nullopt;
+  int arch_spatial_levels = 0;
+  int arch_level = 0;
+
+  int loop_idx = 0;
+  int timeloop_loop_idx = n_loops - 1;
+  isl_aff* p_aff = nullptr;
+  for (auto loop_it = loops.rbegin(); loop_it != loops.rend(); ++loop_it)
   {
     auto spacetime_dim = loop_it->spacetime_dimension;
 
-    auto tiling_boundary_it = tiling_boundaries.find(n_loops - loop_idx - 1);
-    if (tiling_boundary_it != tiling_boundaries.end())
+    if (spacetime_dim == spacetime::Dimension::Time)
     {
-      map = isl::insert_equal_dims(std::move(map),
-                                   isl::dim(map, isl_dim_in),
-                                   isl::dim(map, isl_dim_out),
-                                   loop_idx - isl::dim(map, isl_dim_out));
-      if (!arch_has_spatial)
+      p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
+      p_aff = isl_aff_set_coefficient_si(p_aff, isl_dim_in, loop_idx, 1);
+      p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
+      aff_list_size++;
+      tags.emplace_back(spacetime::Dimension::Time);
+
+      last_x_idx_opt = std::nullopt;
+      last_y_idx_opt = std::nullopt;
+      arch_spatial_levels = 0;
+    }
+    else if (spacetime_dim == spacetime::Dimension::SpaceX)
+    {
+      if (!last_x_idx_opt)
       {
-        // TODO: assumes 1D spatial array. Implement to infer from arch spec
-        const size_t n_spatial_dims = 1;
+        p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
+        p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
+        aff_list_size++;
         tags.emplace_back(spacetime::Dimension::SpaceX);
-        map = isl::insert_dummy_dim_ins(std::move(map),
-                                        isl::dim(map, isl_dim_in),
-                                        n_spatial_dims);
       }
+      p_aff = isl_aff_list_get_aff(p_aff_list, aff_list_size-1);
+
+      auto last_x_idx = last_x_idx_opt.value_or(loop_idx);
+      unsigned long tile_size = loop_it->end - loop_it->start;
+      for (auto i = last_x_idx; i < loop_idx; ++i)
+      {
+        p_aff = isl_aff_set_coefficient_val(
+          p_aff,
+          isl_dim_in,
+          i,
+          isl_val_mul_ui(isl_aff_get_coefficient_val(p_aff, isl_dim_in, i),
+                         tile_size)
+        );
+      }
+      p_aff = isl_aff_set_coefficient_si(p_aff, isl_dim_in, loop_idx, 1);
+      p_aff_list = isl_aff_list_set_aff(p_aff_list, aff_list_size-1, p_aff);
+
+      last_x_idx_opt = loop_idx;
+      last_y_idx_opt = std::nullopt;
+      arch_spatial_levels = 1;
+    }
+    else if (spacetime_dim == spacetime::Dimension::SpaceY)
+    {
+      if (arch_spatial_levels == 0)  // i.e., no x loop between last and this
+      {
+        p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
+        p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
+        aff_list_size++;
+        tags.emplace_back(spacetime::Dimension::SpaceX);
+      }
+
+      if (!last_y_idx_opt)
+      {
+        p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
+        p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
+        aff_list_size++;
+        tags.emplace_back(spacetime::Dimension::SpaceY);
+      }
+      p_aff = isl_aff_list_get_aff(p_aff_list, aff_list_size-1);
+
+      auto last_y_idx = last_y_idx_opt.value_or(loop_idx);
+      unsigned long tile_size = loop_it->end - loop_it->start;
+      for (int i = last_y_idx; i < loop_idx; ++i)
+      {
+        p_aff = isl_aff_set_coefficient_val(
+          p_aff,
+          isl_dim_in,
+          i,
+          isl_val_mul_ui(isl_aff_get_coefficient_val(p_aff, isl_dim_in, i),
+                         tile_size)
+        );
+      }
+      p_aff = isl_aff_set_coefficient_si(p_aff, isl_dim_in, loop_idx, 1);
+      p_aff_list = isl_aff_list_set_aff(p_aff_list, aff_list_size-1, p_aff);
+
+      last_x_idx_opt = std::nullopt;
+      last_y_idx_opt = loop_idx;
+      arch_spatial_levels = 2;
+    }
+
+    auto is_boundary =
+      tiling_boundaries.find(timeloop_loop_idx) == tiling_boundaries.end();
+    if (is_boundary || timeloop_loop_idx == 0)
+    {
+      if (arch_spatial_levels == 0)  // i.e., no x loop between last and this
+      {
+        p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
+        p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
+        aff_list_size++;
+        tags.emplace_back(spacetime::Dimension::SpaceX);
+        arch_spatial_levels = 1;
+      }
+      if (arch_spatial_levels == 1)  // i.e., no x loop between last and this
+      {
+        p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
+        p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
+        aff_list_size++;
+        tags.emplace_back(spacetime::Dimension::SpaceY);
+        arch_spatial_levels = 0;
+      }
+
+      auto p_map = isl_map_from_basic_map(
+        isl_basic_map_from_aff_list(isl_space_copy(p_domain_space),
+                                    isl_aff_list_copy(p_aff_list))
+      );
+      auto map = isl::manage(p_map).reverse();
 
       for (const auto& [dspace_id, _] : workload.GetShape()->DataSpaceIDToName)
       {
@@ -204,41 +299,16 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
           TaggedMap<isl::map, spacetime::Dimension>(map, tags)
         ));
       }
+
       ++arch_level;
-      arch_has_spatial = false;
     }
 
-    tags.emplace_back(spacetime_dim);
-    if (spacetime_dim != spacetime::Dimension::Time)
-    {
-      arch_has_spatial = true;
-    }
-
-    ++loop_it;
+    loop_idx++;
+    timeloop_loop_idx--;
   }
 
-  // Last loop index is compute level
-  map = isl::insert_equal_dims(std::move(map),
-                                isl::dim(map, isl_dim_in),
-                                isl::dim(map, isl_dim_out),
-                                n_loops - isl::dim(map, isl_dim_out));
-  if (!arch_has_spatial)
-  {
-    // TODO: assumes 1D spatial array. Implement to infer from arch spec
-    const size_t n_spatial_dims = 1;
-    tags.emplace_back(spacetime::Dimension::SpaceX);
-    map = isl::insert_dummy_dim_ins(std::move(map),
-                                    isl::dim(map, isl_dim_in),
-                                    n_spatial_dims);
-  }
-
-  for (const auto& [dspace_id, _] : workload.GetShape()->DataSpaceIDToName)
-  {
-    result.emplace(std::make_pair(
-      LogicalBuffer(arch_level, dspace_id, 0),
-      TaggedMap<isl::map, spacetime::Dimension>(map, tags)
-    ));
-  }
+  isl_space_free(p_domain_space);
+  isl_aff_list_free(p_aff_list);
 
   return result;
 }
