@@ -157,6 +157,40 @@ insert_equal_dims(isl::map map, size_t in_pos, size_t out_pos, size_t n)
   return isl::manage(p_map);
 }
 
+isl::multi_aff
+insert_equal_dims(isl::multi_aff maff, size_t in_pos, size_t out_pos, size_t n)
+{
+  auto p_maff = maff.release();
+  p_maff = isl_multi_aff_insert_dims(p_maff, isl_dim_in, in_pos, n);
+  p_maff = isl_multi_aff_insert_dims(p_maff, isl_dim_out, out_pos, n);
+
+  for (size_t i = 0; i < n; ++i)
+  {
+    auto p_aff = isl_multi_aff_get_at(p_maff, out_pos+i);
+    p_aff = isl_aff_set_coefficient_si(p_aff, isl_dim_in, in_pos+i, 1);
+    p_maff = isl_multi_aff_set_at(p_maff, out_pos+i, p_aff);
+  }
+
+  return isl::manage(p_maff);
+}
+
+__isl_give isl_multi_aff*
+insert_equal_dims(__isl_take isl_multi_aff* p_maff,
+                  int in_pos, int out_pos, int n)
+{
+  p_maff = isl_multi_aff_insert_dims(p_maff, isl_dim_in, in_pos, n);
+  p_maff = isl_multi_aff_insert_dims(p_maff, isl_dim_out, out_pos, n);
+
+  for (auto i = 0; i < n; ++i)
+  {
+    auto p_aff = isl_multi_aff_get_at(p_maff, out_pos+i);
+    p_aff = isl_aff_set_coefficient_si(p_aff, isl_dim_in, in_pos+i, 1);
+    p_maff = isl_multi_aff_set_at(p_maff, out_pos+i, p_aff);
+  }
+
+  return p_maff;
+}
+
 isl::map insert_dummy_dim_ins(isl::map map, size_t pos, size_t n)
 {
   auto p_map = map.release();
