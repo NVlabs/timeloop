@@ -50,6 +50,15 @@ std::ostream& operator << (std::ostream& out, const NestConfig& nest);
 // Loop nest
 // ---------
 
+/**
+ * @brief A nest of loops.
+ * 
+ * Loops are organized in order of inner to outer.
+ * 
+ * Also holds storage boundaries (i.e., indices of loops just under storage
+ * levels), skew descriptors, link transfer, multicast, and temporal reuse
+ * flags.
+ */
 class Nest
 {
  public:
@@ -73,9 +82,19 @@ class Nest
   };
 
   // Nest structure.
+
+  /**
+   * @brief Loops in order or inner to outer.
+   */
   std::vector<Descriptor> loops;
+  /**
+   * @brief Indices of loops just below storage levels.
+   */
   std::vector<uint64_t> storage_tiling_boundaries;
   std::unordered_map<unsigned, SkewDescriptor> skew_descriptors;
+  /**
+   * @brief A mapping from loop index to link transfer flags per data space.
+   */
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse;
