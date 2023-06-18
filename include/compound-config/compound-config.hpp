@@ -27,9 +27,14 @@
 
 #pragma once
 
+#include<optional>
+
 #include <libconfig.h++>
 #include <yaml-cpp/yaml.h>
 #include <cassert>
+
+// dynamic compound config declaration
+#include <compound-config/compound-config-struct.hpp>
 
 namespace config
 {
@@ -41,16 +46,26 @@ class CompoundConfigNode
  private:
   libconfig::Setting* LNode = nullptr;
   YAML::Node YNode;
-  CompoundConfig* cConfig = nullptr; 
+  CompoundConfig* cConfig = nullptr;
+
+  // CompoundConfigNode can be initialized with a dummy CompoundConfig
+  std::optional<std::reference_wrapper<structured_config::CCRet>> dynamicConfig;
 
  public:
   CompoundConfigNode(){}
   CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode);
   CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode, CompoundConfig* _cConfig);
 
+  // necessary dynamic config return type. Creates a perfect copy of this node
+  // with its dynamic element. Necessary for the operator 
+  CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode, CompoundConfig* _cConfig, structured_config::CCRet& dynamicConfig);
+
   libconfig::Setting& getLNode() {return *LNode;}
   YAML::Node getYNode() {return YNode;}
 
+  /**
+   * @brief return compound config node corresponding with `path`.
+   */
   CompoundConfigNode lookup(const char *path) const;
   inline CompoundConfigNode lookup(const std::string &path) const
   { return(lookup(path.c_str())); }
