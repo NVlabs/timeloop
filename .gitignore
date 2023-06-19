@@ -49,6 +49,7 @@ venv
 
 # Development container in VSCode
 .devcontainer
+.devcontainer.json
 
 # MacOS-specific files.
 .DS_Store

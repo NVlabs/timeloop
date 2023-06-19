@@ -109,27 +109,30 @@ isl::map move_dims(isl::map map,
   );
 }
 
-isl::map map_to_shifted(isl::space domain_space, size_t pos, int shift)
+map map_to_shifted(space domain_space, size_t pos, int shift)
 {
-  auto p_maff = isl_multi_aff_identity_on_domain_space(domain_space.release());
+  return isl::manage(map_to_shifted(domain_space.release(), pos, shift));
+}
+
+isl_map*
+map_to_shifted(__isl_take isl_space* domain_space, size_t pos, int shift)
+{
+  auto p_maff = isl_multi_aff_identity_on_domain_space(domain_space);
   p_maff = isl_multi_aff_set_at(
     p_maff,
     pos,
     isl_aff_set_constant_si(isl_multi_aff_get_at(p_maff, pos), shift)
   );
-  return isl::manage(isl_map_from_multi_aff(p_maff));
+  return isl_map_from_multi_aff(p_maff);
 }
 
-isl::map map_to_all_after(isl::space domain_space,
-                          isl_dim_type dim_type, size_t pos)
+map map_to_all_at_dim(space domain_space, size_t pos)
 {
-  auto p_aff = isl_aff_zero_on_domain_space(domain_space.release());
-  p_aff = isl_aff_set_coefficient_si(p_aff, dim_type, pos, 1);
-  auto p_pw_aff = isl_pw_aff_from_aff(p_aff);
-  return isl::manage(isl_pw_aff_lt_map(
-    p_pw_aff,
-    isl_pw_aff_copy(p_pw_aff)
-  ));
+  auto p_domain_space = domain_space.release();
+  auto p_map = isl_map_identity(isl_space_map_from_set(p_domain_space));
+  p_map = isl_map_project_out(p_map, isl_dim_out, pos, 1);
+  p_map = isl_map_insert_dims(p_map, isl_dim_out, pos, 1);
+  return isl::manage(p_map);
 }
 
 isl::map fix_si(isl::map map, isl_dim_type dim_type, size_t pos, int val)
