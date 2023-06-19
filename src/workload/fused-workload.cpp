@@ -152,7 +152,7 @@ FusedWorkload::TensorsWrittenByEinsum(EinsumId einsum) const
 const std::set<EinsumId>&
 FusedWorkload::ReaderEinsums(DataSpaceId dspace) const
 {
-  return read_einsums_.at(dspace);
+  return read_einsums_[dspace];
 }
 
 std::optional<EinsumId>
