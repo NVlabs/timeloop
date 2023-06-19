@@ -1,6 +1,7 @@
 #include "loop-analysis/isl-ir.hpp"
 #include "loop-analysis/temporal-analysis.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
+#include "isl-wrapper/isl-functions.hpp"
 
 #include <barvinok/isl.h>
 
@@ -43,12 +44,13 @@ void GatherSubsequentEinsumStrides(
   const problem::FusedWorkload& workload
 );
 
-LogicalBufSkews LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping);
+std::map<LogicalBuffer, Skew>
+LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping);
 
 /******************************************************************************
  * Global function implementations
  *****************************************************************************/
-LogicalBufOccupancies
+std::map<LogicalBuffer, Occupancy>
 OccupanciesFromMapping(mapping::FusedMapping& mapping,
                        const problem::FusedWorkload& workload)
 {
@@ -62,14 +64,11 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
                                                 dspace_indices);
   for (const auto& [leaf_id, tiling] : branch_tiling)
   {
-    std::cout << leaf_id << ":" << std::endl;
-    std::cout << tiling << std::endl;
     auto p_iter_size = isl_set_card(tiling.domain().release());
-    std::cout << isl_pw_qpolynomial_to_str(p_iter_size) << std::endl;
     isl_pw_qpolynomial_free(p_iter_size);
   }
 
-  LogicalBufOccupancies occupancies;
+  std::map<LogicalBuffer, Occupancy> occupancies;
   auto tilings = LogicalBufTilingFromMapping(mapping, branch_tiling);
   auto buf_skew = LogicalBufSkewsFromMapping(mapping);
   for (auto& [buf, skew] : buf_skew)
@@ -97,11 +96,13 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
     }
 
     auto accesses = *accesses_opt;
-    auto occupancy = skew.apply_range(
+    auto occupancy = skew.map.apply_range(
       isl::project_dim_in_after(tiling.apply_range(accesses),
                                 isl::dim(skew.map, isl_dim_out))
     );
-    occupancies.emplace(std::make_pair(buf, std::move(occupancy)));
+    occupancies.emplace(std::make_pair(buf,
+                                       Occupancy(skew.dim_in_tags,
+                                                 std::move(occupancy))));
   }
 
   return occupancies;
@@ -407,7 +408,6 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
         //   // {
         //   //   continue;
         //   // }
-        //   std::cout << prob_idx << ", " << einsum_dim << ": " << stride << std::endl;
 
         //   auto eq_aff = eq_maff.get_at(einsum_dim_idx);
 
@@ -530,9 +530,10 @@ void GatherSubsequentEinsumStrides(
   }
 }
 
-LogicalBufSkews LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
+std::map<LogicalBuffer, Skew>
+LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
 {
-  LogicalBufSkews skews;
+  std::map<LogicalBuffer, Skew> skews;
   for (auto path : GetPaths(mapping))
   {
     std::vector<spacetime::Dimension> tags;
@@ -576,12 +577,9 @@ LogicalBufSkews LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
               cur_has_spatial = true;
             }
 
-            auto buffer = LogicalBuffer(node.buffer,
-                                        node.dspace,
-                                        GetNodeId(leaf));
             skews.emplace(std::make_pair(
-              std::move(buffer),
-              TaggedMap<isl::map, spacetime::Dimension>(map, tags)
+              LogicalBuffer(node.buffer, node.dspace, GetNodeId(leaf)),
+              Skew(tags, map)
             ));
           } else if constexpr (mapping::IsLoopV<NodeT>)
           {

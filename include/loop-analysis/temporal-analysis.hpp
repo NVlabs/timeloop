@@ -5,7 +5,29 @@
 namespace analysis
 {
 
-std::pair<LogicalBufOccupancies, LogicalBufFills>
-TemporalReuseAnalysis(const LogicalBufOccupancies& occupancies);
+struct BufTemporalReuseOpts
+{
+  bool exploit_temporal_reuse;
+};
 
-} // namespace analysis
+struct TemporalReuseAnalysisInput
+{
+  const LogicalBuffer& logical_buffer;
+  const Occupancy& occupancy;
+  BufTemporalReuseOpts reuse_opts;
+
+  TemporalReuseAnalysisInput(const LogicalBuffer& logical_buffer,
+                             const Occupancy& occupancy,
+                             BufTemporalReuseOpts reuse_opts);
+};
+
+struct TemporalReuseAnalysisOutput
+{
+  Occupancy effective_occupancy;
+  Fill fill;
+};
+
+TemporalReuseAnalysisOutput
+TemporalReuseAnalysis(TemporalReuseAnalysisInput input);
+
+};  // namespace analysis

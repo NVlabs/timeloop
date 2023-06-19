@@ -124,12 +124,14 @@ if not os.path.isdir('../src/pat'):
 common_sources = Split("""
 isl-wrapper/ctx-manager.cpp
 isl-wrapper/isl-functions.cpp
-isl-wrapper/tagged.cpp
 loop-analysis/aahr-carve.cpp
 loop-analysis/coordinate-space-tile-info.cpp
 loop-analysis/logical-buffer.cpp
 loop-analysis/loop-state.cpp
 loop-analysis/mapping-to-isl.cpp
+loop-analysis/isl-ir.cpp
+loop-analysis/isl-nest-analysis.cpp
+loop-analysis/isl-to-legacy-adaptor.cpp
 loop-analysis/tiling.cpp
 loop-analysis/tiling-tile-info.cpp
 loop-analysis/point.cpp
@@ -277,26 +279,31 @@ applications/design-space/design-space.cpp
 applications/design-space/main.cpp
 """)
 
-unit_tests_sources = Split("""
+compound_config_test_sources = Split("""
 unit-tests/compound-config/test-compound-config.cpp
+""")
+
+unit_test_sources = Split("""
+unittest/test-main.cpp
+unittest/test-simple-link-transfer.cpp
 """)
 
 bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
 bin_model = env.Program(target = 'timeloop-model', source = model_sources)
-# bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
-# bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
-# bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
-# bin_unit_tests = env.Program(target = 'timeloop-unit-tests', source = unit_tests_sources)
-bin_looptree = env.Program(target = 'looptree', source = looptree_sources)
+bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
+bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
+bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
+bin_compound_config_test = env.Program(target = 'timeloop-compound-config-test', source = compound_config_test_sources)
+bin_unit_test = env.Program(target = 'timeloop-unit-test', source = unit_test_sources)
 
 env.Install(env["BUILD_BASE_DIR"] + '/bin', [
                                             bin_metrics,
                                             bin_model,
-                                            #   bin_simple_mapper,
-                                            #   bin_mapper,
-                                            #   bin_design_space,
-                                            #   bin_unit_tests,
-                                            bin_looptree
+                                            bin_simple_mapper,
+                                            bin_mapper,
+                                            bin_design_space,
+                                            bin_compound_config_test,
+                                            bin_unit_test
                                             ])
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))

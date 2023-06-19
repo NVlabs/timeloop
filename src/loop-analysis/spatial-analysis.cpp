@@ -1,10 +1,12 @@
 #include "loop-analysis/spatial-analysis.hpp"
 
+#include <isl/cpp.h>
+#include <isl/map.h>
+#include <isl/polynomial_type.h>
+#include <barvinok/isl.h>
+
 #include "isl-wrapper/ctx-manager.hpp"
-#include "isl/cpp.h"
-#include "isl/map.h"
-#include "barvinok/isl.h"
-#include "isl/polynomial_type.h"
+#include "isl-wrapper/isl-functions.hpp"
 
 namespace analysis
 {
@@ -17,16 +19,45 @@ MulticastInfo::~MulticastInfo()
   // }
 }
 
-SpatialReuseInfo
-SpatialReuseAnalysis(LogicalBufFills& fills,
-                     LogicalBufOccupancies& occupancies,
-                     const LinkTransferModel& link_transfer_model,
-                     const MulticastModel& multicast_model)
+
+SpatialReuseAnalysisInput::SpatialReuseAnalysisInput(
+  const LogicalBuffer& buf,
+  const Fill& fill,
+  const Occupancy& occupancy
+) :
+  buf(buf), children_fill(fill), children_occupancy(occupancy)
 {
-  auto link_transfer_info = link_transfer_model.Apply(fills, occupancies);
-  auto multicast_info = multicast_model.Apply(
-    link_transfer_info.unfulfilled_fills,
-    occupancies
+}
+
+
+LinkTransferModel& SpatialReuseModels::GetLinkTransferModel()
+{
+  return *link_transfer_model;
+}
+const LinkTransferModel& SpatialReuseModels::GetLinkTransferModel() const
+{
+  return *link_transfer_model;
+}
+
+MulticastModel& SpatialReuseModels::GetMulticastModel()
+{
+  return *multicast_model;
+}
+const MulticastModel& SpatialReuseModels::GetMulticastModel() const
+{
+  return *multicast_model;
+}
+
+
+SpatialReuseInfo SpatialReuseAnalysis(const SpatialReuseAnalysisInput& input,
+                                      const SpatialReuseModels& models)
+{
+  auto link_transfer_info =
+    models.GetLinkTransferModel().Apply(input.children_fill,
+                                        input.children_occupancy);
+
+  auto multicast_info = models.GetMulticastModel().Apply(
+    link_transfer_info.unfulfilled_fill
   );
 
   return SpatialReuseInfo{
@@ -36,201 +67,210 @@ SpatialReuseAnalysis(LogicalBufFills& fills,
 }
 
 
-SimpleLinkTransferModel::SimpleLinkTransferModel(size_t n_spatial_dims) :
-  n_spatial_dims_(n_spatial_dims)
+SimpleLinkTransferModel::SimpleLinkTransferModel()
 {
-  if (n_spatial_dims == 1)
-  {
-      connectivity_ = isl::map(GetIslCtx(),
-                              "{ [t, x] -> [t-1, x'] : x'=x-1 or x'=x+1 }");
-  }
-  else if (n_spatial_dims == 2)
-  {
-      connectivity_ = isl::map(GetIslCtx(),
-                              "{ [t, x, y] -> [t-1, x', y'] : "
-                              "  (x'=x-1 or x'=x+1) "
-                              "  and (y'=y-1 or y'=y+1) }");
-  }
-  else
-  {
-      throw std::logic_error("unsupported");
-  }
+  connectivity_ = isl::map(GetIslCtx(),
+                          "{ [t, x, y] -> [t-1, x', y'] : "
+                          " (y'=y and x'=x-1) or (y'=y and x'=x+1) "
+                          " or (x'=x and y'=y-1) or (x'=x and y'=y+1) }");
 }
 
 LinkTransferInfo SimpleLinkTransferModel::Apply(
-  LogicalBufFills& fills,
-  LogicalBufOccupancies& occupancies
+  const Fill& fill,
+  const Occupancy& occupancy
 ) const
 {
-  LogicalBufTransfers transfers;
-  LogicalBufFills remaining_fills;
-
-  for (auto& [buf, fill] : fills)
+  if (fill.dim_in_tags.size() != occupancy.dim_in_tags.size())
   {
-    auto n = fill.in_tags.size();
-    if (n == 0 || fill.in_tags.back() == spacetime::Dimension::Time)
-    {
-      throw std::logic_error("unreachable");
-    }
-    else if (n < n_spatial_dims_ + 1)
-    {
-      remaining_fills.emplace(std::make_pair(buf, fill));
-    }
-    else
-    {
-      auto complete_connectivity =
-        isl::insert_equal_dims(connectivity_, 0, 0, n - n_spatial_dims_ - 1);
-      auto available_from_neighbors =
-        complete_connectivity.apply_range(occupancies.at(buf).map);
-      auto fill_set = fill.intersect(available_from_neighbors);
-      auto remaining_fill = fill.subtract(fill_set.map);
-
-      transfers.emplace(std::make_pair(std::make_pair(buf, buf), fill_set));
-      remaining_fills.emplace(std::make_pair(buf, remaining_fill));
-    }
+    throw std::logic_error("fill and occupancy have different sizes");
   }
 
-  return LinkTransferInfo{.link_transfers=std::move(transfers),
-                          .unfulfilled_fills=std::move(remaining_fills)};
+  auto n = fill.dim_in_tags.size();
+  if (n == 0 || fill.dim_in_tags.back() == spacetime::Dimension::Time)
+  {
+    throw std::logic_error("unreachable");
+  }
+
+  if (n < 3)
+  {
+    return LinkTransferInfo{
+      .link_transfer=Transfers(fill.dim_in_tags, fill.map.subtract(fill.map)),
+      .unfulfilled_fill=fill
+    };
+  }
+
+  auto complete_connectivity =
+    isl::insert_equal_dims(connectivity_, 0, 0, n - 3);
+  std::cout << complete_connectivity << std::endl;
+  std::cout << occupancy.map << std::endl;
+  auto available_from_neighbors =
+    complete_connectivity.apply_range(occupancy.map);
+  auto fill_set = fill.map.intersect(available_from_neighbors);
+  auto remaining_fill = fill.map.subtract(fill_set);
+
+  return LinkTransferInfo{
+    .link_transfer=Transfers(fill.dim_in_tags, fill_set),
+    .unfulfilled_fill=Fill(fill.dim_in_tags, remaining_fill)
+  };
 }
 
-SimpleMulticastModel::SimpleMulticastModel(size_t n_spatial_dims) :
-  n_spatial_dims_(n_spatial_dims) {}
 
-MulticastInfo SimpleMulticastModel::Apply(
-  LogicalBufFills& fills,
-  LogicalBufOccupancies& occupancies
-) const
+struct HopsAccesses
 {
-  (void) occupancies;
+  double hops;
+  double accesses;
 
+  /**
+   * @brief Simple weighted average for hops and accumulation for accesses.
+   */
+  void InsertHopsAccesses(double extra_hops, double extra_accesses)
+  {
+    accesses += extra_accesses;
+    hops += extra_hops;
+  }
+};
+
+struct Accumulator
+{
+  std::map<uint64_t, HopsAccesses> multicast_to_hops_accesses;
+  isl_pw_qpolynomial* p_time_data_to_hops;
+};
+
+/**
+ * @brief Accumulates scatter, hops, and accesses for many multicast factors.
+ *
+ * @param p_domain A set with signature $\{ [st_{n-1},t_n] -> data \}$ where
+ *                 data is some set of data.
+ * @param p_multicast_factor A qpolynomial assumed to be constant that equals
+ *                           the multicast factor.
+ * @param p_voided_accumulator Voided pointer that is cast into Accumulator.
+ */
+isl_stat ComputeMulticastScatterHops(isl_set* p_domain,
+                                     isl_qpolynomial* p_multicast_factor,
+                                     void* p_voided_accumulator)
+{
+  auto& accumulator = *static_cast<Accumulator*>(p_voided_accumulator);
+  // WARNING: assumes constant multicast factor over piecewise domain.
+  // It is unclear what conditions may cause this to break.
+  auto multicast_factor = isl::val_to_double(
+    isl_qpolynomial_eval(p_multicast_factor,
+                         isl_set_sample_point(isl_set_copy(p_domain)))
+  );
+  std::cout << "multicast factor: " << multicast_factor << std::endl;
+  std::cout << "domain: " << isl_set_to_str(p_domain) << std::endl;
+  auto& hops_accesses = accumulator.multicast_to_hops_accesses[multicast_factor];
+
+  auto p_hops_pw_qp = isl_set_apply_pw_qpolynomial(
+    isl_set_copy(p_domain),
+    isl_pw_qpolynomial_copy(accumulator.p_time_data_to_hops)
+  );
+  if (isl_pw_qpolynomial_isa_qpolynomial(p_hops_pw_qp) == isl_bool_false)
+  {
+    throw std::runtime_error("accesses is not a single qpolynomial");
+  }
+  auto hops = isl::val_to_double(isl_qpolynomial_get_constant_val(
+    isl_pw_qpolynomial_as_qpolynomial(p_hops_pw_qp)
+  ));
+
+  auto p_time_to_data = isl_set_unwrap(p_domain);
+  auto p_accesses_pw_qp = isl_pw_qpolynomial_sum(isl_map_card(p_time_to_data));
+  if (isl_pw_qpolynomial_isa_qpolynomial(p_accesses_pw_qp) == isl_bool_false)
+  {
+    throw std::runtime_error("accesses is not a single qpolynomial");
+  }
+  auto accesses = isl::val_to_double(isl_qpolynomial_get_constant_val(
+    isl_pw_qpolynomial_as_qpolynomial(p_accesses_pw_qp)
+  ));
+
+  hops_accesses.InsertHopsAccesses(hops, accesses);
+
+  return isl_stat_ok;
+}
+
+SimpleMulticastModel::SimpleMulticastModel()
+{
+}
+
+MulticastInfo SimpleMulticastModel::Apply(const Fill& fill) const
+{
   MulticastInfo multicast_info;
 
-  if (n_spatial_dims_ == 1)
+  auto n = isl::dim(fill.map, isl_dim_in);
+  if (n == 0 || fill.dim_in_tags.back() == spacetime::Dimension::Time)
   {
-    /**
-    * Hops = \sum_{x}{x*|Fill(x) - \union_{x'>x}{Fill(x')}|}
-    */
-    for (auto& [buf, fill] : fills)
-    {
-      auto n = fill.dim(isl_dim_in);
-      if (n == 0 || fill.in_tags.back() == spacetime::Dimension::Time)
-      {
-        throw std::logic_error("unreachable");
-      }
-      else
-      {
-        auto last_use = fill.subtract(
-          map_to_all_after(fill.space().domain(), isl_dim_in, n-1)
-            .apply_range(fill.map)
-        );
-        auto p_aff_cost = 
-          isl_aff_zero_on_domain_space(fill.space().domain().release());
-        p_aff_cost = isl_aff_set_constant_si(
-          isl_aff_set_coefficient_si(p_aff_cost, isl_dim_in, n-1, 1),
-          1
-        );
-        auto p_cost = isl_pw_qpolynomial_from_qpolynomial(
-          isl_qpolynomial_from_aff(p_aff_cost)
-        );
-        auto p_count = isl_map_card(last_use.map.copy());
-        auto p_hops = isl_pw_qpolynomial_mul(p_cost, p_count);
-
-        auto p_coords = isl_map_from_multi_aff(
-          isl_multi_aff_identity_on_domain_space(
-            fill.map.space().domain().release()
-          )
-        );
-        p_coords = isl_map_intersect_domain(p_coords,
-                                            fill.map.domain().release());
-        p_coords = isl_map_project_out(p_coords, isl_dim_in, n-1, 1);
-        auto p_total_hops = isl_map_apply_pw_qpolynomial(p_coords, p_hops);
-
-        multicast_info.reads.emplace(std::make_pair(
-          LogicalBuffer(buf.buffer_id-1, buf.dspace_id, buf.branch_leaf_id),
-          isl::project_last_dim(fill.map)
-        ));
-        multicast_info.p_hops.emplace(std::make_pair(
-          LogicalBuffer(buf.buffer_id-1, buf.dspace_id, buf.branch_leaf_id),
-          p_total_hops
-        ));
-      }
-    }
+    throw std::logic_error("fill spacetime missing spatial dimensions");
   }
-  else if (n_spatial_dims_ == 2)
+
+  auto p_fill = fill.map.copy();
+  auto p_wrapped_fill = isl_map_uncurry(isl_map_project_out(
+    isl_map_reverse(isl_map_range_map(isl_map_reverse(p_fill))),
+    isl_dim_in,
+    n-2,
+    2
+  ));
+  auto wrapped_fill = isl::manage(p_wrapped_fill);
+
+  auto p_multicast_factor = isl_map_card(wrapped_fill.copy());
+  std::cout << "multicast_qp: " << isl_pw_qpolynomial_to_str(p_multicast_factor) << std::endl;
+
+  auto p_y_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
+    isl_qpolynomial_add(
+      isl_qpolynomial_var_on_domain(
+        isl_space_range(isl_map_get_space(wrapped_fill.get())),
+        isl_dim_set,
+        n-1
+      ),
+      isl_qpolynomial_one_on_domain(
+        isl_space_range(isl_map_get_space(wrapped_fill.get()))
+      )
+    )
+  );
+  auto p_y_hops = isl_map_apply_pw_qpolynomial(wrapped_fill.copy(),
+                                                p_y_hops_cost);
+
+  // Remove y, leaving only x
+  auto p_data_to_max_x = isl_map_lexmax(
+    isl_map_project_out(wrapped_fill.copy(), isl_dim_out, n-1, 1)
+  );
+  auto p_x_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
+    isl_qpolynomial_add(
+      isl_qpolynomial_var_on_domain(
+        isl_space_range(isl_map_get_space(p_data_to_max_x)),
+        isl_dim_set,
+        n-2
+      ),
+      isl_qpolynomial_one_on_domain(
+        isl_space_range(isl_map_get_space(p_data_to_max_x))
+      )
+    )
+  );
+  auto p_x_hops = isl_map_apply_pw_qpolynomial(p_data_to_max_x,
+                                                p_x_hops_cost);
+
+  auto p_hops = isl_pw_qpolynomial_add(p_y_hops, p_x_hops);
+
+  auto accumulator = Accumulator();
+  accumulator.p_time_data_to_hops = p_hops;
+  isl_pw_qpolynomial_foreach_piece(p_multicast_factor,
+                                    &ComputeMulticastScatterHops,
+                                    static_cast<void*>(&accumulator));
+
+  isl_pw_qpolynomial_free(p_multicast_factor);
+  isl_pw_qpolynomial_free(accumulator.p_time_data_to_hops);
+
+  for (const auto& [multicast, hops_accesses] :
+        accumulator.multicast_to_hops_accesses)
   {
-    /**
-    * inject at (0, 0) along the y-axis first, then x-axis
-    *   yfill(y) = \union_{x}{fill(x, y)}
-    *   yhops = \sum_{y}{y*|yfill(y) - \union_{y'>y}{yfill(y')}|}
-    *   xhops = \sum_{x, y}{x*|fill(x, y) - \union_{x'>x}{fill(x', y)}|}
-    */
-    for (auto& [buf, fill] : fills)
-    {
-      auto n = fill.dim(isl_dim_in);
-      if (n == 0 || fill.in_tags.back() == spacetime::Dimension::Time)
-      {
-        throw std::logic_error("unreachable");
-      }
-      else
-      {
-        throw std::logic_error("unimplemented");
-        auto y_fill = isl::project_dim(fill.map, isl_dim_in, n-1, 1);
-        auto y_last_use = y_fill.subtract(
-          map_to_all_after(y_fill.space().domain(), isl_dim_in, n-2)
-            .apply_range(y_fill)
-        );
-        auto p_y_card = isl_map_card(y_last_use.release());
-        auto p_y_aff_dist = 
-          isl_aff_zero_on_domain_space(fill.space().domain().release());
-        p_y_aff_dist = isl_aff_set_constant_si(
-          isl_aff_set_coefficient_si(p_y_aff_dist, isl_dim_in, n-2, 1),
-          1
-        );
-        auto p_y_dist = isl_pw_qpolynomial_from_qpolynomial(
-          isl_qpolynomial_from_aff(p_y_aff_dist)
-        );
-        auto p_y_hops = isl_pw_qpolynomial_mul(p_y_dist, p_y_card);
-        std::cout << "y hops: " << isl_pw_qpolynomial_to_str(p_y_hops) << std::endl;
-
-        auto p_y_total_hops = isl_map_apply_pw_qpolynomial(
-          isl::project_dim_in_after(fill.map, n-2).release(),
-          p_y_hops
-        );
-
-        auto x_last_use = fill.subtract(
-          map_to_all_after(fill.space().domain(), isl_dim_in, n-1)
-            .apply_range(fill.map)
-        );
-        auto p_x_card = isl_map_card(x_last_use.map.copy());
-        auto p_x_aff_dist = 
-          isl_aff_zero_on_domain_space(fill.space().domain().release());
-        p_x_aff_dist = isl_aff_set_constant_si(
-          isl_aff_set_coefficient_si(p_x_aff_dist, isl_dim_in, n-1, 1),
-          1
-        );
-        auto p_x_dist = isl_pw_qpolynomial_from_qpolynomial(
-          isl_qpolynomial_from_aff(p_x_aff_dist)
-        );
-        auto p_x_hops = isl_pw_qpolynomial_mul(p_x_dist, p_x_card);
-        std::cout << "x hops: " << isl_pw_qpolynomial_to_str(p_x_hops) << std::endl;
-
-        auto p_x_total_hops = isl_map_apply_pw_qpolynomial(
-          isl::project_dim_in_after(fill.map, n-2).release(),
-          p_x_hops
-        );
-
-        multicast_info.reads.emplace(std::make_pair(
-          LogicalBuffer(buf.buffer_id-1, buf.dspace_id, buf.branch_leaf_id),
-          isl::project_last_dim(isl::project_last_dim(fill.map))
-        ));
-        multicast_info.p_hops.emplace(std::make_pair(
-          LogicalBuffer(buf.buffer_id-1, buf.dspace_id, buf.branch_leaf_id),
-          isl_pw_qpolynomial_add(p_y_total_hops, p_x_total_hops)
-        ));
-      }
-    }
+    auto& stats =
+      multicast_info.compat_access_stats[std::make_pair(multicast, 1)];
+    stats.accesses = hops_accesses.accesses;
+    stats.hops = hops_accesses.hops / hops_accesses.accesses;
   }
+
+  multicast_info.reads = Reads(
+    fill.dim_in_tags,
+    fill.map.subtract(fill.map)
+  );
 
   return multicast_info;
 }
