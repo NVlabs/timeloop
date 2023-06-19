@@ -74,7 +74,7 @@ class FusedWorkload
 
   std::map<EinsumId, std::set<DataSpaceId>> read_tensors_;
   std::map<EinsumId, std::set<DataSpaceId>> write_tensors_;
-  std::map<DataSpaceId, std::set<EinsumId>> read_einsums_;
+  mutable std::map<DataSpaceId, std::set<EinsumId>> read_einsums_;
   std::map<DataSpaceId, EinsumId> write_einsums_;
 
   std::map<DataSpaceId, std::vector<DimensionId>> dspace_dims_;
