@@ -101,8 +101,6 @@ LinkTransferInfo SimpleLinkTransferModel::Apply(
 
   auto complete_connectivity =
     isl::insert_equal_dims(connectivity_, 0, 0, n - 3);
-  std::cout << complete_connectivity << std::endl;
-  std::cout << occupancy.map << std::endl;
   auto available_from_neighbors =
     complete_connectivity.apply_range(occupancy.map);
   auto fill_set = fill.map.intersect(available_from_neighbors);
@@ -156,8 +154,6 @@ isl_stat ComputeMulticastScatterHops(isl_set* p_domain,
     isl_qpolynomial_eval(p_multicast_factor,
                          isl_set_sample_point(isl_set_copy(p_domain)))
   );
-  std::cout << "multicast factor: " << multicast_factor << std::endl;
-  std::cout << "domain: " << isl_set_to_str(p_domain) << std::endl;
   auto& hops_accesses = accumulator.multicast_to_hops_accesses[multicast_factor];
 
   auto p_hops_pw_qp = isl_set_apply_pw_qpolynomial(
@@ -211,7 +207,6 @@ MulticastInfo SimpleMulticastModel::Apply(const Fill& fill) const
   auto wrapped_fill = isl::manage(p_wrapped_fill);
 
   auto p_multicast_factor = isl_map_card(wrapped_fill.copy());
-  std::cout << "multicast_qp: " << isl_pw_qpolynomial_to_str(p_multicast_factor) << std::endl;
 
   auto p_y_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
     isl_qpolynomial_add(
