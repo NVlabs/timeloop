@@ -11,12 +11,15 @@ LogicalBufferStats::LogicalBufferStats(const LogicalBuffer& buf) : buf(buf)
 {
 }
 
-ReuseAnalysisOutput ReuseAnalysis(
-  const loop::Nest& nest,
-  const problem::Workload& workload
-)
+ReuseAnalysisInput::ReuseAnalysisInput(
+  const std::map<LogicalBuffer, Occupancy>& buf_to_occ
+) : buf_to_occupancy(buf_to_occ)
 {
-  auto occupancies = OccupanciesFromMapping(nest, workload);
+}
+
+ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input)
+{
+  const auto& occupancies = input.buf_to_occupancy;
 
   auto spatial_reuse_models = SpatialReuseModels();
   spatial_reuse_models.EmplaceLinkTransferModel<SimpleLinkTransferModel>();

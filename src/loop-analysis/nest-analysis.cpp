@@ -49,6 +49,7 @@
 #include "isl-wrapper/ctx-manager.hpp"
 #include "isl-wrapper/isl-functions.hpp"
 #include "loop-analysis/isl-ir.hpp"
+#include "loop-analysis/mapping-to-isl/mapping-to-isl.hpp"
 #include "loop-analysis/nest-analysis.hpp"
 #include "loop-analysis/spatial-analysis.hpp"
 #include "loop-analysis/temporal-analysis.hpp"
@@ -304,9 +305,13 @@ void NestAnalysis::ComputeWorkingSets()
 
   if (gUseIslAnalysis)
   {
+    auto occupancies =
+      analysis::OccupanciesFromMapping(cached_nest, *workload_);
+
+    auto reuse_analysis_input = ReuseAnalysisInput(occupancies);
     auto legacy_output =
       GenerateLegacyNestAnalysisOutput(
-        ReuseAnalysis(cached_nest, *workload_),
+        ReuseAnalysis(reuse_analysis_input),
         nest_state_,
         storage_tiling_boundaries_,
         master_spatial_level_,
