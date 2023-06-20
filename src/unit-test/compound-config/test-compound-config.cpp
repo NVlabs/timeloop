@@ -130,7 +130,7 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
     {
         // null should pull out the same thing as scalar
         case YAML::NodeType::Null:
-
+            nodePass = !CNode.exists(key);
             break;
         // tests all possible scalar output values
         case YAML::NodeType::Scalar:
@@ -157,7 +157,7 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
             nodePass = testMapLookup(CNode, YNode, key);
             break;
         case YAML::NodeType::Undefined:
-
+            nodePass = !CNode.exists(key);
             break;
         default:
             break;
