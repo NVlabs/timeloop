@@ -263,6 +263,8 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
             BOOST_CHECK(testMapLookup(root, ref));
         }
     }
+
+    std::cout << "Done!" << std::endl;
 }
 
 // tests the ability to set correctly
@@ -280,10 +282,31 @@ BOOST_AUTO_TEST_CASE(testSetters)
  
     for (int test = 0; test < TESTS; test++)
     {
-        
+        if (test % (TESTS / 20) == 0)
+        {
+            std::cout << "Progress: " << (float)test / TESTS * 100 << "% done" << std::endl;
+        }
+
+        // generates a random YAML::NodeType
+        int TYPE = rand() % 5;
+
+        switch (TYPE)
+        {
+            case YAML::NodeType::Null:
+                break;
+            case YAML::NodeType::Scalar:
+                break;
+            case YAML::NodeType::Sequence:
+                break;
+            case YAML::NodeType::Map:
+                break;
+            case YAML::NodeType::Undefined:
+                break;
+        }
     }
 
     BOOST_CHECK(testMapLookup(CNode, YNode));
+    std::cout << "Done!" << std::endl;
 }
 
 // tests the ability to read out correctly from sets
