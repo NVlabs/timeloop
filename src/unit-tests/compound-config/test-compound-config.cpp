@@ -13,7 +13,7 @@ uint SEED = 42;
 #define RAND_MAX = ULONG_LONG_MAX
 
 // the location of the test files
-std::string TEST_LOC = "./src/unit-test/compound-config/tests/";
+std::string TEST_LOC = "./src/unit-tests/compound-config/tests/";
 
 // static YAML file names we want to load in for the test
 std::map<std::string, std::vector<std::string>> FILES = {
