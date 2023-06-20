@@ -76,14 +76,42 @@ bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode, co
     BOOST_CHECK(childCNode.isList() || childCNode.isArray());
     BOOST_CHECK(childYNode.Type() == YAML::NodeType::Sequence);
 
-    // goes through all elements in the sequence
-    for (int i = 0; (std::size_t) i < childYNode.size(); i++)
+    // if the YNode child is a scalar, it's an array.
+    if (childYNode[0].Type() == YAML::NodeType::Scalar)
     {
-        // unpacks element
-        config::CompoundConfigNode nextCNode = childCNode[i];
-        YAML::Node nextYNode = childYNode[i];
-        // only works because values are always associated by maps
-        equal = equal && testMapLookup(nextCNode, nextYNode);
+        // confirms the CNode is an array
+        BOOST_CHECK(childCNode.isArray());
+
+        // unpacks array
+        std::vector<std::string> actual;
+
+        // fetches array, should always work
+        BOOST_CHECK(childCNode.getArrayValue(actual));
+
+        // compares the CNode output to YNode output
+        for (int i = 0; (size_t) i < childYNode.size(); i++)
+        {
+            equal = equal && actual[i] == childYNode[i].as<std::string>();
+        }
+    // otherwise, it's a list, which is a sequence of maps.
+    } else {
+        // checks that the next CNode is a list
+        BOOST_CHECK(childCNode.isList());
+
+        // goes through all elements in the sequence
+        for (int i = 0; (std::size_t) i < childYNode.size(); i++)
+        {
+            // unpacks element
+            config::CompoundConfigNode nextCNode = childCNode[i];
+            YAML::Node nextYNode = childYNode[i];
+
+            // checks it is a sequence of maps
+            BOOST_CHECK(nextCNode.isMap());
+            BOOST_CHECK(nextYNode.Type() == YAML::NodeType::Map);
+
+            // only works because values are always associated by maps
+            equal = equal && testMapLookup(nextCNode, nextYNode);
+        }
     }
 
     return equal;
