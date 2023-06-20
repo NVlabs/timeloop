@@ -85,22 +85,9 @@ CompoundConfigNode::CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _y
   cConfig = _cConfig;
 }
 
-CompoundConfigNode::CompoundConfigNode(libconfig::Setting* _lnode,
-                                       YAML::Node _ynode, 
-                                       CompoundConfig* _cConfig, 
-                                       structured_config::CCRet& _dynamicConfig
-                                      ) : dynamicConfig(_dynamicConfig) {
-  LNode = _lnode;
-  YNode = _ynode;
-  cConfig = _cConfig;
-}
-
 CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    structured_config::CCRet& dynamicNode = (*dynamicConfig).get().At(std::string(path));
-    return CompoundConfigNode(nullptr, YAML::Node(), cConfig, dynamicNode);
-  } else if (LNode) {
+  if (LNode) {
     libconfig::Setting& nextNode = LNode->lookup(path);
     return CompoundConfigNode(&nextNode, YAML::Node(), cConfig);
   } else if (YNode) {
@@ -126,10 +113,7 @@ CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    value = std::get<bool>((*dynamicConfig).get().At(std::string(name)).GetValue());
-    return true;
-  } else if (LNode) return LNode->lookupValue(name, value);
+  if (LNode) return LNode->lookupValue(name, value);
   else if (YNode) {
     if (YNode.IsScalar() || !YNode[name].IsDefined() || !YNode[name].IsScalar()) return false;
     try {
@@ -154,10 +138,7 @@ bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, int &value) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    value = (int) std::get<long long>((*dynamicConfig).get().At(std::string(name)).GetValue());
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     if (!LNode->lookupValue(name, value)) {
       std::string variableName;
       if (LNode->lookupValue(name, variableName) &&
@@ -190,10 +171,7 @@ bool CompoundConfigNode::lookupValue(const char *name, int &value) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    value = (unsigned int) std::get<long long>((*dynamicConfig).get().At(std::string(name)).GetValue());
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     if (!LNode->lookupValue(name, value)) {
       std::string variableName;
       if (LNode->lookupValue(name, variableName) &&
@@ -227,10 +205,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) cons
 
 bool CompoundConfigNode::lookupValueLongOnly(const char *name, long long &value) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    value = (long long) std::get<long long>((*dynamicConfig).get().At(std::string(name)).GetValue());
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     if (!LNode->lookupValue(name, value)) {
       std::string variableName;
       if (LNode->lookupValue(name, variableName) &&
@@ -273,10 +248,7 @@ bool CompoundConfigNode::lookupValue(const char *name, long long &value) const {
 
 bool CompoundConfigNode::lookupValueLongOnly(const char *name, unsigned long long &value) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    value = (long long) std::get<long long>((*dynamicConfig).get().At(std::string(name)).GetValue());
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     if (!LNode->lookupValue(name, value)) {
       std::string variableName;
       if (LNode->lookupValue(name, variableName) &&
@@ -319,10 +291,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned long long &value
 
 bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    value = std::get<double>((*dynamicConfig).get().At(std::string(name)).GetValue());
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     int i_value = 0;
     if (LNode->lookupValue(name, i_value)) {
       value = static_cast<double>(i_value);
@@ -359,10 +328,7 @@ bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    value = (float) std::get<double>((*dynamicConfig).get().At(std::string(name)).GetValue());
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     int i_value = 0;
     if (LNode->lookupValue(name, i_value)) {
       value = static_cast<float>(i_value);
@@ -399,10 +365,7 @@ bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
 
 bool CompoundConfigNode::lookupValue(const char *name, const char *&value) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    value = (char *) std::get<long long>((*dynamicConfig).get().At(std::string(name)).GetValue());
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     if (LNode->lookupValue(name, value)) {
       std::string variableName(value);
       if (cConfig->getVariableRoot().exists(variableName)) {
@@ -429,10 +392,7 @@ bool CompoundConfigNode::lookupValue(const char *name, const char *&value) const
 
 bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    value = std::get<std::string>((*dynamicConfig).get().At(std::string(name)).GetValue());
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     if (LNode->lookupValue(name, value)) {
       std::string variableName(value);
       if (cConfig->getVariableRoot().exists(variableName)) {
@@ -459,8 +419,7 @@ bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const
 
 bool CompoundConfigNode::exists(const char *name) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) return (*dynamicConfig).get().exists(std::string(name));
-  else if (LNode) return LNode->exists(name);
+  if (LNode) return LNode->exists(name);
   else if (YNode) return !YNode.IsScalar() && YNode[name].IsDefined();
   else {
     assert(false);
@@ -471,23 +430,7 @@ bool CompoundConfigNode::exists(const char *name) const {
 
 bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::string> &vectorValue) const {
   EXCEPTION_PROLOGUE;
-  if (dynamicConfig) {
-    // fetches array at name
-    structured_config::CCRet& node = (*dynamicConfig).get().At(std::string(name));
-    // makes sure array at name is an array
-    assert(node.isList());
-
-    // constructs the vector array
-    std::vector<std::string> ret;
-    
-    for (int i = 0; (size_t) i < node.Size(); i++) {
-      ret.emplace_back(std::get<std::string>(node.At(i).GetValue()));
-    }
-
-    // places back
-    vectorValue = ret;
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     assert(LNode->lookup(name).isArray());
     for (const std::string m: LNode->lookup(name))
     {
@@ -508,9 +451,7 @@ bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::str
 }
 
 bool CompoundConfigNode::isList() const {
-  if (dynamicConfig) {
-    return (*dynamicConfig).get().isList();
-  } else if(LNode) return LNode->isList();
+  if(LNode) return LNode->isList();
   else if (YNode) {
     if (YNode.IsSequence()) {
       if (YNode.size() == 0) return true;
@@ -526,8 +467,7 @@ bool CompoundConfigNode::isList() const {
 }
 
 bool CompoundConfigNode::isArray() const {
-  if (dynamicConfig) return (*dynamicConfig).get().isList();
-  else if(LNode) return LNode->isArray();
+  if(LNode) return LNode->isArray();
   else if (YNode) return YNode.IsSequence() && YNode[0].IsScalar();
   else {
     assert(false);
@@ -536,8 +476,7 @@ bool CompoundConfigNode::isArray() const {
 }
 
 bool CompoundConfigNode::isMap() const {
-  if (dynamicConfig) return (*dynamicConfig).get().isMap();
-  else if(LNode) return LNode->isGroup();
+  if(LNode) return LNode->isGroup();
   else if (YNode) return YNode.IsMap();
   else {
     assert(false);
@@ -547,8 +486,7 @@ bool CompoundConfigNode::isMap() const {
 
 
 int CompoundConfigNode::getLength() const {
-  if (dynamicConfig) return (*dynamicConfig).get().Size();
-  else if(LNode) return LNode->getLength();
+  if(LNode) return LNode->getLength();
   else if (YNode) return YNode.size();
   else {
     assert(false);
@@ -559,11 +497,7 @@ int CompoundConfigNode::getLength() const {
 CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
   assert(isList() || isArray());
 
-  if (dynamicConfig) {
-    // also need to be careful here as you don't know where this return value is going
-    structured_config::CCRet& operatorEnd = (*dynamicConfig).get()[idx]; 
-    return CompoundConfigNode(nullptr, YAML::Node(), cConfig, operatorEnd);
-  } else if(LNode) return CompoundConfigNode(&(*LNode)[idx], YAML::Node(), cConfig);
+  if(LNode) return CompoundConfigNode(&(*LNode)[idx], YAML::Node(), cConfig);
   else if (YNode) {
     auto yIter = YNode.begin();
     for (int i = 0; i < idx; i++) yIter++;
@@ -577,17 +511,7 @@ CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
 }
 
 bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
-  if (dynamicConfig) {
-    structured_config::CCRet& node = (*dynamicConfig).get();
-    assert(node.isList());
-
-    for (int i = 0; (size_t) i < node.Size(); i++) 
-    {
-      vectorValue.push_back(std::get<std::string>(node.At(i).GetValue()));
-    }
-
-    return true;
-  } else if (LNode) {
+  if (LNode) {
     assert(isArray());
     for (const std::string m: *LNode)
     {
@@ -608,13 +532,6 @@ bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
 }
 
 bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) {
-  if (dynamicConfig) {
-    if (!(*dynamicConfig).get().isMap()) return false;
-    else {
-      mapKeys = (*dynamicConfig).get().getMapKeys();
-      return true;
-    }
-  }
   if (LNode) {
     assert(LNode->isGroup());
     for (auto it = LNode->begin(); it != LNode->end(); it++) {
