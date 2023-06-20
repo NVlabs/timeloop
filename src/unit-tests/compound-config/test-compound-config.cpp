@@ -270,13 +270,20 @@ BOOST_AUTO_TEST_CASE(testSetters)
 {
     // marker for test
     std::cout << "\n\n\nBeginning Static Lookups Test:\n---" << std::endl;
+ 
+    // creates test-bench upon which to test the setter for cConfig
+    CompoundConfig cConfig = CompoundConfig("", "yaml"); 
+    CompoundConfigNode CNode = cConfig.getRoot();
+    
+    // creates the reference upon which to compare the test-bench
+    YAML::Node YNode = YAML::Node();
+ 
     for (int test = 0; test < TESTS; test++)
     {
-        // creates the CCN being tested
-        CompoundConfig cConfig = CompoundConfig(); 
-        CompoundConfigNode CNode = cConfig.getRoot();
         
     }
+
+    BOOST_CHECK(testMapLookup(CNode, YNode));
 }
 
 // tests the ability to read out correctly from sets
