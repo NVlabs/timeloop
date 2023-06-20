@@ -1,5 +1,4 @@
-#include "loop-analysis/isl-ir.hpp"
-#include "loop-analysis/temporal-analysis.hpp"
+#include "loop-analysis/mapping-to-isl/fused-mapping-to-isl.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
 #include "isl-wrapper/isl-functions.hpp"
 

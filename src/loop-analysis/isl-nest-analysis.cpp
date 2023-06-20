@@ -1,6 +1,6 @@
 #include "loop-analysis/isl-nest-analysis.hpp"
 
-#include "loop-analysis/mapping-to-isl.hpp"
+#include "loop-analysis/mapping-to-isl/mapping-to-isl.hpp"
 #include "loop-analysis/spatial-analysis.hpp"
 #include "loop-analysis/temporal-analysis.hpp"
 
@@ -38,7 +38,6 @@ ReuseAnalysisOutput ReuseAnalysis(
     bool can_exploit_temporal_reuse = buf.buffer_id != compute_level;
     auto temp_reuse_out = TemporalReuseAnalysis(
       TemporalReuseAnalysisInput(
-        buf,
         occ,
         BufTemporalReuseOpts{
           .exploit_temporal_reuse=can_exploit_temporal_reuse

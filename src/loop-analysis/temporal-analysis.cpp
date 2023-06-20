@@ -19,11 +19,9 @@ std::pair<Occupancy, Fill> FillFromOccupancy(const Occupancy&);
  *****************************************************************************/
 
 TemporalReuseAnalysisInput::TemporalReuseAnalysisInput(
-  const LogicalBuffer& logical_buffer,
   const Occupancy& occupancy,
   BufTemporalReuseOpts reuse_opts
-) :
-  logical_buffer(logical_buffer), occupancy(occupancy), reuse_opts(reuse_opts)
+) : occupancy(occupancy), reuse_opts(reuse_opts)
 {
 }
 
