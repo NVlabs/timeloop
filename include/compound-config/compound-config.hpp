@@ -33,9 +33,6 @@
 #include <yaml-cpp/yaml.h>
 #include <cassert>
 
-// dynamic compound config declaration
-#include <compound-config/compound-config-struct.hpp>
-
 namespace config
 {
 
@@ -48,17 +45,10 @@ class CompoundConfigNode
   YAML::Node YNode;
   CompoundConfig* cConfig = nullptr;
 
-  // CompoundConfigNode can be initialized with a dummy CompoundConfig
-  std::optional<std::reference_wrapper<structured_config::CCRet>> dynamicConfig;
-
  public:
   CompoundConfigNode(){}
   CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode);
   CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode, CompoundConfig* _cConfig);
-
-  // necessary dynamic config return type. Creates a perfect copy of this node
-  // with its dynamic element. Necessary for the operator 
-  CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode, CompoundConfig* _cConfig, structured_config::CCRet& dynamicConfig);
 
   libconfig::Setting& getLNode() {return *LNode;}
   YAML::Node getYNode() {return YNode;}
