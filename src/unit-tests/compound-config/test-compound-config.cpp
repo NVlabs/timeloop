@@ -216,7 +216,15 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
 // tests the ability to set correctly
 BOOST_AUTO_TEST_CASE(testSetters)
 {
-    std::cout << "not yet implemented" << std::endl;
+    // marker for test
+    std::cout << "Beginning Static Lookups Test:\n---" << std::endl;
+    for (int test = 0; test < TESTS; test++)
+    {
+        // creates the CCN being tested
+        CompoundConfig cConfig = CompoundConfig(); 
+        CompoundConfigNode CNode = cConfig.getRoot();
+        
+    }
 }
 
 // tests the ability to read out correctly from sets
