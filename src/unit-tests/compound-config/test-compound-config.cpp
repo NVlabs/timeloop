@@ -65,73 +65,62 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
 // forward declaration
 bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode);
 // makes sure sequences agree in CCN and YNode
-bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode, const std::string& key)
+bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
 {
     bool equal = true;
-    // grabs next values so they're owned somewhere
-    config::CompoundConfigNode childCNode = CNode.lookup(key);
-    YAML::Node childYNode = YNode[key];
 
     // checks that the children are a list/array
-    BOOST_CHECK(childCNode.isList() || childCNode.isArray());
-    BOOST_CHECK(childYNode.Type() == YAML::NodeType::Sequence);
+    BOOST_CHECK(CNode.isList() || CNode.isArray());
+    BOOST_CHECK(YNode.Type() == YAML::NodeType::Sequence);
 
-    // if the YNode child is a scalar, it's an array.
-    if (childYNode[0].Type() == YAML::NodeType::Scalar)
+    // if the YNode is a scalar, it's an array.
+    if (YNode[0].Type() == YAML::NodeType::Scalar)
     {
         // confirms the CNode is an array
-        BOOST_CHECK(childCNode.isArray());
+        BOOST_CHECK(CNode.isArray());
 
         // unpacks array
         std::vector<std::string> actual;
 
         // fetches array, should always work
-        BOOST_CHECK(childCNode.getArrayValue(actual));
+        BOOST_CHECK(CNode.getArrayValue(actual));
 
         // compares the CNode output to YNode output
-        for (int i = 0; (size_t) i < childYNode.size(); i++)
+        for (int i = 0; (size_t) i < YNode.size(); i++)
         {
-            equal = equal && actual[i] == childYNode[i].as<std::string>();
+            equal = equal && actual[i] == YNode[i].as<std::string>();
         }
     // otherwise, it's a list, which is a sequence of maps.
     } else {
-        // checks that the next CNode is a list
-        BOOST_CHECK(childCNode.isList());
+        // checks that the CNode is a list
+        BOOST_CHECK(CNode.isList());
 
         // goes through all elements in the sequence
-        for (int i = 0; (std::size_t) i < childYNode.size(); i++)
+        for (int i = 0; (std::size_t) i < YNode.size(); i++)
         {
             // unpacks element
-            config::CompoundConfigNode nextCNode = childCNode[i];
-            YAML::Node nextYNode = childYNode[i];
+            config::CompoundConfigNode childCNode = CNode[i];
+            YAML::Node childYNode = YNode[i];
 
-            // checks it is a sequence of maps
-            BOOST_CHECK(nextCNode.isMap());
-            BOOST_CHECK(nextYNode.Type() == YAML::NodeType::Map);
+            // if it is a nested sequence, recurse
+            if (childYNode.IsSequence())
+            {
+                equal = equal && testSequenceLookup(childCNode, childYNode);
+            // otherwise, we expect it to be a sequence of labeled values (Map)
+            } else {
+                // checks it is a sequence of maps
+                BOOST_CHECK(childCNode.isMap());
+                BOOST_CHECK(childYNode.Type() == YAML::NodeType::Map);
 
-            // only works because values are always associated by maps
-            equal = equal && testMapLookup(nextCNode, nextYNode);
+                // only works because values are always associated by maps
+                equal = equal && testMapLookup(childCNode, childYNode);
+            }
         }
     }
 
     return equal;
 }
-// fetches child values as C++ doesn't like temporary values
-bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode, const std::string& key)
-{
-    // checks that we're passing in a Map
-    assert(CNode.isMap());
-    assert(YNode.Type() == YAML::NodeType::Map);
 
-    // unpacks the new root values to base our map lookup on
-    auto childCNode = CNode.lookup(key);
-    auto childYNode = YNode[key];
-
-    // checks the new CNode agrees the next value is a map
-    BOOST_CHECK(childCNode.isMap());
-
-    return testMapLookup(childCNode, childYNode);
-}
 // tests the CCN lookup functions provided a given root node. Treats all input nodes as maps.
 bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode)
 {
@@ -151,12 +140,18 @@ bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode)
 
     return equal;
 }
+
 // ensures that CNode and YNode are equal
 bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode, 
                     const std::string& key, YAML::NodeType::value TYPE)
 {
     // namespace of if a node is correct
     bool nodePass = false;
+
+    // namespace for sequences and maps for ownership reasons
+    config::CompoundConfigNode childCNode;
+    YAML::Node childYNode;
+
 
     // determines what check to do based off child node type
     switch(TYPE)
@@ -184,10 +179,18 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
             nodePass = testScalarLookup<std::string>(CNode, YNode, key) || nodePass;
             break;
         case YAML::NodeType::Sequence:
-            nodePass = testSequenceLookup(CNode, YNode, key);
+            // unpacks values for ownership reasons
+            childCNode = CNode.lookup(key);
+            childYNode = YNode[key];
+
+            // passes it to the sequence tester
+            nodePass = testSequenceLookup(childCNode, childYNode);
             break;
         case YAML::NodeType::Map:
-            nodePass = testMapLookup(CNode, YNode, key);
+            childCNode = CNode.lookup(key);
+            childYNode = YNode[key];
+
+            nodePass = testMapLookup(childCNode, childYNode);
             break;
         case YAML::NodeType::Undefined:
             nodePass = !CNode.exists(key);
