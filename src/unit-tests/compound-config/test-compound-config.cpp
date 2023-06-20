@@ -158,7 +158,7 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
     {
         // null should pull out the same thing as scalar
         case YAML::NodeType::Null:
-            nodePass = !CNode.exists(key);
+            nodePass = CNode.lookup(key).getLength() == 0;
             break;
         // tests all possible scalar output values
         case YAML::NodeType::Scalar:
@@ -187,9 +187,11 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
             nodePass = testSequenceLookup(childCNode, childYNode);
             break;
         case YAML::NodeType::Map:
+            // unpacks values for ownership reasons
             childCNode = CNode.lookup(key);
             childYNode = YNode[key];
 
+            // passes it to the map tester
             nodePass = testMapLookup(childCNode, childYNode);
             break;
         case YAML::NodeType::Undefined:
@@ -204,9 +206,8 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
     // TODO:: Find a better way to locate where a failure is.
     if (!nodePass)
     {
-        std::cout << key << std::endl;
-        std::cout << YNode << std::endl;
-        std::cout << TYPE << std::endl;
+        std::cout << "key: " << key << std::endl;
+        std::cout << "type: " << TYPE << std::endl;
         BOOST_CHECK(nodePass);
     }
     return nodePass;
