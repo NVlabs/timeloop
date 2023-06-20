@@ -1,0 +1,20 @@
+architecture:
+  version: 0.3
+  local:
+  - name: PE.Buffer
+    class: regfile
+    attributes:
+      block-size: 1
+      depth: 64
+      latency: 5ns
+      n_ports: 2
+      technology: 40nm
+      width: 8
+      word-bits: 8
+  - name: PE.MACC
+    class: intmac
+    attributes:
+      datawidth: 8
+      latency: 5ns
+      num_pipeline_stages: 2
+      technology: 40nm
