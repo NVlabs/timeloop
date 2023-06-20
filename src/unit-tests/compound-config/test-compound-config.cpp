@@ -69,18 +69,19 @@ bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode, co
 {
     bool equal = true;
     // grabs next values so they're owned somewhere
-    auto childCNode = CNode.lookup(key);
-    auto childYNode = YNode[key];
+    config::CompoundConfigNode childCNode = CNode.lookup(key);
+    YAML::Node childYNode = YNode[key];
 
-    // checks that the CNode is a list/array
+    // checks that the children are a list/array
     BOOST_CHECK(childCNode.isList() || childCNode.isArray());
+    BOOST_CHECK(childYNode.Type() == YAML::NodeType::Sequence);
 
     // goes through all elements in the sequence
     for (int i = 0; (std::size_t) i < childYNode.size(); i++)
     {
         // unpacks element
-        auto nextCNode = childCNode[i];
-        auto nextYNode = childYNode[i];
+        config::CompoundConfigNode nextCNode = childCNode[i];
+        YAML::Node nextYNode = childYNode[i];
         // only works because values are always associated by maps
         equal = equal && testMapLookup(nextCNode, nextYNode);
     }
@@ -90,6 +91,10 @@ bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode, co
 // fetches child values as C++ doesn't like temporary values
 bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode, const std::string& key)
 {
+    // checks that we're passing in a Map
+    assert(CNode.isMap());
+    assert(YNode.Type() == YAML::NodeType::Map);
+
     // unpacks the new root values to base our map lookup on
     auto childCNode = CNode.lookup(key);
     auto childYNode = YNode[key];
@@ -160,6 +165,7 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
             nodePass = !CNode.exists(key);
             break;
         default:
+            std::cout << "!!! UNIT TEST ERROR !!!" << std::endl;
             break;
     }
     
@@ -168,6 +174,8 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
     if (!nodePass)
     {
         std::cout << key << std::endl;
+        std::cout << YNode << std::endl;
+        std::cout << TYPE << std::endl;
         BOOST_CHECK(nodePass);
     }
     return nodePass;
