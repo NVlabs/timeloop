@@ -30,6 +30,19 @@ struct ReuseAnalysisOutput
   std::map<LogicalBuffer, LogicalBufferStats> buf_to_stats;
 };
 
-ReuseAnalysisOutput ReuseAnalysis(const loop::Nest&, const problem::Workload&);
+struct ReuseAnalysisInput
+{
+  const std::map<LogicalBuffer, Occupancy>& buf_to_occupancy;
+
+  ReuseAnalysisInput(const std::map<LogicalBuffer, Occupancy>& buf_to_occ);
+};
+
+/**
+ * @brief Computes fills of buffers as well as the transfers to fulfill those
+ *   fills.
+ * 
+ * @see analysis::ReuseAnalysisOutput
+ */
+ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input);
 
 }; // namespace analysis
