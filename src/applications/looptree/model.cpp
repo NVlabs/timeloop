@@ -5,6 +5,7 @@
 
 #include "applications/looptree/model.hpp"
 #include "loop-analysis/nest-analysis.hpp"
+#include "loop-analysis/mapping-to-isl/fused-mapping-to-isl.hpp"
 #include "loop-analysis/isl-ir.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
 #include "mapping/fused-mapping.hpp"
@@ -139,25 +140,25 @@ Application::Application(config::CompoundConfig* config,
   mapping::FusedMapping mapping =
     mapping::ParseMapping(rootNode.lookup("mapping"), workload);
 
-  auto raw_occupancies = analysis::OccupanciesFromMapping(mapping, workload);
+  analysis::OccupanciesFromMapping(mapping, workload);
 
-  auto [occupancies, fills] = analysis::TemporalReuseAnalysis(raw_occupancies);
+  // auto [occupancies, fills] = analysis::TemporalReuseAnalysis(raw_occupancies);
 
-  // for (const auto& [buf, fill] : fills)
+  // // for (const auto& [buf, fill] : fills)
+  // // {
+  // //   std::cout << buf << std::endl;
+  // //   auto p_fill_count = isl_map_card(fill.map.copy());
+  // //   std::cout << isl_pw_qpolynomial_to_str(p_fill_count) << std::endl;
+  // //   isl_pw_qpolynomial_free(p_fill_count);
+  // // }
+
+  // for (const auto& [buf, occ] : occupancies)
   // {
   //   std::cout << buf << std::endl;
-  //   auto p_fill_count = isl_map_card(fill.map.copy());
-  //   std::cout << isl_pw_qpolynomial_to_str(p_fill_count) << std::endl;
-  //   isl_pw_qpolynomial_free(p_fill_count);
+  //   auto p_occ_count = isl_map_card(occ.map.copy());
+  //   std::cout << isl_pw_qpolynomial_to_str(p_occ_count) << std::endl;
+  //   isl_pw_qpolynomial_free(p_occ_count);
   // }
-
-  for (const auto& [buf, occ] : occupancies)
-  {
-    std::cout << buf << std::endl;
-    auto p_occ_count = isl_map_card(occ.map.copy());
-    std::cout << isl_pw_qpolynomial_to_str(p_occ_count) << std::endl;
-    isl_pw_qpolynomial_free(p_occ_count);
-  }
 }
 
 Application::~Application()
