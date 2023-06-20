@@ -207,7 +207,6 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
     if (!nodePass)
     {
         std::cout << "key: " << key << std::endl;
-        std::cout << "type: " << TYPE << std::endl;
         BOOST_CHECK(nodePass);
     }
     return nodePass;
@@ -219,7 +218,7 @@ namespace config {
 BOOST_AUTO_TEST_CASE(testStaticLookups)
 {
     // marker for test
-    std::cout << "Beginning Static Lookups Test:\n---" << std::endl;
+    std::cout << "\n\n\nBeginning Static Lookups Test:\n---" << std::endl;
     // goes through all testing dirs
     for (auto FILEPATH:FILES) 
     {
@@ -249,7 +248,7 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
 BOOST_AUTO_TEST_CASE(testSetters)
 {
     // marker for test
-    std::cout << "Beginning Static Lookups Test:\n---" << std::endl;
+    std::cout << "\n\n\nBeginning Static Lookups Test:\n---" << std::endl;
     for (int test = 0; test < TESTS; test++)
     {
         // creates the CCN being tested
