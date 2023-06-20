@@ -19,15 +19,36 @@ std::string TEST_LOC = "./src/unit-tests/compound-config/tests/";
 std::map<std::string, std::vector<std::string>> FILES = {
     // https://github.com/Accelergy-Project/timeloop-accelergy-exercises
     {
-        "accelergy-project/2020.ispass/timeloop/01/", {
+        "accelergy-project/2020.ispass/timeloop/00/", {
             "1level.arch.yaml",
             "conv1d-1level.map.yaml",
             "conv1d.prob.yaml",
+
             "timeloop-model.ART_summary.yaml",
             "timeloop-model.ART.yaml",
             "timeloop-model.ERT_summary.yaml",
             "timeloop-model.ERT.yaml",
             "timeloop-model.flattened_architecture.yaml",
+        }
+    },
+    {
+        "accelergy-project/2020.ispass/timeloop/01/", {
+            "2level.arch.yaml",
+            "conv1d-2level-os.map.yaml",
+            "conv1d-2level-ws.map.yaml",
+            "conv1d.prob.yaml",
+
+            "os/timeloop-model.ART_summary.yaml",
+            "os/timeloop-model.ART.yaml",
+            "os/timeloop-model.ERT_summary.yaml",
+            "os/timeloop-model.ERT.yaml",
+            "os/timeloop-model.flattened_architecture.yaml",
+
+            "ws/timeloop-model.ART_summary.yaml",
+            "ws/timeloop-model.ART.yaml",
+            "ws/timeloop-model.ERT_summary.yaml",
+            "ws/timeloop-model.ERT.yaml",
+            "ws/timeloop-model.flattened_architecture.yaml",
         }
     }
 };
