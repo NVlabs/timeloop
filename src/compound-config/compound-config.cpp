@@ -417,6 +417,19 @@ bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const
   EXCEPTION_EPILOGUE;
 }
 
+template <typename T>
+bool CompoundConfigNode::setValue(const char *name, T value) {
+  EXCEPTION_PROLOGUE;
+
+  assert(YNode);
+
+  YNode[name] = value;
+
+  return true;
+
+  EXCEPTION_EPILOGUE;
+}
+
 bool CompoundConfigNode::exists(const char *name) const {
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->exists(name);

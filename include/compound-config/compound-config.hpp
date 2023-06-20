@@ -71,6 +71,9 @@ class CompoundConfigNode
   bool lookupValue(const char *name, float &value) const;
   bool lookupValue(const char *name, const char *&value) const;
   bool lookupValue(const char *name, std::string &value) const;
+  
+  template <typename T>
+  bool setValue(const char *name, T value);
 
   inline bool lookupValue(const std::string &name, bool &value) const
   { return(lookupValue(name.c_str(), value)); }
@@ -99,6 +102,10 @@ class CompoundConfigNode
 
   inline bool lookupValue(const std::string &name, std::string &value) const
   { return(lookupValue(name.c_str(), value)); }
+
+  template <typename T>
+  inline bool setValue(const std::string &name, T value) const
+  { return setValue<T>(name.c_str, value); }
 
   bool exists(const char *name) const;
 
