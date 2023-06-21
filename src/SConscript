@@ -284,6 +284,10 @@ applications/looptree/model.cpp
 applications/looptree/main.cpp
 """)
 
+looptree_mapper_sources = Split("""
+applications/looptree-mapper/main.cpp
+""")
+
 unittest_sources = Split("""
 unittest/test-main.cpp
 unittest/test-simple-link-transfer.cpp
@@ -295,6 +299,8 @@ bin_model = env.Program(target = 'timeloop-model', source = model_sources)
 bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
 # bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
 bin_looptree = env.Program(target = 'looptree', source = looptree_sources)
+bin_looptree_mapper = env.Program(target = 'looptree-mapper',
+                                  source = looptree_mapper_sources)
 bin_unittest = env.Program(target = 'timeloop-tests', source = unittest_sources)
 
 env.Install(env["BUILD_BASE_DIR"] + '/bin', [
@@ -304,6 +310,7 @@ env.Install(env["BUILD_BASE_DIR"] + '/bin', [
                                             bin_mapper,
                                             # bin_design_space,
                                             bin_looptree,
+                                            bin_looptree_mapper,
                                             bin_unittest
                                             ])
 
