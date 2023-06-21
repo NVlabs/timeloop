@@ -422,7 +422,7 @@ BOOST_AUTO_TEST_CASE(testSetters)
     {
         if (test % (TESTS / 20) == 0)
         {
-            std::cout << "Progress: " << (float)test / TESTS * 100 << "% done" << std::endl;
+            std::cout << "Progress: " << (float)test / TESTS * 100 << "\% done" << std::endl;
         }
 
         // Generates a random YAML::NodeType.
@@ -435,6 +435,12 @@ BOOST_AUTO_TEST_CASE(testSetters)
         switch (TYPE)
         {
             case YAML::NodeType::Null:
+                // Initializes Scalar.
+                CNode.setNull(key);
+
+                // Writes Scalar to Map.
+                YNode[key] = YAML::Node();
+
                 break;
             // Tests Scalars.
             case YAML::NodeType::Scalar:
@@ -442,7 +448,7 @@ BOOST_AUTO_TEST_CASE(testSetters)
                 val = rand();
 
                 // Writes Scalar to Map.
-                CNode.setValue(key, val);
+                CNode.setScalar(key, val);
                 YNode[key] = val;
 
                 break;
