@@ -131,8 +131,7 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
 
   BufferID cur_buffer_id = storage_tiling_boundaries.size();
   bool first_loop = true;
-  bool last_boundary_found = false;
-  bool should_dump = false;
+  bool last_is_boundary = false;
   for (const auto& cur : nest_state)
   {
     bool valid_level = !loop::IsSpatial(cur.descriptor.spacetime_dimension)
@@ -145,25 +144,9 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
     auto is_master_spatial = master_spatial_level[cur.level];
     auto is_boundary = storage_boundary_level[cur.level];
 
-    if (first_loop)
+    if (is_boundary)
     {
-      last_boundary_found = false;
-      should_dump = true;
-    }
-    else if (is_boundary && !last_boundary_found)
-    {
-      last_boundary_found = true;
-      should_dump = false;
-    }
-    else if (is_boundary && last_boundary_found)
-    {
-      last_boundary_found = true;
-      should_dump = true;
-    }
-    else if (is_master_spatial && last_boundary_found)
-    {
-      last_boundary_found = false;
-      should_dump = true;
+      cur_buffer_id--;
     }
 
     for (unsigned dspace_id = 0;
@@ -182,7 +165,7 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
       );
       const auto& occ = stats.effective_occupancy;
 
-      if (should_dump)
+      if (last_is_boundary || first_loop)
       {
         const auto& key_to_access_stats = stats.compat_access_stats;
         const auto& link_transfers = stats.link_transfer;
@@ -210,7 +193,7 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
       {
         tile.size = 0;
       }
-      else if (should_dump)
+      else if (is_master_spatial)
       {
         auto p_occ_map = occ.map.copy();
         auto p_occ_count = isl::get_val_from_singular_qpolynomial_fold(
@@ -231,6 +214,8 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
       }
       else if (is_boundary)
       {
+        std::cout << cur_buffer_id << std::endl;
+        std::cout << "occ: " << occ.map << std::endl;
         auto p_occ_map = occ.map.copy();
         auto p_occ_count = isl::get_val_from_singular_qpolynomial_fold(
           isl_pw_qpolynomial_bound(isl_map_card(p_occ_map),
@@ -246,13 +231,8 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
 
       working_sets[dspace_id].push_back(tile);
     }
-    
-    if (should_dump)
-    {
-      should_dump = false;
-      cur_buffer_id--;
-    }
 
+    last_is_boundary = is_boundary;
     first_loop = false;
   }
 
