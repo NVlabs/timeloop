@@ -417,14 +417,26 @@ bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const
   EXCEPTION_EPILOGUE;
 }
 
-template <typename T>
-bool CompoundConfigNode::setValue(const char *name, T value) {
+bool CompoundConfigNode::setNull(const char *name) {
   EXCEPTION_PROLOGUE;
 
+  // ensures the YNode is defined
   assert(YNode);
+  // creates a Null YNode and assigns
+  YNode[name] = YAML::Node();
+  return true;
 
-  YNode[name] = value;
+  EXCEPTION_EPILOGUE;
+}
 
+template <typename T>
+bool CompoundConfigNode::setScalar(const char *name, T scalar) {
+  EXCEPTION_PROLOGUE;
+
+  // ensures the YNode is defined
+  assert(YNode);
+  // assigns the scalar value
+  YNode[name] = scalar;
   return true;
 
   EXCEPTION_EPILOGUE;
@@ -691,20 +703,20 @@ std::string parseName(std::string name) {
 /*******************************************************************************
  * Explicit template instantiation.
  */
-/* setValue */
+/* setScalar */
 // Integer setters.
-template bool CompoundConfigNode::setValue(const char *name, bool value);
-template bool CompoundConfigNode::setValue(const char *name, int value);
-template bool CompoundConfigNode::setValue(const char *name, unsigned int value);
+template bool CompoundConfigNode::setScalar(const char *name, bool value);
+template bool CompoundConfigNode::setScalar(const char *name, int value);
+template bool CompoundConfigNode::setScalar(const char *name, unsigned int value);
 // Long long setters.
-template bool CompoundConfigNode::setValue(const char *name, long long value);
-template bool CompoundConfigNode::setValue(const char *name, unsigned long long value);
+template bool CompoundConfigNode::setScalar(const char *name, long long value);
+template bool CompoundConfigNode::setScalar(const char *name, unsigned long long value);
 // Floating point setters.
-template bool CompoundConfigNode::setValue(const char *name, double value);
-template bool CompoundConfigNode::setValue(const char *name, float value);
+template bool CompoundConfigNode::setScalar(const char *name, double value);
+template bool CompoundConfigNode::setScalar(const char *name, float value);
 // String setters.
-template bool CompoundConfigNode::setValue(const char *name, const char *value);
-template bool CompoundConfigNode::setValue(const char *name, std::string value);
+template bool CompoundConfigNode::setScalar(const char *name, const char *value);
+template bool CompoundConfigNode::setScalar(const char *name, std::string value);
 
 
 } // namespace config
