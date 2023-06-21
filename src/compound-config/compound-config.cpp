@@ -615,7 +615,7 @@ CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
   }
 }
 
-bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
+bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) const {
   if (LNode) {
     assert(isArray());
     for (const std::string m: *LNode)

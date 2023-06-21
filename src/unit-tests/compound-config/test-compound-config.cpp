@@ -132,7 +132,7 @@ bool testScalarLookup(  const config::CompoundConfigNode& CNode,
 }
 
 // Forward declaration.
-bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode);
+bool testMapLookup(const config::CompoundConfigNode& CNode, const YAML::Node&YNode);
 /*!
  * testSequenceLookup makes sure for a Sequence CompoundConfigNode, the elements
  * in the Sequence agree with a reference YAML::Node.
@@ -155,7 +155,8 @@ bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode);
  * @return      Returns whether all the elements in CNode and YNode agree.
  *              Returns true until proven otherwise.
  */
-bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
+bool testSequenceLookup(const config::CompoundConfigNode& CNode,
+                        const YAML::Node& YNode)
 {
     /* Return value namespace + initialization. It defaults to true until an
      * inequality is found. */
@@ -224,8 +225,8 @@ bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
 }
 
 // Forward declaration.
-bool mapNodeEq( config::CompoundConfigNode CNode, YAML::Node YNode, 
-                const std::string& key, YAML::NodeType::value TYPE);
+bool mapNodeEq( const config::CompoundConfigNode CNode, const YAML::Node YNode, 
+                const std::string& key, const YAML::NodeType::value TYPE);
 /*!
  * testMapLookup makes sure for a Map CompoundConfigNode, the key-value pairs in 
  * the Map agree with a reference YAML::Node.
@@ -240,7 +241,7 @@ bool mapNodeEq( config::CompoundConfigNode CNode, YAML::Node YNode,
  * @return      Returns whether the key-value pairs in CNode and YNode agree.
  *              returns true until proven otherwise.
  */
-bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode)
+bool testMapLookup(const config::CompoundConfigNode& CNode, const YAML::Node&YNode)
 {
     // Defines the return value namespace and instantiates it as true.
     bool equal = true;
@@ -278,8 +279,8 @@ bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode)
  * @return      Returns whether the CNode is equal to the reference. Defaults to
  *              false.
  */
-bool mapNodeEq( config::CompoundConfigNode CNode, YAML::Node YNode, 
-                const std::string& key, YAML::NodeType::value TYPE)
+bool mapNodeEq( const config::CompoundConfigNode CNode, const YAML::Node YNode, 
+                const std::string& key, const YAML::NodeType::value TYPE)
 {
     // Declares the namespace of the return value. Instantiates to false.
     bool nodeEq = false;
@@ -486,7 +487,26 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
     std::cout << CNode.getYNode() << std::endl;
     std::cout << "#########################" << std::endl;
     std::cout << YNode << std::endl;
+
+    // Tests CNode's YNode against YNode in a CNode to ensure all the lookups
+    // can access all the items writes can.
+    config::CompoundConfigNode YNode_CNode = config::CompoundConfigNode(nullptr, YNode);
+    // Tests YNode against itself, to test symmetry of reads and writes.
+    std::cout << "here" << std::endl;
+    BOOST_CHECK(testMapLookup(YNode_CNode, YNode));
+    std::cout << "here" << std::endl;
+    // Tests CNode against reference to ensure the writes were the same.
     BOOST_CHECK(testMapLookup(CNode, YNode));
+    std::cout << "here" << std::endl;
+    // Tests CNode accesses against itself to ensure writes can access all the
+    // items lookup can.
+    YAML::Node CNode_YNode = CNode.getYNode();
+    std::cout << "here" << std::endl;
+    BOOST_CHECK(testMapLookup(CNode, CNode_YNode));
+    std::cout << "here" << std::endl;
+    // Tests YNode_CNode when using CNode_YNode as reference to ensure reads can
+    // access all the items writes can.
+    BOOST_CHECK(testMapLookup(YNode_CNode, CNode_YNode));
     std::cout << "Done!" << std::endl;
 }
 
