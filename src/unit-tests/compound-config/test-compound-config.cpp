@@ -4,18 +4,18 @@
 #include <boost/test/included/unit_test.hpp>
 #include <compound-config/compound-config.hpp>
 
-// number of testing cycles to run
+// Number of testing cycles to run.
 int TESTS = 2000;
-// the seed for the entropy source
+// The seed for the entropy source.
 uint SEED = 42;
-// changes the max random value to the U_LONG32 random value
+// Changes the max random value to the U_LONG32 random value.
 #undef RAND_MAX
 #define RAND_MAX = ULONG_LONG_MAX
 
-// the location of the test files
+// The location of the test files.
 std::string TEST_LOC = "./src/unit-tests/compound-config/tests/";
 
-// static YAML file names we want to load in for the test
+// Static YAML file names we want to load in for the test.
 std::map<std::string, std::vector<std::string>> FILES = {
     // https://github.com/Accelergy-Project/timeloop-accelergy-exercises
     {
@@ -55,7 +55,7 @@ std::map<std::string, std::vector<std::string>> FILES = {
 
 /*!
  * testScalarLookup makes sure for a Map CompoundConfigNode that contains a Scalar
- * value mapped to a key, the contained Scalar value agrees with a corresponding \
+ * value mapped to a key, the contained Scalar value agrees with a corresponding
  * reference YAML::Node. 
  * 
  * The return value defaults to false if there is a conversion error and does not 
@@ -95,7 +95,6 @@ bool testScalarLookup(  const config::CompoundConfigNode& CNode,
             BOOST_CHECK_EQUAL(expectedScalar, actualScalar);
             // and propagate equality check
             return expectedScalar == actualScalar;
-
         // otherwise return false since no lookupValue resolution
         } else
         {
@@ -112,61 +111,102 @@ bool testScalarLookup(  const config::CompoundConfigNode& CNode,
     }
 }
 
-// foreward declaration
+// Forward declaration.
 bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode, 
             const std::string& key, YAML::NodeType::value TYPE);
-// forward declaration
+// Forward declaration.
 bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode);
 
-// makes sure sequences agree in CCN and YNode
+/*!
+ * testSequenceLookup makes sure for a Sequence CompoundConfigNode, the elements
+ * in the Sequence agrees with a reference YAML::Node.
+ * 
+ * The return value defaults to true until an element inequality is found. BOOST
+ * raises errors if the CCN is not a List or Array, or the YAML::Node is not a
+ * Sequence.
+ * 
+ * There is a difference execution pathway depending on whether or not the CCN
+ * is an Array or List, as CCN provides a lookupArrayValue function that needs
+ * to be tested. There are BOOST errors in code that depend on the execution
+ * pathway.
+ * 
+ * @param CNode The CompoundConfigNode whose elements are being equality tested.
+ *              A List/Array (Sequence in YAML) CCN is expected to be passed in.
+ * @param YNode The YAML::Node that is a Sequence (either a List/Array in CCN)
+ *              which serves as a source of truth/reference the CCN elements are
+ *              being compared against.
+ * @return      Returns whether all the elements in CNode and YNode agree.
+ */
 bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
 {
+    /**
+     * Return value namespace + initialization. It defaults to true until an
+     * inequality is found.
+     */
     bool equal = true;
 
-    // checks that the children are a list/array
+    // Checks that the children are YAML Sequences or equivalent.
     BOOST_CHECK(CNode.isList() || CNode.isArray());
     BOOST_CHECK(YNode.Type() == YAML::NodeType::Sequence);
 
-    // if the YNode is a scalar, it's an array.
+    /**
+     * If the YNode children are Scalar (if ANY of them are Scalar), it's
+     * the equivalent of an Array in CNode. Therefore we should run the Array
+     * test execution pathway which triggers the CCN testArrayLookup function.
+     */ 
     if (YNode[0].Type() == YAML::NodeType::Scalar)
     {
-        // confirms the CNode is an array
+        // Confirms the CNode is an Array. Raises a BOOST error if not.
         BOOST_CHECK(CNode.isArray());
 
-        // unpacks array
+        // The heap space allocated for the CCN to dump its Array values into.
         std::vector<std::string> actual;
 
-        // fetches array, should always work
+        /**
+         * Fetches Array, should always work if our previous code works as 
+         * intended (i.e. the assumption, which should be the standard, that if 
+         * ANY child of the YNode is a Scalar, the CNode is an Array). If not,
+         * we raise a BOOST error.
+         */
         BOOST_CHECK(CNode.getArrayValue(actual));
 
-        // compares the CNode output to YNode output
+        /**
+         * Iterates over the YNode elements and compares them to the 
+         * corresponding fetched element. Update return value to false if an
+         * inequality is found.
+         */
         for (int i = 0; (size_t) i < YNode.size(); i++)
         {
             equal = equal && actual[i] == YNode[i].as<std::string>();
         }
-    // otherwise, it's a list, which is a sequence of maps.
-    } else {
-        // checks that the CNode is a list
+    // Otherwise, run the List execution pathway, as we are guaranteed a List.
+    } else
+    {
+        // Verify that the CNode is a List, raising a BOOST error if not.
         BOOST_CHECK(CNode.isList());
 
-        // goes through all elements in the sequence
+        // Then go through all elements in the Sequence YNode.
         for (int i = 0; (std::size_t) i < YNode.size(); i++)
         {
-            // unpacks element
+            // Unpacks elements.
             config::CompoundConfigNode childCNode = CNode[i];
             YAML::Node childYNode = YNode[i];
 
-            // if it is a nested sequence, recurse
+            // If we unpacked a nested Sequence, recurse to check equality.
             if (childYNode.IsSequence())
             {
                 equal = equal && testSequenceLookup(childCNode, childYNode);
-            // otherwise, we expect it to be a sequence of labeled values (Map)
-            } else {
-                // checks it is a sequence of maps
+            // Otherwise, we expect a Sequence of labeled values (Map).
+            } else
+            {
+                // Check it is a sequence of Maps, raising a BOOST error if not.
                 BOOST_CHECK(childCNode.isMap());
                 BOOST_CHECK(childYNode.Type() == YAML::NodeType::Map);
 
-                // only works because values are always associated by maps
+                /**
+                 * Checks equality in the child nodes via testMapLookup. This
+                 * method only works because values are always labeled.
+                 */ 
                 equal = equal && testMapLookup(childCNode, childYNode);
             }
         }
