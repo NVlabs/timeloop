@@ -688,4 +688,23 @@ std::string parseName(std::string name) {
   }
 }
 
+/*******************************************************************************
+ * Explicit template instantiation.
+ */
+/* setValue */
+// Integer setters.
+template bool CompoundConfigNode::setValue(const char *name, bool value);
+template bool CompoundConfigNode::setValue(const char *name, int value);
+template bool CompoundConfigNode::setValue(const char *name, unsigned int value);
+// Long long setters.
+template bool CompoundConfigNode::setValue(const char *name, long long value);
+template bool CompoundConfigNode::setValue(const char *name, unsigned long long value);
+// Floating point setters.
+template bool CompoundConfigNode::setValue(const char *name, double value);
+template bool CompoundConfigNode::setValue(const char *name, float value);
+// String setters.
+template bool CompoundConfigNode::setValue(const char *name, const char *value);
+template bool CompoundConfigNode::setValue(const char *name, std::string value);
+
+
 } // namespace config

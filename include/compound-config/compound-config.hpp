@@ -72,6 +72,7 @@ class CompoundConfigNode
   bool lookupValue(const char *name, const char *&value) const;
   bool lookupValue(const char *name, std::string &value) const;
   
+  // setter templates (allows for dynamic declaration outside of file)
   template <typename T>
   bool setValue(const char *name, T value);
 
@@ -105,7 +106,7 @@ class CompoundConfigNode
 
   template <typename T>
   inline bool setValue(const std::string &name, T value) const
-  { return setValue<T>(name.c_str, value); }
+  { return setValue<T>(name.c_str(), value); }
 
   bool exists(const char *name) const;
 
