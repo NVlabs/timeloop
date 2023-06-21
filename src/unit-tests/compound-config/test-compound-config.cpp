@@ -425,7 +425,7 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
         // Generates a random YAML::NodeType.
         int TYPE = rand() % 5;
         // Generates a random key.
-        std::string key = std::to_string(rand() % (TESTS / 100));
+        std::string key = std::to_string(rand() % (TESTS / 1000));
         // Declares the namespace for any value to insert.
         int val;
         int val2;
@@ -488,25 +488,25 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
     std::cout << "#########################" << std::endl;
     std::cout << YNode << std::endl;
 
-    // Tests CNode's YNode against YNode in a CNode to ensure all the lookups
-    // can access all the items writes can.
-    config::CompoundConfigNode YNode_CNode = config::CompoundConfigNode(nullptr, YNode);
-    // Tests YNode against itself, to test symmetry of reads and writes.
-    std::cout << "here" << std::endl;
-    BOOST_CHECK(testMapLookup(YNode_CNode, YNode));
-    std::cout << "here" << std::endl;
-    // Tests CNode against reference to ensure the writes were the same.
-    BOOST_CHECK(testMapLookup(CNode, YNode));
-    std::cout << "here" << std::endl;
-    // Tests CNode accesses against itself to ensure writes can access all the
-    // items lookup can.
-    YAML::Node CNode_YNode = CNode.getYNode();
-    std::cout << "here" << std::endl;
+    // Creates constant YNode clone for testing security.
+    const auto YClone = YAML::Clone(YNode);
+
+    // Creates dummy CompoundConfig for YNode_CNode to reference.
+    auto dummy = config::CompoundConfig("", "yaml");
+    auto YNode_CNode = config::CompoundConfigNode(nullptr, YAML::Clone(YNode), &dummy);
+
+    /* Tests YNode against itself, to test symmetry of reads and writes. */
+    BOOST_CHECK(testMapLookup(YNode_CNode, YClone));
+    /* Tests CNode against reference to ensure the writes were the same. */
+    BOOST_CHECK(testMapLookup(CNode, YClone));
+    /* Tests CNode accesses with itself as truth to ensure writes can access
+     * all the items lookup can. */
+    const YAML::Node CNode_YNode = CNode.getYNode();
     BOOST_CHECK(testMapLookup(CNode, CNode_YNode));
-    std::cout << "here" << std::endl;
-    // Tests YNode_CNode when using CNode_YNode as reference to ensure reads can
-    // access all the items writes can.
+    /* Tests YNode_CNode when using CNode_YNode as truth to ensure reads can
+     * access all the items writes can. */
     BOOST_CHECK(testMapLookup(YNode_CNode, CNode_YNode));
+
     std::cout << "Done!" << std::endl;
 }
 
