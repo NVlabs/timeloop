@@ -456,6 +456,9 @@ BOOST_AUTO_TEST_CASE(testSetters)
                 break;
             case YAML::NodeType::Map:
                 break;
+            // We don't expect undefined values in our code so we will not be
+            // implementing this. However, it's left here for completion in case
+            // it becomes relevant later on.
             case YAML::NodeType::Undefined:
                 break;
         }
