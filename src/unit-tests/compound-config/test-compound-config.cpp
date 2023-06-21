@@ -421,9 +421,10 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
         // Generates a random YAML::NodeType.
         int TYPE = rand() % 5;
         // Generates a random key.
-        std::string key = std::to_string(rand() % (TESTS / 10));
+        std::string key = std::to_string(rand() % (TESTS / 100));
         // Declares the namespace for any value to insert.
         int val;
+        int val2;
 
         switch (TYPE)
         {
@@ -460,6 +461,17 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
 
                 break;
             case YAML::NodeType::Map:
+                // generates the map subkey
+                val = rand() % (TESTS / 100);
+                // generates the value to map to
+                val2 = rand();
+
+                // Attempts to create a Map/write to a map there
+                CNode.setNull(key);
+                CNode.lookup(key).setScalar(std::to_string(val), val2);
+                YNode[key] = YAML::Node();
+                YNode[key][std::to_string(val)] = val2;
+
                 break;
             /* We don't expect undefined values in our code so we will not be
              * implementing this. However, it's left here for completion in case
