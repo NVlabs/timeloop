@@ -41,3 +41,7 @@ GSYMS
 GTAGS
 # MacOS-specific files.
 .DS_Store
+
+### Documentation
+.doxygen-config.bak
+docs/
