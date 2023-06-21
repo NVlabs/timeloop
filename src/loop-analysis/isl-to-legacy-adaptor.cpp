@@ -214,8 +214,6 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
       }
       else if (is_boundary)
       {
-        std::cout << cur_buffer_id << std::endl;
-        std::cout << "occ: " << occ.map << std::endl;
         auto p_occ_map = occ.map.copy();
         auto p_occ_count = isl::get_val_from_singular_qpolynomial_fold(
           isl_pw_qpolynomial_bound(isl_map_card(p_occ_map),
