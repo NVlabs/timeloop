@@ -509,7 +509,8 @@ bool CompoundConfigNode::push_back(const char *name, const T value) {
   EXCEPTION_PROLOGUE;
 
   // Ensures we can actually create a Sequence here
-  if (!YNode[name] || YNode[name].Type() == YAML::NodeType::Sequence)
+  if (!YNode[name] || YNode[name].Type() == YAML::NodeType::Sequence ||
+      YNode[name].Type() == YAML::NodeType::Null)
   {
     YNode[name].push_back(value);
     return true;

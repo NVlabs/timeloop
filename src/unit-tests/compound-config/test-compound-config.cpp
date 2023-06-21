@@ -468,9 +468,10 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
                 break;
         }
     }
-
-    BOOST_CHECK(testMapLookup(CNode, YNode));
     std::cout << CNode.getYNode() << std::endl;
+    std::cout << "#########################" << std::endl;
+    std::cout << YNode << std::endl;
+    BOOST_CHECK(testMapLookup(CNode, YNode));
     std::cout << "Done!" << std::endl;
 }
 
