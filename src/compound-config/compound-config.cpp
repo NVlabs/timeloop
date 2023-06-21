@@ -417,28 +417,76 @@ bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const
   EXCEPTION_EPILOGUE;
 }
 
+/*!
+ * Sets the value at a given key to YAML::Null. 
+ * 
+ * This is made separate from setScalar due to explicit differentiation between
+ * what we're doing. If we're overloading we don't want to cause errors due to a
+ * namespace conflict.
+ * 
+ * @param name  The key we in the Map we want to set to Null.
+ * 
+ * @return      Whether the setting was successful.
+ * @post        If return is true the key provided is set to Bull. The function
+ *              creates a new key-value pair if one did not already exist. If
+ *              return is false no key-value pair was created if it did not
+ *              exist. If it did exist, the old value was not replaced.
+ */
 bool CompoundConfigNode::setNull(const char *name) {
   EXCEPTION_PROLOGUE;
 
-  // ensures the YNode is defined
-  assert(YNode);
-  // creates a Null YNode and assigns
-  YNode[name] = YAML::Node();
-  return true;
+  // Ensures the YNode is defined and is a Map or a Null which can become a Map.
+  if (YNode && (YNode.Type() == YAML::NodeType::Map ||
+                YNode.Type() == YAML::NodeType::Null))
+  {
+    // creates a Null YNode and assigns Null.
+    YNode[name] = YAML::Null;
+    return true;
+
+  // otherwise, cannot proceed with operation.
+  } else
+  {
+    return false;
+  }
 
   EXCEPTION_EPILOGUE;
 }
 
+/*!
+ * Sets the value at a given key to a Scalar value.
+ * 
+ * This is made in a template format for standardization across all Scalar types
+ * to reduce the amount of code that needs to be changed upon refactor. In order
+ * to avoid linker issues, please add an explicit instantiation at the bottom of
+ * the file in order to avoid linker issues.
+ * 
+ * @tparam T      The C++ type of the Scalar we wish to insert.
+ * 
+ * @param name    The key we are assigning the Scalar to.
+ * @param scalar  The Scalar we wish to insert.
+ * 
+ * @return        Whether or not the scalar we wanted to set was set.
+ * @post          If return is true the key provided is set to a copy of the 
+ *                provided scalar. The function creates a new key-value pair if
+ *                one did not already exist. If return is false no key-value 
+ *                pair was created if it did not exist. If it did exist, the old
+ *                value was not replaced.
+ */
 template <typename T>
-bool CompoundConfigNode::setScalar(const char *name, T scalar) {
+bool CompoundConfigNode::setScalar(const char *name, const T scalar) {
   EXCEPTION_PROLOGUE;
 
   // ensures the YNode is defined
-  assert(YNode);
-  // assigns the scalar value
-  YNode[name] = scalar;
-  return true;
-
+  if (YNode && (YNode.Type() == YAML::NodeType::Map ||
+                YNode.Type() == YAML::NodeType::Null))
+  {
+    // assigns the scalar value
+    YNode[name] = scalar;
+    return true;
+  } else 
+  {
+    return false;
+  }
   EXCEPTION_EPILOGUE;
 }
 

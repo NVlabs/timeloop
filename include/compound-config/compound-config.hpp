@@ -53,7 +53,7 @@ class CompoundConfigNode
   libconfig::Setting& getLNode() {return *LNode;}
   YAML::Node getYNode() {return YNode;}
 
-  /**
+  /*!
    * @brief return compound config node corresponding with `path`.
    */
   CompoundConfigNode lookup(const char *path) const;
@@ -72,11 +72,11 @@ class CompoundConfigNode
   bool lookupValue(const char *name, const char *&value) const;
   bool lookupValue(const char *name, std::string &value) const;
   
-  // null type setter
+  /// @brief Null type setter at name.
   bool setNull(const char *name);
-  // setter templates (allows for dynamic declaration outside of file)
+  /// @brief Scalar setter at name (template).
   template <typename T>
-  bool setScalar(const char *name, T value);
+  bool setScalar(const char *name, const T value);
 
   inline bool lookupValue(const std::string &name, bool &value) const
   { return(lookupValue(name.c_str(), value)); }
@@ -110,8 +110,12 @@ class CompoundConfigNode
   { return setNull(name.c_str()); }
 
   template <typename T>
-  inline bool setScalar(const std::string &name, T value)
+  inline bool setScalar(const std::string &name, const T value)
   { return setScalar<T>(name.c_str(), value); }
+
+  template <typename T>
+  inline bool pushback(const std::string &name, T value)
+  { return pushback<T>(name.c_str(), value); }
 
   bool exists(const char *name) const;
 
