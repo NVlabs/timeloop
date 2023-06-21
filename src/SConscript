@@ -71,7 +71,7 @@ if GetOption('link_static'):
 else:
     print("Using dynamic linking.")
 
-env.Append(LIBS = ['boost_iostreams', 'boost_serialization'])
+env.Append(LIBS = ['boost_iostreams', 'boost_serialization', 'boost_log', 'boost_log_setup', 'boost_thread', 'boost_filesystem'])
 
 if os.environ.get('BOOSTDIR'):
     env.Append(CPPFLAGS = ['-I' + os.environ['BOOSTDIR'] + '/include'])

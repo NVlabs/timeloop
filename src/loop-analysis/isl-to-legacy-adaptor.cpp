@@ -141,6 +141,20 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
       continue;
     }
 
+    std::vector<loop::Descriptor> subnest;
+    subnest.push_back(cur.descriptor);
+    if (master_spatial_level[cur.level])
+    {
+      int l = cur.level - 1;
+      while (l >= 0
+             && loop::IsSpatial(nest_state[l].descriptor.spacetime_dimension))
+      {
+        subnest.push_back(nest_state[l].descriptor);
+        l--;
+      }
+      std::reverse(subnest.begin(), subnest.end());
+    }
+
     auto is_master_spatial = master_spatial_level[cur.level];
     auto is_boundary = storage_boundary_level[cur.level];
 
@@ -155,6 +169,7 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
     {
       DataMovementInfo tile;
       tile.link_transfers = 0;
+      tile.subnest = subnest;
       tile.replication_factor = num_spatial_elems[cur.level];
       tile.fanout = logical_fanouts[cur.level];
       tile.is_on_storage_boundary = storage_boundary_level[cur.level];

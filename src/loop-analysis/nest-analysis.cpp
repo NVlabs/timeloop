@@ -29,6 +29,7 @@
 #include <functional>
 #include <stdexcept>
 #include <unordered_map>
+#include <boost/log/trivial.hpp>
 #include <barvinok/isl.h>
 #include <isl/aff.h>
 #include <isl/cpp.h>
@@ -82,9 +83,9 @@ bool gRunLastIteration =
 bool gUseIslAnalysis =
   (getenv("TIMELOOP_USE_ISL") != NULL) &&
   (strcmp(getenv("TIMELOOP_USE_ISL"), "0") != 0);
-bool gDumpNestAnalysisResult =
-  (getenv("TIMELOOP_DUMP_NEST_ANALYSIS_RESULT") != NULL) &&
-  (strcmp(getenv("TIMELOOP_DUMP_NEST_ANALYSIS_RESULT"), "0") != 0);
+bool gLogNestAnalysisResult =
+  (getenv("TIMELOOP_LOG_NEST_ANALYSIS_RESULT") != NULL) &&
+  (strcmp(getenv("TIMELOOP_LOG_NEST_ANALYSIS_RESULT"), "0") != 0);
 
 // Flattening => Multi-AAHRs
 // => Can't use per-AAHR reset-on-stride-change logic
@@ -321,35 +322,15 @@ void NestAnalysis::ComputeWorkingSets()
     working_sets_ = legacy_output.second;
   }
 
-  if (gDumpNestAnalysisResult)
+  if (gLogNestAnalysisResult)
   {
-    int dspace = 0;
-    for (const auto& data_movement_nest : working_sets_)
-    {
-      std::cout << "Dspace: " << std::to_string(dspace) << std::endl;
-      int idx = 0;
-      for (const auto& data_movement : data_movement_nest)
-      {
-        std::cout << "  Idx: " << std::to_string(idx) << std::endl;
-        std::cout << "    Dist. multicast: " << std::to_string(data_movement.distributed_multicast) << std::endl;
-        std::cout << "    Size: " << std::to_string(data_movement.size) << std::endl;
-        std::cout << "    Access stats: " << std::endl;
-        for (const auto& [key, access_stat] : data_movement.access_stats.stats)
-        {
-          std::cout << "      key: (" << std::to_string(key.first) << "," << std::to_string(key.second) << ")\n";
-          std::cout << "      accesses: " << std::to_string(access_stat.accesses) << std::endl;
-          std::cout << "      hops: " << std::to_string(access_stat.hops) << std::endl;
-        }
-        std::cout << "    Link transfers: " << std::to_string(data_movement.link_transfers) << std::endl;
-        std::cout << "    Replication fact.: " << std::to_string(data_movement.replication_factor) << std::endl;
-        std::cout << "    Fanout: " << std::to_string(data_movement.fanout) << std::endl;
-        std::cout << "    Dist. fanout: " << std::to_string(data_movement.distributed_fanout) << std::endl;
-        std::cout << "    On boundary: " << std::to_string(data_movement.is_on_storage_boundary) << std::endl;
-        std::cout << "    Is master spatial: " << std::to_string(data_movement.is_master_spatial) << std::endl;
-        ++idx;
-      }
-      dspace++;
-    }
+    auto working_set_stream = std::stringstream();
+    auto serialized_working_set =
+      boost::archive::text_oarchive(working_set_stream);
+    serialized_working_set << working_sets_;
+
+    BOOST_LOG_TRIVIAL(trace) <<
+      "[NEST_ANALYSIS_OUTPUT] " + working_set_stream.str();
   }
 
   // Done.
