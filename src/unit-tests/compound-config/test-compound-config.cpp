@@ -111,11 +111,13 @@ bool testScalarLookup(  const config::CompoundConfigNode& CNode,
         return false;
     }
 }
+
 // foreward declaration
 bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode, 
-                    const std::string& key, YAML::NodeType::value TYPE);
+            const std::string& key, YAML::NodeType::value TYPE);
 // forward declaration
 bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode);
+
 // makes sure sequences agree in CCN and YNode
 bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
 {
