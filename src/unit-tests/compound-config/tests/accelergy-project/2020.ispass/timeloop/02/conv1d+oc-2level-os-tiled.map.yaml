@@ -1,0 +1,11 @@
+mapping:
+  - target: MainMemory
+    type: temporal
+    factors: R=1 P=16 K=16
+    permutation: PRK
+    
+  - target: Buffer
+    type: temporal
+    factors: R=3 P=1 K=2
+    permutation: RPK
+    

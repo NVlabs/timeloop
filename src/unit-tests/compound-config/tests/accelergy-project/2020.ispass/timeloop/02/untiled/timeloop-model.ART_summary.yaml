@@ -1,0 +1,12 @@
+ART_summary:
+  version: 0.3
+  table_summary:
+  - name: System.PE.Buffer
+    area: 887.84
+    primitive_estimations: Aladdin_table
+  - name: System.PE.MACC
+    area: 332.25
+    primitive_estimations: Aladdin_table
+  - name: System.MainMemory
+    area: 746966.0
+    primitive_estimations: Cacti

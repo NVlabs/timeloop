@@ -1,0 +1,34 @@
+architecture:
+  version: 0.3
+  local:
+  - name: System.PE.Buffer
+    class: regfile
+    attributes:
+      block-size: 1
+      depth: 64
+      instances: 1
+      latency: 5ns
+      n_ports: 2
+      technology: 40nm
+      width: 8
+      word-bits: 8
+  - name: System.PE.MACC
+    class: intmac
+    attributes:
+      datawidth: 8
+      latency: 5ns
+      num_pipeline_stages: 2
+      technology: 40nm
+  - name: System.MainMemory
+    class: SRAM
+    attributes:
+      block-size: 8
+      depth: 32768
+      latency: 5ns
+      n_banks: 1
+      n_rd_ports: 0
+      n_rdwr_ports: 1
+      n_wr_ports: 0
+      technology: 40nm
+      width: 64
+      word-bits: 8

@@ -1,0 +1,22 @@
+problem:
+  shape:
+    name: Conv1D_OC
+    dimensions: [ K, R, P ]
+    data-spaces:
+    - name: Weights
+      projection:
+      - [ [K] ]
+      - [ [R] ]
+    - name: Inputs
+      projection:
+      - [ [R], [P] ]
+    - name: Outputs
+      projection:
+      - [ [K] ]
+      - [ [P] ]
+      read-write: True
+
+  instance:
+    K: 32
+    R: 3
+    P: 16
