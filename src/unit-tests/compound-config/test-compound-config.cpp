@@ -53,7 +53,26 @@ std::map<std::string, std::vector<std::string>> FILES = {
     }
 };
 
-// makes sure for a certain type CCN agrees with YNode. Defaults to false if conversion is wrong.
+/*!
+ * testScalarLookup makes sure for a Map CompoundConfigNode that contains a Scalar
+ * value mapped to a key, the contained Scalar value agrees with a corresponding \
+ * reference YAML::Node. 
+ * 
+ * The return value defaults to false if there is a conversion error and does not 
+ * raise any errors in BOOST or the runtime environment. 
+ * 
+ * A BOOST error is raised if there is an equality error.
+ * 
+ * @param CNode The CompoundConfigNode (CCN) thats value is being tested for. It
+ *              is expected that a Map CCN is passed in, as CCN's lookupValue
+ *              function, which is how it accesses Scalars, only works for
+ *              key-value pairs.
+ * @param YNode The YAML::Node that serves as a source of truth/reference value
+ *              for CNode. It is expected that a YAML::Map Node is passed in to
+ *              parallel the CNode structure.
+ * @param key   The key corresponding to the Scalar value we want to compare.
+ * @return      Returns whether a value at a key is Scalar AND Equal.
+ */ 
 template <typename T>
 bool testScalarLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode, const std::string& key)
 {
