@@ -540,13 +540,13 @@ LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
     auto map = isl::map_from_multi_aff(isl::multi_aff::identity_on_domain(
       isl::space_alloc(GetIslCtx(), 0, 0, 0).domain()
     ));
-    auto cur_has_spatial = false;
-    auto new_cur_has_spatial = false;
+    auto cur_spatial_dims = 0;
+    auto new_cur_spatial_dims = 0;
     auto last_buf = std::optional<BufferID>();
     for (const auto& node : path)
     {
       std::visit(
-        [&tags, &map, &new_cur_has_spatial, &cur_has_spatial, &skews,
+        [&tags, &map, &new_cur_spatial_dims, &cur_spatial_dims, &skews,
          &last_buf, &leaf]
         (auto&& node) {
           using NodeT = std::decay_t<decltype(node)>;
@@ -555,25 +555,47 @@ LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
           {
             if (last_buf && node.buffer == *last_buf)
             {
-              cur_has_spatial = new_cur_has_spatial || cur_has_spatial;
+              if (cur_spatial_dims + new_cur_spatial_dims > 0)
+              {
+                cur_spatial_dims = 1;
+              }
+              else
+              {
+                cur_spatial_dims = 0;
+              }
             }
             else
             {
-              cur_has_spatial = new_cur_has_spatial;
+              cur_spatial_dims = new_cur_spatial_dims;
             }
             last_buf = node.buffer;
-            new_cur_has_spatial = false;
+            new_cur_spatial_dims = 0;
 
-            if (!cur_has_spatial)
+            if (cur_spatial_dims == 0)
             {
               tags.push_back(spacetime::Dimension::SpaceX);
+              tags.push_back(spacetime::Dimension::SpaceY);
 
-              const size_t n_spatial_dims = 1;  // TODO: assumes 1D array
+              const size_t n_spatial_dims = 2;  // TODO: assumes 2D array
               map = isl::insert_dummy_dim_ins(std::move(map),
                                               isl::dim(map, isl_dim_in),
                                               n_spatial_dims);
 
-              cur_has_spatial = true;
+              cur_spatial_dims = 2;
+            }
+            else if (cur_spatial_dims == 1)
+            {
+              // The following code assumes we have specified a for loop which
+              // was mapped to the X axis. However, LoopTree currently has no
+              // way of specifying something to be mapped to SpaceY.
+              tags.push_back(spacetime::Dimension::SpaceY);
+
+              const size_t n_spatial_dims = 1;  // TODO: assumes 2D array
+              map = isl::insert_dummy_dim_ins(std::move(map),
+                                              isl::dim(map, isl_dim_in),
+                                              n_spatial_dims);
+
+              cur_spatial_dims = 2;
             }
 
             skews.emplace(std::make_pair(
@@ -588,7 +610,7 @@ LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
             }
             else if constexpr (std::is_same_v<NodeT, mapping::ParFor>)
             {
-              new_cur_has_spatial = true;
+              new_cur_spatial_dims = 1;
               tags.push_back(spacetime::Dimension::SpaceX);
             }
             else

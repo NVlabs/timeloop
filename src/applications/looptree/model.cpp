@@ -5,6 +5,7 @@
 
 #include "applications/looptree/model.hpp"
 #include "loop-analysis/nest-analysis.hpp"
+#include "loop-analysis/isl-nest-analysis.hpp"
 #include "loop-analysis/mapping-to-isl/fused-mapping-to-isl.hpp"
 #include "loop-analysis/isl-ir.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
@@ -140,9 +141,11 @@ Application::Application(config::CompoundConfig* config,
   mapping::FusedMapping mapping =
     mapping::ParseMapping(rootNode.lookup("mapping"), workload);
 
-  analysis::OccupanciesFromMapping(mapping, workload);
+  auto occupancies = analysis::OccupanciesFromMapping(mapping, workload);
 
-  // auto [occupancies, fills] = analysis::TemporalReuseAnalysis(raw_occupancies);
+  auto result = analysis::ReuseAnalysis(analysis::ReuseAnalysisInput(
+    occupancies
+  ));
 
   // // for (const auto& [buf, fill] : fills)
   // // {
