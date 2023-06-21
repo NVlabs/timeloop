@@ -5,7 +5,7 @@
 #include <compound-config/compound-config.hpp>
 
 // Number of testing cycles to run.
-int TESTS = 2000;
+int TESTS = 100000;
 // The seed for the entropy source.
 uint SEED = 42;
 // Changes the max random value to the U_LONG32 random value.
@@ -366,6 +366,9 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
     // Marker for this test in the printout.
     std::cout << "\n\n\nBeginning Static Lookups Test:\n---" << std::endl;
 
+    // Seeds the entropy source.
+    srand(SEED);
+
     // Iterates over all testing dirs.
     for (auto FILEPATH:FILES) 
     {
@@ -488,7 +491,7 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
 }
 
 // tests the ability to read out correctly from sets
-BOOST_AUTO_TEST_CASE(testDynamicLookups)
+BOOST_AUTO_TEST_CASE(testReplication)
 {
     std:: cout << "not yet implemented" << std::endl;
 }
