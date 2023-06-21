@@ -105,7 +105,7 @@ class CompoundConfigNode
   { return(lookupValue(name.c_str(), value)); }
 
   template <typename T>
-  inline bool setValue(const std::string &name, T value) const
+  inline bool setValue(const std::string &name, T value)
   { return setValue<T>(name.c_str(), value); }
 
   bool exists(const char *name) const;
