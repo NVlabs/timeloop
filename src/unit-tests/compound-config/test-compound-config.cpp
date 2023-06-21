@@ -373,31 +373,39 @@ bool mapNodeEq( config::CompoundConfigNode CNode, YAML::Node YNode,
 
 // we are only testing things in config
 namespace config {
-// tests the lookup functions when reading in from file
+// \brief Tests the Lookups with files from accelergy-excerises.
 BOOST_AUTO_TEST_CASE(testStaticLookups)
 {
-    // marker for test
+    // Marker for this test in the printout.
     std::cout << "\n\n\nBeginning Static Lookups Test:\n---" << std::endl;
-    // goes through all testing dirs
+
+    // Iterates over all testing dirs.
     for (auto FILEPATH:FILES) 
     {
-        // calculates DIR relative location and extracts file's name
+        // Calculates DIR relative location and extracts file's name.
         std::string DIR = TEST_LOC + FILEPATH.first;
         std::vector<std::string> FILENAMES = FILEPATH.second;
 
+        // Iterates over all filenames.
         for (std::string FILE:FILENAMES)
         {
-            // calculates filepath
+            // Constructs the full filepath.
             std::string FILEPATH = DIR + FILE;
-            // debug printing info
+
+            // Progress printout regarding which file is currently being tested.
             std::cout << "Now testing: " + FILEPATH << std::endl;
-            // reads the YAML file into CompoundConfig and gets root
+
+            // reads the YAML file into CompoundConfig and gets root CCN.
             CompoundConfig cConfig = CompoundConfig({FILEPATH});
             CompoundConfigNode root = cConfig.getRoot();
-            // reads in the YAML file independently of CompoundConfig to serve as test reference
+
+            // reads in the YAML file independently of CompoundConfig as truth.
             YAML::Node ref = YAML::LoadFile(FILEPATH);
 
-            // tests the entire file
+            /**
+             * Tests the CompoundConfigNode loading versus the truth, along with
+             * the associated lookup functions.
+             */
             BOOST_CHECK(testMapLookup(root, ref));
         }
     }
@@ -405,8 +413,8 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
     std::cout << "Done!" << std::endl;
 }
 
-// tests the ability to set correctly
-BOOST_AUTO_TEST_CASE(testSetters)
+// \brief Fuzz tests the Setters.
+BOOST_AUTO_TEST_CASE(testSettersFuzz)
 {
     // marker for test
     std::cout << "\n\n\nBeginning Static Lookups Test:\n---" << std::endl;
