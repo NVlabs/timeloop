@@ -76,24 +76,35 @@ std::map<std::string, std::vector<std::string>> FILES = {
 template <typename T>
 bool testScalarLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode, const std::string& key)
 {
+    /**
+     * First attempt to run the test as normal, keeping an eye out for a YAML
+     * conversion error from YAML types to C++ types.
+     */
     try {
+
         // predeclares values
         T expectedScalar, actualScalar;
         // value resolution
         expectedScalar = YNode[key].as<T>();
+
         // if successful resolution by CNode
         if (CNode.lookupValue(key, actualScalar))
         {
-            // check equality
+            // check equality with BOOST so that it is logged in the tester.
             BOOST_CHECK_EQUAL(expectedScalar, actualScalar);
-        // otherwise return failure since no resolution
+            // and propagate equality check
+            return expectedScalar == actualScalar;
+
+        // otherwise return false since no lookupValue resolution
         } else
         {
             return false;
         }
 
-        // and propagate equality check
-        return expectedScalar == actualScalar;
+    /**
+     * if there is a conversion error for the type we're trying to access,
+     * return false.
+     */
     } catch(const YAML::TypedBadConversion<T>& e) {
         // defaults to false on bad conversion
         return false;
