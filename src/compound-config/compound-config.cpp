@@ -439,11 +439,11 @@ bool CompoundConfigNode::setNull(const char *name) {
   if (YNode && (YNode.Type() == YAML::NodeType::Map ||
                 YNode.Type() == YAML::NodeType::Null))
   {
-    // creates a Null YNode and assigns Null.
+    // Creates a Null YNode and assigns Null.
     YNode[name] = YAML::Null;
     return true;
 
-  // otherwise, cannot proceed with operation.
+  // Otherwise, cannot proceed with operation.
   } else
   {
     return false;
@@ -476,17 +476,48 @@ template <typename T>
 bool CompoundConfigNode::setScalar(const char *name, const T scalar) {
   EXCEPTION_PROLOGUE;
 
-  // ensures the YNode is defined
+  /* Ensures the YNode is defined and of a type that can be a Map or converted
+   * to one without issue. */
   if (YNode && (YNode.Type() == YAML::NodeType::Map ||
                 YNode.Type() == YAML::NodeType::Null))
   {
-    // assigns the scalar value
+    // Assigns the scalar value.
     YNode[name] = scalar;
     return true;
   } else 
   {
     return false;
   }
+  EXCEPTION_EPILOGUE;
+}
+
+/*!
+ * Appends a value onto node at key. Creates a Sequence if node does not exist.
+ * 
+ * @tparam T    The C++ type of the value we're attempting to push onto the vector.
+ * 
+ * @param name  The key of the Sequence we want to append to.
+ * @param value The value we're trying to push on the vector.
+ * 
+ * @return      Whether we successfully pushed the value onto the vector.
+ * @post        If we return true, we successfully pushed the vector onto the
+ *              stack and converted it to a Sequence. If false, we modified
+ *              nothing.
+ */
+template <typename T>
+bool CompoundConfigNode::push_back(const char *name, const T value) {
+  EXCEPTION_PROLOGUE;
+
+  // Ensures we can actually create a Sequence here
+  if (!YNode[name] || YNode[name].Type() == YAML::NodeType::Sequence)
+  {
+    YNode[name].push_back(value);
+    return true;
+  } else
+  {
+    return false;
+  }
+
   EXCEPTION_EPILOGUE;
 }
 
@@ -750,7 +781,7 @@ std::string parseName(std::string name) {
 
 /*******************************************************************************
  * Explicit template instantiation.
- */
+ ******************************************************************************/
 /* setScalar */
 // Integer setters.
 template bool CompoundConfigNode::setScalar(const char *name, bool value);
@@ -766,5 +797,20 @@ template bool CompoundConfigNode::setScalar(const char *name, float value);
 template bool CompoundConfigNode::setScalar(const char *name, const char *value);
 template bool CompoundConfigNode::setScalar(const char *name, std::string value);
 
-
+/* push_back */
+// Integer appending
+template bool CompoundConfigNode::push_back(const char *name, bool value);
+template bool CompoundConfigNode::push_back(const char *name, int value);
+template bool CompoundConfigNode::push_back(const char *name, unsigned int value);
+// Long long appending
+template bool CompoundConfigNode::push_back(const char *name, long long value);
+template bool CompoundConfigNode::push_back(const char *name, unsigned long long value);
+// Float appending
+template bool CompoundConfigNode::push_back(const char *name, double value);
+template bool CompoundConfigNode::push_back(const char *name, float value);
+// String appending.
+template bool CompoundConfigNode::push_back(const char *name, const char *value);
+template bool CompoundConfigNode::push_back(const char *name, std::string value);
+// YAML::Node appending
+template bool CompoundConfigNode::push_back(const char *name, YAML::Node);
 } // namespace config

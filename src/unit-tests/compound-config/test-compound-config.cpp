@@ -421,7 +421,7 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
         // Generates a random YAML::NodeType.
         int TYPE = rand() % 5;
         // Generates a random key.
-        std::string key = std::to_string(rand());
+        std::string key = std::to_string(rand() % (TESTS / 10));
         // Declares the namespace for any value to insert.
         int val;
 
@@ -446,6 +446,18 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
 
                 break;
             case YAML::NodeType::Sequence:
+                // Initializes the value to be pushed back.
+                val = rand();
+
+                // Attempts to append value to Sequence.
+                CNode.push_back(key, val);
+
+                /* Attempts to append value to Sequence. Relies on error throws
+                 * to determine if it's possible for regular YAML::Node. */
+                try {
+                    YNode[key].push_back(val);
+                } catch (const YAML::BadPushback& e) {}
+
                 break;
             case YAML::NodeType::Map:
                 break;
@@ -458,6 +470,7 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
     }
 
     BOOST_CHECK(testMapLookup(CNode, YNode));
+    std::cout << CNode.getYNode() << std::endl;
     std::cout << "Done!" << std::endl;
 }
 
