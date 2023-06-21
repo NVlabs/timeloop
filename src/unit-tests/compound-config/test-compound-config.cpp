@@ -425,14 +425,26 @@ BOOST_AUTO_TEST_CASE(testSetters)
             std::cout << "Progress: " << (float)test / TESTS * 100 << "% done" << std::endl;
         }
 
-        // generates a random YAML::NodeType
+        // Generates a random YAML::NodeType.
         int TYPE = rand() % 5;
+        // Generates a random key.
+        std::string key = std::to_string(rand());
+        // Declares the namespace for any value to insert.
+        int val;
 
         switch (TYPE)
         {
             case YAML::NodeType::Null:
                 break;
+            // Tests Scalars.
             case YAML::NodeType::Scalar:
+                // Initializes the Scalar.
+                val = rand();
+
+                // Writes Scalar to Map.
+                CNode.setValue(key, val);
+                YNode[key] = val;
+
                 break;
             case YAML::NodeType::Sequence:
                 break;
