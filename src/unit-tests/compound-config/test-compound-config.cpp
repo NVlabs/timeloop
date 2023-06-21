@@ -83,6 +83,8 @@ std::map<std::string, std::vector<std::string>> FILES = {
  * 
  * A BOOST error is raised if there is an equality error.
  * 
+ * @tparam T    
+ * 
  * @param CNode The CompoundConfigNode (CCN) thats value is being tested for. It
  *              is expected that a Map CCN is passed in, as CCN's lookupValue
  *              function, which is how it accesses Scalars, only works for
@@ -91,6 +93,7 @@ std::map<std::string, std::vector<std::string>> FILES = {
  *              for CNode. It is expected that a YAML::Map Node is passed in to
  *              parallel the CNode structure.
  * @param key   The key corresponding to the Scalar value we want to compare.
+ * 
  * @return      Returns whether a value at a key is Scalar AND Equal.
  */ 
 template <typename T>
@@ -151,6 +154,7 @@ bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode);
  * @param YNode The YAML::Node that is a Sequence (either a List/Array in CCN)
  *              which serves as a source of truth/reference the CCN elements are
  *              being compared against.
+ * 
  * @return      Returns whether all the elements in CNode and YNode agree.
  *              Returns true until proven otherwise.
  */
@@ -245,6 +249,7 @@ bool mapNodeEq( config::CompoundConfigNode CNode, YAML::Node YNode,
  *              tested. A Map CCN is expected to be passed in.
  * @param YNode The Map YAML::Node which serves as a source of truth/reference 
  *              the CCN key-value pairs are being compared against.
+ * 
  * @return      Returns whether the key-value pairs in CNode and YNode agree.
  *              returns true until proven otherwise.
  */
@@ -284,6 +289,7 @@ bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode)
  * @param key   The key we're trying to compare.
  * @param TYPE  The expected type of the value we're unpacking/checking the
  *              equality of.
+ * 
  * @return      Returns whether the CNode is equal to the reference. Defaults to
  *              false.
  */
@@ -373,7 +379,7 @@ bool mapNodeEq( config::CompoundConfigNode CNode, YAML::Node YNode,
 
 // we are only testing things in config
 namespace config {
-// \brief Tests the Lookups with files from accelergy-excerises.
+/// @brief Tests the Lookups with files from accelergy-excerises.
 BOOST_AUTO_TEST_CASE(testStaticLookups)
 {
     // Marker for this test in the printout.
@@ -413,7 +419,7 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
     std::cout << "Done!" << std::endl;
 }
 
-// \brief Fuzz tests the Setters.
+/// @brief Fuzz tests the Setters.
 BOOST_AUTO_TEST_CASE(testSettersFuzz)
 {
     // marker for test
