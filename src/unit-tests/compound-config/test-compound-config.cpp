@@ -100,10 +100,8 @@ template <typename T>
 bool testScalarLookup(  const config::CompoundConfigNode& CNode, 
                         const YAML::Node& YNode, const std::string& key)
 {
-    /**
-     * First attempt to run the test as normal, keeping an eye out for a YAML
-     * conversion error from YAML types to C++ types.
-     */
+    /* First attempt to run the test as normal, keeping an eye out for a YAML
+     * conversion error from YAML types to C++ types. */
     try {
 
         // predeclares values
@@ -118,16 +116,15 @@ bool testScalarLookup(  const config::CompoundConfigNode& CNode,
             BOOST_CHECK_EQUAL(expectedScalar, actualScalar);
             // and propagate equality check
             return expectedScalar == actualScalar;
+
         // otherwise return false since no lookupValue resolution
         } else
         {
             return false;
         }
 
-    /**
-     * if there is a conversion error for the type we're trying to access,
-     * return false.
-     */
+    /* if there is a conversion error for the type we're trying to access,
+     * return false. */
     } catch(const YAML::TypedBadConversion<T>& e) {
         // defaults to false on bad conversion
         return false;
@@ -160,21 +157,17 @@ bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode);
  */
 bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
 {
-    /**
-     * Return value namespace + initialization. It defaults to true until an
-     * inequality is found.
-     */
+    /* Return value namespace + initialization. It defaults to true until an
+     * inequality is found. */
     bool equal = true;
 
     // Checks that the children are YAML Sequences or equivalent.
     BOOST_CHECK(CNode.isList() || CNode.isArray());
     BOOST_CHECK(YNode.Type() == YAML::NodeType::Sequence);
 
-    /**
-     * If the YNode children are Scalar (if ANY of them are Scalar), it's
-     * the equivalent of an Array in CNode. Therefore we should run the Array
-     * test execution pathway which triggers the CCN testArrayLookup function.
-     */ 
+    /* If the YNode children are Scalar (if ANY of them are Scalar), it's the 
+     * equivalent of an Array in CNode. Therefore we should run the Array test 
+     * execution pathway which triggers the CCN testArrayLookup function. */ 
     if (YNode[0].Type() == YAML::NodeType::Scalar)
     {
         // Confirms the CNode is an Array. Raises a BOOST error if not.
@@ -183,19 +176,15 @@ bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
         // The heap space allocated for the CCN to dump its Array values into.
         std::vector<std::string> actual;
 
-        /**
-         * Fetches Array, should always work if our previous code works as 
+        /* Fetches Array, should always work if our previous code works as 
          * intended (i.e. the assumption, which should be the standard, that if 
          * ANY child of the YNode is a Scalar, the CNode is an Array). If not,
-         * we raise a BOOST error.
-         */
+         * we raise a BOOST error. */
         BOOST_CHECK(CNode.getArrayValue(actual));
 
-        /**
-         * Iterates over the YNode elements and compares them to the 
+        /* Iterates over the YNode elements and compares them to the 
          * corresponding fetched element. Update return value to false if an
-         * inequality is found.
-         */
+         * inequality is found. */
         for (int i = 0; (size_t) i < YNode.size(); i++)
         {
             equal = equal && actual[i] == YNode[i].as<std::string>();
@@ -224,10 +213,8 @@ bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
                 BOOST_CHECK(childCNode.isMap());
                 BOOST_CHECK(childYNode.Type() == YAML::NodeType::Map);
 
-                /**
-                 * Checks equality in the child nodes via testMapLookup. This
-                 * method only works because values are always labeled.
-                 */ 
+                /* Checks equality in the child nodes via testMapLookup. This
+                 * method only works because values are always labeled. */ 
                 equal = equal && testMapLookup(childCNode, childYNode);
             }
         }
@@ -263,15 +250,13 @@ bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode)
     {
         // Extracts the key from YNode.
         const std::string key = nodeMapPair.first.as<std::string>();
-        /**
-         * Checks the value at key are equal. Note that we did not unpack the
+        /* Checks the value at key are equal. Note that we did not unpack the
          * value at the key for either the CNode or the YNode. This is because
          * if the value at the key is a Scalar, we need to preserve the packing
          * given CompoundConfigNode can only access packed Scalars. However,
          * since a Map value can be anything, we need to abstract the logic
          * of testing for equality here to another function as the CCN expected
-         * behavior is different depending on the value type.
-         */
+         * behavior is different depending on the value type. */
         equal = equal && mapNodeEq(CNode, YNode, key, nodeMapPair.second.Type());
     }
 
@@ -299,11 +284,9 @@ bool mapNodeEq( config::CompoundConfigNode CNode, YAML::Node YNode,
     // Declares the namespace of the return value. Instantiates to false.
     bool nodeEq = false;
 
-    /**
-     * Declares the namespace of the child nodes we'd unpack if we're accessing
+    /* Declares the namespace of the child nodes we'd unpack if we're accessing
      * a Sequence or Map for ownership reasons. Switch statements don't like
-     * declaring variables depending on which execution pathway is taken.
-     */
+     * declaring variables depending on which execution pathway is taken. */
     config::CompoundConfigNode childCNode;
     YAML::Node childYNode;
 
@@ -353,10 +336,8 @@ bool mapNodeEq( config::CompoundConfigNode CNode, YAML::Node YNode,
         case YAML::NodeType::Undefined:
             nodeEq = !CNode.exists(key);
             break;
-        /**
-         * If you got here you shouldn't have because we should always have a
-         * valid child type.
-         */
+        /* If you got here you shouldn't have because we should always have a
+         * valid child type. */
         default:
             std::cout << "!!! UNIT TEST ERROR !!!" << std::endl;
             throw std::invalid_argument("YAML type is invalid: " + TYPE);
@@ -408,10 +389,8 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
             // reads in the YAML file independently of CompoundConfig as truth.
             YAML::Node ref = YAML::LoadFile(FILEPATH);
 
-            /**
-             * Tests the CompoundConfigNode loading versus the truth, along with
-             * the associated lookup functions.
-             */
+            /* Tests the CompoundConfigNode loading versus the truth, along with
+             * the associated lookup functions. */
             BOOST_CHECK(testMapLookup(root, ref));
         }
     }
@@ -470,9 +449,9 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
                 break;
             case YAML::NodeType::Map:
                 break;
-            // We don't expect undefined values in our code so we will not be
-            // implementing this. However, it's left here for completion in case
-            // it becomes relevant later on.
+            /* We don't expect undefined values in our code so we will not be
+             * implementing this. However, it's left here for completion in case
+             * it becomes relevant later on. */
             case YAML::NodeType::Undefined:
                 break;
         }
