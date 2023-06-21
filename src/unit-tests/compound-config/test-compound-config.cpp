@@ -74,7 +74,8 @@ std::map<std::string, std::vector<std::string>> FILES = {
  * @return      Returns whether a value at a key is Scalar AND Equal.
  */ 
 template <typename T>
-bool testScalarLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode, const std::string& key)
+bool testScalarLookup(  const config::CompoundConfigNode& CNode, 
+                        const YAML::Node& YNode, const std::string& key)
 {
     /**
      * First attempt to run the test as normal, keeping an eye out for a YAML
