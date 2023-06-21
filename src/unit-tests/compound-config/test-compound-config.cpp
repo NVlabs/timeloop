@@ -303,7 +303,7 @@ bool mapNodeEq( config::CompoundConfigNode CNode, YAML::Node YNode,
             nodeEq = testScalarLookup<float>(CNode, YNode, key) || nodeEq;
             // Tests strings.
             // TODO:: This doesn't compile figure it out later
-            // BOOST_CHECK(testScalarLookup<const char *>(root, node, key));
+            // nodeEq = testScalarLookup<const char *>(CNode, YNode, key) || nodeEq;
             nodeEq = testScalarLookup<std::string>(CNode, YNode, key) || nodeEq;
             break;
         // Tests Sequence children.
