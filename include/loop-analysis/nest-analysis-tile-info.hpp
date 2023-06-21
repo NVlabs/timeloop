@@ -33,9 +33,18 @@
 #include "mapping/loop.hpp"
 #include "workload/util/per-data-space.hpp"
 
+/**
+ * @brief Access stats (accesses and hops) for a (multicast, scatter) tuple.
+ */
 struct AccessStats
 {
+  /**
+   * @brief Count of *parent* accesses.
+   */
   double accesses = 0;
+  /**
+   * @brief Number of hops to deliver data to all children.
+   */
   double hops = 0.0;
 
   // Serialization.
@@ -51,8 +60,18 @@ struct AccessStats
   }
 };
 
+/**
+ * @brief A histogram containing accesses and hops for (multicast, scatter)
+ *   tuples
+ * 
+ * @see AccessStats
+ */
 struct AccessStatMatrix
 {
+  /**
+   * @brief A map from (multicast, scatter) tuple to access stats containing
+   *   accesses and hops.
+   */
   std::map<std::pair<std::uint64_t,std::uint64_t>, AccessStats> stats;
 
   void clear();

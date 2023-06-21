@@ -41,13 +41,17 @@ stats_file_name = out_prefix + "stats.txt";
 xml_file_name = out_prefix + "map+stats.xml";
 map_txt_file_name = out_prefix + "map.txt";
 map_cfg_file_name = out_prefix + "map.cfg";
+map_yaml_file_name = out_prefix + "map.yaml";
 map_cpp_file_name = out_prefix + "map.cpp";
+map_inertial_file_name = out_prefix + "map.inertial.txt";
 output_file_names = [ log_file_name,
                       stats_file_name,
                       xml_file_name,
                       map_txt_file_name,
+                      map_yaml_file_name,
                       map_cfg_file_name,
-                      map_cpp_file_name ]
+                      map_cpp_file_name,
+                      map_inertial_file_name ]
 
 def prod (l):
     return functools.reduce(lambda x, y: x*y, l)

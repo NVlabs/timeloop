@@ -49,3 +49,7 @@ venv
 
 # MacOS-specific files.
 .DS_Store
+
+### Documentation
+.doxygen-config.bak
+docs/
