@@ -54,9 +54,9 @@ std::map<std::string, std::vector<std::string>> FILES = {
 };
 
 /*!
- * testScalarLookup makes sure for a Map CompoundConfigNode that contains a Scalar
- * value mapped to a key, the contained Scalar value agrees with a corresponding
- * reference YAML::Node. 
+ * testScalarLookup makes sure for a Map CompoundConfigNode that contains a
+ * Scalar value mapped to a key, the contained Scalar value agrees with a 
+ * corresponding reference YAML::Node. 
  * 
  * The return value defaults to false if there is a conversion error and does not 
  * raise any errors in BOOST or the runtime environment. 
@@ -112,14 +112,10 @@ bool testScalarLookup(  const config::CompoundConfigNode& CNode,
 }
 
 // Forward declaration.
-bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode, 
-            const std::string& key, YAML::NodeType::value TYPE);
-// Forward declaration.
 bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode);
-
 /*!
  * testSequenceLookup makes sure for a Sequence CompoundConfigNode, the elements
- * in the Sequence agrees with a reference YAML::Node.
+ * in the Sequence agree with a reference YAML::Node.
  * 
  * The return value defaults to true until an element inequality is found. BOOST
  * raises errors if the CCN is not a List or Array, or the YAML::Node is not a
@@ -136,6 +132,7 @@ bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode);
  *              which serves as a source of truth/reference the CCN elements are
  *              being compared against.
  * @return      Returns whether all the elements in CNode and YNode agree.
+ *              Returns true until proven otherwise.
  */
 bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
 {
@@ -215,28 +212,50 @@ bool testSequenceLookup(config::CompoundConfigNode& CNode, YAML::Node& YNode)
     return equal;
 }
 
-// tests the CCN lookup functions provided a given root node. Treats all input nodes as maps.
+
+// Forward declaration.
+bool mapNodeEq(config::CompoundConfigNode CNode, YAML::Node YNode, 
+            const std::string& key, YAML::NodeType::value TYPE);
+/*!
+ * testMapLookup makes sure for a Map CompoundConfigNode, the key-value pairs in 
+ * the Map agree with a reference YAML::Node.
+ * 
+ * The return value defaults to true until an element inequality is found.
+ * 
+ * @param CNode The CompoundConfigNode whose key-value pairs are being equality
+ *              tested. A Map CCN is expected to be passed in.
+ * @param YNode The Map YAML::Node which serves as a source of truth/reference 
+ *              the CCN key-value pairs are being compared against.
+ * @return      Returns whether the key-value pairs in CNode and YNode agree.
+ *              returns true until proven otherwise.
+ */
 bool testMapLookup(config::CompoundConfigNode& CNode, YAML::Node&YNode)
 {
-    // defines return value namespace
+    // Defines the return value namespace and instantiates it as true.
     bool equal = true;
 
-    // goes through all keys and compares the values.
+    // Iterates over all key-value pairs in YNode and compares to CNode.
     for (auto nodeMapPair: YNode)
     {
-        // extracts the key
+        // Extracts the key from YNode.
         const std::string key = nodeMapPair.first.as<std::string>();
-        // gets nodeEq result
-        bool res = nodeEq(CNode, YNode, key, nodeMapPair.second.Type());
-        // tests all lookups for this node
-        equal = equal && res;
+        /**
+         * Checks the value at key are equal. Note that we did not unpack the
+         * value at the key for either the CNode or the YNode. This is because
+         * if the value at the key is a Scalar, we need to preserve the packing
+         * given CompoundConfigNode can only access packed Scalars. However,
+         * since a Map value can be anything, we need to abstract the logic
+         * of testing for equality here to another function as the CCN expected
+         * behavior is different depending on the value type.
+         */
+        equal = equal && mapNodeEq(CNode, YNode, key, nodeMapPair.second.Type());
     }
 
     return equal;
 }
 
 // ensures that CNode and YNode are equal
-bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode, 
+bool mapNodeEq(config::CompoundConfigNode CNode, YAML::Node YNode, 
                     const std::string& key, YAML::NodeType::value TYPE)
 {
     // namespace of if a node is correct
@@ -245,7 +264,6 @@ bool nodeEq(config::CompoundConfigNode CNode, YAML::Node YNode,
     // namespace for sequences and maps for ownership reasons
     config::CompoundConfigNode childCNode;
     YAML::Node childYNode;
-
 
     // determines what check to do based off child node type
     switch(TYPE)
