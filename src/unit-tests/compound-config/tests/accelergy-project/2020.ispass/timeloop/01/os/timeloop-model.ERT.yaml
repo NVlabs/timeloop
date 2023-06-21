@@ -1,0 +1,107 @@
+ERT:
+  version: 0.3
+  tables:
+  - name: System.PE.Buffer
+    actions:
+    - name: read
+      arguments:
+        address_delta: 0
+        data_delta: 0
+      energy: 0.004
+    - name: read
+      arguments:
+        address_delta: 0
+        data_delta: 1
+      energy: 0.073
+    - name: read
+      arguments:
+        address_delta: 1
+        data_delta: 0
+      energy: 0.351
+    - name: read
+      arguments:
+        address_delta: 1
+        data_delta: 1
+      energy: 0.42
+    - name: write
+      arguments:
+        address_delta: 0
+        data_delta: 0
+      energy: 0.004
+    - name: write
+      arguments:
+        address_delta: 0
+        data_delta: 1
+      energy: 0.073
+    - name: write
+      arguments:
+        address_delta: 1
+        data_delta: 0
+      energy: 0.351
+    - name: write
+      arguments:
+        address_delta: 1
+        data_delta: 1
+      energy: 0.42
+    - name: idle
+      arguments: null
+      energy: 0.004
+  - name: System.PE.MACC
+    actions:
+    - name: mac_random
+      arguments: null
+      energy: 0.561
+    - name: mac_reused
+      arguments: null
+      energy: 0.48
+    - name: mac_gated
+      arguments: null
+      energy: 0.036
+    - name: idle
+      arguments: null
+      energy: 0.018
+  - name: System.MainMemory
+    actions:
+    - name: read
+      arguments:
+        address_delta: 0
+        data_delta: 0
+      energy: 0.025
+    - name: read
+      arguments:
+        address_delta: 0
+        data_delta: 1
+      energy: 27.922
+    - name: read
+      arguments:
+        address_delta: 1
+        data_delta: 0
+      energy: 11.981
+    - name: read
+      arguments:
+        address_delta: 1
+        data_delta: 1
+      energy: 39.878
+    - name: write
+      arguments:
+        address_delta: 0
+        data_delta: 0
+      energy: 0.025
+    - name: write
+      arguments:
+        address_delta: 0
+        data_delta: 1
+      energy: 22.686
+    - name: write
+      arguments:
+        address_delta: 1
+        data_delta: 0
+      energy: 9.737
+    - name: write
+      arguments:
+        address_delta: 1
+        data_delta: 1
+      energy: 32.398
+    - name: idle
+      arguments: null
+      energy: 0.025

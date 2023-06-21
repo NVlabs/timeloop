@@ -1,0 +1,34 @@
+architecture:
+  version: 0.2
+  
+  subtree:
+  - name: System
+    attributes:
+      technology: 40nm
+
+    local:
+    - name: MainMemory
+      class: SRAM
+      attributes:
+        depth: 32768
+        width: 64
+        block-size: 8
+        word-bits: 8
+        
+    subtree:
+    - name: PE
+      
+      local:
+      - name: Buffer
+        class: regfile
+        attributes:
+          depth: 64
+          instances: 1
+          word-bits: 8
+          width: 8
+          block-size: 1
+
+      - name: MACC
+        class: intmac
+        attributes:
+          datawidth: 8

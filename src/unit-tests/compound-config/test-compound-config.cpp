@@ -50,6 +50,26 @@ std::map<std::string, std::vector<std::string>> FILES = {
             "ws/timeloop-model.ERT.yaml",
             "ws/timeloop-model.flattened_architecture.yaml",
         }
+    },
+    {
+        "accelergy-project/2020.ispass/timeloop/02/", {
+            "2level.arch.yaml",
+            "conv1d+oc-2level-os-tiled.map.yaml",
+            "conv1d+oc-2level-os.map.yaml",
+            "conv1d+oc.prob.yaml",
+
+            "tiled/timeloop-model.ART_summary.yaml",
+            "tiled/timeloop-model.ART.yaml",
+            "tiled/timeloop-model.ERT_summary.yaml",
+            "tiled/timeloop-model.ERT.yaml",
+            "tiled/timeloop-model.flattened_architecture.yaml",
+
+            "untiled/timeloop-model.ART_summary.yaml",
+            "untiled/timeloop-model.ART.yaml",
+            "untiled/timeloop-model.ERT_summary.yaml",
+            "untiled/timeloop-model.ERT.yaml",
+            "untiled/timeloop-model.flattened_architecture.yaml",
+        }
     }
 };
 
