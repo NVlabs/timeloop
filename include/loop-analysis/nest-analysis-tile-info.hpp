@@ -110,7 +110,22 @@ struct DataMovementInfo
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0);
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar& BOOST_SERIALIZATION_NVP(size);
+      ar& BOOST_SERIALIZATION_NVP(distributed_multicast);
+      ar& BOOST_SERIALIZATION_NVP(access_stats);
+      ar& BOOST_SERIALIZATION_NVP(link_transfers);
+      ar& BOOST_SERIALIZATION_NVP(subnest);
+      ar& BOOST_SERIALIZATION_NVP(replication_factor);
+      ar& BOOST_SERIALIZATION_NVP(fanout);
+      ar& BOOST_SERIALIZATION_NVP(distributed_fanout);
+      ar& BOOST_SERIALIZATION_NVP(is_on_storage_boundary);
+      ar& BOOST_SERIALIZATION_NVP(is_master_spatial);
+    }
+  }
 
   std::size_t size;
   // std::size_t partition_size;
