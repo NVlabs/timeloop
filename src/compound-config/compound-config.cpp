@@ -429,8 +429,7 @@ bool CompoundConfigNode::instantiateKey(const char *name) {
   EXCEPTION_PROLOGUE;
 
   // Ensures the YNode is defined and is a Map or a Null which can become a Map.
-  if (YNode && YNode[name].Type() == YAML::NodeType::Undefined &&
-      (YNode.Type() == YAML::NodeType::Map || YNode.Type() == YAML::NodeType::Null))
+  if (YNode && !YNode[name].IsDefined() && (YNode.IsMap() || YNode.IsNull()))
   {
     // Creates a Null YNode and assigns Null.
     YNode[name] = YAML::Null;
@@ -495,8 +494,7 @@ bool CompoundConfigNode::push_back(const T value) {
   EXCEPTION_PROLOGUE;
 
   // Ensures we can actually create a Sequence here
-  if (!YNode || YNode.Type() == YAML::NodeType::Sequence ||
-      YNode.Type() == YAML::NodeType::Null)
+  if (!YNode || YNode.IsSequence() || YNode.IsNull())
   {
     YNode.push_back(value);
     return true;
