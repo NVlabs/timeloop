@@ -492,11 +492,10 @@ bool CompoundConfigNode::setScalar(const char *name, const T scalar) {
 }
 
 /*!
- * Appends a value onto node at key. Creates a Sequence if node does not exist.
+ * Appends a value onto node.
  * 
  * @tparam T    The C++ type of the value we're attempting to push onto the vector.
  * 
- * @param name  The key of the Sequence we want to append to.
  * @param value The value we're trying to push on the vector.
  * 
  * @return      Whether we successfully pushed the value onto the vector.
@@ -505,14 +504,14 @@ bool CompoundConfigNode::setScalar(const char *name, const T scalar) {
  *              nothing.
  */
 template <typename T>
-bool CompoundConfigNode::push_back(const char *name, const T value) {
+bool CompoundConfigNode::push_back(const T value) {
   EXCEPTION_PROLOGUE;
 
   // Ensures we can actually create a Sequence here
-  if (!YNode[name] || YNode[name].Type() == YAML::NodeType::Sequence ||
-      YNode[name].Type() == YAML::NodeType::Null)
+  if (!YNode || YNode.Type() == YAML::NodeType::Sequence ||
+      YNode.Type() == YAML::NodeType::Null)
   {
-    YNode[name].push_back(value);
+    YNode.push_back(value);
     return true;
   } else
   {
@@ -800,18 +799,18 @@ template bool CompoundConfigNode::setScalar(const char *name, std::string value)
 
 /* push_back */
 // Integer appending
-template bool CompoundConfigNode::push_back(const char *name, bool value);
-template bool CompoundConfigNode::push_back(const char *name, int value);
-template bool CompoundConfigNode::push_back(const char *name, unsigned int value);
+template bool CompoundConfigNode::push_back(bool value);
+template bool CompoundConfigNode::push_back(int value);
+template bool CompoundConfigNode::push_back(unsigned int value);
 // Long long appending
-template bool CompoundConfigNode::push_back(const char *name, long long value);
-template bool CompoundConfigNode::push_back(const char *name, unsigned long long value);
+template bool CompoundConfigNode::push_back(long long value);
+template bool CompoundConfigNode::push_back(unsigned long long value);
 // Float appending
-template bool CompoundConfigNode::push_back(const char *name, double value);
-template bool CompoundConfigNode::push_back(const char *name, float value);
+template bool CompoundConfigNode::push_back(double value);
+template bool CompoundConfigNode::push_back(float value);
 // String appending.
-template bool CompoundConfigNode::push_back(const char *name, const char *value);
-template bool CompoundConfigNode::push_back(const char *name, std::string value);
+template bool CompoundConfigNode::push_back(const char *value);
+template bool CompoundConfigNode::push_back(std::string value);
 // YAML::Node appending
-template bool CompoundConfigNode::push_back(const char *name, YAML::Node);
+template bool CompoundConfigNode::push_back(YAML::Node);
 } // namespace config
