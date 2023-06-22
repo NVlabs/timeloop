@@ -35,6 +35,11 @@
 #include <boost/archive/xml_oarchive.hpp>
 
 #include "model/network-legacy.hpp"
+
+auto gMulticastModel =
+  getenv("TIMELOOP_MULTICAST_MODEL") != NULL ?
+  std::string(getenv("TIMELOOP_MULTICAST_MODEL")) : "PROBABILISTIC";
+
 BOOST_CLASS_EXPORT(model::LegacyNetwork)
 
 namespace model
@@ -354,12 +359,6 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
 //
 void LegacyNetwork::ComputeNetworkEnergy()
 {
-#define PROBABILISTIC_MULTICAST 0
-#define PRECISE_MULTICAST 1
-#define EYERISS_HACK_MULTICAST 2  
-
-#define MULTICAST_MODEL PROBABILISTIC_MULTICAST
-  
   // NOTE! Stats are always maintained per-DataSpaceID
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
@@ -389,52 +388,54 @@ void LegacyNetwork::ComputeNetworkEnergy()
       total_ingresses += ingresses;
       if (ingresses > 0)
       {
-#if MULTICAST_MODEL == PROBABILISTIC_MULTICAST
-
-        (void) scatter_factor;
-        (void) hops;
-
-        auto num_hops = NumHops(multicast_factor, fanout);
-        total_routers_touched += (1 + num_hops) * ingresses;
-
-#elif MULTICAST_MODEL == PRECISE_MULTICAST
-
-        (void)fanout;
-        (void)multicast_factor;
-
-        if (stats_.distributed_multicast.at(pv))
+        auto num_hops = 0.0;
+        if(gMulticastModel == "PROBABILISTIC")
         {
-          std::cerr << "ERROR: precise multicast calculation does not work with distributed multicast." << std::endl;
-          exit(1);
+          (void) scatter_factor;
+          (void) hops;
+
+          num_hops = NumHops(multicast_factor, fanout);
+          total_routers_touched += (1 + num_hops) * ingresses;
         }
-        auto num_hops = hops / double(scatter_factor);
-        total_routers_touched += (1 + std::uint64_t(std::floor(num_hops))) * ingresses;
-
-#elif MULTICAST_MODEL == EYERISS_HACK_MULTICAST
-
-        (void)fanout;
-        (void)scatter_factor;
-        (void)hops;
-
-        unsigned num_hops = 0;
-        
-        // Weights are multicast, and energy is already captured in array access.
-        // Assume weights are pv == 0.
-        if (pv != 0)
+        else if (gMulticastModel == "PRECISE")
         {
-          // Input and Output activations are forwarded between neighboring PEs,
-          // so the number of link transfers is equal to the multicast factor-1.
-          num_hops = multicast_factor - 1;
-        }
-        
-        // We pick up the router energy from the .cfg file as the "array" energy
-        // as defined in the Eyeriss paper, so we don't add a 1 to the multicast
-        // factor.
-        total_routers_touched += num_hops * ingresses;
+          (void)fanout;
+          (void)multicast_factor;
 
-#else
-#error undefined MULTICAST_MODEL
-#endif        
+          if (stats_.distributed_multicast.at(pv))
+          {
+            std::cerr << "ERROR: precise multicast calculation does not work with distributed multicast." << std::endl;
+            exit(1);
+          }
+          num_hops = hops / double(scatter_factor);
+          total_routers_touched += (1 + std::uint64_t(std::floor(num_hops))) * ingresses;
+        }
+        else if (gMulticastModel == "EYERISS")
+        {
+          (void)fanout;
+          (void)scatter_factor;
+          (void)hops;
+
+          num_hops = 0;
+          
+          // Weights are multicast, and energy is already captured in array access.
+          // Assume weights are pv == 0.
+          if (pv != 0)
+          {
+            // Input and Output activations are forwarded between neighboring PEs,
+            // so the number of link transfers is equal to the multicast factor-1.
+            num_hops = multicast_factor - 1;
+          }
+          
+          // We pick up the router energy from the .cfg file as the "array" energy
+          // as defined in the Eyeriss paper, so we don't add a 1 to the multicast
+          // factor.
+          total_routers_touched += num_hops * ingresses;
+        }
+        else
+        {
+          throw std::logic_error("unknown multicast model " + gMulticastModel);
+        }
 
         total_wire_hops += num_hops * ingresses;
       }
