@@ -139,7 +139,7 @@ class CompoundConfigNode
 
   bool getArrayValue(std::vector<std::string> &vectorValue) const;
   // iterate through all maps and get the keys within a node
-  bool getMapKeys(std::vector<std::string> &mapKeys);
+  bool getMapKeys(std::vector<std::string> &mapKeys) const;
 };
 
 class CompoundConfig

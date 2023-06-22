@@ -8,6 +8,11 @@
 int TESTS = 100000;
 // The seed for the entropy source.
 uint SEED = 42;
+// Whether or not to print sub-test progress reports.
+#define PROGRESS_REPORTS false
+// Whether or not to print end-of-test object states.
+#define STATE_REPORT false
+
 // Changes the max random value to the U_LONG32 random value.
 #undef RAND_MAX
 #define RAND_MAX = ULONG_LONG_MAX
@@ -367,9 +372,6 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
     // Marker for this test in the printout.
     std::cout << "\n\n\nBeginning Static Lookups Test:\n---" << std::endl;
 
-    // Seeds the entropy source.
-    srand(SEED);
-
     // Iterates over all testing dirs.
     for (auto FILEPATH:FILES) 
     {
@@ -384,7 +386,9 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
             std::string FILEPATH = DIR + FILE;
 
             // Progress printout regarding which file is currently being tested.
-            std::cout << "Now testing: " + FILEPATH << std::endl;
+            #if PROGRESS_REPORTS
+                std::cout << "Now testing: " + FILEPATH << std::endl;
+            #endif
 
             // reads the YAML file into CompoundConfig and gets root CCN.
             CompoundConfig cConfig = CompoundConfig({FILEPATH});
@@ -405,8 +409,11 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
 /// @brief Fuzz tests the Setters.
 BOOST_AUTO_TEST_CASE(testSettersFuzz)
 {
-    // marker for test
-    std::cout << "\n\n\nBeginning Static Lookups Test:\n---" << std::endl;
+    // Marker for test.
+    std::cout << "\n\n\nBeginning Setters Fuzz Test:\n---" << std::endl;
+    
+    // Seeds the entropy source.
+    srand(SEED);
  
     // creates test-bench upon which to test the setter for cConfig
     CompoundConfig cConfig = CompoundConfig("", "yaml"); 
@@ -417,10 +424,14 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
  
     for (int test = 0; test < TESTS; test++)
     {
-        if (test % (TESTS / 20) == 0)
-        {
-            std::cout << "Progress: " << (float)test / TESTS * 100 << "\% done" << std::endl;
-        }
+        // Prints out completion progress of the fuzz test based on # of tests
+        // executed.
+        #if PROGRESS_REPORTS
+            if (test % (TESTS / 20) == 0)
+            {
+                std::cout << "Progress: " << (float)test / TESTS * 100 << "\% done" << std::endl;
+            }
+        #endif
 
         // Generates a random YAML::NodeType.
         int TYPE = rand() % 5;
@@ -489,9 +500,11 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
                 break;
         }
     }
-    std::cout << CNode.getYNode() << std::endl;
-    std::cout << "#########################" << std::endl;
-    std::cout << YNode << std::endl;
+    #if STATE_REPORT
+        std::cout << CNode.getYNode() << std::endl;
+        std::cout << "#########################" << std::endl;
+        std::cout << YNode << std::endl;
+    #endif
 
     // Creates constant YNode clone for testing security.
     const auto YClone = YAML::Clone(YNode);
@@ -515,9 +528,63 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
     std::cout << "Done!" << std::endl;
 }
 
-// tests the ability to read out correctly from sets
+void replicateNode( const config::CompoundConfigNode source,
+                    config::CompoundConfigNode sink)
+{
+    // Replication instructions if the source is a Map.
+    if (source.isMap())
+    {
+        // Fetches Map keys from source.
+        std::vector<std::string> keys;
+        source.getMapKeys(keys);
+
+        // Iterates through all keys.
+        for (std::string key: keys)
+        {
+            // Declares the key in sink.
+            sink.setNull(key);
+            // Recurses replication for all key-value pairs.
+            replicateNode(source.lookup(key), sink.lookup(key));
+        }
+
+        return;
+    }
+}
+
+/// @brief Tests the ability to replicate a CNode with only CNode methods. 
 BOOST_AUTO_TEST_CASE(testReplication)
 {
-    std:: cout << "not yet implemented" << std::endl;
+    // Marker for test.
+    std::cout << "\n\n\nBeginning Replication Test:\n---" << std::endl;
+    // Iterates over all testing dirs.
+    for (auto FILEPATH:FILES) 
+    {
+        // Calculates DIR relative location and extracts file's name.
+        std::string DIR = TEST_LOC + FILEPATH.first;
+        std::vector<std::string> FILENAMES = FILEPATH.second;
+
+        // Iterates over all filenames.
+        for (std::string FILE:FILENAMES)
+        {
+            // Constructs the full filepath.
+            std::string FILEPATH = DIR + FILE;
+
+            // Progress printout regarding which file is currently being tested.
+            #if PROGRESS_REPORTS
+               std::cout << "Now testing: " + FILEPATH << std::endl;
+            #endif
+
+            // Creates the reference.
+            config::CompoundConfig ref = config::CompoundConfig({FILEPATH});
+            // Creates the replicant.
+            config::CompoundConfig rep = config::CompoundConfig("", "yaml");
+
+            // extracts their root CompoundConfigNode
+            config::CompoundConfigNode refNode = ref.getRoot();
+            config::CompoundConfigNode repNode = rep.getRoot();
+
+            replicateNode(refNode, repNode);
+        }
+    }
 }
 } // namespace config
