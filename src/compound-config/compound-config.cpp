@@ -636,7 +636,7 @@ bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) co
   }
 }
 
-bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) {
+bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) const {
   if (LNode) {
     assert(LNode->isGroup());
     for (auto it = LNode->begin(); it != LNode->end(); it++) {
