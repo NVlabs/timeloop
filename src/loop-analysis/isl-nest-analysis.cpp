@@ -21,10 +21,6 @@ ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input)
 {
   const auto& occupancies = input.buf_to_occupancy;
 
-  auto spatial_reuse_models = SpatialReuseModels();
-  spatial_reuse_models.EmplaceLinkTransferModel<SimpleLinkTransferModel>();
-  spatial_reuse_models.EmplaceMulticastModel<SimpleMulticastModel>();
-
   auto output = ReuseAnalysisOutput();
 
   // Detect maximum arch level to find the compute level
@@ -48,20 +44,38 @@ ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input)
       )
     );
 
-    auto spatial_reuse_out = SpatialReuseAnalysis(
-      SpatialReuseAnalysisInput(buf,
-                                temp_reuse_out.fill,
-                                temp_reuse_out.effective_occupancy),
-      spatial_reuse_models
+    auto reuse_analysis_input =
+      SpatialReuseAnalysisInput(buf, temp_reuse_out.fill);
+    reuse_analysis_input.fill_providers.emplace_back(
+      FillProvider::MakeFillProvider<SimpleLinkTransferModel>(
+        buf,
+        temp_reuse_out.effective_occupancy
+      )
     );
+    // TODO: this should be the occupancy of the actual parent but we have no
+    // way of connecting this buffer to its parent yet
+    reuse_analysis_input.fill_providers.emplace_back(
+      FillProvider::MakeFillProvider<SimpleMulticastModel>(buf, occ)
+    );
+
+    auto spatial_reuse_out = SpatialReuseAnalysis(reuse_analysis_input);
 
     stats.occupancy = occ;
     stats.effective_occupancy = temp_reuse_out.effective_occupancy;
     stats.fill = temp_reuse_out.fill;
-    stats.link_transfer = spatial_reuse_out.link_transfer_info.link_transfer;
-    stats.parent_reads = spatial_reuse_out.multicast_info.reads;
-    stats.compat_access_stats =
-      spatial_reuse_out.multicast_info.compat_access_stats;
+
+    for (const auto& transfer_info : spatial_reuse_out.transfer_infos)
+    {
+      if (transfer_info.is_link_transfer)
+      {
+        stats.link_transfer = transfer_info.fulfilled_fill;
+      }
+      else if (transfer_info.is_multicast)
+      {
+        stats.compat_access_stats = transfer_info.compat_access_stats;
+        stats.parent_reads = transfer_info.parent_reads;
+      }
+    }
 
     output.buf_to_stats.emplace(std::make_pair(buf, std::move(stats)));
   }

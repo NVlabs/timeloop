@@ -55,6 +55,7 @@ struct LogicalBuffer
   DataSpaceID dspace_id;
   mapping::NodeID branch_leaf_id;
 
+  LogicalBuffer() = default;
   LogicalBuffer(
     BufferID buffer_id,
     DataSpaceID dspace_id,

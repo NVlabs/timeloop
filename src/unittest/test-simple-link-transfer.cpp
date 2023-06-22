@@ -22,7 +22,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleLinkTransferModel)
 
   auto info = link_transfer_model.Apply(fill, occ);
 
-  BOOST_CHECK(info.link_transfer.map.is_equal(
+  BOOST_CHECK(info.fulfilled_fill.map.is_equal(
     isl::map(
       GetIslCtx(),
       "{ [t = 1, x, y = 0] -> [1 + x] : 0 <= x <= 1; "
