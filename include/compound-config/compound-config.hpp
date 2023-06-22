@@ -79,7 +79,7 @@ class CompoundConfigNode
   bool setScalar(const char *name, const T value);
   /// @brief Creates/appends to sequence at name (template).
   template <typename T>
-  bool push_back(const char *name, const T value);
+  bool push_back(const T value);
 
   inline bool lookupValue(const std::string &name, bool &value) const
   { return(lookupValue(name.c_str(), value)); }
@@ -115,10 +115,6 @@ class CompoundConfigNode
   template <typename T>
   inline bool setScalar(const std::string &name, const T value)
   { return setScalar<T>(name.c_str(), value); }
-
-  template <typename T>
-  inline bool push_back(const std::string &name, const T value)
-  { return push_back<T>(name.c_str(), value); }
 
   bool exists(const char *name) const;
 

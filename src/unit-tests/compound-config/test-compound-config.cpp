@@ -11,11 +11,11 @@ uint SEED = 42;
 // Whether or not to print sub-test progress reports.
 #define PROGRESS_REPORTS false
 // Whether or not to print end-of-test object states.
-#define STATE_REPORT false
+#define STATE_REPORT true
 
 // Changes the max random value to the U_LONG32 random value.
 #undef RAND_MAX
-#define RAND_MAX = ULONG_LONG_MAX
+#define RAND_MAX ULONG_LONG_MAX
 
 // The location of the test files.
 std::string TEST_LOC = "./src/unit-tests/compound-config/tests/";
@@ -252,7 +252,7 @@ bool testMapLookup(const config::CompoundConfigNode& CNode, const YAML::Node&YNo
     bool equal = true;
 
     // Iterates over all key-value pairs in YNode and compares to CNode.
-    for (auto nodeMapPair: YNode)
+    for (auto nodeMapPair:YNode)
     {
         // Extracts the key from YNode.
         const std::string key = nodeMapPair.first.as<std::string>();
@@ -465,8 +465,14 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
                 // Initializes the value to be pushed back.
                 val = rand();
 
+                // Instantiates key if it doesn't exist already.
+                if (!YNode[key])
+                {
+                    CNode.setNull(key);
+                }
+
                 // Attempts to append value to Sequence.
-                CNode.push_back(key, val);
+                CNode.lookup(key).push_back(val);
 
                 /* Attempts to append value to Sequence. Relies on error throws
                  * to determine if it's possible for regular YAML::Node. */
@@ -507,11 +513,13 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
     #endif
 
     // Creates constant YNode clone for testing security.
-    const auto YClone = YAML::Clone(YNode);
+    const YAML::Node YClone = YAML::Clone(YNode);
 
     // Creates dummy CompoundConfig for YNode_CNode to reference.
-    auto dummy = config::CompoundConfig("", "yaml");
-    auto YNode_CNode = config::CompoundConfigNode(nullptr, YAML::Clone(YNode), &dummy);
+    config::CompoundConfig dummy = config::CompoundConfig("", "yaml");
+    config::CompoundConfigNode YNode_CNode = config::CompoundConfigNode(
+                                             nullptr, YAML::Clone(YNode), 
+                                             &dummy);
 
     /* Tests YNode against itself, to test symmetry of reads and writes. */
     BOOST_CHECK(testMapLookup(YNode_CNode, YClone));
@@ -548,6 +556,18 @@ void replicateNode( const config::CompoundConfigNode source,
         }
 
         return;
+    // Replication instructions if the source is an Array.
+    } else if (source.isArray())
+    {
+        // Fetches the array values.
+        std::vector<std::string> arr;
+        source.getArrayValue(arr);
+
+        // Writes array values to sink.
+        for (std::string elem: arr)
+        {
+            sink.push_back(elem);
+        }
     }
 }
 
@@ -557,7 +577,7 @@ BOOST_AUTO_TEST_CASE(testReplication)
     // Marker for test.
     std::cout << "\n\n\nBeginning Replication Test:\n---" << std::endl;
     // Iterates over all testing dirs.
-    for (auto FILEPATH:FILES) 
+    for (auto FILEPATH:FILES)
     {
         // Calculates DIR relative location and extracts file's name.
         std::string DIR = TEST_LOC + FILEPATH.first;
@@ -586,5 +606,7 @@ BOOST_AUTO_TEST_CASE(testReplication)
             replicateNode(refNode, repNode);
         }
     }
+
+    std::cout << "Done!" << std::endl;
 }
 } // namespace config
