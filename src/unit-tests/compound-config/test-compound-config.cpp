@@ -171,12 +171,12 @@ bool testSequenceLookup(const config::CompoundConfigNode& CNode,
 
     // Checks that the children are YAML Sequences or equivalent.
     BOOST_CHECK(CNode.isList() || CNode.isArray());
-    BOOST_CHECK(YNode.Type() == YAML::NodeType::Sequence);
+    BOOST_CHECK(YNode.IsSequence());
 
     /* If the YNode children are Scalar (if ANY of them are Scalar), it's the 
      * equivalent of an Array in CNode. Therefore we should run the Array test 
      * execution pathway which triggers the CCN testArrayLookup function. */ 
-    if (YNode[0].Type() == YAML::NodeType::Scalar)
+    if (YNode[0].IsScalar())
     {
         // Confirms the CNode is an Array. Raises a BOOST error if not.
         BOOST_CHECK(CNode.isArray());
@@ -219,7 +219,7 @@ bool testSequenceLookup(const config::CompoundConfigNode& CNode,
             {
                 // Check it is a sequence of Maps, raising a BOOST error if not.
                 BOOST_CHECK(childCNode.isMap());
-                BOOST_CHECK(childYNode.Type() == YAML::NodeType::Map);
+                BOOST_CHECK(childYNode.IsMap());
 
                 /* Checks equality in the child nodes via testMapLookup. This
                  * method only works because values are always labeled. */ 
@@ -503,8 +503,7 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
                 CNode.instantiateKey(key);
 
                 // Attempts to write to Map only if the key is Null or a Map.
-                if (YNode[key].Type() == YAML::NodeType::Map ||
-                    YNode[key].Type() == YAML::NodeType::Null)
+                if (YNode[key].IsMap() || YNode[key].IsNull())
                 {
                     // Attempts to write to Map.
                     CNode.lookup(key).instantiateKey(std::to_string(val));
@@ -595,6 +594,11 @@ void replicateNode( const config::CompoundConfigNode source,
             // Recurses replication.
             replicateNode(source[i], sink[i]);
         }
+    // Replication instructions if the source is some Scalar/Null
+    } else
+    {
+        // Sets sink value to source value.
+        sink.setScalar(source.resolve());
     }
 }
 
