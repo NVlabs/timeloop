@@ -496,6 +496,7 @@ bool CompoundConfigNode::setScalar(const char *name, const T scalar) {
  * 
  * @tparam T    The C++ type of the value we're attempting to push onto the vector.
  * 
+ * @param name  The key of the Sequence we want to append to.
  * @param value The value we're trying to push on the vector.
  * 
  * @return      Whether we successfully pushed the value onto the vector.
@@ -812,5 +813,5 @@ template bool CompoundConfigNode::push_back(float value);
 template bool CompoundConfigNode::push_back(const char *value);
 template bool CompoundConfigNode::push_back(std::string value);
 // YAML::Node appending
-template bool CompoundConfigNode::push_back(YAML::Node);
+template bool CompoundConfigNode::push_back(YAML::Node value);
 } // namespace config

@@ -568,6 +568,19 @@ void replicateNode( const config::CompoundConfigNode source,
         {
             sink.push_back(elem);
         }
+
+        return;
+    // Replication instructions if the source is a List.
+    } else if (source.isList())
+    {
+        // Goes through all elements of the list.
+        for (int i = 0; i < source.getLength(); i++)
+        {
+            // Initializes new value at index.
+            sink.push_back(YAML::Node());
+            // Recurses replication.
+            replicateNode(source[i], sink[i]);
+        }
     }
 }
 
@@ -603,7 +616,16 @@ BOOST_AUTO_TEST_CASE(testReplication)
             config::CompoundConfigNode refNode = ref.getRoot();
             config::CompoundConfigNode repNode = rep.getRoot();
 
+            // Creates a deep copy of the node.
             replicateNode(refNode, repNode);
+
+            // Creates the truth source.
+            YAML::Node truth = YAML::LoadFile(FILEPATH);
+
+            // Checks reference against truth.
+            BOOST_CHECK(testMapLookup(refNode, truth));
+            // Checks copy against truth.
+            BOOST_CHECK(testMapLookup(repNode, truth));
         }
     }
 
