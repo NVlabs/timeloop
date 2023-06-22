@@ -9,7 +9,9 @@ int TESTS = 100000;
 // The seed for the entropy source.
 uint SEED = 42;
 // Whether or not to print sub-test progress reports.
-#define PROGRESS_REPORTS false
+#define PROGRESS_REPORTS true
+// Whether or not to print runtime states.
+#define RUNTIME_STATE_REPORTS false
 // Whether or not to print end-of-test object states.
 #define STATE_REPORT true
 
@@ -78,7 +80,7 @@ std::map<std::string, std::vector<std::string>> FILES = {
     }
 };
 
-/*!
+/**
  * testScalarLookup makes sure for a Map CompoundConfigNode that contains a
  * Scalar value mapped to a key, the contained Scalar value agrees with a 
  * corresponding reference YAML::Node. 
@@ -138,7 +140,7 @@ bool testScalarLookup(  const config::CompoundConfigNode& CNode,
 
 // Forward declaration.
 bool testMapLookup(const config::CompoundConfigNode& CNode, const YAML::Node&YNode);
-/*!
+/**
  * testSequenceLookup makes sure for a Sequence CompoundConfigNode, the elements
  * in the Sequence agree with a reference YAML::Node.
  * 
@@ -232,7 +234,7 @@ bool testSequenceLookup(const config::CompoundConfigNode& CNode,
 // Forward declaration.
 bool mapNodeEq( const config::CompoundConfigNode CNode, const YAML::Node YNode, 
                 const std::string& key, const YAML::NodeType::value TYPE);
-/*!
+/**
  * testMapLookup makes sure for a Map CompoundConfigNode, the key-value pairs in 
  * the Map agree with a reference YAML::Node.
  * 
@@ -269,7 +271,7 @@ bool testMapLookup(const config::CompoundConfigNode& CNode, const YAML::Node&YNo
     return equal;
 }
 
-/*! 
+/** 
  * Checks if a value corresponding to a certain key in a given Map CCN and
  * corresponding reference Map YAML::Node.
  * 
@@ -441,11 +443,21 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
         int val;
         int val2;
 
+        #if RUNTIME_STATE_REPORTS
+            std::cout << "---" << std::endl;
+            std::cout << "Type: " << TYPE << std::endl;
+            std::cout << "Key: " << key << std::endl;
+            std::cout << "-\nCNode: " << CNode.getYNode() << std::endl;
+            std::cout << "-\nYNode: " << YNode << std::endl;
+        #endif
+
         switch (TYPE)
         {
             case YAML::NodeType::Null:
-                // Initializes Scalar.
-                CNode.setNull(key);
+                // Instantiates the key.
+                CNode.instantiateKey(key);
+                // Sets value to Null
+                CNode.lookup(key).setScalar(YAML::Null);
 
                 // Writes Scalar to Map.
                 YNode[key] = YAML::Node();
@@ -456,8 +468,11 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
                 // Initializes the Scalar.
                 val = rand();
 
+                // Initializes the key.
+                CNode.instantiateKey(key);
+
                 // Writes Scalar to Map.
-                CNode.setScalar(key, val);
+                CNode.lookup(key).setScalar(val);
                 YNode[key] = val;
 
                 break;
@@ -466,10 +481,7 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
                 val = rand();
 
                 // Instantiates key if it doesn't exist already.
-                if (!YNode[key])
-                {
-                    CNode.setNull(key);
-                }
+                CNode.instantiateKey(key);
 
                 // Attempts to append value to Sequence.
                 CNode.lookup(key).push_back(val);
@@ -482,21 +494,23 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
 
                 break;
             case YAML::NodeType::Map:
-                // generates the map subkey
+                // Generates the map subkey.
                 val = rand() % (TESTS / 100);
-                // generates the value to map to
+                // Generates the value to map to.
                 val2 = rand();
 
-                // Attempts to create a Map if location isn't one already.
-                if (YNode[key].Type() != YAML::NodeType::Map)
-                {
-                    CNode.setNull(key);
-                    YNode[key] = YAML::Node();
-                }
+                // Instantiates the key.
+                CNode.instantiateKey(key);
 
-                // Attempts to write to map.
-                CNode.lookup(key).setScalar(std::to_string(val), val2);
-                YNode[key][std::to_string(val)] = val2;
+                // Attempts to write to Map only if the key is Null or a Map.
+                if (YNode[key].Type() == YAML::NodeType::Map ||
+                    YNode[key].Type() == YAML::NodeType::Null)
+                {
+                    // Attempts to write to Map.
+                    CNode.lookup(key).instantiateKey(std::to_string(val));
+                    CNode.lookup(key).lookup(std::to_string(val)).setScalar(val2);
+                    YNode[key][std::to_string(val)] = val2;
+                }
 
                 break;
             /* We don't expect undefined values in our code so we will not be
@@ -550,7 +564,7 @@ void replicateNode( const config::CompoundConfigNode source,
         for (std::string key: keys)
         {
             // Declares the key in sink.
-            sink.setNull(key);
+            sink.instantiateKey(key);
             // Recurses replication for all key-value pairs.
             replicateNode(source.lookup(key), sink.lookup(key));
         }

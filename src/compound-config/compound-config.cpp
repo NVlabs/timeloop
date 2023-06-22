@@ -417,27 +417,20 @@ bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const
   EXCEPTION_EPILOGUE;
 }
 
-/*!
- * Sets the value at a given key to YAML::Null. 
- * 
- * This is made separate from setScalar due to explicit differentiation between
- * what we're doing. If we're overloading we don't want to cause errors due to a
- * namespace conflict.
+/**
+ * Sets the value at a given key to YAML::Null, instantiating it.
  * 
  * @param name  The key we in the Map we want to set to Null.
  * 
  * @return      Whether the setting was successful.
- * @post        If return is true the key provided is set to Bull. The function
- *              creates a new key-value pair if one did not already exist. If
- *              return is false no key-value pair was created if it did not
- *              exist. If it did exist, the old value was not replaced.
+ * @post        If return is true the key provided is instantiated.
  */
-bool CompoundConfigNode::setNull(const char *name) {
+bool CompoundConfigNode::instantiateKey(const char *name) {
   EXCEPTION_PROLOGUE;
 
   // Ensures the YNode is defined and is a Map or a Null which can become a Map.
-  if (YNode && (YNode.Type() == YAML::NodeType::Map ||
-                YNode.Type() == YAML::NodeType::Null))
+  if (YNode && YNode[name].Type() == YAML::NodeType::Undefined &&
+      (YNode.Type() == YAML::NodeType::Map || YNode.Type() == YAML::NodeType::Null))
   {
     // Creates a Null YNode and assigns Null.
     YNode[name] = YAML::Null;
@@ -452,51 +445,44 @@ bool CompoundConfigNode::setNull(const char *name) {
   EXCEPTION_EPILOGUE;
 }
 
-/*!
- * Sets the value at a given key to a Scalar value.
+/**
+ * Sets the node to a Scalar value.
  * 
  * This is made in a template format for standardization across all Scalar types
  * to reduce the amount of code that needs to be changed upon refactor. In order
  * to avoid linker issues, please add an explicit instantiation at the bottom of
  * the file in order to avoid linker issues.
  * 
- * @tparam T      The C++ type of the Scalar we wish to insert.
+ * @tparam T      The C++ type of the Scalar we wish to set.
  * 
- * @param name    The key we are assigning the Scalar to.
- * @param scalar  The Scalar we wish to insert.
+ * @param scalar  The Scalar we wish to set.
  * 
  * @return        Whether or not the scalar we wanted to set was set.
- * @post          If return is true the key provided is set to a copy of the 
- *                provided scalar. The function creates a new key-value pair if
- *                one did not already exist. If return is false no key-value 
- *                pair was created if it did not exist. If it did exist, the old
- *                value was not replaced.
+ * @post          If return is true the set was successful. If return is false,
+ *                the value at the node was not replaced.
  */
 template <typename T>
-bool CompoundConfigNode::setScalar(const char *name, const T scalar) {
+bool CompoundConfigNode::setScalar(const T scalar) {
   EXCEPTION_PROLOGUE;
 
-  /* Ensures the YNode is defined and of a type that can be a Map or converted
-   * to one without issue. */
-  if (YNode && (YNode.Type() == YAML::NodeType::Map ||
-                YNode.Type() == YAML::NodeType::Null))
+  // Ensures the YNode is defined
+  if (YNode)
   {
-    // Assigns the scalar value.
-    YNode[name] = scalar;
+    YNode = scalar;
     return true;
-  } else 
+  // If it is not defined, return false.
+  } else
   {
     return false;
   }
   EXCEPTION_EPILOGUE;
 }
 
-/*!
+/**
  * Appends a value onto node.
  * 
- * @tparam T    The C++ type of the value we're attempting to push onto the vector.
+ * @tparam T    The C++ type of the value we're attempting to append.
  * 
- * @param name  The key of the Sequence we want to append to.
  * @param value The value we're trying to push on the vector.
  * 
  * @return      Whether we successfully pushed the value onto the vector.
@@ -785,18 +771,20 @@ std::string parseName(std::string name) {
  ******************************************************************************/
 /* setScalar */
 // Integer setters.
-template bool CompoundConfigNode::setScalar(const char *name, bool value);
-template bool CompoundConfigNode::setScalar(const char *name, int value);
-template bool CompoundConfigNode::setScalar(const char *name, unsigned int value);
+template bool CompoundConfigNode::setScalar(bool value);
+template bool CompoundConfigNode::setScalar(int value);
+template bool CompoundConfigNode::setScalar(unsigned int value);
 // Long long setters.
-template bool CompoundConfigNode::setScalar(const char *name, long long value);
-template bool CompoundConfigNode::setScalar(const char *name, unsigned long long value);
+template bool CompoundConfigNode::setScalar(long long value);
+template bool CompoundConfigNode::setScalar(unsigned long long value);
 // Floating point setters.
-template bool CompoundConfigNode::setScalar(const char *name, double value);
-template bool CompoundConfigNode::setScalar(const char *name, float value);
+template bool CompoundConfigNode::setScalar(double value);
+template bool CompoundConfigNode::setScalar(float value);
 // String setters.
-template bool CompoundConfigNode::setScalar(const char *name, const char *value);
-template bool CompoundConfigNode::setScalar(const char *name, std::string value);
+template bool CompoundConfigNode::setScalar(const char *value);
+template bool CompoundConfigNode::setScalar(std::string value);
+// Null setter.
+template bool CompoundConfigNode::setScalar(YAML::_Null value);
 
 /* push_back */
 // Integer appending
