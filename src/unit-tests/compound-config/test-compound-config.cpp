@@ -9,11 +9,14 @@ int TESTS = 100000;
 // The seed for the entropy source.
 uint SEED = 42;
 // Whether or not to print sub-test progress reports.
-#define PROGRESS_REPORTS true
+bool progressReports = (getenv("TIMELOOP_UNITTEST_REPORT_PROGRESS") != NULL) &&
+                (strcmp(getenv("TIMELOOP_UNITTEST_REPORT_PROGRESS"), "0") != 0);
 // Whether or not to print runtime states.
-#define RUNTIME_STATE_REPORTS false
+bool runtimeStates = (getenv("TIMELOOP_UNITTEST_REPORT_RUNTIME_STATES") != NULL) &&
+              (strcmp(getenv("TIMELOOP_UNITTEST_REPORT_RUNTIME_STATES"), "0") != 0);
 // Whether or not to print end-of-test object states.
-#define STATE_REPORT true
+bool endStateReport = (getenv("TIMELOOP_UNITTEST_REPORT_END_STATES") != NULL) &&
+               (strcmp(getenv("TIMELOOP_UNITTEST_REPORT_END_STATES"), "0") != 0);
 
 // Changes the max random value to the U_LONG32 random value.
 #undef RAND_MAX
@@ -388,9 +391,7 @@ BOOST_AUTO_TEST_CASE(testStaticLookups)
             std::string FILEPATH = DIR + FILE;
 
             // Progress printout regarding which file is currently being tested.
-            #if PROGRESS_REPORTS
-                std::cout << "Now testing: " + FILEPATH << std::endl;
-            #endif
+            if (progressReports) std::cout << "Now testing: " + FILEPATH << std::endl;
 
             // reads the YAML file into CompoundConfig and gets root CCN.
             CompoundConfig cConfig = CompoundConfig({FILEPATH});
@@ -426,14 +427,15 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
  
     for (int test = 0; test < TESTS; test++)
     {
-        // Prints out completion progress of the fuzz test based on # of tests
-        // executed.
-        #if PROGRESS_REPORTS
+        /* Prints out completion progress of the fuzz test based on # of tests
+         * executed. */
+        if (progressReports)
+        {
             if (test % (TESTS / 20) == 0)
             {
                 std::cout << "Progress: " << (float)test / TESTS * 100 << "\% done" << std::endl;
             }
-        #endif
+        }
 
         // Generates a random YAML::NodeType.
         int TYPE = rand() % 5;
@@ -443,13 +445,15 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
         int val;
         int val2;
 
-        #if RUNTIME_STATE_REPORTS
+        // Reports the current values of certain variables at runtime.
+        if (runtimeStates)
+        {
             std::cout << "---" << std::endl;
             std::cout << "Type: " << TYPE << std::endl;
             std::cout << "Key: " << key << std::endl;
             std::cout << "-\nCNode: " << CNode.getYNode() << std::endl;
             std::cout << "-\nYNode: " << YNode << std::endl;
-        #endif
+        }
 
         switch (TYPE)
         {
@@ -519,11 +523,16 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
                 break;
         }
     }
-    #if STATE_REPORT
+
+    // Reports the final state of the reference and actual values.
+    if (endStateReport)
+    {
+        std::cout << "Final CNode:" << std::endl;
         std::cout << CNode.getYNode() << std::endl;
         std::cout << "#########################" << std::endl;
+        std:: cout << "Final YNode:" << std::endl;
         std::cout << YNode << std::endl;
-    #endif
+    }
 
     // Creates constant YNode clone for testing security.
     const YAML::Node YClone = YAML::Clone(YNode);
@@ -621,9 +630,7 @@ BOOST_AUTO_TEST_CASE(testReplication)
             std::string FILEPATH = DIR + FILE;
 
             // Progress printout regarding which file is currently being tested.
-            #if PROGRESS_REPORTS
-               std::cout << "Now testing: " + FILEPATH << std::endl;
-            #endif
+            if (progressReports) std::cout << "Now testing: " + FILEPATH << std::endl;
 
             // Creates the reference.
             config::CompoundConfig ref = config::CompoundConfig({FILEPATH});
