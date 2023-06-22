@@ -72,6 +72,9 @@ class CompoundConfigNode
   bool lookupValue(const char *name, const char *&value) const;
   bool lookupValue(const char *name, std::string &value) const;
   
+  /// @brief Resolves the current YNode value to a string.
+  std::string resolve() const;
+
   /// @brief Instantiates a key in a Map.
   bool instantiateKey(const char *name);
   /// @brief Scalar setter (template).

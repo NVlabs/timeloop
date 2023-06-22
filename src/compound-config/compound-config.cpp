@@ -418,6 +418,15 @@ bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const
 }
 
 /**
+ * Resolves the current YNode into a string.
+ * 
+ * @return The current YNode as a string.
+ */
+std::string CompoundConfigNode::resolve() const {
+  return YNode.as<std::string>();
+}
+
+/**
  * Sets the value at a given key to YAML::Null, instantiating it.
  * 
  * @param name  The key we in the Map we want to set to Null.
