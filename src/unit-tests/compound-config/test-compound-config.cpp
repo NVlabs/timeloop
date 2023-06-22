@@ -470,10 +470,15 @@ BOOST_AUTO_TEST_CASE(testSettersFuzz)
                 // generates the value to map to
                 val2 = rand();
 
-                // Attempts to create a Map/write to a map there
-                CNode.setNull(key);
+                // Attempts to create a Map if location isn't one already.
+                if (YNode[key].Type() != YAML::NodeType::Map)
+                {
+                    CNode.setNull(key);
+                    YNode[key] = YAML::Node();
+                }
+
+                // Attempts to write to map.
                 CNode.lookup(key).setScalar(std::to_string(val), val2);
-                YNode[key] = YAML::Node();
                 YNode[key][std::to_string(val)] = val2;
 
                 break;
