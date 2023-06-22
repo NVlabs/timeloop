@@ -53,7 +53,7 @@ class CompoundConfigNode
   libconfig::Setting& getLNode() {return *LNode;}
   YAML::Node getYNode() {return YNode;}
 
-  /*!
+  /**
    * @brief return compound config node corresponding with `path`.
    */
   CompoundConfigNode lookup(const char *path) const;
@@ -72,12 +72,12 @@ class CompoundConfigNode
   bool lookupValue(const char *name, const char *&value) const;
   bool lookupValue(const char *name, std::string &value) const;
   
-  /// @brief Null type setter at name.
-  bool setNull(const char *name);
-  /// @brief Scalar setter at name (template).
+  /// @brief Instantiates a key in a Map.
+  bool instantiateKey(const char *name);
+  /// @brief Scalar setter (template).
   template <typename T>
-  bool setScalar(const char *name, const T value);
-  /// @brief Creates/appends to sequence at name (template).
+  bool setScalar(const T value);
+  /// @brief Creates/appends to Sequence (template).
   template <typename T>
   bool push_back(const T value);
 
@@ -109,12 +109,8 @@ class CompoundConfigNode
   inline bool lookupValue(const std::string &name, std::string &value) const
   { return(lookupValue(name.c_str(), value)); }
 
-  inline bool setNull(const std::string &name)
-  { return setNull(name.c_str()); }
-
-  template <typename T>
-  inline bool setScalar(const std::string &name, const T value)
-  { return setScalar<T>(name.c_str(), value); }
+  inline bool instantiateKey(const std::string &name)
+  { return instantiateKey(name.c_str()); }
 
   bool exists(const char *name) const;
 
