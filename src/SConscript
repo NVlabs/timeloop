@@ -130,7 +130,8 @@ loop-analysis/logical-buffer.cpp
 loop-analysis/loop-state.cpp
 loop-analysis/mapping-to-isl/fused-mapping-to-isl.cpp
 loop-analysis/mapping-to-isl/mapping-to-isl.cpp
-loop-analysis/isl-ir.cpp
+loop-analysis/isl-ir/ir.cpp
+loop-analysis/isl-ir/input-output.cpp
 loop-analysis/isl-nest-analysis.cpp
 loop-analysis/isl-to-legacy-adaptor.cpp
 loop-analysis/tiling.cpp
@@ -280,8 +281,8 @@ applications/design-space/main.cpp
 """)
 
 unittest_sources = Split("""
-unittest/test-main.cpp
-unittest/test-simple-link-transfer.cpp
+unit-test/test-main.cpp
+unit-test/test-simple-link-transfer.cpp
 """)
 
 # bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
