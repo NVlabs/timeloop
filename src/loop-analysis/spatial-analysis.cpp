@@ -59,7 +59,7 @@ TransferInfo SimpleLinkTransferModel::Apply(
   }
 
   auto n = fill.dim_in_tags.size();
-  if (n == 0 || fill.dim_in_tags.back() == spacetime::Dimension::Time)
+  if (n == 0 || std::holds_alternative<Temporal>(fill.dim_in_tags.back()))
   {
     throw std::logic_error("unreachable");
   }
@@ -177,7 +177,7 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
   transfer_info.is_multicast = true;
 
   auto n = isl::dim(fill.map, isl_dim_in);
-  if (n == 0 || fill.dim_in_tags.back() == spacetime::Dimension::Time)
+  if (n == 0 || std::holds_alternative<Temporal>(fill.dim_in_tags.back()))
   {
     throw std::logic_error("fill spacetime missing spatial dimensions");
   }

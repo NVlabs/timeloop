@@ -4,6 +4,13 @@
 
 #include <barvinok/isl.h>
 
+bool gDumpIslIr =
+  (getenv("TIMELOOP_DUMP_ISL_IR") != NULL) &&
+  (strcmp(getenv("TIMELOOP_DUMP_ISL_IR"), "0") != 0);
+bool gLogIslIr =
+  (getenv("TIMELOOP_LOG_ISL_IR") != NULL) &&
+  (strcmp(getenv("TIMELOOP_LOG_ISL_IR"), "0") != 0);
+
 namespace analysis
 {
 
@@ -54,17 +61,41 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
                        const problem::FusedWorkload& workload)
 {
   auto branch_tiling = analysis::TilingFromMapping(mapping, workload);
+  if (gDumpIslIr)
+  {
+    for (const auto& [node_id, tiling] : branch_tiling)
+    {
+      std::cout << "node " << node_id << " has tiling: " << tiling << std::endl;
+    }
+  }
+
   auto branch_idx = analysis::BranchIdxFromMapping(mapping);
+  if (gDumpIslIr)
+  {
+    std::cout << "branch idx: " << *branch_idx << std::endl;
+  }
+
   auto dspace_indices = analysis::DspaceTopIdxFromMapping(mapping);
+  if (gDumpIslIr)
+  {
+    for (const auto& [dspace, idx] : dspace_indices)
+    {
+      std::cout << "dspace " << dspace << " has idx: " << idx << std::endl;
+    }
+  }
+
   branch_tiling = analysis::LoopBoundsInference(std::move(branch_tiling),
                                                 mapping,
                                                 workload,
                                                 *branch_idx,
                                                 dspace_indices);
-  for (const auto& [leaf_id, tiling] : branch_tiling)
+  if (gDumpIslIr)
   {
-    auto p_iter_size = isl_set_card(tiling.domain().release());
-    isl_pw_qpolynomial_free(p_iter_size);
+    for (const auto& [leaf_id, tiling] : branch_tiling)
+    {
+      std::cout << "node " << leaf_id << " has inferred tiling: " << tiling
+                << std::endl;
+    }
   }
 
   std::map<LogicalBuffer, Occupancy> occupancies;
@@ -72,6 +103,11 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
   auto buf_skew = LogicalBufSkewsFromMapping(mapping);
   for (auto& [buf, skew] : buf_skew)
   {
+    if (gDumpIslIr)
+    {
+      std::cout << buf << " has skew: " << skew << std::endl;
+    }
+
     auto einsum =
       std::get<mapping::Compute>(mapping.NodeAt(buf.branch_leaf_id)).kernel;
     auto dspace = buf.dspace_id;
@@ -99,6 +135,12 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
       isl::project_dim_in_after(tiling.apply_range(accesses),
                                 isl::dim(skew.map, isl_dim_out))
     );
+
+    if (gDumpIslIr)
+    {
+      std::cout << buf << " has occ: " << occupancy << std::endl;
+    }
+
     occupancies.emplace(std::make_pair(buf,
                                        Occupancy(skew.dim_in_tags,
                                                  std::move(occupancy))));
@@ -535,7 +577,7 @@ LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
   std::map<LogicalBuffer, Skew> skews;
   for (auto path : GetPaths(mapping))
   {
-    std::vector<spacetime::Dimension> tags;
+    std::vector<SpaceTime> tags;
     const auto& leaf = path.back();
     auto map = isl::map_from_multi_aff(isl::multi_aff::identity_on_domain(
       isl::space_alloc(GetIslCtx(), 0, 0, 0).domain()
@@ -566,7 +608,7 @@ LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
 
             if (!cur_has_spatial)
             {
-              tags.push_back(spacetime::Dimension::SpaceX);
+              tags.push_back(Spatial(0));
 
               const size_t n_spatial_dims = 1;  // TODO: assumes 1D array
               map = isl::insert_dummy_dim_ins(std::move(map),
@@ -584,12 +626,12 @@ LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
           {
             if constexpr(std::is_same_v<NodeT, mapping::For>)
             {
-              tags.push_back(spacetime::Dimension::Time);
+              tags.push_back(Temporal());
             }
             else if constexpr (std::is_same_v<NodeT, mapping::ParFor>)
             {
               new_cur_has_spatial = true;
-              tags.push_back(spacetime::Dimension::SpaceX);
+              tags.push_back(Spatial(0));
             }
             else
             {
