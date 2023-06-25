@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/graph/adjacency_list.hpp>
 #include <cstddef>
 #include <map>
 #include <optional>
@@ -32,6 +33,20 @@ class FusedWorkload
   const std::map<std::string, DataSpaceId>& DataSpaceNameToId() const;
   const std::map<std::string, DimensionId>& DimensionNameToId() const;
 
+  /**
+   * @brief Returns dataspace id given `name`
+   * 
+   * @throws std::out_of_range if name could not be found.
+   */
+  DataSpaceId GetDspaceId(const std::string& name) const;
+
+  /**
+   * @brief Returns dimension id given `name`
+   * 
+   * @throws std::out_of_range if name could not be found.
+   */
+  DimensionId GetDimensionId(const std::string& name) const;
+
   void AddDimToDspace(DataSpaceId dspace, DimensionId dspace_dim);
   void AddDimToEinsumOspace(EinsumId einsum, DimensionId dim);
 
@@ -45,9 +60,9 @@ class FusedWorkload
   const std::map<DimensionId, size_t>& EinsumDimToIdx(EinsumId einsum) const;
 
   void SetEinsumProjection(EinsumId einsum, DataSpaceId dspace, bool is_rw,
-                           const std::string& expr);
-  void SetEinsumOspaceBound(EinsumId einsum, const std::string& expr);
-  void SetDataSpaceBound(DataSpaceId dspace, const std::string& expr);
+                           isl::multi_aff projection);
+  void SetEinsumOspaceBound(EinsumId einsum, isl::set set);
+  void SetDataSpaceBound(DataSpaceId dspace, isl::set set);
 
   const std::set<DataSpaceId>& TensorsReadByEinsum(EinsumId einsum) const;
   const std::set<DataSpaceId>& TensorsWrittenByEinsum(EinsumId einsum) const;
@@ -65,12 +80,26 @@ class FusedWorkload
   const isl::set& DataSpaceBound(DataSpaceId dspace) const;
 
  private:
-  std::vector<std::string> einsum_names_;
-  std::vector<std::string> dspace_names_;
-  std::vector<std::string> dim_names_;
   std::map<std::string, EinsumId> einsum_name_to_id_;
+  std::map<EinsumId, std::string> einsum_id_to_name_;
   std::map<std::string, DataSpaceId> dspace_name_to_id_;
+  std::map<DataSpaceId, std::string> dspace_id_to_name_;
   std::map<std::string, DimensionId> dim_name_to_id_;
+
+  enum class EinsumOrDspace { EINSUM, DATASPACE };
+  struct VertexProperty
+  {
+    EinsumOrDspace einsum_or_dspace;
+  };
+  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
+                                VertexProperty>
+    EinsumGraph;
+  typedef EinsumGraph::vertex_descriptor EinsumGraphVertex;
+  typedef EinsumGraph::edge_descriptor EinsumGraphEdge;
+
+  EinsumGraph einsum_graph_;
+  std::map<EinsumId, EinsumGraphVertex> einsum_id_to_vertex_;
+  std::map<DataSpaceId, EinsumGraphVertex> dspace_id_to_vertex_;
 
   std::map<EinsumId, std::set<DataSpaceId>> read_tensors_;
   std::map<EinsumId, std::set<DataSpaceId>> write_tensors_;
@@ -83,12 +112,17 @@ class FusedWorkload
   std::map<EinsumId, std::map<DimensionId, size_t>> einsum_dim_to_idx_;
 
   std::map<std::pair<EinsumId, DataSpaceId>, isl::map> reads_;
-  std::map<std::pair<EinsumId, DataSpaceId>, isl::multi_aff> read_exprs_;
+  std::map<std::pair<EinsumId, DataSpaceId>, isl::multi_aff> read_affs_;
   std::map<std::pair<EinsumId, DataSpaceId>, isl::map> writes_;
-  std::map<std::pair<EinsumId, DataSpaceId>, isl::multi_aff> write_exprs_;
+  std::map<std::pair<EinsumId, DataSpaceId>, isl::multi_aff> write_affs_;
 
   std::map<EinsumId, isl::set> operation_spaces_;
-  std::map<DataSpaceId, isl::set> data_spaces_;
+  // mutable because FusedWorkload::DataSpaceBound will create a new universe
+  // set and cache it in data_spaces_ if a set cannot be found
+  // FIX: how this should work is that calling NewDataSpace and NewEinsum
+  //      should require the dimensions so that the bounds can be created at
+  //      at call instead of lazily at FusedWorkload::DataSpaceBound
+  mutable std::map<DataSpaceId, isl::set> data_spaces_;
 };
 
 FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg);
