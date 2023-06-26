@@ -351,7 +351,7 @@ bool mapNodeEq( const config::CompoundConfigNode CNode, const YAML::Node YNode,
          * valid child type. */
         default:
             std::cout << "!!! UNIT TEST ERROR !!!" << std::endl;
-            throw std::invalid_argument("YAML type is invalid: " + TYPE);
+            throw std::invalid_argument("YAML type is invalid: " + std::to_string(TYPE));
             break;
     }
     
