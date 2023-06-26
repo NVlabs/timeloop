@@ -93,7 +93,7 @@ std::map<std::string, std::vector<std::string>> FILES = {
  * 
  * A BOOST error is raised if there is an equality error.
  * 
- * @tparam T    
+ * @tparam T    The type we wish the scalar to resolve to.
  * 
  * @param CNode The CompoundConfigNode (CCN) thats value is being tested for. It
  *              is expected that a Map CCN is passed in, as CCN's lookupValue

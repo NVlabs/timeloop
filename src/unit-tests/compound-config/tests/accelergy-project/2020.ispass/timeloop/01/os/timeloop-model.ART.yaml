@@ -1,9 +1,0 @@
-ART:
-  version: 0.3
-  tables:
-  - name: System.PE.Buffer
-    area: 887.84
-  - name: System.PE.MACC
-    area: 332.25
-  - name: System.MainMemory
-    area: 746966.0
