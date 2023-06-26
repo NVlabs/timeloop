@@ -1,5 +1,4 @@
-# Unit Tests
-## Setup
+# Conducting Unit Tests
 1. First, copy the files from the directories beginning with 00, 01, and 02 in 
 the following linked [repo](https://github.com/Accelergy-Project/timeloop-accelergy-exercises/tree/master/workspace/exercises/2020.ispass/timeloop).
 2. Then, move every YAML file one folder up, in accordance to how they're structured
