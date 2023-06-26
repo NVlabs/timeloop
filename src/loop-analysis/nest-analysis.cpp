@@ -74,6 +74,9 @@ bool gRunLastIteration =
 //    over from iteration 1 back to iteration 0 is incorrect).
 bool gResetOnStrideChange = false;
 
+// Alternative cycle count computation hack for imperfect factorization.
+bool gEnableImperfectCycleCount = false;
+
 namespace analysis
 {
 
@@ -165,6 +168,7 @@ void NestAnalysis::Reset()
 
   working_sets_computed_ = false;
   imperfectly_factorized_ = false;
+  gEnableImperfectCycleCount = false;
 
   // compute_info_.Reset();
   compute_info_.clear();
@@ -181,7 +185,6 @@ void NestAnalysis::Reset()
   no_multicast_.clear();
   no_link_transfer_.clear();
   no_temporal_reuse_.clear();
-
 }
 
 // Ugly function for pre-checking capacity fits before running the heavyweight
@@ -293,6 +296,7 @@ void NestAnalysis::DetectImperfectFactorization()
     if (cur->descriptor.end != cur->descriptor.residual_end)
     {
       imperfectly_factorized_ = true;
+      gEnableImperfectCycleCount = true;
       break;
     }
   }  

@@ -35,9 +35,11 @@ BOOST_CLASS_EXPORT(model::ArithmeticUnits)
 #include "pat/pat.hpp"
 #include "model/topology.hpp"
 
-bool gEnableRubyCycleCount =
-  (getenv("TIMELOOP_ENABLE_RUBY_CYCLE_COUNT") != NULL) &&
-  (strcmp(getenv("TIMELOOP_ENABLE_RUBY_CYCLE_COUNT"), "0") != 0);
+// bool gEnableRubyCycleCount =
+//   (getenv("TIMELOOP_ENABLE_RUBY_CYCLE_COUNT") != NULL) &&
+//   (strcmp(getenv("TIMELOOP_ENABLE_RUBY_CYCLE_COUNT"), "0") != 0);
+// This flag is now set in Nest Analysis.
+extern bool gEnableImperfectCycleCount;
 
 namespace model
 {
@@ -360,7 +362,7 @@ EvalStatus ArithmeticUnits::Evaluate(const tiling::CompoundTile& tile, const til
       actual_computes_ = random_computes_;
     }
 
-    if (gEnableRubyCycleCount)
+    if (gEnableImperfectCycleCount)
       cycles_ = tile.compute_info.max_temporal_iterations;
     else
       cycles_ = ceil(double(random_computes_ + gated_computes_)/avg_utilized_instances_);
