@@ -487,6 +487,22 @@ bool CompoundConfigNode::setScalar(const T scalar) {
 }
 
 /**
+ * Sets a Node to another node.
+ * 
+ * @param node The node you want to set here.
+ * 
+ */
+bool CompoundConfigNode::set(CompoundConfigNode& node)
+{
+  EXCEPTION_PROLOGUE;
+  
+  // Sets our YNode to that of the other node.
+  YNode = node.getYNode();
+
+  EXCEPTION_EPILOGUE;
+}
+
+/**
  * Appends a value onto node.
  * 
  * @tparam T    The C++ type of the value we're attempting to append.
