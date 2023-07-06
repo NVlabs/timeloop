@@ -56,6 +56,7 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
   auto branch_tiling = analysis::TilingFromMapping(mapping, workload);
   auto branch_idx = analysis::BranchIdxFromMapping(mapping);
   auto dspace_indices = analysis::DspaceTopIdxFromMapping(mapping);
+
   branch_tiling = analysis::LoopBoundsInference(std::move(branch_tiling),
                                                 mapping,
                                                 workload,

@@ -8,194 +8,44 @@
 
 extern bool gTerminateEval;
 
-template<typename DimIterT>
-struct TilingOrderIter
+struct EinsumDimGraph
 {
-  using DimT = typename std::iterator_traits<DimIterT>::value_type;
-
-  TilingOrderIter& operator++()
-  {
-    if (iters_.at(cur_depth_) == end_)
-    {
-      // end iterator
-      return *this;
-    }
-
-    if (cur_depth_ < max_depth_)
-    {
-      cur_depth_++;
-      iters_.at(cur_depth_) = begin_;
-    }
-    else
-    {
-      iters_.at(cur_depth_)++;
-    }
-
-    while (cur_depth_ > 0
-           && (iters_.at(cur_depth_) == end_
-               || iters_.at(cur_depth_) == iters_.at(cur_depth_-1)))
-    {
-      if (iters_.at(cur_depth_) == end_)
-      {
-        cur_depth_--;
-      }
-      iters_.at(cur_depth_)++;
-    }
-
-    return *this;
-  }
-
-  bool operator==(const TilingOrderIter& other) const
-  {
-    if (max_depth_ != other.max_depth_)
-    {
-      return false;
-    }
-    if (cur_depth_ != other.cur_depth_)
-    {
-      return false;
-    }
-    for (auto i = 0; i <= max_depth_; ++i)
-    {
-      if (iters_.at(i) != other.iters_.at(i))
-      {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  bool operator!=(const TilingOrderIter& other) const
-  {
-    return !(*this == other);
-  }
-
-  const std::vector<DimT>& operator*() const
-  {
-    tiling_order_.clear();
-    for (auto i = 0; i <= cur_depth_; ++i)
-    {
-      tiling_order_.emplace_back(*iters_.at(i));
-    }
-
-    return tiling_order_;
-  }
-
-  static TilingOrderIter<DimIterT>
-  begin(int max_depth, DimIterT begin, DimIterT end)
-  {
-    return TilingOrderIter(max_depth, begin, end);
-  }
-
-  static TilingOrderIter<DimIterT>
-  end(int max_depth, DimIterT begin, DimIterT end)
-  {
-    auto iter = TilingOrderIter(max_depth, begin, end);
-    for (auto i = 0; i <= max_depth; ++i)
-    {
-      iter.iters_.at(i) = end;
-    }
-    iter.cur_depth_ = 0;
-
-    return iter;
-  }
-
- private:
-  const DimIterT begin_;
-  const DimIterT end_;
-  const int max_depth_;
-
-  int cur_depth_;
-  std::vector<DimIterT> iters_;
-  mutable std::vector<DimT> tiling_order_;
-
-  TilingOrderIter(int max_depth, DimIterT begin, DimIterT end) :
-    begin_(begin), end_(end), max_depth_(max_depth),
-    cur_depth_(0), iters_(max_depth+1, begin), tiling_order_()
-  {
-    tiling_order_.reserve(max_depth+1);
-  }
+  std::set<DimensionId>& TilableDimensions(const std::set<EinsumId>& einsums);
 };
 
-template<typename DimIterT>
-struct std::iterator_traits<TilingOrderIter<DimIterT>>
+struct WorkloadGraph
 {
-  using value_type = typename TilingOrderIter<DimIterT>::DimT;
+  std::set<EinsumId> NextEinsums(const std::set<EinsumId>& cur_einsums);
 };
 
-template<typename DimIterT>
-struct TilingOrders
+void
+Mapper(std::set<EinsumId> cur_fused_set, std::set<EinsumId> rest_of_einsums)
 {
-  TilingOrders(int max_depth, DimIterT begin, DimIterT end) :
-    begin_(TilingOrderIter<DimIterT>::begin(max_depth, begin, end)),
-    end_(TilingOrderIter<DimIterT>::end(max_depth, begin, end))
+  if (Memoized(rest_of_einsums))
   {
+    return Memoized(rest_of_einsums);
   }
 
-  TilingOrderIter<DimIterT> begin() const
+  // DFS to go through all possible fused sets
+  auto dfs_stack;
+  while (dfs_stack.size() > 0)
   {
-    return begin_;
-  }
+    auto e = dfs_stack.back().first;
+    auto cur_fused_set = dfs_stack.back().second;
+    auto new_rest_of_einsums = dfs_stack.back().third;
 
-  TilingOrderIter<DimIterT> end() const
-  {
-    return end_;
-  }
+    // If we stop here
+    auto cur_pareto = ExploreTilingAndReuseLevel(cur_fused_set);
+    auto rest_pareto = Mapper(new_rest_of_einsums);
+    auto pareto = CombinePareto(cur_pareto, rest_pareto);
+    Memoize(rest_of_einsums);
 
- private:
-  TilingOrderIter<DimIterT> begin_;
-  TilingOrderIter<DimIterT> end_;
-};
-
-template<typename IterT>
-TilingOrders<IterT> ForAllMeaningfulTilingOrder(int max_depth,
-                                                IterT begin, IterT end)
-{
-  return TilingOrders(max_depth, begin, end);
-}
-
-size_t EnumerateMappings(const problem::FusedWorkload& workload,
-                         int max_tile_depth)
-{
-  auto final_einsum_id = std::optional<problem::EinsumId>();
-  for (const auto& [dspace_name, dspace_id] : workload.DataSpaceNameToId())
-  {
-    if (workload.ReaderEinsums(dspace_id).size() == 0)
+    auto next_einsums = workload_graph.NextEinsums(cur_fused_set);
+    for (auto e : next_einsums)
     {
-      final_einsum_id = workload.WriterEinsum(dspace_id);
-      break;
+      dfs_stack.emplace_back(e, cur_fused_set);
     }
   }
-
-  if (!final_einsum_id)
-  {
-    throw std::logic_error("Could not find final Einsum");
-  }
-
-  std::cout << "Final einsum: " << *final_einsum_id << std::endl;
-  const auto& tilable_dims_to_idx = workload.EinsumDimToIdx(*final_einsum_id);
-
-  std::cout << "There are " << tilable_dims_to_idx.size() << " dims." << std::endl;
-
-  auto tilable_dims = std::vector<problem::DimensionId>();
-  for (const auto& [dim, idx] : tilable_dims_to_idx)
-  {
-    tilable_dims.emplace_back(dim);
-  }
-
-  auto tiling_orders = ForAllMeaningfulTilingOrder(
-    max_tile_depth, tilable_dims.begin(), tilable_dims.end()
-  );
-
-  auto count = 0;
-  for (const auto& tiling_order : tiling_orders)
-  {
-    (void) tiling_order;
-    count++;
-  }
-
-  return count;
 }
 
 void handler(int s)
