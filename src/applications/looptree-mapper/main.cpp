@@ -31,6 +31,11 @@ struct EinsumSet
     return hash_;
   }
 
+  size_t Size() const
+  {
+    return einsums_.size();
+  }
+
  private:
   std::set<EinsumId> einsums_;
   size_t hash_;
@@ -50,9 +55,22 @@ struct EinsumDimGraph
   std::set<DimensionId>& TilableDimensions(const std::set<EinsumId>& einsums);
 };
 
-struct WorkloadGraph
+struct HeadEinsumTracker
 {
-  std::set<EinsumId> NextEinsums(const std::set<EinsumId>& cur_einsums);
+  HeadEinsumTracker(const problem::FusedWorkload& workload) :
+    workload_(workload)
+  {
+  }
+
+  void AddEinsum(EinsumId einsum);
+
+  void RemoveEinsum(EinsumId einsum);
+
+  std::set<EinsumId> NextEinsums() const;
+
+ private:
+  const problem::FusedWorkload& workload_;
+  EinsumSet einsum_set_;
 };
 
 template<typename T>
@@ -92,6 +110,8 @@ template<typename T>
 struct ParetoFrontier
 {
   void Insert(const T& element);
+
+  void Insert(const ParetoFrontier<T>& other);
 };
 
 template<typename T>
@@ -102,64 +122,68 @@ CombineParetoFrontiers(const ParetoFrontier<T>& frontier1,
 
 struct Mapper
 {
-  const ParetoFrontier<MapperResult>&
-  Run(EinsumSet& rest_of_einsums)
+  ParetoFrontier<MapperResult> SearchRestOfEinsums()
   {
-    auto memoized_val_opt = memo_.GetMemoizedValue(rest_of_einsums);
+    if (rest_of_einsums_.Size() == 0)
+    {
+      return ParetoFrontier<MapperResult>();
+    }
+
+    auto memoized_val_opt = memo_.GetMemoizedValue(rest_of_einsums_);
     if (memoized_val_opt)
     {
       return *memoized_val_opt;
     }
 
+    auto cur_fused_set = EinsumSet();
+
     // Start a new fused set
     auto pareto = ParetoFrontier<MapperResult>();
-    auto next_einsums = workload_graph.NextEinsums(rest_of_einsums);
-    auto cur_fused_set = EinsumSet();
+    auto next_einsums = head_tracker_.NextEinsums();
     for (auto e : next_einsums)
     {
-      rest_of_einsums.RemoveEinsum(e);
+      head_tracker_.RemoveEinsum(e);
+      rest_of_einsums_.RemoveEinsum(e);
       cur_fused_set.AddEinsum(e);
 
-      auto cur_pareto = Run(cur_fused_set, rest_of_einsums);
-      pareto =
-        CombineParetoFrontiers(std::move(pareto), std::move(cur_pareto));
+      auto cur_pareto = SearchCurFusedSet(cur_fused_set);
+      pareto.Insert(SearchCurFusedSet(cur_fused_set));
 
-      rest_of_einsums.AddEinsum(e);
+      head_tracker_.AddEinsum(e);
+      rest_of_einsums_.AddEinsum(e);
       cur_fused_set.RemoveEinsum(e);
     }
 
-    memo_.Memoize(rest_of_einsums, pareto);
+    memo_.Memoize(rest_of_einsums_, pareto);
 
     return pareto;
   }
 
-  const ParetoFrontier<MapperResult>&
-  Run(EinsumSet& cur_fused_set, EinsumSet& rest_of_einsums)
+  ParetoFrontier<MapperResult> SearchCurFusedSet(EinsumSet& cur_fused_set)
   {
     // Stop here
     auto cur_pareto = ExploreTilingAndReuseLevel(cur_fused_set);
-    auto rest_pareto = Run(rest_of_einsums);
+    auto rest_pareto = SearchRestOfEinsums();
     auto pareto =
       CombineParetoFrontiers(cur_pareto, rest_pareto, CombineResults);
-    memo_.Memoize(cur_fused_set, pareto);
     
     // Keep going
-    auto next_einsums =
-      workload_graph.NextEinsums(cur_fused_set, rest_of_einsums);
+    auto next_einsums = head_tracker_.NextEinsums();
     for (auto e : next_einsums)
     {
       cur_fused_set.AddEinsum(e);
-      rest_of_einsums.RemoveEinsum(e);
+      head_tracker_.RemoveEinsum(e);
+      rest_of_einsums_.RemoveEinsum(e);
 
-      auto cur_pareto = Run(cur_fused_set, rest_of_einsums);
-      pareto =
-        CombineParetoFrontiers(std::move(pareto), std::move(cur_pareto));
+      auto cur_pareto = SearchCurFusedSet(cur_fused_set);
+      pareto.Insert(SearchCurFusedSet(cur_fused_set));
 
       cur_fused_set.RemoveEinsum(e);
-      rest_of_einsums.AddEinsum(e);
+      head_tracker_.AddEinsum(e);
+      rest_of_einsums_.AddEinsum(e);
     }
 
-    memo_.Memoize(cur_fused_set + rest_of_einsums, pareto);
+    return pareto;
   }
 
   ParetoFrontier<MapperResult>
@@ -167,6 +191,8 @@ struct Mapper
 
  private:
   Memo<ParetoFrontier<MapperResult>> memo_;
+  HeadEinsumTracker head_tracker_;
+  EinsumSet rest_of_einsums_;
 };
 
 void handler(int s)
