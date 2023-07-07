@@ -1,6 +1,7 @@
 #include <iostream>
 #include <csignal>
 #include <cstring>
+#include <functional>
 
 #include "mapping/fused-mapping.hpp"
 #include "workload/fused-workload.hpp"
@@ -82,10 +83,27 @@ struct Memo
 
 struct MapperResult;
 
+MapperResult CombineResults(const MapperResult& res1, const MapperResult& res2)
+{
+
+}
+
+template<typename T>
+struct ParetoFrontier
+{
+  void Insert(const T& element);
+};
+
+template<typename T>
+ParetoFrontier<T>
+CombineParetoFrontiers(const ParetoFrontier<T>& frontier1,
+                       const ParetoFrontier<T>& frontier2,
+                       const std::function<T(const T&, const T&)>& op);
+
 struct Mapper
 {
-  const MapperResult&
-  Run(const EinsumSet& cur_fused_set, const EinsumSet& rest_of_einsums)
+  const ParetoFrontier<MapperResult>&
+  Run(EinsumSet& rest_of_einsums)
   {
     auto memoized_val_opt = memo_.GetMemoizedValue(rest_of_einsums);
     if (memoized_val_opt)
@@ -93,49 +111,63 @@ struct Mapper
       return *memoized_val_opt;
     }
 
-    auto dfs_stack = std::vector<EinsumId>();
-    while (dfs_stack.size() > 0)
-    {
-      auto e = dfs_stack.back();
-      dfs_stack.pop_back();
-
-      cur_fused_set.AddEinsum(e);
-    }
-  }
-
- private:
-  Memo<MapperResult> memo_;
-};
-
-void
-Mapper(std::set<EinsumId> cur_fused_set, std::set<EinsumId> rest_of_einsums)
-{
-  if (Memoized(rest_of_einsums))
-  {
-    return Memoized(rest_of_einsums);
-  }
-
-  // DFS to go through all possible fused sets
-  auto dfs_stack;
-  while (dfs_stack.size() > 0)
-  {
-    auto e = dfs_stack.back().first;
-    auto cur_fused_set = dfs_stack.back().second;
-    auto new_rest_of_einsums = dfs_stack.back().third;
-
-    // If we stop here
-    auto cur_pareto = ExploreTilingAndReuseLevel(cur_fused_set);
-    auto rest_pareto = Mapper(new_rest_of_einsums);
-    auto pareto = CombinePareto(cur_pareto, rest_pareto);
-    Memoize(rest_of_einsums);
-
-    auto next_einsums = workload_graph.NextEinsums(cur_fused_set);
+    // Start a new fused set
+    auto pareto = ParetoFrontier<MapperResult>();
+    auto next_einsums = workload_graph.NextEinsums(rest_of_einsums);
+    auto cur_fused_set = EinsumSet();
     for (auto e : next_einsums)
     {
-      dfs_stack.emplace_back(e, cur_fused_set);
+      rest_of_einsums.RemoveEinsum(e);
+      cur_fused_set.AddEinsum(e);
+
+      auto cur_pareto = Run(cur_fused_set, rest_of_einsums);
+      pareto =
+        CombineParetoFrontiers(std::move(pareto), std::move(cur_pareto));
+
+      rest_of_einsums.AddEinsum(e);
+      cur_fused_set.RemoveEinsum(e);
     }
+
+    memo_.Memoize(rest_of_einsums, pareto);
+
+    return pareto;
   }
-}
+
+  const ParetoFrontier<MapperResult>&
+  Run(EinsumSet& cur_fused_set, EinsumSet& rest_of_einsums)
+  {
+    // Stop here
+    auto cur_pareto = ExploreTilingAndReuseLevel(cur_fused_set);
+    auto rest_pareto = Run(rest_of_einsums);
+    auto pareto =
+      CombineParetoFrontiers(cur_pareto, rest_pareto, CombineResults);
+    memo_.Memoize(cur_fused_set, pareto);
+    
+    // Keep going
+    auto next_einsums =
+      workload_graph.NextEinsums(cur_fused_set, rest_of_einsums);
+    for (auto e : next_einsums)
+    {
+      cur_fused_set.AddEinsum(e);
+      rest_of_einsums.RemoveEinsum(e);
+
+      auto cur_pareto = Run(cur_fused_set, rest_of_einsums);
+      pareto =
+        CombineParetoFrontiers(std::move(pareto), std::move(cur_pareto));
+
+      cur_fused_set.RemoveEinsum(e);
+      rest_of_einsums.AddEinsum(e);
+    }
+
+    memo_.Memoize(cur_fused_set + rest_of_einsums, pareto);
+  }
+
+  ParetoFrontier<MapperResult>
+  ExploreTilingAndReuseLevel(const EinsumSet& fused_set);
+
+ private:
+  Memo<ParetoFrontier<MapperResult>> memo_;
+};
 
 void handler(int s)
 {
