@@ -8,6 +8,42 @@
 
 extern bool gTerminateEval;
 
+using problem::EinsumId;
+using problem::DimensionId;
+
+struct EinsumSet
+{
+  void AddEinsum(EinsumId einsum)
+  {
+    einsums_.emplace(einsum);
+    hash_ ^= einsum;
+  }
+
+  void RemoveEinsum(EinsumId einsum)
+  {
+    einsums_.erase(einsum);
+    hash_ ^= einsum;
+  }
+
+  inline size_t GetHash() const
+  {
+    return hash_;
+  }
+
+ private:
+  std::set<EinsumId> einsums_;
+  size_t hash_;
+};
+
+template<>
+struct std::hash<EinsumSet>
+{
+  size_t operator()(const EinsumSet& set) const
+  {
+    return set.GetHash();
+  }
+};
+
 struct EinsumDimGraph
 {
   std::set<DimensionId>& TilableDimensions(const std::set<EinsumId>& einsums);
@@ -16,6 +52,59 @@ struct EinsumDimGraph
 struct WorkloadGraph
 {
   std::set<EinsumId> NextEinsums(const std::set<EinsumId>& cur_einsums);
+};
+
+template<typename T>
+struct Memo
+{
+  std::optional<std::reference_wrapper<T>>
+  GetMemoizedValue(const EinsumSet& einsum_set)
+  {
+    auto it = memo_.find(einsum_set);
+    if (it == memo_.end())
+    {
+      return std::nullopt;
+    }
+    else
+    {
+      return std::ref(it->second);
+    }
+  }
+
+  void Memoize(const EinsumSet& einsum_set, const T& val)
+  {
+    memo_.emplace(einsum_set, val);
+  }
+
+ private:
+  std::unordered_map<EinsumSet, T> memo_;
+};
+
+struct MapperResult;
+
+struct Mapper
+{
+  const MapperResult&
+  Run(const EinsumSet& cur_fused_set, const EinsumSet& rest_of_einsums)
+  {
+    auto memoized_val_opt = memo_.GetMemoizedValue(rest_of_einsums);
+    if (memoized_val_opt)
+    {
+      return *memoized_val_opt;
+    }
+
+    auto dfs_stack = std::vector<EinsumId>();
+    while (dfs_stack.size() > 0)
+    {
+      auto e = dfs_stack.back();
+      dfs_stack.pop_back();
+
+      cur_fused_set.AddEinsum(e);
+    }
+  }
+
+ private:
+  Memo<MapperResult> memo_;
 };
 
 void
