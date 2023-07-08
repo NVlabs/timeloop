@@ -39,7 +39,19 @@ struct EinsumSet
  private:
   std::set<EinsumId> einsums_;
   size_t hash_;
+
+  friend bool operator==(const EinsumSet& set1, const EinsumSet& set2);
 };
+
+bool operator==(const EinsumSet& set1, const EinsumSet& set2)
+{
+  if (set1.GetHash() != set2.GetHash())
+  {
+    return false;
+  }
+
+  return set1.einsums_ == set2.einsums_;
+}
 
 template<>
 struct std::hash<EinsumSet>
@@ -99,26 +111,176 @@ struct Memo
   std::unordered_map<EinsumSet, T> memo_;
 };
 
-struct MapperResult;
+struct MapperResult
+{
+  size_t transfers;
+  size_t capacity;
+  size_t computation;
+};
+
+bool operator<(const MapperResult& res1, const MapperResult& res2)
+{
+  return res1.transfers < res2.transfers
+         && res1.capacity < res2.capacity
+         && res1.computation < res2.computation;
+}
+
+bool operator>(const MapperResult& res1, const MapperResult& res2)
+{
+  return res1.transfers > res2.transfers
+         && res1.capacity > res2.capacity
+         && res1.computation > res2.computation;
+}
 
 MapperResult CombineResults(const MapperResult& res1, const MapperResult& res2)
 {
-
+  return MapperResult
+  {
+    .transfers = res1.transfers + res2.transfers,
+    .capacity = res1.capacity + res2.capacity,
+    .computation = res1.computation + res2.computation
+  };
 }
 
 template<typename T>
 struct ParetoFrontier
 {
-  void Insert(const T& element);
+  struct Iterator
+  {
+    bool operator!=(const Iterator& other)
+    {
+      return it_ != other.it_;
+    }
+    bool operator==(const Iterator& other)
+    {
+      return it_ == other.it_;
+    }
 
-  void Insert(const ParetoFrontier<T>& other);
+    const T& operator*()
+    {
+      return *(*it_);
+    }
+
+    Iterator& operator++()
+    {
+      ++it_;
+      while (it_ != end_ && !(*it_))
+      {
+        ++it_;
+      }
+      return *this;
+    }
+
+   private:
+    Iterator(typename std::vector<std::optional<T>>::const_iterator it,
+             typename std::vector<std::optional<T>>::const_iterator end) :
+      it_(std::move(it)), end_(std::move(end))
+    {
+    }
+
+    typename std::vector<std::optional<T>>::const_iterator it_;
+    typename std::vector<std::optional<T>>::const_iterator end_;
+
+    friend ParetoFrontier;
+  };
+
+  ParetoFrontier() : arr_(), size_(0) {}
+
+  Iterator begin() const
+  {
+    return Iterator(arr_.begin(), arr_.end());
+  }
+
+  Iterator end() const
+  {
+    return Iterator(arr_.end(), arr_.end());
+  }
+
+  void Insert(const T& element)
+  {
+    bool inserted = false;
+    for (auto& e : arr_)
+    {
+      if (!e)
+      {
+        continue;
+      }
+
+      if (element > *e)
+      {
+        return;
+      }
+      else if (element < *e)
+      {
+        e = std::nullopt;
+        size_ -= 1;
+        if (!inserted)
+        {
+          e = element;
+          inserted = true;
+          size_ += 1;
+        }
+      }
+    }
+    if (!inserted)
+    {
+      arr_.emplace_back(element);
+    }
+
+    if (size_ < arr_.size() / 2)
+    {
+      size_t i = 0;
+      for (; i < arr_.size(); ++i)
+      {
+        if (!arr_.at(i))
+        {
+          ++i;
+          break;
+        }
+      }
+
+      for (size_t j = i; j < arr_.size(); ++j)
+      {
+        if (arr_.at(j))
+        {
+          arr_.at(i) = arr_.at(j);
+        }
+      }
+
+      assert(i == size_);
+      arr_.resize(i);
+    }
+  }
+
+  void Insert(const ParetoFrontier<T>& other)
+  {
+    for (const auto& e : other)
+    {
+      Insert(e);
+    }
+  }
+
+ private:
+  std::vector<std::optional<T>> arr_;
+  size_t size_;
 };
 
 template<typename T>
 ParetoFrontier<T>
 CombineParetoFrontiers(const ParetoFrontier<T>& frontier1,
                        const ParetoFrontier<T>& frontier2,
-                       const std::function<T(const T&, const T&)>& op);
+                       const std::function<T(const T&, const T&)>& op)
+{
+  auto pareto = ParetoFrontier<T>();
+  for (const auto& e1 : frontier1)
+  {
+    for (const auto& e2 : frontier2)
+    {
+      pareto.Insert(op(e1, e2));
+    }
+  }
+  return pareto;
+}
 
 struct Mapper
 {
@@ -165,7 +327,7 @@ struct Mapper
     auto cur_pareto = ExploreTilingAndReuseLevel(cur_fused_set);
     auto rest_pareto = SearchRestOfEinsums();
     auto pareto =
-      CombineParetoFrontiers(cur_pareto, rest_pareto, CombineResults);
+      CombineParetoFrontiers<MapperResult>(cur_pareto, rest_pareto, CombineResults);
     
     // Keep going
     auto next_einsums = head_tracker_.NextEinsums();
@@ -236,8 +398,6 @@ int main(int argc, char* argv[])
   auto root = config.getRoot();
 
   auto workload = problem::ParseFusedWorkload(root.lookup("problem"));
-
-  std::cout << EnumerateMappings(workload, 3) << std::endl;
 
   return 0;
 }
