@@ -123,7 +123,7 @@ BufferIterLevelsFromMapping(const loop::Nest& nest,
                       nest.storage_tiling_boundaries.end());
 
   // TODO: for now, buffer id in loop nest is the arch level
-  BufferID arch_level = 0;
+  BufferId arch_level = 0;
   for (std::size_t loop_idx = 0; loop_idx < nest.loops.size(); ++loop_idx)
   {
     if (tiling_boundaries.find(loop_idx) != tiling_boundaries.end()

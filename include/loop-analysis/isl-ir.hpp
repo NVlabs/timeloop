@@ -39,6 +39,7 @@
 
 #include "mapping/fused-mapping.hpp"
 #include "mapping/mapping.hpp"
+#include "workload/fused-workload.hpp"
 #include "workload/workload.hpp"
 
 namespace analysis
@@ -46,8 +47,8 @@ namespace analysis
 
 using DataSpaceID = problem::DataSpaceId;
 using FactorizedDimensionID = problem::Shape::FactorizedDimensionID;
-using EinsumID = size_t;
-using BufferID = mapping::BufferID;
+using EinsumID = problem::EinsumId;
+using BufferId = mapping::BufferId;
 
 struct Temporal {};
 struct Spatial
@@ -76,15 +77,17 @@ std::ostream& operator<<(std::ostream& os, const PipelineTemporal& t);
 std::ostream& operator<<(std::ostream& os, const PipelineSpatial& t);
 std::ostream& operator<<(std::ostream& os, const SpaceTime& t);
 
+bool IsTemporal(const SpaceTime& st);
+
 struct LogicalBuffer
 {
-  BufferID buffer_id;
+  BufferId buffer_id;
   DataSpaceID dspace_id;
   mapping::NodeID branch_leaf_id;
 
   LogicalBuffer() = default;
   LogicalBuffer(
-    BufferID buffer_id,
+    BufferId buffer_id,
     DataSpaceID dspace_id,
     mapping::NodeID branch_leaf_id
   );
@@ -165,6 +168,8 @@ struct Occupancy
   Occupancy(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
 };
 
+std::ostream& operator<<(std::ostream& os, const Occupancy& s);
+
 /**
  * @brief TARDIS-style X-relation.
  */
@@ -188,6 +193,8 @@ struct Fill
   Fill();
   Fill(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
 };
+
+std::ostream& operator<<(std::ostream& os, const Fill& s);
 
 /**
  * @brief Space-Time -> Reads to a logical buffer.

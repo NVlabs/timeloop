@@ -54,7 +54,7 @@
 #include "loop-analysis/nest-analysis.hpp"
 #include "loop-analysis/spatial-analysis.hpp"
 #include "loop-analysis/temporal-analysis.hpp"
-#include "loop-analysis/isl-to-legacy-adaptor.hpp"
+#include "loop-analysis/isl-analysis/isl-to-legacy-adaptor.hpp"
 #include "mapping/fused-mapping.hpp"
 
 bool gTerminateEval = false;
