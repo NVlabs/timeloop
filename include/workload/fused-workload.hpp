@@ -14,7 +14,6 @@
 namespace problem
 {
 
-// TODO: this Einsum class is the old Workload class
 using EinsumId = size_t;
 using DataSpaceId = size_t;
 using DimensionId = size_t;
@@ -49,6 +48,8 @@ class FusedWorkload
 
   void AddDimToDspace(DataSpaceId dspace, DimensionId dspace_dim);
   void AddDimToEinsumOspace(EinsumId einsum, DimensionId dim);
+
+  EinsumId GetEinsumWithDim(DimensionId dim) const;
 
   const std::vector<DimensionId>&
   DataSpaceDimensions(DataSpaceId dspace) const;
@@ -108,8 +109,11 @@ class FusedWorkload
 
   std::map<DataSpaceId, std::vector<DimensionId>> dspace_dims_;
   std::map<DataSpaceId, std::map<DimensionId, size_t>> dspace_dim_to_idx_;
+  std::map<DimensionId, DataSpaceId> dim_to_dspace_;
+
   std::map<DataSpaceId, std::vector<DimensionId>> einsum_dims_;
   std::map<EinsumId, std::map<DimensionId, size_t>> einsum_dim_to_idx_;
+  std::map<DimensionId, EinsumId> dim_to_einsum_;
 
   std::map<std::pair<EinsumId, DataSpaceId>, isl::map> reads_;
   std::map<std::pair<EinsumId, DataSpaceId>, isl::multi_aff> read_affs_;

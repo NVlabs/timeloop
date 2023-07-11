@@ -49,39 +49,14 @@ void MappingPathsIterator::GetNextPath()
       [this, &backtrack_idx, &found_leaf](auto&& arg)
       {
         using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_same_v<T, Root>)
+        if constexpr (HasOneChildV<T>)
         {
           dfs_stack_.emplace_back(
             backtrack_idx + 1,
             mapping_.NodeAt(*arg.child)
           );
         }
-        else if constexpr (std::is_same_v<T, For>)
-        {
-          dfs_stack_.emplace_back(
-            backtrack_idx + 1,
-            mapping_.NodeAt(*arg.child)
-          );
-        }
-        else if constexpr (std::is_same_v<T, ParFor>)
-        {
-          dfs_stack_.emplace_back(
-            backtrack_idx + 1,
-            mapping_.NodeAt(*arg.child)
-          );
-        }
-        else if constexpr (std::is_same_v<T, Storage>)
-        {
-          dfs_stack_.emplace_back(
-            backtrack_idx + 1,
-            mapping_.NodeAt(*arg.child)
-          );
-        }
-        else if constexpr (std::is_same_v<T, Compute>)
-        {
-          found_leaf = true;
-        }
-        else if constexpr (std::is_same_v<T, Pipeline>)
+        else if constexpr (HasManyChildrenV<T>)
         {
           for (auto child_id : arg.children)
           {
@@ -90,6 +65,10 @@ void MappingPathsIterator::GetNextPath()
               mapping_.NodeAt(child_id)
             );
           }
+        }
+        else if constexpr (std::is_same_v<T, Compute>)
+        {
+          found_leaf = true;
         }
       },
       node
