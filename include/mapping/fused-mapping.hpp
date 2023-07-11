@@ -6,13 +6,14 @@
 #include <isl/cpp.h>
 
 #include "compound-config/compound-config.hpp"
+#include "util/metaprogramming.hpp"
 #include "workload/workload.hpp"
 #include "workload/fused-workload.hpp"
 
 namespace mapping
 {
 using NodeID = size_t;
-using BufferID = int;
+using BufferId = int;
 
 class FusedMapping;
 class MappingPath;
@@ -75,22 +76,22 @@ struct ParFor
 
 struct Storage
 {
-  BufferID buffer;
+  BufferId buffer;
   problem::DataSpaceId dspace;
   std::vector<std::pair<NodeID, isl::map>> logical_buf_occupancy;
+  bool exploits_reuse;
 
   NodeID id;
   std::optional<NodeID> child;
 
   Storage(const NodeID& id,
-          const BufferID& buffer,
-          const problem::DataSpaceId& dspace);
+          const BufferId& buffer,
+          const problem::DataSpaceId& dspace,
+          bool exploits_reuse=true);
 };
 
 struct Compute
 {
-  // TODO: This should only be defined once somewhere, but can be found here
-  // and in isl-ir.hpp
   problem::EinsumId kernel;
   /**
    * @brief An explicit tiling specifiction. E.g., [p_1, p_0] -> [4*p_1+p_0]
@@ -98,11 +99,13 @@ struct Compute
    * If given, bounds are not used to infer tiling map.
    */
   std::optional<isl::pw_multi_aff> tiling_spec;
+  std::optional<double> parallelism;
 
   NodeID id;
 
   Compute(const NodeID& id,
           const problem::EinsumId& einsum,
+          const std::optional<double> paralellism = std::nullopt,
           const std::optional<isl::pw_multi_aff>&& tiling_spec = std::nullopt);
 };
 
@@ -132,6 +135,18 @@ inline constexpr bool IsLoopV = std::is_same_v<T, For> ||
 template<typename T>
 inline constexpr bool IsBranchV = std::is_same_v<T, Sequential> ||
                                   std::is_same_v<T, Pipeline>;
+
+template<typename T>
+inline constexpr bool HasOneChildV = std::is_same_v<T, For> ||
+                                     std::is_same_v<T, ParFor> ||
+                                     std::is_same_v<T, Storage> ||
+                                     std::is_same_v<T, Root>;
+
+template<typename T>
+inline constexpr bool HasManyChildrenV = IsBranchV<T>;
+
+template<typename T>
+inline constexpr bool HasNoChildV = std::is_same_v<T, Compute>;
 
 NodeID GetNodeId(const MappingNodeTypes& node);
 
@@ -308,6 +323,79 @@ class MappingPath
 };
 
 MappingPaths GetPaths(FusedMapping& mapping);
+
+struct DfsRange;
+
+DfsRange IterateInDfsOrder(mapping::FusedMapping&);
+
+struct DfsIterator
+{
+  bool operator==(const DfsIterator& other);
+  bool operator!=(const DfsIterator& other);
+
+  DfsIterator& operator++();
+
+  /**
+   * @brief Id of current node, the id of its parent, and the number of loops
+   *    above this node.
+   */
+  std::tuple<NodeID, NodeID, size_t> operator*();
+
+ private:
+  FusedMapping& mapping_;
+  std::function<bool(const MappingNodeTypes&)> filter_;
+  std::vector<NodeID> stack_;
+  std::map<NodeID, NodeID> child_to_parent_;
+  std::map<NodeID, size_t> node_to_n_loops_;
+
+  DfsIterator(FusedMapping& mapping,
+              const std::vector<NodeID>& stack,
+              std::function<bool(const MappingNodeTypes&)> filter);
+
+  friend DfsRange;
+};
+
+struct DfsRange
+{
+  DfsIterator begin();
+  DfsIterator end();
+
+ private:
+  FusedMapping& mapping_;
+  std::function<bool(const MappingNodeTypes&)> filter_;
+
+  DfsRange(FusedMapping& mapping,
+           std::function<bool(const MappingNodeTypes&)> filter);
+
+  friend DfsRange
+  IterateInDfsOrder(FusedMapping&,
+                    std::function<bool(const MappingNodeTypes&)>);
+};
+
+DfsRange
+IterateInDfsOrder(FusedMapping& mapping,
+                  std::function<bool(const MappingNodeTypes&)> filter);
+
+template<typename... IncludedNodesT>
+DfsRange IterateInDfsOrder(FusedMapping& mapping)
+{
+  auto filter =
+    [](const MappingNodeTypes& node) -> bool
+    {
+      return std::visit(
+        [](auto&& node)
+        {
+          using T = std::decay_t<decltype(node)>;
+          return IsAnyOfV<T, IncludedNodesT...>;
+        },
+        node
+      );
+    };
+  
+  return IterateInDfsOrder(mapping, filter);
+}
+
+template<> DfsRange IterateInDfsOrder<>(FusedMapping& mapping);
 
 FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
                           const problem::FusedWorkload& workload);

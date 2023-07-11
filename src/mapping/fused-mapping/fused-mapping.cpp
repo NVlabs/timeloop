@@ -51,15 +51,22 @@ ParFor ParFor::WithTileSize(const NodeID& id,
   return node;
 }
 
-Storage::Storage(const NodeID& id,
-        const BufferID& buffer,
-        const problem::DataSpaceId& dspace) :
-  buffer(buffer), dspace(dspace), id(id) {}
+Storage::Storage(
+  const NodeID& id,
+  const BufferId& buffer,
+  const problem::DataSpaceId& dspace,
+  bool exploits_reuse
+) : buffer(buffer), dspace(dspace), exploits_reuse(exploits_reuse), id(id)
+{
+}
 
-Compute::Compute(const NodeID& id,
-        const problem::EinsumId& einsum,
-        const std::optional<isl::pw_multi_aff>&& tiling_spec) :
-  kernel(einsum), tiling_spec(tiling_spec), id(id)
+Compute::Compute(
+  const NodeID& id,
+  const problem::EinsumId& einsum,
+  const std::optional<double> parallelism,
+  const std::optional<isl::pw_multi_aff>&& tiling_spec
+) :
+  kernel(einsum), tiling_spec(tiling_spec), parallelism(parallelism), id(id)
 {
 }
 

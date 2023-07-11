@@ -1,4 +1,4 @@
-#include "loop-analysis/isl-nest-analysis.hpp"
+#include "loop-analysis/isl-analysis/isl-nest-analysis.hpp"
 
 #include "loop-analysis/mapping-to-isl/mapping-to-isl.hpp"
 #include "loop-analysis/spatial-analysis.hpp"

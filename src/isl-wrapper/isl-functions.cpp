@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "barvinok/isl.h"
 #include "isl/constraint.h"
 
@@ -6,18 +8,36 @@
 
 namespace isl {
 
-size_t dim(const isl::map& map, isl_dim_type dim_type)
+size_t dim(const map& map, isl_dim_type dim_type)
 {
   return isl_map_dim(map.get(), dim_type);
 }
 
-isl::map
-project_dim(isl::map map, isl_dim_type dim_type, size_t start, size_t n)
+map dim_projector(space space, size_t start, size_t n)
+{
+  return isl::manage(dim_projector(
+    space.release(),
+    start,
+    n
+  ));
+}
+
+isl_map* dim_projector(isl_space* space, size_t start, size_t n)
+{
+  return isl_map_project_out(
+    isl_map_identity(isl_space_map_from_set(space)),
+    isl_dim_in,
+    start,
+    n
+  );
+}
+
+map project_dim(map map, isl_dim_type dim_type, size_t start, size_t n)
 {
   return isl::manage(isl_map_project_out(map.release(), dim_type, start, n));
 }
 
-isl::map project_dim_in_after(isl::map map, size_t start)
+map project_dim_in_after(map map, size_t start)
 {
   auto n_dim_in = isl_map_dim(map.get(), isl_dim_in);
   return project_dim(map, isl_dim_in, start, n_dim_in - start);
@@ -140,10 +160,15 @@ isl::map fix_si(isl::map map, isl_dim_type dim_type, size_t pos, int val)
   return isl::manage(isl_map_fix_si(map.release(), dim_type, pos, val));
 }
 
-isl::map
-insert_equal_dims(isl::map map, size_t in_pos, size_t out_pos, size_t n)
+map insert_equal_dims(map map, size_t in_pos, size_t out_pos, size_t n)
 {
-  auto p_map = map.release();
+  return isl::manage(insert_equal_dims(map.release(), in_pos, out_pos, n));
+}
+
+isl_map*
+insert_equal_dims(__isl_take isl_map* p_map, size_t in_pos, size_t out_pos,
+                  size_t n)
+{
   p_map = isl_map_insert_dims(p_map, isl_dim_in, in_pos, n);
   p_map = isl_map_insert_dims(p_map, isl_dim_out, out_pos, n);
 
@@ -156,8 +181,8 @@ insert_equal_dims(isl::map map, size_t in_pos, size_t out_pos, size_t n)
     p_map = isl_map_add_constraint(p_map, c);
   }
   isl_local_space_free(p_ls);
-  
-  return isl::manage(p_map);
+
+  return p_map;
 }
 
 isl::multi_aff
@@ -232,7 +257,7 @@ double val_to_double(isl_val* val)
   return (double)num / (double)den;
 }
 
-isl_val* get_val_from_singular_qpolynomial(isl_pw_qpolynomial* pw_qp)
+isl_val* get_val_from_singular(isl_pw_qpolynomial* pw_qp)
 {
   return isl_pw_qpolynomial_eval(
     pw_qp,
@@ -240,7 +265,7 @@ isl_val* get_val_from_singular_qpolynomial(isl_pw_qpolynomial* pw_qp)
   );
 }
 
-isl_val* get_val_from_singular_qpolynomial_fold(isl_pw_qpolynomial_fold* pwf)
+isl_val* get_val_from_singular(isl_pw_qpolynomial_fold* pwf)
 {
   return isl_pw_qpolynomial_fold_eval(
     pwf,
@@ -270,61 +295,154 @@ isl::map ConstraintDimEquals(isl::map map, size_t n_dims)
 isl::map MapToPriorData(size_t n_in_dims, size_t top)
 {
   isl_space* p_space;
-  isl_basic_map* p_tmp_map;
   isl_map* p_map;
   isl_local_space* p_ls;
   isl_constraint* p_c;
 
   // Goal: { [i0, ..., i{n_in_dims-1}] -> [i0, ..., i{top}-1, o{top+1}, ..., o{n_in_dims}] }
   p_space = isl_space_alloc(GetIslCtx().get(), 0, n_in_dims, n_in_dims);
-  p_map = isl_map_universe(isl_space_copy(p_space));
+  p_map = isl_map_empty(isl_space_copy(p_space));
   p_ls = isl_local_space_from_space(p_space);
 
   if (top > 0)
   {
-    p_tmp_map = isl_basic_map_universe(isl_space_copy(p_space));
+    auto p_tmp_map = isl_map_universe(isl_space_copy(p_space));
     for (size_t i = 0; i < top-1; ++i)
     {
       p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
       p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, 1);
       p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, -1);
-      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
+      p_tmp_map = isl_map_add_constraint(p_tmp_map, p_c);
     }
 
     p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
     p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, top-1, 1);
     p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, top-1, -1);
     p_c = isl_constraint_set_constant_si(p_c, 1);
-    p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
+    p_tmp_map = isl_map_add_constraint(p_tmp_map, p_c);
 
-    p_map = isl_map_intersect(p_map, isl_map_from_basic_map(p_tmp_map));
+    p_map = isl_map_union(p_map, p_tmp_map);
   }
 
-  if (top > 0 && top < n_in_dims)
+  if (top < n_in_dims)
   {
-    p_tmp_map = isl_basic_map_universe(isl_space_copy(p_space));
-    for (size_t i = 0; i < top; ++i)
-    {
-      p_c = isl_constraint_alloc_equality(isl_local_space_copy(p_ls));
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, 1);
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, -1);
-      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
-    }
+    auto p_tmp_map = isl_map_lex_gt(isl_space_set_alloc(
+      GetIslCtx().get(),
+      isl_map_dim(p_map, isl_dim_param),
+      n_in_dims - top
+    ));
+    p_tmp_map = insert_equal_dims(p_tmp_map, 0, 0, top);
 
-    for (auto i = top; i < n_in_dims; ++i)
-    {
-      p_c = isl_constraint_alloc_inequality(isl_local_space_copy(p_ls));
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_out, i, -1);
-      p_c = isl_constraint_set_coefficient_si(p_c, isl_dim_in, i, 1);
-      p_c = isl_constraint_set_constant_si(p_c, -1);
-      p_tmp_map = isl_basic_map_add_constraint(p_tmp_map, p_c);
-    }
-    p_map = isl_map_union(p_map, isl_map_from_basic_map(p_tmp_map));
+    p_map = isl_map_union(p_map, p_tmp_map);
   }
 
   isl_local_space_free(p_ls);
 
   return isl::manage(p_map);
+}
+
+__isl_give isl_map*
+lex_lt(__isl_keep isl_space* set_space, size_t start, size_t n_lex)
+{
+  auto n_total = isl_space_dim(set_space, isl_dim_set);
+
+  auto p_space = isl_space_set_alloc(GetIslCtx().get(), 0, n_lex);
+  auto p_map = isl_map_lex_lt(p_space);
+
+  p_map = insert_equal_dims(p_map, n_lex, n_lex, n_total-start-n_lex);
+  p_map = insert_equal_dims(p_map, 0, 0, start);
+
+  return p_map;
+}
+
+map lex_lt(const space& space, size_t start, size_t n_lex)
+{
+  return isl::manage(lex_lt(space.get(), start, n_lex));
+}
+
+__isl_give isl_map*
+map_to_next(__isl_take isl_set* set, size_t start, size_t n)
+{
+  auto p_lex_lt = lex_lt(isl_set_get_space(set), start, n);
+  p_lex_lt = isl_map_intersect_range(p_lex_lt, isl_set_copy(set));
+  p_lex_lt = isl_map_intersect_domain(p_lex_lt, set);
+  p_lex_lt = isl_map_lexmin(p_lex_lt);
+  p_lex_lt = isl_map_coalesce(p_lex_lt);
+  return p_lex_lt;
+}
+
+map map_to_next(set set, size_t start, size_t n)
+{
+  return isl::manage(map_to_next(set.release(), start, n));
+}
+
+__isl_give isl_set*
+separate_dependent_bounds(__isl_take isl_set* set, size_t start, size_t n)
+{
+  auto fst_set = isl_set_project_out(isl_set_copy(set), isl_dim_set, 0, start);
+  fst_set = isl_set_insert_dims(fst_set, isl_dim_set, 0, start);
+  auto snd_set = isl_set_project_out(set, isl_dim_set, start, n);
+  snd_set = isl_set_insert_dims(snd_set, isl_dim_set, start, n);
+  return isl_set_coalesce(isl_set_intersect(fst_set, snd_set));
+}
+
+std::string pw_qpolynomial_fold_to_str(isl_pw_qpolynomial_fold* pwqf)
+{
+  auto p_printer = isl_printer_to_str(GetIslCtx().get());
+  p_printer = isl_printer_print_pw_qpolynomial_fold(p_printer, pwqf);
+  auto p_str = isl_printer_get_str(p_printer);
+  isl_printer_free(p_printer);
+  return std::string(p_str);
+}
+
+struct qpolynomial_from_fold_info
+{
+  isl_pw_qpolynomial** pp_pwqp;
+  isl_set* domain;
+};
+
+isl_stat fold_accumulator(isl_qpolynomial* qp, void* pwqp_out)
+{
+  auto p_info = static_cast<qpolynomial_from_fold_info*>(pwqp_out);
+  auto p_pwqp = isl_pw_qpolynomial_from_qpolynomial(qp);
+  p_pwqp = isl_pw_qpolynomial_intersect_domain(p_pwqp,
+                                               isl_set_copy(p_info->domain));
+  if (*p_info->pp_pwqp)
+  {
+    *p_info->pp_pwqp = isl_pw_qpolynomial_add(p_pwqp, *p_info->pp_pwqp);
+  }
+  else
+  {
+    *p_info->pp_pwqp = p_pwqp;
+  }
+  return isl_stat_ok;
+}
+
+isl_bool
+pw_fold_accumulator(isl_set* set, isl_qpolynomial_fold* fold, void* pwqp_out)
+{
+  qpolynomial_from_fold_info info {
+    .pp_pwqp = static_cast<isl_pw_qpolynomial**>(pwqp_out),
+    .domain = set
+  };
+  isl_qpolynomial_fold_foreach_qpolynomial(
+    fold,
+    fold_accumulator,
+    &info
+  );
+  return isl_bool_true;
+}
+
+__isl_give isl_pw_qpolynomial*
+gather_pw_qpolynomial_from_fold(__isl_take isl_pw_qpolynomial_fold* pwqpf)
+{
+  isl_pw_qpolynomial* p_pwqp = nullptr;
+  isl_pw_qpolynomial_fold_every_piece(
+    pwqpf,
+    pw_fold_accumulator,
+    &p_pwqp
+  );
+  return p_pwqp;
 }
 
 };  // namespace isl
