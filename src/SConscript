@@ -126,7 +126,6 @@ isl-wrapper/ctx-manager.cpp
 isl-wrapper/isl-functions.cpp
 loop-analysis/aahr-carve.cpp
 loop-analysis/coordinate-space-tile-info.cpp
-loop-analysis/isl-analysis/capacity-analysis.cpp
 loop-analysis/isl-analysis/isl-nest-analysis.cpp
 loop-analysis/isl-analysis/isl-to-legacy-adaptor.cpp
 loop-analysis/isl-analysis/latency-analysis.cpp
@@ -292,11 +291,6 @@ applications/looptree-model/model.cpp
 applications/looptree-model/main.cpp
 """)
 
-unittest_sources = Split("""
-unit-test/test-main.cpp
-unit-test/test-simple-link-transfer.cpp
-""")
-
 unit_test_sources = Split("""
 unit-tests/test-main.cpp
 unit-tests/test-simple-link-transfer.cpp
@@ -309,7 +303,6 @@ bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
 bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
 bin_compound_config_test = env.Program(target = 'timeloop-compound-config-test', source = compound_config_test_sources)
 bin_unit_test = env.Program(target = 'timeloop-unit-test', source = unit_test_sources)
-bin_looptree_model = env.Program(target='looptree-model', source=looptree_sources)
 
 env.Install(env["BUILD_BASE_DIR"] + '/bin', [
                                             bin_metrics,
@@ -318,8 +311,7 @@ env.Install(env["BUILD_BASE_DIR"] + '/bin', [
                                             bin_mapper,
                                             bin_design_space,
                                             bin_compound_config_test,
-                                            bin_unit_test,
-                                            bin_looptree_model
+                                            bin_unit_test
                                             ])
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))
