@@ -32,8 +32,96 @@ struct HeadEinsumTracker
     rest_of_einsums_ = std::set<EinsumId>(range.begin(), range.end());
   }
 
-  void TakeEinsum(EinsumId einsum);
-  void UntakeEinsum(EinsumId einsum);
+  void TakeEinsum(EinsumId einsum)
+  {
+    auto n_erased = next_einsums_.erase(einsum);
+    if (n_erased != 1)
+    {
+      throw std::logic_error("taking non-head einsum");
+    }
+
+    rest_of_einsums_.erase(einsum);
+    taken_einsums_.emplace(einsum);
+
+    for (const auto& tensor : workload_.TensorsReadByEinsum(einsum))
+    {
+      auto produced_by_head_einsum = true;
+      for (const auto& reader_einsum : workload_.ReaderEinsums(tensor))
+      {
+        auto it = rest_of_einsums_.find(reader_einsum);
+        if (it != rest_of_einsums_.end())
+        {
+          produced_by_head_einsum = false;
+          break;
+        }
+      }
+
+      if (produced_by_head_einsum)
+      {
+        auto new_head_einsum_opt = workload_.WriterEinsum(tensor);
+        if (new_head_einsum_opt)
+        {
+          next_einsums_.emplace(*new_head_einsum_opt);
+        }
+      }
+    }
+  }
+
+  void UntakeEinsum(EinsumId einsum)
+  {
+    const auto& read_by_einsum = workload_.TensorsReadByEinsum(einsum);
+
+    auto new_next_einsums = std::set<EinsumId>();
+
+    for (const auto& cur_head_einsum : next_einsums_)
+    {
+      bool still_head_einsum = true;
+      for (const auto& t : workload_.TensorsWrittenByEinsum(cur_head_einsum))
+      {
+        auto it = read_by_einsum.find(t);
+        if (it != read_by_einsum.end())
+        {
+          still_head_einsum = false;
+          break;
+        }
+      }
+
+      if (still_head_einsum)
+      {
+        new_next_einsums.emplace(cur_head_einsum);
+      }
+    }
+
+    auto new_einsum_is_head = true;
+    const auto& written_by_einsum = workload_.TensorsWrittenByEinsum(einsum);
+    for (const auto& cur_head_einsum : new_next_einsums)
+    {
+      auto read_by_cur_head = workload_.TensorsReadByEinsum(cur_head_einsum);
+      for (const auto& t : written_by_einsum)
+      {
+        auto it = read_by_cur_head.find(t);
+        if (it != read_by_cur_head.end())
+        {
+          new_einsum_is_head = false;
+          break;
+        }
+      }
+
+      if (!new_einsum_is_head)
+      {
+        break;
+      }
+    }
+
+    if (new_einsum_is_head)
+    {
+      new_next_einsums.emplace(einsum);
+    }
+
+    rest_of_einsums_.emplace(einsum);
+    taken_einsums_.erase(einsum);
+    next_einsums_ = new_next_einsums;
+  }
 
   const std::set<EinsumId>& NextEinsums() const
   {
