@@ -2,7 +2,7 @@
 
 #include <barvinok/isl.h>
 
-#include "mapping/fused-mapping.hpp"
+#include "loop-analysis/isl-ir.hpp"
 
 namespace analysis 
 {
@@ -65,7 +65,10 @@ struct LatencyAggregator
 
   AggregatorTypes& AggregatorAt(LatencyId id);
 
-  double CalculateLatency();
+  double CalculateLatency(
+    const std::map<LogicalComputeUnit, OpOccupancy>& op_occupancies,
+    const std::map<mapping::NodeID, double>& assumed_parallelism
+  );
 
   LatencyId GetRootId() const;
 
@@ -99,9 +102,6 @@ struct LatencyAggregator
   }
 
   void SetComputeLatency(mapping::NodeID compute, LatencyId latency);
-
-  void SetLatency(mapping::NodeID compute,
-                  __isl_take isl_pw_qpolynomial* latency);
 
  private:
   LatencyId root_id;

@@ -12,7 +12,8 @@ namespace analysis
 std::map<mapping::BufferId, isl_pw_qpolynomial*>
 ComputeCapacityFromMapping(
   mapping::FusedMapping& mapping,
-  const std::map<LogicalBuffer, Occupancy>& occupancies
+  const std::map<LogicalBuffer, Occupancy>& occupancies,
+  const problem::FusedWorkload& workload
 );
 
 };

@@ -3,6 +3,7 @@
 #include "isl-wrapper/isl-functions.hpp"
 
 #include <boost/range/adaptor/indexed.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 #include <barvinok/isl.h>
 
 bool gDumpIslIr =
@@ -27,8 +28,13 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
 std::map<LogicalBuffer, bool>
 BufRightAboveSequential(mapping::FusedMapping& mapping);
 
-std::map<LogicalBuffer, Skew>
-LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping);
+struct SkewsInfo
+{
+  std::map<LogicalBuffer, Skew> lbuf_to_skew;
+  std::map<LogicalComputeUnit, Skew> lcomp_to_skew;
+};
+
+SkewsInfo SkewsFromMapping(mapping::FusedMapping& mapping);
 
 /******************************************************************************
  * Global function implementations
@@ -60,8 +66,8 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
   result.buf_right_above_sequential = BufRightAboveSequential(mapping);
 
   std::map<LogicalBuffer, Occupancy> occupancies;
-  auto buf_skew = LogicalBufSkewsFromMapping(mapping);
-  for (auto& [buf, skew] : buf_skew)
+  auto skews = SkewsFromMapping(mapping);
+  for (auto& [buf, skew] : skews.lbuf_to_skew)
   {
     if (gDumpIslIr)
     {
@@ -106,7 +112,21 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
                                                  std::move(occupancy))));
   }
 
+  std::map<LogicalComputeUnit, OpOccupancy> op_occupancies;
+  for (auto& [lcomp, skew] : skews.lcomp_to_skew)
+  {
+    const auto& tiling = branch_tiling.at(lcomp.branch_leaf_id);
+    auto op_occupancy = skew.map.apply_range(
+      isl::project_dim_in_after(tiling, isl::dim(skew.map, isl_dim_out))
+    );
+    op_occupancies.emplace(
+      lcomp,
+      OpOccupancy(skew.dim_in_tags, std::move(op_occupancy))
+    );
+  }
+
   result.lbuf_to_occupancy = std::move(occupancies);
+  result.lcomp_to_occupancy = std::move(op_occupancies);
   result.branch_tiling = std::move(branch_tiling);
 
   return result;
@@ -172,6 +192,7 @@ GetParallelism(mapping::FusedMapping& mapping)
 std::map<mapping::NodeID, std::set<problem::EinsumId>>
 GetMappingGroupEinsums(mapping::FusedMapping& mapping)
 {
+  using namespace boost::adaptors;
   using namespace mapping;
   using namespace problem;
 
@@ -227,15 +248,13 @@ GetMappingGroupEinsums(mapping::FusedMapping& mapping)
     );
   }
 
-  for (size_t i = 0; i < child_stack.size(); ++i)
+  for (const auto& [node_id, children] : child_stack | reversed)
   {
-    const auto& [node_id, children] = child_stack.back();
     auto& einsum_set = result[node_id];
     for (const auto& child : children)
     {
       einsum_set.insert(result.at(child).begin(), result.at(child).end());
     }
-    child_stack.pop_back();
   }
 
   return result;
@@ -648,10 +667,11 @@ BufRightAboveSequential(mapping::FusedMapping& mapping)
   return buf_right_above_sequential;
 }
 
-std::map<LogicalBuffer, Skew>
-LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
+SkewsInfo SkewsFromMapping(mapping::FusedMapping& mapping)
 {
-  std::map<LogicalBuffer, Skew> skews;
+  std::map<LogicalComputeUnit, Skew> lcomp_to_skew;
+  std::map<LogicalBuffer, Skew> lbuf_to_skew;
+
   for (auto path : GetPaths(mapping))
   {
     std::vector<SpaceTime> tags;
@@ -665,8 +685,8 @@ LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
     for (const auto& node : path)
     {
       std::visit(
-        [&tags, &map, &new_cur_has_spatial, &cur_has_spatial, &skews,
-         &last_buf, &leaf]
+        [&tags, &map, &new_cur_has_spatial, &cur_has_spatial, &last_buf, &leaf,
+         &lbuf_to_skew, &lcomp_to_skew]
         (auto&& node) {
           using NodeT = std::decay_t<decltype(node)>;
 
@@ -695,11 +715,31 @@ LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
               cur_has_spatial = true;
             }
 
-            skews.emplace(std::make_pair(
+            lbuf_to_skew.emplace(std::make_pair(
               LogicalBuffer(node.buffer, node.dspace, GetNodeId(leaf)),
               Skew(tags, map)
             ));
-          } else if constexpr (mapping::IsLoopV<NodeT>)
+          }
+          else if constexpr (std::is_same_v<NodeT, mapping::Compute>)
+          {
+            if (!cur_has_spatial)
+            {
+              tags.push_back(Spatial(0));
+
+              const size_t n_spatial_dims = 1;  // TODO: assumes 1D array
+              map = isl::insert_dummy_dim_ins(std::move(map),
+                                              isl::dim(map, isl_dim_in),
+                                              n_spatial_dims);
+
+              cur_has_spatial = true;
+            }
+
+            lcomp_to_skew.emplace(std::make_pair(
+              LogicalComputeUnit(*last_buf, GetNodeId(leaf)),
+              Skew(tags, map)
+            ));
+          }
+          else if constexpr (mapping::IsLoopV<NodeT>)
           {
             if constexpr(std::is_same_v<NodeT, mapping::For>)
             {
@@ -735,13 +775,17 @@ LogicalBufSkewsFromMapping(mapping::FusedMapping& mapping)
                                          isl::dim(map, isl_dim_out),
                                          1);
           }
+          else if constexpr (std::is_same_v<NodeT, mapping::Compute>)
+          {
+
+          }
         },
         node
       );
     }
   }
 
-  return skews;
+  return SkewsInfo{lbuf_to_skew, lcomp_to_skew};
 }
 
 } // namespace analysis

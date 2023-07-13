@@ -160,6 +160,25 @@ isl::map fix_si(isl::map map, isl_dim_type dim_type, size_t pos, int val)
   return isl::manage(isl_map_fix_si(map.release(), dim_type, pos, val));
 }
 
+__isl_give isl_map*
+bound_dim_si(__isl_take isl_map* map, isl_dim_type dim_type, size_t pos,
+             int lower, int upper)
+{
+  auto p_ls = isl_local_space_from_space(isl_map_get_space(map));
+
+  auto p_upper = isl_constraint_alloc_inequality(isl_local_space_copy(p_ls));
+  p_upper = isl_constraint_set_coefficient_si(p_upper, dim_type, pos, -1);
+  p_upper = isl_constraint_set_constant_si(p_upper, upper);
+  map = isl_map_add_constraint(map, p_upper);
+
+  auto p_lower = isl_constraint_alloc_inequality(isl_local_space_copy(p_ls));
+  p_lower = isl_constraint_set_coefficient_si(p_lower, dim_type, pos, 1);
+  p_lower = isl_constraint_set_constant_si(p_lower, -lower);
+  map = isl_map_add_constraint(map, p_lower);
+
+  return map;
+}
+
 map insert_equal_dims(map map, size_t in_pos, size_t out_pos, size_t n)
 {
   return isl::manage(insert_equal_dims(map.release(), in_pos, out_pos, n));

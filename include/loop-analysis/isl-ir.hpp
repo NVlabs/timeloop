@@ -79,6 +79,19 @@ std::ostream& operator<<(std::ostream& os, const SpaceTime& t);
 
 bool IsTemporal(const SpaceTime& st);
 
+struct LogicalComputeUnit
+{
+  BufferId buffer_id;
+  mapping::NodeID branch_leaf_id;
+
+  LogicalComputeUnit(BufferId buffer_id, mapping::NodeID branch_leaf_id);
+
+  bool operator<(const LogicalComputeUnit& other) const;
+  bool operator==(const LogicalComputeUnit& other) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const LogicalComputeUnit& buf);
+
 struct LogicalBuffer
 {
   BufferId buffer_id;
@@ -169,6 +182,20 @@ struct Occupancy
 };
 
 std::ostream& operator<<(std::ostream& os, const Occupancy& s);
+
+/**
+ * @brief Space-Time -> Operations of a compute unit.
+ */
+struct OpOccupancy
+{
+  std::vector<SpaceTime> dim_in_tags;
+  isl::map map;
+
+  OpOccupancy();
+  OpOccupancy(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
+};
+
+std::ostream& operator<<(std::ostream& os, const OpOccupancy& s);
 
 /**
  * @brief TARDIS-style X-relation.

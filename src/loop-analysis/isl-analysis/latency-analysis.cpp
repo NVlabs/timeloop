@@ -6,6 +6,17 @@
 namespace analysis
 {
 
+size_t
+CalculateLatency(const std::map<LogicalComputeUnit, OpOccupancy> occupancies)
+{
+  (void) occupancies;
+  for (const auto& [lcomp, occ] : occupancies)
+  {
+    std::cout << lcomp << ": " << occ;
+  }
+  return 0;
+}
+
 void ComputeLatency::CalculateLatency(LatencyAggregator&)
 {
 }
@@ -192,8 +203,41 @@ AggregatorTypes& LatencyAggregator::AggregatorAt(LatencyId id)
   return aggregators.at(id);
 }
 
-double LatencyAggregator::CalculateLatency()
+double LatencyAggregator::CalculateLatency(
+  const std::map<LogicalComputeUnit, OpOccupancy>& op_occupancies,
+  const std::map<mapping::NodeID, double>& assumed_parallelism
+)
 {
+  for (const auto& [lcomp, occ] : op_occupancies)
+  {
+    auto comp_latency_id = compute_to_aggregator.at(lcomp.branch_leaf_id);
+    auto& compute_latency =
+      std::get<ComputeLatency>(AggregatorAt(comp_latency_id));
+
+    auto p_latency = isl_map_card(occ.map.copy());
+
+    const auto& dim_in_tags = occ.dim_in_tags;
+    auto n_dims = dim_in_tags.size();
+    auto mask = std::vector<bool>(n_dims, false);
+    for (size_t i = compute_latency.start_idx; i < n_dims; ++i)
+    {
+      if (std::holds_alternative<Temporal>(dim_in_tags.at(i)))
+      {
+        mask[i] = true;
+      }
+    }
+    auto p_proj =
+      isl::dim_projector(isl_pw_qpolynomial_get_domain_space(p_latency), mask);
+
+    p_latency = isl_map_apply_pw_qpolynomial(p_proj, p_latency);
+    auto par = assumed_parallelism.at(lcomp.branch_leaf_id);
+    auto p_parallelism = isl_val_int_from_si(GetIslCtx().get(),
+                                             static_cast<int>(par));
+    p_latency = isl_pw_qpolynomial_scale_down_val(p_latency, p_parallelism);
+    std::cout << "latency: " << isl_pw_qpolynomial_to_str(p_latency) << std::endl;
+    compute_latency.latency = p_latency;
+  }
+
   auto& root = std::get<RootLatency>(aggregators.at(root_id));
   root.CalculateLatency(*this);
   return isl::val_to_double(isl_val_ceil(
@@ -210,15 +254,6 @@ void LatencyAggregator::SetComputeLatency(mapping::NodeID compute,
                                           LatencyId latency)
 {
   compute_to_aggregator.emplace(compute, latency);
-}
-
-void LatencyAggregator::SetLatency(mapping::NodeID compute,
-                                   __isl_take isl_pw_qpolynomial* latency)
-{
-  auto compute_latency_id = compute_to_aggregator.at(compute);
-  auto& compute_latency =
-    std::get<ComputeLatency>(AggregatorAt(compute_latency_id));
-  compute_latency.latency = latency;
 }
 
 LatencyAggregator::LatencyAggregator() :

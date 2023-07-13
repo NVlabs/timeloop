@@ -26,6 +26,10 @@ struct MappingAnalysisResult
    */
   std::map<LogicalBuffer, Occupancy> lbuf_to_occupancy;
   /**
+   * @brief The occupancy of every compute unit.
+   */
+  std::map<LogicalComputeUnit, OpOccupancy> lcomp_to_occupancy;
+  /**
    * @brief Logical buffers found between the current root/branch node and the
    *   next one.
    */
