@@ -50,7 +50,7 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
                                    const config::CompoundConfigNode& cfg)
 {
   std::string type;
-  BufferID target;
+  BufferId target;
   std::string dspace_name;
   std::string dim_name;
   std::string einsum_name;
@@ -61,7 +61,8 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
   if (type == "temporal")
   {
     cfg.lookupValue("dimension", dim_name);
-    auto dim_id = workload.DimensionNameToId().at(dim_name);
+    auto dim_id = workload.GetDimensionId(dim_name);
+
     if (cfg.exists("factor"))
     {
       cfg.lookupValue("factor", factor);
@@ -87,7 +88,8 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
   else if (type == "spatial")
   {
     cfg.lookupValue("dimension", dim_name);
-    auto dim_id = workload.DimensionNameToId().at(dim_name);
+    auto dim_id = workload.GetDimensionId(dim_name);
+
     if (cfg.exists("factor"))
     {
       cfg.lookupValue("factor", factor);
@@ -115,11 +117,16 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
     cfg.lookupValue("target", target);
     std::vector<std::string> dspace_names;
     cfg.lookupArrayValue("dspace", dspace_names);
+    bool exploits_reuse = true;
+    if (cfg.exists("exploits_reuse"))
+    {
+      cfg.lookupValue("exploits_reuse", exploits_reuse);
+    }
     auto node = parent_id;
     for (const auto& dspace_name : dspace_names)
     {
-      auto dspace = workload.DataSpaceNameToId().at(dspace_name);
-      node = mapping.AddChild<Storage>(node, target, dspace);
+      auto dspace = workload.GetDspaceId(dspace_name);
+      node = mapping.AddChild<Storage>(node, target, dspace, exploits_reuse);
     }
     return node;
   }
@@ -127,7 +134,19 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
   {
     cfg.lookupValue("einsum", einsum_name);
     auto einsum = workload.EinsumNameToId().at(einsum_name);
-    return mapping.AddChild<Compute>(parent_id, einsum);
+    auto parallelism = std::optional<double>();
+    if (cfg.exists("parallelism"))
+    {
+      double parallelism_val;
+      cfg.lookupValue("parallelism", parallelism_val);
+      parallelism = parallelism_val;
+    }
+    return mapping.AddChild<Compute>(
+      parent_id,
+      einsum,
+      parallelism,
+      std::nullopt
+    );
   }
   else if (type == "pipeline")
   {

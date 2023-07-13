@@ -126,13 +126,15 @@ isl-wrapper/ctx-manager.cpp
 isl-wrapper/isl-functions.cpp
 loop-analysis/aahr-carve.cpp
 loop-analysis/coordinate-space-tile-info.cpp
-loop-analysis/logical-buffer.cpp
+loop-analysis/isl-analysis/capacity-analysis.cpp
+loop-analysis/isl-analysis/isl-nest-analysis.cpp
+loop-analysis/isl-analysis/isl-to-legacy-adaptor.cpp
+loop-analysis/isl-analysis/latency-analysis.cpp
 loop-analysis/loop-state.cpp
 loop-analysis/mapping-to-isl/fused-mapping-to-isl.cpp
 loop-analysis/mapping-to-isl/mapping-to-isl.cpp
-loop-analysis/isl-ir.cpp
-loop-analysis/isl-nest-analysis.cpp
-loop-analysis/isl-to-legacy-adaptor.cpp
+loop-analysis/isl-ir/ir.cpp
+loop-analysis/isl-ir/input-output.cpp
 loop-analysis/tiling.cpp
 loop-analysis/tiling-tile-info.cpp
 loop-analysis/point.cpp
@@ -153,6 +155,7 @@ pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp
 mapping/spacetime.cpp
+mapping/fused-mapping/dfs.cpp
 mapping/fused-mapping/fused-mapping.cpp
 mapping/fused-mapping/mapping-path.cpp
 mapping/fused-mapping/parser.cpp
@@ -280,8 +283,8 @@ applications/design-space/main.cpp
 """)
 
 looptree_sources = Split("""
-applications/looptree/model.cpp
-applications/looptree/main.cpp
+applications/looptree-model/model.cpp
+applications/looptree-model/main.cpp
 """)
 
 looptree_mapper_sources = Split("""
@@ -289,29 +292,31 @@ applications/looptree-mapper/main.cpp
 """)
 
 unittest_sources = Split("""
-unittest/test-main.cpp
-unittest/test-simple-link-transfer.cpp
+unit-test/test-main.cpp
+unit-test/test-simple-link-transfer.cpp
 """)
 
 # bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
-bin_model = env.Program(target = 'timeloop-model', source = model_sources)
+# bin_model = env.Program(target = 'timeloop-model', source = model_sources)
 # bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
-bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
+# bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
 # bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
-bin_looptree = env.Program(target = 'looptree', source = looptree_sources)
 bin_looptree_mapper = env.Program(target = 'looptree-mapper',
                                   source = looptree_mapper_sources)
 bin_unittest = env.Program(target = 'timeloop-tests', source = unittest_sources)
+# bin_unittest = env.Program(target = 'timeloop-tests', source = unittest_sources)
+# bin_looptree_model = env.Program(target='looptree-model', source=looptree_sources)
 
 env.Install(env["BUILD_BASE_DIR"] + '/bin', [
                                             # bin_metrics,
-                                            bin_model,
+                                            # bin_model,
                                             # bin_simple_mapper,
-                                            bin_mapper,
+                                            # bin_mapper,
                                             # bin_design_space,
-                                            bin_looptree,
                                             bin_looptree_mapper,
                                             bin_unittest
+                                            # bin_looptree_model,
+                                            # bin_unittest
                                             ])
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))

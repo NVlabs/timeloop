@@ -39,6 +39,7 @@
 
 #include "mapping/fused-mapping.hpp"
 #include "mapping/mapping.hpp"
+#include "workload/fused-workload.hpp"
 #include "workload/workload.hpp"
 
 namespace analysis
@@ -46,17 +47,60 @@ namespace analysis
 
 using DataSpaceID = problem::DataSpaceId;
 using FactorizedDimensionID = problem::Shape::FactorizedDimensionID;
-using EinsumID = size_t;
-using BufferID = mapping::BufferID;
+using EinsumID = problem::EinsumId;
+using BufferId = mapping::BufferId;
+
+struct Temporal {};
+struct Spatial
+{
+  int spatial_dim;
+
+  Spatial(int spatial_dim=0);
+};
+struct Sequential {};
+struct PipelineTemporal {};
+struct PipelineSpatial {};
+
+using SpaceTime =
+  std::variant<
+    Temporal,
+    Spatial,
+    Sequential,
+    PipelineTemporal,
+    PipelineSpatial
+  >;
+
+std::ostream& operator<<(std::ostream& os, const Temporal& t);
+std::ostream& operator<<(std::ostream& os, const Spatial& t);
+std::ostream& operator<<(std::ostream& os, const Sequential& t);
+std::ostream& operator<<(std::ostream& os, const PipelineTemporal& t);
+std::ostream& operator<<(std::ostream& os, const PipelineSpatial& t);
+std::ostream& operator<<(std::ostream& os, const SpaceTime& t);
+
+bool IsTemporal(const SpaceTime& st);
+
+struct LogicalComputeUnit
+{
+  BufferId buffer_id;
+  mapping::NodeID branch_leaf_id;
+
+  LogicalComputeUnit(BufferId buffer_id, mapping::NodeID branch_leaf_id);
+
+  bool operator<(const LogicalComputeUnit& other) const;
+  bool operator==(const LogicalComputeUnit& other) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const LogicalComputeUnit& buf);
 
 struct LogicalBuffer
 {
-  BufferID buffer_id;
+  BufferId buffer_id;
   DataSpaceID dspace_id;
   mapping::NodeID branch_leaf_id;
 
+  LogicalBuffer() = default;
   LogicalBuffer(
-    BufferID buffer_id,
+    BufferId buffer_id,
     DataSpaceID dspace_id,
     mapping::NodeID branch_leaf_id
   );
@@ -115,12 +159,14 @@ using LogicalBufDataDistributions = std::map<LogicalBuffer, DataDistribution>;
  */
 struct Skew
 {
-  std::vector<spacetime::Dimension> dim_in_tags;
+  std::vector<SpaceTime> dim_in_tags;
   isl::map map;
 
   Skew();
-  Skew(const std::vector<spacetime::Dimension>& dim_in_tags, isl::map map);
+  Skew(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
 };
+
+std::ostream& operator<<(std::ostream& os, const Skew& s);
 
 /**
  * @brief Space-Time -> Data of a logical buffer. A complete description of
@@ -128,25 +174,39 @@ struct Skew
  */
 struct Occupancy
 {
-  std::vector<spacetime::Dimension> dim_in_tags;
+  std::vector<SpaceTime> dim_in_tags;
   isl::map map;
 
   Occupancy();
-  Occupancy(const std::vector<spacetime::Dimension>& dim_in_tags,
-            isl::map map);
+  Occupancy(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
 };
+
+std::ostream& operator<<(std::ostream& os, const Occupancy& s);
+
+/**
+ * @brief Space-Time -> Operations of a compute unit.
+ */
+struct OpOccupancy
+{
+  std::vector<SpaceTime> dim_in_tags;
+  isl::map map;
+
+  OpOccupancy();
+  OpOccupancy(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
+};
+
+std::ostream& operator<<(std::ostream& os, const OpOccupancy& s);
 
 /**
  * @brief TARDIS-style X-relation.
  */
 struct Transfers
 {
-  std::vector<spacetime::Dimension> dim_in_tags;
+  std::vector<SpaceTime> dim_in_tags;
   isl::map map;
 
   Transfers();
-  Transfers(const std::vector<spacetime::Dimension>& dim_in_tags,
-            isl::map map);
+  Transfers(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
 };
 
 /**
@@ -154,23 +214,25 @@ struct Transfers
  */
 struct Fill
 {
-  std::vector<spacetime::Dimension> dim_in_tags;
+  std::vector<SpaceTime> dim_in_tags;
   isl::map map;
 
   Fill();
-  Fill(const std::vector<spacetime::Dimension>& dim_in_tags, isl::map map);
+  Fill(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
 };
+
+std::ostream& operator<<(std::ostream& os, const Fill& s);
 
 /**
  * @brief Space-Time -> Reads to a logical buffer.
  */
 struct Reads
 {
-  std::vector<spacetime::Dimension> dim_in_tags;
+  std::vector<SpaceTime> dim_in_tags;
   isl::map map;
 
   Reads();
-  Reads(const std::vector<spacetime::Dimension>& dim_in_tags, isl::map map);
+  Reads(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
 };
 
 };  // namespace analysis

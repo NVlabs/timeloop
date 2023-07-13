@@ -11,59 +11,32 @@
 namespace analysis
 {
 
-MulticastInfo::~MulticastInfo()
+FillProvider::FillProvider(const LogicalBuffer& buf, const Occupancy& occ) : 
+  buf(buf), occupancy(occ)
 {
-  // for (auto& [_, p_hop] : p_hops)
-  // {
-  //   isl_pw_qpolynomial_free(p_hop);
-  // }
 }
 
 
 SpatialReuseAnalysisInput::SpatialReuseAnalysisInput(
-  const LogicalBuffer& buf,
-  const Fill& fill,
-  const Occupancy& occupancy
-) :
-  buf(buf), children_fill(fill), children_occupancy(occupancy)
+  LogicalBuffer buf,
+  const Fill& children_fill
+) : buf(buf), children_fill(children_fill)
 {
 }
 
-
-LinkTransferModel& SpatialReuseModels::GetLinkTransferModel()
+SpatialReuseInfo SpatialReuseAnalysis(const SpatialReuseAnalysisInput& input)
 {
-  return *link_transfer_model;
-}
-const LinkTransferModel& SpatialReuseModels::GetLinkTransferModel() const
-{
-  return *link_transfer_model;
-}
+  auto transfer_infos = std::vector<TransferInfo>();
 
-MulticastModel& SpatialReuseModels::GetMulticastModel()
-{
-  return *multicast_model;
-}
-const MulticastModel& SpatialReuseModels::GetMulticastModel() const
-{
-  return *multicast_model;
-}
+  for (const auto& fill_provider : input.fill_providers)
+  {
+    transfer_infos.emplace_back(
+      fill_provider.spatial_reuse_model->Apply(input.children_fill,
+                                               fill_provider.occupancy)
+    );
+  }
 
-
-SpatialReuseInfo SpatialReuseAnalysis(const SpatialReuseAnalysisInput& input,
-                                      const SpatialReuseModels& models)
-{
-  auto link_transfer_info =
-    models.GetLinkTransferModel().Apply(input.children_fill,
-                                        input.children_occupancy);
-
-  auto multicast_info = models.GetMulticastModel().Apply(
-    link_transfer_info.unfulfilled_fill
-  );
-
-  return SpatialReuseInfo{
-    .link_transfer_info = std::move(link_transfer_info),
-    .multicast_info = std::move(multicast_info)
-  };
+  return SpatialReuseInfo{.transfer_infos = std::move(transfer_infos)};
 }
 
 
@@ -75,7 +48,7 @@ SimpleLinkTransferModel::SimpleLinkTransferModel()
                           " or (x'=x and y'=y-1) or (x'=x and y'=y+1) }");
 }
 
-LinkTransferInfo SimpleLinkTransferModel::Apply(
+TransferInfo SimpleLinkTransferModel::Apply(
   const Fill& fill,
   const Occupancy& occupancy
 ) const
@@ -86,17 +59,24 @@ LinkTransferInfo SimpleLinkTransferModel::Apply(
   }
 
   auto n = fill.dim_in_tags.size();
-  if (n == 0 || fill.dim_in_tags.back() == spacetime::Dimension::Time)
+  if (n == 0 || std::holds_alternative<Temporal>(fill.dim_in_tags.back()))
   {
     throw std::logic_error("unreachable");
   }
 
-  if (n < 3)
+  auto transfer_info = TransferInfo();
+  transfer_info.is_link_transfer = true;
+
+  if (n < 3) // i.e., no temporal loop. Cannot fulfill via link transfers
   {
-    return LinkTransferInfo{
-      .link_transfer=Transfers(fill.dim_in_tags, fill.map.subtract(fill.map)),
-      .unfulfilled_fill=fill
-    };
+    transfer_info.fulfilled_fill =
+      Transfers(fill.dim_in_tags, fill.map.subtract(fill.map)); // empty map
+    transfer_info.parent_reads = 
+      Reads(occupancy.dim_in_tags,
+            occupancy.map.subtract(occupancy.map)); // empty map
+    transfer_info.unfulfilled_fill = fill;
+
+    return transfer_info;
   }
 
   auto complete_connectivity =
@@ -106,10 +86,13 @@ LinkTransferInfo SimpleLinkTransferModel::Apply(
   auto fill_set = fill.map.intersect(available_from_neighbors);
   auto remaining_fill = fill.map.subtract(fill_set);
 
-  return LinkTransferInfo{
-    .link_transfer=Transfers(fill.dim_in_tags, fill_set),
-    .unfulfilled_fill=Fill(fill.dim_in_tags, remaining_fill)
-  };
+  transfer_info.fulfilled_fill = Transfers(fill.dim_in_tags, fill_set);
+  // TODO: fill parent_reads. Below is just (wrong!) placeholder to make
+  // isl::map copy ctor happy.
+  transfer_info.parent_reads= Reads(fill.dim_in_tags, fill_set);
+  transfer_info.unfulfilled_fill = Fill(fill.dim_in_tags, remaining_fill);
+
+  return transfer_info;
 }
 
 
@@ -187,12 +170,14 @@ SimpleMulticastModel::SimpleMulticastModel()
 {
 }
 
-MulticastInfo SimpleMulticastModel::Apply(const Fill& fill) const
+TransferInfo
+SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
 {
-  MulticastInfo multicast_info;
+  auto transfer_info = TransferInfo();
+  transfer_info.is_multicast = true;
 
   auto n = isl::dim(fill.map, isl_dim_in);
-  if (n == 0 || fill.dim_in_tags.back() == spacetime::Dimension::Time)
+  if (n == 0 || std::holds_alternative<Temporal>(fill.dim_in_tags.back()))
   {
     throw std::logic_error("fill spacetime missing spatial dimensions");
   }
@@ -257,17 +242,23 @@ MulticastInfo SimpleMulticastModel::Apply(const Fill& fill) const
         accumulator.multicast_to_hops_accesses)
   {
     auto& stats =
-      multicast_info.compat_access_stats[std::make_pair(multicast, 1)];
+      transfer_info.compat_access_stats[std::make_pair(multicast, 1)];
     stats.accesses = hops_accesses.accesses;
     stats.hops = hops_accesses.hops / hops_accesses.accesses;
   }
 
-  multicast_info.reads = Reads(
+  transfer_info.fulfilled_fill = Transfers(fill.dim_in_tags, fill.map);
+  // TODO: this assumes no bypassing
+  transfer_info.parent_reads = Reads(
+    occ.dim_in_tags,
+    isl::project_last_dim(isl::project_last_dim(fill.map))
+  );
+  transfer_info.unfulfilled_fill = Fill(
     fill.dim_in_tags,
-    fill.map.subtract(fill.map)
+    fill.map.subtract(fill.map)  // empty map
   );
 
-  return multicast_info;
+  return transfer_info;
 }
 
 } // namespace analysis

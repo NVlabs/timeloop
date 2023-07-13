@@ -3,12 +3,14 @@
 #include "util/accelergy_interface.hpp"
 #include "util/banner.hpp"
 
-#include "applications/looptree/model.hpp"
+#include "applications/looptree-model/model.hpp"
 #include "loop-analysis/nest-analysis.hpp"
-#include "loop-analysis/isl-nest-analysis.hpp"
+#include "loop-analysis/isl-analysis/capacity-analysis.hpp"
+#include "loop-analysis/isl-analysis/isl-nest-analysis.hpp"
 #include "loop-analysis/mapping-to-isl/fused-mapping-to-isl.hpp"
 #include "loop-analysis/isl-ir.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
+#include "isl-wrapper/isl-functions.hpp"
 #include "mapping/fused-mapping.hpp"
 #include "workload/fused-workload.hpp"
 #include <isl/constraint.h>
@@ -141,11 +143,73 @@ Application::Application(config::CompoundConfig* config,
   mapping::FusedMapping mapping =
     mapping::ParseMapping(rootNode.lookup("mapping"), workload);
 
+<<<<<<< HEAD:src/applications/looptree/model.cpp
   auto occupancies = analysis::OccupanciesFromMapping(mapping, workload);
 
   auto result = analysis::ReuseAnalysis(analysis::ReuseAnalysisInput(
     occupancies
   ));
+=======
+  auto mapping_analysis_result =
+    analysis::OccupanciesFromMapping(mapping, workload);
+
+  for (const auto& [buf, occ] : mapping_analysis_result.lbuf_to_occupancy)
+  {
+    auto result = analysis::TemporalReuseAnalysis(
+      analysis::TemporalReuseAnalysisInput(
+        occ,
+        analysis::BufTemporalReuseOpts{
+          .exploit_temporal_reuse=1
+        }
+      )
+    );
+
+    auto p_fill = result.fill.map.copy();
+    auto p_fill_count = isl_pw_qpolynomial_sum(isl_map_card(p_fill));
+
+    auto p_occ = result.effective_occupancy.map.copy();
+    isl_bool tight;
+    auto p_occ_count = isl_pw_qpolynomial_bound(
+      isl_map_card(p_occ),
+      isl_fold_max,
+      &tight
+    );
+    assert(tight == isl_bool_true);
+
+    std::cout << "[Occupancy]" << buf << ": "
+      << isl::pw_qpolynomial_fold_to_str(p_occ_count) << std::endl;
+    std::cout << "[Fill]" << buf << ": "
+      << isl_pw_qpolynomial_to_str(p_fill_count) << std::endl;
+    isl_pw_qpolynomial_free(p_fill_count);
+  }
+
+  for (const auto& [compute, tiling] : mapping_analysis_result.branch_tiling)
+  {
+    auto p_ops = isl_map_card(tiling.copy());
+    std::cout << "[Operations]" << compute << ": "
+      << isl_pw_qpolynomial_to_str(p_ops) << std::endl;
+    isl_pw_qpolynomial_free(p_ops);
+  }
+
+  // auto latency =
+  //   mapping_analysis_result.compute_latency_aggregator.CalculateLatency(
+  //     mapping_analysis_result.lcomp_to_occupancy,
+  //     mapping_analysis_result.compute_to_assumed_parallelism
+  //   );
+  // std::cout << "[Latency]: " << latency << std::endl;
+
+  auto capacities = ComputeCapacityFromMapping(
+    mapping,
+    mapping_analysis_result.lbuf_to_occupancy,
+    workload
+  );
+
+  for (const auto& [buf_id, cap] : capacities)
+  {
+    std::cout << "[Capacity]" << buf_id << ": "
+              << isl_pw_qpolynomial_to_str(cap) << std::endl;
+  }
+>>>>>>> looptree:src/applications/looptree-model/model.cpp
 
   // // for (const auto& [buf, fill] : fills)
   // // {

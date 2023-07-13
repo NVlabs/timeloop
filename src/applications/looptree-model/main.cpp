@@ -2,7 +2,7 @@
 #include <csignal>
 #include <cstring>
 
-#include "applications/looptree/model.hpp"
+#include "applications/looptree-model/model.hpp"
 #include "compound-config/compound-config.hpp"
 #include "util/args.hpp"
 
@@ -56,4 +56,3 @@ int main(int argc, char* argv[])
 
   return 0;
 }
-

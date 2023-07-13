@@ -123,7 +123,7 @@ BufferIterLevelsFromMapping(const loop::Nest& nest,
                       nest.storage_tiling_boundaries.end());
 
   // TODO: for now, buffer id in loop nest is the arch level
-  BufferID arch_level = 0;
+  BufferId arch_level = 0;
   for (std::size_t loop_idx = 0; loop_idx < nest.loops.size(); ++loop_idx)
   {
     if (tiling_boundaries.find(loop_idx) != tiling_boundaries.end()
@@ -165,7 +165,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
 
   std::map<LogicalBuffer, Skew> result;
 
-  std::vector<spacetime::Dimension> tags;
+  std::vector<SpaceTime> tags;
   auto p_aff_list = isl_aff_list_alloc(GetIslCtx().get(), n_loops);
   auto p_domain_space = isl_space_set_alloc(GetIslCtx().get(), 0, n_loops);
   int aff_list_size = 0;
@@ -191,7 +191,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(spacetime::Dimension::SpaceX);
+        tags.emplace_back(Spatial(0));
         arch_spatial_levels = 1;
       }
       if (arch_spatial_levels == 1)  // i.e., no x loop between last and this
@@ -199,7 +199,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(spacetime::Dimension::SpaceY);
+        tags.emplace_back(Spatial(1));
         arch_spatial_levels = 0;
       }
 
@@ -224,7 +224,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
       p_aff = isl_aff_set_coefficient_si(p_aff, isl_dim_in, loop_idx, 1);
       p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
       aff_list_size++;
-      tags.emplace_back(spacetime::Dimension::Time);
+      tags.emplace_back(Temporal());
 
       last_x_idx_opt = std::nullopt;
       last_y_idx_opt = std::nullopt;
@@ -237,7 +237,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(spacetime::Dimension::SpaceX);
+        tags.emplace_back(Spatial(0));
       }
       p_aff = isl_aff_list_get_aff(p_aff_list, aff_list_size-1);
 
@@ -267,7 +267,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(spacetime::Dimension::SpaceX);
+        tags.emplace_back(Spatial(0));
       }
 
       if (!last_y_idx_opt)
@@ -275,7 +275,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(spacetime::Dimension::SpaceY);
+        tags.emplace_back(Spatial(1));
       }
       p_aff = isl_aff_list_get_aff(p_aff_list, aff_list_size-1);
 
@@ -316,7 +316,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
     p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
     p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
     aff_list_size++;
-    tags.emplace_back(spacetime::Dimension::SpaceX);
+    tags.emplace_back(Spatial(0));
     arch_spatial_levels = 1;
   }
   if (arch_spatial_levels == 1)  // i.e., no y loop between last and this
@@ -324,7 +324,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
     p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
     p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
     aff_list_size++;
-    tags.emplace_back(spacetime::Dimension::SpaceY);
+    tags.emplace_back(Spatial(1));
     arch_spatial_levels = 0;
   }
 

@@ -59,10 +59,13 @@ std::pair<Occupancy, Fill> FillFromOccupancy(const Occupancy& occupancy)
   auto tags = occupancy.dim_in_tags;
   for (const auto& it: occupancy.dim_in_tags | indexed(0) | reversed)
   {
-    auto dim_type = it.value();
+    auto dim_tag = it.value();
     auto dim_idx = it.index();
 
-    if (dim_type != spacetime::Dimension::Time)
+    if (!(std::holds_alternative<Temporal>(dim_tag)
+          || std::holds_alternative<Sequential>(dim_tag)
+          || std::holds_alternative<PipelineTemporal>(dim_tag)
+         ))
     {
       continue;
     }
