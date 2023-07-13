@@ -694,46 +694,25 @@ SkewsInfo SkewsFromMapping(mapping::FusedMapping& mapping)
           {
             if (last_buf && node.buffer == *last_buf)
             {
-              if (cur_spatial_dims + new_cur_spatial_dims > 0)
-              {
-                cur_spatial_dims = 1;
-              }
-              else
-              {
-                cur_spatial_dims = 0;
-              }
+              cur_has_spatial = new_cur_has_spatial || cur_has_spatial;
             }
             else
             {
-              cur_spatial_dims = new_cur_spatial_dims;
+              cur_has_spatial = new_cur_has_spatial;
             }
             last_buf = node.buffer;
-            new_cur_spatial_dims = 0;
+            new_cur_has_spatial = false;
 
-            if (cur_spatial_dims == 0)
+            if (!cur_has_spatial)
             {
               tags.push_back(Spatial(0));
 
-              const size_t n_spatial_dims = 2;  // TODO: assumes 2D array
+              const size_t n_spatial_dims = 1;  // TODO: assumes 1D array
               map = isl::insert_dummy_dim_ins(std::move(map),
                                               isl::dim(map, isl_dim_in),
                                               n_spatial_dims);
 
-              cur_spatial_dims = 2;
-            }
-            else if (cur_spatial_dims == 1)
-            {
-              // The following code assumes we have specified a for loop which
-              // was mapped to the X axis. However, LoopTree currently has no
-              // way of specifying something to be mapped to SpaceY.
-              tags.push_back(spacetime::Dimension::SpaceY);
-
-              const size_t n_spatial_dims = 1;  // TODO: assumes 2D array
-              map = isl::insert_dummy_dim_ins(std::move(map),
-                                              isl::dim(map, isl_dim_in),
-                                              n_spatial_dims);
-
-              cur_spatial_dims = 2;
+              cur_has_spatial = true;
             }
 
             lbuf_to_skew.emplace(std::make_pair(

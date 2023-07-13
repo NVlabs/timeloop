@@ -3,87 +3,19 @@
 #include <cstring>
 #include <functional>
 
-#include <boost/algorithm/string/join.hpp>
+#include <boost/range/adaptor/map.hpp>
 
 #include "mapping/fused-mapping.hpp"
 #include "workload/fused-workload.hpp"
 #include "util/args.hpp"
+#include "util/hashable-set.hpp"
 
 extern bool gTerminateEval;
 
 using problem::EinsumId;
 using problem::DimensionId;
 
-struct EinsumSet
-{
-  void AddEinsum(EinsumId einsum)
-  {
-    einsums_.emplace(einsum);
-    hash_ ^= einsum;
-  }
-
-  void RemoveEinsum(EinsumId einsum)
-  {
-    einsums_.erase(einsum);
-    hash_ ^= einsum;
-  }
-
-  inline size_t GetHash() const
-  {
-    return hash_;
-  }
-
-  size_t Size() const
-  {
-    return einsums_.size();
-  }
-
-  auto begin() const
-  {
-    return einsums_.begin();
-  }
-
-  auto end() const
-  {
-    return einsums_.end();
-  }
-
- private:
-  std::set<EinsumId> einsums_;
-  size_t hash_;
-
-  friend bool operator==(const EinsumSet& set1, const EinsumSet& set2);
-};
-
-bool operator==(const EinsumSet& set1, const EinsumSet& set2)
-{
-  if (set1.GetHash() != set2.GetHash())
-  {
-    return false;
-  }
-
-  return set1.einsums_ == set2.einsums_;
-}
-
-std::ostream& operator<<(std::ostream& os, const EinsumSet& set)
-{
-  std::vector<std::string> set_str;
-  for (auto einsum_id : set)
-  {
-    set_str.push_back(std::to_string(einsum_id));
-  }
-  os << "{" << boost::algorithm::join(set_str, ", ") << "}";
-  return os;
-}
-
-template<>
-struct std::hash<EinsumSet>
-{
-  size_t operator()(const EinsumSet& set) const
-  {
-    return set.GetHash();
-  }
-};
+using EinsumSet = HashableSet<EinsumId>;
 
 struct EinsumDimGraph
 {
@@ -95,29 +27,28 @@ struct HeadEinsumTracker
   HeadEinsumTracker(const problem::FusedWorkload& workload) :
     workload_(workload)
   {
-    for (const auto& [_, einsum_id] : workload.EinsumNameToId())
-    {
-      rest_of_einsums_.AddEinsum(einsum_id);
-    }
+    using namespace boost::adaptors;
+    auto range = workload.EinsumNameToId() | map_values;
+    rest_of_einsums_ = std::set<EinsumId>(range.begin(), range.end());
   }
 
   void TakeEinsum(EinsumId einsum);
   void UntakeEinsum(EinsumId einsum);
 
-  const EinsumSet& NextEinsums() const
+  const std::set<EinsumId>& NextEinsums() const
   {
     return next_einsums_;
   }
-  const EinsumSet& RestOfEinsums() const
+  const std::set<EinsumId>& RestOfEinsums() const
   {
     return rest_of_einsums_;
   }
 
  private:
   const problem::FusedWorkload& workload_;
-  EinsumSet next_einsums_;
-  EinsumSet rest_of_einsums_;
-  EinsumSet taken_einsums_;
+  std::set<EinsumId> next_einsums_;
+  std::set<EinsumId> rest_of_einsums_;
+  std::set<EinsumId> taken_einsums_;
 };
 
 template<typename T>
@@ -322,10 +253,8 @@ struct Mapper
   Mapper(const problem::FusedWorkload& workload) :
     head_tracker_(workload)
   {
-    for (auto [_, einsum_id] : workload.EinsumNameToId())
-    {
-      rest_of_einsums_.AddEinsum(einsum_id);
-    }
+    using namespace boost::adaptors;
+    rest_of_einsums_ = EinsumSet(workload.EinsumNameToId() | map_values);
   }
 
   ParetoFrontier<MapperResult> Run()
@@ -346,7 +275,7 @@ struct Mapper
       return *memoized_val_opt;
     }
 
-    auto cur_fused_set = EinsumSet();
+    auto cur_fused_set = std::set<EinsumId>();
 
     // Start a new fused set
     auto pareto = ParetoFrontier<MapperResult>();
@@ -354,15 +283,15 @@ struct Mapper
     for (auto e : next_einsums)
     {
       head_tracker_.TakeEinsum(e);
-      rest_of_einsums_.RemoveEinsum(e);
-      cur_fused_set.AddEinsum(e);
+      rest_of_einsums_ = Erase(std::move(rest_of_einsums_), e);
+      cur_fused_set.emplace(e);
 
       auto cur_pareto = SearchCurFusedSet(cur_fused_set);
       pareto.Insert(SearchCurFusedSet(cur_fused_set));
 
       head_tracker_.UntakeEinsum(e);
-      rest_of_einsums_.AddEinsum(e);
-      cur_fused_set.RemoveEinsum(e);
+      rest_of_einsums_ = Emplace(std::move(rest_of_einsums_), e);
+      cur_fused_set.erase(e);
     }
 
     memo_.Memoize(rest_of_einsums_, pareto);
@@ -370,7 +299,8 @@ struct Mapper
     return pareto;
   }
 
-  ParetoFrontier<MapperResult> SearchCurFusedSet(EinsumSet& cur_fused_set)
+  ParetoFrontier<MapperResult>
+  SearchCurFusedSet(std::set<EinsumId>& cur_fused_set)
   {
     // Stop here
     auto cur_pareto = ExploreTilingAndReuseLevel(cur_fused_set);
@@ -382,16 +312,16 @@ struct Mapper
     auto next_einsums = head_tracker_.NextEinsums();
     for (auto e : next_einsums)
     {
-      cur_fused_set.AddEinsum(e);
+      cur_fused_set.emplace(e);
       head_tracker_.TakeEinsum(e);
-      rest_of_einsums_.RemoveEinsum(e);
+      rest_of_einsums_ = Erase(std::move(rest_of_einsums_), e);
 
       auto cur_pareto = SearchCurFusedSet(cur_fused_set);
       pareto.Insert(SearchCurFusedSet(cur_fused_set));
 
-      cur_fused_set.RemoveEinsum(e);
+      cur_fused_set.erase(e);
       head_tracker_.UntakeEinsum(e);
-      rest_of_einsums_.AddEinsum(e);
+      rest_of_einsums_ = Emplace(std::move(rest_of_einsums_), e);
     }
 
     return pareto;
