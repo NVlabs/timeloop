@@ -143,13 +143,6 @@ Application::Application(config::CompoundConfig* config,
   mapping::FusedMapping mapping =
     mapping::ParseMapping(rootNode.lookup("mapping"), workload);
 
-<<<<<<< HEAD:src/applications/looptree/model.cpp
-  auto occupancies = analysis::OccupanciesFromMapping(mapping, workload);
-
-  auto result = analysis::ReuseAnalysis(analysis::ReuseAnalysisInput(
-    occupancies
-  ));
-=======
   auto mapping_analysis_result =
     analysis::OccupanciesFromMapping(mapping, workload);
 
@@ -209,7 +202,6 @@ Application::Application(config::CompoundConfig* config,
     std::cout << "[Capacity]" << buf_id << ": "
               << isl_pw_qpolynomial_to_str(cap) << std::endl;
   }
->>>>>>> looptree:src/applications/looptree-model/model.cpp
 
   // // for (const auto& [buf, fill] : fills)
   // // {
