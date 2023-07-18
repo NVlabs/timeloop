@@ -222,7 +222,10 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
       }
       else if (is_boundary)
       {
-        auto p_occ_map = occ.map.copy();
+        const auto& parent_stats = isl_analysis_output.buf_to_stats.at(
+          LogicalBuffer(cur_buffer_id-1, dspace_id, 0)
+        );
+        auto p_occ_map = parent_stats.effective_occupancy.map.copy();
         auto p_occ_count = isl::get_val_from_singular(
           isl_pw_qpolynomial_bound(isl_map_card(p_occ_map),
                                    isl_fold_max,
