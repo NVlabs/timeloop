@@ -498,6 +498,7 @@ bool CompoundConfigNode::set(CompoundConfigNode& node)
   
   // Sets our YNode to that of the other node.
   YNode = node.getYNode();
+  return true;
 
   EXCEPTION_EPILOGUE;
 }

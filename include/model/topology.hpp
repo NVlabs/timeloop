@@ -266,11 +266,6 @@ class Topology : public Module
       ar& BOOST_SERIALIZATION_NVP(networks_);
     }
   }
-  
-  // Accessing levels.
-  friend Level GetLevel(const Topology& topology, unsigned level_id);
-  BufferLevel ExposeStorageLevel(unsigned storage_level_id) const;
-  friend ArithmeticUnits GetArithmeticLevel(const Topology& topology);
 
  private:
   std::shared_ptr<Level> GetLevel(unsigned level_id) const;
@@ -316,6 +311,12 @@ class Topology : public Module
     swap(first.specs_, second.specs_);
     swap(first.stats_, second.stats_);
   }
+
+  // Accessing levels.
+  friend Level GetLevel(const Topology& topology, unsigned level_id);
+  inline BufferLevel ExposeStorageLevel(unsigned storage_level_id) const
+  { return *GetStorageLevel(storage_level_id); };
+  friend ArithmeticUnits GetArithmeticLevel(const Topology& topology);
 
   Topology& operator = (Topology other)
   {
