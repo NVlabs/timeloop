@@ -96,76 +96,6 @@ TransferInfo SimpleLinkTransferModel::Apply(
 }
 
 
-struct HopsAccesses
-{
-  double hops;
-  double accesses;
-
-  /**
-   * @brief Simple weighted average for hops and accumulation for accesses.
-   */
-  void InsertHopsAccesses(double extra_hops, double extra_accesses)
-  {
-    accesses += extra_accesses;
-    hops += extra_hops;
-  }
-};
-
-struct Accumulator
-{
-  std::map<uint64_t, HopsAccesses> multicast_to_hops_accesses;
-  isl_pw_qpolynomial* p_time_data_to_hops;
-};
-
-/**
- * @brief Accumulates scatter, hops, and accesses for many multicast factors.
- *
- * @param p_domain A set with signature $\{ [st_{n-1},t_n] -> data \}$ where
- *                 data is some set of data.
- * @param p_multicast_factor A qpolynomial assumed to be constant that equals
- *                           the multicast factor.
- * @param p_voided_accumulator Voided pointer that is cast into Accumulator.
- */
-isl_stat ComputeMulticastScatterHops(isl_set* p_domain,
-                                     isl_qpolynomial* p_multicast_factor,
-                                     void* p_voided_accumulator)
-{
-  auto& accumulator = *static_cast<Accumulator*>(p_voided_accumulator);
-  // WARNING: assumes constant multicast factor over piecewise domain.
-  // It is unclear what conditions may cause this to break.
-  auto multicast_factor = isl::val_to_double(
-    isl_qpolynomial_eval(p_multicast_factor,
-                         isl_set_sample_point(isl_set_copy(p_domain)))
-  );
-  auto& hops_accesses = accumulator.multicast_to_hops_accesses[multicast_factor];
-
-  auto p_hops_pw_qp = isl_set_apply_pw_qpolynomial(
-    isl_set_copy(p_domain),
-    isl_pw_qpolynomial_copy(accumulator.p_time_data_to_hops)
-  );
-  if (isl_pw_qpolynomial_isa_qpolynomial(p_hops_pw_qp) == isl_bool_false)
-  {
-    throw std::runtime_error("accesses is not a single qpolynomial");
-  }
-  auto hops = isl::val_to_double(isl_qpolynomial_get_constant_val(
-    isl_pw_qpolynomial_as_qpolynomial(p_hops_pw_qp)
-  ));
-
-  auto p_time_to_data = isl_set_unwrap(p_domain);
-  auto p_accesses_pw_qp = isl_pw_qpolynomial_sum(isl_map_card(p_time_to_data));
-  if (isl_pw_qpolynomial_isa_qpolynomial(p_accesses_pw_qp) == isl_bool_false)
-  {
-    throw std::runtime_error("accesses is not a single qpolynomial");
-  }
-  auto accesses = isl::val_to_double(isl_qpolynomial_get_constant_val(
-    isl_pw_qpolynomial_as_qpolynomial(p_accesses_pw_qp)
-  ));
-
-  hops_accesses.InsertHopsAccesses(hops, accesses);
-
-  return isl_stat_ok;
-}
-
 SimpleMulticastModel::SimpleMulticastModel()
 {
 }
@@ -191,7 +121,7 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
   ));
   auto wrapped_fill = isl::manage(p_wrapped_fill);
 
-  auto p_multicast_factor = isl_map_card(wrapped_fill.copy());
+  // auto p_multicast_factor = isl_map_card(wrapped_fill.copy());
 
   auto p_y_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
     isl_qpolynomial_add(
@@ -229,23 +159,27 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
 
   auto p_hops = isl_pw_qpolynomial_add(p_y_hops, p_x_hops);
 
-  auto accumulator = Accumulator();
-  accumulator.p_time_data_to_hops = p_hops;
-  isl_pw_qpolynomial_foreach_piece(p_multicast_factor,
-                                    &ComputeMulticastScatterHops,
-                                    static_cast<void*>(&accumulator));
+  auto p_total_accesses = isl_pw_qpolynomial_sum(isl_map_card(isl_set_unwrap(
+    wrapped_fill.domain().release()
+  )));
+  auto accesses = isl::val_to_double(
+    isl_qpolynomial_get_constant_val(
+      isl_pw_qpolynomial_as_qpolynomial(p_total_accesses)
+    )
+  );
 
-  isl_pw_qpolynomial_free(p_multicast_factor);
-  isl_pw_qpolynomial_free(accumulator.p_time_data_to_hops);
-
-  for (const auto& [multicast, hops_accesses] :
-        accumulator.multicast_to_hops_accesses)
-  {
-    auto& stats =
-      transfer_info.compat_access_stats[std::make_pair(multicast, 1)];
-    stats.accesses = hops_accesses.accesses;
-    stats.hops = hops_accesses.hops / hops_accesses.accesses;
-  }
+  auto p_total_hops = isl_set_apply_pw_qpolynomial(
+    wrapped_fill.domain().release(),
+    p_hops
+  );
+  auto total_hops = isl::val_to_double(
+    isl_qpolynomial_get_constant_val(
+      isl_pw_qpolynomial_as_qpolynomial(p_total_hops)
+    )
+  );
+  auto& stats = transfer_info.compat_access_stats[std::make_pair(1, 1)];
+  stats.accesses = accesses;
+  stats.hops = total_hops / accesses;
 
   transfer_info.fulfilled_fill = Transfers(fill.dim_in_tags, fill.map);
   // TODO: this assumes no bypassing
