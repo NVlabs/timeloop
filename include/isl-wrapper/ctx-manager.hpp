@@ -4,4 +4,5 @@
 #include <isl/cpp.h>
 
 isl::ctx& GetIslCtx();
-const std::unique_lock<std::mutex> GetBarvinokLock();
+
+std::mutex& GetIslMutex();
