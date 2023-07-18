@@ -1,7 +1,7 @@
 #pragma once
 
 template<typename T, typename... Types>
-constexpr bool IsAnyOfV;
+constexpr bool IsAnyOfV = false;
 
 template<typename T, typename Type0, typename... Types>
 constexpr bool IsAnyOfV<T, Type0, Types...> =
