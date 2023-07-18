@@ -158,10 +158,7 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
     auto is_master_spatial = master_spatial_level[cur.level];
     auto is_boundary = storage_boundary_level[cur.level];
 
-    if (is_boundary)
-    {
-      cur_buffer_id--;
-    }
+    auto lock = std::lock_guard(GetIslMutex());
 
     for (unsigned dspace_id = 0;
         dspace_id < workload.GetShape()->NumDataSpaces;
@@ -204,11 +201,7 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
         tile.link_transfers = isl::val_to_double(p_val);
       }
 
-      if (first_loop)
-      {
-        tile.size = 0;
-      }
-      else if (is_master_spatial)
+      if (is_master_spatial)
       {
         auto p_occ_map = occ.map.copy();
         auto p_occ_count = isl::get_val_from_singular(
@@ -243,6 +236,11 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
       }
 
       working_sets[dspace_id].push_back(tile);
+    }
+
+    if (is_boundary)
+    {
+      cur_buffer_id--;
     }
 
     last_is_boundary = is_boundary;
