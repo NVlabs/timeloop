@@ -85,7 +85,7 @@ SpatialReuseInfo SpatialReuseAnalysis(const SpatialReuseAnalysisInput& input);
 /**
  * @brief A link transfer model for 2-dimensional mesh interconnect.
  */
-class SimpleLinkTransferModel : public SpatialReuseModel
+class SimpleLinkTransferModel final : public SpatialReuseModel
 {
  public:
   SimpleLinkTransferModel();
@@ -108,7 +108,7 @@ class SimpleLinkTransferModel : public SpatialReuseModel
  *   as the original multicast model (i.e., assumes parents have equally
  *   distributed tiles)
  */
-class SimpleMulticastModel : public SpatialReuseModel
+class SimpleMulticastModel final : public SpatialReuseModel
 {
  public:
   SimpleMulticastModel();
