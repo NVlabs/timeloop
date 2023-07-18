@@ -263,7 +263,7 @@ class Topology : public Module
   
   // Accessing levels.
   friend Level GetLevel(const Topology& topology, unsigned level_id);
-  friend BufferLevel GetStorageLevel(const Topology& topology, unsigned storage_level_id);
+  BufferLevel ExposeStorageLevel(unsigned storage_level_id) const;
   friend ArithmeticUnits GetArithmeticLevel(const Topology& topology);
 
  private:
