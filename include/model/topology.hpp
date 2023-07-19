@@ -314,8 +314,8 @@ class Topology : public Module
 
   // Accessing levels.
   friend Level GetLevel(const Topology& topology, unsigned level_id);
-  inline BufferLevel ExposeStorageLevel(unsigned storage_level_id) const
-  { return *GetStorageLevel(storage_level_id); };
+  inline std::shared_ptr<const BufferLevel> ExposeStorageLevel(unsigned storage_level_id) const
+  { return GetStorageLevel(storage_level_id); };
   friend ArithmeticUnits GetArithmeticLevel(const Topology& topology);
 
   Topology& operator = (Topology other)
