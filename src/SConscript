@@ -291,6 +291,10 @@ looptree_mapper_sources = Split("""
 applications/looptree-mapper/main.cpp
 """)
 
+einsumgraph_sources = Split("""
+applications/looptree-mapper/einsum-graph.cpp
+""")
+
 unittest_sources = Split("""
 unit-test/test-main.cpp
 unit-test/test-simple-link-transfer.cpp
@@ -306,6 +310,7 @@ bin_looptree_mapper = env.Program(target = 'looptree-mapper',
 bin_unittest = env.Program(target = 'timeloop-tests', source = unittest_sources)
 # bin_unittest = env.Program(target = 'timeloop-tests', source = unittest_sources)
 bin_looptree_model = env.Program(target='looptree-model', source=looptree_sources)
+bin_einsum_graph = env.Program(target='einsum-graph', source=einsumgraph_sources)
 
 env.Install(env["BUILD_BASE_DIR"] + '/bin', [
                                             # bin_metrics,
@@ -316,6 +321,7 @@ env.Install(env["BUILD_BASE_DIR"] + '/bin', [
                                             bin_looptree_mapper,
                                             bin_unittest,
                                             bin_looptree_model,
+                                            bin_einsum_graph
                                             ])
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))
