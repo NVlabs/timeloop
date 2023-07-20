@@ -130,6 +130,7 @@ struct DataMovementInfo
   std::size_t size;
   // std::size_t partition_size;
   bool distributed_multicast;
+  double total_child_accesses;
   AccessStatMatrix access_stats;
   double link_transfers;
   std::vector<loop::Descriptor> subnest;

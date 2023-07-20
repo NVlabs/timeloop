@@ -94,6 +94,7 @@ struct DataMovementInfo
    * @see tiling::DataMovementInfo::peer_fills
    * @see tiling::DataMovementInfo::fills
    */
+  double total_child_accesses;
   double parent_access_share;
   bool distributed_multicast;
   AccessStatMatrix access_stats;
@@ -161,6 +162,7 @@ struct DataMovementInfo
     expected_metadata_occupancy = {};
     partition_size = 0;
     access_stats.clear();
+    total_child_accesses = 0;
     parent_access_share = 0;
     distributed_multicast = false;
     content_accesses = 0;

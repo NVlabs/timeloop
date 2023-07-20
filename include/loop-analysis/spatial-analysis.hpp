@@ -28,6 +28,8 @@ struct TransferInfo
     double hops;
   };
   std::map<std::pair<uint64_t, uint64_t>, AccessStats> compat_access_stats;
+
+  double total_child_accesses = 0;
   /***************************************************************************/
 };
 
