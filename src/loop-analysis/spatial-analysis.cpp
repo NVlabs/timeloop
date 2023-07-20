@@ -181,6 +181,12 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
   stats.accesses = accesses;
   stats.hops = total_hops / accesses;
 
+  transfer_info.total_child_accesses = isl::val_to_double(
+    isl::get_val_from_singular(
+      isl_pw_qpolynomial_sum(isl_map_card(fill.map.copy()))
+    )
+  );
+
   transfer_info.fulfilled_fill = Transfers(fill.dim_in_tags, fill.map);
   // TODO: this assumes no bypassing
   transfer_info.parent_reads = Reads(

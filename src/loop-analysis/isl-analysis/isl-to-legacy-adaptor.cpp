@@ -165,6 +165,8 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
         ++dspace_id)
     {
       DataMovementInfo tile;
+      tile.Reset();
+
       tile.link_transfers = 0;
       tile.subnest = subnest;
       tile.replication_factor = num_spatial_elems[cur.level];
@@ -179,6 +181,8 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
 
       if (last_is_boundary || first_loop)
       {
+        tile.total_child_accesses = stats.total_child_accesses ;
+
         const auto& key_to_access_stats = stats.compat_access_stats;
         const auto& link_transfers = stats.link_transfer;
 

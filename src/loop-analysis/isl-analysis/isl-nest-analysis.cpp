@@ -74,6 +74,7 @@ ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input)
       {
         stats.compat_access_stats = transfer_info.compat_access_stats;
         stats.parent_reads = transfer_info.parent_reads;
+        stats.total_child_accesses = transfer_info.total_child_accesses;
       }
     }
 

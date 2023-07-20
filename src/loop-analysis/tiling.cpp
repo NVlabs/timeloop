@@ -439,9 +439,6 @@ void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
       continue;
     }
 
-    // Initialize parent_access_share to 0.
-    tile_nest[cur].parent_access_share = 0;
-   
     // Find next (outer) non-zero level.
     int outer;
     for (outer = cur + 1; outer < num_tiling_levels && tile_nest[outer].size == 0; outer++)
@@ -463,6 +460,15 @@ void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
     // std::cerr << "  outer = " << outer << std::endl;
 
     // Found an outer level.
+    if (tile_nest[outer].total_child_accesses != 0.0)
+    {
+      // If child_access_share was already set by nest analysis, no need to
+      // calculate from parent accesses
+      tile_nest[cur].parent_access_share =
+        tile_nest[outer].total_child_accesses
+        / tile_nest[cur].replication_factor;
+      continue;
+    }
     for (auto& x: tile_nest[outer].access_stats.stats)
     {
       // FIXME: is this correct in the face of spatial sliding windows (e.g. Input halos)?
@@ -859,6 +865,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.dataspace_id = (unsigned)pv;
       collapsed_tile.partition_size = 0;
       collapsed_tile.distributed_multicast = false;
+      collapsed_tile.total_child_accesses =
+        tiles[pv][innermost_loop].total_child_accesses;
       collapsed_tile.access_stats = tiles[pv][innermost_loop].access_stats;
       collapsed_tile.content_accesses = tiles[pv][innermost_loop].access_stats.TotalAccesses();
       collapsed_tile.link_transfers = tiles[pv][innermost_loop].link_transfers;

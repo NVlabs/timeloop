@@ -132,6 +132,7 @@ namespace analysis
 void DataMovementInfo::Reset()
 {
   size = 0;
+  total_child_accesses = 0.0;
   access_stats.clear();
   link_transfers = 0;
   subnest.resize(0);
