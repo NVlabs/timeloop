@@ -26,6 +26,7 @@
  */
 #include <cassert>
 #include <isl/set.h>
+#include <isl/val.h>
 
 #include "loop-analysis/point-set-isl.hpp"
 
