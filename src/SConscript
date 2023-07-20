@@ -34,6 +34,11 @@ env.Append(CPPPATH = [os.path.join(env['BUILD_BASE_DIR'], 'include')])
 #env.Append(CPPPATH = ['src/include'])
 #env["CPPPATH"] = ["."]
 
+# Unclear if the following option should be gated on clang, Darwin or
+# dynamic linking.
+if str(Platform()) == 'darwin':
+  env.Append(CPPDEFINES = ['BOOST_LOG_DYN_LINK']) # BOOST_ALL_DYN_LINK  
+
 if GetOption('debug'):
     env.Append(CCFLAGS = ['-g', '-O0'])
 else:
@@ -71,7 +76,12 @@ if GetOption('link_static'):
 else:
     print("Using dynamic linking.")
 
-env.Append(LIBS = ['boost_iostreams', 'boost_serialization', 'boost_log', 'boost_log_setup', 'boost_thread', 'boost_filesystem'])
+env.Append(LIBS = ['boost_iostreams', 'boost_serialization', 'boost_log_setup', 'boost_filesystem'])
+if str(Platform()) != 'darwin':
+    env.Append(LIBS = ['boost_log', 'boost_thread'])
+else:
+    env.Append(LIBS = ['boost_log-mt', 'boost_thread-mt'])    
+#env.Append(LIBS = ['boost_iostreams', 'boost_serialization', 'boost_log', 'boost_log_setup', 'boost_thread', 'boost_filesystem'])
 
 if os.environ.get('BOOSTDIR'):
     env.Append(CPPFLAGS = ['-I' + os.environ['BOOSTDIR'] + '/include'])
