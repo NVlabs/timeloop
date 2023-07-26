@@ -32,6 +32,8 @@ class FusedWorkload
   const std::map<std::string, DataSpaceId>& DataSpaceNameToId() const;
   const std::map<std::string, DimensionId>& DimensionNameToId() const;
 
+  const std::string& GetDimensionName(DimensionId dim) const;
+
   /**
    * @brief Returns dataspace id given `name`
    * 
@@ -49,7 +51,8 @@ class FusedWorkload
   void AddDimToDspace(DataSpaceId dspace, DimensionId dspace_dim);
   void AddDimToEinsumOspace(EinsumId einsum, DimensionId dim);
 
-  EinsumId GetEinsumWithDim(DimensionId dim) const;
+  std::optional<DataSpaceId> GetDataSpaceWithDim(DimensionId dim) const;
+  std::optional<EinsumId> GetEinsumWithDim(DimensionId dim) const;
 
   const std::vector<DimensionId>&
   DataSpaceDimensions(DataSpaceId dspace) const;
@@ -86,6 +89,7 @@ class FusedWorkload
   std::map<std::string, DataSpaceId> dspace_name_to_id_;
   std::map<DataSpaceId, std::string> dspace_id_to_name_;
   std::map<std::string, DimensionId> dim_name_to_id_;
+  std::map<DimensionId, std::string> dim_id_to_name_;
 
   enum class EinsumOrDspace { EINSUM, DATASPACE };
   struct VertexProperty

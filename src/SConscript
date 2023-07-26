@@ -122,6 +122,7 @@ if not os.path.isdir('../src/pat'):
 # Build the model library.
     
 common_sources = Split("""
+einsum-graph/einsum-graph.cpp
 isl-wrapper/ctx-manager.cpp
 isl-wrapper/isl-functions.cpp
 loop-analysis/aahr-carve.cpp
@@ -292,7 +293,7 @@ applications/looptree-mapper/main.cpp
 """)
 
 einsumgraph_sources = Split("""
-applications/looptree-mapper/einsum-graph.cpp
+applications/einsum-graph/main.cpp
 """)
 
 unittest_sources = Split("""
@@ -308,9 +309,8 @@ unit-test/test-simple-link-transfer.cpp
 bin_looptree_mapper = env.Program(target = 'looptree-mapper',
                                   source = looptree_mapper_sources)
 bin_unittest = env.Program(target = 'timeloop-tests', source = unittest_sources)
-# bin_unittest = env.Program(target = 'timeloop-tests', source = unittest_sources)
 bin_looptree_model = env.Program(target='looptree-model', source=looptree_sources)
-bin_einsum_graph = env.Program(target='einsum-graph', source=einsumgraph_sources)
+bin_einsum_graph = env.Program(target='einsumgraph', source=einsumgraph_sources)
 
 env.Install(env["BUILD_BASE_DIR"] + '/bin', [
                                             # bin_metrics,

@@ -66,7 +66,9 @@ DimensionId FusedWorkload::NewDimension(std::string name)
   {
     throw std::logic_error("there is already a dimension with name " + name);
   }
+
   dim_name_to_id_[name] = next_dim_id;
+  dim_id_to_name_[next_dim_id] = name;
 
   return next_dim_id;
 }
@@ -86,6 +88,11 @@ const std::map<std::string, DimensionId>&
 FusedWorkload::DimensionNameToId() const
 {
   return dim_name_to_id_;
+}
+
+const std::string& FusedWorkload::GetDimensionName(DimensionId dim) const
+{
+  return dim_id_to_name_.at(dim);
 }
 
 DataSpaceId FusedWorkload::GetDspaceId(const std::string& name) const
@@ -126,9 +133,31 @@ void FusedWorkload::AddDimToEinsumOspace(EinsumId einsum, DimensionId dim)
   dim_to_einsum_[dim] = einsum;
 }
 
-EinsumId FusedWorkload::GetEinsumWithDim(DimensionId dim) const
+std::optional<DataSpaceId>
+FusedWorkload::GetDataSpaceWithDim(DimensionId dim) const
 {
-  return dim_to_einsum_.at(dim);
+  auto it = dim_to_dspace_.find(dim);
+  if (it == dim_to_dspace_.end())
+  {
+    return std::nullopt;
+  }
+  else
+  {
+    return it->second;
+  }
+}
+
+std::optional<EinsumId> FusedWorkload::GetEinsumWithDim(DimensionId dim) const
+{
+  auto it = dim_to_einsum_.find(dim);
+  if (it == dim_to_einsum_.end())
+  {
+    return std::nullopt;
+  }
+  else
+  {
+    return it->second;
+  }
 }
 
 const std::vector<DimensionId>&
@@ -340,10 +369,17 @@ FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
 
       auto projection_str = std::string();
       dspace_cfg.lookupValue("projection", projection_str);
-      auto proj = isl::multi_aff(
-        GetIslCtx(),
-        prologue + " -> " + dspace_name + projection_str + epilogue
-      );
+      projection_str = 
+        prologue + " -> " + dspace_name + projection_str + epilogue;
+      auto proj = isl::multi_aff();
+      try
+      {
+        proj = isl::multi_aff(GetIslCtx(), projection_str);
+      }
+      catch (...)
+      {
+        throw std::logic_error("malformed projection: " + projection_str);
+      }
 
       auto dspace = DataSpaceId();
       if (workload.DataSpaceNameToId().find(dspace_name)

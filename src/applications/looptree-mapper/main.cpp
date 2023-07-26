@@ -5,6 +5,7 @@
 
 #include <boost/range/adaptor/map.hpp>
 
+#include "einsum-graph/einsum-graph.hpp"
 #include "mapping/fused-mapping.hpp"
 #include "workload/fused-workload.hpp"
 #include "util/args.hpp"
@@ -18,6 +19,15 @@ using problem::DimensionId;
 
 using EinsumSet = HashableSet<EinsumId>;
 using DataSpaceSet = HashableSet<problem::DataSpaceId>;
+
+size_t factorial(size_t n)
+{
+  if (n == 1)
+  {
+    return 1;
+  }
+  return n*factorial(n-1);
+}
 
 struct EinsumDimGraph
 {
@@ -172,6 +182,8 @@ struct HeadEinsumTracker
 template<typename KeyT, typename ValT>
 struct Memo
 {
+  Memo() : memo_() {}
+
   std::optional<std::reference_wrapper<ValT>>
   GetMemoizedValue(const KeyT& key)
   {
@@ -229,13 +241,28 @@ MapperResult CombineResults(const MapperResult& res1, const MapperResult& res2)
 struct Subproblem
 {
   EinsumSet einsums;
-  DataSpaceSet dspaces_on_chip;
+  // We always go to DRAM between fused sets for now
+  // DataSpaceSet dspaces_on_chip;
+};
+
+bool operator==(const Subproblem& sp1, const Subproblem& sp2)
+{
+  return sp1.einsums == sp2.einsums;
+}
+
+template<>
+struct std::hash<Subproblem>
+{
+  std::size_t operator()(const Subproblem& subproblem) const noexcept
+  {
+    return std::hash<EinsumSet>()(subproblem.einsums);
+  }
 };
 
 struct Mapper
 {
   Mapper(const problem::FusedWorkload& workload) :
-    head_tracker_(workload)
+    workload_(workload), head_tracker_(workload), einsum_graph_(workload)
   {
     using namespace boost::adaptors;
     rest_of_einsums_ = EinsumSet(workload.EinsumNameToId() | map_values);
@@ -254,7 +281,8 @@ struct Mapper
       return ParetoFrontier<MapperResult>();
     }
 
-    auto memoized_val_opt = memo_.GetMemoizedValue(rest_of_einsums_);
+    auto memoized_val_opt =
+      memo_.GetMemoizedValue(Subproblem{rest_of_einsums_});
     if (memoized_val_opt)
     {
       return *memoized_val_opt;
@@ -272,7 +300,7 @@ struct Mapper
       rest_of_einsums_ = Erase(std::move(rest_of_einsums_), e);
       cur_fused_set.emplace(e);
 
-      auto cur_pareto = SearchCurFusedSet(cur_fused_set);
+      auto cur_pareto = SearchCurFusedSet(cur_fused_set, e);
       pareto.Insert(cur_pareto);
 
       head_tracker_.UntakeEinsum(e);
@@ -280,24 +308,21 @@ struct Mapper
       cur_fused_set.erase(e);
     }
 
-    memo_.Memoize(rest_of_einsums_, pareto);
+    memo_.Memoize(Subproblem{rest_of_einsums_}, pareto);
 
     return pareto;
   }
 
   ParetoFrontier<MapperResult>
-  SearchCurFusedSet(std::set<EinsumId>& cur_fused_set)
+  SearchCurFusedSet(std::set<EinsumId>& cur_fused_set, EinsumId cur_head)
   {
     auto einsum_str = std::vector<std::string>();
     std::transform(cur_fused_set.begin(), cur_fused_set.end(),
                    std::back_inserter(einsum_str),
                    [](EinsumId e) { return std::to_string(e); });
-    std::cout << "searching fused set: "
-              << boost::join(einsum_str, ", ")
-              << std::endl;
 
     // Stop here
-    auto cur_pareto = ExploreTilingAndReuseLevel(cur_fused_set);
+    auto cur_pareto = ExploreTilingAndReuseLevel(cur_fused_set, cur_head);
     auto rest_pareto = SearchRestOfEinsums();
     auto pareto =
       CombineParetoFrontiers<MapperResult>(cur_pareto, rest_pareto, CombineResults);
@@ -312,7 +337,7 @@ struct Mapper
       head_tracker_.TakeEinsum(e);
       rest_of_einsums_ = Erase(std::move(rest_of_einsums_), e);
 
-      auto cur_pareto = SearchCurFusedSet(cur_fused_set);
+      auto cur_pareto = SearchCurFusedSet(cur_fused_set, cur_head);
       pareto.Insert(cur_pareto);
 
       cur_fused_set.erase(e);
@@ -324,7 +349,7 @@ struct Mapper
   }
 
   ParetoFrontier<MapperResult>
-  ExploreTilingAndReuseLevel(std::set<EinsumId>& fused_set)
+  ExploreTilingAndReuseLevel(std::set<EinsumId>& fused_set, EinsumId cur_head)
   {
     auto einsum_str = std::vector<std::string>();
     std::transform(fused_set.begin(), fused_set.end(),
@@ -334,15 +359,114 @@ struct Mapper
     std::cout << "exploring fused set: "
               << boost::join(einsum_str, ", ")
               << std::endl;
+    
+    auto intermediate_dspaces = std::set<EinsumId>();
+    auto in_dspaces = std::set<EinsumId>();
+    auto out_dspaces = std::set<EinsumId>();
+    for (auto e : fused_set)
+    {
+      for (auto dspace : workload_.TensorsReadByEinsum(e))
+      {
+        auto it = out_dspaces.find(dspace);
+        if (it != out_dspaces.end())
+        {
+          out_dspaces.erase(it);
+          intermediate_dspaces.insert(dspace);
+        }
+        else
+        {
+          in_dspaces.insert(dspace);
+        }
+      }
 
-    // Determine 
+      for (auto dspace : workload_.TensorsWrittenByEinsum(e))
+      {
+        auto it = in_dspaces.find(dspace);
+        if (it != in_dspaces.end())
+        {
+          in_dspaces.erase(it);
+          intermediate_dspaces.insert(dspace);
+        }
+        else
+        {
+          out_dspaces.insert(dspace);
+        }
+      }
+    }
+
+    // Determine dimensions we can tile
+    auto tilable_dims = std::set<DimensionId>();
+    for (const auto& [dim, _] : workload_.EinsumDimToIdx(cur_head))
+    {
+      auto tiled_einsums = einsum_graph_.TiledEinsums(dim);
+      auto tilable = true;
+      for (auto e : fused_set)
+      {
+        auto it = tiled_einsums.find(e);
+        if (it == tiled_einsums.end())
+        {
+          tilable = false;
+          break;
+        }
+      }
+      if (tilable)
+      {
+        tilable_dims.emplace(dim);
+      }
+    }
+
+    // At this point we have to make the following choices:
+    // 1. choose reuse level of each data space.
+    // 2. choose tiled dimension and order.
+    // 3. choose tile size.
+
+    // TODO: this is TERRIBLE!
+    auto tile_sizes = std::map<DimensionId, std::vector<size_t>>({
+      {0, {1, 4, 16, 64, 256, 512}},
+      {1, {1, 4, 16, 64, 256, 512}},
+      {2, {1, 4, 16, 64}},
+      {9, {1, 4, 16, 64, 256, 512}},
+      {10, {1, 4, 16, 64, 256, 512}},
+      {11, {1, 4, 16, 64}},
+    });
+
+    auto n_dspaces = in_dspaces.size() + out_dspaces.size()
+                    + intermediate_dspaces.size();
+    auto n_evals = 0;
+    auto tiling = std::vector<DimensionId>(tilable_dims.begin(),
+                                           tilable_dims.end());
+    auto keep_going = true;
+    while (keep_going)
+    {
+      auto einsum_str = std::vector<std::string>();
+      std::transform(tiling.begin(), tiling.end(),
+                    std::back_inserter(einsum_str),
+                    [](EinsumId e) { return std::to_string(e); });
+      std::cout << boost::join(einsum_str, ",") << std::endl;
+
+      // auto mapping = mapping::FusedMapping();
+      // auto parent = mapping.GetRoot().id;
+      // parent = mapping.AddChild<mapping::Storage>(parent, 1, dspace);
+      auto n_tile_sizes = 1;
+      for (auto d : tiling)
+      {
+        n_tile_sizes *= tile_sizes.at(d).size();
+      }
+      n_evals += pow(tiling.size(), n_dspaces)*n_tile_sizes;
+
+      keep_going = std::next_permutation(tiling.begin(), tiling.end());
+    }
+    std::cout << "num evals: " << n_evals << std::endl;
 
     return ParetoFrontier<MapperResult>();
   }
 
  private:
+  const problem::FusedWorkload& workload_;
+
   Memo<Subproblem, ParetoFrontier<MapperResult>> memo_;
   HeadEinsumTracker head_tracker_;
+  EinsumGraph einsum_graph_;
   EinsumSet rest_of_einsums_;
 };
 
