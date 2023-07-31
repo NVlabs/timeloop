@@ -28,8 +28,6 @@
 #include <iostream>
 #include <csignal>
 #include <cstring>
-#include <boost/log/core.hpp>
-#include <boost/log/utility/setup/file.hpp>
 
 #include "applications/model/model.hpp"
 #include "compound-config/compound-config.hpp"
@@ -68,8 +66,6 @@ int main(int argc, char* argv[])
   action.sa_flags = 0;
   sigaction(SIGINT, &action, NULL);
 
-  boost::log::add_file_log("timeloop-model.log");
-  
   std::vector<std::string> input_files;
   std::string output_dir = ".";
   bool success = ParseArgs(argc, argv, input_files, output_dir);

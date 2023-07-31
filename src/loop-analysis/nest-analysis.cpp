@@ -29,7 +29,6 @@
 #include <functional>
 #include <stdexcept>
 #include <unordered_map>
-#include <boost/log/trivial.hpp>
 #include <barvinok/isl.h>
 #include <isl/aff.h>
 #include <isl/cpp.h>
@@ -83,9 +82,6 @@ bool gRunLastIteration =
 bool gUseIslAnalysis =
   (getenv("TIMELOOP_USE_ISL") != NULL) &&
   (strcmp(getenv("TIMELOOP_USE_ISL"), "0") != 0);
-bool gLogNestAnalysisResult =
-  (getenv("TIMELOOP_LOG_NEST_ANALYSIS_RESULT") != NULL) &&
-  (strcmp(getenv("TIMELOOP_LOG_NEST_ANALYSIS_RESULT"), "0") != 0);
 
 // Flattening => Multi-AAHRs
 // => Can't use per-AAHR reset-on-stride-change logic
@@ -324,17 +320,6 @@ void NestAnalysis::ComputeWorkingSets()
 
     compute_info_sets_ = legacy_output.first;
     working_sets_ = legacy_output.second;
-  }
-
-  if (gLogNestAnalysisResult)
-  {
-    auto working_set_stream = std::stringstream();
-    auto serialized_working_set =
-      boost::archive::text_oarchive(working_set_stream);
-    serialized_working_set << working_sets_;
-
-    BOOST_LOG_TRIVIAL(trace) <<
-      "[NEST_ANALYSIS_OUTPUT] " + working_set_stream.str();
   }
 
   // Done.
