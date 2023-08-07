@@ -169,7 +169,7 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
 
   // Remove y, leaving only x
   auto p_data_to_max_x = isl_map_lexmax(
-    isl_map_project_out(wrapped_fill.copy(), isl_dim_out, n-1, 1)
+    isl_map_project_out(wrapped_fill.copy(), isl_dim_out, 1, 1)
   );
   auto p_x_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
     isl_qpolynomial_add(
