@@ -181,7 +181,7 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
 
       if (last_is_boundary || first_loop)
       {
-        tile.total_child_accesses = stats.total_child_accesses ;
+        tile.total_child_accesses = stats.total_child_accesses / tile.replication_factor;
 
         const auto& key_to_access_stats = stats.compat_access_stats;
         const auto& link_transfers = stats.link_transfer;

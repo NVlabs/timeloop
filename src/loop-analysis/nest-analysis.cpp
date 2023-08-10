@@ -82,6 +82,10 @@ bool gRunLastIteration =
 bool gUseIslAnalysis =
   (getenv("TIMELOOP_USE_ISL") != NULL) &&
   (strcmp(getenv("TIMELOOP_USE_ISL"), "0") != 0);
+bool gPrintNestAnalysisResult =
+  (getenv("TIMELOOP_PRINT_NEST_ANALYSIS_RESULT") != NULL) &&
+  (strcmp(getenv("TIMELOOP_PRINT_NEST_ANALYSIS_RESULT"), "0") != 0);
+
 
 // Flattening => Multi-AAHRs
 // => Can't use per-AAHR reset-on-stride-change logic
@@ -320,6 +324,20 @@ void NestAnalysis::ComputeWorkingSets()
 
     compute_info_sets_ = legacy_output.first;
     working_sets_ = legacy_output.second;
+  }
+
+  if (gPrintNestAnalysisResult)
+  {
+    for (size_t pv = 0; pv < workload_->GetShape()->NumDataSpaces; ++pv)
+    {
+      std::cout << "DataSpace: " << pv << std::endl;
+      const auto& data_movement_nest = working_sets_.at(pv);
+      for (const auto& tile : data_movement_nest)
+      {
+        std::cout << "fanout: " << tile.fanout << std::endl;
+        std::cout << "access stats: " << tile.access_stats << std::endl;
+      }
+    }
   }
 
   // Done.
