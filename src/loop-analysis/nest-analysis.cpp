@@ -111,7 +111,8 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
     no_link_transfer_ = nest->no_link_transfer;
     no_multicast_ = nest->no_multicast;
     no_temporal_reuse_ = nest->no_temporal_reuse;
-
+    rmw_on_first_writeback_ = nest->rmw_on_first_writeback;
+    passthrough_ = nest->passthrough;
     physical_fanoutX_ = fanoutX_map;
     physical_fanoutY_ = fanoutY_map;
 
@@ -185,6 +186,8 @@ void NestAnalysis::Reset()
   no_multicast_.clear();
   no_link_transfer_.clear();
   no_temporal_reuse_.clear();
+  rmw_on_first_writeback_.clear();
+  passthrough_.clear();
 }
 
 // Ugly function for pre-checking capacity fits before running the heavyweight
@@ -466,6 +469,8 @@ void NestAnalysis::CollectWorkingSets()
         std::reverse(subnest.begin(), subnest.end());
       }
 
+      auto storage_level = arch_storage_level_[cur.level];
+
       // Transfer data from condensed_state to working_sets_
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
@@ -481,7 +486,16 @@ void NestAnalysis::CollectWorkingSets()
         tile.fanout                 = logical_fanouts_[cur.level];
         tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
         tile.is_master_spatial      = master_spatial_level_[cur.level];
-        // tile.tile_density           = condensed_state.data_densities[pv];
+        tile.rmw_on_first_writeback = 0;
+        if(rmw_on_first_writeback_.find(storage_level) != rmw_on_first_writeback_.end())
+        {
+          tile.rmw_on_first_writeback = rmw_on_first_writeback_[storage_level][pv];
+        }
+        tile.passthrough = 0;
+        if(passthrough_.find(storage_level) != passthrough_.end())
+        {
+          tile.passthrough = passthrough_[storage_level][pv];
+        }
         working_sets_[pv].push_back(tile);
       }
     } // if (valid_level)

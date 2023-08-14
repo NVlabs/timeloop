@@ -147,7 +147,7 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
   for (int cur = 0; cur < num_tiling_levels; cur++)
   {
     // Skip if this tile level already has 0 size, or if it's not masked.
-    if (tile_nest[cur].size == 0 || mask[cur])
+    if (tile_nest[cur].size == 0 || (mask[cur] && !tile_nest[cur].passthrough))
     {
       continue;
     }
@@ -261,13 +261,15 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     // Outer or child's parent access share is not affected by masking
 
     // Obliterate the buffer stats (*not* the network stats) for the cur tiling level.
-    tile_nest[cur].size = 0;
-    tile_nest[cur].shape = 0;
-    tile_nest[cur].SetTensorRepresentation();
-    tile_nest[cur].partition_size = 0;
-    tile_nest[cur].content_accesses = 0;
-    tile_nest[cur].parent_access_share = 0;
-
+    if(!mask[cur])
+    {
+      tile_nest[cur].size = 0;
+      tile_nest[cur].shape = 0;
+      tile_nest[cur].SetTensorRepresentation();
+      tile_nest[cur].partition_size = 0;
+      tile_nest[cur].content_accesses = 0;
+      tile_nest[cur].parent_access_share = 0;
+    }
   }
 
   // std::cout << "***** AFTER *****" << std::endl;
@@ -585,7 +587,16 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
       // supported appears to be wonky - network costs may need to trickle down
       // all the way to the level that has the reduction hardware.
       tile_nest[cur].updates = std::round(tile_nest[cur].content_accesses);
-      if (gEnableFirstReadElision)
+      if(tile_nest[cur].passthrough)
+      {
+        // When data moves to a child, it is filled from the parent then read by the child
+        // When data moves to a parent, it is filled from the child then read by the parent
+        auto child_accesses = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
+        tile_nest[cur].reads = std::round(child_accesses);
+        tile_nest[cur].temporal_reductions = std::round(child_accesses);
+        tile_nest[cur].fills = std::round(child_accesses);
+      }
+      else if (gEnableFirstReadElision && !tile_nest[cur].rmw_on_first_writeback)
       {
         tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
         tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
@@ -867,6 +878,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.replication_factor = tiles[pv][outermost_loop].replication_factor;
       collapsed_tile.fanout = tiles[pv][innermost_loop].fanout;
       collapsed_tile.SetTensorRepresentation(); // default to uncompressed
+      collapsed_tile.rmw_on_first_writeback = tiles[pv][innermost_loop].rmw_on_first_writeback;
+      collapsed_tile.passthrough = tiles[pv][innermost_loop].passthrough;
 
       collapsed_tile.parent_level = std::numeric_limits<unsigned>::max();
       collapsed_tile.child_level = std::numeric_limits<unsigned>::max();

@@ -54,6 +54,8 @@ Constraints::Constraints(const ArchProperties& arch_props,
   no_multicast_.clear();
   no_link_transfer_.clear();
   no_temporal_reuse_.clear();
+  rmw_on_first_writeback_.clear();
+  passthrough_.clear();
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
@@ -141,6 +143,18 @@ const std::unordered_map<unsigned, problem::PerDataSpace<bool>>
 Constraints::NoTemporalReuse() const
 {
   return no_temporal_reuse_;
+}
+
+const std::unordered_map<unsigned, problem::PerDataSpace<bool>>
+Constraints::RMWOnFirstWriteback() const
+{
+  return rmw_on_first_writeback_;
+}
+
+const std::unordered_map<unsigned, problem::PerDataSpace<bool>>
+Constraints::Passthrough() const
+{
+  return passthrough_;
 }
 
 //
@@ -752,7 +766,37 @@ void Constraints::ParseSingleConstraint(
           }
         }
       }
-
+      if (constraint.exists("rmw_on_first_writeback"))
+      {
+        auto storage_level = arch_props_.TilingToStorage(level_id);
+        std::vector<std::string> datatype_strings;
+        constraint.lookupArrayValue("rmw_on_first_writeback", datatype_strings);
+        if (rmw_on_first_writeback_.find(storage_level) != rmw_on_first_writeback_.end())
+        {
+          std::cerr << "ERROR: re-specification of rmw_on_first_writeback at level "
+                    << arch_props_.TilingLevelName(level_id)
+                    << ". This may imply a conflict between architecture and "
+                    << "mapspace constraints." << std::endl;
+          exit(1);
+        }
+        rmw_on_first_writeback_ [storage_level] = problem::PerDataSpace<bool>();
+        for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+          rmw_on_first_writeback_[storage_level][pv] = 0;
+        for (const std::string& datatype_string: datatype_strings)
+        {
+          try
+          {
+            rmw_on_first_writeback_[storage_level].at(
+              problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+          }
+          catch (std::out_of_range& oor)
+          {
+            std::cerr << "ERROR: parsing rmw_on_first_writeback setting: data-space " << datatype_string
+                      << " not found in problem shape." << std::endl;
+            exit(1);
+          }
+        }
+      }
     }
 
     std::uint32_t maxremainder;
@@ -772,6 +816,37 @@ void Constraints::ParseSingleConstraint(
   {
     // Error handling for re-spec conflicts are inside the parse function.
     ParseDatatypeBypassSettings(attributes, arch_props_.TilingToStorage(level_id));
+    if (constraint.exists("passthrough"))
+    {
+      auto storage_level = arch_props_.TilingToStorage(level_id);
+      std::vector<std::string> datatype_strings;
+      constraint.lookupArrayValue("passthrough", datatype_strings);
+      if (passthrough_.find(storage_level) != passthrough_.end())
+      {
+        std::cerr << "ERROR: re-specification of passthrough at level "
+                  << arch_props_.TilingLevelName(level_id)
+                  << ". This may imply a conflict between architecture and "
+                  << "mapspace constraints." << std::endl;
+        exit(1);
+      }
+      passthrough_ [storage_level] = problem::PerDataSpace<bool>();
+      for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+        passthrough_[storage_level][pv] = 0;
+      for (const std::string& datatype_string: datatype_strings)
+      {
+        try
+        {
+          passthrough_[storage_level].at(
+            problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+        }
+        catch (std::out_of_range& oor)
+        {
+          std::cerr << "ERROR: parsing passthrough setting: data-space " << datatype_string
+                    << " not found in problem shape." << std::endl;
+          exit(1);
+        }
+      }
+    }
   }
   else if (type == "utilization" || type == "parallelism")
   {

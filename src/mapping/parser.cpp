@@ -71,6 +71,8 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> rmw_on_first_writeback;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> passthrough;
 
   // Initialize user bypass strings to "XXXXX...1" (note the 1 at the end).
   // FIXME: there's probably a cleaner way/place to initialize this.
@@ -230,6 +232,31 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
             }
           }
         }
+        if (directive.exists("rmw_on_first_writeback"))
+        {
+          auto storage_level = arch_props_.TilingToStorage(level_id);
+          std::vector<std::string> datatype_strings;
+          if (directive.lookupArrayValue("rmw_on_first_writeback", datatype_strings))
+          {
+            rmw_on_first_writeback[storage_level] = problem::PerDataSpace<bool>();
+            for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+              rmw_on_first_writeback[storage_level][pv] = 0;
+            for (const std::string& datatype_string: datatype_strings)
+            {
+              try
+              {
+                rmw_on_first_writeback[storage_level].at(
+                  problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+              }
+              catch (std::out_of_range& oor)
+              {
+                std::cerr << "ERROR: parsing rmw_on_first_writeback setting: data-space " << datatype_string
+                          << " not found in problem shape." << std::endl;
+                exit(1);
+              }
+            }
+          }
+        }
       }
     }
     else if (type == "datatype" || type == "bypass")
@@ -238,6 +265,31 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
       ParseUserDatatypeBypassSettings(directive,
                                       arch_props_.TilingToStorage(level_id),
                                       user_bypass_strings);
+      if (directive.exists("passthrough"))
+      {
+        auto storage_level = arch_props_.TilingToStorage(level_id);
+        std::vector<std::string> datatype_strings;
+        if (directive.lookupArrayValue("passthrough", datatype_strings))
+        {
+          passthrough[storage_level] = problem::PerDataSpace<bool>();
+          for(unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+            passthrough[storage_level][pv] = 0;
+          for (const std::string& datatype_string: datatype_strings)
+          {
+            try
+            {
+              passthrough[storage_level].at(
+                problem::GetShape()->DataSpaceNameToID.at(datatype_string)) = 1;
+            }
+            catch (std::out_of_range& oor)
+            {
+              std::cerr << "ERROR: parsing passthrough setting: data-space " << datatype_string
+                        << " not found in problem shape." << std::endl;
+              exit(1);
+            }
+          }
+        }
+      }
     }
     else if (type == "skew")
     {
@@ -444,6 +496,8 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
   mapping.loop_nest.no_link_transfer = no_link_transfer;
   mapping.loop_nest.no_multicast = no_multicast;
   mapping.loop_nest.no_temporal_reuse = no_temporal_reuse;
+  mapping.loop_nest.rmw_on_first_writeback = rmw_on_first_writeback;
+  mapping.loop_nest.passthrough = passthrough;
   mapping.id = 0;
   mapping.fanoutX_map = arch_props_.FanoutX();
   mapping.fanoutY_map = arch_props_.FanoutY();

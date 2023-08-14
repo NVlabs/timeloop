@@ -128,6 +128,8 @@ class NestAnalysis
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer_;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast_;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> rmw_on_first_writeback_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> passthrough_;
 
   // Other state.
 
