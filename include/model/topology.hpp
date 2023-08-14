@@ -61,24 +61,28 @@ static std::map <std::string, std::vector<std::string>> arithmeticOperationMappi
   };
 
 static std::map <std::string, std::vector<std::string>> storageOperationMappings
-  = {{"random_read", {"random_read", "read"}},
-     {"random_fill", {"random_fill", "write"}},
-     {"random_update", {"random_update", "random_fill", "write"}},
+  = {
+     {"random_read", {"random_read", "read"}},
      {"gated_read", {"gated_read", "idle", "read"}},
-     {"gated_fill", {"gated_fill", "gated_write", "gated_write", "idle", "write"}},
-     {"gated_update", {"gated_update", "gated_write", "gated_write", "idle", "write"}},
      {"skipped_read", {"skipped_read", "gated_read", "idle", "read"}},
-     {"skipped_fill", {"skipped_fill", "skipped_write", "gated_write", "idle", "write"}},
-     {"skipped_update", {"skipped_update", "skipped_write", "gated_write", "idle", "write"}},
-     {"random_metadata_read", {"random_metadata_read", "metadata_read", "metadata_idle", "idle"}},
+     {"random_metadata_read", {"random_metadata_read", "metadata_read"}},
      {"gated_metadata_read", {"gated_metadata_read", "metadata_idle", "metadata_read"}},
-     {"skipped_metadata_read", {"skipped_metadata_read", "metadata_idle", "metadata_read"}},
-     {"random_metadata_fill", {"random_metadata_fill", "metadata_write", "metadata_idle", "idle"}},
-     {"gated_metadata_fill", {"gated_metadata_fill", "gated_metadata_write", "metadata_idle", "metadata_write"}},
-     {"skipped_metadata_fill", {"skipped_metadata_fill", "skipped_metadata_write", "metadata_idle", "metadata_write"}},
-     {"random_metadata_update", {"random_metadata_update", "metadata_write", "metadata_idle", "idle"}},
-     {"gated_metadata_update", {"gated_metadata_update", "gated_metadata_write", "metadata_idle", "metadata_write"}},
-     {"skipped_metadata_update", {"skipped_metadata_update", "skipped_metadata_write", "metadata_idle", "metadata_write"}},
+     {"skipped_metadata_read", {"skipped_metadata_read", "gated_metadata_read", "metadata_idle", "metadata_read"}},
+
+     {"random_fill", {"random_fill", "random_write", "fill", "write"}},
+     {"gated_fill", {"gated_fill", "gated_write", "idle", "fill", "write"}},
+     {"skipped_fill", {"skipped_fill", "skipped_write", "gated_fill", "gated_write", "idle", "fill", "write"}},
+     {"random_metadata_fill", {"random_metadata_fill", "random_metadata_write", "metadata_fill", "metadata_write"}},
+     {"gated_metadata_fill", {"gated_metadata_fill", "gated_metadata_write", "metadata_idle", "metadata_fill", "metadata_write"}},
+     {"skipped_metadata_fill", {"skipped_metadata_fill", "skipped_metadata_write", "gated_metadata_fill", "gated_metadata_write", "metadata_idle", "metadata_fill", "metadata_write"}},
+
+     {"random_update", {"random_update", "random_write", "update", "write"}},
+     {"gated_update", {"gated_update", "gated_write", "idle", "update", "write"}},
+     {"skipped_update", {"skipped_update", "skipped_write", "gated_update", "gated_write", "idle", "update", "write"}},
+     {"random_metadata_update", {"random_metadata_update", "random_metadata_write", "metadata_update", "metadata_write"}},
+     {"gated_metadata_update", {"gated_metadata_update", "gated_metadata_write", "metadata_idle", "metadata_update", "metadata_write"}},
+     {"skipped_metadata_update", {"skipped_metadata_update", "skipped_metadata_write", "gated_metadata_update", "gated_metadata_write", "metadata_idle", "metadata_update", "metadata_write"}},
+
      {"decompression_count", {"decompression_count"}},
      {"compression_count", {"compression_count"}}
   };
