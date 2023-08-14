@@ -64,6 +64,8 @@ class Constraints
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer_;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast_;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> rmw_on_first_writeback_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> passthrough_;
 
  public:
   Constraints() = delete;
@@ -84,6 +86,8 @@ class Constraints
   const std::unordered_map<unsigned, problem::PerDataSpace<bool>> NoLinkTransfers() const;
   const std::unordered_map<unsigned, problem::PerDataSpace<bool>> NoMulticast() const;
   const std::unordered_map<unsigned, problem::PerDataSpace<bool>> NoTemporalReuse() const;
+  const std::unordered_map<unsigned, problem::PerDataSpace<bool>> RMWOnFirstWriteback() const;
+  const std::unordered_map<unsigned, problem::PerDataSpace<bool>> Passthrough() const;
 
   // Create a constraints object from a given mapping object. The resultant
   // constraints will *only* be satisfied by that mapping.

@@ -127,6 +127,8 @@ struct DataMovementInfo
   std::uint64_t distributed_fanout;
   bool is_on_storage_boundary;
   bool is_master_spatial;
+  bool rmw_on_first_writeback;
+  bool passthrough;
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
   /** @brief Statistical representation of tile density */
@@ -198,6 +200,8 @@ struct DataMovementInfo
     coord_space_info.Clear();
     tile_density = NULL;
     expected_density = 0;
+    rmw_on_first_writeback = false;
+    passthrough = false;
   }
 
   void Validate()

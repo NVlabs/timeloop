@@ -612,6 +612,8 @@ std::vector<Status> Ruby::ConstructMapping(
   mapping->loop_nest.no_link_transfer = constraints_.NoLinkTransfers();
   mapping->loop_nest.no_multicast = constraints_.NoMulticast();
   mapping->loop_nest.no_temporal_reuse = constraints_.NoTemporalReuse();
+  mapping->loop_nest.rmw_on_first_writeback = constraints_.RMWOnFirstWriteback();
+  mapping->loop_nest.passthrough = constraints_.Passthrough();
 
   return status;
 }
