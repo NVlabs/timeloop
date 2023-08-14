@@ -259,7 +259,7 @@ Mapping ParseAndConstruct(config::CompoundConfigNode config,
         }
       }
     }
-    else if (type == "datatype" || type == "bypass")
+    else if (type == "datatype" || type == "bypass" || type == "dataspace")
     {
       auto level_id = FindTargetTilingLevel(directive, type);
       ParseUserDatatypeBypassSettings(directive,
