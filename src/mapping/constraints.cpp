@@ -812,7 +812,7 @@ void Constraints::ParseSingleConstraint(
     assert(constraint.lookupValue("proportion", max_overbooked_proportion));
     confidence_thresholds_[level_id] =  1 - max_overbooked_proportion;
   }
-  else if (type == "datatype" || type == "bypass" || type == "bypassing")
+  else if (type == "datatype" || type == "bypass" || type == "bypassing" || type == "dataspace")
   {
     // Error handling for re-spec conflicts are inside the parse function.
     ParseDatatypeBypassSettings(attributes, arch_props_.TilingToStorage(level_id));
