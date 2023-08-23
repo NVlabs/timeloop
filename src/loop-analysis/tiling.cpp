@@ -218,8 +218,6 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
       child_temporal_factor = all_children_content_accesses
                             / tile_nest[outer].total_child_accesses;
     }
-    std::cout << "weighted: " << tile_nest[outer].access_stats.WeightedAccesses() << std::endl;
-    std::cout << "total child: " << tile_nest[outer].total_child_accesses << std::endl;
 
     for (auto& x: tile_nest[outer].access_stats.stats)
     {
@@ -637,10 +635,6 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
       //tile.address_generations = tile.reads + tile.fills; // scalar
       tile_nest[cur].temporal_reductions = 0;
     }
-
-    std::cout << "at read content accesses: " << tile_nest[cur].content_accesses << std::endl;
-    std::cout << "at read peer accesses: " << tile_nest[cur].peer_accesses << std::endl;
-    std::cout << "reads: " << tile_nest[cur].reads << std::endl;
   }
 
   return;
@@ -893,7 +887,6 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
         tiles[pv][innermost_loop].total_child_accesses;
       collapsed_tile.access_stats = tiles[pv][innermost_loop].access_stats;
       collapsed_tile.content_accesses = tiles[pv][innermost_loop].access_stats.TotalAccesses();
-      std::cout << "content accesses: " << collapsed_tile.content_accesses << std::endl;
       collapsed_tile.link_transfers = tiles[pv][innermost_loop].link_transfers;
       collapsed_tile.peer_accesses = 0;
       collapsed_tile.peer_fills = 0;
