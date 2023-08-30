@@ -386,7 +386,7 @@ void MapperThread::Run()
       terminate = true;
     }
 
-    if (search_size_ > 0 && valid_mappings == search_size_)
+    if (search_size_ > 0 && valid_mappings >= search_size_)
     {
       mutex_->lock();
       log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << search_size_
@@ -396,7 +396,7 @@ void MapperThread::Run()
       terminate = true;
     }
 
-    if (victory_condition_ > 0 && mappings_since_last_best_update == victory_condition_)
+    if (victory_condition_ > 0 && mappings_since_last_best_update >= victory_condition_)
     {
       mutex_->lock();
       log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << victory_condition_
@@ -407,7 +407,7 @@ void MapperThread::Run()
     }
 
     if ((invalid_mappings_mapcnstr + invalid_mappings_eval) > 0 &&
-        (invalid_mappings_mapcnstr + invalid_mappings_eval) == timeout_)
+        (invalid_mappings_mapcnstr + invalid_mappings_eval) >= timeout_)
     {
       mutex_->lock();
       log_stream_ << "[" << std::setw(3) << thread_id_ << "] STATEMENT: " << timeout_
@@ -496,13 +496,18 @@ void MapperThread::Run()
     bool only_bypass_changed = false;
     if (total_mappings > 1)
     {
-      bool match = true;
+      // Match ON if the bypass changed
+      for (unsigned idim = 0; idim < unsigned(mapspace::Dimension::Num); idim++)
+      {
+        if (mapspace::Dimension(idim) == mapspace::Dimension::DatatypeBypass)
+          only_bypass_changed |= (mapping_id[idim] != prev_mapping_id[idim]);
+      }
+      // OFF if anything else changed
       for (unsigned idim = 0; idim < unsigned(mapspace::Dimension::Num); idim++)
       {
         if (mapspace::Dimension(idim) != mapspace::Dimension::DatatypeBypass)
-          match &= (mapping_id[idim] == prev_mapping_id[idim]);
+          only_bypass_changed &= (mapping_id[idim] == prev_mapping_id[idim]);
       }
-      only_bypass_changed = match;
     }
     prev_mapping_id = mapping_id;
 
