@@ -32,13 +32,14 @@
 #include "workload/workload.hpp"
 #include "loop-analysis/operation-type.hpp"
 
+extern bool gUseIslAnalysis;
+
 namespace tiling
 {
 
 bool gEnableFirstReadElision =
   (getenv("TIMELOOP_ENABLE_FIRST_READ_ELISION") == NULL) ||
   (strcmp(getenv("TIMELOOP_ENABLE_FIRST_READ_ELISION"), "0") != 0);
-
 bool gUpdatedRMW =
   (getenv("TIMELOOP_ENABLE_UPDATED_RMW") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_UPDATED_RMW"), "0") != 0);
@@ -204,12 +205,19 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     // we won't make that assumption here.
     
     // tile_nest[outer].content_accesses = 0;
-
+    double child_temporal_factor = 0;
     double all_children_content_accesses = tile_nest[cur].content_accesses * tile_nest[outer].fanout;
-
+    if (!gUseIslAnalysis)
+    {
     // Warning! It's not clear if this child temporal factor is precise enough
     // if there is temporal imperfection.
-    double child_temporal_factor = all_children_content_accesses / tile_nest[outer].access_stats.WeightedAccesses();
+      child_temporal_factor = all_children_content_accesses / tile_nest[outer].access_stats.WeightedAccesses();
+    }
+    else
+    {
+      child_temporal_factor = all_children_content_accesses
+                            / tile_nest[outer].total_child_accesses;
+    }
 
     for (auto& x: tile_nest[outer].access_stats.stats)
     {
@@ -441,9 +449,9 @@ void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
       continue;
     }
 
-    // Initialize parent_access_share to 0.
+    // Initialize parent_access_share to 0
     tile_nest[cur].parent_access_share = 0;
-   
+
     // Find next (outer) non-zero level.
     int outer;
     for (outer = cur + 1; outer < num_tiling_levels && tile_nest[outer].size == 0; outer++)
@@ -464,32 +472,48 @@ void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
     // std::cerr << "  cur = " << cur << std::endl;
     // std::cerr << "  outer = " << outer << std::endl;
 
-    // Found an outer level.
-    for (auto& x: tile_nest[outer].access_stats.stats)
+    if (gUseIslAnalysis)
     {
-      // FIXME: is this correct in the face of spatial sliding windows (e.g. Input halos)?
-      // If scatter factors are calculated on fragments, then this will be correct, because
-      // the halos will be counted as "multicast" data. However, scatter factor calculation
-      // via spatial deltas does not look at fragments of delivered temporal deltas, the
-      // code compares complete temporal deltas delivered to peer spatial instances.
-      // To fix this, we should be able to use the new overlap-fraction based method used to
-      // calculate partition sizes in some way.
-      auto multicast_factor = x.first.first;
-      auto accesses = x.second.accesses;
-
-      // We were using an older formula of parent_access_share = (accesses / scatter).
-      // However, Link transfers and irregular sets result in fanout != (multicast * scatter)
-      // so we use a new formula: parent_access_share = (accesses * multicast) / fanout.
-      // This calculates an *average* number of parent_access_share per child instance (the
-      // reality is that some child instances, such as edge instances, will receive more
-      // parent_access_share).
-      tile_nest[cur].parent_access_share += (accesses * multicast_factor) / tile_nest[outer].fanout;
-
-      // Note: using a floating-point parent_access_share here fixes a rounding
-      // in older code that was accumulating directly into an int field fills.
+      // Found an outer level.
+      if (tile_nest[outer].total_child_accesses != 0.0)
+      {
+        // If child_access_share was already set by nest analysis, no need to
+        // calculate from parent accesses
+        tile_nest[cur].parent_access_share =
+          tile_nest[outer].total_child_accesses
+          / tile_nest[outer].fanout;
+        continue;
+      }
     }
+    else
+    {
+      for (auto& x: tile_nest[outer].access_stats.stats)
+      {
+        // FIXME: is this correct in the face of spatial sliding windows (e.g. Input halos)?
+        // If scatter factors are calculated on fragments, then this will be correct, because
+        // the halos will be counted as "multicast" data. However, scatter factor calculation
+        // via spatial deltas does not look at fragments of delivered temporal deltas, the
+        // code compares complete temporal deltas delivered to peer spatial instances.
+        // To fix this, we should be able to use the new overlap-fraction based method used to
+        // calculate partition sizes in some way.
+        auto multicast_factor = x.first.first;
+        auto accesses = x.second.accesses;
 
-    // assert(tile_nest[cur].parent_access_share <= tile_nest[cur].GetTotalAccesses());
+        // We were using an older formula of parent_access_share = (accesses / scatter).
+        // However, Link transfers and irregular sets result in fanout != (multicast * scatter)
+        // so we use a new formula: parent_access_share = (accesses * multicast) / fanout.
+        // This calculates an *average* number of parent_access_share per child instance (the
+        // reality is that some child instances, such as edge instances, will receive more
+        // parent_access_share).
+        tile_nest[cur].parent_access_share +=
+          (accesses * multicast_factor) / tile_nest[outer].fanout;
+
+        // Note: using a floating-point parent_access_share here fixes a rounding
+        // in older code that was accumulating directly into an int field fills.
+      }
+
+      // assert(tile_nest[cur].parent_access_share <= tile_nest[cur].GetTotalAccesses());
+    }
   }
 
 }
@@ -870,6 +894,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.dataspace_id = (unsigned)pv;
       collapsed_tile.partition_size = 0;
       collapsed_tile.distributed_multicast = false;
+      collapsed_tile.total_child_accesses =
+        tiles[pv][innermost_loop].total_child_accesses;
       collapsed_tile.access_stats = tiles[pv][innermost_loop].access_stats;
       collapsed_tile.content_accesses = tiles[pv][innermost_loop].access_stats.TotalAccesses();
       collapsed_tile.link_transfers = tiles[pv][innermost_loop].link_transfers;

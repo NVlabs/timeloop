@@ -34,6 +34,11 @@ env.Append(CPPPATH = [os.path.join(env['BUILD_BASE_DIR'], 'include')])
 #env.Append(CPPPATH = ['src/include'])
 #env["CPPPATH"] = ["."]
 
+# Unclear if the following option should be gated on clang, Darwin or
+# dynamic linking.
+if str(Platform()) == 'darwin':
+  env.Append(CPPDEFINES = ['BOOST_LOG_DYN_LINK']) # BOOST_ALL_DYN_LINK  
+
 if GetOption('debug'):
     env.Append(CCFLAGS = ['-g', '-O0'])
 else:
@@ -61,8 +66,7 @@ if str(Platform()) != 'darwin':
   env.Append(LIBS = ['tinfo'])
 
 # barvinok needs to be before isl because it references isl functions
-if GetOption('with_isl'):
-    env.Append(LIBS = ['barvinok', 'isl', 'ntl', 'pthread', 'polylibgmp', 'gmp'])
+env.Append(LIBS = ['barvinok', 'isl', 'ntl', 'pthread', 'polylibgmp', 'gmp'])
 
 if GetOption('link_static'):
     print("Using static linking.")
@@ -71,7 +75,12 @@ if GetOption('link_static'):
 else:
     print("Using dynamic linking.")
 
-env.Append(LIBS = ['boost_iostreams', 'boost_serialization'])
+env.Append(LIBS = ['boost_iostreams', 'boost_serialization', 'boost_log_setup', 'boost_filesystem'])
+if str(Platform()) != 'darwin':
+    env.Append(LIBS = ['boost_log', 'boost_thread'])
+else:
+    env.Append(LIBS = ['boost_log-mt', 'boost_thread-mt'])    
+#env.Append(LIBS = ['boost_iostreams', 'boost_serialization', 'boost_log', 'boost_log_setup', 'boost_thread', 'boost_filesystem'])
 
 if os.environ.get('BOOSTDIR'):
     env.Append(CPPFLAGS = ['-I' + os.environ['BOOSTDIR'] + '/include'])
@@ -122,8 +131,19 @@ if not os.path.isdir('../src/pat'):
 # Build the model library.
     
 common_sources = Split("""
+isl-wrapper/ctx-manager.cpp
+isl-wrapper/isl-functions.cpp
+loop-analysis/aahr-carve.cpp
 loop-analysis/coordinate-space-tile-info.cpp
+loop-analysis/isl-analysis/isl-nest-analysis.cpp
+loop-analysis/isl-analysis/isl-to-legacy-adaptor.cpp
+loop-analysis/isl-analysis/latency-analysis.cpp
+loop-analysis/logical-buffer.cpp
 loop-analysis/loop-state.cpp
+loop-analysis/mapping-to-isl/fused-mapping-to-isl.cpp
+loop-analysis/mapping-to-isl/mapping-to-isl.cpp
+loop-analysis/isl-ir/ir.cpp
+loop-analysis/isl-ir/input-output.cpp
 loop-analysis/tiling.cpp
 loop-analysis/tiling-tile-info.cpp
 loop-analysis/point.cpp
@@ -131,7 +151,8 @@ loop-analysis/point-set-aahr.cpp
 loop-analysis/point-set-multi-aahr.cpp
 loop-analysis/nest-analysis-tile-info.cpp
 loop-analysis/nest-analysis.cpp
-loop-analysis/aahr-carve.cpp
+loop-analysis/spatial-analysis.cpp
+loop-analysis/temporal-analysis.cpp
 sparse-analysis/state.cpp
 sparse-analysis/sparse-analysis.cpp
 sparse-analysis/compute-gs-analyzer.cpp
@@ -142,6 +163,11 @@ loop-analysis/operation-type.cpp
 pat/pat.cpp
 mapping/loop.cpp
 mapping/nest.cpp
+mapping/spacetime.cpp
+mapping/fused-mapping/dfs.cpp
+mapping/fused-mapping/fused-mapping.cpp
+mapping/fused-mapping/mapping-path.cpp
+mapping/fused-mapping/parser.cpp
 model/model-base.cpp
 model/engine.cpp
 model/level.cpp
@@ -162,6 +188,7 @@ util/numeric.cpp
 util/map2d.cpp
 util/accelergy_interface.cpp
 workload/shape-models/problem-shape.cpp
+workload/fused-workload.cpp
 workload/workload.cpp
 workload/shape-models/operation-space.cpp
 workload/density-models/density-distribution.cpp
@@ -264,8 +291,18 @@ applications/design-space/design-space.cpp
 applications/design-space/main.cpp
 """)
 
-unit_tests_sources = Split("""
+compound_config_test_sources = Split("""
 unit-tests/compound-config/test-compound-config.cpp
+""")
+
+looptree_sources = Split("""
+applications/looptree-model/model.cpp
+applications/looptree-model/main.cpp
+""")
+
+unit_test_sources = Split("""
+unit-tests/test-main.cpp
+unit-tests/test-simple-link-transfer.cpp
 """)
 
 bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
@@ -273,14 +310,17 @@ bin_model = env.Program(target = 'timeloop-model', source = model_sources)
 bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)
 bin_mapper = env.Program(target = 'timeloop-mapper', source = mapper_sources)
 bin_design_space = env.Program(target = 'timeloop-design-space', source = design_space_sources)
-bin_unit_tests = env.Program(target = 'timeloop-unit-tests', source = unit_tests_sources)
+bin_compound_config_test = env.Program(target = 'timeloop-compound-config-test', source = compound_config_test_sources)
+bin_unit_test = env.Program(target = 'timeloop-unit-test', source = unit_test_sources)
 
-env.Install(env["BUILD_BASE_DIR"] + '/bin', [ bin_metrics,
-                                              bin_model,
-                                              bin_simple_mapper,
-                                              bin_mapper,
-                                              bin_design_space,
-                                              bin_unit_tests
+env.Install(env["BUILD_BASE_DIR"] + '/bin', [
+                                            bin_metrics,
+                                            bin_model,
+                                            bin_simple_mapper,
+                                            bin_mapper,
+                                            bin_design_space,
+                                            bin_compound_config_test,
+                                            bin_unit_test
                                             ])
 
 #os.symlink(os.path.abspath('timeloop-mapper'), os.path.abspath('timeloop'))

@@ -75,8 +75,10 @@ struct DataMovementInfo
   // note that, if a tensor is uncompressed and have no associated metadata (e.g., for eyeriss-style data gating),
   //      the tensor representation is just a dense tensor, which is already pre-analyzed in dense modeling
   std::vector<std::shared_ptr<problem::MetaDataFormat>> metadata_models; // metadata models (if any) for each rank of the tile
-  std::vector<bool> rank_compressed; // if each rank is compressed
-  std::vector<std::string> rank_formats; // each rank of the tensor should have metadata format, none for uncompressed
+  /** @brief Whether each rank is compressed. */
+  std::vector<bool> rank_compressed;
+  /** @brief Metadata format of each rank of the tensor. None for uncompressed. */
+  std::vector<std::string> rank_formats;
   bool apply_rank_inner_to_outer;
   std::size_t size; // for backward compatibility TODO: eventually we should use shape
   std::size_t shape;
@@ -84,6 +86,15 @@ struct DataMovementInfo
   MetaDataTileOccupancy expected_metadata_occupancy;
   problem::Shape::DataSpaceID dataspace_id ; // which dataspace does this tile belong to
   std::size_t partition_size;
+  /**
+   * @brief The number of accesses to parent of a single instance at this level.
+   * 
+   * A portion of this instance's fills (the other being `peer_fills`)
+   * 
+   * @see tiling::DataMovementInfo::peer_fills
+   * @see tiling::DataMovementInfo::fills
+   */
+  double total_child_accesses;
   double parent_access_share;
   bool distributed_multicast;
   AccessStatMatrix access_stats;
@@ -94,29 +105,34 @@ struct DataMovementInfo
   
   double temporal_reductions;
   double link_transfers;
-  double peer_accesses;           // number of accesses caused by link transfers in the previous level 
-  double peer_fills;              // number of fills caused by link transfers in the previous level
+  /** @brief Number of accesses caused by link transfers in the previous level. */
+  double peer_accesses;
+  /** @brief Number of fills caused by link transfers in the previous level. */
+  double peer_fills;
 
   PerTileFormatAccesses format_fills;
   PerTileFormatAccesses format_reads;
   PerTileFormatAccesses format_updates;
   
   std::vector<loop::Descriptor> subnest;
-  std::uint64_t replication_factor;      // number of spatial elements at this level.
+  /** @brief Number of spatial elements at this level. */
+  std::uint64_t replication_factor;
   double        avg_replication_factor;
   std::uint64_t max_replication_factor;
   std::uint64_t max_x_expansion;
   std::uint64_t max_y_expansion;
-  std::uint64_t fanout;                  // per-element fanout to next-level.
-  std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
+  /** @brief Per-element fanout to next level. */
+  std::uint64_t fanout;
+  /** @brief Max range of fanout if distributed multicast is used. */
+  std::uint64_t distributed_fanout;
   bool is_on_storage_boundary;
   bool is_master_spatial;
   bool rmw_on_first_writeback;
   bool passthrough;
   //double partition_fraction;
   std::size_t partition_fraction_denominator;
-  // Tile density
-  std::shared_ptr<problem::DensityDistribution> tile_density;  // statistical representation of tile data density
+  /** @brief Statistical representation of tile density */
+  std::shared_ptr<problem::DensityDistribution> tile_density;
   // Fine grained actions, names defined in operation-type.hpp
   std::map<std::string, std::uint64_t> fine_grained_data_accesses;
   std::map<std::string, PerTileFormatAccesses> fine_grained_format_accesses;
@@ -148,6 +164,7 @@ struct DataMovementInfo
     expected_metadata_occupancy = {};
     partition_size = 0;
     access_stats.clear();
+    total_child_accesses = 0;
     parent_access_share = 0;
     distributed_multicast = false;
     content_accesses = 0;

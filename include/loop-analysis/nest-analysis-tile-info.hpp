@@ -110,11 +110,27 @@ struct DataMovementInfo
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0);
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar& BOOST_SERIALIZATION_NVP(size);
+      ar& BOOST_SERIALIZATION_NVP(distributed_multicast);
+      ar& BOOST_SERIALIZATION_NVP(access_stats);
+      ar& BOOST_SERIALIZATION_NVP(link_transfers);
+      ar& BOOST_SERIALIZATION_NVP(subnest);
+      ar& BOOST_SERIALIZATION_NVP(replication_factor);
+      ar& BOOST_SERIALIZATION_NVP(fanout);
+      ar& BOOST_SERIALIZATION_NVP(distributed_fanout);
+      ar& BOOST_SERIALIZATION_NVP(is_on_storage_boundary);
+      ar& BOOST_SERIALIZATION_NVP(is_master_spatial);
+    }
+  }
 
   std::size_t size;
   // std::size_t partition_size;
   bool distributed_multicast;
+  double total_child_accesses;
   AccessStatMatrix access_stats;
   double link_transfers;
   std::vector<loop::Descriptor> subnest;
@@ -143,7 +159,7 @@ struct ComputeInfo
 };
 
 // compound tile info types to capture per-dataspace info
-typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest ; 
+typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest; 
 typedef std::vector<ComputeInfo> CompoundComputeNest;  // single vector, each element for a nest level, no fine-grained op type should be considered here
 struct CompoundTileNest
 {
