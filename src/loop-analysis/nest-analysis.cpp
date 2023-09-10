@@ -1595,22 +1595,57 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
         ASSERT(num_matches[pv] == match_set[pv].size());
         
         double hops = 0;
+        //double unicast_hops = 0;
+
+        // Create maps of max and min v coordinate at each h coordinate.
+        struct MinMax { std::uint64_t min; std::uint64_t max; };
+        std::map<std::uint64_t, MinMax> v_minmax_at_h;
         
         std::uint64_t h_max = 0;
+        double v_center = double(v_size-1) / 2;
+        
         for (auto& linear_id : match_set[pv])
         {
           std::uint64_t h_id = linear_id % h_size;
-          h_max = std::max(h_max, h_id);
-        }
-        hops += double(h_max);
-        
-        double v_center = double(v_size-1) / 2;
-        for (auto& linear_id : match_set[pv])
-        {
           std::uint64_t v_id = linear_id / h_size;
-          hops += std::abs(double(v_id) - v_center);
-        }
+          
+          h_max = std::max(h_max, h_id);
 
+          auto it = v_minmax_at_h.find(h_id);
+          if (it == v_minmax_at_h.end())
+          {
+            v_minmax_at_h[h_id] = { v_id, v_id };
+          }
+          else
+          {
+            it->second.min = std::min(it->second.min, v_id);
+            it->second.max = std::max(it->second.max, v_id);
+          }
+
+          //unicast_hops += double(h_id);
+          //unicast_hops += std::abs(double(v_id) - v_center);
+        }
+        
+        hops += double(h_max);
+
+        // Walk through the minmax and see how far to drive the v lines.
+        for (auto& minmax : v_minmax_at_h)
+        {
+          auto min = minmax.second.min;
+          auto max = minmax.second.max;
+
+          double min_offset = double(min) - v_center;
+          double max_offset = double(max) - v_center;
+
+          assert(min_offset <= max_offset);
+
+          if (min_offset < 0)
+            hops += std::abs(min_offset);
+
+          if (max_offset > 0)
+            hops += max_offset;
+        }
+        
         // Accumulate this into the running hop count. We'll finally divide this
         // by the scatter factor to get average hop count.
         temp_struct.hops += hops;

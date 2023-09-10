@@ -358,7 +358,7 @@ void LegacyNetwork::ComputeNetworkEnergy()
 #define PRECISE_MULTICAST 1
 #define EYERISS_HACK_MULTICAST 2  
 
-#define MULTICAST_MODEL PROBABILISTIC_MULTICAST
+#define MULTICAST_MODEL PRECISE_MULTICAST
   
   // NOTE! Stats are always maintained per-DataSpaceID
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
