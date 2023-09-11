@@ -1515,6 +1515,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     double accesses = 0;
     std::uint64_t scatter_factor = 0;
     double hops = 0.0;
+    double unicast_hops = 0.0;
   };
   problem::PerDataSpace<std::unordered_map<std::uint64_t, TempAccessStats>> temp_stats;
 
@@ -1595,7 +1596,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
         ASSERT(num_matches[pv] == match_set[pv].size());
         
         double hops = 0;
-        //double unicast_hops = 0;
+        double unicast_hops = 0;
 
         // Create maps of max and min v coordinate at each h coordinate.
         struct MinMax { std::uint64_t min; std::uint64_t max; };
@@ -1622,8 +1623,8 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
             it->second.max = std::max(it->second.max, v_id);
           }
 
-          //unicast_hops += double(h_id);
-          //unicast_hops += std::abs(double(v_id) - v_center);
+          unicast_hops += double(h_id);
+          unicast_hops += std::abs(double(v_id) - v_center);
         }
         
         hops += double(h_max);
@@ -1649,6 +1650,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
         // Accumulate this into the running hop count. We'll finally divide this
         // by the scatter factor to get average hop count.
         temp_struct.hops += hops;
+        temp_struct.unicast_hops += unicast_hops;
       }
     }
   }
@@ -1660,7 +1662,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     {
       auto multicast = x.first;
       auto scatter = x.second.scatter_factor;
-      access_stats[pv](multicast, scatter) = { x.second.accesses, x.second.hops };
+      access_stats[pv](multicast, scatter) = { x.second.accesses, x.second.hops, x.second.unicast_hops };
     }
   }
 }

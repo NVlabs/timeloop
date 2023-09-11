@@ -46,6 +46,7 @@ struct AccessStats
    * @brief Number of hops to deliver data to all children.
    */
   double hops = 0.0;
+  double unicast_hops = 0.0;
 
   // Serialization.
   friend class boost::serialization::access;
@@ -56,6 +57,7 @@ struct AccessStats
     {
       ar& BOOST_SERIALIZATION_NVP(accesses);
       ar& BOOST_SERIALIZATION_NVP(hops);
+      ar& BOOST_SERIALIZATION_NVP(unicast_hops);
     }
   }
 };
