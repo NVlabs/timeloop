@@ -153,7 +153,7 @@ void DataMovementInfo::Reset()
   subnest.resize(0);
   replication_factor = 0;
   fanout = 0;
-  distributed_fanout = 0;
+  //distributed_fanout = 0;
 }
 
 void DataMovementInfo::Validate()

@@ -381,16 +381,34 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
     // scatter.
     if (outer_multicast_factor > 1)
     {
-      // The outer tile's per-instance access count is unchanged, but its
+      // The outer tile's per-instance content access count is unchanged.
+      // Its network now carries two kinds of traffic:
+      // (1) Scatter (unicast) traffic to its child (instead of multicast) with
+      //     the access counts of what used to be the multicast.
+      // (2) The child's (inner's) distributed multicast traffic, but with the
+      //     access counts of the child->grandchild traffic. This network is
+      //     used to get to the remote inner instance, and the remote inner's
+      //     network will be used to multicast within its children. This 2-tier
+      //     data movement only makes sense with a mesh network. If the
+      //     child->grandchild is a crossbar, the logic will be different. FIXME.
+      // 
       // multicast factor changes to 1 (effectively turning it into a
       // full scatter fanout).
+
+      // FIXME: instead of adding all these fields to AccessStats, we should just
+      // have an additional AccessStats instance for distributed traffic tracking.
       uint64_t multicast_factor = 1;
-      uint64_t scatter_factor = outer_multicast_factor * outer_scatter_factor; // fanout?
+      uint64_t scatter_factor = outer_multicast_factor * outer_scatter_factor;
 
       tile_nest[outer].access_stats.stats[std::make_pair<>(multicast_factor, scatter_factor)] =
         { .accesses = outer_stats.accesses,
-          .hops = outer_stats.hops }; // FIXME: recompute stats.hops for PRECISE_MULTICAST.
+          .hops = outer_stats.unicast_hops };
 
+      tile_nest[outer].distributed_access_stats.stats[std::make_pair<>(outer_multicast_factor, outer_scatter_factor)] =
+        { .accesses = inner_stats.accesses,
+          .hops = outer_stats.hops };
+        
+      // Erase the original (multicast > 1) entry in the histogram.
       tile_nest[outer].access_stats.stats.erase(outer_access_stat_ref);
 
       // The inner tile's per-instance size, partition size and content-access count
@@ -404,6 +422,23 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
       tile_nest[inner].parent_access_share = 1 +
         (tile_nest[inner].parent_access_share - 1) / outer_multicast_factor;
 
+      // In our present model, the inner network (i.e., the
+      // child(inner)->grandchild net) is only responsible for the "local"
+      // communication within a parent's tile.
+      // The long-distance distributed multicast has been handled by the "global"
+      // parent(outer)->child(inner) network.
+
+      // Because of this, the inner network's behavior does not change. Every word
+      // that was previously read from the inner buffer is now delivered by the
+      // outer network in distributed mode.
+
+      (void) inner_multicast_factor;
+      (void) inner_scatter_factor;
+
+      // The following code (that was written for PROBABILISTIC MULTICAST) is no
+      // longer needed.
+
+      /*
       // The inner tile's network accesses will now happen at a distributed-multicast
       // factor of outer_multicast_factor. These alterations will magically trigger
       // all the right computations at the model evaluation stage.
@@ -415,10 +450,11 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
 
       tile_nest[inner].access_stats.stats[std::make_pair<>(distributed_multicast_factor, inner_scatter_factor)] =
         { .accesses = (inner_stats.accesses - 1) / outer_multicast_factor,
-          .hops = inner_stats.hops }; // FIXME: recompute stats.hops for PRECISE_MULTICAST.
+          .hops = inner_stats.hops };
 
       tile_nest[inner].access_stats.stats.erase(inner_access_stat_ref);
-
+      */
+      
       // We should be doing this process hierarchically along the entire tile stack,
       // but for the moment just support doing this once.
       break;
@@ -858,7 +894,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.shape = tiles[pv][outermost_loop].size; // shape is the coord space representation
       collapsed_tile.dataspace_id = (unsigned)pv;
       collapsed_tile.partition_size = 0;
-      collapsed_tile.distributed_multicast = false;
+      //collapsed_tile.distributed_multicast = false;
       collapsed_tile.access_stats = tiles[pv][innermost_loop].access_stats;
       collapsed_tile.content_accesses = tiles[pv][innermost_loop].access_stats.TotalAccesses();
       collapsed_tile.link_transfers = tiles[pv][innermost_loop].link_transfers;

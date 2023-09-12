@@ -65,6 +65,7 @@ struct DataMovementInfo
     {
       ar& BOOST_SERIALIZATION_NVP(size);
       ar& BOOST_SERIALIZATION_NVP(access_stats);
+      ar& BOOST_SERIALIZATION_NVP(distributed_access_stats);
       ar& BOOST_SERIALIZATION_NVP(subnest);
     }
   }
@@ -85,8 +86,12 @@ struct DataMovementInfo
   problem::Shape::DataSpaceID dataspace_id ; // which dataspace does this tile belong to
   std::size_t partition_size;
   double parent_access_share;
-  bool distributed_multicast;
+  
+  //bool distributed_multicast;
+  
   AccessStatMatrix access_stats;
+  AccessStatMatrix distributed_access_stats;
+  
   double content_accesses;
   std::uint64_t fills;
   std::uint64_t reads;
@@ -108,7 +113,7 @@ struct DataMovementInfo
   std::uint64_t max_x_expansion;
   std::uint64_t max_y_expansion;
   std::uint64_t fanout;                  // per-element fanout to next-level.
-  std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
+  //std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
   bool is_master_spatial;
   //double partition_fraction;
@@ -146,8 +151,9 @@ struct DataMovementInfo
     expected_metadata_occupancy = {};
     partition_size = 0;
     access_stats.clear();
+    distributed_access_stats.clear();
     parent_access_share = 0;
-    distributed_multicast = false;
+    //distributed_multicast = false;
     content_accesses = 0;
     fills = 0;
     reads = 0;
@@ -161,7 +167,7 @@ struct DataMovementInfo
     max_x_expansion = 0;
     max_y_expansion = 0;
     fanout = 0;
-    distributed_fanout = 0;
+    //distributed_fanout = 0;
     compressed = false;
     has_metadata = false;
     apply_rank_inner_to_outer = false; 

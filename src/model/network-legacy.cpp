@@ -285,7 +285,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
     }
 
     stats_.spatial_reductions[pv] = 0;
-    stats_.distributed_multicast[pv] = tile[pvi].distributed_multicast;
+    stats_.distributed_multicast[pv] = !tile[pvi].distributed_access_stats.stats.empty(); // tile[pvi].distributed_multicast;
 
     for (auto& x: tile[pvi].access_stats.stats)
     {

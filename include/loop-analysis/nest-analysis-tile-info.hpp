@@ -116,15 +116,17 @@ struct DataMovementInfo
 
   std::size_t size;
   // std::size_t partition_size;
-  bool distributed_multicast;
   AccessStatMatrix access_stats;
+  
   double link_transfers;
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t fanout;                  // per-element fanout to next-level.
-  std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
   bool is_master_spatial;
+
+  //bool distributed_multicast;
+  //std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   
   void Reset();
 
