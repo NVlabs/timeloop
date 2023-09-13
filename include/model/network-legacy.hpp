@@ -103,9 +103,11 @@ class LegacyNetwork : public Network
   struct Stats
   {
     problem::PerDataSpace<std::uint64_t> fanout;
-    problem::PerDataSpace<std::uint64_t> distributed_fanout;
+    //problem::PerDataSpace<std::uint64_t> distributed_fanout;
     problem::PerDataSpace<std::uint64_t> multicast_factor;
+    problem::PerDataSpace<std::uint64_t> distributed_multicast_factor;
     problem::PerDataSpace<AccessStatMatrix> ingresses;
+    problem::PerDataSpace<AccessStatMatrix> distributed_ingresses;
     problem::PerDataSpace<bool> distributed_multicast;
     problem::PerDataSpace<unsigned long> link_transfers;
     problem::PerDataSpace<unsigned long> spatial_reductions;
@@ -133,8 +135,9 @@ class LegacyNetwork : public Network
       if (version == 0)
       {
         ar& BOOST_SERIALIZATION_NVP(fanout);
-        ar& BOOST_SERIALIZATION_NVP(distributed_fanout);
+        //ar& BOOST_SERIALIZATION_NVP(distributed_fanout);
         ar& BOOST_SERIALIZATION_NVP(multicast_factor);
+        ar& BOOST_SERIALIZATION_NVP(distributed_multicast_factor);
         //ar& BOOST_SERIALIZATION_NVP(ingresses);
         ar& BOOST_SERIALIZATION_NVP(distributed_multicast);
         ar& BOOST_SERIALIZATION_NVP(link_transfers);
