@@ -324,6 +324,18 @@ std::shared_ptr<BufferLevel::Specs> Topology::Specs::GetStorageLevel(unsigned st
   return std::static_pointer_cast<BufferLevel::Specs>(levels.at(level_id));
 }
 
+std::shared_ptr<BufferLevel::Specs> Topology::Specs::GetStorageLevel(std::string level_name) const
+{
+  for(auto level : levels)
+  {
+    if (level->level_name == level_name)
+    {
+      return std::static_pointer_cast<BufferLevel::Specs>(level);
+    }
+  }
+  return nullptr;
+}
+
 std::shared_ptr<ArithmeticUnits::Specs> Topology::Specs::GetArithmeticLevel() const
 {
   auto level_id = arithmetic_map;
@@ -481,7 +493,7 @@ out << std::endl
   if (topology.is_evaluated_)
   {
     out << "GFLOPs (@1GHz): " << float(total_ops)  / topology.stats_.cycles << std::endl;
-    out << "Utilization: " << topology.stats_.utilization << std::endl;
+    out << "Utilization: " << OUT_PERCENT(topology.stats_.utilization) << std::endl;
     out << "Cycles: " << topology.stats_.cycles << std::endl;
     out << "Energy: " << topology.stats_.energy / 1000000 << " uJ" << std::endl;
     out << "EDP(J*cycle): " << std::scientific << float(topology.stats_.cycles) * topology.stats_.energy / 1e12 << OUT_FLOAT_FORMAT << std::endl;
@@ -873,6 +885,19 @@ void Topology::Spec(const Topology::Specs& specs)
     outer_buffer->ConnectRead(read_fill_network);
     outer_buffer->ConnectUpdate(drain_update_network);
 
+    // Set the level that handles power gating for this one
+    if (!outer_buffer->GetSpecs().power_gated_at_name.IsSpecified())
+    {
+      outer_buffer->GetSpecs().power_gated_at_name = outer_buffer->GetSpecs().name;
+    }
+    auto power_gated_level = GetStorageLevel(outer_buffer->GetSpecs().power_gated_at_name.Get());
+    if (power_gated_level == nullptr)
+    {
+      std::cerr << "ERROR: power_gated_at buffer " << outer_buffer->GetSpecs().power_gated_at_name.Get() << " not found." << std::endl;
+      exit(1);
+    }
+    outer_buffer->SetPowerGatedAt(power_gated_level);
+
     if (!inner_is_arithmetic)
     {
       auto inner_buffer = std::static_pointer_cast<BufferLevel>(inner);
@@ -1099,6 +1124,18 @@ std::shared_ptr<BufferLevel> Topology::GetStorageLevel(unsigned storage_level_id
   return std::static_pointer_cast<BufferLevel>(levels_.at(level_id));
 }
 
+std::shared_ptr<BufferLevel> Topology::GetStorageLevel(std::string level_name) const
+{
+  for(auto level : levels_)
+  {
+    if (level->Name() == level_name)
+    {
+      return std::static_pointer_cast<BufferLevel>(level);
+    }
+  }
+  return nullptr;
+}
+
 std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
 {
   auto level_id = specs_.ArithmeticMap();
@@ -1315,7 +1352,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   // will only get the correct number of cycles if the eval of compute level is successful
   if (success_accum)
     compute_cycles = GetArithmeticLevel()->Cycles();
-
+  uint64_t total_cycles = compute_cycles;
 
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
@@ -1339,6 +1376,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
                                      mapping.confidence_thresholds.at(storage_level_id),
                                      compute_cycles, break_on_failure);
+    total_cycles = std::max(total_cycles, storage_level->Cycles());
     eval_status.at(level_id) = s;
     success_accum &= s.success;
 
@@ -1370,7 +1408,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
     {
       auto storage_level = GetStorageLevel(storage_level_id);
-      storage_level->FinalizeBufferEnergy();
+      storage_level->ComputeLeaksPerCycle();
+      storage_level->FinalizeBufferEnergy(total_cycles);
     }
   }
 
