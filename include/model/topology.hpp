@@ -63,28 +63,29 @@ static std::map <std::string, std::vector<std::string>> arithmeticOperationMappi
 static std::map <std::string, std::vector<std::string>> storageOperationMappings
   = {
      {"random_read", {"random_read", "read"}},
-     {"gated_read", {"gated_read", "idle", "read"}},
-     {"skipped_read", {"skipped_read", "gated_read", "idle", "read"}},
+     {"gated_read", {"gated_read"}},
+     {"skipped_read", {"skipped_read", "gated_read"}},
      {"random_metadata_read", {"random_metadata_read", "metadata_read"}},
-     {"gated_metadata_read", {"gated_metadata_read", "metadata_idle", "metadata_read"}},
-     {"skipped_metadata_read", {"skipped_metadata_read", "gated_metadata_read", "metadata_idle", "metadata_read"}},
+     {"gated_metadata_read", {"gated_metadata_read"}},
+     {"skipped_metadata_read", {"skipped_metadata_read", "gated_metadata_read"}},
 
      {"random_fill", {"random_fill", "random_write", "fill", "write"}},
-     {"gated_fill", {"gated_fill", "gated_write", "idle", "fill", "write"}},
-     {"skipped_fill", {"skipped_fill", "skipped_write", "gated_fill", "gated_write", "idle", "fill", "write"}},
+     {"gated_fill", {"gated_fill", "gated_write"}},
+     {"skipped_fill", {"skipped_fill", "skipped_write", "gated_fill", "gated_write"}},
      {"random_metadata_fill", {"random_metadata_fill", "random_metadata_write", "metadata_fill", "metadata_write"}},
-     {"gated_metadata_fill", {"gated_metadata_fill", "gated_metadata_write", "metadata_idle", "metadata_fill", "metadata_write"}},
-     {"skipped_metadata_fill", {"skipped_metadata_fill", "skipped_metadata_write", "gated_metadata_fill", "gated_metadata_write", "metadata_idle", "metadata_fill", "metadata_write"}},
+     {"gated_metadata_fill", {"gated_metadata_fill", "gated_metadata_write"}},
+     {"skipped_metadata_fill", {"skipped_metadata_fill", "skipped_metadata_write", "gated_metadata_fill", "gated_metadata_write"}},
 
      {"random_update", {"random_update", "random_write", "update", "write"}},
-     {"gated_update", {"gated_update", "gated_write", "idle", "update", "write"}},
-     {"skipped_update", {"skipped_update", "skipped_write", "gated_update", "gated_write", "idle", "update", "write"}},
+     {"gated_update", {"gated_update", "gated_write"}},
+     {"skipped_update", {"skipped_update", "skipped_write", "gated_update", "gated_write"}},
      {"random_metadata_update", {"random_metadata_update", "random_metadata_write", "metadata_update", "metadata_write"}},
-     {"gated_metadata_update", {"gated_metadata_update", "gated_metadata_write", "metadata_idle", "metadata_update", "metadata_write"}},
-     {"skipped_metadata_update", {"skipped_metadata_update", "skipped_metadata_write", "gated_metadata_update", "gated_metadata_write", "metadata_idle", "metadata_update", "metadata_write"}},
+     {"gated_metadata_update", {"gated_metadata_update", "gated_metadata_write"}},
+     {"skipped_metadata_update", {"skipped_metadata_update", "skipped_metadata_write", "gated_metadata_update", "gated_metadata_write"}},
 
      {"decompression_count", {"decompression_count"}},
-     {"compression_count", {"compression_count"}}
+     {"compression_count", {"compression_count"}},
+     {"leak", {"leak"}},
   };
 
 static std::string bufferClasses[5] = { "DRAM",
@@ -182,6 +183,7 @@ class Topology : public Module
 
     std::shared_ptr<LevelSpecs> GetLevel(unsigned level_id) const;
     std::shared_ptr<BufferLevel::Specs> GetStorageLevel(unsigned storage_level_id) const;
+    std::shared_ptr<BufferLevel::Specs> GetStorageLevel(std::string level_name) const;
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
     std::shared_ptr<LegacyNetwork::Specs> GetInferredNetwork(unsigned network_id) const;
     std::shared_ptr<NetworkSpecs> GetNetwork(unsigned network_id) const;
@@ -268,6 +270,7 @@ class Topology : public Module
  private:
   std::shared_ptr<Level> GetLevel(unsigned level_id) const;
   std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
+  std::shared_ptr<BufferLevel> GetStorageLevel(std::string level_name) const;
   std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
 
   void FloorPlan();
