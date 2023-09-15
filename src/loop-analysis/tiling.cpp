@@ -292,7 +292,7 @@ void ProcessOuterMaskedLevels(std::vector<DataMovementInfo>& tile_nest, std::bit
   for (int cur = int(tile_nest.size())-1; cur >= 0; cur--)
   {
     // Work on all outermost masked levels until we find an unmasked level.
-    if (!mask[cur])
+    if (!mask[cur] || tile_nest[cur].passthrough)
     {
       // Blow up *all* stats (including network stats).
       tile_nest[cur].Reset();
