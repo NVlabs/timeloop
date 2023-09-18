@@ -793,6 +793,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
       // Set cumulative hops for temporal levels.
       access_stats.hops = 0.0;
+      access_stats.unicast_hops = 0.0;
     }
   }
   else // recurse
@@ -999,6 +1000,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
         // Set cumulative hops for temporal levels.
         access_stats.hops = 0.0;
+        access_stats.unicast_hops = 0.0;
 
         // Update delta histogram. Hypothesis is we only need to do this for temporal levels.
         cur_state.delta_histograms[pv][final_delta_sizes[pv]] += num_epochs_;
@@ -1145,7 +1147,8 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 
   for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
-    cur_state.access_stats[pvi].Accumulate(*access_stats[pvi]);
+    if (pvi == 0) std::cout << "Level " << cur->level << "Spatial call accumulate...\n";
+    cur_state.access_stats[pvi].Accumulate(*access_stats[pvi], pvi == 0);
   }
 
   //  auto& accesses = nest_state_[cur->level].live_state[spatial_id_].accesses;
@@ -1662,6 +1665,14 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     {
       auto multicast = x.first;
       auto scatter = x.second.scatter_factor;
+
+      if (pv == 0)
+      {
+        std::cout << "level " << cur->level << " mcast " << multicast
+                  << " scatter " << scatter << " hops " << x.second.hops
+                  << " unicast hops " << x.second.unicast_hops << std::endl;
+      }
+      
       access_stats[pv](multicast, scatter) = { x.second.accesses, x.second.hops, x.second.unicast_hops };
     }
   }

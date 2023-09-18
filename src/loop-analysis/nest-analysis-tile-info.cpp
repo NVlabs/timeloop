@@ -57,7 +57,7 @@ double AccessStatMatrix::WeightedAccesses() const
   return total;
 }
 
-void AccessStatMatrix::Accumulate(const AccessStatMatrix& other)
+void AccessStatMatrix::Accumulate(const AccessStatMatrix& other, bool debug)
 {
   for (auto& x: other.stats)
   {
@@ -65,9 +65,23 @@ void AccessStatMatrix::Accumulate(const AccessStatMatrix& other)
     auto scatter = x.first.second;
 
     auto& mine = stats[std::make_pair(multicast, scatter)];
+
+    if (debug)
+      std::cout << "Accumulating mcast " << multicast << " scatter " << scatter << ":\n"
+                << "  start accesses = " << mine.accesses << std::endl
+                << "  start hops     = " << mine.hops << std::endl
+                << std::endl
+                << "  inc accesses   = " << x.second.accesses << std::endl
+                << "  inc hops       = " << x.second.hops << std::endl
+                << std::endl;
+    
     mine.accesses += x.second.accesses; 
     mine.hops += x.second.hops; 
-    mine.unicast_hops += x.second.unicast_hops; 
+    mine.unicast_hops += x.second.unicast_hops;
+
+    if (debug)
+      std::cout << "  end accesses   = " << mine.accesses << std::endl
+                << "  end hops       = " << mine.hops << std::endl;
   }
 }
 

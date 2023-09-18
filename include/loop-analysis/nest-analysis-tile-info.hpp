@@ -81,7 +81,7 @@ struct AccessStatMatrix
   double TotalAccesses() const;
   double WeightedAccesses() const;
 
-  void Accumulate(const AccessStatMatrix& other);
+  void Accumulate(const AccessStatMatrix& other, bool debug=false);
   void Divide(const std::uint64_t divisor);
 
   AccessStats& at(std::uint64_t multicast, std::uint64_t scatter);
