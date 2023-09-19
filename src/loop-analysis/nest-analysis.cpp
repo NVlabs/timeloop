@@ -1582,6 +1582,12 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     // update the number of accesses at different multicast factors.
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
+      if (pv == 0)
+      {
+        std::cout << "-- BEGIN hop count --\n";
+        std::cout << "  hsize = " << h_size << "  vsize = " << v_size << std::endl;
+      }
+
       if (num_matches[pv] > 0 && delta.GetSize(pv) > 0)
       {
         auto& temp_struct = temp_stats[pv][num_matches[pv]];
@@ -1604,7 +1610,9 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
         
         std::uint64_t h_max = 0;
         double v_center = double(v_size-1) / 2;
-        
+
+        std::cout << "  v_center = " << v_center << std::endl;
+
         for (auto& linear_id : match_set[pv])
         {
           std::uint64_t h_id = linear_id % h_size;
@@ -1626,6 +1634,8 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
           unicast_hops += double(h_id);
           unicast_hops += std::abs(double(v_id) - v_center);
         }
+
+        std::cout << "  h_max = " << h_max << std::endl;
         
         hops += double(h_max);
 
@@ -1652,6 +1662,9 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
         temp_struct.hops += hops;
         temp_struct.unicast_hops += unicast_hops;
       }
+      
+      if (pv == 0)
+        std::cout << "-- END hop count --\n";
     }
   }
 
@@ -1672,8 +1685,8 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
       
       access_stats[pv](multicast, scatter) =
         { x.second.accesses,
-          x.second.hops * x.second.accesses, // Note! Weighted sum.
-          x.second.unicast_hops * x.second.accesses } ;// Note! Weighted sum.
+          (x.second.hops * x.second.accesses) / scatter, // Note! Weighted sum.
+          (x.second.unicast_hops * x.second.accesses) / scatter } ;// Note! Weighted sum.
     }
   }
 }
