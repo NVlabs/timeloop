@@ -312,9 +312,6 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
       auto multicast = x.first.first;
       auto scatter = x.first.second;
       stats_.ingresses[pv](multicast, scatter).hops = x.second.hops; // / x.second.accesses; // / scatter;
-
-      if (pv == 0)
-        std::cout << "Net " << Name() << " collecting hops " << x.second.hops << std::endl; 
     }
 
     for (auto& x: tile[pvi].distributed_access_stats.stats)
@@ -434,15 +431,11 @@ void LegacyNetwork::ComputeNetworkEnergy()
       {
         (void)fanout;
         (void)multicast_factor;
+        (void)scatter_factor;
 
-        auto num_hops = hops / ingresses; // / double(scatter_factor);
+        auto num_hops = hops / ingresses;
 
-        if (pv == 0)
-          std::cout << "Net " << Name() << " hops " << hops
-                    << " scatter " << scatter_factor << " scaled " << num_hops << std::endl; 
-        
         total_routers_touched += (1 + std::uint64_t(std::floor(num_hops))) * ingresses;
-
         total_wire_hops += num_hops * ingresses;
       }
     }
@@ -463,7 +456,7 @@ void LegacyNetwork::ComputeNetworkEnergy()
         (void)fanout;
         (void)multicast_factor;
 
-        auto num_hops = hops / ingresses; // / double(scatter_factor);
+        auto num_hops = hops / ingresses;
         total_routers_touched += (1 + std::uint64_t(std::floor(num_hops))) * ingresses;
 
         total_wire_hops += num_hops * ingresses;

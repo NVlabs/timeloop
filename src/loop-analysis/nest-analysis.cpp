@@ -395,45 +395,15 @@ void NestAnalysis::CollectWorkingSets()
 
         for (auto& state: cur.live_state)
         {
-          if (pv == 0)
-          {
-            std::cout << "BEFORE ACCUMULATION:\n";
-            for (auto& x: state.second.access_stats[pv].stats)
-            {
-              std::cout << " [" << x.first.first << "," << x.first.second << "] : accesses = "
-                        << x.second.accesses << " hops = " << x.second.hops << std::endl; 
-            }
-          }
-                  
-          condensed_state.access_stats[pv].Accumulate(state.second.access_stats[pv], true);
+          condensed_state.access_stats[pv].Accumulate(state.second.access_stats[pv]);
           condensed_state.max_size[pv] += state.second.max_size[pv];
           condensed_state.link_transfers[pv] += state.second.link_transfers[pv];
         }
 
-        if (pv == 0)
-        {
-          std::cout << "BEFORE DIVISION:\n";
-          for (auto& x: condensed_state.access_stats[pv].stats)
-          {
-            std::cout << " [" << x.first.first << "," << x.first.second << "] : accesses = "
-                      << x.second.accesses << " hops = " << x.second.hops << std::endl; 
-          }
-        }
-        
         std::uint64_t num_sampled_instances = cur.live_state.size();
         condensed_state.access_stats[pv].Divide(num_sampled_instances);
         condensed_state.max_size[pv] /= num_sampled_instances;
         condensed_state.link_transfers[pv] /= num_sampled_instances;
-
-        if (pv == 0)
-        {
-          std::cout << "AFTER DIVISION:\n";
-          for (auto& x: condensed_state.access_stats[pv].stats)
-          {
-            std::cout << " [" << x.first.first << "," << x.first.second << "] : accesses = "
-                      << x.second.accesses << " hops = " << x.second.hops << std::endl; 
-          }
-        }        
       }
 
       // Build the subnest corresponding to this level.
@@ -460,16 +430,6 @@ void NestAnalysis::CollectWorkingSets()
         tile.size                   = condensed_state.max_size[pv];
         // tile.partition_size         = 0; // will be set later.
         tile.access_stats           = condensed_state.access_stats[pv];
-        if (pv == 0)
-        {
-          std::cout << "BEGIN COLLECT WORKING SETS\n";
-          for (auto& x: condensed_state.access_stats[pv].stats)
-          {
-            std::cout << " [" << x.first.first << "," << x.first.second << "] : accesses = "
-                      << x.second.accesses << " hops = " << x.second.hops << std::endl; 
-          }
-          std::cout << "END COLLECT WORKING SETS\n";
-        }
         // tile.fills                  = 0; // will be set later
         // tile.content_accesses       = tile.GetTotalAccesses();
         tile.link_transfers         = condensed_state.link_transfers[pv];
@@ -1144,8 +1104,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 
   for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
-    if (pvi == 0) std::cout << "Level " << cur->level << " spatial call accumulate...\n";
-    cur_state.access_stats[pvi].Accumulate(*access_stats[pvi], pvi == 0);
+    cur_state.access_stats[pvi].Accumulate(*access_stats[pvi]);
   }
 
   //  auto& accesses = nest_state_[cur->level].live_state[spatial_id_].accesses;
@@ -1582,12 +1541,6 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     // update the number of accesses at different multicast factors.
     for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
     {
-      if (pv == 0)
-      {
-        std::cout << "-- BEGIN hop count --\n";
-        std::cout << "  hsize = " << h_size << "  vsize = " << v_size << std::endl;
-      }
-
       if (num_matches[pv] > 0 && delta.GetSize(pv) > 0)
       {
         auto& temp_struct = temp_stats[pv][num_matches[pv]];
@@ -1611,8 +1564,6 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
         std::uint64_t h_max = 0;
         double v_center = double(v_size-1) / 2;
 
-        std::cout << "  v_center = " << v_center << std::endl;
-
         for (auto& linear_id : match_set[pv])
         {
           std::uint64_t h_id = linear_id % h_size;
@@ -1635,8 +1586,6 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
           unicast_hops += std::abs(double(v_id) - v_center);
         }
 
-        std::cout << "  h_max = " << h_max << std::endl;
-        
         hops += double(h_max);
 
         // Walk through the minmax and see how far to drive the v lines.
@@ -1662,9 +1611,6 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
         temp_struct.hops += hops;
         temp_struct.unicast_hops += unicast_hops;
       }
-      
-      if (pv == 0)
-        std::cout << "-- END hop count --\n";
     }
   }
 
@@ -1676,13 +1622,6 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
       auto multicast = x.first;
       auto scatter = x.second.scatter_factor;
 
-      if (pv == 0)
-      {
-        std::cout << "level " << cur->level << " mcast " << multicast
-                  << " scatter " << scatter << " hops " << x.second.hops
-                  << " unicast hops " << x.second.unicast_hops << std::endl;
-      }
-      
       access_stats[pv](multicast, scatter) =
         { x.second.accesses,
           (x.second.hops * x.second.accesses) / scatter, // Note! Weighted sum.
