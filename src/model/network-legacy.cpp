@@ -121,9 +121,10 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   if (network.lookupValue("tile-width", tile_width)) {specs.tile_width = tile_width;}
 
   double energy_per_hop;
-  if (network.lookupValue("energy-per-hop", energy_per_hop)) {
-      specs.energy_per_hop = energy_per_hop;
-  }
+  if (network.lookupValue("energy-per-hop", energy_per_hop)) specs.energy_per_hop = energy_per_hop;
+
+  double energy_per_ingress;
+  if (network.lookupValue("energy-per-ingress", energy_per_ingress)) specs.energy_per_ingress = energy_per_ingress;
 
   // Network fill and drain latency
   unsigned long long fill_latency;
@@ -406,6 +407,7 @@ void LegacyNetwork::ComputeNetworkEnergy()
       specs_.energy_per_hop.IsSpecified() ?
       specs_.energy_per_hop.Get() : WireEnergyPerHop(specs_.word_bits.Get(), specs_.tile_width.Get(), wire_energy);
     double energy_per_router = specs_.router_energy.IsSpecified() ? specs_.router_energy.Get() : 0.0; // Set to 0 since no internal model yet
+    double energy_per_ingress = specs_.energy_per_ingress.IsSpecified() ? specs_.energy_per_ingress.Get() : 0.0;
 
     /*
     auto fanout = stats_.distributed_multicast.at(pv) ?
@@ -462,12 +464,13 @@ void LegacyNetwork::ComputeNetworkEnergy()
         total_wire_hops += num_hops * ingresses;
       }
     }
-    
+
     stats_.energy_per_hop[pv] = energy_per_hop;
     stats_.num_hops[pv] = total_ingresses > 0 ? total_wire_hops / total_ingresses : 0;
     stats_.energy[pv] =
       total_wire_hops * energy_per_hop + // wire energy
-      total_routers_touched * energy_per_router; // router energy
+      total_routers_touched * energy_per_router + // router energy
+      energy_per_ingress * total_ingresses;
 
     stats_.link_transfer_energy[pv] =
       stats_.link_transfers.at(pv) * (energy_per_hop + 2*energy_per_router);

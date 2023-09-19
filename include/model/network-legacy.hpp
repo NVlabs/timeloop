@@ -63,6 +63,9 @@ class LegacyNetwork : public Network
     Attribute<double> tile_width; // um
     Attribute<double> energy_per_hop; //pJ
 
+    // Additional overheads.
+    Attribute<double> energy_per_ingress; //pJ
+
     // Network fill and drain latency
     Attribute<std::uint64_t> fill_latency;
     Attribute<std::uint64_t> drain_latency;
@@ -87,6 +90,7 @@ class LegacyNetwork : public Network
         ar& BOOST_SERIALIZATION_NVP(wire_energy);
         ar& BOOST_SERIALIZATION_NVP(tile_width);
         ar& BOOST_SERIALIZATION_NVP(energy_per_hop);
+        ar& BOOST_SERIALIZATION_NVP(energy_per_ingress);
         ar& BOOST_SERIALIZATION_NVP(fill_latency);
         ar& BOOST_SERIALIZATION_NVP(drain_latency);
       }
