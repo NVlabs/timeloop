@@ -375,36 +375,6 @@ void NestAnalysis::CollectWorkingSets()
       analysis::ElementState condensed_state(*workload_);
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
-        // Sanity check: All elements in a given level should
-        // have similar working sets, accesses etc.
-        // TODO Can we leverage this assertion to avoid redundant simulation
-        // by only simulating one spatial element per level?
-        if (!gExtrapolateUniformSpatial)
-        {
-          // FIXME: aggregate stats.
-          // for (std::uint64_t i = 1; i < cur.live_state.size(); i++)
-          // {
-          //   ASSERT(cur.live_state[i].access_stats[pv] ==
-          //          cur.live_state[i - 1].access_stats[pv]);
-          //   ASSERT(cur.live_state[i].max_size[pv] ==
-          //          cur.live_state[i - 1].max_size[pv]);
-          //   ASSERT(cur.live_state[i].link_transfers[pv] ==
-          //          cur.live_state[i - 1].link_transfers[pv]);
-          // }
-        }
-
-        // // Since, all elements have the same properties, use the properties
-        // // of the first element to build condensed_state
-        // const uint64_t REPR_ELEM_ID = 0;  // representative element id.
-        // condensed_state.access_stats[pv] =
-        //     cur.live_state[REPR_ELEM_ID].access_stats[pv];
-        // condensed_state.max_size[pv] =
-        //     cur.live_state[REPR_ELEM_ID].max_size[pv];
-        // condensed_state.link_transfers[pv] =
-        //     cur.live_state[REPR_ELEM_ID].link_transfers[pv];
-        // // condensed_state.data_densities[pv] =
-        // //     cur.live_state[REPR_ELEM_ID].data_densities[pv];
-
         // We have 3 choices:
         // (1) Sample the stats from one spatial instance and report that as the
         //     per-instance stats.
@@ -420,33 +390,50 @@ void NestAnalysis::CollectWorkingSets()
         // address this, but will require changes to the post-processing code.
         // (3) is probably the best approach but will require significant
         // reworking of the post-processing and microarchitecture code.
-
-        // bool first = true;
-        // for (auto& state: cur.live_state)
-        // {
-        //   if (first)
-        //   {
-        //     condensed_state.access_stats[pv] = state.second.access_stats[pv];
-        //     condensed_state.max_size[pv] = state.second.max_size[pv];
-        //     condensed_state.link_transfers[pv] = state.second.link_transfers[pv];
-        //     first = false;
-        //     // std::cout << "s";
-        //     // PrintStamp(state.first);
-        //     // std::cout << " store size " << condensed_state.max_size[pv] << std::endl;
-        //     break;
-        //   }
-        // }
+        //
+        // Current implementation: (2) with floating-point.
 
         for (auto& state: cur.live_state)
         {
-          condensed_state.access_stats[pv].Accumulate(state.second.access_stats[pv]);
+          if (pv == 0)
+          {
+            std::cout << "BEFORE ACCUMULATION:\n";
+            for (auto& x: state.second.access_stats[pv].stats)
+            {
+              std::cout << " [" << x.first.first << "," << x.first.second << "] : accesses = "
+                        << x.second.accesses << " hops = " << x.second.hops << std::endl; 
+            }
+          }
+                  
+          condensed_state.access_stats[pv].Accumulate(state.second.access_stats[pv], true);
           condensed_state.max_size[pv] += state.second.max_size[pv];
           condensed_state.link_transfers[pv] += state.second.link_transfers[pv];
         }
+
+        if (pv == 0)
+        {
+          std::cout << "BEFORE DIVISION:\n";
+          for (auto& x: condensed_state.access_stats[pv].stats)
+          {
+            std::cout << " [" << x.first.first << "," << x.first.second << "] : accesses = "
+                      << x.second.accesses << " hops = " << x.second.hops << std::endl; 
+          }
+        }
+        
         std::uint64_t num_sampled_instances = cur.live_state.size();
         condensed_state.access_stats[pv].Divide(num_sampled_instances);
         condensed_state.max_size[pv] /= num_sampled_instances;
         condensed_state.link_transfers[pv] /= num_sampled_instances;
+
+        if (pv == 0)
+        {
+          std::cout << "AFTER DIVISION:\n";
+          for (auto& x: condensed_state.access_stats[pv].stats)
+          {
+            std::cout << " [" << x.first.first << "," << x.first.second << "] : accesses = "
+                      << x.second.accesses << " hops = " << x.second.hops << std::endl; 
+          }
+        }        
       }
 
       // Build the subnest corresponding to this level.
@@ -473,6 +460,16 @@ void NestAnalysis::CollectWorkingSets()
         tile.size                   = condensed_state.max_size[pv];
         // tile.partition_size         = 0; // will be set later.
         tile.access_stats           = condensed_state.access_stats[pv];
+        if (pv == 0)
+        {
+          std::cout << "BEGIN COLLECT WORKING SETS\n";
+          for (auto& x: condensed_state.access_stats[pv].stats)
+          {
+            std::cout << " [" << x.first.first << "," << x.first.second << "] : accesses = "
+                      << x.second.accesses << " hops = " << x.second.hops << std::endl; 
+          }
+          std::cout << "END COLLECT WORKING SETS\n";
+        }
         // tile.fills                  = 0; // will be set later
         // tile.content_accesses       = tile.GetTotalAccesses();
         tile.link_transfers         = condensed_state.link_transfers[pv];
@@ -1147,7 +1144,7 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
 
   for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
   {
-    if (pvi == 0) std::cout << "Level " << cur->level << "Spatial call accumulate...\n";
+    if (pvi == 0) std::cout << "Level " << cur->level << " spatial call accumulate...\n";
     cur_state.access_stats[pvi].Accumulate(*access_stats[pvi], pvi == 0);
   }
 
@@ -1673,7 +1670,10 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
                   << " unicast hops " << x.second.unicast_hops << std::endl;
       }
       
-      access_stats[pv](multicast, scatter) = { x.second.accesses, x.second.hops, x.second.unicast_hops };
+      access_stats[pv](multicast, scatter) =
+        { x.second.accesses,
+          x.second.hops * x.second.accesses, // Note! Weighted sum.
+          x.second.unicast_hops * x.second.accesses } ;// Note! Weighted sum.
     }
   }
 }

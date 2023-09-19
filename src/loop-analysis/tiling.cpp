@@ -400,13 +400,18 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
       uint64_t multicast_factor = 1;
       uint64_t scatter_factor = outer_multicast_factor * outer_scatter_factor;
 
+      // Hop counts are maintained as a weighted summation of (hops * accesses).
+      // To obtain the final average hop count we need to divide by the final
+      // access count. Here, we are performing some re-assignment of access
+      // counts so we have to be careful to re-scale the hop summation correctly.
+      
       tile_nest[outer].access_stats.stats[std::make_pair<>(multicast_factor, scatter_factor)] =
         { .accesses = outer_stats.accesses,
           .hops = outer_stats.unicast_hops };
 
       tile_nest[outer].distributed_access_stats.stats[std::make_pair<>(outer_multicast_factor, outer_scatter_factor)] =
         { .accesses = inner_stats.accesses,
-          .hops = outer_stats.hops };
+          .hops = (outer_stats.hops * inner_stats.accesses) / outer_stats.accesses };
         
       // Erase the original (multicast > 1) entry in the histogram.
       tile_nest[outer].access_stats.stats.erase(outer_access_stat_ref);

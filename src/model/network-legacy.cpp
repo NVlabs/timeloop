@@ -311,7 +311,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
     {
       auto multicast = x.first.first;
       auto scatter = x.first.second;
-      stats_.ingresses[pv](multicast, scatter).hops = x.second.hops / scatter;
+      stats_.ingresses[pv](multicast, scatter).hops = x.second.hops; // / x.second.accesses; // / scatter;
 
       if (pv == 0)
         std::cout << "Net " << Name() << " collecting hops " << x.second.hops << std::endl; 
@@ -321,7 +321,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
     {
       auto multicast = x.first.first;
       auto scatter = x.first.second;
-      stats_.distributed_ingresses[pv](multicast, scatter).hops = x.second.hops / scatter;
+      stats_.distributed_ingresses[pv](multicast, scatter).hops = x.second.hops; // / x.second.accesses; // / scatter;
     }
 
     // FIXME: issues with link-transfer modeling:
@@ -435,7 +435,7 @@ void LegacyNetwork::ComputeNetworkEnergy()
         (void)fanout;
         (void)multicast_factor;
 
-        auto num_hops = hops / double(scatter_factor);
+        auto num_hops = hops / ingresses; // / double(scatter_factor);
 
         if (pv == 0)
           std::cout << "Net " << Name() << " hops " << hops
@@ -455,13 +455,15 @@ void LegacyNetwork::ComputeNetworkEnergy()
       auto ingresses = x.second.accesses;
       auto hops = x.second.hops;
 
+      (void)scatter_factor;
+        
       total_ingresses += ingresses;
       if (ingresses > 0)
       {
         (void)fanout;
         (void)multicast_factor;
 
-        auto num_hops = hops / double(scatter_factor);
+        auto num_hops = hops / ingresses; // / double(scatter_factor);
         total_routers_touched += (1 + std::uint64_t(std::floor(num_hops))) * ingresses;
 
         total_wire_hops += num_hops * ingresses;
