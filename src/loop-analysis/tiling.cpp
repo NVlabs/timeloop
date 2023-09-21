@@ -294,8 +294,12 @@ void ProcessOuterMaskedLevels(std::vector<DataMovementInfo>& tile_nest, std::bit
       // network stats (because distributed network traffic is transferred
       // on behalf of the child level.
       auto saved_distributed_stats = tile_nest[cur].distributed_access_stats;
+      auto saved_replication_factor = tile_nest[cur].replication_factor;
+
       tile_nest[cur].Reset();
+      
       tile_nest[cur].distributed_access_stats = saved_distributed_stats;
+      tile_nest[cur].replication_factor = saved_replication_factor;
     }
     else
     {
