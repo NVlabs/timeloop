@@ -513,13 +513,13 @@ out << std::endl
     {
       all_titles = {"Algorithmic Computes", "Actual Computes"};
       all_num_computes = {topology.stats_.algorithmic_computes, topology.stats_.actual_computes};
-      all_units = {"pJ/Algorithmic-Compute", "pJ/Compute"};
+      all_units = {"fJ/Algorithmic-Compute", "fJ/Compute"};
     }
     else
     {
       all_titles = {"Computes"};
       all_num_computes = {topology.stats_.actual_computes};
-      all_units = {"pJ/Compute"};
+      all_units = {"fJ/Compute"};
     }
 
     for (unsigned i = 0; i < all_titles.size(); i++)
@@ -533,7 +533,7 @@ out << std::endl
       {
         auto level = topology.GetLevel(i);
         out << indent << std::setw(align) << std::left << level->Name() << "= "
-            << level->Energy() / num_computes << std::endl;
+            << level->Energy()*1000 / num_computes << std::endl;
       }
 
 #ifdef PRINT_NETWORKS_IN_LEGACY_ORDER
@@ -541,18 +541,18 @@ out << std::endl
       {
         auto network = topology.GetStorageLevel(storage_level_id)->GetReadNetwork();
         out << indent << std::setw(align) << std::left << network->Name() << "= "
-            << network->Energy() / num_computes << std::endl;
+            << network->Energy()*1000 / num_computes << std::endl;
       }
 #else
       for (auto& network: topology.networks_)
       {
         out << indent << std::setw(align) << std::left << network.second->Name() << "= "
-            << network.second->Energy() / num_computes << std::endl;
+            << network.second->Energy()*1000 / num_computes << std::endl;
       }
 #endif
 
       out << indent << std::setw(align) << std::left << "Total" << "= "
-          << topology.Energy() / num_computes << std::endl;
+          << topology.Energy()*1000 / num_computes << std::endl;
     }
   }
   // Restore ios format state.
