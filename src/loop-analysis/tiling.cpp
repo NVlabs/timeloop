@@ -624,8 +624,19 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
       {
         tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
         tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
+
         // Special case outermost level for fill calculation: do not subtract partition size.
-        tile_nest[cur].fills = (cur == num_tiling_levels-1) ?
+        bool is_outermost = true;
+        for (int level = cur+1; level < num_tiling_levels; level++)
+        {
+          if (tile_nest[level].size > 0)
+          {
+            is_outermost = false;
+            break;
+          }
+        }
+
+        tile_nest[cur].fills = is_outermost ?
           std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills) : // This is likely 0.
           std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills - tile_nest[cur].partition_size);
       }
@@ -899,6 +910,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.access_stats = tiles[pv][innermost_loop].access_stats;
       collapsed_tile.content_accesses = tiles[pv][innermost_loop].access_stats.TotalAccesses();
       collapsed_tile.link_transfers = tiles[pv][innermost_loop].link_transfers;
+      collapsed_tile.fills = 0;
       collapsed_tile.peer_accesses = 0;
       collapsed_tile.peer_fills = 0;
       collapsed_tile.replication_factor = tiles[pv][outermost_loop].replication_factor;
