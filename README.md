@@ -19,3 +19,8 @@ Timeloop version 3.0 (a.k.a. Ruby) adds support for imperfectly-factorized mappi
 ## Tutorial
 
 New users are strongly encouraged to complete the Timeloop [tutorial](https://accelergy.mit.edu/tutorial.html). Serially walking through the [exercises](https://github.com/Accelergy-Project/timeloop-accelergy-exercises/) from the tutorial serves as an essential hands-on introduction to the tool.
+
+## Dependencies
+
+Timeloop depends on the isl and barvinok libraries. In particular, barvinok version 0.41.6 (along with the pre-packaged isl library) has been tested to
+build successfully with this version of Timeloop. Instructions for installing barvinok can be found in the [this link](https://barvinok.sourceforge.io/).
