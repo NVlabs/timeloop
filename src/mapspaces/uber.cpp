@@ -119,6 +119,7 @@ void Uber::InitIndexFactorizationSpace()
 {
   auto user_factors = constraints_.Factors();
   auto user_max_factors = constraints_.MaxFactors();
+  auto user_min_factors = constraints_.MinFactors();
 
   assert(user_factors.size() <= arch_props_.TilingLevels());
 
@@ -140,6 +141,7 @@ void Uber::InitIndexFactorizationSpace()
 
   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors;
   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors;
+  std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> minfactors;
   std::vector<bool> exhausted_um_loops(int(problem::GetShape()->NumFlattenedDimensions), false);
 
   // Find user-specified fixed factors.
@@ -182,8 +184,24 @@ void Uber::InitIndexFactorizationSpace()
     }
   }
 
+  // Find user-specified min factors.
+  for (unsigned level = 0; level < arch_props_.TilingLevels(); level++)
+  {
+    auto it = user_min_factors.find(level);
+    if (it != user_min_factors.end())
+    {
+      // Some min factors exist for this level.        
+      for (auto& factor : it->second)
+      {
+        auto& dimension = factor.first;
+        auto& min = factor.second;
+        minfactors[dimension][level] = min;
+      }
+    }
+  }
+
   // We're now ready to initialize the object.
-  index_factorization_space_.Init(workload_, cofactors_order, prefactors, maxfactors);
+  index_factorization_space_.Init(workload_, cofactors_order, prefactors, maxfactors, minfactors);
 
   // Update the size of the mapspace.
   size_[int(mapspace::Dimension::IndexFactorization)] = index_factorization_space_.Size();
