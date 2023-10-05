@@ -65,6 +65,7 @@ class Factors
   Factors(const unsigned long n, const int order, std::map<unsigned, unsigned long> given);
 
   void PruneMax(std::map<unsigned, unsigned long>& max);
+  void PruneMin(std::map<unsigned, unsigned long>& min);
 
   std::vector<unsigned long>& operator[](int index);
 
@@ -119,6 +120,7 @@ class ResidualFactors
 
 
   void PruneMax();
+  void PruneMin();
 
   std::vector<std::vector<unsigned long>> operator[](int index);
 

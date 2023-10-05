@@ -56,6 +56,8 @@ class IndexFactorizationSpace
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors =
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>>(),
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors =
+            std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>>(),
+            std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> minfactors =
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>>());
 
   unsigned long GetFactor(uint128_t nest_id, problem::Shape::FlattenedDimensionID dim, unsigned level);
@@ -80,6 +82,7 @@ class ResidualIndexFactorizationSpace
             std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors,
+            std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> minfactors,
             std::vector<unsigned long int> remainders = {},
             std::vector<unsigned long int> remainders_ix = {}
             );
