@@ -119,6 +119,7 @@ void Ruby::InitIndexFactorizationSpace()
 {
   auto user_factors = constraints_.Factors();
   auto user_max_factors = constraints_.MaxFactors();
+  auto user_min_factors = constraints_.MinFactors();
   auto user_max_remainders = constraints_.MaxRemainders();
 
   assert(user_factors.size() <= arch_props_.TilingLevels());
@@ -141,6 +142,7 @@ void Ruby::InitIndexFactorizationSpace()
 
   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors;
   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors;
+  std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> minfactors;
   std::vector<bool> exhausted_um_loops(int(problem::GetShape()->NumFlattenedDimensions), false);
 
   // Find user-specified fixed factors.
@@ -183,7 +185,23 @@ void Ruby::InitIndexFactorizationSpace()
     }
   }
 
-  //Find spatial levels and their fanouts
+  // Find user-specified min factors.
+  for (unsigned level = 0; level < arch_props_.TilingLevels(); level++)
+  {
+    auto it = user_min_factors.find(level);
+    if (it != user_min_factors.end())
+    {
+      // Some min factors exist for this level.        
+      for (auto& factor : it->second)
+      {
+        auto& dimension = factor.first;
+        auto& min = factor.second;
+        minfactors[dimension][level] = min;
+      }
+    }
+  }
+
+  // Find spatial levels and their fanouts
   std::vector<unsigned long int> remainders;
   std::vector<unsigned long int> remainders_ix;
   for (uint64_t level = arch_props_.TilingLevels(); level >= 1; level--)
@@ -198,8 +216,8 @@ void Ruby::InitIndexFactorizationSpace()
     }
   }
 
-    // We're now ready to initialize the object.
-    index_factorization_space_.Init(workload_, cofactors_order, prefactors, maxfactors, remainders, remainders_ix);
+  // We're now ready to initialize the object.
+  index_factorization_space_.Init(workload_, cofactors_order, prefactors, maxfactors, minfactors, remainders, remainders_ix);
 
   // Update the size of the mapspace.
   size_[int(mapspace::Dimension::IndexFactorization)] = index_factorization_space_.Size();
