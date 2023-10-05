@@ -83,6 +83,12 @@ const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>&
   return max_factors_;
 }
 
+const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>&
+  Constraints::MinFactors() const
+{
+  return min_factors_;
+}
+
 const std::map<unsigned, std::uint32_t>& 
   Constraints::MaxRemainders() const
 {
@@ -623,6 +629,21 @@ void Constraints::ParseSingleConstraint(
       max_factors_[level_id][max_factor.first] = max_factor.second;
     }
 
+    auto level_min_factors = ParseMinFactors(attributes);
+    for (auto& min_factor: level_min_factors)
+    {
+      if (min_factors_[level_id].find(min_factor.first) != min_factors_[level_id].end())
+      {
+        std::cerr << "ERROR: re-specification of min factor for dimension "
+                  << problem::GetShape()->FlattenedDimensionIDToName.at(min_factor.first)
+                  << " at level " << arch_props_.TilingLevelName(level_id)
+                  << ". This may imply a conflict between architecture and "
+                  << "mapspace constraints." << std::endl;
+        exit(1);
+      }
+      min_factors_[level_id][min_factor.first] = min_factor.second;
+    }
+
     auto level_permutations = ParsePermutations(attributes);
     if (level_permutations.first.size() > 0 || level_permutations.second.size() > 0)
     {
@@ -1015,6 +1036,65 @@ Constraints::ParseMaxFactors(config::CompoundConfigNode constraint)
         if(retval.find(it.second) == retval.end())
         {
           retval[it.second] = max;
+        }
+      }
+  }
+  return retval;
+}
+
+//
+// Parse user min factors.
+//
+std::map<problem::Shape::FlattenedDimensionID, int>
+Constraints::ParseMinFactors(config::CompoundConfigNode constraint)
+{
+  std::map<problem::Shape::FlattenedDimensionID, int> retval;
+
+  std::string buffer;
+  if (constraint.lookupValue("factors", buffer))
+  {
+    buffer = buffer.substr(0, buffer.find("#"));
+
+    std::regex re("([A-Za-z]+)[[:space:]]*>=[[:space:]]*([0-9]+)", std::regex::extended);
+    std::smatch sm;
+    std::string str = std::string(buffer);
+
+    while (std::regex_search(str, sm, re))
+    {
+      std::string dimension_name = sm[1];
+      problem::Shape::FlattenedDimensionID dimension;
+      try
+      {
+        dimension = problem::GetShape()->FlattenedDimensionNameToID.at(dimension_name);
+      }
+      catch (const std::out_of_range& oor)
+      {
+        std::cerr << "ERROR: parsing factors: " << buffer << ": dimension " << dimension_name
+                  << " not found in problem shape." << std::endl;
+        exit(1);
+      }
+
+      int min = std::stoi(sm[2]);
+      if (min <= 0)
+      {
+        std::cerr << "ERROR: min factor must be positive in constraint: " << buffer << std::endl;
+        exit(1);
+      }
+
+      // Found all the information we need to setup a factor!
+      retval[dimension] = min;
+
+      str = sm.suffix().str();
+    }
+  }
+  if (constraint.lookupValue("default_min_factor", buffer))
+  {
+      int min = std::stoi(buffer);
+      for(auto& it : problem::GetShape()->FlattenedDimensionNameToID)
+      {
+        if(retval.find(it.second) == retval.end())
+        {
+          retval[it.second] = min;
         }
       }
   }
