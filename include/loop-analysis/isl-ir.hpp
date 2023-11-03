@@ -155,7 +155,6 @@ using LogicalBufDataDistributions = std::map<LogicalBuffer, DataDistribution>;
  *        in time and space.
  * 
  * The default is inferred from the mapping.
- * 
  */
 struct Skew
 {

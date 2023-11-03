@@ -134,6 +134,7 @@ loop-analysis/isl-analysis/latency-analysis.cpp
 loop-analysis/loop-state.cpp
 loop-analysis/mapping-to-isl/fused-mapping-to-isl.cpp
 loop-analysis/mapping-to-isl/mapping-to-isl.cpp
+loop-analysis/mapping-to-isl/tiling.cpp
 loop-analysis/isl-ir/ir.cpp
 loop-analysis/isl-ir/input-output.cpp
 loop-analysis/tiling.cpp

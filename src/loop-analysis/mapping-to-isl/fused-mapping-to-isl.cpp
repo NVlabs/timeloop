@@ -1,4 +1,5 @@
 #include "loop-analysis/mapping-to-isl/fused-mapping-to-isl.hpp"
+#include "loop-analysis/mapping-to-isl/tiling.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
 #include "isl-wrapper/isl-functions.hpp"
 
@@ -328,6 +329,10 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
     auto p_tiling = isl_map_from_range(
       workload.EinsumOspaceBound(einsum_id).copy()
     );
+    if (gDumpIslIr)
+    {
+      std::cout << "Tiling: " << isl_map_to_str(p_tiling) << std::endl;
+    }
     tiling_info[root][einsum_id] = isl::manage(p_tiling);
   }
 
@@ -358,115 +363,25 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
             }
 
             auto dim = node.op_dim;
-            isl::set iter_set;
             auto head = *heads.begin();
 
             auto p_old_tiling = tiling_info.at(node_id).at(head).release();
-            auto p_new_tiling = isl_map_insert_dims(
-              p_old_tiling,
-              isl_dim_in,
-              isl_map_dim(p_old_tiling, isl_dim_in),
-              1
-            );
-
             auto dim_idx = workload.EinsumDimToIdx(head).at(dim);
-            auto p_dim_min = isl_map_dim_min(isl_map_copy(p_new_tiling),
-                                              dim_idx);
-            auto p_dim_max = isl_map_dim_max(isl_map_copy(p_new_tiling),
-                                              dim_idx);
 
-            isl_pw_aff* p_new_dim_min = nullptr;
-            isl_pw_aff* p_new_dim_max = nullptr;
-            isl_set* p_iter_set = nullptr;
+            decltype(p_old_tiling) p_new_tiling = nullptr;
             if (node.tile_size)
             {
-              auto p_new_dim_id = isl_aff_var_on_domain(
-                isl_local_space_from_space(isl_pw_aff_get_domain_space(
-                  p_dim_min
-                )),
-                isl_dim_set,
-                isl_pw_aff_dim(p_dim_min, isl_dim_in)-1
-              );
-              auto p_tile_size = isl_aff_val_on_domain_space(
-                isl_pw_aff_get_domain_space(p_dim_min),
-                isl_val_int_from_ui(GetIslCtx().get(), *node.tile_size)
-              );
-              auto p_tile_translate = isl_pw_aff_from_aff(isl_aff_mul(
-                p_new_dim_id,
-                isl_aff_copy(p_tile_size)
-              ));
-
-              p_new_dim_min = isl_pw_aff_add(
-                isl_pw_aff_copy(p_dim_min),
-                p_tile_translate
-              );
-              p_new_dim_max = isl_pw_aff_add(
-                isl_pw_aff_copy(p_new_dim_min),
-                isl_pw_aff_from_aff(
-                  isl_aff_add_constant_val(
-                    isl_aff_copy(p_tile_size),
-                    isl_val_negone(GetIslCtx().get())
-                  )
-                )
-              );
-
-              // The value of iter dims cannot exceed what is available
-              // before tiling.
-              auto p_new_iter_id = isl_pw_aff_from_aff(isl_aff_var_on_domain(
-                isl_local_space_from_space(isl_space_domain(
-                  isl_map_get_space(p_new_tiling)
-                )),
-                isl_dim_set,
-                isl_map_dim(p_new_tiling, isl_dim_in)-1
-              ));
-              p_iter_set = isl_map_domain(isl_map_copy(p_new_tiling));
-              p_iter_set = isl_set_intersect(
-                p_iter_set,
-                isl_pw_aff_le_set(
-                  p_new_iter_id,
-                  isl_pw_aff_ceil(isl_pw_aff_div(
-                    p_dim_max,
-                    isl_pw_aff_from_aff(p_tile_size)
-                  ))
-                )
-              );
-              p_iter_set = isl_set_intersect(
-                p_iter_set,
-                isl_pw_aff_ge_set(
-                  isl_pw_aff_copy(p_new_dim_min),
-                  p_dim_min
-                )
-              );
+              p_new_tiling = AddNewTileDim(p_old_tiling,
+                                           dim_idx,
+                                           *node.tile_size);
             }
             else
             {
               throw std::logic_error("tile size analysis not implemented");
             }
 
-            // The value of iter dims cannot exceed what is available before
-            // tiling.
-            p_new_tiling = isl_map_intersect_domain(
-              p_new_tiling,
-              isl_set_copy(p_iter_set)
-            );
-            iter_set = isl::manage(p_iter_set);
-
-            // The set of operations need to follow the new tiled bounds
-            auto p_identity = isl_pw_aff_from_aff(isl_aff_var_on_domain(
-              isl_local_space_from_space(isl_space_range(isl_map_get_space(
-                p_new_tiling
-              ))),
-              isl_dim_set,
-              dim_idx
-            ));
-            p_new_tiling = isl_map_intersect(
-              p_new_tiling,
-              isl_pw_aff_le_map(p_new_dim_min,
-                                isl_pw_aff_copy(p_identity))
-            );
-            p_new_tiling = isl_map_intersect(
-              p_new_tiling,
-              isl_pw_aff_ge_map(p_new_dim_max, p_identity)
+            auto iter_set = isl::manage(
+              isl_map_domain(isl_map_copy(p_new_tiling))
             );
 
             tiling_info.at(node_id).at(head) = isl::manage(p_new_tiling);
@@ -495,7 +410,7 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
           {
             // Check if highest level storage (determine reuse level)
             auto it = dspace_to_reuse_level.find(node.dspace);
-            if (it == dspace_to_reuse_level.end())
+            if (it == dspace_to_reuse_level.end() && node.exploits_reuse)
             {
               const auto& random_einsum = *mapping_groups.at(node_id).begin();
               const auto& tiling = tiling_info.at(node_id).at(random_einsum);
