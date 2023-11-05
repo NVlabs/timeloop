@@ -1,4 +1,5 @@
 #include "loop-analysis/mapping-to-isl/fused-mapping-to-isl.hpp"
+#include "loop-analysis/mapping-to-isl/tile-shape-inference.hpp"
 #include "loop-analysis/mapping-to-isl/tiling.hpp"
 #include "isl-wrapper/ctx-manager.hpp"
 #include "isl-wrapper/isl-functions.hpp"
@@ -440,59 +441,11 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
               return;
             }
 
-            auto queue = std::deque<EinsumId>(heads.begin(), heads.end());
-            while (queue.size() > 0)
-            {
-              auto einsum = queue.front();
-              queue.pop_front();
-              const auto& tiling = tiling_info.at(node_id).at(einsum);
-              for (auto tensor : workload.TensorsReadByEinsum(einsum))
-              {
-                auto producer_einsum_opt = workload.WriterEinsum(tensor);
-                if (!producer_einsum_opt)
-                {
-                  // not an intermediate tensor
-                  continue;
-                }
-                auto prod_einsum = *producer_einsum_opt;
-                auto fused_set_it = fused_set.find(prod_einsum);
-                if (fused_set_it == fused_set.end())
-                {
-                  // Not in this fused set
-                  continue;
-                }
-
-                auto read_accesses = workload.ReadAccesses(einsum, tensor);
-                auto required_data = tiling.apply_range(read_accesses);
-                
-                isl::map computed_data = required_data;
-                auto it = dspace_to_reuse_level.find(tensor);
-                if (it != dspace_to_reuse_level.end())
-                {
-                  auto reuse_level = it->second;
-                  auto shifter = isl::MapToPriorData(
-                    isl::dim(tiling, isl_dim_in),
-                    reuse_level
-                  );
-                  auto buffered_data = shifter.apply_range(required_data);
-                  computed_data =
-                    computed_data.subtract(buffered_data).coalesce();
-                }
-
-                auto producer_write_dep =
-                  workload.WriteAccesses(prod_einsum, tensor);
-                auto required_ops =
-                  computed_data.apply_range(producer_write_dep.reverse());
-                required_ops = required_ops.intersect_range(
-                  workload.EinsumOspaceBound(prod_einsum)
-                );
-
-                auto& prod_tiling = tiling_info.at(node_id).at(prod_einsum);
-                prod_tiling = prod_tiling.intersect(required_ops);
-
-                queue.push_back(prod_einsum);
-              }
-            }
+            ConsumerBasedTileShapeInference(tiling_info.at(node_id),
+                                            dspace_to_reuse_level,
+                                            fused_set.begin(), fused_set.end(),
+                                            workload,
+                                            *heads.begin());
 
             for (auto it : node.children | boost::adaptors::indexed(0))
             {
