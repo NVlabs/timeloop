@@ -441,11 +441,28 @@ BranchTilings TilingFromMapping(mapping::FusedMapping& mapping,
               return;
             }
 
-            ConsumerBasedTileShapeInference(tiling_info.at(node_id),
-                                            dspace_to_reuse_level,
-                                            fused_set.begin(), fused_set.end(),
-                                            workload,
-                                            *heads.begin());
+            auto shared_input_tensor = DetectSharedInputTensor(
+              fused_set.begin(), fused_set.end(),
+              workload
+            );
+
+            if (std::holds_alternative<SharedInputTensor>(shared_input_tensor))
+            {
+              SharedInputBasedTileShapeInference(
+                tiling_info.at(node_id),
+                fused_set.begin(), fused_set.end(),
+                workload,
+                *heads.begin()
+              );
+            }
+            else
+            {
+              ConsumerBasedTileShapeInference(tiling_info.at(node_id),
+                                              dspace_to_reuse_level,
+                                              fused_set.begin(), fused_set.end(),
+                                              workload,
+                                              *heads.begin());
+            }
 
             for (auto it : node.children | boost::adaptors::indexed(0))
             {
