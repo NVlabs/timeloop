@@ -8,7 +8,7 @@
 namespace problem
 {
 
-FusedWorkload::FusedWorkload() : einsum_graph_(0) {}
+FusedWorkload::FusedWorkload() {}
 
 EinsumId FusedWorkload::NewEinsum(std::string name)
 {
@@ -24,10 +24,6 @@ EinsumId FusedWorkload::NewEinsum(std::string name)
   }
   einsum_name_to_id_[name] = next_einsum_id;
   einsum_id_to_name_[next_einsum_id] = name;
-
-  auto vertex = boost::add_vertex(einsum_graph_);
-  einsum_graph_[vertex].einsum_or_dspace = EinsumOrDspace::EINSUM;
-  einsum_id_to_vertex_[next_einsum_id] = vertex;
 
   return next_einsum_id;
 }
@@ -46,10 +42,6 @@ DataSpaceId FusedWorkload::NewDataSpace(std::string name)
   }
   dspace_name_to_id_[name] = next_dspace_id;
   dspace_id_to_name_[next_dspace_id] = name;
-
-  auto vertex = boost::add_vertex(einsum_graph_);
-  einsum_graph_[vertex].einsum_or_dspace = EinsumOrDspace::DATASPACE;
-  dspace_id_to_vertex_[next_dspace_id] = vertex;
 
   return next_dspace_id;
 }
@@ -193,12 +185,6 @@ void FusedWorkload::SetEinsumProjection(EinsumId einsum, DataSpaceId dspace,
     write_einsums_[dspace] = einsum;
     writes_.emplace(std::pair(std::pair(einsum, dspace), proj.as_map()));
     write_affs_.emplace(std::pair(std::pair(einsum, dspace), std::move(proj)));
-
-    boost::add_edge(
-      einsum_id_to_vertex_.at(einsum),
-      dspace_id_to_vertex_.at(dspace),
-      einsum_graph_
-    );
   }
   else
   {
@@ -206,12 +192,6 @@ void FusedWorkload::SetEinsumProjection(EinsumId einsum, DataSpaceId dspace,
     read_einsums_[dspace].insert(einsum);
     reads_.emplace(std::pair(std::pair(einsum, dspace), proj.as_map()));
     read_affs_.emplace(std::pair(std::pair(einsum, dspace), std::move(proj)));
-
-    boost::add_edge(
-      dspace_id_to_vertex_.at(dspace),
-      einsum_id_to_vertex_.at(einsum),
-      einsum_graph_
-    );
   }
 }
 

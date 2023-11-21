@@ -91,21 +91,6 @@ class FusedWorkload
   std::map<std::string, DimensionId> dim_name_to_id_;
   std::map<DimensionId, std::string> dim_id_to_name_;
 
-  enum class EinsumOrDspace { EINSUM, DATASPACE };
-  struct VertexProperty
-  {
-    EinsumOrDspace einsum_or_dspace;
-  };
-  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
-                                VertexProperty>
-    EinsumGraph;
-  typedef EinsumGraph::vertex_descriptor EinsumGraphVertex;
-  typedef EinsumGraph::edge_descriptor EinsumGraphEdge;
-
-  EinsumGraph einsum_graph_;
-  std::map<EinsumId, EinsumGraphVertex> einsum_id_to_vertex_;
-  std::map<DataSpaceId, EinsumGraphVertex> dspace_id_to_vertex_;
-
   std::map<EinsumId, std::set<DataSpaceId>> read_tensors_;
   std::map<EinsumId, std::set<DataSpaceId>> write_tensors_;
   mutable std::map<DataSpaceId, std::set<EinsumId>> read_einsums_;
