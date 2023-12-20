@@ -82,29 +82,21 @@ FusedWorkload::DimensionNameToId() const
   return dim_name_to_id_;
 }
 
-const std::string& FusedWorkload::GetDimensionName(DimensionId dim) const
+const std::map<EinsumId, std::string>& FusedWorkload::EinsumIdToName() const
 {
-  return dim_id_to_name_.at(dim);
+  return einsum_id_to_name_;
 }
 
-DataSpaceId FusedWorkload::GetDspaceId(const std::string& name) const
+const std::map<DataSpaceId, std::string>&
+FusedWorkload::DataSpaceIdToName() const
 {
-  auto it = dspace_name_to_id_.find(name);
-  if (it == dspace_name_to_id_.end())
-  {
-    throw std::out_of_range("dataspace " + name + " not in workload");
-  }
-  return it->second;
+  return dspace_id_to_name_;
 }
 
-DimensionId FusedWorkload::GetDimensionId(const std::string& name) const
+const std::map<DimensionId, std::string>&
+FusedWorkload::DimensionIdToName() const
 {
-  auto it = dim_name_to_id_.find(name);
-  if (it == dim_name_to_id_.end())
-  {
-    throw std::out_of_range("dimension " + name + " not in workload");
-  }
-  return it->second;
+  return dim_id_to_name_;
 }
 
 void FusedWorkload::AddDimToDspace(DataSpaceId dspace, DimensionId dim)

@@ -57,11 +57,14 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
   int factor;
   int tile_size;
 
+  auto& dim_name_to_id = workload.DimensionNameToId();
+  auto& dspace_name_to_id = workload.DataSpaceNameToId();
+
   cfg.lookupValue("type", type);
   if (type == "temporal")
   {
     cfg.lookupValue("dimension", dim_name);
-    auto dim_id = workload.GetDimensionId(dim_name);
+    auto dim_id = dim_name_to_id.at(dim_name);
 
     if (cfg.exists("factor"))
     {
@@ -88,7 +91,7 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
   else if (type == "spatial")
   {
     cfg.lookupValue("dimension", dim_name);
-    auto dim_id = workload.GetDimensionId(dim_name);
+    auto dim_id = dim_name_to_id.at(dim_name);
 
     if (cfg.exists("factor"))
     {
@@ -125,7 +128,7 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
     auto node = parent_id;
     for (const auto& dspace_name : dspace_names)
     {
-      auto dspace = workload.GetDspaceId(dspace_name);
+      auto dspace = dspace_name_to_id.at(dspace_name);
       node = mapping.AddChild<Storage>(node, target, dspace, exploits_reuse);
     }
     return node;

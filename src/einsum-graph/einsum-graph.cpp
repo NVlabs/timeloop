@@ -59,8 +59,7 @@ private:
 EinsumGraph::EinsumGraph(const problem::FusedWorkload& workload) :
   workload_(workload)
 {
-  auto dim_id_to_name =
-    [&](problem::DimensionId d) { return workload_.GetDimensionName(d); };
+  auto dim_id_to_name = workload_.DimensionIdToName();
 
   for (const auto& [_, dspace] : workload_.DataSpaceNameToId())
   {
@@ -68,7 +67,7 @@ EinsumGraph::EinsumGraph(const problem::FusedWorkload& workload) :
     {
       auto vertex = boost::add_vertex(graph_);
       vertex_to_dim_[vertex] = dspace_dim;
-      vertex_to_name_[vertex] = dim_id_to_name(dspace_dim);
+      vertex_to_name_[vertex] = dim_id_to_name.at(dspace_dim);
       dim_to_vertex_[dspace_dim] = vertex;
     }
   }
@@ -81,7 +80,7 @@ EinsumGraph::EinsumGraph(const problem::FusedWorkload& workload) :
     {
       auto vertex = boost::add_vertex(graph_);
       vertex_to_dim_[vertex] = einsum_dim;
-      vertex_to_name_[vertex] = dim_id_to_name(einsum_dim);
+      vertex_to_name_[vertex] = dim_id_to_name.at(einsum_dim);
       dim_to_vertex_[einsum_dim] = vertex;
     }
 
@@ -158,8 +157,7 @@ EinsumGraph::TiledEinsums(const problem::DimensionId& tiled_dim) const
 
 void WriteGraphviz(std::ostream& os, const EinsumGraph& g)
 {
-  auto dim_id_to_name =
-    [&](problem::DimensionId d) { return g.workload_.GetDimensionName(d); };
+  auto dim_id_to_name = g.workload_.DimensionIdToName();
 
   os << "digraph G {" << std::endl;
 
@@ -168,7 +166,7 @@ void WriteGraphviz(std::ostream& os, const EinsumGraph& g)
     os << "subgraph cluster_" << dspace_name << " {" << std::endl;
     for (const auto& dspace_dim : g.workload_.DataSpaceDimensions(dspace))
     {
-      const auto& dim_name = dim_id_to_name(dspace_dim);
+      const auto& dim_name = dim_id_to_name.at(dspace_dim);
       const auto& vertex = g.dim_to_vertex_.at(dspace_dim);
       os << vertex << "[label=\"" << dim_name << "\"];" << std::endl;
     }
@@ -182,7 +180,7 @@ void WriteGraphviz(std::ostream& os, const EinsumGraph& g)
     os << "subgraph cluster_" << einsum_name << " {" << std::endl;
     for (const auto& [einsum_dim, _] : g.workload_.EinsumDimToIdx(einsum))
     {
-      const auto& dim_name = dim_id_to_name(einsum_dim);
+      const auto& dim_name = dim_id_to_name.at(einsum_dim);
       const auto& vertex = g.dim_to_vertex_.at(einsum_dim);
       os << vertex << "[label=\"" << dim_name << "\"];" << std::endl;
     }

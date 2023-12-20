@@ -32,21 +32,9 @@ class FusedWorkload
   const std::map<std::string, DataSpaceId>& DataSpaceNameToId() const;
   const std::map<std::string, DimensionId>& DimensionNameToId() const;
 
-  const std::string& GetDimensionName(DimensionId dim) const;
-
-  /**
-   * @brief Returns dataspace id given `name`
-   * 
-   * @throws std::out_of_range if name could not be found.
-   */
-  DataSpaceId GetDspaceId(const std::string& name) const;
-
-  /**
-   * @brief Returns dimension id given `name`
-   * 
-   * @throws std::out_of_range if name could not be found.
-   */
-  DimensionId GetDimensionId(const std::string& name) const;
+  const std::map<EinsumId, std::string>& EinsumIdToName() const;
+  const std::map<DataSpaceId, std::string>& DataSpaceIdToName() const;
+  const std::map<DimensionId, std::string>& DimensionIdToName() const;
 
   void AddDimToDspace(DataSpaceId dspace, DimensionId dspace_dim);
   void AddDimToEinsumOspace(EinsumId einsum, DimensionId dim);
