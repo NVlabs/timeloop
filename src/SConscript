@@ -300,6 +300,7 @@ applications/einsum-graph/main.cpp
 unittest_sources = Split("""
 unit-test/test-main.cpp
 unit-test/test-simple-link-transfer.cpp
+unit-test/test-multicast.cpp
 """)
 
 # bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)

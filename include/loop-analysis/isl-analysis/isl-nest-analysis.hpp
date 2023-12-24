@@ -46,11 +46,9 @@ struct ReuseAnalysisOutput
   std::map<LogicalBuffer, LogicalBufferStats> buf_to_stats;
 };
 
-struct ReuseAnalysisInput
+struct ReuseAnalysisOptions
 {
-  const std::map<LogicalBuffer, Occupancy>& buf_to_occupancy;
-
-  ReuseAnalysisInput(const std::map<LogicalBuffer, Occupancy>& buf_to_occ);
+  bool count_hops;
 };
 
 /**
@@ -59,6 +57,9 @@ struct ReuseAnalysisInput
  * 
  * @see analysis::ReuseAnalysisOutput
  */
-ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input);
+ReuseAnalysisOutput ReuseAnalysis(
+  const std::map<LogicalBuffer, Occupancy>& buf_to_occ,
+  const ReuseAnalysisOptions& options = ReuseAnalysisOptions()
+);
 
 }; // namespace analysis

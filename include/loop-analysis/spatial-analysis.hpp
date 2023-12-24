@@ -71,7 +71,13 @@ struct SpatialReuseAnalysisInput
   const Fill& children_fill;
   std::vector<FillProvider> fill_providers;
 
-  SpatialReuseAnalysisInput(LogicalBuffer buf, const Fill& children_fill);
+  bool count_hops;
+
+  SpatialReuseAnalysisInput(
+    LogicalBuffer buf,
+    const Fill& children_fill,
+    bool count_hops = true
+  );
 };
 
 
@@ -111,10 +117,13 @@ class SimpleLinkTransferModel : public SpatialReuseModel
 class SimpleMulticastModel : public SpatialReuseModel
 {
  public:
-  SimpleMulticastModel();
+  SimpleMulticastModel(bool count_hops);
 
   TransferInfo
   Apply(const Fill& fills, const Occupancy& occupancy) const override;
+
+ private:
+  bool count_hops_;
 };
 
 }; // namespace analysis
