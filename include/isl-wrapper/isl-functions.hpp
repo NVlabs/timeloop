@@ -96,8 +96,8 @@ isl_pw_qpolynomial* sum_map_range_card(map map);
 
 double val_to_double(isl_val* val);
 
-isl_val* get_val_from_singular(isl_pw_qpolynomial* pw_qp);
-isl_val* get_val_from_singular(isl_pw_qpolynomial_fold* pwf);
+isl_val* get_val_from_singular(__isl_take isl_pw_qpolynomial* pw_qp);
+isl_val* get_val_from_singular(__isl_take isl_pw_qpolynomial_fold* pwf);
 
 
 map ConstraintDimEquals(map map, size_t n_dims);

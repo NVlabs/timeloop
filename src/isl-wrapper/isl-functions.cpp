@@ -280,7 +280,9 @@ isl_val* get_val_from_singular(isl_pw_qpolynomial* pw_qp)
 {
   return isl_pw_qpolynomial_eval(
     pw_qp,
-    isl_point_zero(isl_pw_qpolynomial_get_domain_space(pw_qp))
+    isl_set_sample_point(
+      isl_pw_qpolynomial_domain(isl_pw_qpolynomial_copy(pw_qp))
+    )
   );
 }
 
@@ -288,7 +290,9 @@ isl_val* get_val_from_singular(isl_pw_qpolynomial_fold* pwf)
 {
   return isl_pw_qpolynomial_fold_eval(
     pwf,
-    isl_point_zero(isl_pw_qpolynomial_fold_get_domain_space(pwf))
+    isl_set_sample_point(
+      isl_pw_qpolynomial_fold_domain(isl_pw_qpolynomial_fold_copy(pwf))
+    )
   );
 }
 
