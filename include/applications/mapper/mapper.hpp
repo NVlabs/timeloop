@@ -63,6 +63,7 @@ class Application
   std::uint32_t num_threads_;
   std::uint32_t timeout_;
   std::uint32_t victory_condition_;
+  std::int32_t max_temporal_loops_in_a_mapping_;
   uint128_t sync_interval_;
   uint128_t log_interval_;
 
