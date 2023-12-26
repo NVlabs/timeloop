@@ -148,7 +148,7 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
   for (int cur = 0; cur < num_tiling_levels; cur++)
   {
     // Skip if this tile level already has 0 size, or if it's not masked.
-    if (tile_nest[cur].size == 0 || (mask[cur] && !tile_nest[cur].passthrough))
+    if (tile_nest[cur].size == 0 || (mask[cur] && !tile_nest[cur].no_coalesce))
     {
       continue;
     }
@@ -292,7 +292,7 @@ void ProcessOuterMaskedLevels(std::vector<DataMovementInfo>& tile_nest, std::bit
   for (int cur = int(tile_nest.size())-1; cur >= 0; cur--)
   {
     // Work on all outermost masked levels until we find an unmasked level.
-    if (!mask[cur] || tile_nest[cur].passthrough)
+    if (!mask[cur] || tile_nest[cur].no_coalesce)
     {
       // Blow up *all* stats (including network stats).
       tile_nest[cur].Reset();
@@ -611,7 +611,7 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
       // supported appears to be wonky - network costs may need to trickle down
       // all the way to the level that has the reduction hardware.
       tile_nest[cur].updates = std::round(tile_nest[cur].content_accesses);
-      if(tile_nest[cur].passthrough)
+      if(tile_nest[cur].no_coalesce)
       {
         // When data moves to a child, it is filled from the parent then read by the child
         // When data moves to a parent, it is filled from the child then read by the parent
@@ -620,7 +620,7 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
         tile_nest[cur].temporal_reductions = std::round(child_accesses);
         tile_nest[cur].fills = std::round(child_accesses);
       }
-      else if (gEnableFirstReadElision && !tile_nest[cur].rmw_on_first_writeback)
+      else if (gEnableFirstReadElision && !tile_nest[cur].rmw_first_update)
       {
         tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
         tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
@@ -916,8 +916,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.replication_factor = tiles[pv][outermost_loop].replication_factor;
       collapsed_tile.fanout = tiles[pv][innermost_loop].fanout;
       collapsed_tile.SetTensorRepresentation(); // default to uncompressed
-      collapsed_tile.rmw_on_first_writeback = tiles[pv][innermost_loop].rmw_on_first_writeback;
-      collapsed_tile.passthrough = tiles[pv][innermost_loop].passthrough;
+      collapsed_tile.rmw_first_update = tiles[pv][innermost_loop].rmw_first_update;
+      collapsed_tile.no_coalesce = tiles[pv][innermost_loop].no_coalesce;
 
       collapsed_tile.parent_level = std::numeric_limits<unsigned>::max();
       collapsed_tile.child_level = std::numeric_limits<unsigned>::max();

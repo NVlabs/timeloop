@@ -208,7 +208,7 @@ class BufferLevel : public Level
   struct Stats
   {
     problem::PerDataSpace<bool> keep;
-    problem::PerDataSpace<bool> passthrough;
+    problem::PerDataSpace<bool> no_coalesce;
     problem::PerDataSpace<std::uint64_t> partition_size;
     problem::PerDataSpace<std::uint64_t> utilized_capacity;
     problem::PerDataSpace<std::uint64_t> utilized_md_capacity_bits;
