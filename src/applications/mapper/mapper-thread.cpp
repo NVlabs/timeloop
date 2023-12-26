@@ -267,6 +267,7 @@ MapperThread::MapperThread(
   uint128_t search_size,
   std::uint32_t timeout,
   std::uint32_t victory_condition,
+  std::int32_t max_temporal_loops_in_a_mapping,
   uint128_t sync_interval,
   uint128_t log_interval,
   bool log_oaves,
@@ -292,6 +293,7 @@ MapperThread::MapperThread(
     search_size_(search_size),
     timeout_(timeout),
     victory_condition_(victory_condition),
+    max_temporal_loops_in_a_mapping_(max_temporal_loops_in_a_mapping),
     sync_interval_(sync_interval),
     log_interval_(log_interval),
     log_oaves_(log_oaves),
@@ -528,6 +530,17 @@ void MapperThread::Run()
                                { return cur && status.success; });
 
     total_mappings++;
+    if(success && max_temporal_loops_in_a_mapping_ > 0)
+    { // Count the number of temporal loops
+      int temporal_loops = 0;
+      for(auto& maploop: mapping.loop_nest.loops)
+      {
+        if(loop::IsSpatial(maploop.spacetime_dimension)) continue;
+        temporal_loops += (maploop.end - maploop.start) > maploop.stride;
+      }
+      if(temporal_loops > max_temporal_loops_in_a_mapping_) success = false;
+    }
+
 
     if (!success)
     {

@@ -94,6 +94,7 @@ class MapperThread
   uint128_t search_size_;
   std::uint32_t timeout_;
   std::uint32_t victory_condition_;
+  std::int32_t max_temporal_loops_in_a_mapping_;
   uint128_t sync_interval_;
   uint128_t log_interval_;
   bool log_oaves_;
@@ -125,6 +126,7 @@ class MapperThread
     uint128_t search_size,
     std::uint32_t timeout,
     std::uint32_t victory_condition,
+    std::int32_t max_temporal_loops_in_a_mapping,
     uint128_t sync_interval,
     uint128_t log_interval,
     bool log_oaves,
