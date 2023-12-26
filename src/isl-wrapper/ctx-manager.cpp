@@ -22,7 +22,7 @@ isl::ctx& GetIslCtx()
   return *gCtx;
 }
 
-const std::unique_lock<std::mutex> GetIslLock()
+std::mutex& GetIslMutex()
 {
-  return std::unique_lock(gIslMutex, std::try_to_lock);
+  return gIslMutex;
 }

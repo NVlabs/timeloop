@@ -48,10 +48,6 @@ OccupanciesFromMapping(const loop::Nest& mapping,
   auto branch_tiling = TilingFromMapping(mapping).at(0);
   auto buf_skew = LogicalBufSkewsFromMapping(mapping, workload);
 
-  branch_tiling = branch_tiling.intersect_range(
-    ops_to_dspace.begin()->second.domain()
-  );
-
   std::map<LogicalBuffer, Occupancy> result;
   for (auto& [buf, skew] : buf_skew)
   {

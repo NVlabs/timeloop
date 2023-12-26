@@ -29,6 +29,8 @@ struct TransferInfo
     double hops;
   };
   std::map<std::pair<uint64_t, uint64_t>, AccessStats> compat_access_stats;
+
+  double total_child_accesses = 0;
   /***************************************************************************/
 };
 
@@ -92,7 +94,7 @@ SpatialReuseInfo SpatialReuseAnalysis(const SpatialReuseAnalysisInput& input);
 /**
  * @brief A link transfer model for 2-dimensional mesh interconnect.
  */
-class SimpleLinkTransferModel : public SpatialReuseModel
+class SimpleLinkTransferModel final : public SpatialReuseModel
 {
  public:
   SimpleLinkTransferModel();
@@ -115,7 +117,7 @@ class SimpleLinkTransferModel : public SpatialReuseModel
  *   as the original multicast model (i.e., assumes parents have equally
  *   distributed tiles)
  */
-class SimpleMulticastModel : public SpatialReuseModel
+class SimpleMulticastModel final : public SpatialReuseModel
 {
  public:
   SimpleMulticastModel(bool count_hops);

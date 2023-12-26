@@ -130,6 +130,7 @@ struct DataMovementInfo
   std::size_t size;
   // std::size_t partition_size;
   bool distributed_multicast;
+  double total_child_accesses;
   AccessStatMatrix access_stats;
   double link_transfers;
   std::vector<loop::Descriptor> subnest;
@@ -138,7 +139,9 @@ struct DataMovementInfo
   std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
   bool is_master_spatial;
-  
+  bool rmw_on_first_writeback;
+  bool passthrough;
+
   void Reset();
 
   void Validate();

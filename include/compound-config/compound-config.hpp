@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include<optional>
+
 #include <libconfig.h++>
 #include <yaml-cpp/yaml.h>
 #include <cassert>
@@ -41,7 +43,7 @@ class CompoundConfigNode
  private:
   libconfig::Setting* LNode = nullptr;
   YAML::Node YNode;
-  CompoundConfig* cConfig = nullptr; 
+  CompoundConfig* cConfig = nullptr;
 
  public:
   CompoundConfigNode(){}
@@ -49,8 +51,11 @@ class CompoundConfigNode
   CompoundConfigNode(libconfig::Setting* _lnode, YAML::Node _ynode, CompoundConfig* _cConfig);
 
   libconfig::Setting& getLNode() {return *LNode;}
-  YAML::Node getYNode() {return YNode;}
+  YAML::Node getYNode() const {return YNode;}
 
+  /**
+   * @brief return compound config node corresponding with `path`.
+   */
   CompoundConfigNode lookup(const char *path) const;
   inline CompoundConfigNode lookup(const std::string &path) const
   { return(lookup(path.c_str())); }
@@ -66,6 +71,18 @@ class CompoundConfigNode
   bool lookupValue(const char *name, float &value) const;
   bool lookupValue(const char *name, const char *&value) const;
   bool lookupValue(const char *name, std::string &value) const;
+  
+  /// @brief Resolves the current YNode value to a string.
+  std::string resolve() const;
+
+  /// @brief Instantiates a key in a Map.
+  bool instantiateKey(const char *name);
+  /// @brief Scalar setter (template).
+  template <typename T>
+  bool setScalar(const T value);
+  /// @brief Creates/appends to Sequence (template).
+  template <typename T>
+  bool push_back(const T value);
 
   inline bool lookupValue(const std::string &name, bool &value) const
   { return(lookupValue(name.c_str(), value)); }
@@ -95,6 +112,9 @@ class CompoundConfigNode
   inline bool lookupValue(const std::string &name, std::string &value) const
   { return(lookupValue(name.c_str(), value)); }
 
+  inline bool instantiateKey(const std::string &name)
+  { return instantiateKey(name.c_str()); }
+
   bool exists(const char *name) const;
 
   inline bool exists(const std::string &name) const
@@ -112,9 +132,9 @@ class CompoundConfigNode
 
   CompoundConfigNode operator [](int idx) const;
 
-  bool getArrayValue(std::vector<std::string> &vectorValue);
+  bool getArrayValue(std::vector<std::string> &vectorValue) const;
   // iterate through all maps and get the keys within a node
-  bool getMapKeys(std::vector<std::string> &mapKeys);
+  bool getMapKeys(std::vector<std::string> &mapKeys) const;
 };
 
 class CompoundConfig

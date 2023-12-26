@@ -231,6 +231,40 @@ void Factors::PruneMax(std::map<unsigned, unsigned long>& max)
   }
 }
 
+void Factors::PruneMin(std::map<unsigned, unsigned long>& min)
+{
+  // Prune the vector of cofactor sets by removing those sets that have factors
+  // outside user-specified min/max range. We should really have done this during
+  // MultiplicativeSplitRecursive. However, the "given" map complicates things
+  // because given factors may be scattered, and we'll need a map table to
+  // find the original rank from the "compressed" rank seen by
+  // MultiplicativeSplitRecursive. Doing it now is slower but cleaner and less
+  // bug-prone.
+
+  auto cofactors_it = cofactors_.begin();
+  while (cofactors_it != cofactors_.end())
+  {
+    bool illegal = false;
+    for (auto& min_factor : min)
+    {
+      auto index = min_factor.first;
+      auto min = min_factor.second;
+      assert(index <= cofactors_it->size());
+      auto value = cofactors_it->at(index);
+      if (value < min)
+      {
+        illegal = true;
+        break;
+      }
+    }
+      
+    if (illegal)
+      cofactors_it = cofactors_.erase(cofactors_it);
+    else
+      cofactors_it++;
+  }
+}
+
 std::vector<unsigned long>& Factors::operator[](int index)
 {
   return cofactors_[index];
@@ -519,6 +553,18 @@ void ResidualFactors::ValidityChecker_(const unsigned long n, std::map<unsigned,
 }
 
 void ResidualFactors::PruneMax()
+{
+  // Prune the vector of cofactor sets by removing those sets that have factors
+  // outside user-specified min/max range. We should really have done this during
+  // MultiplicativeSplitRecursive. However, the "given" map complicates things
+  // because given factors may be scattered, and we'll need a map table to
+  // find the original rank from the "compressed" rank seen by
+  // MultiplicativeSplitRecursive. Doing it now is slower but cleaner and less
+  // bug-prone.
+
+}
+
+void ResidualFactors::PruneMin()
 {
   // Prune the vector of cofactor sets by removing those sets that have factors
   // outside user-specified min/max range. We should really have done this during

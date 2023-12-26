@@ -1,7 +1,5 @@
 #pragma once
 
-#include <variant>
-
 #include <boost/range/adaptor/indexed.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <isl/cpp.h>

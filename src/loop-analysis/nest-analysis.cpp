@@ -29,7 +29,6 @@
 #include <functional>
 #include <stdexcept>
 #include <unordered_map>
-#include <boost/log/trivial.hpp>
 #include <barvinok/isl.h>
 #include <isl/aff.h>
 #include <isl/cpp.h>
@@ -83,15 +82,19 @@ bool gRunLastIteration =
 bool gUseIslAnalysis =
   (getenv("TIMELOOP_USE_ISL") != NULL) &&
   (strcmp(getenv("TIMELOOP_USE_ISL"), "0") != 0);
-bool gLogNestAnalysisResult =
-  (getenv("TIMELOOP_LOG_NEST_ANALYSIS_RESULT") != NULL) &&
-  (strcmp(getenv("TIMELOOP_LOG_NEST_ANALYSIS_RESULT"), "0") != 0);
+bool gPrintNestAnalysisResult =
+  (getenv("TIMELOOP_PRINT_NEST_ANALYSIS_RESULT") != NULL) &&
+  (strcmp(getenv("TIMELOOP_PRINT_NEST_ANALYSIS_RESULT"), "0") != 0);
+
 
 // Flattening => Multi-AAHRs
 // => Can't use per-AAHR reset-on-stride-change logic
 // => Have to run last temporal iteration (because tile residual that carries
 //    over from iteration 1 back to iteration 0 is incorrect).
 bool gResetOnStrideChange = false;
+
+// Alternative cycle count computation hack for imperfect factorization.
+bool gEnableImperfectCycleCount = false;
 
 namespace analysis
 {
@@ -128,7 +131,8 @@ void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
     no_link_transfer_ = nest->no_link_transfer;
     no_multicast_ = nest->no_multicast;
     no_temporal_reuse_ = nest->no_temporal_reuse;
-
+    rmw_on_first_writeback_ = nest->rmw_on_first_writeback;
+    passthrough_ = nest->passthrough;
     physical_fanoutX_ = fanoutX_map;
     physical_fanoutY_ = fanoutY_map;
 
@@ -184,6 +188,7 @@ void NestAnalysis::Reset()
 
   working_sets_computed_ = false;
   imperfectly_factorized_ = false;
+  gEnableImperfectCycleCount = false;
 
   // compute_info_.Reset();
   compute_info_.clear();
@@ -200,6 +205,8 @@ void NestAnalysis::Reset()
   no_multicast_.clear();
   no_link_transfer_.clear();
   no_temporal_reuse_.clear();
+  rmw_on_first_writeback_.clear();
+  passthrough_.clear();
 }
 
 // Ugly function for pre-checking capacity fits before running the heavyweight
@@ -321,15 +328,18 @@ void NestAnalysis::ComputeWorkingSets()
     working_sets_ = legacy_output.second;
   }
 
-  if (gLogNestAnalysisResult)
+  if (gPrintNestAnalysisResult)
   {
-    auto working_set_stream = std::stringstream();
-    auto serialized_working_set =
-      boost::archive::text_oarchive(working_set_stream);
-    serialized_working_set << working_sets_;
-
-    BOOST_LOG_TRIVIAL(trace) <<
-      "[NEST_ANALYSIS_OUTPUT] " + working_set_stream.str();
+    for (size_t pv = 0; pv < workload_->GetShape()->NumDataSpaces; ++pv)
+    {
+      std::cout << "DataSpace: " << pv << std::endl;
+      const auto& data_movement_nest = working_sets_.at(pv);
+      for (const auto& tile : data_movement_nest)
+      {
+        std::cout << "fanout: " << tile.fanout << std::endl;
+        std::cout << "access stats: " << tile.access_stats << std::endl;
+      }
+    }
   }
 
   // Done.
@@ -345,6 +355,7 @@ void NestAnalysis::DetectImperfectFactorization()
     if (cur->descriptor.end != cur->descriptor.residual_end)
     {
       imperfectly_factorized_ = true;
+      gEnableImperfectCycleCount = true;
       break;
     }
   }
@@ -514,6 +525,8 @@ void NestAnalysis::CollectWorkingSets()
         std::reverse(subnest.begin(), subnest.end());
       }
 
+      auto storage_level = arch_storage_level_[cur.level];
+
       // Transfer data from condensed_state to working_sets_
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
@@ -529,7 +542,16 @@ void NestAnalysis::CollectWorkingSets()
         tile.fanout                 = logical_fanouts_[cur.level];
         tile.is_on_storage_boundary = storage_boundary_level_[cur.level];
         tile.is_master_spatial      = master_spatial_level_[cur.level];
-        // tile.tile_density           = condensed_state.data_densities[pv];
+        tile.rmw_on_first_writeback = 0;
+        if(rmw_on_first_writeback_.find(storage_level) != rmw_on_first_writeback_.end())
+        {
+          tile.rmw_on_first_writeback = rmw_on_first_writeback_[storage_level][pv];
+        }
+        tile.passthrough = 0;
+        if(passthrough_.find(storage_level) != passthrough_.end())
+        {
+          tile.passthrough = passthrough_[storage_level][pv];
+        }
         working_sets_[pv].push_back(tile);
       }
     } // if (valid_level)

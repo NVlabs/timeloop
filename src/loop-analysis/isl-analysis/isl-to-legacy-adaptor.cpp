@@ -158,16 +158,15 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
     auto is_master_spatial = master_spatial_level[cur.level];
     auto is_boundary = storage_boundary_level[cur.level];
 
-    if (is_boundary)
-    {
-      cur_buffer_id--;
-    }
+    auto lock = std::lock_guard(GetIslMutex());
 
     for (unsigned dspace_id = 0;
         dspace_id < workload.GetShape()->NumDataSpaces;
         ++dspace_id)
     {
       DataMovementInfo tile;
+      tile.Reset();
+
       tile.link_transfers = 0;
       tile.subnest = subnest;
       tile.replication_factor = num_spatial_elems[cur.level];
@@ -182,6 +181,8 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
 
       if (last_is_boundary || first_loop)
       {
+        tile.total_child_accesses = stats.total_child_accesses / tile.replication_factor;
+
         const auto& key_to_access_stats = stats.compat_access_stats;
         const auto& link_transfers = stats.link_transfer;
 
@@ -204,11 +205,7 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
         tile.link_transfers = isl::val_to_double(p_val);
       }
 
-      if (first_loop)
-      {
-        tile.size = 0;
-      }
-      else if (is_master_spatial)
+      if (is_master_spatial)
       {
         auto p_occ_map = occ.map.copy();
         auto p_occ_count = isl::get_val_from_singular(
@@ -229,7 +226,10 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
       }
       else if (is_boundary)
       {
-        auto p_occ_map = occ.map.copy();
+        const auto& parent_stats = isl_analysis_output.buf_to_stats.at(
+          LogicalBuffer(cur_buffer_id-1, dspace_id, 0)
+        );
+        auto p_occ_map = parent_stats.effective_occupancy.map.copy();
         auto p_occ_count = isl::get_val_from_singular(
           isl_pw_qpolynomial_bound(isl_map_card(p_occ_map),
                                    isl_fold_max,
@@ -243,6 +243,11 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
       }
 
       working_sets[dspace_id].push_back(tile);
+    }
+
+    if (is_boundary)
+    {
+      cur_buffer_id--;
     }
 
     last_is_boundary = is_boundary;

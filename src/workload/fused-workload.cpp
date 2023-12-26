@@ -15,7 +15,7 @@ EinsumId FusedWorkload::NewEinsum(std::string name)
   auto next_einsum_id = einsum_name_to_id_.size();
   if (name == "")
   {
-    name = "einsum" + next_einsum_id;
+    name = "einsum" + std::to_string(next_einsum_id);
   }
 
   if (einsum_name_to_id_.find(name) != einsum_name_to_id_.end())
@@ -33,7 +33,7 @@ DataSpaceId FusedWorkload::NewDataSpace(std::string name)
   auto next_dspace_id = dspace_name_to_id_.size();
   if (name == "")
   {
-    name = "dspace" + next_dspace_id;
+    name = "dspace" + std::to_string(next_dspace_id);
   }
 
   if (dspace_name_to_id_.find(name) != dspace_name_to_id_.end())
@@ -51,7 +51,7 @@ DimensionId FusedWorkload::NewDimension(std::string name)
   auto next_dim_id = dim_name_to_id_.size();
   if (name == "")
   {
-    name = "dim" + next_dim_id;
+    name = "dim" + std::to_string(next_dim_id);
   }
 
   if (dim_name_to_id_.find(name) != dim_name_to_id_.end())
