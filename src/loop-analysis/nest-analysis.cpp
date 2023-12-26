@@ -305,10 +305,9 @@ void NestAnalysis::ComputeWorkingSets()
     auto occupancies =
       analysis::OccupanciesFromMapping(cached_nest, *workload_);
 
-    auto reuse_analysis_input = ReuseAnalysisInput(occupancies);
     auto legacy_output =
       GenerateLegacyNestAnalysisOutput(
-        ReuseAnalysis(reuse_analysis_input),
+        ReuseAnalysis(occupancies),
         nest_state_,
         storage_tiling_boundaries_,
         master_spatial_level_,

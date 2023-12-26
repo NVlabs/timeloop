@@ -49,6 +49,8 @@ struct ReuseAnalysisOutput
 struct ReuseAnalysisOptions
 {
   bool count_hops;
+
+  ReuseAnalysisOptions();
 };
 
 /**

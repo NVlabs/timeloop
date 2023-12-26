@@ -17,6 +17,7 @@ struct TransferInfo
   Transfers fulfilled_fill;
   Reads parent_reads;
   Fill unfulfilled_fill;
+  isl_pw_qpolynomial* p_hops;
 
   /***************** Compatibility with Timeloop v2.0 ************************/
   bool is_multicast = false;

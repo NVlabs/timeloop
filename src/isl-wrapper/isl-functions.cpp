@@ -468,4 +468,61 @@ gather_pw_qpolynomial_from_fold(__isl_take isl_pw_qpolynomial_fold* pwqpf)
   return p_pwqp;
 }
 
+isl_stat MakeAff(__isl_take isl_term* term, void* voided_aff)
+{
+  isl_aff** aff = static_cast<isl_aff**>(voided_aff);
+
+  auto n_dim_in = isl_term_dim(term, isl_dim_set);
+  if (n_dim_in == isl_size_error)
+  {
+    throw std::logic_error("aff_from_qpolynomial: error processing term");
+  }
+
+  int total_exp = 0;
+  for (unsigned i = 0; i < static_cast<unsigned>(n_dim_in); ++i)
+  {
+    auto exp = isl_term_get_exp(term, isl_dim_set, i);
+    if (exp == isl_size_error)
+    {
+      throw std::logic_error("aff_from_qpolynomial: error processing term");
+    }
+
+    total_exp += exp;
+    if (total_exp > 1)
+    {
+      isl_aff_free(*aff);
+      *aff = nullptr;
+      return isl_stat_error;
+    }
+
+    if (exp == 1)
+    {
+      isl_aff_set_coefficient_val(
+        *aff,
+        isl_dim_in,
+        i,
+        isl_term_get_coefficient_val(term)
+      );
+    }
+  }
+
+  return isl_stat_ok;
+}
+
+isl_aff* aff_from_qpolynomial(__isl_keep isl_qpolynomial* qp)
+{
+  isl_aff* result = isl_aff_zero_on_domain_space(
+    isl_qpolynomial_get_domain_space(qp)
+  );
+
+  isl_qpolynomial_foreach_term(qp, &MakeAff, static_cast<void*>(&result));
+
+  result = isl_aff_add_constant_val(
+    result,
+    isl_qpolynomial_get_constant_val(qp)
+  );
+
+  return result;
+}
+
 };  // namespace isl

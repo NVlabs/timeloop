@@ -1,5 +1,7 @@
 #pragma once
 
+#include <variant>
+
 #include <boost/range/adaptor/indexed.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <isl/cpp.h>
@@ -123,4 +125,10 @@ std::string pw_qpolynomial_fold_to_str(isl_pw_qpolynomial_fold* pwqf);
 
 __isl_give isl_pw_qpolynomial*
 gather_pw_qpolynomial_from_fold(__isl_take isl_pw_qpolynomial_fold* pwqpf);
+
+/** Creates aff from qpolynomial if affine; otherwise, returns nullptr */
+isl_aff* aff_from_qpolynomial(__isl_take isl_qpolynomial* qp);
+
+/** Creates pw_aff from pw_qpolynomial if affine; otherwise, returns nullptr */
+isl_pw_aff* pw_aff_from_pw_qpolynomial(__isl_keep isl_pw_qpolynomial* pw_qp);
 };  // namespace isl

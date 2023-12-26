@@ -19,8 +19,9 @@ FillProvider::FillProvider(const LogicalBuffer& buf, const Occupancy& occ) :
 
 SpatialReuseAnalysisInput::SpatialReuseAnalysisInput(
   LogicalBuffer buf,
-  const Fill& children_fill
-) : buf(buf), children_fill(children_fill)
+  const Fill& children_fill,
+  bool count_hops
+) : buf(buf), children_fill(children_fill), count_hops(count_hops)
 {
 }
 
@@ -86,11 +87,18 @@ TransferInfo SimpleLinkTransferModel::Apply(
   auto fill_set = fill.map.intersect(available_from_neighbors);
   auto remaining_fill = fill.map.subtract(fill_set);
 
+  auto p_fill_set = isl_map_wrap(fill_set.copy());
+  auto p_hops = isl_pw_qpolynomial_from_qpolynomial(
+    isl_qpolynomial_one_on_domain(isl_set_get_space(p_fill_set))
+  );
+  p_hops = isl_pw_qpolynomial_intersect_domain(p_hops, p_fill_set);
+
   transfer_info.fulfilled_fill = Transfers(fill.dim_in_tags, fill_set);
   // TODO: fill parent_reads. Below is just (wrong!) placeholder to make
   // isl::map copy ctor happy.
   transfer_info.parent_reads= Reads(fill.dim_in_tags, fill_set);
   transfer_info.unfulfilled_fill = Fill(fill.dim_in_tags, remaining_fill);
+  transfer_info.p_hops = p_hops;
 
   return transfer_info;
 }
@@ -166,7 +174,8 @@ isl_stat ComputeMulticastScatterHops(isl_set* p_domain,
   return isl_stat_ok;
 }
 
-SimpleMulticastModel::SimpleMulticastModel()
+SimpleMulticastModel::SimpleMulticastModel(bool count_hops) :
+  count_hops_(count_hops)
 {
 }
 
@@ -193,59 +202,102 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
 
   auto p_multicast_factor = isl_map_card(wrapped_fill.copy());
 
-  auto p_y_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
-    isl_qpolynomial_add(
-      isl_qpolynomial_var_on_domain(
-        isl_space_range(isl_map_get_space(wrapped_fill.get())),
-        isl_dim_set,
-        n-1
-      ),
-      isl_qpolynomial_one_on_domain(
-        isl_space_range(isl_map_get_space(wrapped_fill.get()))
-      )
-    )
-  );
-  auto p_y_hops = isl_map_apply_pw_qpolynomial(wrapped_fill.copy(),
-                                                p_y_hops_cost);
-
-  // Remove y, leaving only x
-  auto p_data_to_max_x = isl_map_lexmax(
-    isl_map_project_out(wrapped_fill.copy(), isl_dim_out, n-1, 1)
-  );
-  auto p_x_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
-    isl_qpolynomial_add(
-      isl_qpolynomial_var_on_domain(
-        isl_space_range(isl_map_get_space(p_data_to_max_x)),
-        isl_dim_set,
-        n-2
-      ),
-      isl_qpolynomial_one_on_domain(
-        isl_space_range(isl_map_get_space(p_data_to_max_x))
-      )
-    )
-  );
-  auto p_x_hops = isl_map_apply_pw_qpolynomial(p_data_to_max_x,
-                                                p_x_hops_cost);
-
-  auto p_hops = isl_pw_qpolynomial_add(p_y_hops, p_x_hops);
-
-  auto accumulator = Accumulator();
-  accumulator.p_time_data_to_hops = p_hops;
-  isl_pw_qpolynomial_foreach_piece(p_multicast_factor,
-                                    &ComputeMulticastScatterHops,
-                                    static_cast<void*>(&accumulator));
-
-  isl_pw_qpolynomial_free(p_multicast_factor);
-  isl_pw_qpolynomial_free(accumulator.p_time_data_to_hops);
-
-  for (const auto& [multicast, hops_accesses] :
-        accumulator.multicast_to_hops_accesses)
+  isl_pw_qpolynomial* p_hops = nullptr;
+  if (count_hops_)
   {
-    auto& stats =
-      transfer_info.compat_access_stats[std::make_pair(multicast, 1)];
-    stats.accesses = hops_accesses.accesses;
-    stats.hops = hops_accesses.hops / hops_accesses.accesses;
+    auto p_y_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
+      isl_qpolynomial_add(
+        isl_qpolynomial_var_on_domain(
+          isl_space_range(isl_map_get_space(wrapped_fill.get())),
+          isl_dim_set,
+          n-1
+        ),
+        isl_qpolynomial_one_on_domain(
+          isl_space_range(isl_map_get_space(wrapped_fill.get()))
+        )
+      )
+    );
+    auto p_y_hops = isl_map_apply_pw_qpolynomial(wrapped_fill.copy(),
+                                                  p_y_hops_cost);
+
+    // Remove y, leaving only x
+    auto p_data_to_max_x = isl_map_lexmax(
+      isl_map_project_out(wrapped_fill.copy(), isl_dim_out, n-1, 1)
+    );
+    auto p_x_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
+      isl_qpolynomial_add(
+        isl_qpolynomial_var_on_domain(
+          isl_space_range(isl_map_get_space(p_data_to_max_x)),
+          isl_dim_set,
+          n-2
+        ),
+        isl_qpolynomial_one_on_domain(
+          isl_space_range(isl_map_get_space(p_data_to_max_x))
+        )
+      )
+    );
+    auto p_x_hops = isl_map_apply_pw_qpolynomial(p_data_to_max_x,
+                                                  p_x_hops_cost);
+
+    p_hops = isl_pw_qpolynomial_add(p_y_hops, p_x_hops);
   }
+  else
+  {
+    p_hops = isl_pw_qpolynomial_from_qpolynomial(
+      isl_qpolynomial_zero_on_domain(isl_pw_qpolynomial_get_domain_space(
+        p_multicast_factor
+      ))
+    );
+  }
+
+  // auto accumulator = Accumulator();
+  // accumulator.p_time_data_to_hops = p_hops;
+  // isl_pw_qpolynomial_foreach_piece(p_multicast_factor,
+  //                                  &ComputeMulticastScatterHops,
+  //                                  static_cast<void*>(&accumulator));
+
+  // isl_pw_qpolynomial_free(p_multicast_factor);
+
+  // for (const auto& [multicast, hops_accesses] :
+  //       accumulator.multicast_to_hops_accesses)
+  // {
+  //   auto& stats =
+  //     transfer_info.compat_access_stats[std::make_pair(multicast, 1)];
+  //   stats.accesses = hops_accesses.accesses;
+  //   stats.hops = hops_accesses.hops / hops_accesses.accesses;
+  // }
+
+  auto total_accesses = isl::val_to_double(isl_qpolynomial_get_constant_val(
+    isl_pw_qpolynomial_as_qpolynomial(
+      isl_set_card(isl_pw_qpolynomial_domain(
+        isl_pw_qpolynomial_copy(p_multicast_factor)
+      ))
+    )
+  ));
+
+  auto p_total_hops = isl_pw_qpolynomial_sum(isl_pw_qpolynomial_sum(
+    isl_pw_qpolynomial_copy(p_hops)
+  ));
+  auto total_hops = isl::val_to_double(isl_qpolynomial_get_constant_val(
+    isl_pw_qpolynomial_as_qpolynomial(p_total_hops)
+  ));
+
+  auto p_total_multicast = isl_pw_qpolynomial_sum(isl_pw_qpolynomial_sum(
+    p_multicast_factor
+  ));
+  auto total_multicast = isl::val_to_double(isl_qpolynomial_get_constant_val(
+    isl_pw_qpolynomial_as_qpolynomial(p_total_multicast)
+  ));
+
+  auto avg_multicast = total_multicast / total_accesses;
+  auto avg_hops = total_hops / total_accesses;
+
+  auto& stats = transfer_info.compat_access_stats[std::make_pair(
+    avg_multicast,
+    1
+  )];
+  stats.accesses = total_accesses;
+  stats.hops = avg_hops;
 
   transfer_info.fulfilled_fill = Transfers(fill.dim_in_tags, fill.map);
   // TODO: this assumes no bypassing
@@ -257,6 +309,7 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
     fill.dim_in_tags,
     fill.map.subtract(fill.map)  // empty map
   );
+  transfer_info.p_hops = p_hops;
 
   return transfer_info;
 }
