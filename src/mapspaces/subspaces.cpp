@@ -173,11 +173,11 @@ void ResidualIndexFactorizationSpace::Init(const problem::Workload &workload,
     }
 
     if (maxfactors.find(dim) != maxfactors.end())
-      dimension_factors_[idim].PruneMax();
+      dimension_factors_[idim].PruneMax(maxfactors[dim]);
 
     if (minfactors.find(dim) != minfactors.end())
-      dimension_factors_[idim].PruneMin();
-
+      dimension_factors_[idim].PruneMin(minfactors[dim]);
+    
     counter_base[idim] = dimension_factors_[idim].size();
 
   }
