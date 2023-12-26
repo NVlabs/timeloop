@@ -348,13 +348,6 @@ void NestAnalysis::DetectImperfectFactorization()
       break;
     }
   }
-
-  if (imperfectly_factorized_ && gUseIslAnalysis)
-  {
-    throw std::runtime_error(
-      "Imperfect factorization not supported in ISL analysis"
-    );
-  }
 }
 
 void NestAnalysis::InitializeNestProperties()

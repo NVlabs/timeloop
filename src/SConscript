@@ -302,6 +302,7 @@ unit-test/test-main.cpp
 unit-test/test-simple-link-transfer.cpp
 unit-test/test-multicast.cpp
 unit-test/test-isl-functions.cpp
+unit-test/test-mapping-to-isl.cpp
 """)
 
 # bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)

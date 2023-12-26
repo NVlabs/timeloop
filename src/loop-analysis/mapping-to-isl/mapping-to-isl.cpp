@@ -29,26 +29,6 @@ std::vector<std::pair<LogicalBuffer, size_t>>
 BufferIterLevelsFromMapping(const loop::Nest& nest,
                             const problem::Workload& workload);
 
-/**
- * @brief Utility to help TilingFromMapping track coefficients.
- */
-struct TilingCoefTracker
-{
-  TilingCoefTracker();
-
-  TilingCoefTracker&
-  NewIterDim(size_t op_dim, const std::optional<size_t>& iter_dim_end);
-
- private:
-  friend isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker);
-
-  std::vector<std::vector<std::optional<size_t>>> coefs_;
-  size_t n_iter_dims_;
-
-};
-
-isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker);
-
 std::map<LogicalBuffer, Skew>
 LogicalBufSkewsFromMapping(const loop::Nest& mapping,
                            const problem::Workload& workload);
@@ -67,6 +47,10 @@ OccupanciesFromMapping(const loop::Nest& mapping,
   auto ops_to_dspace = OpsToDSpaceFromEinsum(workload);
   auto branch_tiling = TilingFromMapping(mapping).at(0);
   auto buf_skew = LogicalBufSkewsFromMapping(mapping, workload);
+
+  branch_tiling = branch_tiling.intersect_range(
+    ops_to_dspace.begin()->second.domain()
+  );
 
   std::map<LogicalBuffer, Occupancy> result;
   for (auto& [buf, skew] : buf_skew)
@@ -96,17 +80,141 @@ TilingFromMapping(const loop::Nest& nest)
 {
   const auto& loops = nest.loops;
 
-  TilingCoefTracker coef_tracker;
+  std::set<problem::Shape::FlattenedDimensionID> ospace_dims;
   for (const auto& loop : loops)
   {
-    const auto& ospace_dim = loop.dimension;
-    coef_tracker.NewIterDim(ospace_dim, loop.end);
+    ospace_dims.insert(loop.dimension);
   }
+
+  isl_map* p_tiling = nullptr;
+  for (auto ospace_dim : ospace_dims)
+  {
+    std::vector<int> coefs;
+    std::vector<int> sizes;
+    std::vector<int> residuals;
+    int coef = 1;
+    for (const auto& loop : loops)
+    {
+      if (ospace_dim != loop.dimension)
+      {
+        continue;
+      }
+      coefs.push_back(coef);
+      sizes.push_back(loop.end);
+      if (loop.residual_end > 0)
+      {
+        residuals.push_back(loop.residual_end);
+      }
+      else
+      {
+        residuals.push_back(loop.end);
+      }
+
+      coef *= loop.end;
+    }
+
+    const auto n_iter_dims = loops.size();
+    isl_map* p_cur_ospace_dim_tiling = nullptr;
+    auto identity = isl::multi_aff::identity_on_domain(
+      isl::space_set_alloc(GetIslCtx(), 0, n_iter_dims)
+    );
+    for (unsigned i = 0; i < coefs.size(); ++i)
+    {
+      auto iter_set = isl::set::universe(
+        isl::space_set_alloc(GetIslCtx(), 0, n_iter_dims)
+      );
+      auto aff = isl::aff::zero_on_domain(
+        isl::space_set_alloc(GetIslCtx(), 0, loops.size())
+      );
+
+      unsigned j = 0;
+      for (unsigned k = 0; k < loops.size(); ++k)
+      {
+        const auto& loop = loops.at(k);
+        if (loop.dimension != ospace_dim)
+        {
+          continue;
+        }
+
+        const auto reversed_iter_dim = n_iter_dims - k - 1;
+        const auto coef = coefs.at(j);
+        const auto size = sizes.at(j);
+        const auto residual = residuals.at(j);
+        const auto identity_k = identity.get_at(reversed_iter_dim);
+        const auto last_iter_coord = residual - 1;
+
+        aff = isl::set_coefficient_si(aff, isl_dim_in, reversed_iter_dim, coef);
+
+        if (j < i)
+        {
+          iter_set = iter_set.intersect(identity_k.ge_set(
+              isl::si_on_domain(identity.space().domain(), 0)
+          ));
+          iter_set = iter_set.intersect(identity_k.lt_set(
+              isl::si_on_domain(identity.space().domain(), size)
+          ));
+        }
+        else if (j == i)
+        {
+          if (i == 0)
+          {
+            iter_set = iter_set.intersect(identity_k.ge_set(
+                isl::si_on_domain(identity.space().domain(), 0)
+            ));
+            iter_set = iter_set.intersect(identity_k.lt_set(
+                isl::si_on_domain(identity.space().domain(), residual)
+            ));
+          }
+          else
+          {
+            iter_set = iter_set.intersect(identity_k.ge_set(
+                isl::si_on_domain(identity.space().domain(), 0)
+            ));
+            iter_set = iter_set.intersect(identity_k.lt_set(
+                isl::si_on_domain(identity.space().domain(), residual-1)
+            ));
+          }
+        }
+        else
+        {
+          iter_set = iter_set.intersect(identity_k.ge_set(
+              isl::si_on_domain(identity.space().domain(), last_iter_coord)
+          ));
+          iter_set = iter_set.intersect(identity_k.le_set(
+              isl::si_on_domain(identity.space().domain(), last_iter_coord)
+          ));
+        }
+        ++j;
+      }
+
+      auto map = isl::map_from_multi_aff(isl::multi_aff(aff));
+      map = map.intersect_domain(iter_set);
+      if (p_cur_ospace_dim_tiling == nullptr)
+      {
+        p_cur_ospace_dim_tiling = map.release();
+      }
+      else
+      {
+        p_cur_ospace_dim_tiling = isl_map_union(p_cur_ospace_dim_tiling,
+                                                map.release());
+      }
+    }
+    
+    if (p_tiling == nullptr)
+    {
+      p_tiling = p_cur_ospace_dim_tiling;
+    }
+    else
+    {
+      p_tiling = isl_map_flat_range_product(p_tiling, p_cur_ospace_dim_tiling);
+    }
+  }
+  p_tiling = isl_map_coalesce(p_tiling);
 
   BranchTilings result;
   result.emplace(std::make_pair(
     0,
-    TilingCoefTrackerToMap(std::move(coef_tracker))
+    isl::manage(p_tiling)
   ));
 
   return result;
@@ -397,106 +505,6 @@ OpsToDSpaceFromEinsum(const problem::Workload& workload)
   }
 
   return dspace_id_to_ospace_to_dspace;
-}
-
-TilingCoefTracker::TilingCoefTracker() : coefs_(), n_iter_dims_(0) {}
-
-TilingCoefTracker&
-TilingCoefTracker::NewIterDim(size_t op_dim,
-                              const std::optional<size_t>& iter_dim_end)
-{
-  ++n_iter_dims_;
-
-  while (coefs_.size() < op_dim + 1)
-  {
-    coefs_.emplace_back(n_iter_dims_, 0);
-  }
-
-  for (auto& dim_coefs : coefs_)
-  {
-    for (size_t i = dim_coefs.size(); i < n_iter_dims_; ++i)
-    {
-      dim_coefs.emplace_back(0);
-    }
-  }
-
-  coefs_.at(op_dim).back() = iter_dim_end;
-
-  return *this;
-}
-
-// template<typename IterT>
-// isl::map FromVectorInMap(IterT begin, IterT end,
-//                          size_t in_dims, size_t out_dims)
-// {
-//   auto eq_maff = isl::multi_aff::zero(
-//     isl::space_alloc(GetIslCtx(), 0, in_dims, out_dims)
-//   );
-
-//   for (auto it = begin; it != end; ++it)
-//   {
-//     const auto& out_dim = it->first;
-//     const auto& expr = it->second;
-
-//     auto eq_aff = eq_maff.get_at(out_dim);
-//     for (auto term_it = expr.begin(); term_it != expr.end(); ++term_it)
-//     {
-//       const auto& in_dim = term_it->first;
-//       const auto& coef = term_it->second;
-//       eq_aff = isl::set_coefficient_si(eq_aff, isl_dim_in, in_dim, coef);
-//     }
-//   }
-
-//   return isl::map_from_multi_aff(eq_maff);
-// }
-
-isl::map TilingCoefTrackerToMap(TilingCoefTracker&& tracker)
-{
-  auto eq_maff = isl::multi_aff::zero(
-    isl::space_alloc(GetIslCtx(),
-                     0,
-                     tracker.n_iter_dims_,
-                     tracker.coefs_.size())
-  );
-
-  auto iter_set = isl::set::universe(eq_maff.space().domain());
-  auto identity = isl::multi_aff::identity_on_domain(eq_maff.space().domain()); 
-
-  for (size_t op_dim = 0; op_dim < tracker.coefs_.size(); ++op_dim)
-  {
-    auto& dim_coefs = tracker.coefs_.at(op_dim);
-    int last_coef = 1;
-
-    auto eq_aff = eq_maff.get_at(op_dim);
-    for (size_t iter_dim = 0; iter_dim < tracker.n_iter_dims_; ++iter_dim)
-    {
-      auto& coef_opt = dim_coefs.at(iter_dim);
-      auto& coef = *coef_opt;
-      if (coef != 0)
-      {
-        auto reversed_iter_dim = tracker.n_iter_dims_ - iter_dim - 1;
-        eq_aff = isl::set_coefficient_si(eq_aff,
-                                         isl_dim_in,
-                                         reversed_iter_dim,
-                                         last_coef);
-
-        iter_set = iter_set.intersect(
-          identity.get_at(reversed_iter_dim).ge_set(
-            isl::si_on_domain(identity.space().domain(), 0))
-        );
-        iter_set = iter_set.intersect(
-          identity.get_at(reversed_iter_dim).lt_set(
-            isl::si_on_domain(identity.space().domain(), coef))
-        );
-        last_coef *= coef;
-      }
-    }
-    eq_maff = eq_maff.set_at(op_dim, eq_aff);
-  }
-
-  auto map = isl::map_from_multi_aff(eq_maff).intersect_domain(iter_set);
-
-  return map;
 }
 
 };
