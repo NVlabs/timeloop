@@ -11,7 +11,7 @@ namespace analysis
 struct BufferInfo
 {
   BufferId buffer_id;
-  DataSpaceID dspace_id;
+  DataSpaceId dspace_id;
   bool exploits_reuse;
   bool right_above_branch;
 };
@@ -236,8 +236,8 @@ std::map<BufferId, isl_pw_qpolynomial*> ComputeCapacityFromMapping(
       }
       else if constexpr (mapping::IsBranchV<T>)
       {
-        auto dspace_start = std::map<DataSpaceID, size_t>();
-        auto dspace_end = std::map<DataSpaceID, size_t>();
+        auto dspace_start = std::map<DataSpaceId, size_t>();
+        auto dspace_end = std::map<DataSpaceId, size_t>();
         size_t i = 0;
         for (auto child_id : node.children)
         {

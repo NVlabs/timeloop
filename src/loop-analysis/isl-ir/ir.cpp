@@ -35,7 +35,7 @@ bool LogicalComputeUnit::operator==(const LogicalComputeUnit& other) const
 }
 
 LogicalBuffer::LogicalBuffer(BufferId buffer_id,
-                             DataSpaceID dspace_id,
+                             DataSpaceId dspace_id,
                              mapping::NodeID branch_leaf_id) :
   buffer_id(buffer_id), dspace_id(dspace_id), branch_leaf_id(branch_leaf_id)
 {

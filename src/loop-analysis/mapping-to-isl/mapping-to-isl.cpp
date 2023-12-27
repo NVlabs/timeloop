@@ -33,7 +33,7 @@ std::map<LogicalBuffer, Skew>
 LogicalBufSkewsFromMapping(const loop::Nest& mapping,
                            const problem::Workload& workload);
 
-std::map<DataSpaceID, isl::map>
+std::map<DataSpaceId, isl::map>
 OpsToDSpaceFromEinsum(const problem::Workload& workload);
 
 /******************************************************************************
@@ -452,12 +452,12 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
   return result;
 }
 
-std::map<DataSpaceID, isl::map>
+std::map<DataSpaceId, isl::map>
 OpsToDSpaceFromEinsum(const problem::Workload& workload)
 {
   const auto& workload_shape = *workload.GetShape();
 
-  std::map<DataSpaceID, isl::map> dspace_id_to_ospace_to_dspace;
+  std::map<DataSpaceId, isl::map> dspace_id_to_ospace_to_dspace;
 
   for (const auto& [name, dspace_id] : workload_shape.DataSpaceNameToID)
   {
