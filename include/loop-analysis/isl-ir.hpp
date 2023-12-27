@@ -45,7 +45,7 @@
 namespace analysis
 {
 
-using DataSpaceID = problem::DataSpaceId;
+using DataSpaceId = problem::DataSpaceId;
 using FactorizedDimensionID = problem::Shape::FactorizedDimensionID;
 using EinsumID = problem::EinsumId;
 using BufferId = mapping::BufferId;
@@ -95,13 +95,13 @@ std::ostream& operator<<(std::ostream& os, const LogicalComputeUnit& buf);
 struct LogicalBuffer
 {
   BufferId buffer_id;
-  DataSpaceID dspace_id;
+  DataSpaceId dspace_id;
   mapping::NodeID branch_leaf_id;
 
   LogicalBuffer() = default;
   LogicalBuffer(
     BufferId buffer_id,
-    DataSpaceID dspace_id,
+    DataSpaceId dspace_id,
     mapping::NodeID branch_leaf_id
   );
 
