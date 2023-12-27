@@ -1,5 +1,6 @@
 #include "loop-analysis/spatial-analysis.hpp"
 
+#include <boost/range/adaptor/reversed.hpp>
 #include <isl/cpp.h>
 #include <isl/map.h>
 #include <isl/polynomial_type.h>
@@ -10,6 +11,18 @@
 
 namespace analysis
 {
+
+/******************************************************************************
+ * Local declarations
+ *****************************************************************************/
+
+isl::map MakeMeshConnectivity(size_t num_spatial_dims);
+
+size_t GetNumTrailingSpatialTags(const std::vector<SpaceTime>& tags);
+
+/******************************************************************************
+ * Global function implementations
+ *****************************************************************************/
 
 FillProvider::FillProvider(const LogicalBuffer& buf, const Occupancy& occ) : 
   buf(buf), occupancy(occ)
@@ -43,10 +56,6 @@ SpatialReuseInfo SpatialReuseAnalysis(const SpatialReuseAnalysisInput& input)
 
 SimpleLinkTransferModel::SimpleLinkTransferModel()
 {
-  connectivity_ = isl::map(GetIslCtx(),
-                          "{ [t, x, y] -> [t-1, x', y'] : "
-                          " (y'=y and x'=x-1) or (y'=y and x'=x+1) "
-                          " or (x'=x and y'=y-1) or (x'=x and y'=y+1) }");
 }
 
 TransferInfo SimpleLinkTransferModel::Apply(
@@ -65,10 +74,14 @@ TransferInfo SimpleLinkTransferModel::Apply(
     throw std::logic_error("unreachable");
   }
 
+  auto n_spatial_dims = GetNumTrailingSpatialTags(fill.dim_in_tags);
+
+  auto connectivity = MakeMeshConnectivity(n_spatial_dims);
+
   auto transfer_info = TransferInfo();
   transfer_info.is_link_transfer = true;
 
-  if (n < 3) // i.e., no temporal loop. Cannot fulfill via link transfers
+  if (n < n_spatial_dims+1) // i.e., no temporal loop. Cannot fulfill via link transfers
   {
     transfer_info.fulfilled_fill =
       Transfers(fill.dim_in_tags, fill.map.subtract(fill.map)); // empty map
@@ -81,7 +94,7 @@ TransferInfo SimpleLinkTransferModel::Apply(
   }
 
   auto complete_connectivity =
-    isl::insert_equal_dims(connectivity_, 0, 0, n - 3);
+    isl::insert_equal_dims(connectivity, 0, 0, n - n_spatial_dims - 1);
   auto available_from_neighbors =
     complete_connectivity.apply_range(occupancy.map);
   auto fill_set = fill.map.intersect(available_from_neighbors);
@@ -191,12 +204,17 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
     throw std::logic_error("fill spacetime missing spatial dimensions");
   }
 
+  auto n_spatial_dims = GetNumTrailingSpatialTags(fill.dim_in_tags);
+
   auto p_fill = fill.map.copy();
+
+  // Creates [[t] -> [data]] -> [t, x, y] when n_spatial_dims == 2
+  // Creates [[t] -> [data]] -> [t, x] when n_spatial_dims == 1
   auto p_wrapped_fill = isl_map_uncurry(isl_map_project_out(
     isl_map_reverse(isl_map_range_map(isl_map_reverse(p_fill))),
     isl_dim_in,
-    n-2,
-    2
+    n-n_spatial_dims,
+    n_spatial_dims
   ));
   auto wrapped_fill = isl::manage(p_wrapped_fill);
 
@@ -205,41 +223,57 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
   isl_pw_qpolynomial* p_hops = nullptr;
   if (count_hops_)
   {
-    auto p_y_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
-      isl_qpolynomial_add(
-        isl_qpolynomial_var_on_domain(
-          isl_space_range(isl_map_get_space(wrapped_fill.get())),
-          isl_dim_set,
-          n-1
-        ),
-        isl_qpolynomial_one_on_domain(
-          isl_space_range(isl_map_get_space(wrapped_fill.get()))
+    isl_map* p_data_to_x = nullptr;
+    if (n_spatial_dims == 2)
+    {
+      auto p_y_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
+        isl_qpolynomial_add(
+          isl_qpolynomial_var_on_domain(
+            isl_space_range(isl_map_get_space(wrapped_fill.get())),
+            isl_dim_set,
+            n-1
+          ),
+          isl_qpolynomial_one_on_domain(
+            isl_space_range(isl_map_get_space(wrapped_fill.get()))
+          )
         )
-      )
-    );
-    auto p_y_hops = isl_map_apply_pw_qpolynomial(wrapped_fill.copy(),
-                                                  p_y_hops_cost);
+      );
+      auto p_y_hops = isl_map_apply_pw_qpolynomial(wrapped_fill.copy(),
+                                                    p_y_hops_cost);
+      p_hops = p_y_hops;
+      p_data_to_x = isl_map_lexmax(
+        isl_map_project_out(wrapped_fill.copy(), isl_dim_out, n-1, 1)
+      );
+    }
+    else
+    {
+      p_data_to_x = wrapped_fill.copy();
+    }
 
     // Remove y, leaving only x
-    auto p_data_to_max_x = isl_map_lexmax(
-      isl_map_project_out(wrapped_fill.copy(), isl_dim_out, n-1, 1)
-    );
     auto p_x_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
       isl_qpolynomial_add(
         isl_qpolynomial_var_on_domain(
-          isl_space_range(isl_map_get_space(p_data_to_max_x)),
+          isl_space_range(isl_map_get_space(p_data_to_x)),
           isl_dim_set,
-          n-2
+          n-n_spatial_dims
         ),
         isl_qpolynomial_one_on_domain(
-          isl_space_range(isl_map_get_space(p_data_to_max_x))
+          isl_space_range(isl_map_get_space(p_data_to_x))
         )
       )
     );
-    auto p_x_hops = isl_map_apply_pw_qpolynomial(p_data_to_max_x,
-                                                  p_x_hops_cost);
+    auto p_x_hops = isl_map_apply_pw_qpolynomial(p_data_to_x,
+                                                 p_x_hops_cost);
 
-    p_hops = isl_pw_qpolynomial_add(p_y_hops, p_x_hops);
+    if (p_hops == nullptr)
+    {
+      p_hops = p_x_hops;
+    }
+    else
+    {
+      p_hops = isl_pw_qpolynomial_add(p_hops, p_x_hops);
+    }
   }
   else
   {
@@ -303,7 +337,7 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
   // TODO: this assumes no bypassing
   transfer_info.parent_reads = Reads(
     occ.dim_in_tags,
-    isl::project_last_dim(isl::project_last_dim(fill.map))
+    isl::project_dim(fill.map, isl_dim_in, n-n_spatial_dims, n_spatial_dims)
   );
   transfer_info.unfulfilled_fill = Fill(
     fill.dim_in_tags,
@@ -312,6 +346,49 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
   transfer_info.p_hops = p_hops;
 
   return transfer_info;
+}
+
+/******************************************************************************
+ * Local function implementations
+ *****************************************************************************/
+
+
+isl::map MakeMeshConnectivity(size_t num_spatial_dims)
+{
+  if (num_spatial_dims == 2)
+  {
+    return isl::map(GetIslCtx(),
+                    "{ [t, x, y] -> [t-1, x', y'] : "
+                    " (y'=y and x'=x-1) or (y'=y and x'=x+1) "
+                    " or (x'=x and y'=y-1) or (x'=x and y'=y+1) }");
+  }
+  else if (num_spatial_dims == 1)
+  {
+    return isl::map(GetIslCtx(),
+                    "{ [t, x] -> [t-1, x'] : "
+                    " (x'=x-1) or (x'=x+1) }");
+  }
+
+  auto err_msg = std::stringstream();
+  err_msg << "Cannot make mesh with " << num_spatial_dims << "dims";
+  throw std::logic_error(err_msg.str());
+}
+
+size_t GetNumTrailingSpatialTags(const std::vector<SpaceTime>& tags)
+{
+  size_t n_spatial_dims = 0;
+  for (const auto& in_tags : tags | boost::adaptors::reversed)
+  {
+    if (std::holds_alternative<Spatial>(in_tags))
+    {
+      ++n_spatial_dims;
+    }
+    else
+    {
+      break;
+    }
+  }
+  return n_spatial_dims;
 }
 
 } // namespace analysis

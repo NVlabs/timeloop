@@ -101,9 +101,6 @@ class SimpleLinkTransferModel final : public SpatialReuseModel
 
   TransferInfo
   Apply(const Fill& fills, const Occupancy& occupancies) const override;
-
- private:
-  isl::map connectivity_;
 };
 
 
