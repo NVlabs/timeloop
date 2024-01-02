@@ -691,7 +691,6 @@ ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::ve
   std::map<unsigned, unsigned long> given_residuals;
 
   assert(given_size <= std::size_t(order));
-  unsigned long partial_product = 1;
   unsigned long remaining = n;
   // std::cout << "Given factors: ";
   for (auto f = given.begin(); f != given.end(); f++)
@@ -700,22 +699,18 @@ ResidualFactors::ResidualFactors(const unsigned long n, const int order, std::ve
     // std::cout << "[" << f->first << "]=" << factor << " ";
     if (remaining % factor == 0)
     {
-      partial_product *= factor;
       remaining /= factor;
     }
     else if (factor > remaining)
     {
       // std::cout << "Factor " << f->first << "=" << factor << " > remaining " << remaining << ". Setting factor to " << remaining << "." << std::endl;
       f->second = remaining;
-      partial_product *= remaining;
       given[f->first] = remaining;
       remaining = 1;
     }
     else
     {
-      // Do a cieling division to find the next *higher* integer that is a factor of n.
-
-      partial_product *= factor;
+      // Do a ceiling division to find the next *higher* integer that is a factor of n.
       std::cout << "Imperfect constraint detected. Factor " << f->first << "=" << factor << " has residual " << remaining % factor << "." << std::endl;
       given_residuals[f->first] = remaining % factor;
       remaining = ceil((double)remaining/(double)factor);
