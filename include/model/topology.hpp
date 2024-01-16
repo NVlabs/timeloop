@@ -311,6 +311,17 @@ class Topology : public Module
     swap(first.specs_, second.specs_);
     swap(first.stats_, second.stats_);
   }
+  
+  /**
+   * @note  The following functions wrap the private getter functions to 
+   *        explicitly expose the Topology internal levels to the outside world.
+   */
+  inline std::shared_ptr<const Level> ExposeLevel(unsigned level_id) const
+  { return GetLevel(level_id); }
+  inline std::shared_ptr<const BufferLevel> ExposeStorageLevel(unsigned storage_level_id) const
+  { return GetStorageLevel(storage_level_id); };
+  inline std::shared_ptr<const ArithmeticUnits> ExposeArithmeticLevel()
+  { return GetArithmeticLevel(); }
 
   Topology& operator = (Topology other)
   {
