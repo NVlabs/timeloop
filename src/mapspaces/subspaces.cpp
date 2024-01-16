@@ -44,7 +44,8 @@ IndexFactorizationSpace::IndexFactorizationSpace() :
 void IndexFactorizationSpace::Init(const problem::Workload &workload,
                                    std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
                                    std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
-                                   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors)
+                                   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors,
+                                   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> minfactors)
 {
   // Sanity check on input pre-factors.
   for (auto& prefactor_set: prefactors)
@@ -92,6 +93,9 @@ void IndexFactorizationSpace::Init(const problem::Workload &workload,
     if (maxfactors.find(dim) != maxfactors.end())
       dimension_factors_[idim].PruneMax(maxfactors[dim]);
 
+    if (minfactors.find(dim) != minfactors.end())
+      dimension_factors_[idim].PruneMin(minfactors[dim]);
+
     counter_base[idim] = dimension_factors_[idim].size();
   }
 
@@ -131,6 +135,7 @@ void ResidualIndexFactorizationSpace::Init(const problem::Workload &workload,
           std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
           std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
           std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors,
+          std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> minfactors,
           std::vector<unsigned long int> remainders,
           std::vector<unsigned long int> remainders_ix)
 {
@@ -169,6 +174,9 @@ void ResidualIndexFactorizationSpace::Init(const problem::Workload &workload,
 
     if (maxfactors.find(dim) != maxfactors.end())
       dimension_factors_[idim].PruneMax();
+
+    if (minfactors.find(dim) != minfactors.end())
+      dimension_factors_[idim].PruneMin();
 
     counter_base[idim] = dimension_factors_[idim].size();
 

@@ -129,20 +129,10 @@ namespace analysis
 // DataMovementInfo
 //
 
-template <class Archive>
-void DataMovementInfo::serialize(Archive& ar, const unsigned int version)
-{
-  if (version == 0)
-  {
-    ar& BOOST_SERIALIZATION_NVP(size);
-    ar& BOOST_SERIALIZATION_NVP(access_stats);
-    ar& BOOST_SERIALIZATION_NVP(subnest);
-  }
-}
-
 void DataMovementInfo::Reset()
 {
   size = 0;
+  total_child_accesses = 0.0;
   access_stats.clear();
   link_transfers = 0;
   subnest.resize(0);
