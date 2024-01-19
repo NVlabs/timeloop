@@ -1113,33 +1113,33 @@ unsigned Topology::NumNetworks() const
   return specs_.NumNetworks();
 }
 
-std::shared_ptr<Level> Topology::GetLevel(unsigned level_id) const
+std::shared_ptr<const Level> Topology::GetLevel(unsigned level_id) const
 {
   return levels_.at(level_id);
 }
 
-std::shared_ptr<BufferLevel> Topology::GetStorageLevel(unsigned storage_level_id) const
+std::shared_ptr<const BufferLevel> Topology::GetStorageLevel(unsigned storage_level_id) const
 {
   auto level_id = specs_.StorageMap(storage_level_id);
-  return std::static_pointer_cast<BufferLevel>(levels_.at(level_id));
+  return std::static_pointer_cast<const BufferLevel>(levels_.at(level_id));
 }
 
-std::shared_ptr<BufferLevel> Topology::GetStorageLevel(std::string level_name) const
+std::shared_ptr<const BufferLevel> Topology::GetStorageLevel(std::string level_name) const
 {
   for(auto level : levels_)
   {
     if (level->Name() == level_name)
     {
-      return std::static_pointer_cast<BufferLevel>(level);
+      return std::static_pointer_cast<const BufferLevel>(level);
     }
   }
   return nullptr;
 }
 
-std::shared_ptr<ArithmeticUnits> Topology::GetArithmeticLevel() const
+std::shared_ptr<const ArithmeticUnits> Topology::GetArithmeticLevel() const
 {
   auto level_id = specs_.ArithmeticMap();
-  return std::static_pointer_cast<ArithmeticUnits>(levels_.at(level_id));
+  return std::static_pointer_cast<const ArithmeticUnits>(levels_.at(level_id));
 }
 
 void Topology::Reset()
