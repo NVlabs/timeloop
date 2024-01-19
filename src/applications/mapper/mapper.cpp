@@ -200,6 +200,10 @@ Application::Application(config::CompoundConfig* config,
   mapper.lookupValue("log-interval", log_interval);
   log_interval_ = static_cast<uint128_t>(log_interval);
 
+  int32_t max_temporal_loops_in_a_mapping = -1;
+  mapper.lookupValue("max_temporal_loops_in_a_mapping", max_temporal_loops_in_a_mapping);
+  max_temporal_loops_in_a_mapping_ = static_cast<int32_t>(max_temporal_loops_in_a_mapping);
+
   // Misc.
   log_oaves_ = false;
   mapper.lookupValue("log-oaves", log_oaves_);
@@ -373,6 +377,7 @@ void Application::Run()
                                         search_size_,
                                         timeout_,
                                         victory_condition_,
+                                        max_temporal_loops_in_a_mapping_,
                                         sync_interval_,
                                         log_interval_,
                                         log_oaves_,

@@ -123,7 +123,7 @@ bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -156,7 +156,7 @@ bool CompoundConfigNode::lookupValue(const char *name, int &value) const {
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -189,7 +189,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) cons
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -223,7 +223,7 @@ bool CompoundConfigNode::lookupValueLongOnly(const char *name, long long &value)
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -266,7 +266,7 @@ bool CompoundConfigNode::lookupValueLongOnly(const char *name, unsigned long lon
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -313,7 +313,7 @@ bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -350,7 +350,7 @@ bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }

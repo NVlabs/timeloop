@@ -1157,7 +1157,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     auto pv = problem::Shape::DataSpaceID(pvi);
 
     stats_.keep[pv] = mask[pv];
-    stats_.passthrough[pv] = tile[pvi].passthrough;
+    stats_.no_coalesce[pv] = tile[pvi].no_coalesce;
 
     stats_.partition_size[pv] = tile[pvi].partition_size;
     stats_.tile_size[pv] = tile[pvi].size;
@@ -1422,8 +1422,8 @@ void BufferLevel::ComputeLeaksPerCycle(){
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    max_my_utilized = std::max(max_my_utilized, (double) stats_.utilized_x_expansion[pv] * stats_.utilized_y_expansion[pv]);
-    max_from_utilized = std::max(max_from_utilized, (double) stats_from.utilized_x_expansion[pv] * stats_from.utilized_y_expansion[pv]);
+    max_my_utilized = std::max(max_my_utilized, (double) stats_.utilized_instances[pv]);
+    max_from_utilized = std::max(max_from_utilized, (double) stats_from.utilized_instances[pv]);
   }
   stats_.n_instances_sharing_power_gating = my_instances / from_instances;
   
