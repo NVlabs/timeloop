@@ -451,8 +451,8 @@ class BufferLevel : public Level
 
   void PopulateEnergyPerOp(unsigned num_ops);
 
-  Specs& GetSpecs() { return specs_; }
-  Stats& GetStats() { return stats_;}
+  const Specs& GetSpecs() { return specs_; }
+  const Stats& GetStats() { return stats_;}
   
   bool HardwareReductionSupported() override;
 
