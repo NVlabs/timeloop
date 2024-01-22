@@ -458,7 +458,7 @@ out << indent << std::left << std::setw(40) << "Total memory accesses required";
 out << ": " << total_min_traffic << std::endl;
 
 unsigned inv_storage_level = topology.NumStorageLevels() - 1;
-std::shared_ptr<const BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);
+std::shared_ptr<const BufferLevel> buffer_level = topology.ViewStorageLevel(inv_storage_level);
 auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
 out << indent << std::left << std::setw(40) << "Optimal Op per Byte";
 out << ": " << op_per_byte << std::endl << std::endl;
@@ -466,7 +466,7 @@ out << ": " << op_per_byte << std::endl << std::endl;
 for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
 {
 
-  std::shared_ptr<const BufferLevel> buffer_level = topology.GetStorageLevel(i);
+  std::shared_ptr<const BufferLevel> buffer_level = topology.ViewStorageLevel(i);
   auto stats = buffer_level->GetStats();
   out << "=== " << buffer_level->Name() << " ===" << std::endl;
   uint64_t total_scalar_access = buffer_level->Accesses();
@@ -508,7 +508,7 @@ out << std::endl
     std::size_t max_name_length = 0;
     for (unsigned i = 0; i < topology.NumLevels(); i++)
     {
-      max_name_length = std::max(max_name_length, topology.GetLevel(i)->Name().length());
+      max_name_length = std::max(max_name_length, topology.ViewLevel(i)->Name().length());
     }
 
     for (auto& network: topology.networks_)
@@ -543,7 +543,7 @@ out << std::endl
       out << all_units.at(i) << std::endl;
       for (unsigned i = 0; i < topology.NumLevels(); i++)
       {
-        auto level = topology.GetLevel(i);
+        auto level = topology.ViewLevel(i);
         out << indent << std::setw(align) << std::left << level->Name() << "= "
             << level->Energy() / num_computes << std::endl;
       }
@@ -580,7 +580,7 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
   {
     // Get the buffer utilization of the innermost memory level
     unsigned first_storage_level_id = 0;
-    std::uint64_t total_utilization = GetStorageLevel(first_storage_level_id)->TotalUtilizedBytes();
+    std::uint64_t total_utilization = ViewStorageLevel(first_storage_level_id)->TotalUtilizedBytes();
 
     // Get the total output tensor size for calculating the total operations
     std::uint64_t total_output_size = 0;
@@ -616,18 +616,18 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
 
     // Assume the DRAM is the last level
     auto last_storage_level_id = NumStorageLevels() - 1;
-    double op_per_byte = GetStorageLevel(last_storage_level_id)->OperationalIntensity(total_ops);
+    double op_per_byte = ViewStorageLevel(last_storage_level_id)->OperationalIntensity(total_ops);
 
-    out << total_utilization << "," << op_per_byte << "," << GetStorageLevel(last_storage_level_id)->Accesses();
+    out << total_utilization << "," << op_per_byte << "," << ViewStorageLevel(last_storage_level_id)->Accesses();
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
-      out << "," << GetStorageLevel(first_storage_level_id)->TotalUtilizedBytes(pv);
+      out << "," << ViewStorageLevel(first_storage_level_id)->TotalUtilizedBytes(pv);
     }
     for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
-      out << "," << GetStorageLevel(last_storage_level_id)->Accesses(pv);
+      out << "," << ViewStorageLevel(last_storage_level_id)->Accesses(pv);
     }
     out << "," << mapping.PrintCompact();
     if (log_oaves_mappings)
@@ -1113,18 +1113,18 @@ unsigned Topology::NumNetworks() const
   return specs_.NumNetworks();
 }
 
-std::shared_ptr<const Level> Topology::GetLevel(unsigned level_id) const
+std::shared_ptr<const Level> Topology::ViewLevel(const unsigned& level_id) const
 {
   return levels_.at(level_id);
 }
 
-std::shared_ptr<const BufferLevel> Topology::GetStorageLevel(unsigned storage_level_id) const
+std::shared_ptr<const BufferLevel> Topology::ViewStorageLevel(const unsigned& storage_level_id) const
 {
   auto level_id = specs_.StorageMap(storage_level_id);
   return std::static_pointer_cast<const BufferLevel>(levels_.at(level_id));
 }
 
-std::shared_ptr<const BufferLevel> Topology::GetStorageLevel(std::string level_name) const
+std::shared_ptr<const BufferLevel> Topology::ViewStorageLevel(const std::string& level_name) const
 {
   for(auto level : levels_)
   {
@@ -1136,7 +1136,7 @@ std::shared_ptr<const BufferLevel> Topology::GetStorageLevel(std::string level_n
   return nullptr;
 }
 
-std::shared_ptr<const ArithmeticUnits> Topology::GetArithmeticLevel() const
+std::shared_ptr<const ArithmeticUnits> Topology::ViewArithmeticLevel() const
 {
   auto level_id = specs_.ArithmeticMap();
   return std::static_pointer_cast<const ArithmeticUnits>(levels_.at(level_id));

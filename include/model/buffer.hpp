@@ -136,7 +136,7 @@ class BufferLevel : public Level
     Attribute<std::string> drain_network_name;
     Attribute<std::string> update_network_name;    
 
-    Attribute<const std::string> power_gated_at_name;
+    Attribute<std::string> power_gated_at_name;
 
     // for ERT parsing
     std::map<std::string, double> ERT_entries;
