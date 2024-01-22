@@ -317,11 +317,11 @@ class Topology : public Module
    *  https://stackoverflow.com/questions/856542/elegant-solution-to-duplicate-const-and-non-const-getters 
    *  with std::const_pointer_cast being the intermediate since the return type 
    *  is a shared_ptr of a const type. */
-  inline std::shared_ptr<Level> Getlevel(unsigned& level_id)
+  inline std::shared_ptr<Level> Getlevel(const unsigned& level_id)
   { return std::const_pointer_cast<Level>(const_cast<const Topology*>(this)->GetLevel(level_id)); }
-  inline std::shared_ptr<BufferLevel> GetStorageLevel(unsigned& storage_level_id)
+  inline std::shared_ptr<BufferLevel> GetStorageLevel(const unsigned& storage_level_id)
   { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->GetStorageLevel(storage_level_id)); }
-  inline std::shared_ptr<BufferLevel> GetStorageLevel(std::string& level_name)
+  inline std::shared_ptr<BufferLevel> GetStorageLevel(const std::string& level_name)
   { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->GetStorageLevel(level_name)); }
   inline std::shared_ptr<ArithmeticUnits> GetArithmeticLevel()
   { return std::const_pointer_cast<ArithmeticUnits>(const_cast<const Topology*>(this)->GetArithmeticLevel()); }
@@ -347,8 +347,8 @@ class Topology : public Module
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
   std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
 
-  const Stats& GetStats() const { return stats_; }
-  const Specs& GetSpecs() const {return specs_;}
+  inline const Stats& GetStats() const { return stats_; }
+  inline const Specs& GetSpecs() const { return specs_; }
 
   // FIXME: these stat-specific accessors are deprecated and only exist for
   // backwards-compatibility with some applications.

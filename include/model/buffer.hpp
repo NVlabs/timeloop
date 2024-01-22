@@ -136,7 +136,7 @@ class BufferLevel : public Level
     Attribute<std::string> drain_network_name;
     Attribute<std::string> update_network_name;    
 
-    Attribute<std::string> power_gated_at_name;
+    Attribute<const std::string> power_gated_at_name;
 
     // for ERT parsing
     std::map<std::string, double> ERT_entries;
@@ -451,8 +451,8 @@ class BufferLevel : public Level
 
   void PopulateEnergyPerOp(unsigned num_ops);
 
-  const Specs& GetSpecs() { return specs_; }
-  const Stats& GetStats() { return stats_;}
+  inline const Specs& GetSpecs() const { return specs_; }
+  inline const Stats& GetStats() const { return stats_; }
   
   bool HardwareReductionSupported() override;
 
@@ -484,7 +484,7 @@ class BufferLevel : public Level
   void ComputeLeaksPerCycle();
 
   // Operational intensity calculation function
-  double OperationalIntensity(std::uint64_t total_ops);
+  double OperationalIntensity(std::uint64_t total_ops) const;
 
   // Accessors (post-evaluation).
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;

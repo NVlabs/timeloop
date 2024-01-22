@@ -1599,7 +1599,7 @@ void BufferLevel::ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, 
 }
 
 
-double BufferLevel::OperationalIntensity(std::uint64_t total_ops) {
+double BufferLevel::OperationalIntensity(std::uint64_t total_ops) const {
   if (Accesses() > 0) {
     return double(total_ops) / double((Accesses() * specs_.word_bits.Get() / 8));
   } else {
