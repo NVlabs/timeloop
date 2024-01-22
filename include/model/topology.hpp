@@ -278,14 +278,14 @@ class Topology : public Module
    *  with std::const_pointer_cast being the intermediate since the return type 
    *  is a shared_ptr of a const type. Expose vs Get regime is used to assist
    *  the compiler due to Timeloop oddities as mentioned in PR #237 */
-  inline std::shared_ptr<Level> Getlevel(const unsigned& level_id)
-  { return std::const_pointer_cast<Level>(const_cast<const Topology*>(this)->ExposeLevel(level_id)); }
+  inline std::shared_ptr<Level> GetLevel(const unsigned& level_id)
+  { return std::const_pointer_cast<Level>(const_cast<const Topology*>(this)->ViewLevel(level_id)); }
   inline std::shared_ptr<BufferLevel> GetStorageLevel(const unsigned& storage_level_id)
-  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ExposeStorageLevel(storage_level_id)); }
+  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ViewStorageLevel(storage_level_id)); }
   inline std::shared_ptr<BufferLevel> GetStorageLevel(const std::string& level_name)
-  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ExposeStorageLevel(level_name)); }
+  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ViewStorageLevel(level_name)); }
   inline std::shared_ptr<ArithmeticUnits> GetArithmeticLevel()
-  { return std::const_pointer_cast<ArithmeticUnits>(const_cast<const Topology*>(this)->ExposeArithmeticLevel()); }
+  { return std::const_pointer_cast<ArithmeticUnits>(const_cast<const Topology*>(this)->ViewArithmeticLevel()); }
 
  public:
 
@@ -323,10 +323,10 @@ class Topology : public Module
     swap(first.stats_, second.stats_);
   }
 
-  std::shared_ptr<const Level> ExposeLevel(const unsigned& level_id) const;
-  std::shared_ptr<const BufferLevel> ExposeStorageLevel(const unsigned& storage_level_id) const;
-  std::shared_ptr<const BufferLevel> ExposeStorageLevel(const std::string& level_name) const;
-  std::shared_ptr<const ArithmeticUnits> ExposeArithmeticLevel() const;
+  std::shared_ptr<const Level> ViewLevel(const unsigned& level_id) const;
+  std::shared_ptr<const BufferLevel> ViewStorageLevel(const unsigned& storage_level_id) const;
+  std::shared_ptr<const BufferLevel> ViewStorageLevel(const std::string& level_name) const;
+  std::shared_ptr<const ArithmeticUnits> ViewArithmeticLevel() const;
 
   Topology& operator = (Topology other)
   {
