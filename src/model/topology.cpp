@@ -888,7 +888,7 @@ void Topology::Spec(const Topology::Specs& specs)
     // Set the level that handles power gating for this one
     if (!outer_buffer->GetSpecs().power_gated_at_name.IsSpecified())
     {
-      outer_buffer->GetSpecs().power_gated_at_name = outer_buffer->GetSpecs().name;
+      outer_buffer->GetSpecs().power_gated_at_name = outer_buffer->GetSpecs().nagitme;
     }
     auto power_gated_level = GetStorageLevel(outer_buffer->GetSpecs().power_gated_at_name.Get());
     if (power_gated_level == nullptr)

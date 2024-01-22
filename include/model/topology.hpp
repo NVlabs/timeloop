@@ -272,6 +272,21 @@ class Topology : public Module
   void FloorPlan();
   void ComputeStats(bool eval_success);
 
+  /** @note Non-const getters to deal with fxns that depend on non-const outputs
+   *  for the above fxns based on the below approach: 
+   *  https://stackoverflow.com/questions/856542/elegant-solution-to-duplicate-const-and-non-const-getters 
+   *  with std::const_pointer_cast being the intermediate since the return type 
+   *  is a shared_ptr of a const type. Expose vs Get regime is used to assist
+   *  the compiler due to Timeloop oddities as mentioned in PR #237 */
+  inline std::shared_ptr<Level> Getlevel(const unsigned& level_id)
+  { return std::const_pointer_cast<Level>(const_cast<const Topology*>(this)->ExposeLevel(level_id)); }
+  inline std::shared_ptr<BufferLevel> GetStorageLevel(const unsigned& storage_level_id)
+  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ExposeStorageLevel(storage_level_id)); }
+  inline std::shared_ptr<BufferLevel> GetStorageLevel(const std::string& level_name)
+  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ExposeStorageLevel(level_name)); }
+  inline std::shared_ptr<ArithmeticUnits> GetArithmeticLevel()
+  { return std::const_pointer_cast<ArithmeticUnits>(const_cast<const Topology*>(this)->ExposeArithmeticLevel()); }
+
  public:
 
   // Constructors and assignment operators.
@@ -308,23 +323,10 @@ class Topology : public Module
     swap(first.stats_, second.stats_);
   }
 
-  std::shared_ptr<const Level> GetLevel(const unsigned& level_id) const;
-  std::shared_ptr<const BufferLevel> GetStorageLevel(const unsigned& storage_level_id) const;
-  std::shared_ptr<const BufferLevel> GetStorageLevel(const std::string& level_name) const;
-  std::shared_ptr<const ArithmeticUnits> GetArithmeticLevel() const;
-  /** @note Non-const getters to deal with fxns that depend on non-const outputs
-   *  for the above fxns based on the below approach: 
-   *  https://stackoverflow.com/questions/856542/elegant-solution-to-duplicate-const-and-non-const-getters 
-   *  with std::const_pointer_cast being the intermediate since the return type 
-   *  is a shared_ptr of a const type. */
-  inline std::shared_ptr<Level> Getlevel(const unsigned& level_id)
-  { return std::const_pointer_cast<Level>(const_cast<const Topology*>(this)->GetLevel(level_id)); }
-  inline std::shared_ptr<BufferLevel> GetStorageLevel(const unsigned& storage_level_id)
-  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->GetStorageLevel(storage_level_id)); }
-  inline std::shared_ptr<BufferLevel> GetStorageLevel(const std::string& level_name)
-  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->GetStorageLevel(level_name)); }
-  inline std::shared_ptr<ArithmeticUnits> GetArithmeticLevel()
-  { return std::const_pointer_cast<ArithmeticUnits>(const_cast<const Topology*>(this)->GetArithmeticLevel()); }
+  std::shared_ptr<const Level> ExposeLevel(const unsigned& level_id) const;
+  std::shared_ptr<const BufferLevel> ExposeStorageLevel(const unsigned& storage_level_id) const;
+  std::shared_ptr<const BufferLevel> ExposeStorageLevel(const std::string& level_name) const;
+  std::shared_ptr<const ArithmeticUnits> ExposeArithmeticLevel() const;
 
   Topology& operator = (Topology other)
   {
