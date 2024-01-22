@@ -458,7 +458,7 @@ out << indent << std::left << std::setw(40) << "Total memory accesses required";
 out << ": " << total_min_traffic << std::endl;
 
 unsigned inv_storage_level = topology.NumStorageLevels() - 1;
-std::shared_ptr<const BufferLevel> buffer_level = topology.ViewStorageLevel(inv_storage_level);
+std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);
 auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
 out << indent << std::left << std::setw(40) << "Optimal Op per Byte";
 out << ": " << op_per_byte << std::endl << std::endl;
@@ -466,7 +466,7 @@ out << ": " << op_per_byte << std::endl << std::endl;
 for (unsigned i = 0; i < topology.NumStorageLevels(); i++)
 {
 
-  std::shared_ptr<const BufferLevel> buffer_level = topology.ViewStorageLevel(i);
+  std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(i);
   auto stats = buffer_level->GetStats();
   out << "=== " << buffer_level->Name() << " ===" << std::endl;
   uint64_t total_scalar_access = buffer_level->Accesses();
@@ -508,7 +508,7 @@ out << std::endl
     std::size_t max_name_length = 0;
     for (unsigned i = 0; i < topology.NumLevels(); i++)
     {
-      max_name_length = std::max(max_name_length, topology.ViewLevel(i)->Name().length());
+      max_name_length = std::max(max_name_length, topology.GetLevel(i)->Name().length());
     }
 
     for (auto& network: topology.networks_)
@@ -543,7 +543,7 @@ out << std::endl
       out << all_units.at(i) << std::endl;
       for (unsigned i = 0; i < topology.NumLevels(); i++)
       {
-        auto level = topology.ViewLevel(i);
+        auto level = topology.GetLevel(i);
         out << indent << std::setw(align) << std::left << level->Name() << "= "
             << level->Energy() / num_computes << std::endl;
       }
