@@ -37,6 +37,10 @@
 #include "model/network-reduction-tree.hpp"
 BOOST_CLASS_EXPORT(model::ReductionTreeNetwork)
 
+bool gHideInconsequentialStatsNetworkReductionTree =
+  (getenv("TIMELOOP_HIDE_INCONSEQUENTIAL_STATS") == NULL) ||
+  (strcmp(getenv("TIMELOOP_HIDE_INCONSEQUENTIAL_STATS"), "0") != 0);
+
 namespace model
 {
 
@@ -318,6 +322,7 @@ void ReductionTreeNetwork::Print(std::ostream& out) const
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
+    if(gHideInconsequentialStatsNetworkReductionTree && stats_.spatial_reductions.at(pv) == 0) continue;
     out << indent << problem::GetShape()->DataSpaceIDToName.at(pv) << ":" << std::endl;
 
     out << indent + indent << "Spatial reductions                      : "
