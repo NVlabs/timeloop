@@ -35,6 +35,10 @@
 #include "sparse-analysis/sparse-analysis.hpp"
 #include "workload/workload.hpp"
 
+bool gHideInconsequentialStats =
+  (getenv("TIMELOOP_HIDE_INCONSEQUENTIAL_STATS") == NULL) ||
+  (strcmp(getenv("TIMELOOP_HIDE_INCONSEQUENTIAL_STATS"), "0") != 0);
+
 namespace model
 {
 
@@ -373,9 +377,12 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   int level_id = 0;
   for (auto& level : topology.levels_)
   {
-    out << "Level " << level_id << std::endl;
-    out << "-------" << std::endl;
-    out << *level;
+    if(!gHideInconsequentialStats || level->Accesses() != 0 || level->Energy() != 0)
+    {
+      out << "Level " << level_id << std::endl;
+      out << "-------" << std::endl;
+      out << *level;
+    }
     level_id++;
   }
 
@@ -388,18 +395,24 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   {
     auto network_id = storage_level_id;
     auto network = topology.GetStorageLevel(storage_level_id)->GetReadNetwork();
-    out << "Network " << network_id << std::endl;
-    out << "---------" << std::endl;
-    out << *network;
+    if(!gHideInconsequentialStats || network->Energy() != 0)
+    {
+      out << "Network " << network_id << std::endl;
+      out << "---------" << std::endl;
+      out << *network;
+    }
   }
 #else
   int network_id = 0;
   for (auto& network : topology.networks_)
   {
-    out << "Network " << network_id << std::endl;
-    out << "---------" << std::endl;
-    out << *(network.second);
-    network_id++;
+    if(!gHideInconsequentialStats || network.second->Energy() != 0)
+    {
+      out << "Network " << network_id << std::endl;
+      out << "---------" << std::endl;
+      out << *(network.second);
+      network_id++;
+    }
   }
 #endif
 
@@ -544,6 +557,7 @@ out << std::endl
       for (unsigned i = 0; i < topology.NumLevels(); i++)
       {
         auto level = topology.GetLevel(i);
+        if (gHideInconsequentialStats && level->Energy() == 0) continue;
         out << indent << std::setw(align) << std::left << level->Name() << "= "
             << level->Energy() / num_computes << std::endl;
       }
@@ -552,12 +566,14 @@ out << std::endl
       for (unsigned storage_level_id = 0; storage_level_id < topology.NumStorageLevels(); storage_level_id++)
       {
         auto network = topology.GetStorageLevel(storage_level_id)->GetReadNetwork();
+        if(gHideInconsequentialStats && network->Energy() == 0) continue;
         out << indent << std::setw(align) << std::left << network->Name() << "= "
             << network->Energy() / num_computes << std::endl;
       }
 #else
       for (auto& network: topology.networks_)
       {
+        if(gHideInconsequentialStats && network.second->Energy() == 0) continue;
         out << indent << std::setw(align) << std::left << network.second->Name() << "= "
             << network.second->Energy() / num_computes << std::endl;
       }
