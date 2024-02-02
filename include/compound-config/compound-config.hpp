@@ -33,6 +33,9 @@
 #include <yaml-cpp/yaml.h>
 #include <cassert>
 
+#include "compound-config/compound-config.hpp"
+#include "compound-config/hyphens-to-underscores.hpp"
+
 namespace config
 {
 
