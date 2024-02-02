@@ -129,7 +129,7 @@ Application::Application(config::CompoundConfig* config,
   // Mapper (this application) configuration. (the rest)
 
   num_threads_ = std::thread::hardware_concurrency();
-  if (mapper.lookupValue("num-threads", num_threads_))
+  if (mapper.lookupValue("num_threads", num_threads_))
   {
     std::cout << "Using threads = " << num_threads_ << std::endl;
   }
@@ -140,13 +140,13 @@ Application::Application(config::CompoundConfig* config,
 
   std::string metric;
   std::vector<std::string> raw_metrics;
-  if (mapper.lookupValue("optimization-metric", metric))
+  if (mapper.lookupValue("optimization_metric", metric))
   {
     raw_metrics = { metric };
   }
-  else if (mapper.exists("optimization-metrics"))
+  else if (mapper.exists("optimization_metrics"))
   {
-    mapper.lookupArrayValue("optimization-metrics", raw_metrics);
+    mapper.lookupArrayValue("optimization_metrics", raw_metrics);
   }
   else
   {
@@ -156,9 +156,9 @@ Application::Application(config::CompoundConfig* config,
 
   for (auto& metric: raw_metrics)
   {
-    // Special-case: if any metric is "ordered-accesses" expand it into a list
-    // of "access-X" strings.
-    if (metric == "ordered-accesses")
+    // Special-case: if any metric is "ordered_accesses" expand it into a list
+    // of "access_X" strings.
+    if (metric == "ordered_accesses")
     {
       auto num_levels = arch_specs_.topology.NumStorageLevels();
       for (unsigned i = num_levels-1; i < num_levels; i--)
@@ -174,7 +174,7 @@ Application::Application(config::CompoundConfig* config,
 
   // Search size (divide between threads).
   std::uint32_t search_size = 0;
-  mapper.lookupValue("search-size", search_size);
+  mapper.lookupValue("search_size", search_size);
   mapper.lookupValue("search_size", search_size); // backwards compatibility.
   if (search_size > 0)
     search_size = 1 + (search_size - 1) / num_threads_;
@@ -188,16 +188,16 @@ Application::Application(config::CompoundConfig* config,
   // Number of suboptimal valid mappings to trigger victory
   // (do NOT divide between threads).
   victory_condition_ = 500;
-  mapper.lookupValue("victory-condition", victory_condition_);
+  mapper.lookupValue("victory_condition", victory_condition_);
 
   // Inter-thread sync interval.
   std::uint32_t sync_interval = 0;
-  mapper.lookupValue("sync-interval", sync_interval);
+  mapper.lookupValue("sync_interval", sync_interval);
   sync_interval_ = static_cast<uint128_t>(sync_interval);
 
   // Inter-thread sync interval.
   std::uint32_t log_interval = 1;
-  mapper.lookupValue("log-interval", log_interval);
+  mapper.lookupValue("log_interval", log_interval);
   log_interval_ = static_cast<uint128_t>(log_interval);
 
   int32_t max_temporal_loops_in_a_mapping = -1;
@@ -206,29 +206,29 @@ Application::Application(config::CompoundConfig* config,
 
   // Misc.
   log_oaves_ = false;
-  mapper.lookupValue("log-oaves", log_oaves_);
+  mapper.lookupValue("log_oaves", log_oaves_);
 
   log_oaves_mappings_ = false;
-  mapper.lookupValue("log-oaves-mappings", log_oaves_mappings_);
+  mapper.lookupValue("log_oaves_mappings", log_oaves_mappings_);
 
   log_stats_ = false;
-  mapper.lookupValue("log-stats", log_stats_);
+  mapper.lookupValue("log_stats", log_stats_);
 
   log_suboptimal_ = false;
-  mapper.lookupValue("log-suboptimal", log_suboptimal_);
-  mapper.lookupValue("log-all", log_suboptimal_); // backwards compatibility.
+  mapper.lookupValue("log_suboptimal", log_suboptimal_);
+  mapper.lookupValue("log_all", log_suboptimal_); // backwards compatibility.
 
   live_status_ = false;
-  mapper.lookupValue("live-status", live_status_);
+  mapper.lookupValue("live_status", live_status_);
 
   diagnostics_on_ = false;
   mapper.lookupValue("diagnostics", diagnostics_on_);
 
   penalize_consecutive_bypass_fails_ = false;
-  mapper.lookupValue("penalize-consecutive-bypass-fails", penalize_consecutive_bypass_fails_);
+  mapper.lookupValue("penalize_consecutive_bypass_fails", penalize_consecutive_bypass_fails_);
 
   emit_whoop_nest_ = false;
-  mapper.lookupValue("emit-whoop-nest", emit_whoop_nest_);
+  mapper.lookupValue("emit_whoop_nest", emit_whoop_nest_);
 
   std::cout << "Mapper configuration complete." << std::endl;
 
@@ -597,7 +597,7 @@ void Application::Run()
               << "    Try to find the offending constraints that are likely to have caused the" << std::endl
               << "    above violations, and disable those constraints." << std::endl;
     std::cout << "(3) Try other search algorithms, and relax the termination criteria:" << std::endl
-              << "    victory-condition, timeout and/or search-size." << std::endl;
+              << "    victory_condition, timeout and/or search_size." << std::endl;
     if (!diagnostics_on_)
     {
       std::cout << "(4) Enable mapper's diagnostics (mapper.diagnostics = True) to track and emit " << std::endl
@@ -625,18 +625,18 @@ void Application::Run()
   else
     mapper.add("algorithm", libconfig::Setting::TypeString) = "exhaustive";
 
-  if (mapper.exists("num-threads"))
-    mapper["num-threads"] = 1;
+  if (mapper.exists("num_threads"))
+    mapper["num_threads"] = 1;
   else
-    mapper.add("num-threads", libconfig::Setting::TypeInt) = 1;
+    mapper.add("num_threads", libconfig::Setting::TypeInt) = 1;
 
   if (mapper.exists("search_size"))
     mapper.remove("search_size");
 
-  if (mapper.exists("search-size"))
-    mapper["search-size"] = 1;
+  if (mapper.exists("search_size"))
+    mapper["search_size"] = 1;
   else
-    mapper.add("search-size", libconfig::Setting::TypeInt) = 1;
+    mapper.add("search_size", libconfig::Setting::TypeInt) = 1;
 
   // Delete the mapspace constraint.
   if (root.exists("mapspace"))

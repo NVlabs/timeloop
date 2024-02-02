@@ -25,9 +25,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 shape:
-  name: "gemm-ABZ"
+  name: "gemm_ABZ"
   dimensions: [ M, N, K ]
-  data-spaces:
+  data_spaces:
     - name: A
       projection:
         - [ [M] ]
@@ -40,4 +40,4 @@ shape:
       projection:
         - [ [M] ]
         - [ [N] ]
-      read-write: True
+      read_write: True

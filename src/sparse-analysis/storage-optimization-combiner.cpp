@@ -256,10 +256,10 @@ void PropagateImpactOfExplicitlyOptimizedRead(SparseAnalysisState& state,
           {
             // std::cout <<  "   this is the next inner level with sparse optimization specified, finalize fine-grained action counts at " 
             //  << topology_specs.GetStorageLevel(impacted_level_id)->level_name << std::endl;
-            std::string saf_type = state.dspace_optimization_masks_.at("spatial_skip").at(impacted_level_id).at(pv) ? "spatial-skip" :
+            std::string saf_type = state.dspace_optimization_masks_.at("spatial_skip").at(impacted_level_id).at(pv) ? "spatial_skip" :
               state.dspace_optimization_masks_.at("gate").at(impacted_level_id).at(pv) ? "gated" : "skipped";
             
-            double local_saf_p = saf_type != "spatial-skip" ? state.prob_explicitly_optimized_read_.at(impacted_level_id).at(pv) :
+            double local_saf_p = saf_type != "spatial_skip" ? state.prob_explicitly_optimized_read_.at(impacted_level_id).at(pv) :
                                                               state.prob_explicitly_spatially_optimized_read_.at(impacted_level_id).at(pv);
             double effective_p = 1 - ((1-local_saf_p)/(1-p));
             compound_data_movement_nest[pv][impacted_level_id].fine_grained_data_accesses["random_fill"] = max_fills[impacted_level_id][pv];

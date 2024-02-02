@@ -79,11 +79,11 @@ ReductionTreeNetwork::Specs ReductionTreeNetwork::ParseSpecs(config::CompoundCon
 
   // Word Bits.
   std::uint32_t word_bits;
-  if (network.lookupValue("network-word-bits", word_bits))
+  if (network.lookupValue("network_word_bits", word_bits))
   {
     specs.word_bits = word_bits;
   }
-  else if (network.lookupValue("word-bits", word_bits) ||
+  else if (network.lookupValue("word_bits", word_bits) ||
            network.lookupValue("word_width", word_bits) ||
            network.lookupValue("datawidth", word_bits) )
   {
@@ -98,12 +98,12 @@ ReductionTreeNetwork::Specs ReductionTreeNetwork::ParseSpecs(config::CompoundCon
 
   // adder energy.
   double adder_energy = 0.0;
-  network.lookupValue("adder-energy", adder_energy);
+  network.lookupValue("adder_energy", adder_energy);
   specs.adder_energy = adder_energy;
 
   // Wire energy.
   double wire_energy = 0.0;
-  network.lookupValue("wire-energy", wire_energy);
+  network.lookupValue("wire_energy", wire_energy);
   specs.wire_energy = wire_energy;
 
   // Network fill and drain latency
@@ -269,7 +269,7 @@ double ReductionTreeNetwork::WireEnergyPerHop(std::uint64_t word_bits, const dou
   double hop_distance_mm = hop_distance / 1000;
   if (wire_energy_override != 0.0)
   {
-    // Internal wire model using user-provided average wire-energy/b/mm.
+    // Internal wire model using user-provided average wire_energy/b/mm.
     return word_bits * hop_distance_mm * wire_energy_override;
   }
   else

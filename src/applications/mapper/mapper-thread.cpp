@@ -67,7 +67,7 @@ static double Cost(const model::Topology::Stats& stats, const std::string metric
   {
     cost = stats.energy;
   }
-  else if (metric == "last-level-accesses")
+  else if (metric == "last_level_accesses")
   {
     cost = stats.last_level_accesses;
   }

@@ -79,7 +79,7 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   }
 
   std::string legacy_subtype;
-  if (network.lookupValue("network-type", legacy_subtype))
+  if (network.lookupValue("network_type", legacy_subtype))
   {
     if (legacy_subtype.compare("1:1") == 0)
       specs.legacy_subtype = "1_1";
@@ -96,11 +96,11 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
     
   // Word Bits.
   std::uint32_t word_bits;
-  if (network.lookupValue("network-word-bits", word_bits))
+  if (network.lookupValue("network_word_bits", word_bits))
   {
     specs.word_bits = word_bits;
   }
-  else if (network.lookupValue("word-bits", word_bits) ||
+  else if (network.lookupValue("word_bits", word_bits) ||
            network.lookupValue("word_width", word_bits) ||
            network.lookupValue("datawidth", word_bits) )
   {
@@ -115,18 +115,18 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
 
   // Router energy.
   double router_energy;
-  if (network.lookupValue("router-energy", router_energy)) {specs.router_energy = router_energy;}
+  if (network.lookupValue("router_energy", router_energy)) {specs.router_energy = router_energy;}
 
   // Wire energy.
   double wire_energy;
-  if (network.lookupValue("wire-energy", wire_energy)) {specs.wire_energy = wire_energy;}
+  if (network.lookupValue("wire_energy", wire_energy)) {specs.wire_energy = wire_energy;}
 
   // Tile width.
   double tile_width;
-  if (network.lookupValue("tile-width", tile_width)) {specs.tile_width = tile_width;}
+  if (network.lookupValue("tile_width", tile_width)) {specs.tile_width = tile_width;}
 
   double energy_per_hop;
-  if (network.lookupValue("energy-per-hop", energy_per_hop)) {
+  if (network.lookupValue("energy_per_hop", energy_per_hop)) {
       specs.energy_per_hop = energy_per_hop;
   }
 
@@ -614,7 +614,7 @@ double LegacyNetwork::WireEnergyPerHop(std::uint64_t word_bits, const double hop
   double hop_distance_mm = hop_distance / 1000;
   if (wire_energy_override != 0.0)
   {
-    // Internal wire model using user-provided average wire-energy/b/mm.
+    // Internal wire model using user-provided average wire_energy/b/mm.
     return word_bits * hop_distance_mm * wire_energy_override;
   }
   else
