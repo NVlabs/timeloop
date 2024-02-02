@@ -43,14 +43,14 @@ CoordinatePayload::Specs CoordinatePayload::ParseSpecs(config::CompoundConfigNod
   specs.payload_word_bits = std::numeric_limits<std::uint32_t>::max();
   specs.metadata_word_bits = std::numeric_limits<std::uint32_t>::max();
 
-  if (format_specs.exists("payload-word-bits"))
+  if (format_specs.exists("payload_word_bits"))
   {
-    format_specs.lookupValue("payload-word-bits", specs.payload_word_bits);
+    format_specs.lookupValue("payload_word_bits", specs.payload_word_bits);
   }
 
-  if (format_specs.exists("metadata-word-bits"))
+  if (format_specs.exists("metadata_word_bits"))
   {
-    format_specs.lookupValue("metadata-word-bits", specs.metadata_word_bits);
+    format_specs.lookupValue("metadata_word_bits", specs.metadata_word_bits);
   }
 
   return specs;

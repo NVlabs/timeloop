@@ -1009,7 +1009,7 @@ Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
   return specs;
 }
 
-// This function implements the "tree-like" hierarchical architecture description
+// This function implements the "tree_like" hierarchical architecture description
 // used in Accelergy v0.2. The lowest level is level 0 and should have
 // arithmetic units, while other level are level 1+ with some buffer/storage units
 Topology::Specs Topology::ParseTreeSpecs(config::CompoundConfigNode designRoot, bool is_sparse_topology)

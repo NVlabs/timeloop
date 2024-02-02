@@ -116,7 +116,7 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
 
   // Word size (in bits).
   std::uint32_t word_bits;
-  if (setting.lookupValue("word-bits", word_bits) ||
+  if (setting.lookupValue("word_bits", word_bits) ||
       setting.lookupValue("datawidth", word_bits) )
   {
     specs.word_bits = word_bits;

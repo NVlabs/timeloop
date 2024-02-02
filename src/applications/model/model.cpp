@@ -209,8 +209,8 @@ Application::Stats Application::Run()
   // mapping with one that fits but is higher cost and likely sub-optimal.
   // *However*, this only covers capacity failures due to temporal factors,
   // not instance failures due to spatial factors. It also possibly
-  // over-corrects since it bypasses *all* data-spaces at a failing level,
-  // while it's possible that bypassing a subset of data-spaces may have
+  // over-corrects since it bypasses *all* data_spaces at a failing level,
+  // while it's possible that bypassing a subset of data_spaces may have
   // caused the mapping to fit.
   if (auto_bypass_on_failure_)
   {

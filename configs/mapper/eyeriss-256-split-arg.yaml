@@ -32,40 +32,40 @@ arch:
     write_bandwidth: 2
     entries: 16
     meshX: 16
-    word-bits: 16
+    word_bits: 16
   - instances: 256
     read_bandwidth: 2
     name: WeightRegFile
     write_bandwidth: 2
     entries: 192
     meshX: 16
-    word-bits: 16
+    word_bits: 16
   - instances: 256
     read_bandwidth: 2
     name: InputRegFile
     write_bandwidth: 2
     entries: 12
     meshX: 16
-    word-bits: 16
+    word_bits: 16
   - meshX: 16
     instances: 16
     name: DummyBuffer
-    word-bits: 16
+    word_bits: 16
     entries: 0
   - instances: 1
     read_bandwidth: 16
     name: GlobalBuffer
     write_bandwidth: 16
     meshX: 1
-    word-bits: 16
+    word_bits: 16
     sizeKB: 128
-    block-size: 4
-  - word-bits: 16
+    block_size: 4
+  - word_bits: 16
     instances: 1
     technology: DRAM
     name: DRAM
   arithmetic:
-    word-bits: 16
+    word_bits: 16
     instances: 256
     meshX: 16
     name: MACs

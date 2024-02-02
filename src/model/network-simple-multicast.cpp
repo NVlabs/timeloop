@@ -79,11 +79,11 @@ SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::Compoun
 
   // Word Bits.
   std::uint32_t word_bits;
-  if (network.lookupValue("network-word-bits", word_bits))
+  if (network.lookupValue("network_word_bits", word_bits))
   {
     specs.word_bits = word_bits;
   }
-  else if (network.lookupValue("word-bits", word_bits) ||
+  else if (network.lookupValue("word_bits", word_bits) ||
            network.lookupValue("word_width", word_bits) ||
            network.lookupValue("datawidth", word_bits) )
   {

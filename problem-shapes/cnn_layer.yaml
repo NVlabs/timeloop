@@ -26,7 +26,7 @@
 
 shape:
 
-  name: "CNN-Layer"
+  name: "CNN_Layer"
   dimensions: [ R, S, P, Q, C, K, N ]
   coefficients:
     - name: Wstride
@@ -38,7 +38,7 @@ shape:
     - name: Hdilation
       default: 1
       
-  data-spaces:
+  data_spaces:
     - name: Weights
       projection:
         - [ [C] ]
@@ -57,4 +57,4 @@ shape:
         - [ [K] ]
         - [ [Q] ]
         - [ [P] ]
-      read-write: True
+      read_write: True

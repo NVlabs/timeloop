@@ -96,7 +96,7 @@ mapspace:
     factors: R1 S1 P1
   constraints: rowstationary
 mapper:
-  algorithm: linear-pruned
+  algorithm: linear_pruned
 problem:
   Q: 56
   P: 56

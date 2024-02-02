@@ -59,7 +59,7 @@ RandomSearch::RandomSearch(config::CompoundConfigNode config, mapspace::MapSpace
     valid_mappings_(0)
 {
   filter_revisits_ = false;
-  config.lookupValue("filter-revisits", filter_revisits_);    
+  config.lookupValue("filter_revisits", filter_revisits_);    
 
   pgens_[int(mapspace::Dimension::IndexFactorization)] =
     new RandomGenerator128(mapspace_->Size(mapspace::Dimension::IndexFactorization));

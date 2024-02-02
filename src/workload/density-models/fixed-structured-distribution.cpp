@@ -56,7 +56,7 @@ FixedStructuredDistribution::Specs FixedStructuredDistribution::ParseSpecs(confi
     exit(1);
   }
   
-  specs.type = "fixed-structured";
+  specs.type = "fixed_structured";
   specs.fixed_density = fixed_density;
 
   return specs;

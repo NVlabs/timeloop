@@ -95,12 +95,12 @@
 #           the original loop nest.
 #
 #   III. Fidelity issue:
-#       We use 'block-size' to emulate the parallel reads/writes from the 
+#       We use 'block_size' to emulate the parallel reads/writes from the 
 #       input and output buffers. However, this creates the problem when K1 
 #       and/or C1 are smaller than 16. Timeloop becomes too optimistic because
 #       it does not have the notion of a block read boundary. The real 
 #       solution is to create parallel input and output buffer instances and use
-#       'cluster-size' instead of 'block-size'. TBD.
+#       'cluster_size' instead of 'block_size'. TBD.
 
 # ==============================================================================
 
@@ -117,7 +117,7 @@ architecture:
           class      : DRAM
           attributes :
             instances       : 1
-            word-bits       : 16
+            word_bits       : 16
         
         - name       : OutputBuffer
           class      : SRAM
@@ -125,8 +125,8 @@ architecture:
             entries         : 1024  # 64 * 16 = 1024
             instances       : 1
             meshX           : 1
-            word-bits       : 16
-            block-size      : 16
+            word_bits       : 16
+            block_size      : 16
             read_bandwidth  : 16 # words/cycle
             write_bandwidth : 16 # words/cycle
 
@@ -136,8 +136,8 @@ architecture:
             entries         : 1024 # 64 * 16 = 1024
             instances       : 1
             meshX           : 1
-            word-bits       : 16
-            block-size      : 16
+            word_bits       : 16
+            block_size      : 16
             read_bandwidth  : 16 # words/cycle
             write_bandwidth : 16 # words/cycle
 
@@ -147,8 +147,8 @@ architecture:
             entries         : 1
             instances       : 16
             meshX           : 16
-            word-bits       : 16
-            cluster-size    : 16
+            word_bits       : 16
+            cluster_size    : 16
             read_bandwidth  : 1  # words/cycle
             write_bandwidth : 1  # words/cycle
             
@@ -158,8 +158,8 @@ architecture:
             entries         : 64
             instances       : 256
             meshX           : 16
-            word-bits       : 16
-            cluster-size    : 256
+            word_bits       : 16
+            cluster_size    : 256
             read_bandwidth  : 1  # words/cycle
             write_bandwidth : 1  # words/cycle
 
@@ -168,7 +168,7 @@ architecture:
           attributes :            
             instances       : 256
             meshX           : 16
-            word-bits       : 16
+            word_bits       : 16
 
 mapspace:
   targets:
@@ -234,7 +234,7 @@ mapspace:
             permutation : NKPQ CR
 
 mapper:
-  live-status : True
+  live_status : True
 
 problem:
   R       : 3
