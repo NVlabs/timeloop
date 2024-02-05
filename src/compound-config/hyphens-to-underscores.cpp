@@ -26,6 +26,7 @@
  */
 
 #include "compound-config/hyphens-to-underscores.hpp"
+#include <sstream>
 
 namespace hyphens2underscores
 {
