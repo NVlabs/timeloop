@@ -206,6 +206,7 @@ workload/format-models/coordinate-payload.cpp
 workload/format-models/uncompressed-bitmask.cpp
 workload/format-models/bitmask.cpp
 compound-config/compound-config.cpp
+compound-config/hyphens-to-underscores.cpp
 """)
 
 if GetOption('with_isl'):

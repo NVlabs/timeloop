@@ -102,14 +102,14 @@ class ResidualFactors
 
   void ClearAllFactors_();
 
-  void CalculateAllFactors_();
+  void CalculateAllFactors_(unsigned long of);
 
-  void CalculateAdditionalFactors_();
+  void CalculateAdditionalFactors_(unsigned long of);
   std::vector<std::vector<unsigned long>> CartProduct_ (const std::vector<std::vector<unsigned long>> v);
 
   void GenerateFactorProduct_(const unsigned long n, const int order);
   void GenerateResidual_(const unsigned long n, const int order);
-  void ValidityChecker_(const unsigned long n, std::map<unsigned, unsigned long> given);
+  void ValidityChecker_(const unsigned long n, std::map<unsigned, unsigned long> given, std::map<unsigned, unsigned long> given_residuals);
 
   // Return a vector of all order-way cofactor sets of n.
 
@@ -119,8 +119,8 @@ class ResidualFactors
   ResidualFactors(const unsigned long n, const int order, std::vector<unsigned long> remainder_bounds, std::vector<unsigned long> remainder_ix, std::map<unsigned, unsigned long> given);
 
 
-  void PruneMax();
-  void PruneMin();
+  void PruneMax(std::map<unsigned, unsigned long>& max);
+  void PruneMin(std::map<unsigned, unsigned long>& min);
 
   std::vector<std::vector<unsigned long>> operator[](int index);
 

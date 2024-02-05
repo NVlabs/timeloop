@@ -25,57 +25,43 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "search/random.hpp"
-#include "search/exhaustive.hpp"
-#include "search/linear-pruned.hpp"
-#include "search/hybrid.hpp"
-#include "search/random-pruned.hpp"
+#include "compound-config/hyphens-to-underscores.hpp"
+#include <sstream>
 
-#include "search/search-factory.hpp"
-
-namespace search
+namespace hyphens2underscores
 {
 
-//--------------------------------------------//
-//             Parser and Factory             //
-//--------------------------------------------//
-
-SearchAlgorithm* ParseAndConstruct(config::CompoundConfigNode config,
-                                   mapspace::MapSpace* mapspace,
-                                   unsigned id)
-{
-  SearchAlgorithm* search = nullptr;
-  
-  std::string search_alg = "hybrid";
-  config.lookupValue("algorithm", search_alg);
-    
-  if (search_alg == "random")
-  {
-    search = new RandomSearch(config, mapspace);
-  }
-  else if (search_alg == "exhaustive")
-  {
-    search = new ExhaustiveSearch(config, mapspace);
-  }
-  else if (search_alg == "linear_pruned")
-  {
-    search = new LinearPrunedSearch(config, mapspace, id);
-  }
-  else if (search_alg == "hybrid")
-  {
-    search = new HybridSearch(config, mapspace, id);
-  }
-  else if (search_alg == "random_pruned")
-  {
-    search = new RandomPrunedSearch(config, mapspace, id);
-  }
-  else
-  {
-    std::cerr << "ERROR: unsupported search algorithm: " << search_alg << std::endl;
-    exit(-1);
-  }
-
-  return search;
+std::string hyphens2underscores(std::string input) {
+    std::regex regex;
+    std::string target_underscore;
+    std::string target_hyphen;
+    for (std::size_t i = 0; i < std::size(HYPHEN_TO_UNDERSCORE_TARGETS); i++) {
+        target_underscore = HYPHEN_TO_UNDERSCORE_TARGETS[i];
+        target_hyphen = std::regex_replace(target_underscore, std::regex("_"), "-");
+        std::string regex_str = "\\b" + target_hyphen + "\\b(?!-)(?!>)(?!\\.hpp)(?!\\.cpp)";
+        regex = std::regex(regex_str);
+        if (std::regex_search(input, regex)) {
+            std::cout 
+                << "Warning: Hyphenated keyword " << target_hyphen << " found in inputs. "
+                << "Hyphenated keywords are deprecated and to be replaced with "
+                << "underscores. Please use the the scripts/hyphens2underscores.py in the "
+                << "in the Timeloop repository to update your inputs.\n";
+        }
+        input = std::regex_replace(input, regex, target_underscore);
+    }
+    return input;
 }
 
-} // namespace search
+std::string hyphens2underscores_from_file(const char* inputFile)
+{
+    std::ifstream file(inputFile);
+    if (!file.is_open()) return "";
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string input = buffer.str();
+
+    return hyphens2underscores(input);
+}
+
+}

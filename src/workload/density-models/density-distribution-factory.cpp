@@ -43,7 +43,7 @@ DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode density_config
 
   if (density_config.lookupValue("distribution", distribution_type)) 
   {
-    if (distribution_type == "fixed" || distribution_type == "fixed-structured")
+    if (distribution_type == "fixed" || distribution_type == "fixed_structured")
     {
       auto parsed_specs = FixedStructuredDistribution::ParseSpecs(density_config);
       specs = std::make_shared<FixedStructuredDistribution::Specs>(parsed_specs);
@@ -74,7 +74,7 @@ DensityDistributionFactory::Construct(std::shared_ptr<DensityDistributionSpecs> 
 {
   std::shared_ptr<DensityDistribution> density_distribution;
 
-  if (specs->Type() == "fixed" || specs->Type() == "fixed-structured")
+  if (specs->Type() == "fixed" || specs->Type() == "fixed_structured")
   {
     auto specs_ptr = *std::static_pointer_cast<FixedStructuredDistribution::Specs>(specs);
     auto constructed_distribution = std::make_shared<FixedStructuredDistribution>(specs_ptr);

@@ -321,7 +321,7 @@ FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
     );
     workload.SetEinsumOspaceBound(einsum, std::move(ospace_set));
     
-    auto dspaces_cfg = shape_cfg.lookup("data-spaces");
+    auto dspaces_cfg = shape_cfg.lookup("data_spaces");
     if (!dspaces_cfg.isList())
     {
       throw std::logic_error("data_spaces key should be an array");
@@ -334,9 +334,9 @@ FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
       dspace_cfg.lookupValue("name", dspace_name);
 
       auto is_rw = false;
-      if (dspace_cfg.exists("read-write"))
+      if (dspace_cfg.exists("read_write"))
       {
-        dspace_cfg.lookupValue("read-write", is_rw);
+        dspace_cfg.lookupValue("read_write", is_rw);
       }
 
       auto projection_str = std::string();

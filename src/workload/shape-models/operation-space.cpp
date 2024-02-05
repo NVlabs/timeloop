@@ -132,7 +132,7 @@ void OperationSpace::FactorizeCarveMultiply(const Workload* wc,
   // perform the carving *before* projecting into data spaces because the
   // carving assumes that the region we're asking for (between low, high) is
   // a contiguous section within the flattened/factorized space. Once we
-  // project into data-spaces that information is lost, and the carving
+  // project into data_spaces that information is lost, and the carving
   // algorithm has no way to distinguish between contiguous regions (which may
   // need to be carved up) and clean AAHR regions. We assume that each AAHR in
   // factorized problem space will project onto an AAHR in each data-space.
@@ -356,7 +356,7 @@ OperationSpace& OperationSpace::operator += (const OperationPoint& p)
   // Step 1: un-flattern the provided point.
   Point factorized = Factorize(workload_, p);
 
-  // Step 2: project and add into all data-spaces.
+  // Step 2: project and add into all data_spaces.
   for (unsigned i = 0; i < data_spaces_.size(); i++)
   {
     data_spaces_.at(i) += Project(i, workload_, factorized);

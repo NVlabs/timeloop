@@ -90,25 +90,25 @@ void Parse(config::CompoundConfigNode sparse_config,
     {
       // each element in the list represent a storage level's information
       auto directive = opt_target_list[i];
-      if (directive.exists("action-optimization")
-          || directive.exists("representation-format")
-          || directive.exists("compute-optimization"))
+      if (directive.exists("action_optimization")
+          || directive.exists("representation_format")
+          || directive.exists("compute_optimization"))
       {
-        if (directive.exists("action-optimization"))
+        if (directive.exists("action_optimization"))
         {
           ParseActionOptimizationInfo(sparse_optimization_info, directive, arch_specs);
           sparse_optimization_info.no_optimization_applied = false;
         }
 
         // parse for representation format
-        if (directive.exists("representation-format"))
+        if (directive.exists("representation_format"))
         {
           ParseCompressionInfo(sparse_optimization_info, directive, arch_specs);
           sparse_optimization_info.compression_info.all_ranks_default_dense = false;
           sparse_optimization_info.no_optimization_applied = false;
         }
 
-        if (directive.exists("compute-optimization"))
+        if (directive.exists("compute_optimization"))
         {
           ParseComputeOptimizationInfo(sparse_optimization_info, directive, arch_specs);
           sparse_optimization_info.no_optimization_applied = false;
@@ -256,10 +256,10 @@ void ParsePerRankSpec(const config::CompoundConfigNode rank_specs,
   // i.e., you can flatten two "flattened ids" together in fibertree
   std::vector<std::vector<problem::Shape::FlattenedDimensionID>> per_level_flattened_rankIDs = {};
 
-  if (rank_specs.exists("flattened-rankIDs"))
+  if (rank_specs.exists("flattened_rankIDs"))
   {
     config::CompoundConfigNode list_of_rankID_list;
-    list_of_rankID_list = rank_specs.lookup("flattened-rankIDs");
+    list_of_rankID_list = rank_specs.lookup("flattened_rankIDs");
 
     for (auto id = 0; id < list_of_rankID_list.getLength(); id++)
     {
@@ -298,11 +298,11 @@ void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
   unsigned level_id = FindTargetStorageLevel(level_name, arch_specs);
   auto &compression_info = sparse_optimization_info.compression_info;
 
-  auto compression_directive = directive.lookup("representation-format");
+  auto compression_directive = directive.lookup("representation_format");
   unsigned storage_level_id = FindTargetStorageLevel(level_name, arch_specs);
-  if (compression_directive.exists("data-spaces"))
+  if (compression_directive.exists("data_spaces"))
   {
-    auto data_space_list = compression_directive.lookup("data-spaces");
+    auto data_space_list = compression_directive.lookup("data_spaces");
     assert(data_space_list.isList());
     PerStorageLevelCompressionInfo per_storage_level_compression_info;
 
@@ -324,10 +324,10 @@ void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
 
       bool apply_rank_inner_to_outer = false;
       std::string application_order;
-      if (data_space_list[pv].lookupValue("rank-application-order", application_order))
+      if (data_space_list[pv].lookupValue("rank_application_order", application_order))
       {
-         if (application_order == "inner-to-outer") apply_rank_inner_to_outer = true;
-         else if (application_order == "outer-to-inner") apply_rank_inner_to_outer = false;
+         if (application_order == "inner_to_outer") apply_rank_inner_to_outer = true;
+         else if (application_order == "outer_to_inner") apply_rank_inner_to_outer = false;
          else 
          {
            std::cerr << "ERROR: compression rank application order not recognized: " << application_order << std::endl;
@@ -373,13 +373,13 @@ void ParseCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
       //check for compression rate, default to fully compressed if the data is supposed to be compressed (according to metadata format)
       if (per_data_space_compression_info.tensor_compressed)
       {
-        if (data_space_list[pv].exists("compression-rate"))
+        if (data_space_list[pv].exists("compression_rate"))
         {
-          data_space_list[pv].lookupValue("compression-rate", per_data_space_compression_info.compression_rate);
+          data_space_list[pv].lookupValue("compression_rate", per_data_space_compression_info.compression_rate);
         }
       } else
       { // uncompressed
-        if (data_space_list[pv].exists("compression-rate"))
+        if (data_space_list[pv].exists("compression_rate"))
         {
           std::cout << " cannot have compression rate for uncompressed data" << std::endl;
           exit(1);
@@ -406,13 +406,13 @@ void ParseComputeOptimizationInfo(SparseOptimizationInfo &sparse_optimization_in
   directive.lookupValue("name", level_name);
   assert(arch_specs.topology.GetArithmeticLevel()->name.Get() == level_name);
   ComputeOptimizationInfo compute_optimization_info = {};
-  auto compute_opt_list = directive.lookup("compute-optimization");
+  auto compute_opt_list = directive.lookup("compute_optimization");
   for (int i = 0; i < compute_opt_list.getLength(); i++)
   {
     std::string optimization_type;
     if (compute_opt_list[i].lookupValue("type", optimization_type))
     {
-      if (optimization_type == "gate-on-zero-operand" || optimization_type == "gating")
+      if (optimization_type == "gate_on_zero_operand" || optimization_type == "gating")
       {
         compute_optimization_info["gate_on_zero_operand"] = true;
       } else if (optimization_type == "skip_on_not_aligned_operands" || optimization_type == "skipping")
@@ -439,7 +439,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
   assert(directive.exists("name"));
   directive.lookupValue("name", level_name);
   config::CompoundConfigNode optimization_list;
-  optimization_list = directive.lookup("action-optimization");
+  optimization_list = directive.lookup("action_optimization");
 
   bool exist_gating_saf = false;
   bool exist_skipping_saf = false;
@@ -462,7 +462,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
       for (int choice = 0; choice < options_list.getLength(); choice++)
       {
         ActionOptimization opt;
-        if (options_list[choice].exists("target") && options_list[choice].exists("condition-on"))
+        if (options_list[choice].exists("target") && options_list[choice].exists("condition_on"))
         {
           // optimize conditioned on type
           // parse for target dspace
@@ -472,7 +472,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
           opt.cond_on_opt.target_dspace_id = target_dspace_id;
 
           // parse for condition on dspace
-          auto condition_on_dspace_list = options_list[choice].lookup("condition-on");
+          auto condition_on_dspace_list = options_list[choice].lookup("condition_on");
           if (!condition_on_dspace_list.isArray())
           {
             std::cerr << "ERROR: sparse optimization spec invalid --"
@@ -500,7 +500,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
     {
       // fixed optimization setup
       ActionOptimization opt;
-      if (optimization_list[id].exists("target") && optimization_list[id].exists("condition-on"))
+      if (optimization_list[id].exists("target") && optimization_list[id].exists("condition_on"))
       {
         // optimize conditioned on type
         // parse for target dspace
@@ -510,7 +510,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
         opt.cond_on_opt.target_dspace_id = target_dspace_id;
 
         // parse for condition on dspace
-        auto condition_on_dspace_list = optimization_list[id].lookup("condition-on");
+        auto condition_on_dspace_list = optimization_list[id].lookup("condition_on");
         if (!condition_on_dspace_list.isArray())
         {
           std::cerr << "ERROR: sparse optimization spec invalid --"
@@ -542,7 +542,7 @@ void ParseActionOptimizationInfo(SparseOptimizationInfo& sparse_optimization_inf
     {
       per_storage_action_optimization_skipping.push_back(group);
       exist_skipping_saf = true;
-    } else if (optimization_type == "skipping-spatial")
+    } else if (optimization_type == "skipping_spatial")
     {
       per_storage_action_optimization_spatial_skipping.push_back(group);
       exist_spatial_skipping_saf = true;

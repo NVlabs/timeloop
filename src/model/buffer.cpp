@@ -150,7 +150,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
 
   // Word Bits.
   std::uint32_t word_bits;
-  if (buffer.lookupValue("word-bits", word_bits) ||
+  if (buffer.lookupValue("word_bits", word_bits) ||
       buffer.lookupValue("word_width", word_bits) ||
       buffer.lookupValue("datawidth", word_bits) )
   {
@@ -165,7 +165,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   std::uint32_t block_size;
   bool block_size_specified = false;
   specs.block_size = 1;
-  if (buffer.lookupValue("block-size", block_size) ||
+  if (buffer.lookupValue("block_size", block_size) ||
       buffer.lookupValue("block_size", block_size) ||
       buffer.lookupValue("n_words", block_size) )
   {
@@ -265,7 +265,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   specs.cluster_size = 1;
   std::uint32_t width;
   bool cluster_size_specified = false;
-  if (buffer.lookupValue("cluster-size", cluster_size))
+  if (buffer.lookupValue("cluster_size", cluster_size))
   {
     specs.cluster_size = cluster_size;
     cluster_size_specified = true;
@@ -305,7 +305,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
       specs.block_size = width / word_bits;
       specs.cluster_size = 1;
       std::cout << "Warning: neither block size nor cluster size specified, set according to specified storage width: block size: " 
-        << specs.block_size << "  cluster-size: " << specs.cluster_size << std::endl;
+        << specs.block_size << "  cluster_size: " << specs.cluster_size << std::endl;
     }
   }
 
@@ -361,7 +361,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   // SRAM Type.
   std::uint32_t num_ports = 2;
   specs.num_ports = num_ports;
-  if (buffer.lookupValue("num-ports", num_ports) ||
+  if (buffer.lookupValue("num_ports", num_ports) ||
       buffer.lookupValue("n_ports", num_ports))
   {
     if (num_ports == 1)
@@ -385,7 +385,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   // Number of Banks.
   std::uint32_t num_banks = 2;
   specs.num_banks = num_banks;
-  if (buffer.lookupValue("num-banks", num_banks) ||
+  if (buffer.lookupValue("num_banks", num_banks) ||
       buffer.lookupValue("n_banks", num_banks))
   {
     specs.num_banks = num_banks;
@@ -459,7 +459,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
 
   // Multiple-buffering factor (e.g., 2.0 means double buffering)
   double multiple_buffering;
-  if (buffer.lookupValue("multiple-buffering", multiple_buffering))
+  if (buffer.lookupValue("multiple_buffering", multiple_buffering))
   {
     specs.multiple_buffering = multiple_buffering;
   }
@@ -482,7 +482,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
 
   // Minimum utilization factor (e.g., 1.0 requires full utilization of effective capacity)
   double min_utilizaiton;
-  if (buffer.lookupValue("min-utilization", min_utilizaiton))
+  if (buffer.lookupValue("min_utilization", min_utilizaiton))
   {
     specs.min_utilization = min_utilizaiton;
   }
@@ -599,7 +599,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   // Allow user to override the access energy.
   // Also store that the vector access energy is from the user rather than the PAT;
   // this will be referenced in UpdateOpEnergyViaERT() above.
-  bool user_specified_access_energy = buffer.lookupValue("vector-access-energy", tmp_access_energy);
+  bool user_specified_access_energy = buffer.lookupValue("vector_access_energy", tmp_access_energy);
   if (user_specified_access_energy)
   {
     specs.access_energy_source = "user";
@@ -610,7 +610,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
 
   // Allow user to override the addr gen energy.
   double tmp_addr_gen_energy = -0.1;
-  bool user_specified_addr_gen_energy = buffer.lookupValue("addr-gen-energy", tmp_addr_gen_energy);
+  bool user_specified_addr_gen_energy = buffer.lookupValue("addr_gen_energy", tmp_addr_gen_energy);
   specs.addr_gen_energy = tmp_addr_gen_energy;
   if (user_specified_addr_gen_energy)
   {
@@ -622,7 +622,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
 
   // Allow user to override the cluster area.
   double tmp_cluster_area = 0;
-  buffer.lookupValue("cluster-area", tmp_cluster_area);
+  buffer.lookupValue("cluster_area", tmp_cluster_area);
   if (tmp_cluster_area > 0)
   {
     tmp_storage_area = tmp_cluster_area / specs.cluster_size.Get();
@@ -1157,7 +1157,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     auto pv = problem::Shape::DataSpaceID(pvi);
 
     stats_.keep[pv] = mask[pv];
-    stats_.passthrough[pv] = tile[pvi].passthrough;
+    stats_.no_coalesce[pv] = tile[pvi].no_coalesce;
 
     stats_.partition_size[pv] = tile[pvi].partition_size;
     stats_.tile_size[pv] = tile[pvi].size;
@@ -1422,8 +1422,8 @@ void BufferLevel::ComputeLeaksPerCycle(){
   for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    max_my_utilized = std::max(max_my_utilized, (double) stats_.utilized_x_expansion[pv] * stats_.utilized_y_expansion[pv]);
-    max_from_utilized = std::max(max_from_utilized, (double) stats_from.utilized_x_expansion[pv] * stats_from.utilized_y_expansion[pv]);
+    max_my_utilized = std::max(max_my_utilized, (double) stats_.utilized_instances[pv]);
+    max_from_utilized = std::max(max_from_utilized, (double) stats_from.utilized_instances[pv]);
   }
   stats_.n_instances_sharing_power_gating = my_instances / from_instances;
   
@@ -1599,7 +1599,7 @@ void BufferLevel::ComputeEnergyDueToChildLevelOverflow(Stats child_level_stats, 
 }
 
 
-double BufferLevel::OperationalIntensity(std::uint64_t total_ops) {
+double BufferLevel::OperationalIntensity(std::uint64_t total_ops) const {
   if (Accesses() > 0) {
     return double(total_ops) / double((Accesses() * specs_.word_bits.Get() / 8));
   } else {

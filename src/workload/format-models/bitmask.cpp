@@ -41,14 +41,14 @@ Bitmask::Specs Bitmask::ParseSpecs(config::CompoundConfigNode format_specs)
   specs.payload_word_bits = std::numeric_limits<std::uint32_t>::max();
   specs.metadata_word_bits = 1; // default to 1 bit
 
-  if (format_specs.exists("payload-word-bits"))
+  if (format_specs.exists("payload_word_bits"))
   {
-    format_specs.lookupValue("payload-word-bits", specs.payload_word_bits);
+    format_specs.lookupValue("payload_word_bits", specs.payload_word_bits);
   }
 
-  if (format_specs.exists("metadata-word-bits"))
+  if (format_specs.exists("metadata_word_bits"))
   {
-    format_specs.lookupValue("metadata-word-bits", specs.metadata_word_bits);
+    format_specs.lookupValue("metadata_word_bits", specs.metadata_word_bits);
   }
 
   return specs;

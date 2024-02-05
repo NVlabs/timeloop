@@ -43,7 +43,7 @@ HybridSearch::HybridSearch(config::CompoundConfigNode config, mapspace::MapSpace
   (void) id_;
     
   filter_revisits_ = false;
-  config.lookupValue("filter-revisits", filter_revisits_);    
+  config.lookupValue("filter_revisits", filter_revisits_);    
     
   for (unsigned i = 0; i < unsigned(mapspace::Dimension::Num); i++)
   {

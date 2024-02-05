@@ -208,7 +208,7 @@ class BufferLevel : public Level
   struct Stats
   {
     problem::PerDataSpace<bool> keep;
-    problem::PerDataSpace<bool> passthrough;
+    problem::PerDataSpace<bool> no_coalesce;
     problem::PerDataSpace<std::uint64_t> partition_size;
     problem::PerDataSpace<std::uint64_t> utilized_capacity;
     problem::PerDataSpace<std::uint64_t> utilized_md_capacity_bits;
@@ -451,8 +451,8 @@ class BufferLevel : public Level
 
   void PopulateEnergyPerOp(unsigned num_ops);
 
-  Specs& GetSpecs() { return specs_; }
-  Stats& GetStats() { return stats_;}
+  inline Specs& GetSpecs() { return specs_; }
+  inline Stats& GetStats() { return stats_; }
   
   bool HardwareReductionSupported() override;
 
@@ -484,7 +484,7 @@ class BufferLevel : public Level
   void ComputeLeaksPerCycle();
 
   // Operational intensity calculation function
-  double OperationalIntensity(std::uint64_t total_ops);
+  double OperationalIntensity(std::uint64_t total_ops) const;
 
   // Accessors (post-evaluation).
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;

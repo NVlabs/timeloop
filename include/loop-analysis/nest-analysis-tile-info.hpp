@@ -139,8 +139,8 @@ struct DataMovementInfo
   std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
   bool is_master_spatial;
-  bool rmw_on_first_writeback;
-  bool passthrough;
+  bool rmw_first_update;
+  bool no_coalesce;
 
   void Reset();
 
