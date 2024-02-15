@@ -315,11 +315,23 @@ FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
 
     auto instance = std::string();
     prob_cfg.lookupValue("instance", instance);
-    auto ospace_set = isl::set(
-      GetIslCtx(),
-      prologue + " : " + instance + epilogue
-    );
-    workload.SetEinsumOspaceBound(einsum, std::move(ospace_set));
+
+    try
+    {
+      workload.SetEinsumOspaceBound(
+        einsum,
+        isl::set(
+          GetIslCtx(),
+          prologue + " : " + instance + epilogue
+        )
+      );
+    }
+    catch (isl::exception_invalid& e)
+    {
+      std::cout << "Error parsing problem instance:" << std::endl
+                << "  " << instance << std::endl;
+      throw e;
+    }
     
     auto dspaces_cfg = shape_cfg.lookup("data_spaces");
     if (!dspaces_cfg.isList())
