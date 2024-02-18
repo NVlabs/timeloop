@@ -54,7 +54,7 @@ struct ParFor
 {
   std::string iterator_name;
   problem::DimensionId op_dim;
-  // TODO: missing spacetime_dim
+  int spatial;
   std::optional<size_t> begin;
   std::optional<size_t> end;
   std::optional<size_t> tile_size;
@@ -65,13 +65,15 @@ struct ParFor
   ParFor(const NodeID& id,
          const std::string& iterator_name,
          const problem::DimensionId& op_dim,
+         int spatial,
          std::optional<size_t>&& begin = std::nullopt,
          std::optional<size_t>&& end = std::nullopt);
 
   static ParFor WithTileSize(const NodeID& id,
-                            const std::string& iterator_name,
-                            const problem::DimensionId& op_dim,
-                            size_t tile_size);
+                             const std::string& iterator_name,
+                             const problem::DimensionId& op_dim,
+                             int spatial,
+                             size_t tile_size);
 };
 
 struct Storage

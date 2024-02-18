@@ -31,10 +31,12 @@ For For::WithTileSize(const NodeID& id,
 ParFor::ParFor(const NodeID& id,
                const std::string& iterator_name,
                const problem::DimensionId& op_dim,
+               int spatial,
                std::optional<size_t>&& begin,
                std::optional<size_t>&& end) :
   iterator_name(iterator_name),
   op_dim(op_dim),
+  spatial(spatial),
   begin(begin),
   end(end),
   id(id)
@@ -44,9 +46,10 @@ ParFor::ParFor(const NodeID& id,
 ParFor ParFor::WithTileSize(const NodeID& id,
                             const std::string& iterator_name,
                             const problem::DimensionId& op_dim,
+                            int spatial,
                             size_t tile_size)
 {
-  ParFor node(id, iterator_name, op_dim);
+  ParFor node(id, iterator_name, op_dim, spatial);
   node.tile_size = tile_size;
   return node;
 }

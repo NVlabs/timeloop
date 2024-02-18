@@ -93,16 +93,27 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
     cfg.lookupValue("dimension", dim_name);
     auto dim_id = dim_name_to_id.at(dim_name);
 
+    int spatial = 0;
+    if (cfg.exists("spatial"))
+    {
+      cfg.lookupValue("spatial", spatial);
+    }
+
     if (cfg.exists("factor"))
     {
       cfg.lookupValue("factor", factor);
       if (factor == 0)
       {
-        return mapping.AddChild<ParFor>(parent_id, "", dim_id);
+        return mapping.AddChild<ParFor>(parent_id, "", dim_id, spatial);
       }
       else
       {
-        return mapping.AddChild<ParFor>(parent_id, "", dim_id, 0, factor);
+        return mapping.AddChild<ParFor>(parent_id,
+                                        "",
+                                        dim_id,
+                                        spatial,
+                                        0,
+                                        factor);
       }
     }
     else
@@ -112,6 +123,7 @@ NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
                               parent_id,
                               "",
                               dim_id,
+                              spatial,
                               tile_size);
     }
   }
