@@ -189,12 +189,28 @@ void FusedWorkload::SetEinsumProjection(EinsumId einsum, DataSpaceId dspace,
 
 void FusedWorkload::SetEinsumOspaceBound(EinsumId einsum, isl::set set)
 {
-  operation_spaces_.emplace(std::make_pair(einsum, std::move(set)));
+  auto it = operation_spaces_.find(einsum);
+  if (it == operation_spaces_.end())
+  {
+    operation_spaces_.emplace_hint(it, std::make_pair(einsum, std::move(set)));
+  }
+  else
+  {
+    it->second = std::move(set);
+  }
 }
 
 void FusedWorkload::SetDataSpaceBound(DataSpaceId dspace, isl::set set)
 {
-  data_spaces_.emplace(std::make_pair(dspace, std::move(set)));
+  auto it = data_spaces_.find(dspace);
+  if (it == data_spaces_.end())
+  {
+    data_spaces_.emplace_hint(it, std::make_pair(dspace, std::move(set)));
+  }
+  else
+  {
+    it->second = std::move(set);
+  }
 }
 
 const std::set<DataSpaceId>&
@@ -386,6 +402,34 @@ FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
 
       workload.SetEinsumProjection(einsum, dspace, is_rw, std::move(proj));
     }
+  }
+
+  // Prune data space bound based on Einsum bound
+  for (const auto& [_, dspace] : workload.DataSpaceNameToId())
+  {
+    auto bound = workload.DataSpaceBound(dspace);
+
+    auto writer_einsum_opt = workload.WriterEinsum(dspace);
+    if (writer_einsum_opt)
+    {
+      const auto& einsum_bound = workload.EinsumOspaceBound(*writer_einsum_opt);
+      const auto& write_access = workload.WriteAccesses(*writer_einsum_opt,
+                                                        dspace);
+      bound = bound.intersect(einsum_bound.apply(write_access));
+    }
+
+    auto bound_by_reader_einsums = isl::set::empty(bound.space());
+    for (const auto& reader_einsum : workload.ReaderEinsums(dspace))
+    {
+      const auto& einsum_bound = workload.EinsumOspaceBound(reader_einsum);
+      const auto& read_access = workload.ReadAccesses(reader_einsum, dspace);
+      bound_by_reader_einsums = bound_by_reader_einsums.unite(
+        einsum_bound.apply(read_access)
+      );
+    }
+    bound = bound.intersect(bound_by_reader_einsums);
+
+    workload.SetDataSpaceBound(dspace, bound);
   }
 
   return workload;
