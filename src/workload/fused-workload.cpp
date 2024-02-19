@@ -418,16 +418,19 @@ FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
       bound = bound.intersect(einsum_bound.apply(write_access));
     }
 
-    auto bound_by_reader_einsums = isl::set::empty(bound.space());
-    for (const auto& reader_einsum : workload.ReaderEinsums(dspace))
+    if (workload.ReaderEinsums(dspace).size() > 0)
     {
-      const auto& einsum_bound = workload.EinsumOspaceBound(reader_einsum);
-      const auto& read_access = workload.ReadAccesses(reader_einsum, dspace);
-      bound_by_reader_einsums = bound_by_reader_einsums.unite(
-        einsum_bound.apply(read_access)
-      );
+      auto bound_by_reader_einsums = isl::set::empty(bound.space());
+      for (const auto& reader_einsum : workload.ReaderEinsums(dspace))
+      {
+        const auto& einsum_bound = workload.EinsumOspaceBound(reader_einsum);
+        const auto& read_access = workload.ReadAccesses(reader_einsum, dspace);
+        bound_by_reader_einsums = bound_by_reader_einsums.unite(
+          einsum_bound.apply(read_access)
+        );
+      }
+      bound = bound.intersect(bound_by_reader_einsums);
     }
-    bound = bound.intersect(bound_by_reader_einsums);
 
     workload.SetDataSpaceBound(dspace, bound);
   }
