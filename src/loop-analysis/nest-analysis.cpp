@@ -1963,7 +1963,7 @@ void NestAnalysis::InitNumSpatialElems()
   int cur_index = nest_state_.size() - 1;
   // cumulative product of spatial tiling factors.
   std::uint64_t product = 1;
-  std::uint64_t utilized_product = 1;
+  double utilized_product = 1;
   bool prev_loop_was_spatial = false;
   for (auto loop = nest_state_.rbegin(); loop != nest_state_.rend(); loop++)
   {
@@ -1981,14 +1981,20 @@ void NestAnalysis::InitNumSpatialElems()
       {
           // Find the next-outermost loop of the same dimension.
           auto loop2 = nest_state_.rbegin();
+          bool found = false;
+          double outer_size = 1;
           for(; loop2 != nest_state_.rend(); loop2++)
           {
+            if(loop2->level == loop->level) break;
             if(loop2->descriptor.dimension == loop->descriptor.dimension)
             {
-              break;
+              double end = (double) loop2->descriptor.end;
+              double residual_end = (double) loop2->descriptor.residual_end;
+              outer_size = (residual_end + end * (outer_size - 1));
+              found = true;
             }
           }
-          if(loop2->level == loop->level)
+          if(!found)
           {
             std::cout << "Outermost loop of dimension " << loop->descriptor.dimension << " was imperfectly factorized. " 
             << "Need more loop levels to factorize this loop... were loops of the dimensions constrained to 1 at all higher levels?" << std::endl;
@@ -2002,13 +2008,12 @@ void NestAnalysis::InitNumSpatialElems()
               std::cout << std::endl;
               j++;
             }
+            std::cout << "Exiting..." << std::endl;
+            exit(1);
           }
-          ASSERT(loop2->level != loop->level); // If this assertion fails, then an outermost loop was imperfectly factorized.
-
-          double outer_size = (double) loop2->descriptor.end;
           double end = (double) loop->descriptor.end;
           double residual_end = (double) loop->descriptor.residual_end;
-          utilized_product = std::round(utilized_product * (residual_end + end * (outer_size - 1)) / outer_size);
+          utilized_product = utilized_product * (residual_end + end * (outer_size - 1)) / outer_size;
       }
       else
       {
