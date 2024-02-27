@@ -116,7 +116,7 @@ struct DataMovementInfo
   
   std::vector<loop::Descriptor> subnest;
   /** @brief Number of spatial elements at this level. */
-  std::uint64_t replication_factor;
+  double replication_factor;
   double        avg_replication_factor;
   std::uint64_t max_replication_factor;
   std::uint64_t max_x_expansion;
@@ -287,7 +287,7 @@ struct DataMovementInfo
 
 struct ComputeInfo
 {
-  std::uint64_t replication_factor;      // number of spatial elements at this level.
+  double replication_factor;      // number of spatial elements at this level.
   double accesses;
   double avg_replication_factor;
   std::uint64_t max_replication_factor;
