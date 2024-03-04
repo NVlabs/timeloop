@@ -65,6 +65,7 @@ struct DataMovementInfo
     {
       ar& BOOST_SERIALIZATION_NVP(size);
       ar& BOOST_SERIALIZATION_NVP(access_stats);
+      ar& BOOST_SERIALIZATION_NVP(distributed_access_stats);
       ar& BOOST_SERIALIZATION_NVP(subnest);
     }
   }
@@ -96,8 +97,12 @@ struct DataMovementInfo
    */
   double total_child_accesses;
   double parent_access_share;
-  bool distributed_multicast;
+  
+  //bool distributed_multicast;
+  
   AccessStatMatrix access_stats;
+  AccessStatMatrix distributed_access_stats;
+  
   double content_accesses;
   std::uint64_t fills;
   std::uint64_t reads;
@@ -124,7 +129,7 @@ struct DataMovementInfo
   /** @brief Per-element fanout to next level. */
   std::uint64_t fanout;
   /** @brief Max range of fanout if distributed multicast is used. */
-  std::uint64_t distributed_fanout;
+  //std::uint64_t distributed_fanout;
   bool is_on_storage_boundary;
   bool is_master_spatial;
   bool rmw_first_update;
@@ -165,8 +170,9 @@ struct DataMovementInfo
     partition_size = 0;
     access_stats.clear();
     total_child_accesses = 0;
+    distributed_access_stats.clear();
     parent_access_share = 0;
-    distributed_multicast = false;
+    //distributed_multicast = false;
     content_accesses = 0;
     fills = 0;
     reads = 0;
@@ -180,7 +186,7 @@ struct DataMovementInfo
     max_x_expansion = 0;
     max_y_expansion = 0;
     fanout = 0;
-    distributed_fanout = 0;
+    //distributed_fanout = 0;
     compressed = false;
     has_metadata = false;
     apply_rank_inner_to_outer = false; 

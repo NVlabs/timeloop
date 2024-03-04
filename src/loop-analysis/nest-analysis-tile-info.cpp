@@ -65,8 +65,10 @@ void AccessStatMatrix::Accumulate(const AccessStatMatrix& other)
     auto scatter = x.first.second;
 
     auto& mine = stats[std::make_pair(multicast, scatter)];
+
     mine.accesses += x.second.accesses; 
-    mine.hops += x.second.hops; 
+    mine.hops += x.second.hops;
+    mine.unicast_hops += x.second.unicast_hops;
   }
 }
 
@@ -77,6 +79,7 @@ void AccessStatMatrix::Divide(const std::uint64_t divisor)
   {
     x.second.accesses /= divisor;
     x.second.hops /= divisor;
+    x.second.unicast_hops /= divisor;
   }
 }
 
@@ -98,6 +101,7 @@ bool AccessStatMatrix::operator == (const AccessStatMatrix& other)
     if (it == stats.end()) return false;
     if (it->second.accesses != x.second.accesses) return false;
     if (it->second.hops != x.second.hops) return false;
+    if (it->second.unicast_hops != x.second.unicast_hops) return false;
   }
   for (auto& x: stats)
   {
@@ -105,6 +109,7 @@ bool AccessStatMatrix::operator == (const AccessStatMatrix& other)
     if (it == other.stats.end()) return false;
     if (it->second.accesses != x.second.accesses) return false;
     if (it->second.hops != x.second.hops) return false;
+    if (it->second.unicast_hops != x.second.unicast_hops) return false;
   }
   return true;
 }
@@ -116,7 +121,8 @@ std::ostream& operator << (std::ostream& out, const AccessStatMatrix& m)
     auto multicast = x.first.first;
     auto scatter = x.first.second;
     out << "    [" << multicast << ", " << scatter << "]: accesses = "
-        << x.second.accesses << " hops = " << x.second.hops << std::endl;
+        << x.second.accesses << " hops = " << x.second.hops
+        << " unicast hops = " << x.second.unicast_hops << std::endl;
   }
   return out;
 }
@@ -138,7 +144,7 @@ void DataMovementInfo::Reset()
   subnest.resize(0);
   replication_factor = 0;
   fanout = 0;
-  distributed_fanout = 0;
+  //distributed_fanout = 0;
 }
 
 void DataMovementInfo::Validate()
