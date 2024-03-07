@@ -140,8 +140,11 @@ Application::Application(config::CompoundConfig* config,
   if (verbose_)
     std::cout << "Architecture configuration complete." << std::endl;
 
-  mapping::FusedMapping mapping =
-    mapping::ParseMapping(rootNode.lookup("mapping"), workload);
+  mapping::FusedMapping mapping = mapping::ParseMapping(
+    rootNode.lookup("mapping"),
+    workload,
+    arch_specs_.topology
+  );
 
   auto mapping_analysis_result =
     analysis::OccupanciesFromMapping(mapping, workload);

@@ -9,6 +9,7 @@
 #include "util/metaprogramming.hpp"
 #include "workload/workload.hpp"
 #include "workload/fused-workload.hpp"
+#include "model/topology.hpp"
 
 namespace mapping
 {
@@ -400,6 +401,7 @@ DfsRange IterateInDfsOrder(FusedMapping& mapping)
 template<> DfsRange IterateInDfsOrder<>(FusedMapping& mapping);
 
 FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
-                          const problem::FusedWorkload& workload);
+                          const problem::FusedWorkload& workload,
+                          const model::Topology::Specs& arch_specs);
 
 }; // namespace mapping

@@ -1,5 +1,14 @@
+/**
+ * @file mapping/fused-mapping/parser.cpp
+ * @author Michael Gilbert (gilbertm@mit.edu)
+ * @brief Implementation of fused mapping parser for LoopTree.
+ * 
+ * To add a new node type, implement a function with signature that matches
+ * the `NodeParser` type, then add it to `NODE_TYPE_TO_PARSER`.
+ */
 #include "mapping/fused-mapping.hpp"
 #include "loop-analysis/isl-ir.hpp"
+#include "model/topology.hpp"
 
 namespace mapping
 {
@@ -8,22 +17,55 @@ namespace mapping
  * Local declarations
  *****************************************************************************/
 
-void InsertToMapping(FusedMapping& mapping,
-                     NodeID parent_id,
+void InsertToMapping(NodeID parent_id,
+                     FusedMapping& mapping,
                      const config::CompoundConfigNode& nodes_cfg,
-                     const problem::FusedWorkload& workload);
+                     const problem::FusedWorkload& workload,
+                     const model::Topology::Specs& arch_spec);
 
-NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
+NodeID CompoundConfigNodeToMapping(NodeID parent_id,
+                                   FusedMapping& mapping,
+                                   const config::CompoundConfigNode& cfg,
                                    const problem::FusedWorkload& workload,
-                                   NodeID parent_id,
-                                   const config::CompoundConfigNode& cfg);
+                                   const model::Topology::Specs& arch_spec);
+
+typedef NodeID (*NodeParser)(NodeID,
+                             FusedMapping&,
+                             const config::CompoundConfigNode&,
+                             const problem::FusedWorkload&,
+                             const model::Topology::Specs&);
+
+#define DEFINE_NODE_PARSER(name)       \
+  NodeID name(                         \
+    NodeID,                            \
+    FusedMapping&,                     \
+    const config::CompoundConfigNode&, \
+    const problem::FusedWorkload&,     \
+    const model::Topology::Specs&)
+
+DEFINE_NODE_PARSER(ParseTemporalNode);
+DEFINE_NODE_PARSER(ParseSpatialNode);
+DEFINE_NODE_PARSER(ParseStorageNode);
+DEFINE_NODE_PARSER(ParseComputeNode);
+DEFINE_NODE_PARSER(ParsePipelineNode);
+DEFINE_NODE_PARSER(ParseSequentialNode);
+
+const std::map<std::string, NodeParser> NODE_TYPE_TO_PARSER = {
+  std::make_pair("temporal",   &ParseTemporalNode),
+  std::make_pair("spatial",    &ParseSpatialNode),
+  std::make_pair("storage",    &ParseStorageNode),
+  std::make_pair("compute",    &ParseComputeNode),
+  std::make_pair("pipeline",   &ParsePipelineNode),
+  std::make_pair("sequential", &ParseSequentialNode),
+};
 
 /******************************************************************************
  * Global implementations
  *****************************************************************************/
 
 FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
-                          const problem::FusedWorkload& workload)
+                          const problem::FusedWorkload& workload,
+                          const model::Topology::Specs& arch_spec)
 {
   std::string mapping_type;
   if (!cfg.lookupValue("type", mapping_type) || mapping_type!="fused")
@@ -35,7 +77,7 @@ FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
 
   FusedMapping mapping;
   auto parent_id = mapping.GetRoot().id;
-  InsertToMapping(mapping, parent_id, nodes, workload);
+  InsertToMapping(parent_id, mapping, nodes, workload, arch_spec);
 
   return mapping;
 }
@@ -44,155 +86,253 @@ FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
  * Local implementations
  *****************************************************************************/
 
-NodeID CompoundConfigNodeToMapping(FusedMapping& mapping,
+NodeID CompoundConfigNodeToMapping(NodeID parent_id,
+                                   FusedMapping& mapping,
+                                   const config::CompoundConfigNode& cfg,
                                    const problem::FusedWorkload& workload,
-                                   NodeID parent_id,
-                                   const config::CompoundConfigNode& cfg)
+                                   const model::Topology::Specs& arch_spec)
 {
   std::string type;
-  BufferId target;
-  std::string dspace_name;
-  std::string dim_name;
-  std::string einsum_name;
-  int factor;
-  int tile_size;
-
-  auto& dim_name_to_id = workload.DimensionNameToId();
-  auto& dspace_name_to_id = workload.DataSpaceNameToId();
-
   cfg.lookupValue("type", type);
-  if (type == "temporal")
-  {
-    cfg.lookupValue("dimension", dim_name);
-    auto dim_id = dim_name_to_id.at(dim_name);
 
-    if (cfg.exists("factor"))
+  auto node_parser_it = NODE_TYPE_TO_PARSER.find(type);
+  if (node_parser_it == NODE_TYPE_TO_PARSER.end())
+  {
+    throw std::logic_error("node type unknown");
+  }
+
+  auto node_parser = node_parser_it->second;
+  return node_parser(parent_id, mapping, cfg, workload, arch_spec);
+}
+
+NodeID ParseTemporalNode(NodeID parent_id,
+                         FusedMapping& mapping,
+                         const config::CompoundConfigNode& cfg,
+                         const problem::FusedWorkload& workload,
+                         const model::Topology::Specs& arch_spec)
+{
+  (void) arch_spec;
+  const auto& dim_name_to_id = workload.DimensionNameToId();
+
+  std::string iterator_name = "";
+  if (cfg.exists("iterator_name"))
+  {
+    cfg.lookupValue("iterator_name", iterator_name);
+  }
+
+  std::string dim_name;
+  cfg.lookupValue("dimension", dim_name);
+  auto dim_id_it = dim_name_to_id.find(dim_name);
+  if (dim_id_it == dim_name_to_id.end())
+  {
+    throw std::out_of_range("Could not find dim " + dim_name + " in workload");
+  }
+  auto dim_id = dim_id_it->second;
+
+  if (cfg.exists("factor"))
+  {
+    int factor = 0;
+    cfg.lookupValue("factor", factor);
+    if (factor == 0)
     {
-      cfg.lookupValue("factor", factor);
-      if (factor == 0)
-      {
-        return mapping.AddChild<For>(parent_id, "", dim_id);
-      }
-      else
-      {
-        return mapping.AddChild<For>(parent_id, "", dim_id, 0, factor);
-      }
+      return mapping.AddChild<For>(parent_id, iterator_name, dim_id);
     }
     else
     {
-      cfg.lookupValue("tile_size", tile_size);
-      return mapping.AddChild(For::WithTileSize,
-                              parent_id,
-                              "",
-                              dim_id,
-                              tile_size);
+      return mapping.AddChild<For>(parent_id,
+                                   iterator_name,
+                                   dim_id,
+                                   0,
+                                   factor);
     }
-  }
-  else if (type == "spatial")
-  {
-    cfg.lookupValue("dimension", dim_name);
-    auto dim_id = dim_name_to_id.at(dim_name);
-
-    int spatial = 0;
-    if (cfg.exists("spatial"))
-    {
-      cfg.lookupValue("spatial", spatial);
-    }
-
-    if (cfg.exists("factor"))
-    {
-      cfg.lookupValue("factor", factor);
-      if (factor == 0)
-      {
-        return mapping.AddChild<ParFor>(parent_id, "", dim_id, spatial);
-      }
-      else
-      {
-        return mapping.AddChild<ParFor>(parent_id,
-                                        "",
-                                        dim_id,
-                                        spatial,
-                                        0,
-                                        factor);
-      }
-    }
-    else
-    {
-      cfg.lookupValue("tile_size", tile_size);
-      return mapping.AddChild(ParFor::WithTileSize,
-                              parent_id,
-                              "",
-                              dim_id,
-                              spatial,
-                              tile_size);
-    }
-  }
-  else if (type == "storage")
-  {
-    cfg.lookupValue("target", target);
-    std::vector<std::string> dspace_names;
-    cfg.lookupArrayValue("dspace", dspace_names);
-    bool exploits_reuse = true;
-    if (cfg.exists("exploits_reuse"))
-    {
-      cfg.lookupValue("exploits_reuse", exploits_reuse);
-    }
-    auto node = parent_id;
-    for (const auto& dspace_name : dspace_names)
-    {
-      auto dspace = dspace_name_to_id.at(dspace_name);
-      node = mapping.AddChild<Storage>(node, target, dspace, exploits_reuse);
-    }
-    return node;
-  }
-  else if (type == "compute")
-  {
-    cfg.lookupValue("einsum", einsum_name);
-    auto einsum = workload.EinsumNameToId().at(einsum_name);
-    auto parallelism = std::optional<double>();
-    if (cfg.exists("parallelism"))
-    {
-      double parallelism_val;
-      cfg.lookupValue("parallelism", parallelism_val);
-      parallelism = parallelism_val;
-    }
-    return mapping.AddChild<Compute>(
-      parent_id,
-      einsum,
-      parallelism,
-      std::nullopt
-    );
-  }
-  else if (type == "pipeline")
-  {
-    return mapping.AddChild<Pipeline>(parent_id);
-  }
-  else if (type == "sequential")
-  {
-    return mapping.AddChild<Sequential>(parent_id);
   }
   else
   {
-    throw std::logic_error("unknown node type: " + type);
+    int tile_size = 0;
+    cfg.lookupValue("tile_size", tile_size);
+    return mapping.AddChild(For::WithTileSize,
+                            parent_id,
+                            iterator_name,
+                            dim_id,
+                            tile_size);
   }
 }
 
-void InsertToMapping(FusedMapping& mapping,
-                     NodeID parent_id,
+NodeID ParseSpatialNode(NodeID parent_id,
+                        FusedMapping& mapping,
+                        const config::CompoundConfigNode& cfg,
+                        const problem::FusedWorkload& workload,
+                        const model::Topology::Specs& arch_spec)
+{
+  (void) arch_spec;
+  const auto& dim_name_to_id = workload.DimensionNameToId();
+
+  std::string iterator_name = "";
+  if (cfg.exists("iterator_name"))
+  {
+    cfg.lookupValue("iterator_name", iterator_name);
+  }
+
+  std::string dim_name;
+  cfg.lookupValue("dimension", dim_name);
+  auto dim_id = dim_name_to_id.at(dim_name);
+
+  int spatial = 0;
+  if (cfg.exists("spatial"))
+  {
+    cfg.lookupValue("spatial", spatial);
+  }
+
+  if (cfg.exists("factor"))
+  {
+    int factor = 0;
+    cfg.lookupValue("factor", factor);
+    if (factor == 0)
+    {
+      return mapping.AddChild<ParFor>(parent_id,
+                                      iterator_name,
+                                      dim_id,
+                                      spatial);
+    }
+    else
+    {
+      return mapping.AddChild<ParFor>(parent_id,
+                                      iterator_name,
+                                      dim_id,
+                                      spatial,
+                                      0,
+                                      factor);
+    }
+  }
+  else
+  {
+    int tile_size = 0;
+    cfg.lookupValue("tile_size", tile_size);
+    return mapping.AddChild(ParFor::WithTileSize,
+                            parent_id,
+                            iterator_name,
+                            dim_id,
+                            spatial,
+                            tile_size);
+  }
+}
+
+NodeID ParseStorageNode(NodeID parent_id,
+                        FusedMapping& mapping,
+                        const config::CompoundConfigNode& cfg,
+                        const problem::FusedWorkload& workload,
+                        const model::Topology::Specs& arch_spec)
+{
+  const auto& dspace_name_to_id = workload.DataSpaceNameToId();
+
+  std::string target = "";
+  cfg.lookupValue("target", target);
+  BufferId buffer_id;
+  const auto& level_names = arch_spec.LevelNames();
+  for (unsigned i = 0; i < arch_spec.NumLevels(); ++i)
+  {
+    if (target == level_names.at(i))
+    {
+      buffer_id = i;
+      break;
+    }
+  }
+
+  std::vector<std::string> dspace_names;
+  cfg.lookupArrayValue("dspace", dspace_names);
+
+  bool exploits_reuse = true;
+  if (cfg.exists("exploits_reuse"))
+  {
+    cfg.lookupValue("exploits_reuse", exploits_reuse);
+  }
+
+  auto node = parent_id;
+  for (const auto& dspace_name : dspace_names)
+  {
+    auto dspace = dspace_name_to_id.at(dspace_name);
+    node = mapping.AddChild<Storage>(node, buffer_id, dspace, exploits_reuse);
+  }
+
+  return node;
+}
+
+NodeID ParseComputeNode(NodeID parent_id,
+                        FusedMapping& mapping,
+                        const config::CompoundConfigNode& cfg,
+                        const problem::FusedWorkload& workload,
+                        const model::Topology::Specs& arch_spec)
+{
+  (void) arch_spec;
+
+  std::string einsum_name = "";
+  cfg.lookupValue("einsum", einsum_name);
+  auto einsum = workload.EinsumNameToId().at(einsum_name);
+
+  auto parallelism = std::optional<double>();
+  if (cfg.exists("parallelism"))
+  {
+    double parallelism_val;
+    cfg.lookupValue("parallelism", parallelism_val);
+    parallelism = parallelism_val;
+  }
+
+  return mapping.AddChild<Compute>(
+    parent_id,
+    einsum,
+    parallelism,
+    std::nullopt
+  );
+}
+
+NodeID ParsePipelineNode(NodeID parent_id,
+                         FusedMapping& mapping,
+                         const config::CompoundConfigNode& cfg,
+                         const problem::FusedWorkload& workload,
+                         const model::Topology::Specs& arch_spec)
+{
+  (void) cfg;
+  (void) workload;
+  (void) arch_spec;
+  return mapping.AddChild<Pipeline>(parent_id);
+}
+
+NodeID ParseSequentialNode(NodeID parent_id,
+                           FusedMapping& mapping,
+                           const config::CompoundConfigNode& cfg,
+                           const problem::FusedWorkload& workload,
+                           const model::Topology::Specs& arch_spec)
+{
+  (void) cfg;
+  (void) workload;
+  (void) arch_spec;
+  return mapping.AddChild<Sequential>(parent_id);
+}
+
+void InsertToMapping(NodeID parent_id,
+                     FusedMapping& mapping,
                      const config::CompoundConfigNode& nodes_cfg,
-                     const problem::FusedWorkload& workload)
+                     const problem::FusedWorkload& workload,
+                     const model::Topology::Specs& arch_spec)
 {
   for (int i = 0; i < nodes_cfg.getLength(); ++i)
   {
     auto cur_node = nodes_cfg[i];
-    parent_id =
-      CompoundConfigNodeToMapping(mapping, workload, parent_id, cur_node);
+    parent_id = CompoundConfigNodeToMapping(parent_id,
+                                            mapping,
+                                            cur_node,
+                                            workload,
+                                            arch_spec);
     if (cur_node.exists("branches"))
     {
       auto branches_cfg = cur_node.lookup("branches");
       for (int j = 0; j < branches_cfg.getLength(); ++j)
       {
-        InsertToMapping(mapping, parent_id, branches_cfg[j], workload);
+        InsertToMapping(parent_id,
+                        mapping,
+                        branches_cfg[j],
+                        workload,
+                        arch_spec);
       }
     }
   }
