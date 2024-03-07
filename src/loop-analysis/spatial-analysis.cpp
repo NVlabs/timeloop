@@ -171,6 +171,10 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
   auto p_data_to_max_x = isl_map_lexmax(
     isl_map_project_out(wrapped_fill.copy(), isl_dim_out, 1, 1)
   );
+  auto p_data_to_x = isl_map_project_out(wrapped_fill.copy(),
+                                         isl_dim_out,
+                                         1,
+                                         1);
   auto p_x_hops_cost = isl_pw_qpolynomial_from_qpolynomial(
     isl_qpolynomial_add(
       isl_qpolynomial_var_on_domain(
@@ -183,12 +187,14 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
       )
     )
   );
-  auto p_x_to_data = isl_map_reverse(p_data_to_max_x);
-  p_data_per_dst = isl_map_card(isl_map_copy(p_x_to_data));
-  auto p_x_hops_per_dst = isl_pw_qpolynomial_mul(p_x_hops_cost,
-                                                 p_data_per_dst);
+  auto p_max_x_to_data = isl_map_reverse(p_data_to_max_x);
+  p_data_per_dst = isl_map_card(isl_map_copy(p_max_x_to_data));
+  auto p_x_hops_per_dst = isl_pw_qpolynomial_mul(
+    isl_pw_qpolynomial_copy(p_x_hops_cost),
+    p_data_per_dst
+  );
   double total_x_hops = 0;
-  auto p_x_domain = isl_map_domain(p_x_to_data);
+  auto p_x_domain = isl_map_domain(p_max_x_to_data);
   if (isl_set_is_singleton(isl_set_copy(p_x_domain)))
   {
     auto p_sample = isl_set_sample_point(p_x_domain);
@@ -208,6 +214,20 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
     ));
   }
 
+  auto p_x_to_data = isl_map_reverse(p_data_to_x);
+  p_data_per_dst = isl_map_card(isl_map_copy(p_x_to_data));
+  auto p_x_unicast_hops_per_dst = isl_pw_qpolynomial_mul(
+    p_x_hops_cost,
+    p_data_per_dst
+  );
+  double total_x_unicast_hops = 0;
+  total_x_unicast_hops = isl::val_to_double(isl_qpolynomial_get_constant_val(
+    isl_pw_qpolynomial_as_qpolynomial(isl_set_apply_pw_qpolynomial(
+      isl_map_domain(p_x_to_data),
+      p_x_unicast_hops_per_dst
+    ))
+  ));
+
   auto p_total_accesses = isl_pw_qpolynomial_sum(isl_map_card(isl_set_unwrap(
     wrapped_fill.domain().release()
   )));
@@ -218,9 +238,11 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
   );
 
   auto total_hops = total_x_hops + total_y_hops;
+  auto total_unicast_hops = total_x_unicast_hops + total_y_hops;
   auto& stats = transfer_info.compat_access_stats[std::make_pair(1, 1)];
   stats.accesses = accesses;
   stats.hops = total_hops / accesses;
+  stats.unicast_hops = total_unicast_hops / accesses;
 
   transfer_info.total_child_accesses = isl::val_to_double(
     isl::get_val_from_singular(
