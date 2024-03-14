@@ -22,6 +22,125 @@
 //                Application                 //
 //--------------------------------------------//
 
+std::vector<analysis::SpaceTime>
+ParseSpaceTime(const config::CompoundConfigNode& node)
+{
+  std::vector<std::string> spacetime_strings;
+  node.getArrayValue(spacetime_strings);
+
+  std::vector<analysis::SpaceTime> spacetimes;
+  for (const std::string& spacetime_string : spacetime_strings)
+  {
+    analysis::SpaceTime spacetime;
+    if (spacetime_string == "temporal")
+    {
+      spacetime = analysis::Temporal();
+    }
+    else if (spacetime_string == "spatial")
+    {
+      spacetime = analysis::Spatial(0);
+    }
+    else if (spacetime_string == "sequential")
+    {
+      spacetime = analysis::Sequential();
+    }
+    else if (spacetime_string == "pipeline")
+    {
+      spacetime = analysis::PipelineSpatial();
+    }
+    spacetimes.push_back(spacetime);
+  }
+
+  return spacetimes;
+}
+
+void ParseIslOccupancy(const config::CompoundConfigNode& node,
+                       const problem::FusedWorkload& workload)
+{
+  const auto& dspace_name_to_id = workload.DataSpaceNameToId();
+  for (int i = 0; i < node.getLength(); ++i)
+  {
+    std::string dspace;
+    std::string target;
+    std::string occupancy_string;
+
+    const config::CompoundConfigNode& cur_node = node[i];
+    cur_node.lookupValue("dspace", dspace);
+    cur_node.lookupValue("target", target);
+
+    cur_node.lookupValue("occupancy", occupancy_string);
+    occupancy_string = "{ " + occupancy_string + " }";
+
+    auto occ = analysis::Occupancy(
+      ParseSpaceTime(cur_node.lookup("spacetime")),
+      isl::map(GetIslCtx(), occupancy_string).intersect_range(
+        workload.DataSpaceBound(dspace_name_to_id.at(dspace))
+      )
+    );
+
+    analysis::TemporalReuseAnalysisOutput result =
+      analysis::TemporalReuseAnalysis(
+        analysis::TemporalReuseAnalysisInput(
+          occ,
+          analysis::BufTemporalReuseOpts{
+            .exploit_temporal_reuse=1
+          }
+        )
+      );
+
+    auto p_fill = result.fill.map.copy();
+    auto p_fill_count = isl_pw_qpolynomial_sum(isl_map_card(p_fill));
+    double fill_count = isl::val_to_double(isl::get_val_from_singular(
+      isl_pw_qpolynomial_copy(p_fill_count)
+    ));
+    std::cout << "[Fill] (" << dspace << "," << target << ") : " << fill_count
+              << std::endl;
+
+    /* TODO: Fills contribute to two accesses:
+     *  1. Reads from parent or peer buffer
+     *  2. Writes to current buffer
+     */
+
+    auto p_occ = result.effective_occupancy.map.copy();
+    isl_bool tight;
+    auto p_occ_size = isl_map_card(p_occ);
+    auto p_occ_count = isl_pw_qpolynomial_bound(
+      isl_pw_qpolynomial_copy(p_occ_size),
+      isl_fold_max,
+      &tight
+    );
+    if (tight != isl_bool_true)
+    {
+      double max_sample = 0;
+      auto p_domain =
+        isl_pw_qpolynomial_domain(isl_pw_qpolynomial_copy(p_occ_size));
+      for (int i = 0; i < 8; ++i)
+      {
+        auto sample = isl::val_to_double(
+          isl_pw_qpolynomial_eval(
+            isl_pw_qpolynomial_copy(p_occ_size),
+            isl_set_sample_point(isl_set_copy(p_domain))
+          )
+        );
+        max_sample = std::max(max_sample, sample);
+      }
+      std::cout << "[Occupancy] (" << dspace << "," << target << "," << tight
+                << ") : " << max_sample << std::endl;
+      isl_set_free(p_domain);
+    }
+    else
+    {
+      double occ_count = isl::val_to_double(isl::get_val_from_singular(
+        isl_pw_qpolynomial_fold_copy(p_occ_count)
+      ));
+      std::cout << "[Occupancy] (" << dspace << "," << target << "," << tight
+                << ") : " << occ_count << std::endl;
+    }
+    isl_pw_qpolynomial_fold_free(p_occ_count);
+    isl_pw_qpolynomial_free(p_occ_size);
+  }
+}
+
 template <class Archive>
 void Application::serialize(Archive& ar, const unsigned int version)
 {
@@ -123,31 +242,32 @@ Application::Application(config::CompoundConfig* config,
   if (verbose_)
     std::cout << "Sparse optimization configuration complete." << std::endl;
 
-  arch_props_ = new ArchProperties(arch_specs_);
-  // Architecture constraints.
-  config::CompoundConfigNode arch_constraints;
-
-  if (arch.exists("constraints"))
-    arch_constraints = arch.lookup("constraints");
-  else if (rootNode.exists("arch_constraints"))
-    arch_constraints = rootNode.lookup("arch_constraints");
-  else if (rootNode.exists("architecture_constraints"))
-    arch_constraints = rootNode.lookup("architecture_constraints");
-
-  constraints_ = new mapping::Constraints(*arch_props_, workload_);
-  constraints_->Parse(arch_constraints);
-
   if (verbose_)
     std::cout << "Architecture configuration complete." << std::endl;
 
+<<<<<<< Updated upstream
   mapping::FusedMapping mapping = mapping::ParseMapping(
     rootNode.lookup("mapping"),
     workload,
     arch_specs_.topology
   );
+=======
+  // TODO: this is an issue because later analysis (latency and capacity)
+  // requires information from mapping that is not captured here.
+  analysis::MappingAnalysisResult mapping_analysis_result;
+  if (rootNode.exists("occupancy"))
+  {
+    ParseIslOccupancy(rootNode.lookup("occupancy"), workload);
+  }
+  else
+  {
+    mapping::FusedMapping mapping =
+      mapping::ParseMapping(rootNode.lookup("mapping"), workload);
+>>>>>>> Stashed changes
 
-  auto mapping_analysis_result =
-    analysis::OccupanciesFromMapping(mapping, workload);
+    mapping_analysis_result = analysis::OccupanciesFromMapping(mapping,
+                                                               workload);
+  }
 
   for (const auto& [buf, occ] : mapping_analysis_result.lbuf_to_occupancy)
   {
@@ -194,17 +314,17 @@ Application::Application(config::CompoundConfig* config,
   //   );
   // std::cout << "[Latency]: " << latency << std::endl;
 
-  auto capacities = ComputeCapacityFromMapping(
-    mapping,
-    mapping_analysis_result.lbuf_to_occupancy,
-    workload
-  );
+  // auto capacities = ComputeCapacityFromMapping(
+  //   mapping,
+  //   mapping_analysis_result.lbuf_to_occupancy,
+  //   workload
+  // );
 
-  for (const auto& [buf_id, cap] : capacities)
-  {
-    std::cout << "[Capacity]" << buf_id << ": "
-              << isl_pw_qpolynomial_to_str(cap) << std::endl;
-  }
+  // for (const auto& [buf_id, cap] : capacities)
+  // {
+  //   std::cout << "[Capacity]" << buf_id << ": "
+  //             << isl_pw_qpolynomial_to_str(cap) << std::endl;
+  // }
 
   // // for (const auto& [buf, fill] : fills)
   // // {
@@ -225,9 +345,6 @@ Application::Application(config::CompoundConfig* config,
 
 Application::~Application()
 {
-  if (arch_props_)
-    delete arch_props_;
-
   if (constraints_)
     delete constraints_;
 
