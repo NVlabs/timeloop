@@ -83,7 +83,8 @@ void ParseIslOccupancy(const config::CompoundConfigNode& node,
         analysis::TemporalReuseAnalysisInput(
           occ,
           analysis::BufTemporalReuseOpts{
-            .exploit_temporal_reuse=1
+            .exploit_temporal_reuse=1,
+            .multiple_loop_reuse=true
           }
         )
       );
@@ -245,13 +246,6 @@ Application::Application(config::CompoundConfig* config,
   if (verbose_)
     std::cout << "Architecture configuration complete." << std::endl;
 
-<<<<<<< Updated upstream
-  mapping::FusedMapping mapping = mapping::ParseMapping(
-    rootNode.lookup("mapping"),
-    workload,
-    arch_specs_.topology
-  );
-=======
   // TODO: this is an issue because later analysis (latency and capacity)
   // requires information from mapping that is not captured here.
   analysis::MappingAnalysisResult mapping_analysis_result;
@@ -262,8 +256,7 @@ Application::Application(config::CompoundConfig* config,
   else
   {
     mapping::FusedMapping mapping =
-      mapping::ParseMapping(rootNode.lookup("mapping"), workload);
->>>>>>> Stashed changes
+      mapping::ParseMapping(rootNode.lookup("mapping"), workload, arch_specs_.topology);
 
     mapping_analysis_result = analysis::OccupanciesFromMapping(mapping,
                                                                workload);
@@ -275,7 +268,8 @@ Application::Application(config::CompoundConfig* config,
       analysis::TemporalReuseAnalysisInput(
         occ,
         analysis::BufTemporalReuseOpts{
-          .exploit_temporal_reuse=1
+          .exploit_temporal_reuse=true,
+          .multiple_loop_reuse=true
         }
       )
     );
