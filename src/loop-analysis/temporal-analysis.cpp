@@ -30,7 +30,7 @@ TemporalReuseAnalysis(TemporalReuseAnalysisInput input)
 {
   auto exploit_temporal_reuse = input.reuse_opts.exploit_temporal_reuse;
   const auto& occupancy = input.occupancy;
-  bool multi_loop_reuse = input.reuse_opts.multi_loop_reuse;
+  bool multi_loop_reuse = input.reuse_opts.multiple_loop_reuse;
 
   if (exploit_temporal_reuse){
     auto [eff_occ, fill] = FillFromOccupancy(occupancy, multi_loop_reuse);
@@ -98,18 +98,59 @@ std::pair<Occupancy, Fill> FillFromOccupancy(const Occupancy& occupancy,
     {
       p_time_shift = isl::map_to_shifted(
         isl_space_domain(isl_map_get_space(p_occ)),
-	dim_idx,
-	-1
+	      dim_idx,
+	      -1
       );
     }
     else
     {
+      // TODO: this is a better way of getting time_shift. Use method to
+      // replace the other branch (!multi_loop_reuse)
       isl_set* p_spacetime_domain = isl_map_domain(isl_map_copy(p_occ));
-      isl_map* p_spacetime_domain_to_time_domain; // TODO
-      isl_map* p_time_domain_to_past = isl_map_lex_gt(isl_set_get_space(isl_map_range(isl_map_copy(p_spacetime_domain_to_time_domain))));
+      isl_map* p_spacetime_domain_to_time_domain =
+        isl_map_identity(isl_space_map_from_set(isl_set_get_space(
+          p_spacetime_domain
+        )));
+      for (const auto tag_it : tags | indexed(0) | reversed)
+      {
+        auto tag = tag_it.value();
+        auto idx = tag_it.index();
+        if (!IsTemporal(tag))
+        {
+          p_spacetime_domain_to_time_domain = isl_map_project_out(
+            p_spacetime_domain_to_time_domain,
+            isl_dim_out,
+            idx,
+            1
+          );
+        }
+      }
+      p_spacetime_domain_to_time_domain = isl_map_intersect_domain(
+        p_spacetime_domain_to_time_domain,
+        p_spacetime_domain
+      );
+      isl_map* p_time_domain_to_past =
+        isl_map_lex_gt(isl_set_get_space(isl_map_range(
+          isl_map_copy(p_spacetime_domain_to_time_domain)
+        )));
+      isl_set* p_time_domain = isl_map_range(isl_map_copy(
+        p_spacetime_domain_to_time_domain
+      ));
+      p_time_domain_to_past = isl_map_intersect_domain(
+        p_time_domain_to_past,
+        isl_set_copy(p_time_domain)
+      );
+      p_time_domain_to_past = isl_map_intersect_range(
+        p_time_domain_to_past,
+        p_time_domain
+      );
+      isl_map* p_time_domain_to_most_recent_past = isl_map_lexmax(p_time_domain_to_past);
       p_time_shift = isl_map_apply_range(
-	isl_map_lexmax(p_time_domain_to_past),
-	isl_map_reverse(p_spacetime_domain_to_time_domain)
+        p_spacetime_domain_to_time_domain,
+        isl_map_apply_range(
+          p_time_domain_to_most_recent_past,
+	        isl_map_reverse(isl_map_copy(p_spacetime_domain_to_time_domain))
+        )
       );
     }
 

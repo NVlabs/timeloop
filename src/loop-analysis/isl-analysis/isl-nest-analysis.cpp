@@ -40,7 +40,8 @@ ReuseAnalysisOutput ReuseAnalysis(
       TemporalReuseAnalysisInput(
         occ,
         BufTemporalReuseOpts{
-          .exploit_temporal_reuse=can_exploit_temporal_reuse
+          .exploit_temporal_reuse=can_exploit_temporal_reuse,
+          .multiple_loop_reuse = false
         }
       )
     );
