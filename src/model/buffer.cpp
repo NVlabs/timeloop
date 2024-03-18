@@ -200,7 +200,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   // Metadata storage width
   std::uint32_t metadata_storage_width;
   specs.metadata_storage_width = 0;
-  if (buffer.lookupValue("metadata_storage_width", metadata_storage_width))
+  if (buffer.lookupValue("metadata_storage_width", metadata_storage_width) || buffer.lookupValue("metadata_width", metadata_storage_width))
   {
     specs.metadata_storage_width = metadata_storage_width;
     if (metadata_word_bits != 0 && metadata_block_size != 0)
@@ -217,7 +217,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
 
   // Metadata storage depth
   std::uint32_t metadata_storage_depth = 0;
-  if (buffer.lookupValue("metadata_storage_depth", metadata_storage_depth))
+  if (buffer.lookupValue("metadata_storage_depth", metadata_storage_depth) || buffer.lookupValue("metadata_depth", metadata_storage_depth))
   {
     specs.metadata_storage_depth = metadata_storage_depth;
   }
@@ -332,7 +332,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   }
 
   std::uint32_t metadata_storage_size = 0;
-  if (buffer.lookupValue("metadata_storage_depth", metadata_storage_size))
+  if (buffer.lookupValue("metadata_storage_depth", metadata_storage_size) || buffer.lookupValue("metadata_depth", metadata_storage_size))
   {
    specs.md_size = metadata_storage_size * specs.default_md_block_size.Get();
   }
