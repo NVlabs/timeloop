@@ -111,14 +111,30 @@ std::pair<Occupancy, Fill> FillFromOccupancy(const Occupancy& occupancy,
         isl_map_identity(isl_space_map_from_set(isl_set_get_space(
           p_spacetime_domain
         )));
+      isl_map* p_spacetime_domain_to_space_domain =
+        isl_map_identity(isl_space_map_from_set(isl_set_get_space(
+          p_spacetime_domain
+        )));
       for (const auto tag_it : tags | indexed(0) | reversed)
       {
         auto tag = tag_it.value();
         auto idx = tag_it.index();
-        if (!IsTemporal(tag))
+        if (!(std::holds_alternative<Temporal>(tag)
+              || std::holds_alternative<Sequential>(tag)
+              || std::holds_alternative<PipelineTemporal>(tag)
+            ))
         {
           p_spacetime_domain_to_time_domain = isl_map_project_out(
             p_spacetime_domain_to_time_domain,
+            isl_dim_out,
+            idx,
+            1
+          );
+        }
+        else
+        {
+          p_spacetime_domain_to_space_domain = isl_map_project_out(
+            p_spacetime_domain_to_space_domain,
             isl_dim_out,
             idx,
             1
@@ -151,6 +167,15 @@ std::pair<Occupancy, Fill> FillFromOccupancy(const Occupancy& occupancy,
           p_time_domain_to_most_recent_past,
 	        isl_map_reverse(isl_map_copy(p_spacetime_domain_to_time_domain))
         )
+      );
+
+      isl_map* p_spacetime_domain_space_preserver = isl_map_apply_range(
+        p_spacetime_domain_to_space_domain,
+        isl_map_reverse(isl_map_copy(p_spacetime_domain_to_space_domain))
+      );
+      p_time_shift = isl_map_intersect(
+        p_time_shift,
+        p_spacetime_domain_space_preserver
       );
     }
 
