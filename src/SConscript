@@ -303,6 +303,7 @@ applications/looptree-model/main.cpp
 
 unit_test_sources = Split("""
 unit-tests/test-main.cpp
+unit-tests/test-multicast.cpp
 unit-tests/test-simple-link-transfer.cpp
 """)
 

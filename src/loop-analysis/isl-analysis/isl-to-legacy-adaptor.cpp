@@ -190,7 +190,8 @@ CompoundDataMovementNest GenerateCompoundDataMovementNest(
         {
           tile.access_stats.stats[key] = AccessStats{
             .accesses = access_stats.accesses / tile.replication_factor,
-            .hops = access_stats.hops
+            .hops = access_stats.hops,
+            .unicast_hops = access_stats.unicast_hops
           };
         }
 

@@ -8,10 +8,11 @@ BOOST_AUTO_TEST_CASE(TestSimpleMulticastModel)
   using namespace analysis;
 
   /* Graphically:
-   *  ------------ t
-   *  ---- x     ---- x 
+   *  ------------> t
+   *  ----> x     ----> x 
    * | [0] [1]   | [1] [2]
    * | [1] [2]   | [2] [3]
+   * v           v
    * y           y        
    */
   auto fill = Fill(
@@ -29,12 +30,9 @@ BOOST_AUTO_TEST_CASE(TestSimpleMulticastModel)
   auto info = multicast_model.Apply(fill, occ);
 
   auto& singles = info.compat_access_stats.at(std::make_pair(1, 1));
-  BOOST_CHECK(singles.accesses == 2);
-  BOOST_CHECK(singles.hops == 4);
-
-  auto& doubles = info.compat_access_stats.at(std::make_pair(2, 1));
-  BOOST_CHECK(doubles.accesses == 4);
-  BOOST_CHECK(doubles.hops == 3.5);
+  BOOST_CHECK_CLOSE(singles.accesses, 6, 0.1);
+  BOOST_CHECK_CLOSE(singles.hops, 22.0/6, 0.1);
+  BOOST_CHECK_CLOSE(singles.unicast_hops, 4, 0.1);
 }
 
 BOOST_AUTO_TEST_CASE(TestSimpleMulticastModel_FlattenedCoords)
@@ -64,8 +62,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleMulticastModel_FlattenedCoords)
   auto info = multicast_model.Apply(fill, occ);
 
   auto& singles = info.compat_access_stats.at(std::make_pair(1, 1));
-  BOOST_CHECK(singles.accesses == 4);
-
-  auto& doubles = info.compat_access_stats.at(std::make_pair(2, 1));
-  BOOST_CHECK(doubles.accesses == 4);
+  BOOST_CHECK_CLOSE(singles.accesses, 6, 0.1);
+  BOOST_CHECK_CLOSE(singles.hops, 29.0/6, 0.1);
+  BOOST_CHECK_CLOSE(singles.unicast_hops, 32.0/6, 0.1);
 }
