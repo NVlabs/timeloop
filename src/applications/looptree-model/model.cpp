@@ -77,6 +77,8 @@ void ParseIslOccupancy(const config::CompoundConfigNode& node,
         workload.DataSpaceBound(dspace_name_to_id.at(dspace))
       )
     );
+    std::cout << "[OccMap] (" << dspace << "," << target << ") : " << isl_map_to_str(occ.map.copy())
+              << std::endl;
 
     analysis::TemporalReuseAnalysisOutput result =
       analysis::TemporalReuseAnalysis(
@@ -90,6 +92,8 @@ void ParseIslOccupancy(const config::CompoundConfigNode& node,
       );
 
     auto p_fill = result.fill.map.copy();
+    std::cout << "[FillMap] (" << dspace << "," << target << ") : " << isl_map_to_str(p_fill)
+              << std::endl;
     auto p_fill_count = isl_pw_qpolynomial_sum(isl_map_card(p_fill));
     double fill_count = isl::val_to_double(isl::get_val_from_singular(
       isl_pw_qpolynomial_copy(p_fill_count)
