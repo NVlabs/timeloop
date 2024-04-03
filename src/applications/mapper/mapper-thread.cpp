@@ -744,4 +744,6 @@ void MapperThread::Run()
       }
     }
   } // while ()
+
+  log_stream_<< "Total valid mappings evaluated: " << valid_mappings << std::endl;
 }
