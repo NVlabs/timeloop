@@ -54,7 +54,7 @@ class Factors
 
   unsigned long ISqrt_(unsigned long x);
 
-  void CalculateAllFactors_();
+  void CalculateAllFactors_(unsigned long of);
 
   // Return a vector of all order-way cofactor sets of n.
   std::vector<std::vector<unsigned long>> MultiplicativeSplitRecursive_(unsigned long n, int order);

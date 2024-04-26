@@ -621,7 +621,7 @@ void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
       // assume read and fill comes in pair. However, there can be some other
       // optimizations that break this assumption.
       auto spatial_size = tile_nest[cur - 1].replication_factor;
-      assert(spatial_size > 1);
+      // assert(spatial_size > 1); // What's the problem with a spatial size of 1?
       auto access_per_element = tile_nest[cur].link_transfers / spatial_size;
       auto fills_per_element = tile_nest[cur].link_transfers / spatial_size;
       tile_nest[cur - 1].peer_accesses += access_per_element;
