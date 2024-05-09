@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -84,7 +84,7 @@ class ArithmeticUnits : public Level
 
     void UpdateOpEnergyViaERT(const std::map<std::string, double>& ERT_entries, const double max_energy) override;
     void UpdateAreaViaART(const double component_area) override;
-    
+
     std::shared_ptr<LevelSpecs> Clone() const override
     {
       return std::static_pointer_cast<LevelSpecs>(std::make_shared<Specs>(*this));
@@ -93,7 +93,7 @@ class ArithmeticUnits : public Level
   };
 
 
-  
+
  private:
   Specs specs_;
 
@@ -124,7 +124,7 @@ class ArithmeticUnits : public Level
   template <class Archive>
   void serialize(Archive& ar, const unsigned int version = 0)
   {
-    ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(Level);    
+    ar & BOOST_SERIALIZATION_BASE_OBJECT_NVP(Level);
     if (version == 0)
     {
       ar& BOOST_SERIALIZATION_NVP(specs_);
@@ -139,12 +139,12 @@ class ArithmeticUnits : public Level
       ar& BOOST_SERIALIZATION_NVP(skipped_computes_);
     }
   }
-  
+
  public:
   ArithmeticUnits() { }
   ArithmeticUnits(const Specs & specs);
   ~ArithmeticUnits() { }
-  
+
   std::shared_ptr<Level> Clone() const override
   {
     return std::static_pointer_cast<Level>(std::make_shared<ArithmeticUnits>(*this));
@@ -170,7 +170,7 @@ class ArithmeticUnits : public Level
   std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
 
   void Print(std::ostream& out) const override;
-    
+
   // --- Unsupported overrides ---
   bool HardwareReductionSupported() override { return false; }
 
@@ -200,8 +200,14 @@ class ArithmeticUnits : public Level
   //   (void) break_on_failure;
   //   return { false, "ArithmeticLevel must use the HackEvaluate() function" };
   // }
-  
+
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
+  {
+    (void) pv;
+    return 0;
+  }
+
+  std::uint64_t ReadFillAccesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
   {
     (void) pv;
     return 0;
@@ -220,7 +226,7 @@ class ArithmeticUnits : public Level
     (void) pv;
     return 0;
   }
- 
+
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                       const double confidence_threshold, const std::uint64_t compute_cycles,
                       const bool break_on_failure) override
@@ -239,7 +245,7 @@ class ArithmeticUnits : public Level
     avg_utilized_instances_ = tile.compute_info.avg_replication_factor;
     utilized_x_expansion_ = tile.compute_info.max_x_expansion;
     utilized_y_expansion_ = tile.compute_info.max_y_expansion;
-    
+
     // std::cout << specs_.level_name <<": max x expansion: " << utilized_x_expansion_
     //  << "    max y expansion: " << utilized_y_expansion_ << std::endl;
 
@@ -249,23 +255,23 @@ class ArithmeticUnits : public Level
       std::ostringstream str;
       str << "mapped max Arithmetic instances " << utilized_instances_
           << " exceeds hardware instances " << specs_.instances.Get();
-      eval_status.fail_reason = str.str();   
+      eval_status.fail_reason = str.str();
     }
     else if (utilized_x_expansion_ > specs_.meshX.Get())
     {
       eval_status.success = false;
       std::ostringstream str;
-      str << "mapped max Arithmetic X expansion " << utilized_x_expansion_ 
+      str << "mapped max Arithmetic X expansion " << utilized_x_expansion_
           << " exceeds hardware instances " << specs_.meshX.Get();
-      eval_status.fail_reason = str.str();   
+      eval_status.fail_reason = str.str();
     }
     else if (utilized_y_expansion_ > specs_.meshY.Get())
     {
       eval_status.success = false;
       std::ostringstream str;
-      str << "mapped max Arithmetic Y expansion " << utilized_y_expansion_ 
+      str << "mapped max Arithmetic Y expansion " << utilized_y_expansion_
           << " exceeds hardware instances " << specs_.meshY.Get();
-      eval_status.fail_reason = str.str();   
+      eval_status.fail_reason = str.str();
     }
     else // legal case
     {
@@ -298,10 +304,10 @@ class ArithmeticUnits : public Level
       algorithmic_computes_ = tile.compute_info.replication_factor * tile.compute_info.accesses;
       is_evaluated_ = true;
     }
-    
+
     return eval_status;
   }
-  
+
   std::uint64_t AlgorithmicComputes() const
   {
     assert(is_evaluated_);

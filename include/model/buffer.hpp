@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -73,7 +73,7 @@ class BufferLevel : public Level
   //
 
  public:
-  
+
   // Memory technology (FIXME: separate latch arrays).
   enum class Technology { SRAM, DRAM };
   friend std::ostream& operator<<(std::ostream& out, const Technology& tech);
@@ -85,7 +85,7 @@ class BufferLevel : public Level
   {
     static const std::uint64_t kDefaultWordBits = 16;
     const std::string Type() const override { return "BufferLevel"; }
-    
+
     Attribute<std::string> name;
     Attribute<Technology> technology;
     Attribute<std::uint64_t> size;
@@ -95,7 +95,7 @@ class BufferLevel : public Level
     Attribute<std::uint64_t> addr_gen_bits;
     Attribute<std::uint64_t> block_size;
     Attribute<std::uint64_t> cluster_size;
-    Attribute<std::uint64_t> instances;    
+    Attribute<std::uint64_t> instances;
     Attribute<std::uint64_t> meshX;
     Attribute<std::uint64_t> meshY;
     Attribute<double> shared_bandwidth;
@@ -110,7 +110,7 @@ class BufferLevel : public Level
     Attribute<std::uint64_t> num_banks;
     Attribute<bool> reduction_supported;
 
-    // If the inner fill network is inferred, 
+    // If the inner fill network is inferred,
     // use the following fill and drain latency for the network
     Attribute<std::uint64_t> network_fill_latency;
     Attribute<std::uint64_t> network_drain_latency;
@@ -133,7 +133,7 @@ class BufferLevel : public Level
     Attribute<std::string> read_network_name;
     Attribute<std::string> fill_network_name;
     Attribute<std::string> drain_network_name;
-    Attribute<std::string> update_network_name;    
+    Attribute<std::string> update_network_name;
 
     // for ERT parsing
     std::map<std::string, double> ERT_entries;
@@ -152,7 +152,7 @@ class BufferLevel : public Level
     std::string storage_area_source;
 
     Attribute<bool> is_sparse_module;
-    
+
     // Serialization
     friend class boost::serialization::access;
 
@@ -169,7 +169,7 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(addr_gen_bits);
         ar& BOOST_SERIALIZATION_NVP(block_size);
         ar& BOOST_SERIALIZATION_NVP(cluster_size);
-        ar& BOOST_SERIALIZATION_NVP(instances);    
+        ar& BOOST_SERIALIZATION_NVP(instances);
         ar& BOOST_SERIALIZATION_NVP(meshX);
         ar& BOOST_SERIALIZATION_NVP(meshY);
         ar& BOOST_SERIALIZATION_NVP(shared_bandwidth);
@@ -196,7 +196,7 @@ class BufferLevel : public Level
     void UpdateOpEnergyViaERT(const std::map<std::string, double>& ERT_entries, const double max_energy) override;
     void UpdateAreaViaART(const double component_area) override;
   };
-  
+
   //
   // Stats.
   //
@@ -233,7 +233,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<bool> compressed;
     //problem::PerDataSpace<std::uint64_t> metadata_tile_size;
     problem::PerDataSpace<std::vector<std::vector<std::uint64_t>>> metadata_tile_size;
-    
+
     problem::PerDataSpace<std::uint64_t> metadata_tile_size_bits;
     problem::PerDataSpace<std::string> metadata_format;
     problem::PerDataSpace<double> tile_confidence;
@@ -243,7 +243,7 @@ class BufferLevel : public Level
     problem::PerDataSpace<double> format_shared_bandwidth_ratio;
     problem::PerDataSpace<double> format_read_bandwidth_ratio;
     problem::PerDataSpace<double> format_write_bandwidth_ratio;
-    
+
     // fine-grained action stats
     problem::PerDataSpace<std::map<std::string, std::uint64_t>> fine_grained_scalar_accesses;
     problem::PerDataSpace<std::map<std::string, tiling::PerTileFormatAccesses>> fine_grained_format_scalar_accesses;
@@ -270,11 +270,11 @@ class BufferLevel : public Level
     problem::PerDataSpace<tiling::PerTileFormatAccesses> random_format_fills;
     problem::PerDataSpace<tiling::PerTileFormatAccesses> skipped_format_fills;
     problem::PerDataSpace<tiling::PerTileFormatAccesses> gated_format_fills;
- 
+
     problem::PerDataSpace<tiling::PerTileFormatAccesses> random_format_updates;
     problem::PerDataSpace<tiling::PerTileFormatAccesses> skipped_format_updates;
     problem::PerDataSpace<tiling::PerTileFormatAccesses> gated_format_updates;
-       
+
     //problem::PerDataSpace<std::uint64_t> metadata_reads;
     //problem::PerDataSpace<std::uint64_t> random_metadata_reads;
     //problem::PerDataSpace<std::uint64_t> gated_metadata_reads;
@@ -310,7 +310,7 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(reads);
         ar& BOOST_SERIALIZATION_NVP(updates);
         ar& BOOST_SERIALIZATION_NVP(fills);
-        
+
         // fine grained accesses
         ar& BOOST_SERIALIZATION_NVP(gated_reads);
         ar& BOOST_SERIALIZATION_NVP(skipped_reads);
@@ -323,7 +323,7 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(gated_updates);
         ar& BOOST_SERIALIZATION_NVP(skipped_updates);
         ar& BOOST_SERIALIZATION_NVP(random_updates);
-       
+
         ar& BOOST_SERIALIZATION_NVP(random_format_reads);
         ar& BOOST_SERIALIZATION_NVP(gated_format_reads);
         ar& BOOST_SERIALIZATION_NVP(skipped_format_reads);
@@ -335,7 +335,7 @@ class BufferLevel : public Level
         ar& BOOST_SERIALIZATION_NVP(random_format_updates);
         ar& BOOST_SERIALIZATION_NVP(gated_format_updates);
         ar& BOOST_SERIALIZATION_NVP(skipped_format_updates);
-        
+
         ar& BOOST_SERIALIZATION_NVP(decompression_counts);
         ar& BOOST_SERIALIZATION_NVP(compression_counts);
 
@@ -361,7 +361,7 @@ class BufferLevel : public Level
   //
   // Data
   //
-  
+
  private:
 
   std::vector<loop::Descriptor> subnest_;
@@ -438,7 +438,7 @@ class BufferLevel : public Level
 
   Specs& GetSpecs() { return specs_; }
   Stats& GetStats() { return stats_;}
-  
+
   bool HardwareReductionSupported() override;
 
   // Connect to networks.
@@ -448,7 +448,7 @@ class BufferLevel : public Level
   void ConnectDrain(std::shared_ptr<Network> network);
   std::shared_ptr<Network> GetReadNetwork() { return network_read_; }
   std::shared_ptr<Network> GetUpdateNetwork() { return network_update_; }
- 
+
   // Evaluation functions.
   EvalStatus PreEvaluationCheck(const problem::PerDataSpace<std::size_t> working_set_sizes,
                                 const tiling::CompoundMask mask,
@@ -469,13 +469,14 @@ class BufferLevel : public Level
 
   // Accessors (post-evaluation).
   double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
- 
+
   std::string Name() const override;
   double Area() const override;
   double AreaPerInstance() const override;
   double Size() const;
   std::uint64_t Cycles() const override;
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
+  std::uint64_t ReadFillAccesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   double CapacityUtilization() const override;
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
   std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;

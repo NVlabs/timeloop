@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -46,12 +46,12 @@ struct EvalStatus
 struct LevelSpecs
 {
   virtual ~LevelSpecs() { }
-  
+
   virtual std::shared_ptr<LevelSpecs> Clone() const = 0;
 
   virtual const std::string Type() const = 0;
-  virtual void UpdateOpEnergyViaERT(const std::map<std::string, double>& ERT_entries, const double max_energy) = 0; 
-  virtual void UpdateAreaViaART(const double component_area) = 0;  
+  virtual void UpdateOpEnergyViaERT(const std::map<std::string, double>& ERT_entries, const double max_energy) = 0;
+  virtual void UpdateAreaViaART(const double component_area) = 0;
 
   std::string level_name;
 
@@ -91,22 +91,23 @@ class Level : public Module
   virtual EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                               const double confidence_threshold, const std::uint64_t compute_cycles,
                               const bool break_on_failure) = 0;
-  
+
   virtual double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
-  
+
   virtual std::string Name() const = 0;
   virtual double Area() const = 0;
   virtual double AreaPerInstance() const = 0;
   virtual std::uint64_t Cycles() const = 0;
   virtual std::uint64_t Accesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
+  virtual std::uint64_t ReadFillAccesses(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   virtual double CapacityUtilization() const = 0;
   virtual std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   virtual std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
   virtual std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const = 0;
-  
+
   virtual void Print(std::ostream& out) const = 0;
   friend std::ostream& operator << (std::ostream& out, const Level& level);
-  
+
   // Serialization
   friend class boost::serialization::access;
 
@@ -115,7 +116,7 @@ class Level : public Module
   {
     (void) ar;
     (void) version;
-  } 
+  }
 };
 
 BOOST_SERIALIZATION_ASSUME_ABSTRACT(Level)

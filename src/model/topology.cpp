@@ -1475,6 +1475,7 @@ void Topology::ComputeStats(bool eval_success)
 
     // Last-level accesses.
     stats_.last_level_accesses = GetStorageLevel(NumStorageLevels()-1)->Accesses();
+    stats_.last_level_readfill_accesses = GetStorageLevel(NumStorageLevels()-1)->ReadFillAccesses();
 
     // All accesses.
     for (unsigned i = 0; i < NumStorageLevels(); i++)
@@ -1489,6 +1490,7 @@ void Topology::ComputeStats(bool eval_success)
       }
       stats_.per_tensor_accesses.push_back(pta);
       stats_.accesses.push_back(GetStorageLevel(i)->Accesses());
+      stats_.readfill_accesses.push_back(GetStorageLevel(i)->ReadFillAccesses());
     }
 
   } // eval_success

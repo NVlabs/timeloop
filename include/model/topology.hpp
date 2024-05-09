@@ -198,7 +198,9 @@ class Topology : public Module
     std::uint64_t algorithmic_computes;
     std::uint64_t actual_computes;
     std::uint64_t last_level_accesses;
+    std::uint64_t last_level_readfill_accesses;
     std::vector<std::uint64_t> accesses;
+    std::vector<std::uint64_t> readfill_accesses;
     // FIXME: the following stat should be typed
     // std::vector<problem::PerDataSpace<std::uint64_t>>. However, we do
     // not yet have a PyBind11 wrapper around PerDataSpace<> in PyTimeloop,
@@ -217,6 +219,7 @@ class Topology : public Module
       algorithmic_computes = 0;
       actual_computes = 0;
       last_level_accesses = 0;
+      last_level_readfill_accesses = 0;
       accesses.clear();
       per_tensor_accesses.clear();
     }
@@ -341,6 +344,7 @@ class Topology : public Module
   std::uint64_t AlgorithmicComputes() const { return stats_.algorithmic_computes; }
   std::uint64_t ActualComputes() const { return stats_.actual_computes; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
+  std::uint64_t LastLevelReadFillAccesses() const { return stats_.last_level_readfill_accesses; }
   void PrintOAVES(std::ostream& out, Mapping& mapping, bool log_oaves_mappings, std::string oaves_prefix, unsigned thread_id) const;
   void OutputOAVESMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const;
 

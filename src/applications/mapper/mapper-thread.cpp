@@ -76,6 +76,15 @@ static double Cost(const model::Topology::Stats& stats, const std::string metric
     unsigned level = unsigned(atoi(metric.substr(9).c_str()));
     cost = stats.accesses.at(level);
   }
+  else if (metric == "last-level-readfill-accesses")
+  {
+    cost = stats.last_level_readfill_accesses;
+  }
+  else if (metric.compare(0, 9, "readfill-accesses-") == 0)
+  {
+    unsigned level = unsigned(atoi(metric.substr(9).c_str()));
+    cost = stats.readfill_accesses.at(level);
+  }
   else
   {
     assert(metric == "edp");
