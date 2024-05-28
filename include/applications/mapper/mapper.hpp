@@ -44,7 +44,10 @@
 //                Application                 //
 //--------------------------------------------//
 
-class Application
+namespace application
+{
+
+class Mapper
 {
  public:
   std::string name_;
@@ -93,18 +96,19 @@ class Application
 
  public:
 
-  Application(config::CompoundConfig* config,
-              std::string output_dir = ".",
-              std::string name = "timeloop-mapper");
+  Mapper(config::CompoundConfig* config,
+         std::string output_dir = ".",
+         std::string name = "timeloop-mapper");
 
   // This class does not support being copied
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
+  Mapper(const Mapper&) = delete;
+  Mapper& operator=(const Mapper&) = delete;
 
-  ~Application();
+  ~Mapper();
 
   EvaluationResult GetGlobalBest();
 
   void Run();
 };
 
+} // namespace application

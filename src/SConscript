@@ -307,6 +307,19 @@ unit-tests/test-multicast.cpp
 unit-tests/test-simple-link-transfer.cpp
 """)
 
+application_sources = Split("""
+applications/model/model.cpp
+applications/mapper/mapper.cpp
+applications/mapper/mapper-thread.cpp
+""")
+
+if GetOption('link_static'):
+    lib_applications_static = libenv.StaticLibrary(target = 'timeloop-applications', source = application_sources)
+    libenv.Install(env['BUILD_BASE_DIR'] + '/lib', [ lib_applications_static ])
+else:
+    lib_applications_shared = libenv.SharedLibrary(target = 'timeloop-applications', source = application_sources)
+    libenv.Install(env['BUILD_BASE_DIR'] + '/lib', [ lib_applications_shared ])
+
 bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
 bin_model = env.Program(target = 'timeloop-model', source = model_sources)
 bin_simple_mapper = env.Program(target = 'timeloop-simple-mapper', source = simple_mapper_sources)

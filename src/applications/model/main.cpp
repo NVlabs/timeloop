@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
 
   auto config = new config::CompoundConfig(input_files);
 
-  Application application(config, output_dir);
+  application::Model application(config, output_dir);
   
   application.Run();
 

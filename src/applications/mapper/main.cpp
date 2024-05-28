@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
   }
   std::cout << std::endl;
   
-  Application application(config, output_dir);
+  application::Mapper application(config, output_dir);
   
   application.Run();
 

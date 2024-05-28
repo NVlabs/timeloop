@@ -46,7 +46,10 @@
 //                Application                 //
 //--------------------------------------------//
 
-class Application
+namespace application
+{
+
+class Model
 {
  public:
   std::string name_;
@@ -92,17 +95,19 @@ class Application
 
  public:
 
-  Application(config::CompoundConfig* config,
-              std::string output_dir = ".",
-              std::string name = "timeloop-model");
+  Model(config::CompoundConfig* config,
+        std::string output_dir = ".",
+        std::string name = "timeloop-model");
 
   // This class does not support being copied
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
+  Model(const Model&) = delete;
+  Model& operator=(const Model&) = delete;
 
-  ~Application();
+  ~Model();
 
   // Run the evaluation.
   Stats Run();
 };
 
+
+} // namespace application
