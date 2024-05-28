@@ -36,8 +36,11 @@
 //                Application                 //
 //--------------------------------------------//
 
+namespace application
+{
+
 template <class Archive>
-void Application::serialize(Archive& ar, const unsigned int version)
+void Model::serialize(Archive& ar, const unsigned int version)
 {
   if (version == 0)
   {
@@ -45,9 +48,9 @@ void Application::serialize(Archive& ar, const unsigned int version)
   }
 }
 
-Application::Application(config::CompoundConfig* config,
-                         std::string output_dir,
-                         std::string name) :
+Model::Model(config::CompoundConfig* config,
+             std::string output_dir,
+             std::string name) :
     name_(name)
 {    
   auto rootNode = config->getRoot();
@@ -183,7 +186,7 @@ Application::Application(config::CompoundConfig* config,
   }
 }
 
-Application::~Application()
+Model::~Model()
 {
   if (mapping_)
     delete mapping_;
@@ -199,7 +202,7 @@ Application::~Application()
 }
 
 // Run the evaluation.
-Application::Stats Application::Run()
+Model::Stats Model::Run()
 {
   // Output file names.
   std::string stats_file_name = out_prefix_ + ".stats.txt";
@@ -285,7 +288,7 @@ Application::Stats Application::Run()
   boost::archive::xml_oarchive ar(ofs);
   ar << BOOST_SERIALIZATION_NVP(engine);
   ar << BOOST_SERIALIZATION_NVP(mapping);
-  const Application* a = this;
+  const Model* a = this;
   ar << BOOST_SERIALIZATION_NVP(a);
 
   // Print the mapping in Tenssella input format.
@@ -297,3 +300,5 @@ Application::Stats Application::Run()
   stats.energy = engine.Energy();
   return stats;
 }
+
+} // namespace application

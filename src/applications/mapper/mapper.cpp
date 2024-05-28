@@ -39,8 +39,11 @@
 //                Application                 //
 //--------------------------------------------//
 
+namespace application
+{
+
 template <class Archive>
-void Application::serialize(Archive& ar, const unsigned int version)
+void Mapper::serialize(Archive& ar, const unsigned int version)
 {
   if(version == 0)
   {
@@ -48,9 +51,9 @@ void Application::serialize(Archive& ar, const unsigned int version)
   }
 }
 
-Application::Application(config::CompoundConfig* config,
-                         std::string output_dir,
-                         std::string name) :
+Mapper::Mapper(config::CompoundConfig* config,
+               std::string output_dir,
+               std::string name) :
     name_(name)
 {
   auto rootNode = config->getRoot();
@@ -297,7 +300,7 @@ Application::Application(config::CompoundConfig* config,
 
 }
 
-Application::~Application()
+Mapper::~Mapper()
 {
   if (mapspace_)
   {
@@ -318,7 +321,7 @@ Application::~Application()
   }
 }
 
-EvaluationResult Application::GetGlobalBest()
+EvaluationResult Mapper::GetGlobalBest()
 {
   return global_best_;
 }
@@ -326,7 +329,7 @@ EvaluationResult Application::GetGlobalBest()
 // ---------------
 // Run the mapper.
 // ---------------
-void Application::Run()
+void Mapper::Run()
 {
   // Output file names.
   std::string log_file_name = out_prefix_ + ".log";
@@ -590,7 +593,7 @@ void Application::Run()
     boost::archive::xml_oarchive ar(ofs);
     ar << boost::serialization::make_nvp("engine", engine);
     ar << boost::serialization::make_nvp("mapping", global_best_.mapping);
-    const Application* a = this;
+    const Mapper* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
 
     // Print the mapping in Tenssella input format.
@@ -697,3 +700,5 @@ void Application::Run()
     config.writeFile(map_cfg_file_name.c_str());
   }
 }
+
+} // namespace application
