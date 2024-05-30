@@ -620,7 +620,7 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
       // Format the mapping filename as <utilization>_<thread_id>_<mapping_hash>.yaml
       std::hash<std::string> hasher;
       size_t hash = hasher(mapping.PrintCompact());
-      oaves_mapping_ss << oaves_prefix << "." << total_utilization << "_" << thread_id << "_" << std::hex << hash << ".yaml";
+      oaves_mapping_ss << oaves_prefix << "." << thread_id << "_" << std::hex << hash << ".yaml";
       std::string oaves_map_yaml_file_name = oaves_mapping_ss.str();
       out << "," << oaves_map_yaml_file_name;
       OutputOAVESMappingYAML(mapping, oaves_map_yaml_file_name);
@@ -643,6 +643,13 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
       auto pv = problem::Shape::DataSpaceID(pvi);
       out << "," << GetStorageLevel(last_storage_level_id)->Accesses(pv);
     }
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+    {
+      auto pv = problem::Shape::DataSpaceID(pvi);
+      out << "," << GetStorageLevel(last_storage_level_id)->ReadFillAccesses(pv);
+    }
+    out << "," << GetStorageLevel(last_storage_level_id)->ReadFillAccesses();
+
     out << std::endl;
   }
 }
