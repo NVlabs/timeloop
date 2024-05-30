@@ -1724,8 +1724,8 @@ STAT_ACCESSOR(double, BufferLevel, Energy,
               TemporalReductionEnergy(pv) +
               AddrGenEnergy(pv))
 
-STAT_ACCESSOR(std::uint64_t, BufferLevel, Accesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv)))
-STAT_ACCESSOR(std::uint64_t, BufferLevel, ReadFillAccesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.fills.at(pv)))
+STAT_ACCESSOR_MODIFIED(std::uint64_t, BufferLevel, Accesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv)))
+STAT_ACCESSOR(std::uint64_t, BufferLevel, ReadFillAccesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.fills.at(pv))) //  * specs_.word_bits.Get() / 8)
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedCapacity, stats_.utilized_capacity.at(pv))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, TileSize, stats_.tile_size.at(pv))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedInstances, stats_.utilized_instances.at(pv))

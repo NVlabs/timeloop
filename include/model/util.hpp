@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -56,9 +56,38 @@ Type FuncName(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpace
   }                                                                                   \
 }
 
+#define STAT_ACCESSOR_BODY_MODIFIED(Type, FuncName, Expression)                                \
+{                                                                                     \
+  if (pv != problem::GetShape()->NumDataSpaces)                                       \
+  {                                                                                   \
+    if (pv == 2)                                                                      \
+        return Expression * 1;                                                            \
+    else                                                                              \
+        return Expression;                                                            \
+  }                                                                                   \
+  else                                                                                \
+  {                                                                                   \
+    Type stat = 0;                                                                    \
+    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) \
+    {                                                                                 \
+      if (pvi == 2)                                                                   \
+         stat += FuncName(problem::Shape::DataSpaceID(pvi)) * 1;                      \
+      else                                                                            \
+         stat += FuncName(problem::Shape::DataSpaceID(pvi));                          \
+    }                                                                                 \
+    return stat;                                                                      \
+  }                                                                                   \
+}
+
+
 #define STAT_ACCESSOR(Type, Class, FuncName, Expression)                              \
   STAT_ACCESSOR_HEADER_QUALIFIED(Type, Class, FuncName)                               \
   STAT_ACCESSOR_BODY(Type, FuncName, Expression)
+
+#define STAT_ACCESSOR_MODIFIED(Type, Class, FuncName, Expression)                              \
+  STAT_ACCESSOR_HEADER_QUALIFIED(Type, Class, FuncName)                               \
+  STAT_ACCESSOR_BODY_MODIFIED(Type, FuncName, Expression)
+
 
 #define STAT_ACCESSOR_INLINE(Type, FuncName, Expression)                              \
   STAT_ACCESSOR_HEADER(Type, FuncName)                                                \
