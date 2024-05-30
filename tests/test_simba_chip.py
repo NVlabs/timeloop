@@ -317,5 +317,5 @@ def parse_timeloop_mapping(dirname):
     return mapping
 
 
-top(range(0,150))
+top(range(0,len(inference_server_set)))
 print("ALL TESTS PASSED.")
