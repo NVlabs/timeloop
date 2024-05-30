@@ -451,6 +451,19 @@ void MapperThread::Run()
         mutex_->lock();
         // Print performance and log the optimal mappings
         topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
+
+        if (log_oaves_mappings_)
+        {
+            std::hash<std::string> hasher;
+
+            size_t hash = hasher(index_factor_best.mapping.PrintCompact());
+            std::stringstream oaves_mapping_ss;
+            oaves_mapping_ss << oaves_prefix_ << "." << thread_id_ << "_" << std::hex << hash << ".stats.txt";
+            std::string oaves_stats_file_name = oaves_mapping_ss.str();
+            std::ofstream stats_file(oaves_stats_file_name);
+            stats_file << engine << std::endl;
+            stats_file.close();
+        }
         mutex_->unlock();
       }
 
@@ -635,6 +648,20 @@ void MapperThread::Run()
 
         // Print performance and log the optimal mappings
         topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
+
+        if (log_oaves_mappings_)
+        {
+            std::hash<std::string> hasher;
+
+            size_t hash = hasher(index_factor_best.mapping.PrintCompact());
+            std::stringstream oaves_mapping_ss;
+            oaves_mapping_ss << oaves_prefix_ << "." << thread_id_ << "_" << std::hex << hash << ".stats.txt";
+            std::string oaves_stats_file_name = oaves_mapping_ss.str();
+            std::ofstream stats_file(oaves_stats_file_name);
+            stats_file << engine << std::endl;
+            stats_file.close();
+        }
+
         mutex_->unlock();
 
         // Only print one valid mapping stat if the tiling size is 0 in the inner levels
