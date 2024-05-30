@@ -58,6 +58,11 @@ class Model
   {
     double energy;
     double cycles;
+
+    std::string stats_string;
+    std::string map_string;
+    std::string xml_map_and_stats_string;
+    std::string tensella_string;
   };
 
  protected:
