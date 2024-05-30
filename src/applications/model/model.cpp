@@ -204,12 +204,6 @@ Model::~Model()
 // Run the evaluation.
 Model::Stats Model::Run()
 {
-  // Output file names.
-  std::string stats_file_name = out_prefix_ + ".stats.txt";
-  std::string xml_file_name = out_prefix_ + ".map+stats.xml";
-  std::string map_txt_file_name = out_prefix_ + ".map.txt";
-  std::string map_tenssella_file_name = out_prefix_ + ".map.tenssella.txt";
-
   model::Engine engine;
   engine.Spec(arch_specs_);
 
@@ -258,6 +252,8 @@ Model::Stats Model::Run()
   //   return;
   // }
 
+  std::stringstream map_txt;
+  std::stringstream stats_txt;
   if (engine.IsEvaluated())
   {
     if (!sparse_optimizations_->no_optimization_applied)
@@ -274,28 +270,33 @@ Model::Stats Model::Run()
                  << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().ActualComputes() << std::endl;
     }
-    std::ofstream map_txt_file(map_txt_file_name);
-    mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());
-    map_txt_file.close();
 
-    std::ofstream stats_file(stats_file_name);
-    stats_file << engine << std::endl;
-    stats_file.close();
+    mapping.PrettyPrint(map_txt,
+                        arch_specs_.topology.StorageLevelNames(),
+                        engine.GetTopology().UtilizedCapacities(),
+                        engine.GetTopology().TileSizes());
+
+    stats_txt << engine << std::endl;
   }
 
   // Print the engine stats and mapping to an XML file
-  std::ofstream ofs(xml_file_name);
-  boost::archive::xml_oarchive ar(ofs);
+  std::stringstream xml_str;
+  boost::archive::xml_oarchive ar(xml_str);
   ar << BOOST_SERIALIZATION_NVP(engine);
   ar << BOOST_SERIALIZATION_NVP(mapping);
   const Model* a = this;
   ar << BOOST_SERIALIZATION_NVP(a);
 
   // Print the mapping in Tenssella input format.
-  std::ofstream tenssella_out(map_tenssella_file_name);
+  std::stringstream tenssella_out;
   mapping.PrintTenssella(tenssella_out);
 
   Stats stats;
+  stats.map_string = map_txt.str();
+  stats.stats_string = stats_txt.str();
+  stats.xml_map_and_stats_string = xml_str.str();
+  stats.tensella_string = tenssella_out.str();
+
   stats.cycles = engine.Cycles();
   stats.energy = engine.Energy();
   return stats;
