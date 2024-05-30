@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -48,10 +48,10 @@ ArithmeticUnits::ArithmeticUnits(const Specs& specs) :
 
 void ArithmeticUnits::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double>& ert_entries, const double max_energy)
 {
-  
+
   energy_per_op = max_energy;
   ERT_entries = ert_entries;
-  
+
   for (unsigned op_id = 0; op_id < tiling::arithmeticOperationTypes.size(); op_id++)
   {
     // go through all op types
@@ -73,7 +73,7 @@ void ArithmeticUnits::Specs::UpdateOpEnergyViaERT(const std::map<std::string, do
 
 void ArithmeticUnits::Specs::UpdateAreaViaART(const double component_area)
 {
-  area = component_area;   
+  area = component_area;
 }
 
 ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode setting, std::uint64_t nElements, bool is_sparse_module)
@@ -90,9 +90,9 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
     setting = setting.lookup("attributes");
   }
 
-  // Sparse Architecture's Module 
+  // Sparse Architecture's Module
   specs.is_sparse_module = is_sparse_module;
-  
+
   // Instances.
   unsigned long long instances;
   if (!setting.lookupValue("instances", instances))
@@ -150,20 +150,20 @@ ArithmeticUnits::Specs ArithmeticUnits::ParseSpecs(config::CompoundConfigNode se
   // Energy (override).
   int energy_int;
   double energy;
-  if (setting.lookupValue("energy", energy_int))
-  {
-    specs.energy_per_op = static_cast<double>(energy_int);
-  }
-  else if (setting.lookupValue("energy", energy))
+  if (setting.lookupValue("energy", energy))
   {
     specs.energy_per_op = energy;
+  }
+  else if (setting.lookupValue("energy", energy_int))
+  {
+    specs.energy_per_op = static_cast<double>(energy_int);
   }
   else
   {
     specs.energy_per_op =
       pat::MultiplierEnergy(specs.word_bits.Get(), specs.word_bits.Get());
   }
-    
+
   // Area (override).
   int area_int;
   double area;
@@ -234,7 +234,7 @@ void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
     {
       // Only Instances is specified.
       specs.meshX = specs.instances.Get();
-      specs.meshY = 1;      
+      specs.meshY = 1;
     }
   }
   else if (specs.meshX.IsSpecified())
@@ -266,7 +266,7 @@ void ArithmeticUnits::ValidateTopology(ArithmeticUnits::Specs& specs)
     std::cerr << "ERROR: " << specs.level_name
               << ": instances and/or meshX * meshY must be specified."
               << std::endl;
-    exit(1);        
+    exit(1);
   }
 }
 
@@ -281,7 +281,7 @@ void ArithmeticUnits::ConnectResult(std::shared_ptr<Network> network)
 {
   network_result_ = network;
 }
-  
+
 // Accessors.
 
 std::string ArithmeticUnits::Name() const
@@ -327,7 +327,7 @@ void ArithmeticUnits::Print(std::ostream& out) const
   std::string indent = "    ";
 
   // Print level name.
-  out << "=== " << specs_.name << " ===" << std::endl;  
+  out << "=== " << specs_.name << " ===" << std::endl;
   out << std::endl;
 
   // Print specs.
@@ -343,7 +343,7 @@ void ArithmeticUnits::Print(std::ostream& out) const
   out << indent << "STATS" << std::endl;
   out << indent << "-----" << std::endl;
   if (specs_.is_sparse_module.Get())
-  {  
+  {
     out << indent << "Utilized instances (max)     : " << UtilizedInstances() << std::endl;
     out << indent << "Utilized instances (average) : " << avg_utilized_instances_ << std::endl;
     out << indent << "Cycles                       : " << Cycles() << std::endl;
