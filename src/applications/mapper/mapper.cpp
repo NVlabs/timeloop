@@ -329,23 +329,15 @@ EvaluationResult Mapper::GetGlobalBest()
 // ---------------
 // Run the mapper.
 // ---------------
-void Mapper::Run()
+Mapper::Result Mapper::Run()
 {
   // Output file names.
   std::string log_file_name = out_prefix_ + ".log";
-  std::string stats_file_name = out_prefix_ + ".stats.txt";
-  std::string xml_file_name = out_prefix_ + ".map+stats.xml";
-  std::string map_txt_file_name = out_prefix_ + ".map.txt";
-  std::string map_yaml_file_name = out_prefix_ + ".map.yaml";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
-  std::string map_cpp_file_name = out_prefix_ + ".map.cpp";
-  std::string map_tenssella_file_name = out_prefix_ + ".map.tenssella.txt";
-  std::string oaves_prefix = out_prefix_ + ".oaves";
-  std::string oaves_csv_file_name = oaves_prefix + ".csv";
 
   // Prepare live status/log stream.
   std::ofstream log_file;
-  std::ofstream oaves_csv_file(oaves_csv_file_name);
+  std::stringstream oaves_stream;
 
   // std::streambuf* streambuf_cout = std::cout.rdbuf();
   std::streambuf* streambuf_cerr = std::cerr.rdbuf();
@@ -399,7 +391,7 @@ void Mapper::Run()
                                         log_stats_,
                                         log_suboptimal_,
                                         live_status_ ? log_file : std::cerr,
-                                        oaves_csv_file,
+                                        oaves_stream,
                                         oaves_prefix,
                                         live_status_,
                                         diagnostics_on_,
@@ -534,13 +526,17 @@ void Mapper::Run()
     threads_.at(t) = nullptr;
   }
 
+  std::stringstream map_txt_str;
+  std::stringstream map_yaml_str;
+  std::stringstream map_cpp_str;
+  std::stringstream stats_str;
+  std::stringstream xml_map_stats_str;
+  std::stringstream tensella_str;
   if (global_best_.valid)
   {
-    std::ofstream map_txt_file(map_txt_file_name);
-    global_best_.mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(),
+    global_best_.mapping.PrettyPrint(map_txt_str, arch_specs_.topology.StorageLevelNames(),
                                      global_best_.stats.utilized_capacities,
                                      global_best_.stats.tile_sizes);
-    map_txt_file.close();
 
     // std::ofstream map_yaml_file(map_yaml_file_name);
     // global_best_.mapping.PrintAsConstraints(map_yaml_file_name);
@@ -552,18 +548,13 @@ void Mapper::Run()
     engine.Spec(arch_specs_);
     engine.Evaluate(global_best_.mapping, workload_, sparse_optimizations_);
 
-    std::ofstream stats_file(stats_file_name);
-    stats_file << engine << std::endl;
-    stats_file.close();
-    oaves_csv_file.close();
+    stats_str << engine << std::endl;
 
     if (emit_whoop_nest_)
     {
-      std::ofstream map_cpp_file(map_cpp_file_name);
-      global_best_.mapping.PrintWhoopNest(map_cpp_file, arch_specs_.topology.StorageLevelNames(),
+      global_best_.mapping.PrintWhoopNest(map_cpp_str, arch_specs_.topology.StorageLevelNames(),
                                           global_best_.stats.tile_sizes,
                                           global_best_.stats.utilized_instances);
-      map_cpp_file.close();
     }
 
     std::cout << std::endl;
@@ -589,16 +580,14 @@ void Mapper::Run()
     }
 
     // Print the engine stats and mapping to an XML file
-    std::ofstream ofs(xml_file_name);
-    boost::archive::xml_oarchive ar(ofs);
+    boost::archive::xml_oarchive ar(xml_map_stats_str);
     ar << boost::serialization::make_nvp("engine", engine);
     ar << boost::serialization::make_nvp("mapping", global_best_.mapping);
     const Mapper* a = this;
     ar << BOOST_SERIALIZATION_NVP(a);
 
     // Print the mapping in Tenssella input format.
-    std::ofstream tenssella_out(map_tenssella_file_name);
-    global_best_.mapping.PrintTenssella(tenssella_out);
+    global_best_.mapping.PrintTenssella(tensella_str);
   }
   else
   {
@@ -692,13 +681,20 @@ void Mapper::Run()
   }
 #endif
   if (!cfg_string_) {
-    std::ofstream mapping_output_file;
-    mapping_output_file.open(map_yaml_file_name.c_str());
-    mapping_output_file << yaml_out.c_str();
-    mapping_output_file.close();
+    map_yaml_str << yaml_out.c_str();
   } else {
     config.writeFile(map_cfg_file_name.c_str());
   }
+
+  Result result;
+  result.mapping_cpp_string = map_cpp_str.str();
+  result.mapping_yaml_string = map_yaml_str.str();
+  result.mapping_string = map_txt_str.str();
+  result.stats_string = stats_str.str();
+  result.tensella_string = tensella_str.str();
+  result.xml_mapping_stats_string = xml_map_stats_str.str();
+
+  return result;
 }
 
 } // namespace application
