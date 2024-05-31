@@ -52,6 +52,22 @@ class Mapper
  public:
   std::string name_;
 
+  /**
+   * @brief Contains string versions of the output that used to print to file
+   *   during a call to `Run()`. Instead, this is returned so that `main()` can
+   *   print to file instead.
+   */
+  struct Result
+  {
+    std::string mapping_cpp_string;
+    std::string mapping_yaml_string;
+    std::string mapping_string;
+    std::string stats_string;
+    std::string tensella_string;
+    std::string xml_mapping_stats_string;
+    std::string oaves_string;
+  };
+
  protected:
 
   problem::Workload workload_;
@@ -108,7 +124,7 @@ class Mapper
 
   EvaluationResult GetGlobalBest();
 
-  void Run();
+  Mapper::Result Run();
 };
 
 } // namespace application
