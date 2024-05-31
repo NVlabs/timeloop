@@ -217,6 +217,7 @@ mapping/mapping.cpp
 mapping/parser.cpp
 mapping/arch-properties.cpp
 mapping/constraints.cpp
+applications/model/model.cpp
 """)
 
 mapspace_sources = Split("""
@@ -236,7 +237,15 @@ search/random-pruned.cpp
 search/random.cpp
 """)
 
-mapperlib_sources = modellib_sources + mapspace_sources + search_sources
+mapper_application_sources = Split("""
+applications/mapper/mapper.cpp
+applications/mapper/mapper-thread.cpp
+""")
+
+mapperlib_sources = (modellib_sources +
+                     mapspace_sources +
+                     search_sources +
+                     mapper_application_sources)
 
 libenv = env.Clone()
 
@@ -273,8 +282,6 @@ applications/model/main.cpp
 """)
 
 mapper_sources = Split("""
-applications/mapper/mapper.cpp
-applications/mapper/mapper-thread.cpp
 applications/mapper/main.cpp
 """)
 
@@ -312,13 +319,6 @@ applications/model/model.cpp
 applications/mapper/mapper.cpp
 applications/mapper/mapper-thread.cpp
 """)
-
-if GetOption('link_static'):
-    lib_applications_static = libenv.StaticLibrary(target = 'timeloop-applications', source = application_sources)
-    libenv.Install(env['BUILD_BASE_DIR'] + '/lib', [ lib_applications_static ])
-else:
-    lib_applications_shared = libenv.SharedLibrary(target = 'timeloop-applications', source = application_sources)
-    libenv.Install(env['BUILD_BASE_DIR'] + '/lib', [ lib_applications_shared ])
 
 bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
 bin_model = env.Program(target = 'timeloop-model', source = model_sources)
