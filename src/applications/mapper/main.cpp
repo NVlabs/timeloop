@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
   const auto result = application.Run();
 
   // Output file names.
-  std::string out_prefix = output_dir + "timeloop-mapper";
+  std::string out_prefix = output_dir + "/" + "timeloop-mapper";
 
   const auto fname_to_string = std::map<std::string, const std::string&>({
     {"stats.txt", result.stats_string},
