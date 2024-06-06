@@ -334,6 +334,7 @@ Mapper::Result Mapper::Run()
   // Output file names.
   std::string log_file_name = out_prefix_ + ".log";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
+  std::string oaves_prefix = out_prefix_ + ".oaves";
 
   // Prepare live status/log stream.
   std::ofstream log_file;
@@ -693,6 +694,7 @@ Mapper::Result Mapper::Run()
   result.stats_string = stats_str.str();
   result.tensella_string = tensella_str.str();
   result.xml_mapping_stats_string = xml_map_stats_str.str();
+  result.oaves_string = oaves_stream.str();
 
   return result;
 }

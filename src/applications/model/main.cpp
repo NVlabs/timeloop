@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
   const auto stats = application.Run();
 
   // Output file names.
-  std::string out_prefix = output_dir + "timeloop-model";
+  std::string out_prefix = output_dir + "/" + "timeloop-model";
 
   const auto fname_to_string = std::map<std::string, const std::string&>({
     {"stats.txt", stats.stats_string},
