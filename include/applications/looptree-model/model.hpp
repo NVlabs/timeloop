@@ -38,10 +38,10 @@ class Application
   // been parsed.
 
   // Abstract representation of the architecture.
-  ArchProperties* arch_props_;
+  ArchProperties* arch_props_ = nullptr;
 
   // Constraints.
-  mapping::Constraints* constraints_;  
+  mapping::Constraints* constraints_ = nullptr;
   
   // Application flags/config.
   bool verbose_ = false;
@@ -49,7 +49,7 @@ class Application
   std::string out_prefix_;
 
   // Sparse optimization
-  sparse::SparseOptimizationInfo* sparse_optimizations_;
+  sparse::SparseOptimizationInfo* sparse_optimizations_ = nullptr;
 
  private:
 
