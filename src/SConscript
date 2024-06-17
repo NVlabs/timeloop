@@ -244,10 +244,15 @@ applications/mapper/mapper.cpp
 applications/mapper/mapper-thread.cpp
 """)
 
+looptree_application_sources = Split("""
+applications/looptree-model/model.cpp
+""")
+
 mapperlib_sources = (modellib_sources +
                      mapspace_sources +
                      search_sources +
-                     mapper_application_sources)
+                     mapper_application_sources +
+                     looptree_application_sources)
 
 libenv = env.Clone()
 

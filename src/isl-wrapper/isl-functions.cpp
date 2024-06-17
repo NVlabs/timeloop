@@ -409,7 +409,7 @@ separate_dependent_bounds(__isl_take isl_set* set, size_t start, size_t n)
   return isl_set_coalesce(isl_set_intersect(fst_set, snd_set));
 }
 
-std::string pw_qpolynomial_fold_to_str(isl_pw_qpolynomial_fold* pwqf)
+std::string pw_qpolynomial_fold_to_str(__isl_keep isl_pw_qpolynomial_fold* pwqf)
 {
   auto p_printer = isl_printer_to_str(GetIslCtx().get());
   p_printer = isl_printer_print_pw_qpolynomial_fold(p_printer, pwqf);

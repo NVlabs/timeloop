@@ -146,18 +146,12 @@ void ParseIslOccupancy(const config::CompoundConfigNode& node,
   }
 }
 
-template <class Archive>
-void Application::serialize(Archive& ar, const unsigned int version)
+namespace application
 {
-  if (version == 0)
-  {
-    ar& BOOST_SERIALIZATION_NVP(workload_);
-  }
-}
 
-Application::Application(config::CompoundConfig* config,
-                         std::string output_dir,
-                         std::string name) :
+LooptreeModel::LooptreeModel(config::CompoundConfig* config,
+                             std::string output_dir,
+                             std::string name) :
     name_(name)
 {    
   auto rootNode = config->getRoot();
@@ -183,7 +177,7 @@ Application::Application(config::CompoundConfig* config,
     std::cout << std::endl;
   }
 
-  auto workload = problem::ParseFusedWorkload(rootNode.lookup("problem"));
+  workload_ = problem::ParseFusedWorkload(rootNode.lookup("problem"));
 
   // Architecture configuration.
   config::CompoundConfigNode arch;
@@ -242,7 +236,6 @@ Application::Application(config::CompoundConfig* config,
     sparse_optimizations = rootNode.lookup("sparse_optimizations");
       sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
   // characterize workload on whether it has metadata
-  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
   
   if (verbose_)
     std::cout << "Sparse optimization configuration complete." << std::endl;
@@ -250,22 +243,38 @@ Application::Application(config::CompoundConfig* config,
   if (verbose_)
     std::cout << "Architecture configuration complete." << std::endl;
 
-  // TODO: this is an issue because later analysis (latency and capacity)
-  // requires information from mapping that is not captured here.
-  analysis::MappingAnalysisResult mapping_analysis_result;
   if (rootNode.exists("occupancy"))
   {
-    ParseIslOccupancy(rootNode.lookup("occupancy"), workload);
+    // TODO: this is an issue because later analysis (latency and capacity)
+    // requires information from mapping that is not captured here.
+    ParseIslOccupancy(rootNode.lookup("occupancy"), workload_);
   }
   else
   {
-    mapping::FusedMapping mapping =
-      mapping::ParseMapping(rootNode.lookup("mapping"), workload, arch_specs_.topology);
-
-    mapping_analysis_result = analysis::OccupanciesFromMapping(mapping,
-                                                               workload);
+    mapping_ = mapping::ParseMapping(rootNode.lookup("mapping"),
+                                     workload_,
+                                     arch_specs_.topology);
   }
 
+
+}
+
+LooptreeModel::~LooptreeModel()
+{
+  if (constraints_)
+    delete constraints_;
+
+  if (sparse_optimizations_)
+    delete sparse_optimizations_;
+}
+
+// Run the evaluation.
+LooptreeModel::Result LooptreeModel::Run()
+{
+  Result model_result;
+  analysis::MappingAnalysisResult mapping_analysis_result;
+  mapping_analysis_result = analysis::OccupanciesFromMapping(mapping_,
+                                                             workload_);
   for (const auto& [buf, occ] : mapping_analysis_result.lbuf_to_occupancy)
   {
     auto result = analysis::TemporalReuseAnalysis(
@@ -290,102 +299,31 @@ Application::Application(config::CompoundConfig* config,
     );
     assert(tight == isl_bool_true);
 
+    auto key = std::tie(buf.buffer_id, buf.dspace_id, buf.branch_leaf_id);
+    model_result.fill[key] = isl_pw_qpolynomial_to_str(p_fill_count);
+    model_result.occupancy[key] = isl::pw_qpolynomial_fold_to_str(p_occ_count);
+
     std::cout << "[Occupancy]" << buf << ": "
       << isl::pw_qpolynomial_fold_to_str(p_occ_count) << std::endl;
     std::cout << "[Fill]" << buf << ": "
       << isl_pw_qpolynomial_to_str(p_fill_count) << std::endl;
+
+    isl_pw_qpolynomial_fold_free(p_occ_count);
     isl_pw_qpolynomial_free(p_fill_count);
   }
 
   for (const auto& [compute, tiling] : mapping_analysis_result.branch_tiling)
   {
     auto p_ops = isl_map_card(tiling.copy());
+
+    model_result.ops[compute] = isl_pw_qpolynomial_to_str(p_ops);
+
     std::cout << "[Operations]" << compute << ": "
       << isl_pw_qpolynomial_to_str(p_ops) << std::endl;
     isl_pw_qpolynomial_free(p_ops);
   }
 
-  // auto latency =
-  //   mapping_analysis_result.compute_latency_aggregator.CalculateLatency(
-  //     mapping_analysis_result.lcomp_to_occupancy,
-  //     mapping_analysis_result.compute_to_assumed_parallelism
-  //   );
-  // std::cout << "[Latency]: " << latency << std::endl;
-
-  // auto capacities = ComputeCapacityFromMapping(
-  //   mapping,
-  //   mapping_analysis_result.lbuf_to_occupancy,
-  //   workload
-  // );
-
-  // for (const auto& [buf_id, cap] : capacities)
-  // {
-  //   std::cout << "[Capacity]" << buf_id << ": "
-  //             << isl_pw_qpolynomial_to_str(cap) << std::endl;
-  // }
-
-  // // for (const auto& [buf, fill] : fills)
-  // // {
-  // //   std::cout << buf << std::endl;
-  // //   auto p_fill_count = isl_map_card(fill.map.copy());
-  // //   std::cout << isl_pw_qpolynomial_to_str(p_fill_count) << std::endl;
-  // //   isl_pw_qpolynomial_free(p_fill_count);
-  // // }
-
-  // for (const auto& [buf, occ] : occupancies)
-  // {
-  //   std::cout << buf << std::endl;
-  //   auto p_occ_count = isl_map_card(occ.map.copy());
-  //   std::cout << isl_pw_qpolynomial_to_str(p_occ_count) << std::endl;
-  //   isl_pw_qpolynomial_free(p_occ_count);
-  // }
+  return model_result;
 }
 
-Application::~Application()
-{
-  if (constraints_)
-    delete constraints_;
-
-  if (sparse_optimizations_)
-    delete sparse_optimizations_;
-}
-
-// Run the evaluation.
-Application::Stats Application::Run()
-{
-  // Output file names.
-  model::Engine engine;
-  engine.Spec(arch_specs_);
-
-  auto level_names = arch_specs_.topology.LevelNames();
-
-  // if (engine.IsEvaluated())
-  // {
-  //   if (!sparse_optimizations_->no_optimization_applied)
-  //   {   
-  //     std::cout << "Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << engine.Utilization()
-  //             << " | pJ/Algorithmic-Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
-  //     engine.GetTopology().AlgorithmicComputes()
-  //             << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
-  //     engine.GetTopology().ActualComputes() << std::endl;
-  //   }
-  //   else
-  //   {
-  //     std::cout << "Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << engine.Utilization()
-  //                << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
-  //     engine.GetTopology().ActualComputes() << std::endl;
-  //   }
-  //   std::ofstream map_txt_file(map_txt_file_name);
-  //   mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());
-  //   map_txt_file.close();
-
-  //   std::ofstream stats_file(stats_file_name);
-  //   stats_file << engine << std::endl;
-  //   stats_file.close();
-  // }
-
-  Stats stats;
-  // stats.cycles = engine.Cycles();
-  // stats.energy = engine.Energy();
-  return stats;
 }

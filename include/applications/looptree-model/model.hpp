@@ -12,25 +12,31 @@
 #include "mapping/constraints.hpp"
 #include "compound-config/compound-config.hpp"
 #include "model/sparse-optimization-parser.hpp"
+#include "mapping/fused-mapping.hpp"
 
 //--------------------------------------------//
 //                Application                 //
 //--------------------------------------------//
 
-class Application
+namespace application
+{
+
+class LooptreeModel
 {
  public:
   std::string name_;
 
-  struct Stats
+  struct Result
   {
-    double energy;
-    double cycles;
+    std::map<mapping::NodeID, std::string> ops;
+    std::map<std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>, std::string> fill;
+    std::map<std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>, std::string> occupancy;
   };
 
  protected:
   // Critical state.
-  problem::Workload workload_;
+  problem::FusedWorkload workload_;
+  mapping::FusedMapping mapping_;
   model::Engine::Specs arch_specs_;
 
   // Many of the following submodules are dynamic objects because
@@ -60,16 +66,18 @@ class Application
 
  public:
 
-  Application(config::CompoundConfig* config,
-              std::string output_dir = ".",
-              std::string name = "looptree");
+  LooptreeModel(config::CompoundConfig* config,
+                std::string output_dir = ".",
+                std::string name = "looptree");
 
   // This class does not support being copied
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
+  LooptreeModel(const LooptreeModel&) = delete;
+  LooptreeModel& operator=(const LooptreeModel&) = delete;
 
-  ~Application();
+  ~LooptreeModel();
 
   // Run the evaluation.
-  Stats Run();
+  Result Run();
 };
+
+} // namespace application
