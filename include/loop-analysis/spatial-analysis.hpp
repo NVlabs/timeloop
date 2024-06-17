@@ -27,6 +27,7 @@ struct TransferInfo
   {
     double accesses;
     double hops;
+    double unicast_hops;
   };
   std::map<std::pair<uint64_t, uint64_t>, AccessStats> compat_access_stats;
 

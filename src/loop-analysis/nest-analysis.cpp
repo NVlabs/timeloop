@@ -448,36 +448,6 @@ void NestAnalysis::CollectWorkingSets()
       analysis::ElementState condensed_state(*workload_);
       for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
       {
-        // Sanity check: All elements in a given level should
-        // have similar working sets, accesses etc.
-        // TODO Can we leverage this assertion to avoid redundant simulation
-        // by only simulating one spatial element per level?
-        if (!gExtrapolateUniformSpatial)
-        {
-          // FIXME: aggregate stats.
-          // for (std::uint64_t i = 1; i < cur.live_state.size(); i++)
-          // {
-          //   ASSERT(cur.live_state[i].access_stats[pv] ==
-          //          cur.live_state[i - 1].access_stats[pv]);
-          //   ASSERT(cur.live_state[i].max_size[pv] ==
-          //          cur.live_state[i - 1].max_size[pv]);
-          //   ASSERT(cur.live_state[i].link_transfers[pv] ==
-          //          cur.live_state[i - 1].link_transfers[pv]);
-          // }
-        }
-
-        // // Since, all elements have the same properties, use the properties
-        // // of the first element to build condensed_state
-        // const uint64_t REPR_ELEM_ID = 0;  // representative element id.
-        // condensed_state.access_stats[pv] =
-        //     cur.live_state[REPR_ELEM_ID].access_stats[pv];
-        // condensed_state.max_size[pv] =
-        //     cur.live_state[REPR_ELEM_ID].max_size[pv];
-        // condensed_state.link_transfers[pv] =
-        //     cur.live_state[REPR_ELEM_ID].link_transfers[pv];
-        // // condensed_state.data_densities[pv] =
-        // //     cur.live_state[REPR_ELEM_ID].data_densities[pv];
-
         // We have 3 choices:
         // (1) Sample the stats from one spatial instance and report that as the
         //     per-instance stats.
@@ -493,22 +463,8 @@ void NestAnalysis::CollectWorkingSets()
         // address this, but will require changes to the post-processing code.
         // (3) is probably the best approach but will require significant
         // reworking of the post-processing and microarchitecture code.
-
-        // bool first = true;
-        // for (auto& state: cur.live_state)
-        // {
-        //   if (first)
-        //   {
-        //     condensed_state.access_stats[pv] = state.second.access_stats[pv];
-        //     condensed_state.max_size[pv] = state.second.max_size[pv];
-        //     condensed_state.link_transfers[pv] = state.second.link_transfers[pv];
-        //     first = false;
-        //     // std::cout << "s";
-        //     // PrintStamp(state.first);
-        //     // std::cout << " store size " << condensed_state.max_size[pv] << std::endl;
-        //     break;
-        //   }
-        // }
+        //
+        // Current implementation: (2) with floating-point.
 
         for (auto& state: cur.live_state)
         {
@@ -516,6 +472,7 @@ void NestAnalysis::CollectWorkingSets()
           condensed_state.max_size[pv] += state.second.max_size[pv];
           condensed_state.link_transfers[pv] += state.second.link_transfers[pv];
         }
+
         std::uint64_t num_sampled_instances = cur.live_state.size();
         condensed_state.access_stats[pv].Divide(num_sampled_instances);
         condensed_state.max_size[pv] /= num_sampled_instances;
@@ -877,6 +834,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
       // Set cumulative hops for temporal levels.
       access_stats.hops = 0.0;
+      access_stats.unicast_hops = 0.0;
     }
   }
   else // recurse
@@ -1086,6 +1044,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
         // Set cumulative hops for temporal levels.
         access_stats.hops = 0.0;
+        access_stats.unicast_hops = 0.0;
 
         // Update delta histogram. Hypothesis is we only need to do this for temporal levels.
         cur_state.delta_histograms[pv][final_delta_sizes[pv]] += num_epochs_;
@@ -1602,6 +1561,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     double accesses = 0;
     std::uint64_t scatter_factor = 0;
     double hops = 0.0;
+    double unicast_hops = 0.0;
   };
   problem::PerDataSpace<std::unordered_map<std::uint64_t, TempAccessStats>> temp_stats;
 
@@ -1685,25 +1645,61 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
         ASSERT(num_matches[pv] == match_set[pv].size());
         
         double hops = 0;
+        double unicast_hops = 0;
+
+        // Create maps of max and min v coordinate at each h coordinate.
+        struct MinMax { std::uint64_t min; std::uint64_t max; };
+        std::map<std::uint64_t, MinMax> v_minmax_at_h;
         
         std::uint64_t h_max = 0;
+        double v_center = double(v_size-1) / 2;
+
         for (auto& linear_id : match_set[pv])
         {
           std::uint64_t h_id = linear_id % h_size;
-          h_max = std::max(h_max, h_id);
-        }
-        hops += double(h_max);
-        
-        double v_center = double(v_size-1) / 2;
-        for (auto& linear_id : match_set[pv])
-        {
           std::uint64_t v_id = linear_id / h_size;
-          hops += std::abs(double(v_id) - v_center);
+          
+          h_max = std::max(h_max, h_id);
+
+          auto it = v_minmax_at_h.find(h_id);
+          if (it == v_minmax_at_h.end())
+          {
+            v_minmax_at_h[h_id] = { v_id, v_id };
+          }
+          else
+          {
+            it->second.min = std::min(it->second.min, v_id);
+            it->second.max = std::max(it->second.max, v_id);
+          }
+
+          unicast_hops += double(h_id);
+          unicast_hops += std::abs(double(v_id) - v_center);
         }
 
+        hops += double(h_max);
+
+        // Walk through the minmax and see how far to drive the v lines.
+        for (auto& minmax : v_minmax_at_h)
+        {
+          auto min = minmax.second.min;
+          auto max = minmax.second.max;
+
+          double min_offset = double(min) - v_center;
+          double max_offset = double(max) - v_center;
+
+          assert(min_offset <= max_offset);
+
+          if (min_offset < 0)
+            hops += std::abs(min_offset);
+
+          if (max_offset > 0)
+            hops += max_offset;
+        }
+        
         // Accumulate this into the running hop count. We'll finally divide this
         // by the scatter factor to get average hop count.
         temp_struct.hops += hops;
+        temp_struct.unicast_hops += unicast_hops;
       }
     }
   }
@@ -1715,7 +1711,11 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     {
       auto multicast = x.first;
       auto scatter = x.second.scatter_factor;
-      access_stats[pv](multicast, scatter) = { x.second.accesses, x.second.hops };
+
+      access_stats[pv](multicast, scatter) =
+        { x.second.accesses,
+          (x.second.hops * x.second.accesses) / scatter, // Note! Weighted sum.
+          (x.second.unicast_hops * x.second.accesses) / scatter } ;// Note! Weighted sum.
     }
   }
 }
@@ -1955,7 +1955,7 @@ void NestAnalysis::InitNumSpatialElems()
   int cur_index = nest_state_.size() - 1;
   // cumulative product of spatial tiling factors.
   std::uint64_t product = 1;
-  std::uint64_t utilized_product = 1;
+  double utilized_product = 1;
   bool prev_loop_was_spatial = false;
   for (auto loop = nest_state_.rbegin(); loop != nest_state_.rend(); loop++)
   {
@@ -1973,14 +1973,20 @@ void NestAnalysis::InitNumSpatialElems()
       {
           // Find the next-outermost loop of the same dimension.
           auto loop2 = nest_state_.rbegin();
+          bool found = false;
+          double outer_size = 1;
           for(; loop2 != nest_state_.rend(); loop2++)
           {
+            if(loop2->level == loop->level) break;
             if(loop2->descriptor.dimension == loop->descriptor.dimension)
             {
-              break;
+              double end = (double) loop2->descriptor.end;
+              double residual_end = (double) loop2->descriptor.residual_end;
+              outer_size = (residual_end + end * (outer_size - 1));
+              found = true;
             }
           }
-          if(loop2->level == loop->level)
+          if(!found)
           {
             std::cout << "Outermost loop of dimension " << loop->descriptor.dimension << " was imperfectly factorized. " 
             << "Need more loop levels to factorize this loop... were loops of the dimensions constrained to 1 at all higher levels?" << std::endl;
@@ -1994,13 +2000,12 @@ void NestAnalysis::InitNumSpatialElems()
               std::cout << std::endl;
               j++;
             }
+            std::cout << "Exiting..." << std::endl;
+            exit(1);
           }
-          ASSERT(loop2->level != loop->level); // If this assertion fails, then an outermost loop was imperfectly factorized.
-
-          double outer_size = (double) loop2->descriptor.end;
           double end = (double) loop->descriptor.end;
           double residual_end = (double) loop->descriptor.residual_end;
-          utilized_product = std::round(utilized_product * (residual_end + end * (outer_size - 1)) / outer_size);
+          utilized_product = utilized_product * (residual_end + end * (outer_size - 1)) / outer_size;
       }
       else
       {

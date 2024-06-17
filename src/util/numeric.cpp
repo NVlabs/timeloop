@@ -58,17 +58,17 @@ unsigned long Factors::ISqrt_(unsigned long x)
   return res;
 }
 
-void Factors::CalculateAllFactors_()
+void Factors::CalculateAllFactors_(unsigned long of)
 {
   all_factors_.clear();
-  for (unsigned long i = 1; i <= ISqrt_(n_); i++)
+  for (unsigned long i = 1; i <= ISqrt_(of); i++)
   {
-    if (n_ % i == 0)
+    if (of % i == 0)
     {
       all_factors_.push_back(i);
-      if (i * i != n_)
+      if (i * i != of)
       {
-        all_factors_.push_back(n_ / i);
+        all_factors_.push_back(of / i);
       }
     }
   }
@@ -130,7 +130,7 @@ Factors::Factors() :
 Factors::Factors(const unsigned long n, const int order) :
     n_(n), cofactors_()
 {
-  CalculateAllFactors_();
+  CalculateAllFactors_(n_);
   cofactors_ = MultiplicativeSplitRecursive_(n, order);
 }
 
@@ -139,49 +139,66 @@ Factors::Factors(const unsigned long n, const int order, std::map<unsigned, unsi
 {
   assert(given.size() <= std::size_t(order));
 
-  // If any of the given factors is not a factor of n, forcibly reset that to
-  // be a free variable, otherwise accumulate them into a partial product.
-  unsigned long partial_product = 1;
+//   // If any of the given factors is not a factor of n, forcibly reset that to
+//   // be a free variable, otherwise accumulate them into a partial product.
+//   unsigned long partial_product = 1;
+//   for (auto f = given.begin(); f != given.end(); f++)
+//   {
+//     auto factor = f->second;
+//     if (n % (factor * partial_product) == 0)
+//     {
+//       partial_product *= factor;
+//     }
+//     else
+//     {
+//       std::cerr << "WARNING: cannot accept " << factor << " as a factor of " << n
+//                 << " with current partial product " << partial_product;
+// #define SET_NONFACTOR_TO_FREE_VARIABLE
+// #ifdef SET_NONFACTOR_TO_FREE_VARIABLE
+//       // Ignore mapping constraint and set the factor to a free variable.
+//       std::cerr << ", ignoring mapping constraint and setting to a free variable."
+//                 << std::endl;
+//       f = given.erase(f);
+// #else       
+//       // Try to find the next *lower* integer that is a factor of n.
+//       // FIXME: there are multiple exceptions that can cause us to be here:
+//       // (a) factor doesn't divide into n.
+//       // (b) factor does divide into n but causes partial product to exceed n.
+//       // (c) factor does divide into n but causes partial product to not
+//       //     divide into n.
+//       // The following code only solves case (a).
+//       std::cerr << "FIXME: please fix this code." << std::endl;
+//       assert(false);
+        
+//       for (; factor >= 1 && (n % factor != 0); factor--);
+//       std::cerr << ", setting this to " << factor << " instead." << std::endl;
+//       f->second = factor;
+//       partial_product *= factor;
+// #endif
+//     }
+//     assert(n % partial_product == 0);
+//   }
+
+  unsigned long remaining = n;
+  // std::cout << "Given factors: ";
   for (auto f = given.begin(); f != given.end(); f++)
   {
     auto factor = f->second;
-    if (n % (factor * partial_product) == 0)
+    if (remaining % factor == 0) 
     {
-      partial_product *= factor;
+      remaining /= factor;
     }
     else
     {
-      std::cerr << "WARNING: cannot accept " << factor << " as a factor of " << n
-                << " with current partial product " << partial_product;
-#define SET_NONFACTOR_TO_FREE_VARIABLE
-#ifdef SET_NONFACTOR_TO_FREE_VARIABLE
-      // Ignore mapping constraint and set the factor to a free variable.
-      std::cerr << ", ignoring mapping constraint and setting to a free variable."
-                << std::endl;
-      f = given.erase(f);
-#else       
-      // Try to find the next *lower* integer that is a factor of n.
-      // FIXME: there are multiple exceptions that can cause us to be here:
-      // (a) factor doesn't divide into n.
-      // (b) factor does divide into n but causes partial product to exceed n.
-      // (c) factor does divide into n but causes partial product to not
-      //     divide into n.
-      // The following code only solves case (a).
-      std::cerr << "FIXME: please fix this code." << std::endl;
-      assert(false);
-        
-      for (; factor >= 1 && (n % factor != 0); factor--);
-      std::cerr << ", setting this to " << factor << " instead." << std::endl;
-      f->second = factor;
-      partial_product *= factor;
-#endif
+      // Do a ceiling division to find the next *higher* integer that is a factor of n.
+      std::cout << "Imperfect constraint detected. Factor " << f->first << "=" << factor << " has residual " << remaining % factor << "." << std::endl;
+      remaining = ceil((double)remaining/(double)factor);
     }
-    assert(n % partial_product == 0);
   }
 
-  CalculateAllFactors_();
+  CalculateAllFactors_(remaining);
 
-  cofactors_ = MultiplicativeSplitRecursive_(n / partial_product, order - given.size());
+  cofactors_ = MultiplicativeSplitRecursive_(remaining, order - given.size());
 
   // Insert the given factors at the specified indices of each of the solutions.
   for (auto& cofactors : cofactors_)
@@ -193,6 +210,7 @@ Factors::Factors(const unsigned long n, const int order, std::map<unsigned, unsi
       auto value = given_factor.second;
       assert(index <= cofactors.size());
       cofactors.insert(cofactors.begin() + index, value);
+      // std::cout << "  Inserting given factor " << value << " at index " << index << std::endl;
     }
   }
 }

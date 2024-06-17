@@ -71,7 +71,7 @@ class NestAnalysis
   problem::OperationPoint cur_transform_;
 
   // per-level properties.
-  std::vector<uint64_t> utilized_spatial_elems_; // with imperfect factorization.
+  std::vector<double> utilized_spatial_elems_; // with imperfect factorization.
   std::vector<uint64_t> num_spatial_elems_;
   std::vector<uint64_t> logical_fanouts_;
 

@@ -48,36 +48,37 @@ void IndexFactorizationSpace::Init(const problem::Workload &workload,
                                    std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> minfactors)
 {
   // Sanity check on input pre-factors.
-  for (auto& prefactor_set: prefactors)
-  {
-    auto dim = prefactor_set.first;
+  // No longer needed! We accept imperfect factors!
+  // for (auto& prefactor_set: prefactors)
+  // {
+  //   auto dim = prefactor_set.first;
 
-    unsigned long product = 1;
-    for (auto& prefactor: prefactor_set.second)
-    {
-      product *= prefactor.second;
-    }
+  //   unsigned long product = 1;
+  //   for (auto& prefactor: prefactor_set.second)
+  //   {
+  //     product *= prefactor.second;
+  //   }
 
-    unsigned long bound = workload.GetFlattenedBound(dim);
+  //   unsigned long bound = workload.GetFlattenedBound(dim);
 
-    if ((bound % product) != 0)
-    {
-      std::cerr << "ERROR: IndexFactorization: workload bound "
-                << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " = "
-                << bound << " is not divisible by product of user-provided constraint factors = "
-                << product << std::endl;
-      std::exit(1);
-    }
+  //   // if ((bound % product) != 0)
+  //   // {
+  //   //   std::cerr << "ERROR: IndexFactorization: workload bound "
+  //   //             << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " = "
+  //   //             << bound << " is not divisible by product of user-provided constraint factors = "
+  //   //             << product << std::endl;
+  //   //   std::exit(1);
+  //   // }
 
-    if ((cofactors_order.at(dim) == prefactor_set.second.size()) && product != bound)
-    {
-      std::cerr << "ERROR: IndexFactorization: product of fully-user-provided constraint factors "
-                << product << " is not equal to workload bound "
-                << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " = "
-                << bound << std::endl;
-      std::exit(1);
-    }
-  }  
+  //   if ((cofactors_order.at(dim) == prefactor_set.second.size()) && product != bound)
+  //   {
+  //     std::cerr << "ERROR: IndexFactorization: product of fully-user-provided constraint factors "
+  //               << product << " is not equal to workload bound "
+  //               << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " = "
+  //               << bound << std::endl;
+  //     std::exit(1);
+  //   }
+  // }  
 
   // Create factor sets.
   problem::PerFlattenedDimension<uint128_t> counter_base;

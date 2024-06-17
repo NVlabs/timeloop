@@ -219,6 +219,7 @@ mapping/mapping.cpp
 mapping/parser.cpp
 mapping/arch-properties.cpp
 mapping/constraints.cpp
+applications/model/model.cpp
 """)
 
 mapspace_sources = Split("""
@@ -238,7 +239,15 @@ search/random-pruned.cpp
 search/random.cpp
 """)
 
-mapperlib_sources = modellib_sources + mapspace_sources + search_sources
+mapper_application_sources = Split("""
+applications/mapper/mapper.cpp
+applications/mapper/mapper-thread.cpp
+""")
+
+mapperlib_sources = (modellib_sources +
+                     mapspace_sources +
+                     search_sources +
+                     mapper_application_sources)
 
 libenv = env.Clone()
 
@@ -275,8 +284,6 @@ applications/model/main.cpp
 """)
 
 mapper_sources = Split("""
-applications/mapper/mapper.cpp
-applications/mapper/mapper-thread.cpp
 applications/mapper/main.cpp
 """)
 
@@ -318,6 +325,12 @@ unit-test/test-multicast.cpp
 unit-test/test-isl-functions.cpp
 unit-test/test-mapping-to-isl.cpp
 unit-test/test-temporal-reuse-analysis.cpp
+""")
+
+application_sources = Split("""
+applications/model/model.cpp
+applications/mapper/mapper.cpp
+applications/mapper/mapper-thread.cpp
 """)
 
 bin_metrics = env.Program(target = 'timeloop-metrics', source = metrics_sources)
