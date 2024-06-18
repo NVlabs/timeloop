@@ -290,6 +290,7 @@ void ArithmeticUnits::ConnectResult(std::shared_ptr<Network> network)
 
 // Evaluate.
 EvalStatus ArithmeticUnits::Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                                     problem::Workload* workload,
                                      const double confidence_threshold, const std::uint64_t compute_cycles,
                                      const bool break_on_failure)
 {
@@ -299,6 +300,7 @@ EvalStatus ArithmeticUnits::Evaluate(const tiling::CompoundTile& tile, const til
   (void) confidence_threshold;
   (void) break_on_failure;
   (void) compute_cycles;
+  (void) workload;
 
   EvalStatus eval_status;
   eval_status.success = true;
@@ -384,8 +386,8 @@ std::string ArithmeticUnits::Name() const
 
 double ArithmeticUnits::Energy(problem::Shape::DataSpaceID pv) const
 {
+  (void) pv;
   assert(is_evaluated_);
-  assert(pv == problem::GetShape()->NumDataSpaces);
   return energy_;
 }
 

@@ -163,7 +163,7 @@ void InitializeCompressionInfo(SparseOptimizationInfo &sparse_optimization_info,
     bool compression_supported = storage_level_specs->compression_supported.Get();
 
     // initial/populate masks
-    problem::PerDataSpace<bool> temp;
+    problem::PerDataSpace<bool> temp(problem::GetShape()->NumDataSpaces);
     compression_info.has_metadata_masks.push_back(temp);
     compression_info.compressed_masks.push_back(temp);
     compression_info.decompression_supported_masks.push_back(decompression_supported);

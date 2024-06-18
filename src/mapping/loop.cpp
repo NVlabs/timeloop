@@ -25,8 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <iostream>
 
-#include "workload/workload.hpp"
 #include "mapping/loop.hpp"
 
 namespace loop
@@ -81,11 +81,12 @@ bool Descriptor::operator == (const Descriptor& d) const
           spacetime_dimension == d.spacetime_dimension);
 }
 
-void Descriptor::Print(std::ostream& out, bool long_form) const
+std::ostream& Descriptor::Print(std::ostream& out, bool long_form,
+                                const std::map<problem::Shape::FlattenedDimensionID, std::string>& id_to_name) const
 {
   if (long_form)
   {
-    out << "for " << problem::GetShape()->FlattenedDimensionIDToName.at(dimension) << " in [" << start << ":" << end;
+    out << "for " << id_to_name.at(dimension) << " in [" << start << ":" << end;
     if (residual_end != end)
       out << "," << residual_end;
     out << ")";
@@ -111,13 +112,15 @@ void Descriptor::Print(std::ostream& out, bool long_form) const
     }
     out << ") ";
   }
+  return out;
 }
 
 void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
                             std::vector<problem::Shape::FlattenedDimensionID>& dimids,
                             std::vector<std::string>& dimnames,
                             std::vector<int>& dimbounds,
-                            std::vector<std::string>& varnames) const
+                            std::vector<std::string>& varnames,
+                            const std::map<problem::Shape::FlattenedDimensionID, std::string>& id_to_name) const
 {
   if (residual_end != end)
   {
@@ -126,7 +129,7 @@ void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
   }
 
   // std::locale loc;
-  std::string dimname = problem::GetShape()->FlattenedDimensionIDToName.at(dimension);
+  std::string dimname = id_to_name.at(dimension);
   std::string varname = dimname;
 
   for (unsigned i = 0; i < dimname.length(); i++)
@@ -160,11 +163,11 @@ void Descriptor::PrintWhoop(std::ostream& out, int storage_level,
   varnames.push_back(varname);
 }
 
-std::string Descriptor::PrintCompact() const
+std::string Descriptor::PrintCompact(const std::map<problem::Shape::FlattenedDimensionID, std::string>& id_to_name) const
 {
   assert(start == 0);
   std::ostringstream str;
-  str << problem::GetShape()->FlattenedDimensionIDToName.at(dimension) << end;
+  str << id_to_name.at(dimension) << end;
   if (residual_end != end)
     str << "," << residual_end;
   if (IsSpatial(spacetime_dimension))
@@ -177,11 +180,11 @@ std::string Descriptor::PrintCompact() const
   return str.str();
 }
 
-std::ostream& operator << (std::ostream& out, const Descriptor& loop)
-{
-  loop.Print(out, true);
-  return out;
-}
+// std::ostream& operator << (std::ostream& out, const Descriptor& loop)
+// {
+//   loop.Print(out, true);
+//   return out;
+// }
 
 bool IsSpatial(spacetime::Dimension dim)
 {

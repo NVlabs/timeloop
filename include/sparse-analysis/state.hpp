@@ -64,12 +64,12 @@ enum ComputeOperandState
   EXIST_ZERO,
   NOT_EXIST
 };
+
 typedef std::map<ComputeOperandState, double> PerStateProb;
 typedef std::vector<ComputeOperandState> ComputeOperandStatePair;
 
 struct SparseAnalysisState
 {
-
   // statically defined information
   sparse::SparseOptimizationInfo *sparse_optimization_info_ = nullptr;
   problem::Workload *workload_ = nullptr;
@@ -96,8 +96,8 @@ struct SparseAnalysisState
   std::map<DataSpaceID, bool> storage_gs_saf_;
   std::map<DataSpaceID, double> innermost_empty_cond_on_prob_;
 
-  SparseAnalysisState()
-  {}
+  SparseAnalysisState();
+  SparseAnalysisState(problem::Workload* workload);
 
   bool Init(sparse::SparseOptimizationInfo *sparse_optimization_info,
             problem::Workload *workload,

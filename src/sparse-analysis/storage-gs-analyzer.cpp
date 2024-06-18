@@ -86,11 +86,11 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   //    we should look at the operation space defined by *block-size-a iterations* of target-loop
 
   DataSpaceID target_dspace_id = resulted_impact.target_dspace_id;
-  auto target_dspace_dimensions = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(target_dspace_id);
+  auto target_dspace_dimensions = state.workload_->GetShape()->DataSpaceIDToDimensionIDVector.at(target_dspace_id);
 
   // for (auto iter = target_dspace_dimensions.begin(); iter != target_dspace_dimensions.end(); iter++)
   // {
-  //  std::cout << problem::GetShape()->FlattenedDimensionIDToName.at(*iter) << std::endl;
+  //  std::cout << state.workload_->GetShape()->FlattenedDimensionIDToName.at(*iter) << std::endl;
   // }
 
   // step 1)
@@ -113,7 +113,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
       // there is no source storage to have the target dataspace stored
       // illegal gating/skipping specification
       auto overall_level_id = topology_specs.StorageMap(storage_level_id);
-      fail_reason << "skipping/gating for " << problem::GetShape()->DataSpaceIDToName.at(target_dspace_id)
+      fail_reason << "skipping/gating for " << state.workload_->GetShape()->DataSpaceIDToName.at(target_dspace_id)
                   << "does not have a source storage for datastreams"
                   << topology_specs.GetStorageLevel(storage_level_id)->level_name
                   << std::endl;
@@ -280,7 +280,7 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
   for (unsigned i = 0; i < resulted_impact.condition_on_dspace_ids.size(); i++)
   {
     DataSpaceID condition_on_dspace_id = resulted_impact.condition_on_dspace_ids[i];
-    auto co_iterated_dimensions = problem::GetShape()->GetCoIteratedDimensions({target_dspace_id, condition_on_dspace_id});
+    auto co_iterated_dimensions = state.workload_->GetShape()->GetCoIteratedDimensions({target_dspace_id, condition_on_dspace_id});
     
    
     // Prepare the relevant point sets 
@@ -297,8 +297,8 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
     {
       problem::Shape::FlattenedDimensionID dim = rloop->dimension;
       if(is_spatial && is_co_iterated_dim && 
-         problem::GetShape()->DataSpaceIDToDimensionIDVector.at(condition_on_dspace_id).find(dim) 
-         != problem::GetShape()->DataSpaceIDToDimensionIDVector.at(condition_on_dspace_id).end())
+         state.workload_->GetShape()->DataSpaceIDToDimensionIDVector.at(condition_on_dspace_id).find(dim) 
+         != state.workload_->GetShape()->DataSpaceIDToDimensionIDVector.at(condition_on_dspace_id).end())
       {
         // if there are loops above the co-iterated spatial loop that projects to "conditioned on" dataspace,
         // then the optimization is invalid as discordant traversal on conditioned on dataspace is required to perform
@@ -322,8 +322,8 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
     if (ineffective_optimization) 
     {
       // FIXME: effectuive if the ranks that matter are flattened into one
-      //  std::cout << "target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
-      //     << " condition on dspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
+      //  std::cout << "target dspace: " << state.workload_->GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
+      //     << " condition on dspace: " << state.workload_->GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
       //     << " \ntarget loop: " << target_loop << std::endl;
       //  std::cout << "!!!found spatial dimension projecting to conditioned on dataspace above the co-iterated spatial dimension," << 
       //     "ineffectual optimization" << std::endl;
@@ -378,8 +378,8 @@ bool ComputeIneffectualReadImpact(const SparseAnalysisState& state,
       ->GetTileOccupancyProbability(cspace_tile, 0);
     prob_target_dspace_effectual *= (1 - prob_condition_on_dspace_empty);
 
-    // std::cout << " \n\n target dspace: " << problem::GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
-    //          << " condition on dspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
+    // std::cout << " \n\n target dspace: " << state.workload_->GetShape()->DataSpaceIDToName.at(resulted_impact.target_dspace_id)
+    //          << " condition on dspace: " << state.workload_->GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
     //          << " \n target loop: " << target_loop
     //          << " co-iterated: " << is_co_iterated_dim
     //          << " child level: " << child_level
@@ -474,7 +474,7 @@ bool DefineIneffectualReadImpact(SparseAnalysisState& state,
   auto optimization_prob = possible_impact[option_id].optimization_prob;
   auto target_dspace_id = possible_impact[option_id].target_dspace_id;
 
-  // std::cout << "\t=== Final: target dspace: " << problem::GetShape()->DataSpaceIDToName.at(target_dspace_id)
+  // std::cout << "\t=== Final: target dspace: " << state.workload_->GetShape()->DataSpaceIDToName.at(target_dspace_id)
   // << "  optimization prob: " << optimization_prob
   // << std::endl;
 
@@ -515,7 +515,7 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
   
   std::uint16_t cur_architecture_level;
   
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
   {
     avg_effective_expansion_ratio[pv].emplace_back(1.0);
 
@@ -560,7 +560,7 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
             if (fiber_shape > 1)
             {              
               problem::PerDataSpace<double> required_spatial_instances;
-              auto& cond_on_dims = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(pv);
+              auto& cond_on_dims = state.workload_->GetShape()->DataSpaceIDToDimensionIDVector.at(pv);
               if (cond_on_dims.find(loop->dimension) != cond_on_dims.end())
               {
                 problem::OperationPoint mold_high;
@@ -640,7 +640,7 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
   state.max_spatial_expansion_ = max_spatial_expansion;
   
   // propagte expansion and avg ratio 
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
   {
     for (int architecture_level = state.num_storage_levels_; architecture_level >= 0; architecture_level-- )
     {
@@ -678,7 +678,7 @@ void InitializeSpatialInstances(SparseAnalysisState& state,
       
       // Sanity Check
       // if (architecture_level == int(state.num_storage_levels_))
-      //    std::cout << "Dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
+      //    std::cout << "Dataspace: " << state.workload_->GetShape()->DataSpaceIDToName.at(pv) << std::endl;
       // std::cout << "  Initialize: " 
       // << topology_specs.GetLevel(architecture_level)->level_name  
       // << "  avg effective ratio: " <<  avg_effective_expansion_ratio[pv][architecture_level]
@@ -717,7 +717,7 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
   // note that spatial skipping is only applied to the spatial instances below this level, it is irrelevant to 
   // whether this storage level stores the target dataspace or not
   auto per_level_loop_nests = state.complete_subnests_[upper_storage_level];
-  auto& target_dims = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(target_dspace_id);
+  auto& target_dims = state.workload_->GetShape()->DataSpaceIDToDimensionIDVector.at(target_dspace_id);
   unsigned loop_id = -1;
 
   std::map<problem::Shape::DataSpaceID, double> per_cond_on_effective_ratio;
@@ -726,7 +726,7 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
   for (unsigned pvi = 0; pvi < condition_on_dspace_ids.size(); pvi++)
   {
     auto condition_on_dspace_id = condition_on_dspace_ids[pvi];
-    auto& cond_on_dims = problem::GetShape()->DataSpaceIDToDimensionIDVector.at(condition_on_dspace_id);
+    auto& cond_on_dims = state.workload_->GetShape()->DataSpaceIDToDimensionIDVector.at(condition_on_dspace_id);
     
     // find the level that stores the conditioned on dataspace
     unsigned level_cond_on_dspace_in = upper_storage_level;
@@ -782,7 +782,7 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
             // until next upper temp loop that projects to target dataspace is encountered
             // go through all the temp loops above the current loop to find the appropriate operation space 
             // (note that inner most level (child level = -1) is never stationary, so skip this analysis for innet most level) 
-            auto co_iterated_dimensions = problem::GetShape()->GetCoIteratedDimensions({target_dspace_id, condition_on_dspace_id});
+            auto co_iterated_dimensions = state.workload_->GetShape()->GetCoIteratedDimensions({target_dspace_id, condition_on_dspace_id});
             if (child_level != -1 && co_iterated_dimensions.find(loop->dimension) != co_iterated_dimensions.end())
             {
               unsigned target_dspace_storage_level = upper_storage_level;
@@ -835,8 +835,8 @@ void CalculateSpatialOptimizationImpact(SparseAnalysisState& state,
 
               per_cond_on_effective_ratio[condition_on_dspace_id] = 1 - prob_empty_coord;
               
-              // std::cout << "conditioned on dataspace: " << problem::GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
-              // << "  innermost relevant spatial loop: " << problem::GetShape()->DimensionIDToName.at(loop->dimension) 
+              // std::cout << "conditioned on dataspace: " << state.workload_->GetShape()->DataSpaceIDToName.at(condition_on_dspace_id)
+              // << "  innermost relevant spatial loop: " << pstate.workload_->GetShape()->DimensionIDToName.at(loop->dimension) 
               // << "  effective ratio:  " << 1 - prob_empty_coord << std::endl;
               
               // the innermost spatial loop detemrines the needed spatial instances, break out of the looping  
@@ -934,7 +934,7 @@ bool SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
   // Summarize storage effective instances and propagate to inner levels
   //    level 0: compute   level 1: inner most storage etc.  
   // as a result, we are summarizing the spatial instances of the storage levels in this loop
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
   { 
     
     std::vector<SpatialExpansion> orig_spatial_expansion = {};
@@ -988,7 +988,7 @@ bool SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
       
       // Sanity check 
       // if (architecture_level == int(state.num_storage_levels_))
-      //   std::cout << "Dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
+      //   std::cout << "Dataspace: " << state.workload_->GetShape()->DataSpaceIDToName.at(pv) << std::endl;
       // std::cout << "  Final: " << topology_specs.GetLevel(architecture_level)->level_name 
       //   << " avg effective rep factor: " << pv_avg_replication_factor 
       //   << " max X expansion: " << pv_max_x
@@ -1028,7 +1028,7 @@ bool SummarizeAndPropagateSpatialCapacityReduction(SparseAnalysisState& state,
   std::ostringstream fail_reason;
   
 
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
   {
   
     // after propagation, summarize the final amount of skipping at each level

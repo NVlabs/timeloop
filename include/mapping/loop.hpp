@@ -66,15 +66,17 @@ class Descriptor
 
   bool operator == (const Descriptor& d) const;
   
-  void Print(std::ostream& out, bool long_form = true) const;
+  std::ostream& Print(std::ostream& out, bool long_form,
+                      const std::map<problem::Shape::FlattenedDimensionID, std::string>& id_to_name) const;
 
   void PrintWhoop(std::ostream& out, int storage_level,
                   std::vector<problem::Shape::FlattenedDimensionID>& dimids,
                   std::vector<std::string>& dimnames,
                   std::vector<int>& dimbounds,
-                  std::vector<std::string>& varnames) const;
+                  std::vector<std::string>& varnames,
+                  const std::map<problem::Shape::FlattenedDimensionID, std::string>& id_to_name) const;
 
-  std::string PrintCompact() const;
+  std::string PrintCompact(const std::map<problem::Shape::FlattenedDimensionID, std::string>& id_to_name) const;
 
   // Serialization
   friend class boost::serialization::access;
@@ -93,7 +95,7 @@ class Descriptor
   }
 };
 
-std::ostream& operator<<(std::ostream& out, const Descriptor& loop);
+//std::ostream& operator<<(std::ostream& out, const Descriptor& loop);
 
 bool IsSpatial(spacetime::Dimension dim);
 bool IsSpatialX(spacetime::Dimension dim);

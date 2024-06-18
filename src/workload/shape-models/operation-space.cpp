@@ -442,7 +442,7 @@ void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::
 
 PerDataSpace<std::size_t> OperationSpace::GetSizes() const
 {
-  PerDataSpace<std::size_t> retval;
+  PerDataSpace<std::size_t> retval(data_spaces_.size());
   
   for (unsigned i = 0; i < data_spaces_.size(); i++)
     retval.at(i) = data_spaces_.at(i).size();

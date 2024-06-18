@@ -32,17 +32,18 @@
 namespace sparse
 {
 
-void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest& compound_data_movement_nest,
+void CalculateExpectedMetaDataAccesses(const problem::Workload* workload,
+                                       tiling::CompoundDataMovementNest& compound_data_movement_nest,
                                        const model::Topology::Specs& topology_specs)
 {
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < workload->GetShape()->NumDataSpaces; pv++)
   {
     for (int l = topology_specs.NumStorageLevels() - 1; l >= 0; l--)
     {
 
      auto& data_movement_info = compound_data_movement_nest[pv][l];
      // std::cout << "storage level: " << topology_specs.GetStorageLevel(l)->level_name
-     // << "  dataspace name: " << problem::GetShape()->DataSpaceIDToName.at(pv)
+     // << "  dataspace name: " << workload->GetShape()->DataSpaceIDToName.at(pv)
      // << " shape: " << data_movement_info.shape << "  has metadata: " << data_movement_info.has_metadata
      // << std::endl;
 
@@ -121,7 +122,8 @@ void CalculateExpectedMetaDataAccesses(tiling::CompoundDataMovementNest& compoun
   }
 }
  
-void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_movement_nest,
+void CalculateExpectedOccupancy(const problem::Workload* workload,
+                                tiling::CompoundDataMovementNest& compound_data_movement_nest,
                                 const model::Topology::Specs& topology_specs)
 {
 
@@ -129,7 +131,7 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
   //    note that for metadata, the occupancy is a function of the data tile occupancy
   //    for for each possible data tile occupancy, we need to recalculate the metadata occupancy
 
-  for (unsigned pv = 0; pv < unsigned(problem::GetShape()->NumDataSpaces); pv++)
+  for (unsigned pv = 0; pv < unsigned(workload->GetShape()->NumDataSpaces); pv++)
   {
     for (unsigned level = 0; level < topology_specs.NumStorageLevels(); level++)
     {
@@ -143,7 +145,7 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
       {
         
         // std::cout << "Storage: " << topology_specs.GetStorageLevel(level)->level_name
-        // << "  dataspace: " << problem::GetShape()->DataSpaceIDToName.at(pv)
+        // << "  dataspace: " << workload->:GetShape()->DataSpaceIDToName.at(pv)
         // << "  tile shape: " << pv_data_movement_info.shape << std::endl;
         
         std::uint64_t abs_max_tile_occupancy = pv_data_movement_info.GetMaxDataTileOccupancyByConfidence(1.0);
@@ -242,7 +244,8 @@ void CalculateExpectedOccupancy(tiling::CompoundDataMovementNest& compound_data_
   }
 }
 
-bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
+bool ApplyRanksOuterToInner(const problem::Workload* workload,
+                            std::uint64_t inner_rank_id,
                             const std::vector <loop::Descriptor>& singleton_metadata_subnest,
                             const std::vector<PointSet>& singleton_metadata_subtile_point_set,
                             const sparse::PerDataSpaceCompressionInfo& pv_compression_info,
@@ -261,7 +264,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
   int loop_id = singleton_metadata_subnest.size() - 1;
   int r_id = cur_level_num_ranks;
   
-  std::uint32_t point_set_order = problem::GetShape()->DataSpaceOrder.at(pv_data_movement_info.dataspace_id);
+  std::uint32_t point_set_order = workload->GetShape()->DataSpaceOrder.at(pv_data_movement_info.dataspace_id);
   Point unit(point_set_order);
   PointSet scalar_point_set(point_set_order, unit);
   PointSet corresponding_tile_point_set = scalar_point_set;
@@ -337,7 +340,7 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
         // {
         //   for (auto dim = flattening_rule.begin(); dim != flattening_rule.end(); dim++)
         //   {
-        //     std::cout << problem::GetShape()->DimensionIDToName.at(*dim) << "  ";
+        //     std::cout << workload->GetShape()->DimensionIDToName.at(*dim) << "  ";
         //   }
         //   std::cout << std::endl;
         // }
@@ -422,7 +425,8 @@ bool ApplyRanksOuterToInner(std::uint64_t inner_rank_id,
   return more_compression_ranks_needed;
 }
 
-bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
+bool ApplyRanksInnerToOuter(const problem::Workload* workload,
+                            std::uint64_t inner_rank_id,
                             const std::vector <loop::Descriptor>& singleton_metadata_subnest,
                             const std::vector<PointSet>& singleton_metadata_subtile_point_set,
                             const sparse::PerDataSpaceCompressionInfo& pv_compression_info,
@@ -442,7 +446,7 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
   unsigned loop_id = 0; 
   int r_id = inner_rank_id - 1;
   
-  auto point_set_order = problem::GetShape()->DataSpaceOrder.at(pv_data_movement_info.dataspace_id);
+  auto point_set_order = workload->GetShape()->DataSpaceOrder.at(pv_data_movement_info.dataspace_id);
   Point unit(point_set_order);
   PointSet scalar_point_set(point_set_order, unit);
   
@@ -524,7 +528,7 @@ bool ApplyRanksInnerToOuter(std::uint64_t inner_rank_id,
         //{
         //  for (auto dim = flattening_rule.begin(); dim != flattening_rule.end(); dim++)
         //  {
-        //    std::cout << problem::GetShape()->FlattenedDimensionIDToName.at(*dim) << "  ";
+        //    std::cout << workload->GetShape()->FlattenedDimensionIDToName.at(*dim) << "  ";
         //  }
         //  std::cout << std::endl;
         //}
@@ -620,11 +624,11 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
 
   std::ostringstream fail_reason;
 
-  for (unsigned pv = 0; pv < problem::GetShape()->NumDataSpaces; pv++)
+  for (unsigned pv = 0; pv < state.workload_->GetShape()->NumDataSpaces; pv++)
   {
 
     auto& pv_data_movement_nest = compound_data_movement_nest[pv];
-    auto dim_ids_in_proj = problem::GetShape()->DataSpaceIDToDimensionIDVector[pv];
+    auto dim_ids_in_proj = state.workload_->GetShape()->DataSpaceIDToDimensionIDVector[pv];
 
     unsigned level = 0;
     while (level < topology_specs.NumStorageLevels())
@@ -658,7 +662,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
         compression_info.per_level_info_map.at(level).at(pv).rank_formats.size() : 1;
 
       // std::cout << "define format: "<< topology_specs.GetStorageLevel(level)->level_name
-      // << " dataspace: " << problem::GetShape() -> DataSpaceIDToName.at(pv)
+      // << " dataspace: " << state.workload_->GetShape() -> DataSpaceIDToName.at(pv)
       // << " has metadata: " << cur_level_has_metadata
       // << std::endl;
 
@@ -695,7 +699,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
 
         if (child_level_num_ranks > cur_level_num_ranks)
         {
-          fail_reason << "pretiling for " << problem::GetShape()->DataSpaceIDToName.at(pv)
+          fail_reason << "pretiling for " << state.workload_->GetShape()->DataSpaceIDToName.at(pv)
                       << "required but level compression format does not align: "
                       << topology_specs.GetStorageLevel(level)->level_name << " "
                       << topology_specs.GetStorageLevel(child_level_id)->level_name
@@ -713,7 +717,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
               compression_info.per_level_info_map.at(level).at(pv).rank_formats[r_id] !=
               compression_info.per_level_info_map.at(child_level_id).at(pv).rank_formats[r_id])
           {
-            fail_reason << "pretiling for " << problem::GetShape()->DataSpaceIDToName.at(pv)
+            fail_reason << "pretiling for " << state.workload_->GetShape()->DataSpaceIDToName.at(pv)
                         << "required but level compression format does not align: "
                         << topology_specs.GetStorageLevel(level)->level_name << " "
                         << topology_specs.GetStorageLevel(child_level_id)->level_name
@@ -807,13 +811,13 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
       bool more_compression_ranks_needed;
       if (!pv_compression_info.apply_rank_inner_to_outer)
       {
-        more_compression_ranks_needed = ApplyRanksOuterToInner(inner_rank_id, singleton_metadata_subnest,
+        more_compression_ranks_needed = ApplyRanksOuterToInner(state.workload_, inner_rank_id, singleton_metadata_subnest,
                                                                singleton_metadata_subtile_point_set,
                                                                pv_compression_info,
                                                                pv_data_movement_nest[level]);
       } else
       {
-        more_compression_ranks_needed = ApplyRanksInnerToOuter(inner_rank_id, singleton_metadata_subnest,
+        more_compression_ranks_needed = ApplyRanksInnerToOuter(state.workload_, inner_rank_id, singleton_metadata_subnest,
                                                                singleton_metadata_subtile_point_set,
                                                                pv_compression_info,
                                                                pv_data_movement_nest[level]);
@@ -825,7 +829,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
       {
 
         fail_reason << "more compression ranks needed than supported in hardware."
-                    << " dataspace name: " << problem::GetShape()->DataSpaceIDToName.at(pv);
+                    << " dataspace name: " << state.workload_->GetShape()->DataSpaceIDToName.at(pv);
         success = false;
         eval_status[overall_level_id].success = false;
         eval_status[overall_level_id].fail_reason = fail_reason.str();
@@ -858,7 +862,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
 
       if (pv_data_movement_nest[level].metadata_subnest.size() != cur_level_num_ranks)
       {
-        std::cout << topology_specs.GetStorageLevel(level)  << ": metadata models defined incorrectly, dataspace name: " << problem::GetShape()->DataSpaceIDToName.at(pv) << std::endl;
+        std::cout << topology_specs.GetStorageLevel(level)  << ": metadata models defined incorrectly, dataspace name: " << state.workload_->GetShape()->DataSpaceIDToName.at(pv) << std::endl;
         std::cout << "defined number of ranks: " << pv_data_movement_nest[level].metadata_subnest.size() 
           << " expected number of ranks: " << cur_level_num_ranks << std::endl;
         for (unsigned rank_id = 0; rank_id < pv_data_movement_nest[level].metadata_subnest.size(); rank_id++)
@@ -867,7 +871,8 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
           for (auto loop = pv_data_movement_nest[level].metadata_subnest[rank_id].begin();
         	   loop != pv_data_movement_nest[level].metadata_subnest[rank_id].end(); loop++)
           {
-            std::cout << *loop << std::endl;
+            loop->Print(std::cout, true, state.workload_->GetShape()->FlattenedDimensionIDToName);
+            std::cout << std::endl;
           }
         }
       }
@@ -904,7 +909,7 @@ bool DefineCompressionFormatModels(SparseAnalysisState& state,
 
       // print info for sanity checks
 
-      //std::cout << "\nDataspace name: " << problem::GetShape()->DataSpaceIDToName.at(pv)
+      //std::cout << "\nDataspace name: " << state.workload_->GetShape()->DataSpaceIDToName.at(pv)
       //          << "  level: " << level << " " << topology_specs.GetStorageLevel(level)->level_name
       //          << "   pretiling required: " << pre_tiling_required
       //          << " compressed: " << compression_info.compressed_masks[level][pv] << std::endl;

@@ -154,6 +154,14 @@ void Shape::Parse(config::CompoundConfigNode shape)
   config::CompoundConfigNode data_spaces = shape.lookup("data_spaces");
   assert(data_spaces.isList());
 
+  if (static_cast<std::size_t>(data_spaces.getLength()) > MAX_DATA_SPACES)
+  {
+    std::cerr << "ERROR: number of data spaces in problem shape ("
+              << data_spaces.getLength() << ") exceeds max allowed ("
+              << MAX_DATA_SPACES << ". Please update MAX_DATA_SPACES "
+              << "in problem-shape.hpp if necessary." << std::endl;
+  }
+
   NumDataSpaces = 0;
   for (int d = 0; d < data_spaces.getLength(); d++)
   {

@@ -325,7 +325,7 @@ bool PerformSparseProcessing(problem::Workload* workload,
   InitializeMaxRequiredSpatialExpansion(compound_tile_nest, topology_specs, mapping);
   
   // Perform quick check on if sparse anlaysis is needed
-  SparseAnalysisState state;
+  SparseAnalysisState state(workload);
   bool sparse_analysis_needed = state.Init(sparse_optimization_info, workload, mapping, topology_specs.NumStorageLevels());
   if (!sparse_analysis_needed) return success;
  
@@ -345,8 +345,8 @@ bool PerformSparseProcessing(problem::Workload* workload,
   if (!success && break_on_failure) return success;
 
   // Once the compression models are defined, the expected data and metadata occupancy are also defined
-  CalculateExpectedOccupancy(compound_data_movement_nest, topology_specs);
-  CalculateExpectedMetaDataAccesses(compound_data_movement_nest, topology_specs);
+  CalculateExpectedOccupancy(workload, compound_data_movement_nest, topology_specs);
+  CalculateExpectedMetaDataAccesses(workload, compound_data_movement_nest, topology_specs);
 
   // Check the mapping-dependent alignment unit requirement above the compute level
   // success = CheckComputeAlignmentUnitRequirement(state, compound_data_movement_nest, topology_specs, eval_status);

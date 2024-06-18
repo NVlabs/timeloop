@@ -35,7 +35,8 @@
 #include "loop-analysis/tiling.hpp"
 #include "workload/shape-models/problem-shape.hpp"
 
-namespace loop {
+namespace loop
+{
 
 // ----------
 // NestConfig
@@ -43,7 +44,7 @@ namespace loop {
 
 typedef std::vector<std::vector<Descriptor>> NestConfig;
 
-std::ostream& operator << (std::ostream& out, const NestConfig& nest);
+//std::ostream& operator << (std::ostream& out, const NestConfig& nest);
 
 
 // ---------
@@ -101,8 +102,11 @@ class Nest
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> rmw_first_update;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_coalesce;
 
+  problem::Shape problem_shape;
+
  public:
-  Nest();
+  Nest() = default;
+  Nest(const problem::Shape& shape);
 
   bool operator == (const Nest& n) const; 
 

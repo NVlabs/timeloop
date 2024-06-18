@@ -139,6 +139,8 @@ class ReductionTreeNetwork : public Network
   std::weak_ptr<Level> source_;
   std::weak_ptr<Level> sink_;
 
+  problem::Workload* workload_ = nullptr;
+
  public:
   Stats stats_; // temporarily public.
 
@@ -187,6 +189,7 @@ class ReductionTreeNetwork : public Network
   void SetTileWidth(double width_um) override;
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
+                      problem::Workload* workload,
                       const bool break_on_failure) override;
   // PAT interface.
   static double WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance, double wire_energy_override);

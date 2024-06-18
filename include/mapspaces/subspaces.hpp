@@ -47,12 +47,13 @@ class IndexFactorizationSpace
  private:
   problem::PerFlattenedDimension<Factors> dimension_factors_;
   CartesianCounterDynamic tiling_counter_;
+  const problem::Workload& workload_;
 
  public:
-  IndexFactorizationSpace();
+  IndexFactorizationSpace() = delete;
+  IndexFactorizationSpace(const problem::Workload& workload);
 
-  void Init(const problem::Workload &workload,
-            std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
+  void Init(std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors =
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>>(),
             std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors =
@@ -112,9 +113,11 @@ class PermutationSpace
   std::map<unsigned, Pattern> patterns_;
   std::map<unsigned, std::uint64_t> size_;    
   Factoradic<problem::Shape::FlattenedDimensionID> factoradic_;
-  
+  const problem::Workload& workload_;
+
  public:
-  PermutationSpace();
+  PermutationSpace() = delete;
+  PermutationSpace(const problem::Workload& workload);
 
   void Init(uint64_t num_levels);
   virtual void InitLevelCanonical(uint64_t level);
@@ -143,7 +146,8 @@ class RubyPermutationSpace : public PermutationSpace
     std::map<unsigned, RubyPattern> ruby_patterns_;
 
   public:
-    RubyPermutationSpace();
+    RubyPermutationSpace() = delete;
+    RubyPermutationSpace(const problem::Workload& workload);
 
     void InitLevel(uint64_t level,
                   std::vector<problem::Shape::FlattenedDimensionID> user_prefix,
@@ -171,8 +175,11 @@ class SpatialSplitSpace
   std::map<unsigned, std::size_t> size_;
   std::map<unsigned, unsigned> unit_factors_;
 
+  const problem::Workload& workload_;
+  
  public:
-  SpatialSplitSpace();
+  SpatialSplitSpace() = delete;
+  SpatialSplitSpace(const problem::Workload& workload);
 
   void Init(uint64_t num_levels);
   void InitLevel(uint64_t level, unsigned unit_factors = 0);

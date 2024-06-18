@@ -255,6 +255,8 @@ class Topology : public Module
   Specs specs_;
   Stats stats_;
 
+  problem::Workload* workload_ = nullptr;
+  
   // Serialization
   friend class boost::serialization::access;
   template <class Archive>
