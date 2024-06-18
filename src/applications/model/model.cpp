@@ -36,8 +36,11 @@
 //                Application                 //
 //--------------------------------------------//
 
+namespace application
+{
+
 template <class Archive>
-void Application::serialize(Archive& ar, const unsigned int version)
+void Model::serialize(Archive& ar, const unsigned int version)
 {
   if (version == 0)
   {
@@ -45,12 +48,23 @@ void Application::serialize(Archive& ar, const unsigned int version)
   }
 }
 
-Application::Application(config::CompoundConfig* config,
-                         std::string output_dir,
-                         std::string name) :
+Model::Model(config::CompoundConfig* config,
+             std::string output_dir,
+             std::string name) :
     name_(name)
 {    
   auto rootNode = config->getRoot();
+
+  // Version check
+  if (rootNode.exists("architecture") && rootNode.lookup("architecture").exists("nodes"))
+  {
+    std::cerr << "ERROR: 'nodes' found as a sub-key in the architecture. The 'nodes' key is used by "
+              << "the v0.4 timeloop front-end format, and will not be recognized by 'timeloop-...' "
+              << "commands. Please use the timeloopfe front-end, which is documented at "
+              << "https://github.com/Accelergy-Project/timeloop-accelergy-exercises and "
+              << "https://timeloop.csail.mit.edu." << std::endl;
+    exit(1);
+  }
 
   // Model application configuration.
   auto_bypass_on_failure_ = false;
@@ -172,7 +186,7 @@ Application::Application(config::CompoundConfig* config,
   }
 }
 
-Application::~Application()
+Model::~Model()
 {
   if (mapping_)
     delete mapping_;
@@ -188,13 +202,8 @@ Application::~Application()
 }
 
 // Run the evaluation.
-Application::Stats Application::Run()
+Model::Stats Model::Run()
 {
-  // Output file names.
-  std::string stats_file_name = out_prefix_ + ".stats.txt";
-  std::string xml_file_name = out_prefix_ + ".map+stats.xml";
-  std::string map_txt_file_name = out_prefix_ + ".map.txt";
-
   model::Engine engine;
   engine.Spec(arch_specs_);
 
@@ -208,8 +217,8 @@ Application::Stats Application::Run()
   // mapping with one that fits but is higher cost and likely sub-optimal.
   // *However*, this only covers capacity failures due to temporal factors,
   // not instance failures due to spatial factors. It also possibly
-  // over-corrects since it bypasses *all* data-spaces at a failing level,
-  // while it's possible that bypassing a subset of data-spaces may have
+  // over-corrects since it bypasses *all* data_spaces at a failing level,
+  // while it's possible that bypassing a subset of data_spaces may have
   // caused the mapping to fit.
   if (auto_bypass_on_failure_)
   {
@@ -243,6 +252,8 @@ Application::Stats Application::Run()
   //   return;
   // }
 
+  std::stringstream map_txt;
+  std::stringstream stats_txt;
   if (engine.IsEvaluated())
   {
     if (!sparse_optimizations_->no_optimization_applied)
@@ -259,25 +270,36 @@ Application::Stats Application::Run()
                  << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().ActualComputes() << std::endl;
     }
-    std::ofstream map_txt_file(map_txt_file_name);
-    mapping.PrettyPrint(map_txt_file, arch_specs_.topology.StorageLevelNames(), engine.GetTopology().UtilizedCapacities(), engine.GetTopology().TileSizes());
-    map_txt_file.close();
 
-    std::ofstream stats_file(stats_file_name);
-    stats_file << engine << std::endl;
-    stats_file.close();
+    mapping.PrettyPrint(map_txt,
+                        arch_specs_.topology.StorageLevelNames(),
+                        engine.GetTopology().UtilizedCapacities(),
+                        engine.GetTopology().TileSizes());
+
+    stats_txt << engine << std::endl;
   }
 
   // Print the engine stats and mapping to an XML file
-  std::ofstream ofs(xml_file_name);
-  boost::archive::xml_oarchive ar(ofs);
+  std::stringstream xml_str;
+  boost::archive::xml_oarchive ar(xml_str);
   ar << BOOST_SERIALIZATION_NVP(engine);
   ar << BOOST_SERIALIZATION_NVP(mapping);
-  const Application* a = this;
+  const Model* a = this;
   ar << BOOST_SERIALIZATION_NVP(a);
 
+  // Print the mapping in Tenssella input format.
+  std::stringstream tenssella_out;
+  mapping.PrintTenssella(tenssella_out);
+
   Stats stats;
+  stats.map_string = map_txt.str();
+  stats.stats_string = stats_txt.str();
+  stats.xml_map_and_stats_string = xml_str.str();
+  stats.tensella_string = tenssella_out.str();
+
   stats.cycles = engine.Cycles();
   stats.energy = engine.Energy();
   return stats;
 }
+
+} // namespace application

@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -44,10 +44,29 @@
 //                Application                 //
 //--------------------------------------------//
 
-class Application
+namespace application
+{
+
+class Mapper
 {
  public:
-  std::string name_;  
+  std::string name_;
+
+  /**
+   * @brief Contains string versions of the output that used to print to file
+   *   during a call to `Run()`. Instead, this is returned so that `main()` can
+   *   print to file instead.
+   */
+  struct Result
+  {
+    std::string mapping_cpp_string;
+    std::string mapping_yaml_string;
+    std::string mapping_string;
+    std::string stats_string;
+    std::string tensella_string;
+    std::string xml_mapping_stats_string;
+    std::string oaves_string;
+  };
 
  protected:
 
@@ -63,8 +82,13 @@ class Application
   std::uint32_t num_threads_;
   std::uint32_t timeout_;
   std::uint32_t victory_condition_;
+  std::int32_t max_temporal_loops_in_a_mapping_;
   uint128_t sync_interval_;
+  uint128_t log_interval_;
+
   bool log_stats_;
+  bool log_oaves_;
+  bool log_oaves_mappings_;
   bool log_suboptimal_;
   bool live_status_;
   bool diagnostics_on_;
@@ -88,18 +112,19 @@ class Application
 
  public:
 
-  Application(config::CompoundConfig* config,
-              std::string output_dir = ".",
-              std::string name = "timeloop-mapper");
+  Mapper(config::CompoundConfig* config,
+         std::string output_dir = ".",
+         std::string name = "timeloop-mapper");
 
   // This class does not support being copied
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
+  Mapper(const Mapper&) = delete;
+  Mapper& operator=(const Mapper&) = delete;
 
-  ~Application();
+  ~Mapper();
 
   EvaluationResult GetGlobalBest();
 
-  void Run();
+  Mapper::Result Run();
 };
 
+} // namespace application

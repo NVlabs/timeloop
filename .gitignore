@@ -39,3 +39,17 @@ GPATH
 GRTAGS
 GSYMS
 GTAGS
+
+### Documentation
+.doxygen-config.bak
+docs/
+
+# If using virtual environment for testing
+venv
+
+# Development container in VSCode
+.devcontainer
+.devcontainer.json
+
+# MacOS-specific files.
+.DS_Store

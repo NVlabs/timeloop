@@ -31,6 +31,7 @@
 #include <streambuf>
 
 #include "compound-config/compound-config.hpp"
+#include "compound-config/hyphens-to-underscores.hpp"
 
 #define EXCEPTION_PROLOGUE                                                          \
     try { 
@@ -123,7 +124,7 @@ bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -156,7 +157,7 @@ bool CompoundConfigNode::lookupValue(const char *name, int &value) const {
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -189,7 +190,7 @@ bool CompoundConfigNode::lookupValue(const char *name, unsigned int &value) cons
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -223,7 +224,7 @@ bool CompoundConfigNode::lookupValueLongOnly(const char *name, long long &value)
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -266,7 +267,7 @@ bool CompoundConfigNode::lookupValueLongOnly(const char *name, unsigned long lon
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -313,7 +314,7 @@ bool CompoundConfigNode::lookupValue(const char *name, double &value) const {
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -350,7 +351,7 @@ bool CompoundConfigNode::lookupValue(const char *name, float &value) const {
       if (cConfig->getVariableRoot().exists(variableName)) {
         cConfig->getVariableRoot().lookupValue(variableName, value);
       } else {
-        std::cerr << "Cannot find " << variableName << " under root key: variables" << std::endl;
+        std::cerr << "Cannot find " << variableName << " for " << name << " under root key: variables" << std::endl;
         throw e;
       }
     }
@@ -417,6 +418,121 @@ bool CompoundConfigNode::lookupValue(const char *name, std::string &value) const
   EXCEPTION_EPILOGUE;
 }
 
+/**
+ * Resolves the current YNode into a string.
+ * 
+ * @return The current YNode as a string.
+ */
+std::string CompoundConfigNode::resolve() const {
+  return YNode.as<std::string>();
+}
+
+/**
+ * Sets the value at a given key to YAML::Null, instantiating it.
+ * 
+ * @param name  The key we in the Map we want to set to Null.
+ * 
+ * @return      Whether the setting was successful.
+ * @post        If return is true the key provided is instantiated.
+ */
+bool CompoundConfigNode::instantiateKey(const char *name) {
+  EXCEPTION_PROLOGUE;
+
+  // Ensures the YNode is defined and is a Map or a Null which can become a Map.
+  if (YNode && !YNode[name].IsDefined() && (YNode.IsMap() || YNode.IsNull()))
+  {
+    // Creates a Null YNode and assigns Null.
+    YNode[name] = YAML::Null;
+    return true;
+
+  // Otherwise, cannot proceed with operation.
+  } else
+  {
+    return false;
+  }
+
+  EXCEPTION_EPILOGUE;
+}
+
+/**
+ * Sets the node to a Scalar value.
+ * 
+ * This is made in a template format for standardization across all Scalar types
+ * to reduce the amount of code that needs to be changed upon refactor. In order
+ * to avoid linker issues, please add an explicit instantiation at the bottom of
+ * the file in order to avoid linker issues.
+ * 
+ * @tparam T      The C++ type of the Scalar we wish to set.
+ * 
+ * @param scalar  The Scalar we wish to set.
+ * 
+ * @return        Whether or not the scalar we wanted to set was set.
+ * @post          If return is true the set was successful. If return is false,
+ *                the value at the node was not replaced.
+ */
+template <typename T>
+bool CompoundConfigNode::setScalar(const T scalar) {
+  EXCEPTION_PROLOGUE;
+
+  // Ensures the YNode is defined
+  if (YNode)
+  {
+    YNode = scalar;
+    return true;
+  // If it is not defined, return false.
+  } else
+  {
+    return false;
+  }
+  EXCEPTION_EPILOGUE;
+}
+
+/**
+ * Sets a Node to another node.
+ * 
+ * @param node The node you want to set here.
+ * 
+ */
+bool CompoundConfigNode::set(CompoundConfigNode& node)
+{
+  EXCEPTION_PROLOGUE;
+  
+  // Sets our YNode to that of the other node.
+  YNode = node.getYNode();
+  return true;
+
+  EXCEPTION_EPILOGUE;
+}
+
+/**
+ * Appends a value onto node.
+ * 
+ * @tparam T    The C++ type of the value we're attempting to append.
+ * 
+ * @param value The value we're trying to push on the vector.
+ * 
+ * @return      Whether we successfully pushed the value onto the vector.
+ * @post        If we return true, we successfully pushed the vector onto the
+ *              stack and converted it to a Sequence. If false, we modified
+ *              nothing.
+ */
+template <typename T>
+bool CompoundConfigNode::push_back(const T value) {
+  EXCEPTION_PROLOGUE;
+
+  // Ensures we can actually create a Sequence here
+  if (!YNode || YNode.IsSequence() || YNode.IsNull())
+  {
+    YNode.push_back(value);
+    return true;
+  } else
+  {
+    return false;
+  }
+
+  EXCEPTION_EPILOGUE;
+}
+
 bool CompoundConfigNode::exists(const char *name) const {
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->exists(name);
@@ -430,7 +546,6 @@ bool CompoundConfigNode::exists(const char *name) const {
 
 bool CompoundConfigNode::lookupArrayValue(const char* name, std::vector<std::string> &vectorValue) const {
   EXCEPTION_PROLOGUE;
-
   if (LNode) {
     assert(LNode->lookup(name).isArray());
     for (const std::string m: LNode->lookup(name))
@@ -497,12 +612,13 @@ int CompoundConfigNode::getLength() const {
 
 CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
   assert(isList() || isArray());
+
   if(LNode) return CompoundConfigNode(&(*LNode)[idx], YAML::Node(), cConfig);
   else if (YNode) {
-      auto yIter = YNode.begin();
-      for (int i = 0; i < idx; i++) yIter++;
-      auto nextNode = *yIter;
-      return CompoundConfigNode(nullptr, nextNode, cConfig);
+    auto yIter = YNode.begin();
+    for (int i = 0; i < idx; i++) yIter++;
+    auto nextNode = *yIter;
+    return CompoundConfigNode(nullptr, nextNode, cConfig);
   }
   else {
     assert(false);
@@ -510,7 +626,7 @@ CompoundConfigNode CompoundConfigNode::operator [](int idx) const {
   }
 }
 
-bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
+bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) const {
   if (LNode) {
     assert(isArray());
     for (const std::string m: *LNode)
@@ -531,7 +647,7 @@ bool CompoundConfigNode::getArrayValue(std::vector<std::string> &vectorValue) {
   }
 }
 
-bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) {
+bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) const {
   if (LNode) {
     assert(LNode->isGroup());
     for (auto it = LNode->begin(); it != LNode->end(); it++) {
@@ -555,18 +671,19 @@ bool CompoundConfigNode::getMapKeys(std::vector<std::string> &mapKeys) {
 /* CompoundConfig */
 
 CompoundConfig::CompoundConfig(const char* inputFile) {
+  std::string contents = hyphens2underscores::hyphens2underscores_from_file(inputFile);
+
   if (std::strstr(inputFile, ".cfg")) {
-    LConfig.readFile(inputFile);
+    // LConfig.readFile(inputFile);
+    LConfig.readString(contents);
     auto& lroot = LConfig.getRoot();
     useLConfig = true;
     root = CompoundConfigNode(&lroot, YAML::Node(), this);
   } else if (std::strstr(inputFile, ".yml") || std::strstr(inputFile, ".yaml")) {
-    std::ifstream f;
-    f.open(inputFile);
-    YConfig = YAML::Load(f);
+    std::istringstream combinedStream(contents);
+    YConfig = YAML::Load(combinedStream);
     root = CompoundConfigNode(nullptr, YConfig, this);
     useLConfig = false;
-    f.close();
     // std::cout << YConfig << std::endl;
   } else {
     std::cerr << "ERROR: Input configuration file does not end with .cfg, .yml, or .yaml" << std::endl;
@@ -576,13 +693,14 @@ CompoundConfig::CompoundConfig(const char* inputFile) {
 
 CompoundConfig::CompoundConfig(std::string input, std::string format) {
   // we only accept yaml version as a string input
+  std::string contents = hyphens2underscores::hyphens2underscores(input);
   if (format.compare("cfg") == 0) {
-    LConfig.readString(input);
+    LConfig.readString(contents);
     auto& lroot = LConfig.getRoot();
     useLConfig = true;
     root = CompoundConfigNode(&lroot, YAML::Node(), this);
   } else if (format.compare("yml") == 0 || format.compare("yaml") == 0) {
-    std::istringstream combinedStream(input);
+    std::istringstream combinedStream(contents);
     YConfig = YAML::Load(combinedStream);
     root = CompoundConfigNode(nullptr, YConfig, this);
     useLConfig = false;
@@ -614,12 +732,12 @@ CompoundConfig::CompoundConfig(std::vector<std::string> inputFiles) {
   }
   
   if (std::strstr(inputFiles[0].c_str(), ".cfg")) {
-    LConfig.readString(combinedString);
+    LConfig.readString(hyphens2underscores::hyphens2underscores(combinedString));
     auto& lroot = LConfig.getRoot();
     useLConfig = true;
     root = CompoundConfigNode(&lroot, YAML::Node(), this);
   } else if (std::strstr(inputFiles[0].c_str(), ".yml") || std::strstr(inputFiles[0].c_str(), ".yaml")) {
-    std::istringstream combinedStream(combinedString);
+    std::istringstream combinedStream(hyphens2underscores::hyphens2underscores(combinedString));
     YConfig = YAML::Load(combinedStream);
     root = CompoundConfigNode(nullptr, YConfig, this);
     useLConfig = false;
@@ -675,4 +793,40 @@ std::string parseName(std::string name) {
   }
 }
 
+/*******************************************************************************
+ * Explicit template instantiation.
+ ******************************************************************************/
+/* setScalar */
+// Integer setters.
+template bool CompoundConfigNode::setScalar(bool value);
+template bool CompoundConfigNode::setScalar(int value);
+template bool CompoundConfigNode::setScalar(unsigned int value);
+// Long long setters.
+template bool CompoundConfigNode::setScalar(long long value);
+template bool CompoundConfigNode::setScalar(unsigned long long value);
+// Floating point setters.
+template bool CompoundConfigNode::setScalar(double value);
+template bool CompoundConfigNode::setScalar(float value);
+// String setters.
+template bool CompoundConfigNode::setScalar(const char *value);
+template bool CompoundConfigNode::setScalar(std::string value);
+// Null setter.
+template bool CompoundConfigNode::setScalar(YAML::_Null value);
+
+/* push_back */
+// Integer appending
+template bool CompoundConfigNode::push_back(bool value);
+template bool CompoundConfigNode::push_back(int value);
+template bool CompoundConfigNode::push_back(unsigned int value);
+// Long long appending
+template bool CompoundConfigNode::push_back(long long value);
+template bool CompoundConfigNode::push_back(unsigned long long value);
+// Float appending
+template bool CompoundConfigNode::push_back(double value);
+template bool CompoundConfigNode::push_back(float value);
+// String appending.
+template bool CompoundConfigNode::push_back(const char *value);
+template bool CompoundConfigNode::push_back(std::string value);
+// YAML::Node appending
+template bool CompoundConfigNode::push_back(YAML::Node value);
 } // namespace config

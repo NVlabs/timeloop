@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
   sigemptyset(&action.sa_mask);
   action.sa_flags = 0;
   sigaction(SIGINT, &action, NULL);
-  
+
   std::vector<std::string> input_files;
   std::string output_dir = ".";
   bool success = ParseArgs(argc, argv, input_files, output_dir);
@@ -77,9 +77,26 @@ int main(int argc, char* argv[])
 
   auto config = new config::CompoundConfig(input_files);
 
-  Application application(config, output_dir);
+  application::Model application(config, output_dir);
   
-  application.Run();
+  const auto stats = application.Run();
+
+  // Output file names.
+  std::string out_prefix = output_dir + "/" + "timeloop-model";
+
+  const auto fname_to_string = std::map<std::string, const std::string&>({
+    {"stats.txt", stats.stats_string},
+    {"map+stats.xml", stats.xml_map_and_stats_string},
+    {"map.txt", stats.map_string},
+    {"map.tensella.txt", stats.tensella_string}
+  });
+
+  for (const auto& [fname_suffix, content_string] : fname_to_string)
+  {
+    std::ofstream file(out_prefix + "." + fname_suffix);
+    file << content_string;
+    file.close();
+  }
 
   return 0;
 }

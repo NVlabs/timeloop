@@ -151,7 +151,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
   }
 
   // Data Spaces.
-  config::CompoundConfigNode data_spaces = shape.lookup("data-spaces");
+  config::CompoundConfigNode data_spaces = shape.lookup("data_spaces");
   assert(data_spaces.isList());
 
   if (static_cast<std::size_t>(data_spaces.getLength()) > MAX_DATA_SPACES)
@@ -173,7 +173,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
     DataSpaceNameToID[name] = NumDataSpaces;
 
     bool read_write = false;
-    data_space.lookupValue("read-write", read_write);
+    data_space.lookupValue("read_write", read_write);
     IsReadWriteDataSpace[NumDataSpaces] = read_write;
 
     Projection projection;
@@ -248,7 +248,7 @@ void Shape::Parse(config::CompoundConfigNode shape)
 
 std::set <Shape::FlattenedDimensionID> Shape::GetFullyContractedDimensions() const
 {
-  // criteria for contracted dimensions: in read dataspace but not in read-write dataspace
+  // criteria for contracted dimensions: in read dataspace but not in read_write dataspace
 
   std::set <FactorizedDimensionID> contracted_dims;
   DataSpaceID pv;

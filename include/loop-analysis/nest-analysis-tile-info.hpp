@@ -33,10 +33,20 @@
 #include "mapping/loop.hpp"
 #include "workload/util/per-data-space.hpp"
 
+/**
+ * @brief Access stats (accesses and hops) for a (multicast, scatter) tuple.
+ */
 struct AccessStats
 {
+  /**
+   * @brief Count of *parent* accesses.
+   */
   double accesses = 0;
+  /**
+   * @brief Number of hops to deliver data to all children.
+   */
   double hops = 0.0;
+  double unicast_hops = 0.0;
 
   // Serialization.
   friend class boost::serialization::access;
@@ -47,12 +57,23 @@ struct AccessStats
     {
       ar& BOOST_SERIALIZATION_NVP(accesses);
       ar& BOOST_SERIALIZATION_NVP(hops);
+      ar& BOOST_SERIALIZATION_NVP(unicast_hops);
     }
   }
 };
 
+/**
+ * @brief A histogram containing accesses and hops for (multicast, scatter)
+ *   tuples
+ * 
+ * @see AccessStats
+ */
 struct AccessStatMatrix
 {
+  /**
+   * @brief A map from (multicast, scatter) tuple to access stats containing
+   *   accesses and hops.
+   */
   std::map<std::pair<std::uint64_t,std::uint64_t>, AccessStats> stats;
 
   void clear();
@@ -91,20 +112,35 @@ struct DataMovementInfo
   // Serialization.
   friend class boost::serialization::access;
   template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0);
+  void serialize(Archive& ar, const unsigned int version = 0)
+  {
+    if (version == 0)
+    {
+      ar& BOOST_SERIALIZATION_NVP(size);
+      ar& BOOST_SERIALIZATION_NVP(access_stats);
+      ar& BOOST_SERIALIZATION_NVP(link_transfers);
+      ar& BOOST_SERIALIZATION_NVP(subnest);
+      ar& BOOST_SERIALIZATION_NVP(replication_factor);
+      ar& BOOST_SERIALIZATION_NVP(fanout);
+      ar& BOOST_SERIALIZATION_NVP(is_on_storage_boundary);
+      ar& BOOST_SERIALIZATION_NVP(is_master_spatial);
+    }
+  }
 
   std::size_t size;
   // std::size_t partition_size;
-  bool distributed_multicast;
+  double total_child_accesses;
   AccessStatMatrix access_stats;
+  
   double link_transfers;
   std::vector<loop::Descriptor> subnest;
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   std::uint64_t fanout;                  // per-element fanout to next-level.
-  std::uint64_t distributed_fanout;      // max range of fanout if distributed multicast is used.
   bool is_on_storage_boundary;
   bool is_master_spatial;
-  
+  bool rmw_first_update;
+  bool no_coalesce;
+
   void Reset();
 
   void Validate();
@@ -114,6 +150,7 @@ struct ComputeInfo
 {
   std::uint64_t replication_factor;      // number of spatial elements at this level.
   double accesses;
+  std::uint64_t max_temporal_iterations;
   
   ComputeInfo();
   
@@ -121,7 +158,7 @@ struct ComputeInfo
 };
 
 // compound tile info types to capture per-dataspace info
-typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest ; 
+typedef problem::PerDataSpace<std::vector<DataMovementInfo>> CompoundDataMovementNest; 
 typedef std::vector<ComputeInfo> CompoundComputeNest;  // single vector, each element for a nest level, no fine-grained op type should be considered here
 struct CompoundTileNest
 {

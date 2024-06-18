@@ -52,9 +52,11 @@ class Constraints
   // The constraints.
   std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>> factors_;
   std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>> max_factors_;
+  std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>> min_factors_;
   std::map<unsigned, std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
                                std::vector<problem::Shape::FlattenedDimensionID>>> permutations_;
   std::map<unsigned, std::uint32_t> spatial_splits_;
+  std::map<unsigned, std::uint32_t> max_remainders_;
   std::map<unsigned, double> confidence_thresholds_;
   problem::PerDataSpace<std::string> bypass_strings_;
   double min_parallelism_;
@@ -63,6 +65,8 @@ class Constraints
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer_;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast_;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> rmw_first_update_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_coalesce_;
 
  public:
   Constraints() = delete;
@@ -72,9 +76,11 @@ class Constraints
 
   const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>& Factors() const;
   const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>& MaxFactors() const;
+  const std::map<unsigned, std::map<problem::Shape::FlattenedDimensionID, int>>& MinFactors() const;
   const std::map<unsigned, std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
                                      std::vector<problem::Shape::FlattenedDimensionID>>>& Permutations() const;
   const std::map<unsigned, std::uint32_t>& SpatialSplits() const;  
+  const std::map<unsigned, std::uint32_t>& MaxRemainders() const;  
   const problem::PerDataSpace<std::string>& BypassStrings() const;
   double MinParallelism() const;
   const std::map<unsigned, double>& ConfidenceThresholds() const;
@@ -82,6 +88,8 @@ class Constraints
   const std::unordered_map<unsigned, problem::PerDataSpace<bool>> NoLinkTransfers() const;
   const std::unordered_map<unsigned, problem::PerDataSpace<bool>> NoMulticast() const;
   const std::unordered_map<unsigned, problem::PerDataSpace<bool>> NoTemporalReuse() const;
+  const std::unordered_map<unsigned, problem::PerDataSpace<bool>> RMWOnFirstWriteback() const;
+  const std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_coalesce() const;
 
   // Create a constraints object from a given mapping object. The resultant
   // constraints will *only* be satisfied by that mapping.
@@ -111,6 +119,7 @@ class Constraints
   // Parsers.
   std::map<problem::Shape::FlattenedDimensionID, int> ParseFactors(config::CompoundConfigNode constraint);
   std::map<problem::Shape::FlattenedDimensionID, int> ParseMaxFactors(config::CompoundConfigNode constraint);
+  std::map<problem::Shape::FlattenedDimensionID, int> ParseMinFactors(config::CompoundConfigNode constraint);
   std::pair<std::vector<problem::Shape::FlattenedDimensionID>,
             std::vector<problem::Shape::FlattenedDimensionID>> ParsePermutations(config::CompoundConfigNode constraint);
   void ParseDatatypeBypassSettings(config::CompoundConfigNode constraint, unsigned level);

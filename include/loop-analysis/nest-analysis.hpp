@@ -31,13 +31,16 @@
 #include <map>
 #include <unordered_set>
 
+#include <isl/map.h>
+#include <isl/set.h>
+
 #include "mapping/nest.hpp"
 #include "workload/util/per-problem-dimension.hpp"
 #include "nest-analysis-tile-info.hpp"
+#include "loop-analysis/isl-ir.hpp"
 
 namespace analysis
 {
-
 class NestAnalysis
 {
  private:
@@ -69,6 +72,7 @@ class NestAnalysis
   problem::OperationPoint cur_transform_;
 
   // per-level properties.
+  std::vector<double> utilized_spatial_elems_; // with imperfect factorization.
   std::vector<uint64_t> num_spatial_elems_;
   std::vector<uint64_t> logical_fanouts_;
 
@@ -128,11 +132,14 @@ class NestAnalysis
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_link_transfer_;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_multicast_;
   std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_temporal_reuse_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> rmw_first_update_;
+  std::unordered_map<unsigned, problem::PerDataSpace<bool>> no_coalesce_;
 
   // Other state.
 
   bool working_sets_computed_ = false;
   bool imperfectly_factorized_ = false;
+  std::unordered_map<problem::Shape::FlattenedDimensionID, int> dim_imperfectly_factorized_at_;
 
   problem::Workload* workload_ = nullptr;
 
@@ -143,6 +150,7 @@ class NestAnalysis
   void ComputeWorkingSets();
 
   void DetectImperfectFactorization();
+  bool NeedsToRunImperfectIteration(std::vector<analysis::LoopState>::reverse_iterator cur);
   void InitializeNestProperties();
   void InitNumSpatialElems();
   void InitStorageBoundaries();
@@ -228,5 +236,8 @@ class NestAnalysis
 
   friend std::ostream& operator << (std::ostream& out, const NestAnalysis& n);  
 };
+
+NestAnalysis ComputeWorkingSets(const problem::Workload& workload,
+                                const loop::Nest& nest);
 
 } // namespace analysis

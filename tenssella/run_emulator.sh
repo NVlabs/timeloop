@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -24,37 +24,21 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-shape:
-
-  name: "CNN-Layer"
-  dimensions: [ R, S, P, Q, C, K, N ]
-  coefficients:
-    - name: Wstride
-      default: 1
-    - name: Hstride
-      default: 1
-    - name: Wdilation
-      default: 1
-    - name: Hdilation
-      default: 1
-      
-  data-spaces:
-    - name: Weights
-      projection:
-        - [ [C] ]
-        - [ [K] ]
-        - [ [R] ]
-        - [ [S] ]
-    - name: Inputs
-      projection:
-        - [ [N] ]
-        - [ [C] ]
-        - [ [R, Wdilation], [P, Wstride] ] # SOP form: R*Wdilation + P*Wstride
-        - [ [S, Hdilation], [Q, Hstride] ] # SOP form: S*Hdilation + Q*Hstride 
-    - name: Outputs
-      projection:
-        - [ [N] ]
-        - [ [K] ]
-        - [ [Q] ]
-        - [ [P] ]
-      read-write: True
+if [ $? -eq 0 ]; then
+    echo "Tenssella Emulation Build: " $1
+    cd tests
+    scons -c
+    scons -Q src=$1 -j4 || { echo 'Make failed'; exit 1; }
+    TENSSELLA_EMU_TRACE_LEVEL=0 ./build/emulator >& ../test_collaterals/$1/test_log.txt || 
+    { echo "======================";
+    echo '  TEST: '$1; 
+    echo '       FAILED'; 
+    echo "======================";
+    exit 1; }
+    echo "======================"
+    echo "  TEST:"$1
+    echo "       PASSES"
+    echo "======================"
+else
+    echo "Build FAILED"
+fi

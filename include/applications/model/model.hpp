@@ -46,7 +46,10 @@
 //                Application                 //
 //--------------------------------------------//
 
-class Application
+namespace application
+{
+
+class Model
 {
  public:
   std::string name_;
@@ -55,6 +58,11 @@ class Application
   {
     double energy;
     double cycles;
+
+    std::string stats_string;
+    std::string map_string;
+    std::string xml_map_and_stats_string;
+    std::string tensella_string;
   };
 
  protected:
@@ -92,17 +100,19 @@ class Application
 
  public:
 
-  Application(config::CompoundConfig* config,
-              std::string output_dir = ".",
-              std::string name = "timeloop-model");
+  Model(config::CompoundConfig* config,
+        std::string output_dir = ".",
+        std::string name = "timeloop-model");
 
   // This class does not support being copied
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
+  Model(const Model&) = delete;
+  Model& operator=(const Model&) = delete;
 
-  ~Application();
+  ~Model();
 
   // Run the evaluation.
   Stats Run();
 };
 
+
+} // namespace application

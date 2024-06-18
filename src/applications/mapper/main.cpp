@@ -91,9 +91,29 @@ int main(int argc, char* argv[])
   }
   std::cout << std::endl;
   
-  Application application(config, output_dir);
+  application::Mapper application(config, output_dir);
   
-  application.Run();
+  const auto result = application.Run();
+
+  // Output file names.
+  std::string out_prefix = output_dir + "/" + "timeloop-mapper";
+
+  const auto fname_to_string = std::map<std::string, const std::string&>({
+    {"stats.txt", result.stats_string},
+    {"map+stats.xml", result.xml_mapping_stats_string},
+    {"map.txt", result.mapping_string},
+    {"map.yaml", result.mapping_yaml_string},
+    {"map.cpp", result.mapping_cpp_string},
+    {"map.tensella.txt", result.tensella_string},
+    {"oaves.csv", result.oaves_string}
+  });
+
+  for (const auto& [fname_suffix, content_string] : fname_to_string)
+  {
+    std::ofstream file(out_prefix + "." + fname_suffix);
+    file << content_string;
+    file.close();
+  }
 
   return 0;
 }

@@ -75,7 +75,7 @@ void DesignSpaceExplorer::Run()
 
   std::cout << "****** INITIALIZING PROBLEM SPACE ******" << std::endl;    
   ProblemSpace pspec_space;    
-  if (auto list = pspec_yaml["problem-space-files"])
+  if (auto list = pspec_yaml["problem_space_files"])
   {
     pspec_space.InitializeFromFileList(list);
   }
@@ -93,11 +93,11 @@ void DesignSpaceExplorer::Run()
 
   std::cout << "****** INITIALIZING ARCH SPACE ******" << std::endl;
   ArchSpace aspec_space;
-  if (auto list = aspec_yaml["arch-space-files"])
+  if (auto list = aspec_yaml["arch_space_files"])
   {
     aspec_space.InitializeFromFileList(list);
   }
-  else if (auto sweep = aspec_yaml["arch-space-sweep"])
+  else if (auto sweep = aspec_yaml["arch_space_sweep"])
   {
     aspec_space.InitializeFromFileSweep(sweep);
   }
@@ -140,7 +140,7 @@ void DesignSpaceExplorer::Run()
       config::CompoundConfig config("temp_dse.yaml");
 
       //std::cout << "arch yaml: \n" << curr_arch.yaml_ << std::endl;
-      Application* mapper = new Application(&config, file_name);
+      application::Mapper* mapper = new application::Mapper(&config, file_name);
       //SimpleMapper mapper = SimpleMapper(config_name, arch, problem);
       mapper->Run();
       PointResult result(mapper->name_, mapper->GetGlobalBest());

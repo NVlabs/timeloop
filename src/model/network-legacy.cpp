@@ -35,6 +35,11 @@
 #include <boost/archive/xml_oarchive.hpp>
 
 #include "model/network-legacy.hpp"
+
+auto gMulticastModel =
+  getenv("TIMELOOP_MULTICAST_MODEL") != NULL ?
+  std::string(getenv("TIMELOOP_MULTICAST_MODEL")) : "PROBABILISTIC";
+
 BOOST_CLASS_EXPORT(model::LegacyNetwork)
 
 namespace model
@@ -74,7 +79,7 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
   }
 
   std::string legacy_subtype;
-  if (network.lookupValue("network-type", legacy_subtype))
+  if (network.lookupValue("network_type", legacy_subtype))
   {
     if (legacy_subtype.compare("1:1") == 0)
       specs.legacy_subtype = "1_1";
@@ -91,11 +96,11 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
     
   // Word Bits.
   std::uint32_t word_bits;
-  if (network.lookupValue("network-word-bits", word_bits))
+  if (network.lookupValue("network_word_bits", word_bits))
   {
     specs.word_bits = word_bits;
   }
-  else if (network.lookupValue("word-bits", word_bits) ||
+  else if (network.lookupValue("word_bits", word_bits) ||
            network.lookupValue("word_width", word_bits) ||
            network.lookupValue("datawidth", word_bits) )
   {
@@ -110,20 +115,23 @@ LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode networ
 
   // Router energy.
   double router_energy;
-  if (network.lookupValue("router-energy", router_energy)) {specs.router_energy = router_energy;}
+  if (network.lookupValue("router_energy", router_energy)) {specs.router_energy = router_energy;}
 
   // Wire energy.
   double wire_energy;
-  if (network.lookupValue("wire-energy", wire_energy)) {specs.wire_energy = wire_energy;}
+  if (network.lookupValue("wire_energy", wire_energy)) {specs.wire_energy = wire_energy;}
 
   // Tile width.
   double tile_width;
-  if (network.lookupValue("tile-width", tile_width)) {specs.tile_width = tile_width;}
+  if (network.lookupValue("tile_width", tile_width)) {specs.tile_width = tile_width;}
 
   double energy_per_hop;
-  if (network.lookupValue("energy-per-hop", energy_per_hop)) {
+  if (network.lookupValue("energy_per_hop", energy_per_hop)) {
       specs.energy_per_hop = energy_per_hop;
   }
+
+  double ingress_energy;
+  if (network.lookupValue("energy-per-ingress", ingress_energy)) specs.ingress_energy = ingress_energy;
 
   // Network fill and drain latency
   unsigned long long fill_latency;
@@ -251,6 +259,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
             (specs_.cType == ConnectionType::ReadFill) )
         {
           stats_.ingresses[pv] = tile[pvi].access_stats;
+          stats_.distributed_ingresses[pv] = tile[pvi].distributed_access_stats;
         }
         else
         {
@@ -271,6 +280,24 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
             target.accesses = 2*x.second.accesses - tile[pvi].partition_size;
             target.hops = x.second.hops;
           }
+          
+          for (auto& x: tile[pvi].distributed_access_stats.stats)
+          {
+            auto multicast = x.first.first;
+            auto scatter = x.first.second;
+
+            // The following assertion is *incorrect* for coefficients (e.g. stride, pad) > 1.
+            // FIXME: find a safety check that works with coefficients > 1.
+            // assert(tile[pvi].size == 0 || tile[pvi].accesses[i] % tile[pvi].size == 0);
+            
+            // FIXME: the following line will deduct partition size from *each*
+            // access record. We need to figure out the distribution of partition
+            // size across all records and only deduct the fraction that belongs
+            // to this record.
+            auto& target = stats_.distributed_ingresses[pv](multicast, scatter);
+            target.accesses = 2*x.second.accesses - tile[pvi].partition_size;
+            target.hops = x.second.hops;
+          }
         } // hardware reduction not supported
 
         sink.reset();
@@ -285,16 +312,24 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
     else // Read-only data space.
     {
       stats_.ingresses[pv] = tile[pvi].access_stats;
+      stats_.distributed_ingresses[pv] = tile[pvi].distributed_access_stats;
     }
 
     stats_.spatial_reductions[pv] = 0;
-    stats_.distributed_multicast[pv] = tile[pvi].distributed_multicast;
+    stats_.distributed_multicast[pv] = !tile[pvi].distributed_access_stats.stats.empty(); // tile[pvi].distributed_multicast;
 
     for (auto& x: tile[pvi].access_stats.stats)
     {
       auto multicast = x.first.first;
       auto scatter = x.first.second;
-      stats_.ingresses[pv](multicast, scatter).hops = x.second.hops / scatter;
+      stats_.ingresses[pv](multicast, scatter).hops = x.second.hops; // / x.second.accesses; // / scatter;
+    }
+
+    for (auto& x: tile[pvi].distributed_access_stats.stats)
+    {
+      auto multicast = x.first.first;
+      auto scatter = x.first.second;
+      stats_.distributed_ingresses[pv](multicast, scatter).hops = x.second.hops; // / x.second.accesses; // / scatter;
     }
 
     // FIXME: issues with link-transfer modeling:
@@ -307,16 +342,15 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
     stats_.link_transfers[pv] = tile[pvi].link_transfers;
 
     stats_.fanout[pv] = tile[pvi].fanout;
-    if (stats_.distributed_multicast.at(pv))
-      stats_.distributed_fanout[pv] = tile[pvi].distributed_fanout;
-    else
-      stats_.distributed_fanout[pv] = 0;
+
+    //if (stats_.distributed_multicast.at(pv))
+    //  stats_.distributed_fanout[pv] = tile[pvi].distributed_fanout;
 
     // FIXME: multicast factor can be heterogeneous. This is correctly
     // handled by energy calculations, but not correctly reported out
     // in the stats.
+    
     stats_.multicast_factor[pv] = 0;
-
     for (auto& x: stats_.ingresses[pv].stats)
     {
       auto multicast = x.first.first;
@@ -331,15 +365,31 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
       }
     }
 
+    stats_.distributed_multicast_factor[pv] = 0;
+    for (auto& x: stats_.distributed_ingresses[pv].stats)
+    {
+      auto multicast = x.first.first;
+      if (multicast > stats_.distributed_multicast_factor[pv])
+      {
+        stats_.distributed_multicast_factor[pv] = multicast;
+      }
+      if (problem::GetShape()->IsReadWriteDataSpace.at(pv) &&
+          (specs_.cType & ConnectionType::UpdateDrain) )
+      {
+        // For now we accumulate both regular and distributed spatial
+        // reductions into the same stat.
+        stats_.spatial_reductions[pv] += (multicast-1) * x.second.accesses;
+      }
+    }
   } // loop over pv.
     
-    //
-    // 2. Derive/validate architecture specs based on stats.
-    //
+  //
+  // 2. Derive/validate architecture specs based on stats.
+  //
 
-    // Bandwidth constraints cannot be checked/inherited at this point
-    // because the calculation is a little more involved. We will do
-    // this later in the ComputePerformance() function.    
+  // Bandwidth constraints cannot be checked/inherited at this point
+  // because the calculation is a little more involved. We will do
+  // this later in the ComputePerformance() function.    
 
   (void) break_on_failure;
   is_evaluated_ = success;
@@ -357,12 +407,6 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
 //
 void LegacyNetwork::ComputeNetworkEnergy()
 {
-#define PROBABILISTIC_MULTICAST 0
-#define PRECISE_MULTICAST 1
-#define EYERISS_HACK_MULTICAST 2  
-
-#define MULTICAST_MODEL PROBABILISTIC_MULTICAST
-  
   // NOTE! Stats are always maintained per-DataSpaceID
   for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
@@ -373,15 +417,20 @@ void LegacyNetwork::ComputeNetworkEnergy()
       specs_.energy_per_hop.IsSpecified() ?
       specs_.energy_per_hop.Get() : WireEnergyPerHop(specs_.word_bits.Get(), specs_.tile_width.Get(), wire_energy);
     double energy_per_router = specs_.router_energy.IsSpecified() ? specs_.router_energy.Get() : 0.0; // Set to 0 since no internal model yet
-    
+    double ingress_energy = specs_.ingress_energy.IsSpecified() ? specs_.ingress_energy.Get() : 0.0;
+
+    /*
     auto fanout = stats_.distributed_multicast.at(pv) ?
       stats_.distributed_fanout.at(pv) :
       stats_.fanout.at(pv);
+    */
+    auto fanout = stats_.fanout.at(pv);
 
     double total_wire_hops = 0;
     std::uint64_t total_routers_touched = 0;
     double total_ingresses = 0;
     
+    // Regular traffic.
     for (auto& x: stats_.ingresses.at(pv).stats)
     {
       auto multicast_factor = x.first.first;
@@ -392,61 +441,46 @@ void LegacyNetwork::ComputeNetworkEnergy()
       total_ingresses += ingresses;
       if (ingresses > 0)
       {
-#if MULTICAST_MODEL == PROBABILISTIC_MULTICAST
+        (void)fanout;
+        (void)multicast_factor;
+        (void)scatter_factor;
 
-        (void) scatter_factor;
-        (void) hops;
+        auto num_hops = hops / ingresses;
 
-        auto num_hops = NumHops(multicast_factor, fanout);
-        total_routers_touched += (1 + num_hops) * ingresses;
+        total_routers_touched += (1 + std::uint64_t(std::floor(num_hops))) * ingresses;
+        total_wire_hops += num_hops * ingresses;
+      }
+    }
 
-#elif MULTICAST_MODEL == PRECISE_MULTICAST
+    // Remote traffic for distributed multicast.
+    for (auto& x: stats_.distributed_ingresses.at(pv).stats)
+    {
+      auto multicast_factor = x.first.first;
+      auto scatter_factor = x.first.second;
+      auto ingresses = x.second.accesses;
+      auto hops = x.second.hops;
 
+      (void)scatter_factor;
+        
+      total_ingresses += ingresses;
+      if (ingresses > 0)
+      {
         (void)fanout;
         (void)multicast_factor;
 
-        if (stats_.distributed_multicast.at(pv))
-        {
-          std::cerr << "ERROR: precise multicast calculation does not work with distributed multicast." << std::endl;
-          exit(1);
-        }
-        auto num_hops = hops / double(scatter_factor);
+        auto num_hops = hops / ingresses;
         total_routers_touched += (1 + std::uint64_t(std::floor(num_hops))) * ingresses;
-
-#elif MULTICAST_MODEL == EYERISS_HACK_MULTICAST
-
-        (void)fanout;
-        (void)scatter_factor;
-        (void)hops;
-
-        unsigned num_hops = 0;
-        
-        // Weights are multicast, and energy is already captured in array access.
-        // Assume weights are pv == 0.
-        if (pv != 0)
-        {
-          // Input and Output activations are forwarded between neighboring PEs,
-          // so the number of link transfers is equal to the multicast factor-1.
-          num_hops = multicast_factor - 1;
-        }
-        
-        // We pick up the router energy from the .cfg file as the "array" energy
-        // as defined in the Eyeriss paper, so we don't add a 1 to the multicast
-        // factor.
-        total_routers_touched += num_hops * ingresses;
-
-#else
-#error undefined MULTICAST_MODEL
-#endif        
 
         total_wire_hops += num_hops * ingresses;
       }
     }
+
     stats_.energy_per_hop[pv] = energy_per_hop;
     stats_.num_hops[pv] = total_ingresses > 0 ? total_wire_hops / total_ingresses : 0;
     stats_.energy[pv] =
       total_wire_hops * energy_per_hop + // wire energy
-      total_routers_touched * energy_per_router; // router energy
+      total_routers_touched * energy_per_router + // router energy
+      ingress_energy * total_ingresses;
 
     stats_.link_transfer_energy[pv] =
       stats_.link_transfers.at(pv) * (energy_per_hop + 2*energy_per_router);
@@ -539,8 +573,9 @@ void LegacyNetwork::Print(std::ostream& out) const
   out << indent << indent << "Word bits       : " << specs_.word_bits << std::endl;
   out << indent << indent << "Router energy   : " << specs_.router_energy << " pJ" << std::endl;
   out << indent << indent << "Wire energy     : " << specs_.wire_energy << " pJ/b/mm" << std::endl;
-  out << indent << indent << "Fill latency     : " << stats_.fill_latency << std::endl;
-  out << indent << indent << "Drain latency     : " << stats_.drain_latency << std::endl;
+  out << indent << indent << "Ingress energy  : " << specs_.ingress_energy << " pJ" << std::endl;
+  out << indent << indent << "Fill latency    : " << stats_.fill_latency << std::endl;
+  out << indent << indent << "Drain latency   : " << stats_.drain_latency << std::endl;
 
 
   out << std::endl;
@@ -554,26 +589,40 @@ void LegacyNetwork::Print(std::ostream& out) const
 
     out << indent + indent << "Fanout                                  : "
         << stats_.fanout.at(pv) << std::endl;
-    out << indent + indent << "Fanout (distributed)                    : "
-        << stats_.distributed_fanout.at(pv) << std::endl;
+    //out << indent + indent << "Fanout (distributed)                    : "
+    //    << stats_.distributed_fanout.at(pv) << std::endl;
+    out << indent + indent << "Multicast factor                        : "
+        << stats_.multicast_factor.at(pv) << std::endl;
     if (stats_.distributed_multicast.at(pv))
-      out << indent + indent << "Multicast factor (distributed)          : ";
-    else
-      out << indent + indent << "Multicast factor                        : ";
-    out << stats_.multicast_factor.at(pv) << std::endl;
+      out << indent + indent << "Multicast factor (distributed)          : "
+          << stats_.distributed_multicast_factor.at(pv) << std::endl;
       
     auto total_accesses = stats_.ingresses.at(pv).TotalAccesses();
     out << indent + indent << "Ingresses                               : " << total_accesses << std::endl;
     
     std::string mcast_type = "@multicast ";
-    if (stats_.distributed_multicast.at(pv))
-      mcast_type += "(distributed) ";
+    //if (stats_.distributed_multicast.at(pv))
+    //  mcast_type += "(distributed) ";
 
     for (auto& x: stats_.ingresses.at(pv).stats)
     {
       out << indent + indent + indent << mcast_type << x.first.first
           << " @scatter " << x.first.second << ": "
           << x.second.accesses << std::endl;
+    }
+
+    if (stats_.distributed_multicast.at(pv))
+    {
+      auto distrib_accesses = stats_.distributed_ingresses.at(pv).TotalAccesses();
+      out << indent + indent << "Ingresses (distributed)                 : " << distrib_accesses << std::endl;
+    
+      mcast_type = "@multicast ";
+      for (auto& x: stats_.distributed_ingresses.at(pv).stats)
+      {
+        out << indent + indent + indent << mcast_type << x.first.first
+            << " @scatter " << x.first.second << ": "
+            << x.second.accesses << std::endl;
+      }
     }
 
     out << indent + indent << "Link transfers                          : "
@@ -616,7 +665,7 @@ double LegacyNetwork::WireEnergyPerHop(std::uint64_t word_bits, const double hop
   double hop_distance_mm = hop_distance / 1000;
   if (wire_energy_override != 0.0)
   {
-    // Internal wire model using user-provided average wire-energy/b/mm.
+    // Internal wire model using user-provided average wire_energy/b/mm.
     return word_bits * hop_distance_mm * wire_energy_override;
   }
   else

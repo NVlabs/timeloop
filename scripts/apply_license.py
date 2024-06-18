@@ -63,7 +63,13 @@ license_dispatcher = {
     'hpp' : 'cpp_license',
     'cfg' : 'python_license',
     'SConstruct' : 'python_license',
-    'SConscript' : 'python_license'
+    'SConscript' : 'python_license',
+    'sh' : 'python_license',
+    'csh' : 'python_license',
+    'tcsh' : 'python_license',
+    'bash' : 'python_license',
+    'zsh' : 'python_license',
+    'iscc' : 'python_license'
 }
 license_path = None
 
@@ -136,7 +142,7 @@ def check_and_insert_license(path, license_header):
             line = lines[line_no + license_start]
             if line_no == 0:
                 line = sub_year(line)
-            if line != ref_line:
+            if line.rstrip() != ref_line.rstrip():
                 print("expected:", ref_line)
                 print("found:", line)
                 error = True
