@@ -4,4 +4,5 @@ One-time setup for Simba regression tests:
 3. Run "./c++_to_python > conv_problems.py".
 
 To run the Simba regression tests:
-1. Run "./test_simba_chip.py".
+1. Run `pip3 install libconf numpy pyyaml`.
+2. Run "./test_simba_chip.py".
