@@ -110,12 +110,15 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
   unsigned inv_storage_level = storage_tiling_boundaries.size()-1; // Skip printing the first boundary.
 
   std::string indent = _indent + "| ";
+  std::string pre_loop_dashes = "";
+  std::string pre_level_newline = "";
   for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
   {
     if (inv_storage_level != static_cast<unsigned>(-1) &&
         storage_tiling_boundaries.at(inv_storage_level) == loop_level)
     {
-      out << std::endl;
+      out << pre_level_newline;
+      pre_level_newline = "";
 
       std::ostringstream str;
       str << storage_level_names.at(inv_storage_level) << " [ ";
@@ -140,19 +143,26 @@ void Nest::PrettyPrint(std::ostream& out, const std::vector<std::string>& storag
       str << "] " << std::endl;
       
       out << _indent << str.str();
-      out << _indent;
+      pre_loop_dashes = "";
+      pre_loop_dashes += _indent;
       for (unsigned i = 0; i < str.str().length()-2; i++)
-        out << "-";
-      out << std::endl;
+        pre_loop_dashes += "-";
+      pre_loop_dashes += "\n";
 
       inv_storage_level--;
     }
-    out << indent;
-    indent += "  ";
-    loops.at(loop_level).Print(out, true, problem_shape.FlattenedDimensionIDToName);
-    out << std::endl;
+    if(loops.at(loop_level).end - loops.at(loop_level).start > 1)
+    {
+      out << pre_loop_dashes;
+      pre_loop_dashes = "";
+      out << indent;
+      indent += "  ";
+      loops.at(loop_level).Print(out, true, problem_shape.FlattenedDimensionIDToName);
+      out << std::endl;
+      pre_level_newline = "\n";
+    }
   }
-  out << std::endl;
+  out << pre_loop_dashes << indent << "<< Compute >>" << std::endl;
 }
 
 void Nest::PrintWhoopNest(std::ostream& out, const std::vector<std::string>& storage_level_names,
@@ -513,6 +523,121 @@ std::string Nest::PrintCompact(const tiling::NestOfCompoundMasks& mask_nest)
   }
 
   return retval;
+}
+
+void Nest::PrintTenssella(std::ostream& out, const tiling::NestOfCompoundMasks& mask_nest)
+{
+  unsigned num_loops = loops.size();
+  unsigned inv_storage_level = storage_tiling_boundaries.size()-2;
+
+  std::map<problem::Shape::FlattenedDimensionID, int> temporal_bounds;
+  std::map<problem::Shape::FlattenedDimensionID, int> spatial_bounds;
+  std::string temporal_permutation;
+  std::string spatial_permutation;
+  bool has_spatial;
+  int split;
+
+  // Lambda to dump state.
+  auto dump_state = [&]()
+    {
+      out << "t" << inv_storage_level+1 << std::endl;
+      for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
+      {
+        out << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " "
+            << temporal_bounds.at(dim) << " ";
+      }
+      out << std::endl;
+
+      std::reverse(temporal_permutation.begin(), temporal_permutation.end());
+      out << temporal_permutation << std::endl;
+
+      if (has_spatial)
+      {
+        out << "s" << inv_storage_level+1 << std::endl;
+        for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
+        {
+          out << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " "
+              << spatial_bounds.at(dim) << " ";
+        }
+        out << std::endl;
+
+        std::reverse(spatial_permutation.begin(), spatial_permutation.end());
+        out << spatial_permutation << std::endl;
+
+        out << split << std::endl;
+      }
+    };
+
+  // Lambda to reset state.
+  auto reset_state = [&]()
+  {
+    for (unsigned dim = 0; dim < problem::GetShape()->NumFlattenedDimensions; dim++)
+    {
+      temporal_bounds[dim] = 1;
+      spatial_bounds[dim] = 1;
+    }
+    temporal_permutation.clear();
+    spatial_permutation.clear();
+    has_spatial = false;
+    split = problem::GetShape()->NumFlattenedDimensions;
+  };
+
+  // Initialize.
+  reset_state();
+   
+  for (unsigned loop_level = num_loops-1; loop_level != static_cast<unsigned>(-1); loop_level--)
+  {
+    // Dump/reset state if we've reached a storage boundary OR the innermost loop.
+    if (inv_storage_level != static_cast<unsigned>(-1) &&
+        storage_tiling_boundaries.at(inv_storage_level) == loop_level)
+    {
+      // Sanity check.
+      auto& mask = mask_nest.at(inv_storage_level);
+      for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+      {
+        if (!mask.at(pvi))
+        {
+          out << "#error Tenssella does not support bypass." << std::endl;
+        }
+      }
+
+      // Print out the bounds collected so far.
+      dump_state();
+
+      // Reset state.
+      reset_state();
+      
+      // Next level.
+      inv_storage_level--;
+    }
+
+    // Update temporal/spatial bounds.
+    auto& loop = loops.at(loop_level);
+    if (!loop::IsSpatial(loop.spacetime_dimension))
+    {
+      // temporal.
+      temporal_bounds[loop.dimension] = loop.end;
+      temporal_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
+    }
+    else if (!loop::IsSpatialX(loop.spacetime_dimension))
+    {
+      // spatial Y.
+      has_spatial = true;
+      split--;
+      spatial_bounds[loop.dimension] = loop.end;
+      spatial_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
+    }
+    else
+    {
+      // spatial X.
+      has_spatial = true;
+      spatial_bounds[loop.dimension] = loop.end;
+      spatial_permutation += problem::GetShape()->FlattenedDimensionIDToName.at(loop.dimension);
+    }
+  }
+
+  // Dump final state.
+  dump_state();
 }
 
 }  // namespace loop

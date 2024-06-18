@@ -40,6 +40,17 @@ Application::Application(config::CompoundConfig* config)
 {
   auto rootNode = config->getRoot();
 
+  // Version check
+  if (rootNode.exists("architecture") && rootNode.lookup("architecture").exists("nodes"))
+  {
+    std::cerr << "ERROR: 'nodes' found as a sub-key in the architecture. The 'nodes' key is used by "
+              << "the v0.4 timeloopfe front-end format, and will not be recognized by 'timeloop-...' "
+              << "commands. Please use the timeloopfe front-end, which is documented at "
+              << "https://github.com/Accelergy-Project/timeloop-accelergy-exercises and "
+              << "https://timeloop.csail.mit.edu." << std::endl;
+    exit(1);
+  }
+
   // Problem configuration.
   auto problem = rootNode.lookup("problem");
   problem::ParseWorkload(problem, workload_);

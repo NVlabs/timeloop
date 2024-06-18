@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
 algorithmic contributors may be used tactual or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -30,6 +30,7 @@ algorithmic contributors may be used tactual or promote products derived
 #include <iostream>
 #include <memory>
 #include <algorithm>
+#include <fstream>
 
 #include "loop-analysis/tiling.hpp"
 #include "loop-analysis/tiling-tile-info.hpp"
@@ -60,26 +61,31 @@ static std::map <std::string, std::vector<std::string>> arithmeticOperationMappi
   };
 
 static std::map <std::string, std::vector<std::string>> storageOperationMappings
-  = {{"random_read", {"random_read", "read"}},
-     {"random_fill", {"random_fill", "write"}},
-     {"random_update", {"random_update", "random_fill", "write"}},
-     {"gated_read", {"gated_read", "idle", "read"}},
-     {"gated_fill", {"gated_fill", "gated_write", "gated_write", "idle", "write"}},
-     {"gated_update", {"gated_update", "gated_write", "gated_write", "idle", "write"}},
-     {"skipped_read", {"skipped_read", "gated_read", "idle", "read"}},
-     {"skipped_fill", {"skipped_fill", "skipped_write", "gated_write", "idle", "write"}},
-     {"skipped_update", {"skipped_update", "skipped_write", "gated_write", "idle", "write"}},
-     {"random_metadata_read", {"random_metadata_read", "metadata_read", "metadata_idle", "idle"}},
-     {"gated_metadata_read", {"gated_metadata_read", "metadata_idle", "metadata_read"}},
-     {"skipped_metadata_read", {"skipped_metadata_read", "metadata_idle", "metadata_read"}},
-     {"random_metadata_fill", {"random_metadata_fill", "metadata_write", "metadata_idle", "idle"}},
-     {"gated_metadata_fill", {"gated_metadata_fill", "gated_metadata_write", "metadata_idle", "metadata_write"}},
-     {"skipped_metadata_fill", {"skipped_metadata_fill", "skipped_metadata_write", "metadata_idle", "metadata_write"}},
-     {"random_metadata_update", {"random_metadata_update", "metadata_write", "metadata_idle", "idle"}},
-     {"gated_metadata_update", {"gated_metadata_update", "gated_metadata_write", "metadata_idle", "metadata_write"}},
-     {"skipped_metadata_update", {"skipped_metadata_update", "skipped_metadata_write", "metadata_idle", "metadata_write"}},
+  = {
+     {"random_read", {"random_read", "read"}},
+     {"gated_read", {"gated_read"}},
+     {"skipped_read", {"skipped_read", "gated_read"}},
+     {"random_metadata_read", {"random_metadata_read", "metadata_read"}},
+     {"gated_metadata_read", {"gated_metadata_read"}},
+     {"skipped_metadata_read", {"skipped_metadata_read", "gated_metadata_read"}},
+
+     {"random_fill", {"random_fill", "random_write", "fill", "write"}},
+     {"gated_fill", {"gated_fill", "gated_write"}},
+     {"skipped_fill", {"skipped_fill", "skipped_write", "gated_fill", "gated_write"}},
+     {"random_metadata_fill", {"random_metadata_fill", "random_metadata_write", "metadata_fill", "metadata_write"}},
+     {"gated_metadata_fill", {"gated_metadata_fill", "gated_metadata_write"}},
+     {"skipped_metadata_fill", {"skipped_metadata_fill", "skipped_metadata_write", "gated_metadata_fill", "gated_metadata_write"}},
+
+     {"random_update", {"random_update", "random_write", "update", "write"}},
+     {"gated_update", {"gated_update", "gated_write"}},
+     {"skipped_update", {"skipped_update", "skipped_write", "gated_update", "gated_write"}},
+     {"random_metadata_update", {"random_metadata_update", "random_metadata_write", "metadata_update", "metadata_write"}},
+     {"gated_metadata_update", {"gated_metadata_update", "gated_metadata_write"}},
+     {"skipped_metadata_update", {"skipped_metadata_update", "skipped_metadata_write", "gated_metadata_update", "gated_metadata_write"}},
+
      {"decompression_count", {"decompression_count"}},
-     {"compression_count", {"compression_count"}}
+     {"compression_count", {"compression_count"}},
+     {"leak", {"leak"}},
   };
 
 static std::string bufferClasses[5] = { "DRAM",
@@ -177,6 +183,7 @@ class Topology : public Module
 
     std::shared_ptr<LevelSpecs> GetLevel(unsigned level_id) const;
     std::shared_ptr<BufferLevel::Specs> GetStorageLevel(unsigned storage_level_id) const;
+    std::shared_ptr<BufferLevel::Specs> GetStorageLevel(std::string level_name) const;
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
     std::shared_ptr<LegacyNetwork::Specs> GetInferredNetwork(unsigned network_id) const;
     std::shared_ptr<NetworkSpecs> GetNetwork(unsigned network_id) const;
@@ -220,7 +227,7 @@ class Topology : public Module
       per_tensor_accesses.clear();
     }
   };
-    
+
  private:
   std::vector<std::shared_ptr<Level>> levels_;
   std::map<std::string, std::shared_ptr<Network>> networks_;
@@ -263,11 +270,24 @@ class Topology : public Module
   }
 
  private:
-  std::shared_ptr<Level> GetLevel(unsigned level_id) const;
-  std::shared_ptr<BufferLevel> GetStorageLevel(unsigned storage_level_id) const;
-  std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const;
+
   void FloorPlan();
   void ComputeStats(bool eval_success);
+
+  /** @note Non-const getters to deal with fxns that depend on non-const outputs
+   *  for the above fxns based on the below approach: 
+   *  https://stackoverflow.com/questions/856542/elegant-solution-to-duplicate-const-and-non-const-getters 
+   *  with std::const_pointer_cast being the intermediate since the return type 
+   *  is a shared_ptr of a const type. Expose vs Get regime is used to assist
+   *  the compiler due to Timeloop oddities as mentioned in PR #237 */
+  inline std::shared_ptr<Level> GetLevel(const unsigned& level_id) const
+  { return std::const_pointer_cast<Level>(const_cast<const Topology*>(this)->ViewLevel(level_id)); }
+  inline std::shared_ptr<BufferLevel> GetStorageLevel(const unsigned& storage_level_id) const
+  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ViewStorageLevel(storage_level_id)); }
+  inline std::shared_ptr<BufferLevel> GetStorageLevel(const std::string& level_name) const
+  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ViewStorageLevel(level_name)); }
+  inline std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const
+  { return std::const_pointer_cast<ArithmeticUnits>(const_cast<const Topology*>(this)->ViewArithmeticLevel()); }
 
  public:
 
@@ -305,6 +325,11 @@ class Topology : public Module
     swap(first.stats_, second.stats_);
   }
 
+  std::shared_ptr<const Level> ViewLevel(const unsigned& level_id) const;
+  std::shared_ptr<const BufferLevel> ViewStorageLevel(const unsigned& storage_level_id) const;
+  std::shared_ptr<const BufferLevel> ViewStorageLevel(const std::string& level_name) const;
+  std::shared_ptr<const ArithmeticUnits> ViewArithmeticLevel() const;
+
   Topology& operator = (Topology other)
   {
     swap(*this, other);
@@ -316,7 +341,7 @@ class Topology : public Module
   // the dynamic Spec() call later.
   static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs, bool is_sparse_topology);
   static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot, bool is_sparse_topology);
-  
+
   void Spec(const Specs& specs);
   void Reset();
   unsigned NumLevels() const;
@@ -326,8 +351,8 @@ class Topology : public Module
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
   std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
 
-  const Stats& GetStats() const { return stats_; }
-  const Specs& GetSpecs() const {return specs_;}
+  inline const Stats& GetStats() const { return stats_; }
+  inline const Specs& GetSpecs() const { return specs_; }
 
   // FIXME: these stat-specific accessors are deprecated and only exist for
   // backwards-compatibility with some applications.
@@ -341,6 +366,8 @@ class Topology : public Module
   std::uint64_t AlgorithmicComputes() const { return stats_.algorithmic_computes; }
   std::uint64_t ActualComputes() const { return stats_.actual_computes; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
+  void PrintOAVES(std::ostream& out, Mapping& mapping, bool log_oaves_mappings, std::string oaves_prefix, unsigned thread_id) const;
+  void OutputOAVESMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const;
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };

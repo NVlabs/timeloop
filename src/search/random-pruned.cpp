@@ -44,7 +44,7 @@ RandomPrunedSearch::RandomPrunedSearch(config::CompoundConfigNode config, mapspa
   (void) id_;
     
   unsigned x = 16;
-  config.lookupValue("max-permutations-per-if-visit", x);
+  config.lookupValue("max_permutations_per_if_visit", x);
   max_permutations_per_if_visit_ = x;
     
   for (unsigned i = 0; i < unsigned(mapspace::Dimension::Num); i++)

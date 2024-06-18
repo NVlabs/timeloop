@@ -126,6 +126,7 @@ void Uber::InitIndexFactorizationSpace()
 {
   auto user_factors = constraints_.Factors();
   auto user_max_factors = constraints_.MaxFactors();
+  auto user_min_factors = constraints_.MinFactors();
 
   assert(user_factors.size() <= arch_props_.TilingLevels());
 
@@ -147,6 +148,7 @@ void Uber::InitIndexFactorizationSpace()
 
   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors;
   std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors;
+  std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> minfactors;
   std::vector<bool> exhausted_um_loops(int(workload_.GetShape()->NumFlattenedDimensions), false);
 
   // Find user-specified fixed factors.
@@ -189,8 +191,24 @@ void Uber::InitIndexFactorizationSpace()
     }
   }
 
+  // Find user-specified min factors.
+  for (unsigned level = 0; level < arch_props_.TilingLevels(); level++)
+  {
+    auto it = user_min_factors.find(level);
+    if (it != user_min_factors.end())
+    {
+      // Some min factors exist for this level.        
+      for (auto& factor : it->second)
+      {
+        auto& dimension = factor.first;
+        auto& min = factor.second;
+        minfactors[dimension][level] = min;
+      }
+    }
+  }
+
   // We're now ready to initialize the object.
-  index_factorization_space_.Init(cofactors_order, prefactors, maxfactors);
+  index_factorization_space_.Init(cofactors_order, prefactors, maxfactors, minfactors);
 
   // Update the size of the mapspace.
   size_[int(mapspace::Dimension::IndexFactorization)] = index_factorization_space_.Size();
@@ -567,7 +585,6 @@ std::vector<Status> Uber::ConstructMapping(
   }
 
   // Concatenate the subnests to form the final mapping nest.    
-  std::uint64_t storage_level = 0;
   for (uint64_t i = 0; i < arch_props_.TilingLevels(); i++)
   {
     uint64_t num_subnests_added = 0;
@@ -593,7 +610,6 @@ std::vector<Status> Uber::ConstructMapping(
       }
       mapping->loop_nest.AddStorageTilingBoundary();
       mapping->complete_loop_nest.AddStorageTilingBoundary();
-      storage_level++;
     }
   }
 
@@ -605,6 +621,8 @@ std::vector<Status> Uber::ConstructMapping(
   mapping->loop_nest.no_link_transfer = constraints_.NoLinkTransfers();
   mapping->loop_nest.no_multicast = constraints_.NoMulticast();
   mapping->loop_nest.no_temporal_reuse = constraints_.NoTemporalReuse();
+  mapping->loop_nest.rmw_first_update = constraints_.RMWOnFirstWriteback();
+  mapping->loop_nest.no_coalesce = constraints_.no_coalesce();
 
   return status;
 }
@@ -673,15 +691,86 @@ void Uber::PermuteSubnests(uint128_t mapping_permutation_id, loop::NestConfig& s
 //
 void Uber::AssignIndexFactors(uint128_t mapping_index_factorization_id, loop::NestConfig& subnests)
 {
+  std::map<problem::Shape::FlattenedDimensionID, int> remaining;
+  for (int idim = 0; idim < int(problem::GetShape()->NumFlattenedDimensions); idim++)
+  {
+    auto dim = problem::Shape::FlattenedDimensionID(idim);
+    remaining[dim] = workload_.GetFlattenedBound(dim);
+  }
+
+
   for (uint64_t level = 0; level < arch_props_.TilingLevels(); level++)
   {
-    for (auto& loop : subnests[level])
+    for (auto it = subnests[level].rbegin(); it != subnests[level].rend(); it++)
     {
+      auto& loop = *it;
       loop.end = int(index_factorization_space_.GetFactor(
                        mapping_index_factorization_id,
                        loop.dimension,
                        level));
-      loop.residual_end = loop.end; // Perfect factorization.
+      if (loop.end > remaining[loop.dimension]) loop.end = remaining[loop.dimension];
+
+      if(remaining[loop.dimension] % loop.end == 0) 
+      {
+        loop.residual_end = loop.end; // Perfect factorization.
+        remaining[loop.dimension] /= loop.end;
+      }
+      else 
+      {
+        
+        loop.residual_end = remaining[loop.dimension] % loop.end;
+        remaining[loop.dimension] = ceil((double)remaining[loop.dimension] / (double) loop.end);
+      }
+    } 
+  }
+
+  // Create a modifiable map that reverse iterates through all loops for easy access.
+  std::vector<loop::Descriptor> loops;
+  for (int level = arch_props_.TilingLevels() - 1; level >= 0; level--)
+  {
+    for (auto it = subnests[level].rbegin(); it != subnests[level].rend(); it++)
+    {
+      loops.push_back(*it);
+    }
+  }
+  // Assert that the imperfect factorization formula checks out
+  for (int idim = 0; idim < int(problem::GetShape()->NumFlattenedDimensions); idim++)
+  {
+    auto dim = problem::Shape::FlattenedDimensionID(idim);
+    assert(remaining[dim] == 1);
+
+    // Check the recurrence relation
+    int d0 = 1;
+    // Two nested loops, i and j, over the reverse loop iterator above
+    for (auto it = loops.begin(); it != loops.end(); it++)
+    {
+      auto& loop = *it;
+      int curterm = 1;
+      if(loop.dimension != dim) continue;
+      for (auto it2 = it + 1; it2 != loops.end(); it2++)
+      {
+        auto& loop2 = *it2;
+        if(loop2.dimension != dim) continue;
+        curterm *= loop2.end;
+      }
+      d0 += curterm * (loop.residual_end - 1);
+    }
+    if(d0 != workload_.GetFlattenedBound(dim)) std::cout << "Dimension " << dim << " has a factorization error. d0 = " << d0 << " and bound = " << workload_.GetFlattenedBound(dim) << std::endl;
+    if(d0 != workload_.GetFlattenedBound(dim))
+    {
+      int j = 0;
+      for(auto loop3 = loops.begin(); loop3 != loops.end(); loop3++)
+      {
+        if(loop3->end == 1) continue;
+        for(int q = 0; q < j; q++) std::cout << "  ";
+        std::cout << "Loop " << j << ": "
+                  << loop3->PrintCompact(workload_.GetShape()->FlattenedDimensionIDToName);
+        // if(loop3->level == loop->level) std::cout << " <---";
+        std::cout << std::endl;
+        j++;
+      }
+      std::cout << "Exiting..." << std::endl;
+      exit(1);
     }
   }
 }

@@ -26,11 +26,11 @@
 
 mapper:
   algorithm: exhaustive
-  optimization-metrics:
+  optimization_metrics:
   - energy
   - delay
-  search-size: 0
-  victory-condition: 100
+  search_size: 0
+  victory_condition: 100
   timeout: 1000
 
 architecture:
@@ -42,8 +42,8 @@ architecture:
           class: DRAM
           attributes:
             type: LPDDR4
-            word-bits: 8
-            block-size: 64
+            word_bits: 8
+            block_size: 64
             bandwidth: 10.0
         - name: WeightInputBuffer
           class: SRAM
@@ -52,8 +52,8 @@ architecture:
             width: 512
             depth: 4096
             datawidth: 8
-            word-bits: 8
-            block-size: 64
+            word_bits: 8
+            block_size: 64
         - name: AccumulationBuffer[0..15]
           class: SRAM
           attributes:
@@ -61,16 +61,16 @@ architecture:
             depth: 128
             width: 24
             datawidth: 24
-            word-bits: 24
-            cluster-size: 16
-            network-word-bits: 16
+            word_bits: 24
+            cluster_size: 16
+            network_word_bits: 16
         - name: MAC[0..1023]
           class: intmac
           attributes:
             technology: 45nm
             meshX: 16
             datawidth: 8
-            word-bits: 8
+            word_bits: 8
         - name: Registers[0..1023]
           class: regfile
           attributes:
@@ -78,9 +78,9 @@ architecture:
             depth: 1
             width: 8
             datawidth: 8
-            word-bits: 8
+            word_bits: 8
             meshX: 16
-            cluster-size: 64
+            cluster_size: 64
 
 mapspace:
   constraints:
@@ -126,7 +126,7 @@ mapspace:
     min: 0.01
 
 problem:
-  shape: cnn-layer
+  shape: cnn_layer
   R: 3
   S: 3
   P: 48

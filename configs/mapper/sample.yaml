@@ -26,42 +26,42 @@
 
 mapper:
   algorithm: exhaustive
-  optimization-metrics:
+  optimization_metrics:
   - energy
   - delay
-  search-size: 0
-  victory-condition: 100
+  search_size: 0
+  victory_condition: 100
   timeout: 1000
 
 arch:
   arithmetic:
     instances: 1024
     meshX: 16
-    word-bits: 8
+    word_bits: 8
   storage:
   - name: Registers
     entries: 1
     instances: 1024
     meshX: 16
-    word-bits: 8
-    cluster-size: 64
+    word_bits: 8
+    cluster_size: 64
   - name: AccumulationBuffer
     entries: 128
     instances: 16
     meshX: 16
-    word-bits: 24
-    cluster-size: 16
-    network-word-bits: 16
+    word_bits: 24
+    cluster_size: 16
+    network_word_bits: 16
   - name: WeightInputBuffer
     sizeKB: 256
     instances: 1
-    word-bits: 8
-    block-size: 64
+    word_bits: 8
+    block_size: 64
   - name: DRAM
     technology: DRAM
     instances: 1
-    word-bits: 8
-    block-size: 64
+    word_bits: 8
+    block_size: 64
     bandwidth: 10.0
 
 mapspace:
@@ -108,7 +108,7 @@ mapspace:
     min: 0.01
 
 problem:
-  shape: cnn-layer
+  shape: cnn_layer
   R: 3
   S: 3
   P: 48

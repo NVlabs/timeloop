@@ -131,8 +131,8 @@ void ParseWorkload(config::CompoundConfigNode config, Workload& workload)
   std::string shape_name;
   if (!config.exists("shape"))
   {
-    std::cerr << "WARNING: found neither a problem shape description nor a string corresponding to a to a pre-existing shape description. Assuming shape: cnn-layer." << std::endl;
-    config::CompoundConfig shape_config(ShapeFileName("cnn-layer").c_str());
+    std::cerr << "WARNING: found neither a problem shape description nor a string corresponding to a to a pre-existing shape description. Assuming shape: cnn_layer." << std::endl;
+    config::CompoundConfig shape_config(ShapeFileName("cnn_layer").c_str());
     auto shape = shape_config.getRoot().lookup("shape");
     workload.ParseShape(shape);    
   }
@@ -195,7 +195,7 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
     if (! config.lookup("commonDensity").isMap())
     {
       config.lookupValue("commonDensity", common_avg_density);
-      ynode["distribution"] = "fixed-structured";
+      ynode["distribution"] = "fixed_structured";
       ynode["density"] = common_avg_density;
       density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
     }
@@ -232,7 +232,7 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
         {
           // single number for density is given, default to fixed density distribution
           assert(config_densities.lookupValue(GetShape()->DataSpaceIDToName.at(i), dataspace_avg_density));
-          ynode["distribution"] = "fixed-structured";
+          ynode["distribution"] = "fixed_structured";
           ynode["density"] = dataspace_avg_density;
           density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
         } else
@@ -245,7 +245,7 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
       else
       {
         // no density specified, roll back to default
-        ynode["distribution"] = "fixed-structured";
+        ynode["distribution"] = "fixed_structured";
         ynode["density"] = 1.0;
         density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
         auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);
@@ -260,7 +260,7 @@ void ParseWorkloadInstance(config::CompoundConfigNode config, Workload& workload
   } else {
     config::CompoundConfigNode density_config;
     for (unsigned i = 0; i < GetShape()->NumDataSpaces; i++){
-      ynode["distribution"] = "fixed-structured";
+      ynode["distribution"] = "fixed_structured";
       ynode["density"] = 1.0;
       density_config = config::CompoundConfigNode(nullptr, ynode, new config::CompoundConfig("dummy.yaml"));
       auto density_specs = DensityDistributionFactory::ParseSpecs(density_config);

@@ -190,7 +190,7 @@ void ArchSpace::InitializeFromFileList(YAML::Node list_yaml)
 void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
 {
   std::cout << "  Reading arch sweep parameters"  << std::endl;
-  std::string base_yaml_filename = sweep_yaml["arch-spec"].as<std::string>();
+  std::string base_yaml_filename = sweep_yaml["arch_spec"].as<std::string>();
 
   //get list of arch variables that change
   // - initialize the space vector
@@ -204,7 +204,7 @@ void ArchSpace::InitializeFromFileSweep(YAML::Node sweep_yaml)
     std::string name = list[i]["name"].as<std::string>();
     int min = list[i]["min"].as<int>();
     int max = list[i]["max"].as<int>();
-    int step = list[i]["step-size"].as<int>();
+    int step = list[i]["step_size"].as<int>();
 
     std::cout << "    Adding variable " << name << "  min: "  << min << "  max: " << max << "  stepsize: " << step << std::endl;
 

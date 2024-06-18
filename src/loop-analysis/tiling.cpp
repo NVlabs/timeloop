@@ -32,13 +32,14 @@
 #include "workload/workload.hpp"
 #include "loop-analysis/operation-type.hpp"
 
+extern bool gUseIslAnalysis;
+
 namespace tiling
 {
 
 bool gEnableFirstReadElision =
-  (getenv("ENABLE_FIRST_READ_ELISION") == NULL) ||
-  (strcmp(getenv("ENABLE_FIRST_READ_ELISION"), "0") != 0);
-
+  (getenv("TIMELOOP_ENABLE_FIRST_READ_ELISION") == NULL) ||
+  (strcmp(getenv("TIMELOOP_ENABLE_FIRST_READ_ELISION"), "0") != 0);
 bool gUpdatedRMW =
   (getenv("TIMELOOP_ENABLE_UPDATED_RMW") != NULL) &&
   (strcmp(getenv("TIMELOOP_ENABLE_UPDATED_RMW"), "0") != 0);
@@ -148,7 +149,7 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
   for (int cur = 0; cur < num_tiling_levels; cur++)
   {
     // Skip if this tile level already has 0 size, or if it's not masked.
-    if (tile_nest[cur].size == 0 || mask[cur])
+    if (tile_nest[cur].size == 0 || (mask[cur] && !tile_nest[cur].no_coalesce))
     {
       continue;
     }
@@ -180,6 +181,12 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
       tile_nest[cur].content_accesses = 0;
       tile_nest[cur].parent_access_share = 0;
 
+      // There is some ugliness here. We have a follow-up call to
+      // ProcessOuterMaskedLevels() which will destroy even more stats from
+      // this level, so the above resets are perhaps not needed. Make sure
+      // there aren't any intervening calls between here and POML() and then
+      // delete most of the above lines *except* the trigger that POML needs.
+
       // Break out, we are done since there is no other unmasked level.
       break;
     }
@@ -205,12 +212,19 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     // we won't make that assumption here.
     
     // tile_nest[outer].content_accesses = 0;
-
+    double child_temporal_factor = 0;
     double all_children_content_accesses = tile_nest[cur].content_accesses * tile_nest[outer].fanout;
-
+    if (!gUseIslAnalysis)
+    {
     // Warning! It's not clear if this child temporal factor is precise enough
     // if there is temporal imperfection.
-    double child_temporal_factor = all_children_content_accesses / tile_nest[outer].access_stats.WeightedAccesses();
+      child_temporal_factor = all_children_content_accesses / tile_nest[outer].access_stats.WeightedAccesses();
+    }
+    else
+    {
+      child_temporal_factor = all_children_content_accesses
+                            / tile_nest[outer].total_child_accesses;
+    }
 
     for (auto& x: tile_nest[outer].access_stats.stats)
     {
@@ -262,13 +276,15 @@ void MaskTiles(std::vector<DataMovementInfo>& tile_nest, std::bitset<MaxTilingLe
     // Outer or child's parent access share is not affected by masking
 
     // Obliterate the buffer stats (*not* the network stats) for the cur tiling level.
-    tile_nest[cur].size = 0;
-    tile_nest[cur].shape = 0;
-    tile_nest[cur].SetTensorRepresentation();
-    tile_nest[cur].partition_size = 0;
-    tile_nest[cur].content_accesses = 0;
-    tile_nest[cur].parent_access_share = 0;
-
+    if(!mask[cur])
+    {
+      tile_nest[cur].size = 0;
+      tile_nest[cur].shape = 0;
+      tile_nest[cur].SetTensorRepresentation();
+      tile_nest[cur].partition_size = 0;
+      tile_nest[cur].content_accesses = 0;
+      tile_nest[cur].parent_access_share = 0;
+    }
   }
 
   // std::cout << "***** AFTER *****" << std::endl;
@@ -283,10 +299,18 @@ void ProcessOuterMaskedLevels(std::vector<DataMovementInfo>& tile_nest, std::bit
   for (int cur = int(tile_nest.size())-1; cur >= 0; cur--)
   {
     // Work on all outermost masked levels until we find an unmasked level.
-    if (!mask[cur])
+    if (!mask[cur] || tile_nest[cur].no_coalesce)
     {
-      // Blow up *all* stats (including network stats).
+      // Blow up all stats (including network stats), *except* distributed
+      // network stats (because distributed network traffic is transferred
+      // on behalf of the child level.
+      auto saved_distributed_stats = tile_nest[cur].distributed_access_stats;
+      auto saved_replication_factor = tile_nest[cur].replication_factor;
+
       tile_nest[cur].Reset();
+      
+      tile_nest[cur].distributed_access_stats = saved_distributed_stats;
+      tile_nest[cur].replication_factor = saved_replication_factor;
     }
     else
     {
@@ -382,16 +406,39 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
     // scatter.
     if (outer_multicast_factor > 1)
     {
-      // The outer tile's per-instance access count is unchanged, but its
+      // The outer tile's per-instance content access count is unchanged.
+      // Its network now carries two kinds of traffic:
+      // (1) Scatter (unicast) traffic to its child (instead of multicast) with
+      //     the access counts of what used to be the multicast.
+      // (2) The child's (inner's) distributed multicast traffic, but with the
+      //     access counts of the child->grandchild traffic. This network is
+      //     used to get to the remote inner instance, and the remote inner's
+      //     network will be used to multicast within its children. This 2-tier
+      //     data movement only makes sense with a mesh network. If the
+      //     child->grandchild is a crossbar, the logic will be different. FIXME.
+      // 
       // multicast factor changes to 1 (effectively turning it into a
       // full scatter fanout).
-      uint64_t multicast_factor = 1;
-      uint64_t scatter_factor = outer_multicast_factor * outer_scatter_factor; // fanout?
 
+      // FIXME: instead of adding all these fields to AccessStats, we should just
+      // have an additional AccessStats instance for distributed traffic tracking.
+      uint64_t multicast_factor = 1;
+      uint64_t scatter_factor = outer_multicast_factor * outer_scatter_factor;
+
+      // Hop counts are maintained as a weighted summation of (hops * accesses).
+      // To obtain the final average hop count we need to divide by the final
+      // access count. Here, we are performing some re-assignment of access
+      // counts so we have to be careful to re-scale the hop summation correctly.
+      
       tile_nest[outer].access_stats.stats[std::make_pair<>(multicast_factor, scatter_factor)] =
         { .accesses = outer_stats.accesses,
-          .hops = outer_stats.hops }; // FIXME: recompute stats.hops for PRECISE_MULTICAST.
+          .hops = outer_stats.unicast_hops };
 
+      tile_nest[outer].distributed_access_stats.stats[std::make_pair<>(outer_multicast_factor, outer_scatter_factor)] =
+        { .accesses = inner_stats.accesses,
+          .hops = (outer_stats.hops * inner_stats.accesses) / outer_stats.accesses };
+        
+      // Erase the original (multicast > 1) entry in the histogram.
       tile_nest[outer].access_stats.stats.erase(outer_access_stat_ref);
 
       // The inner tile's per-instance size, partition size and content-access count
@@ -405,6 +452,23 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
       tile_nest[inner].parent_access_share = 1 +
         (tile_nest[inner].parent_access_share - 1) / outer_multicast_factor;
 
+      // In our present model, the inner network (i.e., the
+      // child(inner)->grandchild net) is only responsible for the "local"
+      // communication within a parent's tile.
+      // The long-distance distributed multicast has been handled by the "global"
+      // parent(outer)->child(inner) network.
+
+      // Because of this, the inner network's behavior does not change. Every word
+      // that was previously read from the inner buffer is now delivered by the
+      // outer network in distributed mode.
+
+      (void) inner_multicast_factor;
+      (void) inner_scatter_factor;
+
+      // The following code (that was written for PROBABILISTIC MULTICAST) is no
+      // longer needed.
+
+      /*
       // The inner tile's network accesses will now happen at a distributed-multicast
       // factor of outer_multicast_factor. These alterations will magically trigger
       // all the right computations at the model evaluation stage.
@@ -416,10 +480,11 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
 
       tile_nest[inner].access_stats.stats[std::make_pair<>(distributed_multicast_factor, inner_scatter_factor)] =
         { .accesses = (inner_stats.accesses - 1) / outer_multicast_factor,
-          .hops = inner_stats.hops }; // FIXME: recompute stats.hops for PRECISE_MULTICAST.
+          .hops = inner_stats.hops };
 
       tile_nest[inner].access_stats.stats.erase(inner_access_stat_ref);
-
+      */
+      
       // We should be doing this process hierarchically along the entire tile stack,
       // but for the moment just support doing this once.
       break;
@@ -440,9 +505,9 @@ void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
       continue;
     }
 
-    // Initialize parent_access_share to 0.
+    // Initialize parent_access_share to 0
     tile_nest[cur].parent_access_share = 0;
-   
+
     // Find next (outer) non-zero level.
     int outer;
     for (outer = cur + 1; outer < num_tiling_levels && tile_nest[outer].size == 0; outer++)
@@ -463,32 +528,48 @@ void ComputeParentAccessShare(std::vector<DataMovementInfo>& tile_nest)
     // std::cerr << "  cur = " << cur << std::endl;
     // std::cerr << "  outer = " << outer << std::endl;
 
-    // Found an outer level.
-    for (auto& x: tile_nest[outer].access_stats.stats)
+    if (gUseIslAnalysis)
     {
-      // FIXME: is this correct in the face of spatial sliding windows (e.g. Input halos)?
-      // If scatter factors are calculated on fragments, then this will be correct, because
-      // the halos will be counted as "multicast" data. However, scatter factor calculation
-      // via spatial deltas does not look at fragments of delivered temporal deltas, the
-      // code compares complete temporal deltas delivered to peer spatial instances.
-      // To fix this, we should be able to use the new overlap-fraction based method used to
-      // calculate partition sizes in some way.
-      auto multicast_factor = x.first.first;
-      auto accesses = x.second.accesses;
-
-      // We were using an older formula of parent_access_share = (accesses / scatter).
-      // However, Link transfers and irregular sets result in fanout != (multicast * scatter)
-      // so we use a new formula: parent_access_share = (accesses * multicast) / fanout.
-      // This calculates an *average* number of parent_access_share per child instance (the
-      // reality is that some child instances, such as edge instances, will receive more
-      // parent_access_share).
-      tile_nest[cur].parent_access_share += (accesses * multicast_factor) / tile_nest[outer].fanout;
-
-      // Note: using a floating-point parent_access_share here fixes a rounding
-      // in older code that was accumulating directly into an int field fills.
+      // Found an outer level.
+      if (tile_nest[outer].total_child_accesses != 0.0)
+      {
+        // If child_access_share was already set by nest analysis, no need to
+        // calculate from parent accesses
+        tile_nest[cur].parent_access_share =
+          tile_nest[outer].total_child_accesses
+          / tile_nest[outer].fanout;
+        continue;
+      }
     }
+    else
+    {
+      for (auto& x: tile_nest[outer].access_stats.stats)
+      {
+        // FIXME: is this correct in the face of spatial sliding windows (e.g. Input halos)?
+        // If scatter factors are calculated on fragments, then this will be correct, because
+        // the halos will be counted as "multicast" data. However, scatter factor calculation
+        // via spatial deltas does not look at fragments of delivered temporal deltas, the
+        // code compares complete temporal deltas delivered to peer spatial instances.
+        // To fix this, we should be able to use the new overlap-fraction based method used to
+        // calculate partition sizes in some way.
+        auto multicast_factor = x.first.first;
+        auto accesses = x.second.accesses;
 
-    // assert(tile_nest[cur].parent_access_share <= tile_nest[cur].GetTotalAccesses());
+        // We were using an older formula of parent_access_share = (accesses / scatter).
+        // However, Link transfers and irregular sets result in fanout != (multicast * scatter)
+        // so we use a new formula: parent_access_share = (accesses * multicast) / fanout.
+        // This calculates an *average* number of parent_access_share per child instance (the
+        // reality is that some child instances, such as edge instances, will receive more
+        // parent_access_share).
+        tile_nest[cur].parent_access_share +=
+          (accesses * multicast_factor) / tile_nest[outer].fanout;
+
+        // Note: using a floating-point parent_access_share here fixes a rounding
+        // in older code that was accumulating directly into an int field fills.
+      }
+
+      // assert(tile_nest[cur].parent_access_share <= tile_nest[cur].GetTotalAccesses());
+    }
   }
 
 }
@@ -541,7 +622,7 @@ void ComputePeerAccesses(std::vector<DataMovementInfo>& tile_nest)
       // assume read and fill comes in pair. However, there can be some other
       // optimizations that break this assumption.
       auto spatial_size = tile_nest[cur - 1].replication_factor;
-      assert(spatial_size > 1);
+      // assert(spatial_size > 1); // What's the problem with a spatial size of 1?
       auto access_per_element = tile_nest[cur].link_transfers / spatial_size;
       auto fills_per_element = tile_nest[cur].link_transfers / spatial_size;
       tile_nest[cur - 1].peer_accesses += access_per_element;
@@ -584,30 +665,47 @@ void ComputeReadUpdateReductionAccesses_Legacy(std::vector<DataMovementInfo>& ti
 
       assert((tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses) >= tile_nest[cur].partition_size);
 
-      if (gEnableFirstReadElision)
-        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
-      else
-        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
-
-      // std::cout << "TILING LEVEL = " << cur << std::endl;
-      // std::cout << "  content = " << tile_nest[cur].content_accesses << std::endl;
-      // std::cout << "  partition size = " << tile_nest[cur].partition_size << std::endl;
-      // std::cout << "  peer accesses = " << tile_nest[cur].peer_accesses << std::endl;
-      // std::cout << "  reads = " << tile_nest[cur].reads << std::endl << std::endl;
-
-      tile_nest[cur].updates = std::round(tile_nest[cur].content_accesses);
-      tile_nest[cur].fills = tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills;
-      //tile.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
-
       // FIXME: temporal reduction and network costs if hardware reduction isn't
       // supported appears to be wonky - network costs may need to trickle down
       // all the way to the level that has the reduction hardware.
-      if (gEnableFirstReadElision)
+      tile_nest[cur].updates = std::round(tile_nest[cur].content_accesses);
+      if(tile_nest[cur].no_coalesce)
+      {
+        // When data moves to a child, it is filled from the parent then read by the child
+        // When data moves to a parent, it is filled from the child then read by the parent
+        auto child_accesses = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
+        tile_nest[cur].reads = std::round(child_accesses);
+        tile_nest[cur].temporal_reductions = std::round(child_accesses);
+        tile_nest[cur].fills = std::round(child_accesses);
+      }
+      else if (gEnableFirstReadElision && !tile_nest[cur].rmw_first_update)
+      {
+        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
         tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses - tile_nest[cur].partition_size);
+
+        // Special case outermost level for fill calculation: do not subtract partition size.
+        bool is_outermost = true;
+        for (int level = cur+1; level < num_tiling_levels; level++)
+        {
+          if (tile_nest[level].size > 0)
+          {
+            is_outermost = false;
+            break;
+          }
+        }
+
+        tile_nest[cur].fills = is_outermost ?
+          std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills) : // This is likely 0.
+          std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills - tile_nest[cur].partition_size);
+      }
       else
+      {
+        tile_nest[cur].reads = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
         tile_nest[cur].temporal_reductions = std::round(tile_nest[cur].content_accesses + tile_nest[cur].peer_accesses);
-      // std::cout << "tile: reads, updates, fills " 
-      // << tile.reads << " " <<  tile.updates<< " " << tile.fills <<std::endl;
+        tile_nest[cur].fills = std::round(tile_nest[cur].parent_access_share + tile_nest[cur].peer_fills);
+      }
+
+      //tile.address_generations[pv] = stats_.updates[pv] + stats_.fills[pv]; // scalar
     }
     else // Read-only data type.
     {
@@ -775,6 +873,10 @@ tiling::CompoundTileNest CollapseTiles(analysis::CompoundTileNest& tiles,
   tiling::CompoundTileNest solution;
   solution.compound_data_movement_info_nest = collapsed_compound_data_nest;
   solution.compute_info_nest = collapsed_compound_compute_nest;
+
+  // -- FIXME -- we don't need both compute_cycles and max_temporal iterations.
+  // The latter is a temporary hack for Ruby. The former is needed for sparse
+  // analysis. We need to merge these.
   solution.compute_info_nest[0].compute_cycles = solution.compute_info_nest[0].accesses;
   return solution;
 }
@@ -784,14 +886,21 @@ ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_ti
 {
   ComputeNest solution;
   
-  for (int level=0; level < num_tiling_levels; level++){
-    
+  for (int level=0; level < num_tiling_levels; level++)
+  {  
     ComputeInfo collapsed_tile;
-    if (level == 0 ){
+    if (level == 0)
+    {
       // compute info is only valid for the inner most level
       collapsed_tile.replication_factor = tiles[0].replication_factor;
       collapsed_tile.accesses = tiles[0].accesses;
-    } else {
+      // -- FIXME -- we don't need both compute_cycles and max_temporal iterations.
+      // The latter is a temporary hack for Ruby. The former is needed for sparse
+      // analysis. We need to merge these.
+      collapsed_tile.max_temporal_iterations = tiles[0].max_temporal_iterations;
+    }
+    else
+    {
       collapsed_tile.replication_factor = 0;
       collapsed_tile.accesses = 0;
     }
@@ -801,6 +910,33 @@ ComputeNest CollapseComputeNest(analysis::CompoundComputeNest& tiles, int num_ti
   return solution;
 }
 
+void PrintTiles(std::vector<DataMovementInfo>& tile_nest)
+{
+  int num_tiling_levels = tile_nest.size();
+
+  for (int cur = 0; cur < num_tiling_levels; cur++)
+  {
+    auto& tile = tile_nest[cur];
+    
+    std::cout << "Level " << cur << std::endl;
+    std::cout << "  size = " << tile.size << std::endl;
+    std::cout << "  ca = " << tile.content_accesses << std::endl;
+    std::cout << "  access[" << tile.access_stats.stats.size() << "]:\n";
+    for (auto& x: tile.access_stats.stats)
+    {
+      if (x.second.accesses > 0)
+        std::cout << "    [" << x.first.first << "," << x.first.second << "]: accesses = "
+                  << x.second.accesses << " hops = " << x.second.hops << std::endl;
+    }
+    std::cout << "  dist access[" << tile.access_stats.stats.size() << "]:\n";
+    for (auto& x: tile.distributed_access_stats.stats)
+    {
+      if (x.second.accesses > 0)
+        std::cout << "    [" << x.first.first << "," << x.first.second << "]: accesses = "
+                  << x.second.accesses << " hops = " << x.second.hops << std::endl;
+    }
+  }
+}
 
 // Collapse tiles into a given number of levels.
 // Input and output are both arrays of tile nests,
@@ -855,15 +991,20 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
       collapsed_tile.shape = tiles[pv][outermost_loop].size; // shape is the coord space representation
       collapsed_tile.dataspace_id = (unsigned)pv;
       collapsed_tile.partition_size = 0;
-      collapsed_tile.distributed_multicast = false;
+      //collapsed_tile.distributed_multicast = false;
+      collapsed_tile.total_child_accesses =
+        tiles[pv][innermost_loop].total_child_accesses;
       collapsed_tile.access_stats = tiles[pv][innermost_loop].access_stats;
       collapsed_tile.content_accesses = tiles[pv][innermost_loop].access_stats.TotalAccesses();
       collapsed_tile.link_transfers = tiles[pv][innermost_loop].link_transfers;
+      collapsed_tile.fills = 0;
       collapsed_tile.peer_accesses = 0;
       collapsed_tile.peer_fills = 0;
       collapsed_tile.replication_factor = tiles[pv][outermost_loop].replication_factor;
       collapsed_tile.fanout = tiles[pv][innermost_loop].fanout;
       collapsed_tile.SetTensorRepresentation(); // default to uncompressed
+      collapsed_tile.rmw_first_update = tiles[pv][innermost_loop].rmw_first_update;
+      collapsed_tile.no_coalesce = tiles[pv][innermost_loop].no_coalesce;
 
       collapsed_tile.parent_level = std::numeric_limits<unsigned>::max();
       collapsed_tile.child_level = std::numeric_limits<unsigned>::max();
@@ -901,6 +1042,9 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     // Calculate share of parent accesses (used to compute fills).
     ComputeParentAccessShare(solution[pv]);
 
+    // Perform distributed-multicast if supported.
+    DistributeTiles(solution[pv], distribution_supported[pv]);
+
     // Mask each solution according to the provided bit mask.
     MaskTiles(solution[pv], tile_mask[pv]);
 
@@ -909,9 +1053,6 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
 
     // Set backing storage fill to zero place holder
     ResetBackingStorageFillsPlaceHolder(solution[pv]);
-
-    // Perform distributed-multicast if supported.
-    DistributeTiles(solution[pv], distribution_supported[pv]);
 
     // Calculate the extra accesses and fills due to link transfers
     ComputePeerAccesses(solution[pv]);
@@ -925,7 +1066,6 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     // Find the parent and child levels for later compression/decompression logic
     SetParentLevel(solution[pv]);
     SetChildLevel(solution[pv]);
-
   }
 
   // flip the workload tensor set flag if necessary
