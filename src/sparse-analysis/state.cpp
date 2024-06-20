@@ -35,12 +35,21 @@ namespace sparse
 //
 // SparseAnalysisState Function Implementations
 //
+SparseAnalysisState::SparseAnalysisState() :
+    workload_(nullptr)
+{
+}
+
+SparseAnalysisState::SparseAnalysisState(problem::Workload* workload) :
+    workload_(workload)
+{
+}
+
 bool SparseAnalysisState::Init(sparse::SparseOptimizationInfo* sparse_optimization_info,
                                problem::Workload* workload,
                                Mapping mapping,
                                std::uint64_t num_storage_levels)
 {
-
   bool sparse_analysis_needed = false;
 
   if (sparse_optimization_info->no_optimization_applied) return sparse_analysis_needed;

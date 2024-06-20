@@ -119,6 +119,8 @@ class ArithmeticUnits : public Level
   std::uint64_t skipped_computes_ = 0;
   std::uint64_t gated_computes_ = 0;
 
+  // problem::Workload* workload_ = nullptr;
+  
   // Serialization
   friend class boost::serialization::access;
   template <class Archive>
@@ -163,11 +165,11 @@ class ArithmeticUnits : public Level
   void ConnectResult(std::shared_ptr<Network> network);
 
   std::string Name() const override;
-  double Energy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
+  double Energy(problem::Shape::DataSpaceID pv = 0) const override;
   double Area() const override;
   double AreaPerInstance() const override;
   std::uint64_t Cycles() const override;
-  std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override;
+  std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv = 0) const override;
 
   void Print(std::ostream& out) const override;
     
@@ -211,6 +213,7 @@ class ArithmeticUnits : public Level
   }
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
+                      problem::Workload* workload,
                       const double confidence_threshold, const std::uint64_t compute_cycles,
                       const bool break_on_failure) override;
   

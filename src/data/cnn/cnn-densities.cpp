@@ -346,15 +346,16 @@ Workload::Densities GetLayerDensities(std::string layer_name)
   try
   {
     avg_dens = densities.at(layer_name);
-    for (unsigned d = 0; d < GetShape()->NumDataSpaces; d++){
+    for (unsigned d = 0; d < avg_dens.size(); d++)
+    {
       YAML::Node ynode;
       ynode["distribution"] = "fixed";
-      ynode["density"] = avg_dens;
-      auto density_specs = problem::DensityDistributionFactory::ParseSpecs(config::CompoundConfigNode(nullptr, ynode,
-                                                                                                      new config::CompoundConfig("dummy.yaml")));
+      ynode["density"] = avg_dens.at(d);
+      auto density_specs = problem::DensityDistributionFactory::ParseSpecs(
+        config::CompoundConfigNode(nullptr, ynode,
+                                   new config::CompoundConfig("dummy.yaml")));
       dens[d]= problem::DensityDistributionFactory::Construct(density_specs);
     }
-
   }
   catch (const std::out_of_range& oor)
   {

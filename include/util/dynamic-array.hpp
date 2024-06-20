@@ -95,10 +95,12 @@ class DynamicArray
 
   T & operator [] (size_t i)
   {
+    assert(i < size_);
     return data_[i];
   }
   const T & operator [] (size_t i) const
   {
+    assert(i < size_);
     return data_[i];
   }
 

@@ -37,12 +37,12 @@ namespace mapspace
 //           IndexFactorizationSpace          //
 //--------------------------------------------//
 
-IndexFactorizationSpace::IndexFactorizationSpace() :
-    tiling_counter_(problem::GetShape()->NumFlattenedDimensions)
+IndexFactorizationSpace::IndexFactorizationSpace(const problem::Workload& workload) :
+    tiling_counter_(workload.GetShape()->NumFlattenedDimensions),
+    workload_(workload)
 { }
 
-void IndexFactorizationSpace::Init(const problem::Workload &workload,
-                                   std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
+void IndexFactorizationSpace::Init(std::map<problem::Shape::FlattenedDimensionID, std::uint64_t> cofactors_order,
                                    std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> prefactors,
                                    std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> maxfactors,
                                    std::map<problem::Shape::FlattenedDimensionID, std::map<unsigned, unsigned long>> minfactors)
@@ -82,14 +82,14 @@ void IndexFactorizationSpace::Init(const problem::Workload &workload,
 
   // Create factor sets.
   problem::PerFlattenedDimension<uint128_t> counter_base;
-  for (int idim = 0; idim < int(problem::GetShape()->NumFlattenedDimensions); idim++)
+  for (int idim = 0; idim < int(workload_.GetShape()->NumFlattenedDimensions); idim++)
   {
     auto dim = problem::Shape::FlattenedDimensionID(idim);
 
     if (prefactors.find(dim) == prefactors.end())
-      dimension_factors_[idim] = Factors(workload.GetFlattenedBound(dim), cofactors_order[dim]);
+      dimension_factors_[idim] = Factors(workload_.GetFlattenedBound(dim), cofactors_order[dim]);
     else
-      dimension_factors_[idim] = Factors(workload.GetFlattenedBound(dim), cofactors_order[dim], prefactors[dim]);
+      dimension_factors_[idim] = Factors(workload_.GetFlattenedBound(dim), cofactors_order[dim], prefactors[dim]);
 
     if (maxfactors.find(dim) != maxfactors.end())
       dimension_factors_[idim].PruneMax(maxfactors[dim]);
@@ -103,10 +103,10 @@ void IndexFactorizationSpace::Init(const problem::Workload &workload,
   tiling_counter_.Init(counter_base);
 
   std::cout << "Initializing Index Factorization subspace." << std::endl;
-  for (int dim = 0; dim < int(problem::GetShape()->NumFlattenedDimensions); dim++)
+  for (int dim = 0; dim < int(workload_.GetShape()->NumFlattenedDimensions); dim++)
   {
     std::cout << "  Factorization options along problem dimension "
-              << problem::GetShape()->FlattenedDimensionIDToName.at(dim) << " = "
+              << workload_.GetShape()->FlattenedDimensionIDToName.at(dim) << " = "
               << counter_base[dim] << std::endl;
   }
 }
@@ -216,9 +216,10 @@ uint128_t ResidualIndexFactorizationSpace::Size() const
 //              PermutationSpace              //
 //--------------------------------------------//
 
-PermutationSpace::PermutationSpace()
+PermutationSpace::PermutationSpace(const problem::Workload& workload) :
+    workload_(workload)
 {
-  for (unsigned i = 0; i < unsigned(problem::GetShape()->NumFlattenedDimensions); i++)
+  for (unsigned i = 0; i < unsigned(workload_.GetShape()->NumFlattenedDimensions); i++)
   {
     canonical_pattern_.push_back(problem::Shape::FlattenedDimensionID(i));
   }
@@ -261,7 +262,7 @@ void PermutationSpace::InitLevel(uint64_t level,
       baked_suffix.push_back(dim);
 
   std::set<problem::Shape::FlattenedDimensionID> unspecified_dimensions;
-  for (unsigned i = 0; i < unsigned(problem::GetShape()->NumFlattenedDimensions); i++)
+  for (unsigned i = 0; i < unsigned(workload_.GetShape()->NumFlattenedDimensions); i++)
     unspecified_dimensions.insert(problem::Shape::FlattenedDimensionID(i));
     
   for (auto& dim : baked_prefix)
@@ -275,7 +276,7 @@ void PermutationSpace::InitLevel(uint64_t level,
     permutable_infix.push_back(dim);
 
   assert(baked_prefix.size() + permutable_infix.size() + baked_suffix.size() ==
-         unsigned(problem::GetShape()->NumFlattenedDimensions));
+         unsigned(workload_.GetShape()->NumFlattenedDimensions));
 
   patterns_[level] = { baked_prefix, permutable_infix, baked_suffix };
   size_[level] = factoradic_.Factorial(permutable_infix.size());
@@ -317,7 +318,8 @@ uint128_t PermutationSpace::Size() const
 }
 
 // empty constructor
-RubyPermutationSpace::RubyPermutationSpace() : PermutationSpace()
+RubyPermutationSpace::RubyPermutationSpace(const problem::Workload& workload) :
+  PermutationSpace(workload)
 {
 }
 
@@ -390,7 +392,10 @@ RubyPermutationSpace::GetPatterns(uint128_t id)
 //              SpatialSplitSpace             //
 //--------------------------------------------//
 
-SpatialSplitSpace::SpatialSplitSpace() {}
+SpatialSplitSpace::SpatialSplitSpace(const problem::Workload& workload) :
+    workload_(workload)
+{
+}
 
 void SpatialSplitSpace::Init(uint64_t num_levels)
 {
@@ -406,7 +411,7 @@ void SpatialSplitSpace::InitLevel(uint64_t level, unsigned unit_factors)
   assert(level < num_levels_);
   is_user_specified_[level] = false;
   unit_factors_[level] = unit_factors;
-  size_[level] = int(problem::GetShape()->NumFlattenedDimensions) + 1 - unit_factors;
+  size_[level] = int(workload_.GetShape()->NumFlattenedDimensions) + 1 - unit_factors;
 }
 
 void SpatialSplitSpace::InitLevelUserSpecified(uint64_t level, std::uint32_t user_split)

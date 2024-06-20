@@ -49,6 +49,8 @@ class Uber : public MapSpace
 {
  protected:
 
+  const problem::Workload& workload_;
+
   // Sub-spaces.
   PermutationSpace permutation_space_;
   IndexFactorizationSpace index_factorization_space_;

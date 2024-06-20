@@ -131,7 +131,7 @@ void Application::Run()
   const std::string stats_file_name = out_prefix_ + ".stats.txt";
   const std::string map_txt_file_name = out_prefix_ + ".map.txt";
     
-  Mapping best_mapping;
+  Mapping best_mapping(&workload_);
   model::Engine best_engine;
   model::Engine engine;
 
@@ -160,7 +160,7 @@ void Application::Run()
           // Construct a mapping from the mapping ID. This step can fail
           // because the space of *legal* mappings isn't dense (unfortunately),
           // so a mapping ID may point to an illegal mapping.
-          Mapping mapping;
+          Mapping mapping(&workload_);
 
           auto construction_status = mapspace_->ConstructMapping(mapping_id, &mapping);
           success &= std::accumulate(construction_status.begin(), construction_status.end(), true,

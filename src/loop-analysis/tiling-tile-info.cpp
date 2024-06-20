@@ -85,7 +85,8 @@ CoordinateSpaceTileInfo DataMovementInfo::GetChildTileCoordinateSpaceInfo() cons
   {
     // there is a child level for this tile
     return child_level_ptr->GetCoordinateSpaceInfo();
-  } else
+  }
+  else
   {
     // lowest level of its data type, next level is compute
     assert(coord_space_info.mold_set_);

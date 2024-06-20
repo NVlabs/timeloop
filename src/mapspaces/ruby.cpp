@@ -45,13 +45,16 @@ Ruby::Ruby(
   model::Engine::Specs arch_specs,
   const problem::Workload& workload,
   bool filter_spatial_fanout,
-  bool skip_init) :
-    MapSpace(arch_specs, workload),
-    split_id_(0),
-    num_parent_splits_(0),
-    arch_props_(arch_specs),
-    constraints_(arch_props_, workload),
-    filter_spatial_fanout_(filter_spatial_fanout)
+  bool skip_init
+) :
+  MapSpace(arch_specs, workload),
+  permutation_space_(workload),
+  spatial_split_space_(workload),
+  split_id_(0),
+  num_parent_splits_(0),
+  arch_props_(arch_specs),
+  constraints_(arch_props_, workload),
+  filter_spatial_fanout_(filter_spatial_fanout)
 {
   if (!skip_init)
   {

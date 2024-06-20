@@ -37,18 +37,18 @@ namespace model
 Type Class::FuncName(problem::Shape::DataSpaceID pv) const
 
 #define STAT_ACCESSOR_HEADER(Type, FuncName)                                          \
-Type FuncName(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const
+Type FuncName(problem::Shape::DataSpaceID pv) const
 
 #define STAT_ACCESSOR_BODY(Type, FuncName, Expression)                                \
 {                                                                                     \
-  if (pv != problem::GetShape()->NumDataSpaces)                                       \
+  if (pv != workload_->GetShape()->NumDataSpaces)                                     \
   {                                                                                   \
     return Expression;                                                                \
   }                                                                                   \
   else                                                                                \
   {                                                                                   \
     Type stat = 0;                                                                    \
-    for (unsigned pvi = 0; pvi < unsigned(problem::GetShape()->NumDataSpaces); pvi++) \
+    for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++) \
     {                                                                                 \
       stat += FuncName(problem::Shape::DataSpaceID(pvi));                             \
     }                                                                                 \

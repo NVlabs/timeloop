@@ -45,7 +45,7 @@ namespace application
 template <class Archive>
 void Mapper::serialize(Archive& ar, const unsigned int version)
 {
-  if(version == 0)
+  if (version == 0)
   {
     ar& BOOST_SERIALIZATION_NVP(workload_);
   }

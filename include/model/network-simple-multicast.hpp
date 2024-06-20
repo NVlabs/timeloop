@@ -137,6 +137,8 @@ class SimpleMulticastNetwork : public Network
   std::weak_ptr<Level> source_;
   std::weak_ptr<Level> sink_;
 
+  problem::Workload* workload_ = nullptr;
+  
  public:
   Stats stats_; // temporarily public.
 
@@ -190,6 +192,7 @@ class SimpleMulticastNetwork : public Network
   double GetMulticastEnergyByDataType(std::uint64_t multicast_factor, std::string data_space_name);
  
   EvalStatus Evaluate(const tiling::CompoundTile& tile,
+                      problem::Workload* workload,
                       const bool break_on_failure) override;
 
   void Print(std::ostream& out) const override;

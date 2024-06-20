@@ -47,6 +47,7 @@ const unsigned kDimensionQ = 3;
 const unsigned kDimensionC = 4;
 const unsigned kDimensionK = 5;
 const unsigned kDimensionN = 6;
+const unsigned kNumDimensions = 7;
 
 const unsigned kDataSpaceWeight = 0;
 const unsigned kDataSpaceInput = 1;
@@ -711,7 +712,7 @@ Workload::FactorizedBounds GetLayerBounds(std::string layer_name, bool pad_prime
 
   if (pad_primes)
   {
-    for (int pd = 0; pd < int(problem::GetShape()->NumFactorizedDimensions); pd++)
+    for (int pd = 0; pd < int(kNumDimensions); pd++)
     {
       if (nearest_composite.count(prob[problem::Shape::FactorizedDimensionID(pd)]) != 0)
       {
