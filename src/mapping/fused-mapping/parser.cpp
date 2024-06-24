@@ -227,14 +227,23 @@ NodeID ParseStorageNode(NodeID parent_id,
 
   std::string target = "";
   cfg.lookupValue("target", target);
+
+  // If target is an integer, we mean buffer_id; otherwise, we mean buffer name
   BufferId buffer_id;
-  const auto& level_names = arch_spec.LevelNames();
-  for (unsigned i = 0; i < arch_spec.NumLevels(); ++i)
+  try
   {
-    if (target == level_names.at(i))
+    buffer_id = std::stoi(target);
+  }
+  catch(const std::invalid_argument& e)
+  {
+    const auto& level_names = arch_spec.LevelNames();
+    for (unsigned i = 0; i < arch_spec.NumLevels(); ++i)
     {
-      buffer_id = i;
-      break;
+      if (target == level_names.at(i))
+      {
+        buffer_id = i;
+        break;
+      }
     }
   }
 
