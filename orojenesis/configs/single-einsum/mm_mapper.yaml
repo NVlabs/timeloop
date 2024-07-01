@@ -1,0 +1,27 @@
+mapper:
+  optimization-metrics: [ last-level-accesses, energy ]
+  algorithm: linear-pruned
+  victory-condition: 0
+  timeout: 0
+  log-oaves: True
+  num-threads: 8
+  log-oaves-mappings: False
+
+
+mapspace_constraints:
+  - target: Buffer
+    type: temporal
+    permutation: RSPQCKN
+  - target: MainMemory
+    type: temporal
+
+  - target: MainMemory
+    type: datatype
+    keep:
+      - Weights
+      - Inputs
+      - Outputs
+    bypass:
+      []
+
+

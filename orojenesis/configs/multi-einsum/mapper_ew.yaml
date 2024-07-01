@@ -1,0 +1,38 @@
+mapper:
+  optimization-metrics: [ last-level-accesses, energy ]
+  algorithm: linear-pruned
+  victory-condition: 0
+  timeout: 0
+  log-oaves: True
+  num-threads: 8
+
+
+mapspace_constraints:
+
+  # Bypass.
+
+  - target: MainMemory
+    type: datatype
+    keep: [ Weights, Inputs, Outputs ]
+
+  - target: InputOutputBuffer
+    type: datatype
+    keep: [ Inputs, Outputs ]
+    bypass: [ Weights ]
+
+  - target: WeightBuffer
+    type: datatype
+    keep: [ Weights ]
+    bypass: [ Inputs, Outputs ]
+
+  # Temporal.
+
+  - target: MainMemory
+    type: temporal
+    factors: K=1
+    permutation: KM
+
+  - target: InputOutputBuffer
+    type: temporal
+    factors: M=1
+    permutation: MK

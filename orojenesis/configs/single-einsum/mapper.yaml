@@ -1,0 +1,8 @@
+mapper:
+  optimization-metrics: [ last-level-accesses, energy ]
+  algorithm: linear-pruned
+  victory-condition: 0
+  timeout: 0
+  log-oaves: True
+  num-threads: 8
+  log-oaves-mappings: False
