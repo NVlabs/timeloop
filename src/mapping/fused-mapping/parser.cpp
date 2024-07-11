@@ -324,7 +324,8 @@ void InsertToMapping(NodeID parent_id,
                      const problem::FusedWorkload& workload,
                      const model::Topology::Specs& arch_spec)
 {
-  for (int i = 0; i < nodes_cfg.getLength(); ++i)
+  const auto last_node_idx = nodes_cfg.getLength()-1;
+  for (int i = 0; i <= last_node_idx; ++i)
   {
     auto cur_node = nodes_cfg[i];
     parent_id = CompoundConfigNodeToMapping(parent_id,
@@ -332,6 +333,7 @@ void InsertToMapping(NodeID parent_id,
                                             cur_node,
                                             workload,
                                             arch_spec);
+
     if (cur_node.exists("branches"))
     {
       auto branches_cfg = cur_node.lookup("branches");
@@ -343,6 +345,19 @@ void InsertToMapping(NodeID parent_id,
                         workload,
                         arch_spec);
       }
+    }
+
+    bool cur_node_is_branch_or_leaf = std::visit(
+      [](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        return mapping::HasNoChildV<T> || mapping::IsBranchV<T>;
+      },
+      mapping.NodeAt(parent_id)
+    );
+
+    if (i == last_node_idx && !cur_node_is_branch_or_leaf)
+    {
+      throw std::logic_error("Last node in a list in mapping must be a branch or a leaf.");
     }
   }
 }
