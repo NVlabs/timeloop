@@ -28,9 +28,17 @@ class LooptreeModel
 
   struct Result
   {
-    std::map<mapping::NodeID, std::string> ops;
-    std::map<std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>, std::string> fill;
-    std::map<std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>, std::string> occupancy;
+    std::map<problem::EinsumId, float> ops;
+
+    std::map<
+      std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
+      double
+    > fill;
+
+    std::map<
+      std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
+      double
+    > occupancy;
   };
 
  protected:
