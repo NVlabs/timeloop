@@ -288,33 +288,19 @@ LooptreeModel::Result LooptreeModel::Run()
     );
 
     auto p_fill = result.fill.map.copy();
-    auto p_fill_count = isl_pw_qpolynomial_sum(isl_map_card(p_fill));
+    auto p_fill_count = isl_map_card(p_fill);
 
-    auto p_occ = result.effective_occupancy.map.copy();
-    isl_bool tight;
-    auto p_occ_count = isl_pw_qpolynomial_bound(
-      isl_map_card(p_occ),
-      isl_fold_max,
-      &tight
-    );
-    assert(tight == isl_bool_true);
+    auto p_occ_count = isl_map_card(result.effective_occupancy.map.copy());
 
     const auto einsum_id =
       std::get<mapping::Compute>(mapping_.NodeAt(buf.branch_leaf_id)).kernel;
 
     auto key = std::tie(buf.buffer_id, buf.dspace_id, einsum_id);
-    model_result.fill[key] =
-      isl::val_to_double(isl::get_val_from_singular(p_fill_count));
-    model_result.occupancy[key] =
-      isl::val_to_double(isl::get_val_from_singular(p_occ_count));
+    model_result.fill[key] = isl_pw_qpolynomial_to_str(p_fill_count);
+    model_result.occupancy[key] = isl_pw_qpolynomial_to_str(p_occ_count);
 
-    // std::cout << "[Occupancy]" << buf << ": "
-    //   << isl::pw_qpolynomial_fold_to_str(p_occ_count) << std::endl;
-    // std::cout << "[Fill]" << buf << ": "
-    //   << isl_pw_qpolynomial_to_str(p_fill_count) << std::endl;
-
-    // isl_pw_qpolynomial_fold_free(p_occ_count);
-    // isl_pw_qpolynomial_free(p_fill_count);
+    isl_pw_qpolynomial_free(p_fill_count);
+    isl_pw_qpolynomial_free(p_occ_count);
   }
 
   for (const auto& [compute, tiling] : mapping_analysis_result.branch_tiling)
@@ -323,11 +309,9 @@ LooptreeModel::Result LooptreeModel::Run()
     const auto einsum_id =
       std::get<mapping::Compute>(mapping_.NodeAt(compute)).kernel;
 
-    model_result.ops[einsum_id] = isl::val_to_double(
-      isl::get_val_from_singular(isl_pw_qpolynomial_sum(p_ops))
-    );
+    model_result.ops[einsum_id] = isl_pw_qpolynomial_to_str(p_ops);
 
-    // isl_pw_qpolynomial_free(p_ops);
+    isl_pw_qpolynomial_free(p_ops);
   }
 
   return model_result;
