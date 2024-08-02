@@ -269,6 +269,22 @@ FusedWorkload::WriteAccesses(EinsumId einsum, DataSpaceId dspace) const
   return writes_.at(std::make_pair(einsum, dspace));
 }
 
+
+const isl::map&
+FusedWorkload::Accesses(EinsumId einsum, DataSpaceId dspace) const
+{
+  const auto& read_tensors = TensorsReadByEinsum(einsum);
+  if (read_tensors.find(dspace) != read_tensors.end())
+  {
+    return ReadAccesses(einsum, dspace);
+  }
+  else
+  {
+    return WriteAccesses(einsum, dspace);
+  }
+}
+
+
 const isl::set& FusedWorkload::EinsumOspaceBound(EinsumId einsum) const
 {
   return operation_spaces_.at(einsum);
@@ -298,6 +314,7 @@ const isl::set& FusedWorkload::DataSpaceBound(DataSpaceId dspace) const
   }
   return data_spaces_.at(dspace);
 }
+
 
 FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg)
 {

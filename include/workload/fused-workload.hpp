@@ -68,6 +68,9 @@ class FusedWorkload
   const isl::map& ReadAccesses(EinsumId einsum, DataSpaceId dspace) const;
   const isl::map& WriteAccesses(EinsumId einsum, DataSpaceId dspace) const;
 
+  // Returns ReadAccesses if read-only; WriteAccesses, otherwise.
+  const isl::map& Accesses(EinsumId einsum, DataSpaceId dspace) const;
+
   const isl::set& EinsumOspaceBound(EinsumId einsum) const;
   const isl::set& DataSpaceBound(DataSpaceId dspace) const;
 
@@ -105,6 +108,7 @@ class FusedWorkload
   //      at call instead of lazily at FusedWorkload::DataSpaceBound
   mutable std::map<DataSpaceId, isl::set> data_spaces_;
 };
+
 
 FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg);
 

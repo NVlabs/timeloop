@@ -191,6 +191,7 @@ util/map2d.cpp
 util/accelergy_interface.cpp
 workload/shape-models/problem-shape.cpp
 workload/fused-workload.cpp
+workload/fused-workload-dependency-analyzer.cpp
 workload/workload.cpp
 workload/shape-models/operation-space.cpp
 workload/density-models/density-distribution.cpp
