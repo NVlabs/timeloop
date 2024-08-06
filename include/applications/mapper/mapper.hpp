@@ -87,8 +87,10 @@ class Mapper
   uint128_t log_interval_;
 
   bool log_stats_;
-  bool log_oaves_;
-  bool log_oaves_mappings_;
+  bool log_oave_mappings_;
+  bool log_all_mappings_;
+  bool log_mappings_yaml_;
+  bool log_mappings_verbose_;
   bool log_suboptimal_;
   bool live_status_;
   bool diagnostics_on_;
