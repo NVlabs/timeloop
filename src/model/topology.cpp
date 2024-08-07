@@ -638,17 +638,15 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
           out << "," << GetStorageLevel(storage_level_id)->TotalUtilizedBytes(pv);
         }
     }
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+
+    for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
     {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      out << "," << GetStorageLevel(last_storage_level_id)->Accesses(pv);
+        for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+        {
+          auto pv = problem::Shape::DataSpaceID(pvi);
+          out << "," << GetStorageLevel(storage_level_id)->Accesses(pv);
+        }
     }
-    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
-    {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      out << "," << GetStorageLevel(last_storage_level_id)->ReadFillAccesses(pv);
-    }
-    out << "," << GetStorageLevel(last_storage_level_id)->ReadFillAccesses();
 
     out << std::endl;
   }
