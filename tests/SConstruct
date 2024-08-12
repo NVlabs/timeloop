@@ -1,3 +1,5 @@
-env = Environment(CXXFLAGS = ['-std=c++17'])
+import os
+
+env = Environment(ENV = os.environ, CXXFLAGS = ['-std=c++17'])
 
 env.Program('c++_to_python.cpp')
