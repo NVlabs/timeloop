@@ -274,8 +274,10 @@ MapperThread::MapperThread(
   std::int32_t max_temporal_loops_in_a_mapping,
   uint128_t sync_interval,
   uint128_t log_interval,
-  bool log_oaves,
-  bool log_oaves_mappings,
+  bool log_oave_mappings,
+  bool log_mappings_yaml,
+  bool log_mappings_verbose,
+  bool log_all_mappings,
   bool log_stats,
   bool log_suboptimal,
   std::ostream& log_stream,
@@ -300,8 +302,10 @@ MapperThread::MapperThread(
     max_temporal_loops_in_a_mapping_(max_temporal_loops_in_a_mapping),
     sync_interval_(sync_interval),
     log_interval_(log_interval),
-    log_oaves_(log_oaves),
-    log_oaves_mappings_(log_oaves_mappings),
+    log_oave_mappings_(log_oave_mappings),
+    log_all_mappings_(log_all_mappings),
+    log_mappings_yaml_(log_mappings_yaml),
+    log_mappings_verbose_(log_mappings_verbose),
     log_stats_(log_stats),
     log_suboptimal_(log_suboptimal),
     log_stream_(log_stream),
@@ -436,7 +440,7 @@ void MapperThread::Run()
       terminate = true;
     }
 
-    if (log_oaves_ && terminate)
+    if ((log_oave_mappings_ || log_all_mappings_) && terminate)
     {
       for (auto &index_factor_best : index_factor_best_vec)
       {
@@ -447,7 +451,7 @@ void MapperThread::Run()
 
         mutex_->lock();
         // Print performance and log the optimal mappings
-        topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
+        topology.PrintOAVES(&workload_, oaves_csv_file_, stats_.index_factor_best.mapping, log_mappings_yaml_, log_mappings_verbose_, oaves_prefix_, thread_id_);
         mutex_->unlock();
       }
 
@@ -621,9 +625,15 @@ void MapperThread::Run()
     auto stats = topology.GetStats();
     EvaluationResult result = { true, mapping, stats };
 
+    if(log_all_mappings_)
+    {
+    mutex_->lock(); // Print performance and log the optimal mappings
+    topology.PrintOAVES(&workload_, oaves_csv_file_, mapping, log_mappings_yaml_, log_mappings_verbose_, oaves_prefix_, thread_id_);
+    mutex_->unlock();
+    }
     // Log the equally optimal mappings stats from the previous index factor and clear the index_factor_best_vec
     // Need to have one valid mapping in order to get the SumStats run
-    if (log_oaves_ && total_mappings != 0 && stats_.index_factor_best.valid && SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))
+    else if (log_oave_mappings_ && total_mappings != 0 && stats_.index_factor_best.valid && SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))
     {
       for (auto &index_factor_best : index_factor_best_vec)
       {
@@ -635,7 +645,7 @@ void MapperThread::Run()
         mutex_->lock();
 
         // Print performance and log the optimal mappings
-        topology.PrintOAVES(oaves_csv_file_, stats_.index_factor_best.mapping, log_oaves_mappings_, oaves_prefix_, thread_id_);
+        topology.PrintOAVES(&workload_, oaves_csv_file_, stats_.index_factor_best.mapping, log_mappings_yaml_, log_mappings_verbose_, oaves_prefix_, thread_id_);
         mutex_->unlock();
 
         // Only print one valid mapping stat if the tiling size is 0 in the inner level
@@ -685,7 +695,7 @@ void MapperThread::Run()
     }
 
     // Update index factor best
-    if (log_oaves_)
+    if (log_oave_mappings_)
     {
       if (stats_.index_factor_best.UpdateIfBetter(result, optimization_metrics_))
       {

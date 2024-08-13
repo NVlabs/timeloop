@@ -219,11 +219,18 @@ Mapper::Mapper(config::CompoundConfig* config,
   max_temporal_loops_in_a_mapping_ = static_cast<int32_t>(max_temporal_loops_in_a_mapping);
 
   // Misc.
-  log_oaves_ = false;
-  mapper.lookupValue("log_oaves", log_oaves_);
+  log_oave_mappings_ = false;
+  mapper.lookupValue("log_oave_mappings", log_oave_mappings_);
 
-  log_oaves_mappings_ = false;
-  mapper.lookupValue("log_oaves_mappings", log_oaves_mappings_);
+  log_mappings_yaml_ = false;
+  mapper.lookupValue("log_mappings_yaml", log_mappings_yaml_);
+
+  log_mappings_verbose_ = false;
+  mapper.lookupValue("log_mappings_verbose", log_mappings_verbose_);
+
+  // Misc.
+  log_all_mappings_ = false;
+  mapper.lookupValue("log_all_mappings", log_all_mappings_);
 
   log_stats_ = false;
   mapper.lookupValue("log_stats", log_stats_);
@@ -387,8 +394,10 @@ Mapper::Result Mapper::Run()
                                         max_temporal_loops_in_a_mapping_,
                                         sync_interval_,
                                         log_interval_,
-                                        log_oaves_,
-                                        log_oaves_mappings_,
+                                        log_oave_mappings_,
+                                        log_mappings_yaml_,
+                                        log_mappings_verbose_,
+                                        log_all_mappings_,
                                         log_stats_,
                                         log_suboptimal_,
                                         live_status_ ? log_file : std::cerr,
