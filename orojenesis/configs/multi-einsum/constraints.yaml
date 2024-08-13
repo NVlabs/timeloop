@@ -1,0 +1,30 @@
+mapspace_constraints:
+
+  # Bypass.
+
+  - target: MainMemory
+    type: datatype
+    keep: [ Weights, Inputs, Outputs ]
+
+  - target: InputOutputBuffer
+    type: datatype
+    keep: [ Inputs, Outputs ]
+    bypass: [ Weights ]
+
+  - target: WeightBuffer
+    type: datatype
+    keep: [ Weights ]
+    bypass: [ Inputs, Outputs ]
+
+  # Temporal.
+
+  - target: MainMemory
+    type: temporal
+    factors: N=1 K=1 # M free.
+    permutation: MNK
+
+  - target: InputOutputBuffer
+    type: temporal
+    factors: M=1 # K and N free.
+    permutation: NKM # shouldn't matter, but verify.
+

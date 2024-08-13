@@ -1,0 +1,9 @@
+mapper:
+  optimization-metrics: [ last-level-accesses, energy ]
+  algorithm: linear-pruned
+  search-size: 2000
+  timeout: 0
+  log_orojenesis_mappings: True
+  num-threads: 1
+  log_mappings_yaml: False
+

@@ -1,0 +1,35 @@
+mapper:
+  optimization_metrics: [ last_level_accesses, energy ]
+  algorithm: linear_pruned
+  victory_condition: 0
+  timeout: 0
+  log_orojenesis_mappings: True
+  num_threads: 1
+  log_mappings_yaml: False
+
+
+mapspace_constraints:
+  - target: Buffer
+    type: temporal
+    permutation: RSPQCKN
+  - target: MainMemory
+    type: temporal
+
+  - target: Buffer
+    type: datatype
+    keep:
+      - Weights
+      - Inputs
+      - Outputs
+    bypass:
+      []
+  - target: MainMemory
+    type: datatype
+    keep:
+      - Weights
+      - Inputs
+      - Outputs
+    bypass:
+      []
+
+
