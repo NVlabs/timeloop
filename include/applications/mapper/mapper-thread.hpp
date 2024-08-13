@@ -97,7 +97,7 @@ class MapperThread
   std::int32_t max_temporal_loops_in_a_mapping_;
   uint128_t sync_interval_;
   uint128_t log_interval_;
-  bool log_oave_mappings_;
+  bool log_orojenesis_mappings_;
   bool log_all_mappings_;
   bool log_mappings_yaml_;
   bool log_mappings_verbose_;
@@ -131,7 +131,7 @@ class MapperThread
     std::int32_t max_temporal_loops_in_a_mapping,
     uint128_t sync_interval,
     uint128_t log_interval,
-    bool log_oave_mappings,
+    bool log_orojenesis_mappings,
     bool log_mappings_yaml,
     bool log_mappings_verbose,
     bool log_all_mappings,

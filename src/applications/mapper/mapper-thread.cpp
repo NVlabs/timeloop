@@ -274,7 +274,7 @@ MapperThread::MapperThread(
   std::int32_t max_temporal_loops_in_a_mapping,
   uint128_t sync_interval,
   uint128_t log_interval,
-  bool log_oave_mappings,
+  bool log_orojenesis_mappings,
   bool log_mappings_yaml,
   bool log_mappings_verbose,
   bool log_all_mappings,
@@ -302,7 +302,7 @@ MapperThread::MapperThread(
     max_temporal_loops_in_a_mapping_(max_temporal_loops_in_a_mapping),
     sync_interval_(sync_interval),
     log_interval_(log_interval),
-    log_oave_mappings_(log_oave_mappings),
+    log_orojenesis_mappings_(log_orojenesis_mappings),
     log_all_mappings_(log_all_mappings),
     log_mappings_yaml_(log_mappings_yaml),
     log_mappings_verbose_(log_mappings_verbose),
@@ -440,7 +440,7 @@ void MapperThread::Run()
       terminate = true;
     }
 
-    if ((log_oave_mappings_ || log_all_mappings_) && terminate)
+    if ((log_orojenesis_mappings_ || log_all_mappings_) && terminate)
     {
       for (auto &index_factor_best : index_factor_best_vec)
       {
@@ -633,7 +633,7 @@ void MapperThread::Run()
     }
     // Log the equally optimal mappings stats from the previous index factor and clear the index_factor_best_vec
     // Need to have one valid mapping in order to get the SumStats run
-    else if (log_oave_mappings_ && total_mappings != 0 && stats_.index_factor_best.valid && SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))
+    else if (log_orojenesis_mappings_ && total_mappings != 0 && stats_.index_factor_best.valid && SumStats(stats_.index_factor_best.stats.tile_sizes[0]) != SumStats(stats.tile_sizes[0]))
     {
       for (auto &index_factor_best : index_factor_best_vec)
       {
@@ -695,7 +695,7 @@ void MapperThread::Run()
     }
 
     // Update index factor best
-    if (log_oave_mappings_)
+    if (log_orojenesis_mappings_)
     {
       if (stats_.index_factor_best.UpdateIfBetter(result, optimization_metrics_))
       {

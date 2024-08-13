@@ -219,8 +219,8 @@ Mapper::Mapper(config::CompoundConfig* config,
   max_temporal_loops_in_a_mapping_ = static_cast<int32_t>(max_temporal_loops_in_a_mapping);
 
   // Misc.
-  log_oave_mappings_ = false;
-  mapper.lookupValue("log_oave_mappings", log_oave_mappings_);
+  log_orojenesis_mappings_ = false;
+  mapper.lookupValue("log_orojenesis_mappings", log_orojenesis_mappings_);
 
   log_mappings_yaml_ = false;
   mapper.lookupValue("log_mappings_yaml", log_mappings_yaml_);
@@ -394,7 +394,7 @@ Mapper::Result Mapper::Run()
                                         max_temporal_loops_in_a_mapping_,
                                         sync_interval_,
                                         log_interval_,
-                                        log_oave_mappings_,
+                                        log_orojenesis_mappings_,
                                         log_mappings_yaml_,
                                         log_mappings_verbose_,
                                         log_all_mappings_,

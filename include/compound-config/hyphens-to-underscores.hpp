@@ -47,7 +47,7 @@ namespace hyphens2underscores
     "router_energy",
     "tree_like",
     "arch_space_files",
-    "log_oave_mappings",
+    "log_orojenesis_mappings",
     "penalize_consecutive_bypass_fails",
     "emit_whoop_nest",
     "condition_on",
