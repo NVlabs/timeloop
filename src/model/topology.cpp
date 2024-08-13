@@ -599,7 +599,7 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   return out;
 }
 
-void Topology::PrintOAVES(problem::Workload* workload_, std::ostream &out, Mapping &mapping, bool log_mappings_yaml, bool log_mappings_verbose, std::string oaves_prefix, unsigned thread_id) const
+void Topology::PrintOrojenesis(problem::Workload* workload_, std::ostream &out, Mapping &mapping, bool log_mappings_yaml, bool log_mappings_verbose, std::string orojenesis_prefix, unsigned thread_id) const
 {
 
   if (NumStorageLevels() > 0)
@@ -702,14 +702,14 @@ void Topology::PrintOAVES(problem::Workload* workload_, std::ostream &out, Mappi
     out << "," << mapping.PrintCompact();
     if (log_mappings_yaml)
     {
-      std::stringstream oaves_mapping_ss;
+      std::stringstream orojenesis_mapping_ss;
       // Format the mapping filename as <utilization>_<thread_id>_<mapping_hash>.yaml
       std::hash<std::string> hasher;
       size_t hash = hasher(mapping.PrintCompact());
-      oaves_mapping_ss << oaves_prefix << "." << total_utilization << "_" << thread_id << "_" << std::hex << hash << ".yaml";
-      std::string oaves_map_yaml_file_name = oaves_mapping_ss.str();
-      out << "," << oaves_map_yaml_file_name << std::endl;
-      OutputOAVESMappingYAML(mapping, oaves_map_yaml_file_name);
+      orojenesis_mapping_ss << orojenesis_prefix << "." << total_utilization << "_" << thread_id << "_" << std::hex << hash << ".yaml";
+      std::string orojenesis_map_yaml_file_name = orojenesis_mapping_ss.str();
+      out << "," << orojenesis_map_yaml_file_name << std::endl;
+      OutputOrojenesisMappingYAML(mapping, orojenesis_map_yaml_file_name);
     }
     else
     {
@@ -718,7 +718,7 @@ void Topology::PrintOAVES(problem::Workload* workload_, std::ostream &out, Mappi
   }
 }
 
-void  Topology::OutputOAVESMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const {
+void  Topology::OutputOrojenesisMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const {
 
   // Output the .yaml file for the mapping
   YAML::Emitter yaml_out;

@@ -341,11 +341,11 @@ Mapper::Result Mapper::Run()
   // Output file names.
   std::string log_file_name = out_prefix_ + ".log";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
-  std::string oaves_prefix = out_prefix_ + ".oaves";
+  std::string orojenesis_prefix = out_prefix_ + ".orojenesis";
 
   // Prepare live status/log stream.
   std::ofstream log_file;
-  std::stringstream oaves_stream;
+  std::stringstream orojenesis_stream;
 
   // std::streambuf* streambuf_cout = std::cout.rdbuf();
   std::streambuf* streambuf_cerr = std::cerr.rdbuf();
@@ -401,8 +401,8 @@ Mapper::Result Mapper::Run()
                                         log_stats_,
                                         log_suboptimal_,
                                         live_status_ ? log_file : std::cerr,
-                                        oaves_stream,
-                                        oaves_prefix,
+                                        orojenesis_stream,
+                                        orojenesis_prefix,
                                         live_status_,
                                         diagnostics_on_,
                                         penalize_consecutive_bypass_fails_,
@@ -703,7 +703,7 @@ Mapper::Result Mapper::Run()
   result.stats_string = stats_str.str();
   result.tensella_string = tensella_str.str();
   result.xml_mapping_stats_string = xml_map_stats_str.str();
-  result.oaves_string = oaves_stream.str();
+  result.orojenesis_string = orojenesis_stream.str();
 
   return result;
 }

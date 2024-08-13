@@ -65,7 +65,7 @@ class Mapper
     std::string stats_string;
     std::string tensella_string;
     std::string xml_mapping_stats_string;
-    std::string oaves_string;
+    std::string orojenesis_string;
   };
 
  protected:

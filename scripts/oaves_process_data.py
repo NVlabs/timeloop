@@ -16,7 +16,7 @@ def construct_argparser():
                         '--stats_file',
                         type=str,
                         default='',
-                        help='Input OAVES Stats File',
+                        help='Input Orojenesis Stats File',
                         )
     parser.add_argument('-o',
                         '--output_file',
@@ -39,10 +39,10 @@ def construct_argparser():
 
 
 def process_data(stats_file: str, output_file: str, keep_all_entry: bool = False, keep_one_best_entry: bool = False):
-    """ Process OAVES output csv file.
+    """ Process Orojenesis output csv file.
 
     Args:
-	stats_file: The OAVES output csv file path from Timeloop run.
+	stats_file: The Orojenesis output csv file path from Timeloop run.
 	output_file: The output file path to store sorted data.
         keep_all_entry: Indicate whether to keep all different buffer sizes.
         keep_all_entry: Indicate whether to keep all different buffer sizes.

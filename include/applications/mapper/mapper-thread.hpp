@@ -104,8 +104,8 @@ class MapperThread
   bool log_stats_;
   bool log_suboptimal_;
   std::ostream& log_stream_;
-  std::ostream& oaves_csv_file_;
-  std::string oaves_prefix_;
+  std::ostream& orojenesis_csv_file_;
+  std::string orojenesis_prefix_;
   bool live_status_;
   bool diagnostics_on_;
   bool penalize_consecutive_bypass_fails_;
@@ -138,8 +138,8 @@ class MapperThread
     bool log_stats,
     bool log_suboptimal,
     std::ostream& log_stream,
-    std::ostream& oaves_csv_file,
-    std::string oaves_prefix,
+    std::ostream& orojenesis_csv_file,
+    std::string orojenesis_prefix,
     bool live_status,
     bool diagnostics_on,
     bool penalize_consecutive_bypass_fails,

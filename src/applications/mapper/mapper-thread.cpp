@@ -281,8 +281,8 @@ MapperThread::MapperThread(
   bool log_stats,
   bool log_suboptimal,
   std::ostream& log_stream,
-  std::ostream& oaves_csv_file,
-  std::string oaves_prefix,
+  std::ostream& orojenesis_csv_file,
+  std::string orojenesis_prefix,
   bool live_status,
   bool diagnostics_on,
   bool penalize_consecutive_bypass_fails,
@@ -309,8 +309,8 @@ MapperThread::MapperThread(
     log_stats_(log_stats),
     log_suboptimal_(log_suboptimal),
     log_stream_(log_stream),
-    oaves_csv_file_(oaves_csv_file),
-    oaves_prefix_(oaves_prefix),
+    orojenesis_csv_file_(orojenesis_csv_file),
+    orojenesis_prefix_(orojenesis_prefix),
     live_status_(live_status),
     diagnostics_on_(diagnostics_on),
     penalize_consecutive_bypass_fails_(penalize_consecutive_bypass_fails),
@@ -451,7 +451,7 @@ void MapperThread::Run()
 
         mutex_->lock();
         // Print performance and log the optimal mappings
-        topology.PrintOAVES(&workload_, oaves_csv_file_, stats_.index_factor_best.mapping, log_mappings_yaml_, log_mappings_verbose_, oaves_prefix_, thread_id_);
+        topology.PrintOrojenesis(&workload_, orojenesis_csv_file_, stats_.index_factor_best.mapping, log_mappings_yaml_, log_mappings_verbose_, orojenesis_prefix_, thread_id_);
         mutex_->unlock();
       }
 
@@ -628,7 +628,7 @@ void MapperThread::Run()
     if(log_all_mappings_)
     {
     mutex_->lock(); // Print performance and log the optimal mappings
-    topology.PrintOAVES(&workload_, oaves_csv_file_, mapping, log_mappings_yaml_, log_mappings_verbose_, oaves_prefix_, thread_id_);
+    topology.PrintOrojenesis(&workload_, orojenesis_csv_file_, mapping, log_mappings_yaml_, log_mappings_verbose_, orojenesis_prefix_, thread_id_);
     mutex_->unlock();
     }
     // Log the equally optimal mappings stats from the previous index factor and clear the index_factor_best_vec
@@ -645,7 +645,7 @@ void MapperThread::Run()
         mutex_->lock();
 
         // Print performance and log the optimal mappings
-        topology.PrintOAVES(&workload_, oaves_csv_file_, stats_.index_factor_best.mapping, log_mappings_yaml_, log_mappings_verbose_, oaves_prefix_, thread_id_);
+        topology.PrintOrojenesis(&workload_, orojenesis_csv_file_, stats_.index_factor_best.mapping, log_mappings_yaml_, log_mappings_verbose_, orojenesis_prefix_, thread_id_);
         mutex_->unlock();
 
         // Only print one valid mapping stat if the tiling size is 0 in the inner level

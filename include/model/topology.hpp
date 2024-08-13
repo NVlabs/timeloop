@@ -366,8 +366,8 @@ class Topology : public Module
   std::uint64_t AlgorithmicComputes() const { return stats_.algorithmic_computes; }
   std::uint64_t ActualComputes() const { return stats_.actual_computes; }
   std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
-  void PrintOAVES(problem::Workload* workload, std::ostream& out, Mapping& mapping, bool log_mappings_yaml, bool log_mappings_verbose, std::string oaves_prefix, unsigned thread_id) const;
-  void OutputOAVESMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const;
+  void PrintOrojenesis(problem::Workload* workload, std::ostream& out, Mapping& mapping, bool log_mappings_yaml, bool log_mappings_verbose, std::string orojenesis_prefix, unsigned thread_id) const;
+  void OutputOrojenesisMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const;
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };
