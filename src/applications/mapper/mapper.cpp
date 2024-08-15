@@ -266,6 +266,14 @@ Mapper::Mapper(config::CompoundConfig* config,
     arch_constraints = rootNode.lookup("architecture_constraints");
 
   // Mapspace constraints.
+  if (rootNode.exists("mapspace") && rootNode.exists("mapspace_constraints"))
+  {
+    std::cerr << "ERROR: found both \"mapspace\" and \"mapspace_constraints\" "
+              << "directive. Please use either for specifying "
+              << "mapspace constraints." << std::endl;
+    exit(1);
+  }
+ 
   if (rootNode.exists("mapspace"))
     mapspace = rootNode.lookup("mapspace");
   else if (rootNode.exists("mapspace_constraints"))
