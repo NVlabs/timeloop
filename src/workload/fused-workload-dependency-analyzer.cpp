@@ -29,7 +29,8 @@ FusedWorkloadDependencyAnalyzer::FindEinsumDependencyChain(
 
   while (dfs_stack.size() > 0)
   {
-    const auto& [cur_einsum, cur_einsum_path] = dfs_stack.back();
+    const auto [cur_einsum, cur_einsum_path] = std::move(dfs_stack.back());
+    dfs_stack.pop_back();
 
     const auto cur_einsum_outputs = workload_.TensorsWrittenByEinsum(cur_einsum);
     for (const auto& cur_einsum_output : cur_einsum_outputs)
@@ -44,20 +45,21 @@ FusedWorkloadDependencyAnalyzer::FindEinsumDependencyChain(
         {
           result.emplace_back(path_to_neighbor);
         }
-
-        const auto it = std::find(cur_einsum_path.begin(),
-                                  cur_einsum_path.end(),
-                                  neighbor_einsum);
-        if (it != cur_einsum_path.end())
+        else
         {
-          dfs_stack.emplace_back(
-            std::make_pair(neighbor_einsum, path_to_neighbor)
-          );
+          const auto it = std::find(cur_einsum_path.begin(),
+                                    cur_einsum_path.end(),
+                                    neighbor_einsum);
+          if (it == cur_einsum_path.end())  // Only keep searching if not acyclic
+          {
+            dfs_stack.emplace_back(
+              std::make_pair(neighbor_einsum, path_to_neighbor)
+            );
+          }
         }
+
       }
     }
-
-    dfs_stack.pop_back();
   }
 
   return result;
@@ -100,15 +102,12 @@ bool FusedWorkloadDependencyAnalyzer::EinsumDimIsRelevantToTensor(
   const auto dim_idx = workload_.EinsumDimToIdx(einsum).at(einsum_dim);
 
   std::set<EinsumId> src_einsums;
-  auto writer_einsum = workload_.WriterEinsum(dspace);
-  if (writer_einsum)
+  const auto& reader_einsums = workload_.ReaderEinsums(dspace);
+  src_einsums.insert(reader_einsums.begin(), reader_einsums.end());
+  if (src_einsums.size() == 0)
   {
+    auto writer_einsum = workload_.WriterEinsum(dspace);
     src_einsums.insert(*writer_einsum);
-  }
-  else
-  {
-    const auto& reader_einsums = workload_.ReaderEinsums(dspace);
-    src_einsums.insert(reader_einsums.begin(), reader_einsums.end());
   }
 
   for (const auto src : src_einsums)
