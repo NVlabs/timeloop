@@ -48,11 +48,11 @@ def construct_argparser():
 
 
 def post_processing_keep_one_best_entry_across_buf(df):
-    df = df.sort_values(by=[0])
+    df = df.sort_values(by=['bufsize'])
     max_op_int_val = 0
     max_index = []
     for i, row in df.iterrows():
-        cur_val = row[1]
+        cur_val = row['OI']
         if cur_val > max_op_int_val:
             max_op_int_val = cur_val
             max_index.append(i)
@@ -90,35 +90,58 @@ def process_data(
 
     df_final = pd.DataFrame()
     for df in pd.read_csv(stats_file, chunksize=chunk_size, header=None):
-        # df = pd.read_csv(stats_file, header=None)
-        generated_mapping_files = set(df.iloc[:, 4])
+        generated_mapping_files = set(df.iloc[:, -1])
         df = df.sort_values(by=[0])
 
         # Columns are defined as follows:
-        # 0-total buffer utilization (B), 1-DRAM operation intensity (op/B), 2-DRAM accesses (word), 3-compact mapping, 4-mapping file path,
-        # 5: total operations, 6:6+m*3-per tensor utilization (B), 6+m*3:6+m*3+3-per tensor DRAM accesses (word)
 
-        # group by the buf util index 0 and take the max values of op int at index 1 and find the idx of max values
-        # find mapping that matters
-        # idx = df.groupby(1)[0].idxmin()
-        # df = df.loc[idx]
+        # If using log_orojenesis_mappings w/o log_mappings_verbose
+        #   0 - Operational intensity
+        #   1 - Total buffer size
+        #   2 - DRAM accesses
+        #   for each tensor t in [0, T) 
+        #     3+t*2 - Total tensor buffer occupancy 
+        #     3+t*2+1 - Tensor DRAM accesses 
+        #   -2 - Compact mapping
+        #   -1 - Mapping YAML if log_mappings_yaml is enabled
+
+        # If using log_orojenesis_mappings w/ log_mappings_verbose
+        #   0 - Operational intensity
+        #   1 - Total buffer size
+        #   2 - DRAM accesses
+        #   for each buffer level m in [0, M) 
+        #     for each tensor t in [0, T) 
+        #       3+(m*T+t)*2 - Total tensor occupancy at buffer level m
+        #       3+(m*T+t)*2+1 - Tesnor backing-store accesses at buffer level m 
+        #   -2 - Compact mapping
+        #   -1 - Mapping YAML if log_mappings_yaml is enabled
+
+        new_col_names = list(df.columns) 
+        col_names = ['OI', 'bufsize', 'accesses']
+        
+        for col_idx, col_name in enumerate(col_names):
+            new_col_names[col_idx] = col_name
+
+        df.columns = new_col_names
+
+        # group by the bufsize and take the max values of OI and find the idx of max values
         if keep_one_best_entry:
-            idx = df.groupby(0)[1].idxmax()
+            idx = df.groupby('bufsize')['OI'].idxmax()
             df = df.loc[idx]
         else:  # keep all equally optimal entries
-            idx = df.groupby(0)[1].transform(max) == df[1]
+            idx = df.groupby('bufsize')['OI'].transform(max) == df['OI']
             df = df[idx]
 
         # Only save the mapping that lead to higher op intensity with higher buf utilization
         # Delete the non-optimal mapping yaml files
         if keep_one_best_entry_across_buf:
-            df_new = post_processing_keep_one_best_entry_across_buf(df)
+            df_one_best = post_processing_keep_one_best_entry_across_buf(df)
         else:
-            df_new = df
+            df_one_best = df
 
         # Delete the non-optimal mapping yaml files
         try:
-            optimal_mapping_files = set(df_new.iloc[:, 4])
+            optimal_mapping_files = set(df_one_best.iloc[:, -1])
             mapping_files_to_delete = generated_mapping_files - optimal_mapping_files
             for mapping_file in mapping_files_to_delete:
                 if os.path.isfile(mapping_file):
@@ -135,21 +158,20 @@ def process_data(
                     raise Exception(f"Optimal mapping file {mapping_file} not found!")
         except:
             pass
-        df_final = df_final._append(df_new, ignore_index=True)
+        df_final = df_final._append(df_one_best, ignore_index=True)
 
+    # need to rerun the following code as we read 1M row at a time
     if keep_one_best_entry:
-        idx = df_final.groupby(0)[1].idxmax()
+        idx = df_final.groupby('bufsize')['OI'].idxmax()
         df_final = df_final.loc[idx]
     else:  # keep all equally optimal entries
-        idx = df_final.groupby(0)[1].transform(max) == df_final[1]
+        idx = df_final.groupby('bufsize')['OI'].transform(max) == df_final['OI']
         df_final = df_final[idx]
 
     if keep_one_best_entry_across_buf:
         df_final = post_processing_keep_one_best_entry_across_buf(df)
 
-    # df_drop = df.drop(df.columns[4], axis=1)
-    df_final = df_final.set_index(0)
-    df_final.to_csv(output_file, header=False)
+    df_final.to_csv(output_file, header=False, index=False)
 
 
 if __name__ == "__main__":

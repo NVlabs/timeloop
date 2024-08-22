@@ -223,9 +223,9 @@ def process_dataframe(df, scale=1, get_opt=True, get_mapping=False):
     df_T = df.T
     data = df_T.values.tolist()
 
-    d = {"Op_Intensity": data[1], "DRAM_Accesses": data[2]}
-    d["mapping"] = data[3]
-    df = pd.DataFrame(d, index=data[0]).sort_index()
+    d = {"Op_Intensity": data[0], "DRAM_Accesses": data[2]}
+    d["mapping"] = data[-2]
+    df = pd.DataFrame(d, index=data[1]).sort_index()
     df_max_op_traf = df.copy()
     max_op = 0
     max_idx = 0
