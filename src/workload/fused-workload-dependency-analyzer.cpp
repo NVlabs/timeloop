@@ -101,9 +101,29 @@ bool FusedWorkloadDependencyAnalyzer::EinsumDimIsRelevantToTensor(
 {
   const auto dim_idx = workload_.EinsumDimToIdx(einsum).at(einsum_dim);
 
+  // Priorotize `einsum` to check relevancy of `dspace`
   std::set<EinsumId> src_einsums;
-  const auto& reader_einsums = workload_.ReaderEinsums(dspace);
-  src_einsums.insert(reader_einsums.begin(), reader_einsums.end());
+  const auto& cur_einsum_read_tensors = workload_.TensorsReadByEinsum(einsum);
+  const auto it = cur_einsum_read_tensors.find(dspace);
+  if (it != cur_einsum_read_tensors.end())
+  {
+    src_einsums.emplace(einsum);
+  }
+  if (src_einsums.size() == 0)
+  {
+    const auto& cur_einsum_written_tensors = workload_.TensorsWrittenByEinsum(einsum);
+    const auto it = cur_einsum_written_tensors.find(dspace);
+    if (it != cur_einsum_written_tensors.end())
+    {
+      src_einsums.emplace(einsum);
+    }
+  }
+
+  if (src_einsums.size() == 0)
+  {
+    const auto& reader_einsums = workload_.ReaderEinsums(dspace);
+    src_einsums.insert(reader_einsums.begin(), reader_einsums.end());
+  }
   if (src_einsums.size() == 0)
   {
     auto writer_einsum = workload_.WriterEinsum(dspace);
