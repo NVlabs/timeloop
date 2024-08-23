@@ -306,12 +306,30 @@ LooptreeModel::Result LooptreeModel::Run()
   for (const auto& [compute, tiling] : mapping_analysis_result.branch_tiling)
   {
     auto p_ops = isl_map_card(tiling.copy());
-    const auto einsum_id =
-      std::get<mapping::Compute>(mapping_.NodeAt(compute)).kernel;
-
-    model_result.ops[einsum_id] = isl_pw_qpolynomial_to_str(p_ops);
-
+    const auto& node = std::get<mapping::Compute>(mapping_.NodeAt(compute));
+    model_result.ops[node.kernel] = isl_pw_qpolynomial_to_str(p_ops);
     isl_pw_qpolynomial_free(p_ops);
+  }
+
+  for (const auto& [lcomp, occupancy] : mapping_analysis_result.lcomp_to_occupancy)
+  {
+    const auto& dim_tags = occupancy.dim_in_tags;
+    auto is_not_temporal_mask = std::vector<bool>(dim_tags.size());
+    for (unsigned long i = 0; i < is_not_temporal_mask.size(); ++i)
+    {
+      is_not_temporal_mask.at(i) = !analysis::IsTemporal(dim_tags.at(i));
+    }
+    const auto map_domain = occupancy.map.space().domain();
+    const auto projector = isl::dim_projector(map_domain.copy(),
+                                              is_not_temporal_mask);
+    const auto temporal_map = isl_map_apply_range(
+      projector,
+      occupancy.map.copy()
+    );
+    const auto& node =
+      std::get<mapping::Compute>(mapping_.NodeAt(lcomp.branch_leaf_id));
+    model_result.temporal_steps[node.kernel] = isl_map_to_str(temporal_map);
+    isl_map_free(temporal_map);
   }
 
   return model_result;

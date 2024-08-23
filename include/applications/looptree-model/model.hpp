@@ -30,6 +30,8 @@ class LooptreeModel
   {
     std::map<problem::EinsumId, std::string> ops;
 
+    std::map<mapping::NodeID, std::string> temporal_steps;
+
     std::map<
       std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
       std::string
