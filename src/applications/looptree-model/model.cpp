@@ -303,33 +303,54 @@ LooptreeModel::Result LooptreeModel::Run()
     isl_pw_qpolynomial_free(p_occ_count);
   }
 
-  for (const auto& [compute, tiling] : mapping_analysis_result.branch_tiling)
-  {
-    auto p_ops = isl_map_card(tiling.copy());
-    const auto& node = std::get<mapping::Compute>(mapping_.NodeAt(compute));
-    model_result.ops[node.kernel] = isl_pw_qpolynomial_to_str(p_ops);
-    isl_pw_qpolynomial_free(p_ops);
-  }
-
   for (const auto& [lcomp, occupancy] : mapping_analysis_result.lcomp_to_occupancy)
   {
     const auto& dim_tags = occupancy.dim_in_tags;
-    auto is_not_temporal_mask = std::vector<bool>(dim_tags.size());
-    for (unsigned long i = 0; i < is_not_temporal_mask.size(); ++i)
+    const auto& node =
+      std::get<mapping::Compute>(mapping_.NodeAt(lcomp.branch_leaf_id));
+    auto p_ops = isl_map_card(occupancy.map.copy());
+    model_result.ops[node.kernel] = std::make_pair(
+      dim_tags,
+      isl_pw_qpolynomial_to_str(p_ops)
+    );
+    isl_pw_qpolynomial_free(p_ops);
+
+    auto is_spatial_mask = std::vector<bool>(dim_tags.size());
+    auto new_dim_tags = std::vector<analysis::SpaceTime>();
+    for (unsigned long i = 0; i < is_spatial_mask.size(); ++i)
     {
-      is_not_temporal_mask.at(i) = !analysis::IsTemporal(dim_tags.at(i));
+      const auto& dim_tag = dim_tags.at(i);
+      auto is_spatial = std::holds_alternative<analysis::Spatial>(dim_tag);
+      is_spatial_mask.at(i) = is_spatial;
+      if (!is_spatial)
+      {
+        new_dim_tags.emplace_back(dim_tag);
+      }
     }
     const auto map_domain = occupancy.map.space().domain();
     const auto projector = isl::dim_projector(map_domain.copy(),
-                                              is_not_temporal_mask);
-    const auto temporal_map = isl_map_apply_range(
-      projector,
-      occupancy.map.copy()
+                                              is_spatial_mask);
+    const auto non_spatial_map = isl_map_apply_range(projector,
+                                                     occupancy.map.copy());
+    const auto unbounded_identity = isl_map_identity(
+      isl_space_map_from_set(
+        isl_set_get_space(
+          isl_map_domain(
+            isl_map_copy(non_spatial_map)
+            )
+        )
+      )
     );
-    const auto& node =
-      std::get<mapping::Compute>(mapping_.NodeAt(lcomp.branch_leaf_id));
-    model_result.temporal_steps[node.kernel] = isl_map_to_str(temporal_map);
-    isl_map_free(temporal_map);
+    const auto bounded_identity = isl_map_intersect_domain(
+      unbounded_identity,
+      isl_map_domain(non_spatial_map)
+    );
+    const auto temporal_steps = isl_map_card(bounded_identity);
+    model_result.temporal_steps[node.kernel] = std::make_pair(
+      new_dim_tags,
+      isl_pw_qpolynomial_to_str(temporal_steps)
+    );
+    isl_pw_qpolynomial_free(temporal_steps);
   }
 
   return model_result;

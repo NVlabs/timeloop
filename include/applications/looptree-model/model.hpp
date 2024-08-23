@@ -13,6 +13,7 @@
 #include "compound-config/compound-config.hpp"
 #include "model/sparse-optimization-parser.hpp"
 #include "mapping/fused-mapping.hpp"
+#include "loop-analysis/isl-ir.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -28,9 +29,10 @@ class LooptreeModel
 
   struct Result
   {
-    std::map<problem::EinsumId, std::string> ops;
-
-    std::map<mapping::NodeID, std::string> temporal_steps;
+    std::map<
+      problem::EinsumId,
+      std::tuple<std::vector<analysis::SpaceTime>, std::string>
+    > ops;
 
     std::map<
       std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
@@ -41,6 +43,11 @@ class LooptreeModel
       std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
       std::string
     > occupancy;
+
+    std::map<
+      problem::EinsumId,
+      std::tuple<std::vector<analysis::SpaceTime>, std::string>
+    > temporal_steps;
   };
 
  protected:

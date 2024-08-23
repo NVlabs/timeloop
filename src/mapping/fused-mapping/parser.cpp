@@ -207,8 +207,9 @@ NodeID ParseSpatialNode(NodeID parent_id,
   }
   else
   {
-    int tile_size = 0;
-    cfg.lookupValue("tile_size", tile_size);
+    std::string tile_size_str;
+    cfg.lookupValue("tile_size", tile_size_str);
+    int tile_size = std::stoi(tile_size_str);
     return mapping.AddChild(ParFor::WithTileSize,
                             parent_id,
                             iterator_name,
