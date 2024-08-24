@@ -36,12 +36,12 @@ class LooptreeModel
 
     std::map<
       std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
-      std::string
+      std::tuple<std::vector<analysis::SpaceTime>, std::string>
     > fill;
 
     std::map<
       std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
-      std::string
+      std::tuple<std::vector<analysis::SpaceTime>, std::string>
     > occupancy;
 
     std::map<

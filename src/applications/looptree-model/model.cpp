@@ -296,8 +296,14 @@ LooptreeModel::Result LooptreeModel::Run()
       std::get<mapping::Compute>(mapping_.NodeAt(buf.branch_leaf_id)).kernel;
 
     auto key = std::tie(buf.buffer_id, buf.dspace_id, einsum_id);
-    model_result.fill[key] = isl_pw_qpolynomial_to_str(p_fill_count);
-    model_result.occupancy[key] = isl_pw_qpolynomial_to_str(p_occ_count);
+    model_result.fill[key] = std::make_pair(
+      result.fill.dim_in_tags,
+      isl_pw_qpolynomial_to_str(p_fill_count)
+    );
+    model_result.occupancy[key] = std::make_pair(
+      result.effective_occupancy.dim_in_tags,
+      isl_pw_qpolynomial_to_str(p_occ_count)
+    );
 
     isl_pw_qpolynomial_free(p_fill_count);
     isl_pw_qpolynomial_free(p_occ_count);
