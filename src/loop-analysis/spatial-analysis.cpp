@@ -18,7 +18,20 @@ namespace analysis
 
 isl::map MakeMeshConnectivity(size_t num_spatial_dims);
 
-size_t GetNumTrailingSpatialTags(const std::vector<SpaceTime>& tags);
+std::vector<size_t> GetSpatialTagsIdxs(const std::vector<SpaceTime>& tags,
+                                       BufferId buf_id);
+
+std::optional<int> GetLastTemporalTagIdx(const std::vector<SpaceTime>& tags);
+
+std::vector<size_t> MakeConnectivityDimPermutation(
+  const std::vector<size_t>& spatial_idxs,
+  size_t n_dims
+);
+
+std::vector<bool> MakeMulticastDimRemoveMask(
+  const std::vector<SpaceTime>& tags,
+  BufferId buf_id
+);
 
 /******************************************************************************
  * Global function implementations
@@ -42,12 +55,15 @@ SpatialReuseInfo SpatialReuseAnalysis(const SpatialReuseAnalysisInput& input)
 {
   auto transfer_infos = std::vector<TransferInfo>();
 
+  auto fill_to_be_provided = input.children_fill;
   for (const auto& fill_provider : input.fill_providers)
   {
     transfer_infos.emplace_back(
-      fill_provider.spatial_reuse_model->Apply(input.children_fill,
+      fill_provider.spatial_reuse_model->Apply(input.buf.buffer_id,
+                                               fill_to_be_provided,
                                                fill_provider.occupancy)
     );
+    fill_to_be_provided = transfer_infos.back().unfulfilled_fill;
   }
 
   return SpatialReuseInfo{.transfer_infos = std::move(transfer_infos)};
@@ -59,6 +75,7 @@ SimpleLinkTransferModel::SimpleLinkTransferModel()
 }
 
 TransferInfo SimpleLinkTransferModel::Apply(
+  BufferId buf_id,
   const Fill& fill,
   const Occupancy& occupancy
 ) const
@@ -69,19 +86,16 @@ TransferInfo SimpleLinkTransferModel::Apply(
   }
 
   auto n = fill.dim_in_tags.size();
-  if (n == 0 || std::holds_alternative<Temporal>(fill.dim_in_tags.back()))
-  {
-    throw std::logic_error("unreachable");
-  }
 
-  auto n_spatial_dims = GetNumTrailingSpatialTags(fill.dim_in_tags);
+  auto spatial_dim_idxs = GetSpatialTagsIdxs(fill.dim_in_tags, buf_id);
+  auto n_spatial_dims = spatial_dim_idxs.size();
 
-  auto connectivity = MakeMeshConnectivity(n_spatial_dims);
+  auto last_temporal_opt = GetLastTemporalTagIdx(fill.dim_in_tags);
 
   auto transfer_info = TransferInfo();
   transfer_info.is_link_transfer = true;
 
-  if (n < n_spatial_dims+1) // i.e., no temporal loop. Cannot fulfill via link transfers
+  if (!last_temporal_opt || n_spatial_dims == 0) // Cannot fulfill via link transfers
   {
     transfer_info.fulfilled_fill =
       Transfers(fill.dim_in_tags, fill.map.subtract(fill.map)); // empty map
@@ -89,12 +103,29 @@ TransferInfo SimpleLinkTransferModel::Apply(
       Reads(occupancy.dim_in_tags,
             occupancy.map.subtract(occupancy.map)); // empty map
     transfer_info.unfulfilled_fill = fill;
+    auto domain = fill.map.domain();
+    auto p_domain_space = domain.space().release();
+    auto p_hops = isl_pw_qpolynomial_from_qpolynomial(
+      isl_qpolynomial_zero_on_domain(p_domain_space)
+    );
+    transfer_info.p_hops = p_hops;
 
     return transfer_info;
   }
 
-  auto complete_connectivity =
+  auto connectivity = MakeMeshConnectivity(n_spatial_dims);
+  auto padded_connectivity =
     isl::insert_equal_dims(connectivity, 0, 0, n - n_spatial_dims - 1);
+  auto permutation = MakeConnectivityDimPermutation(spatial_dim_idxs, n);
+  auto p_reorder_map = isl::reorder_projector(GetIslCtx().get(), permutation);
+  auto complete_connectivity = isl::manage(isl_map_apply_range(
+    isl_map_apply_range(
+      isl_map_copy(p_reorder_map),
+      padded_connectivity.release()
+    ),
+    isl_map_reverse(p_reorder_map)
+  ));
+
   auto available_from_neighbors =
     complete_connectivity.apply_range(occupancy.map);
   auto fill_set = fill.map.intersect(available_from_neighbors);
@@ -107,9 +138,10 @@ TransferInfo SimpleLinkTransferModel::Apply(
   p_hops = isl_pw_qpolynomial_intersect_domain(p_hops, p_fill_set);
 
   transfer_info.fulfilled_fill = Transfers(fill.dim_in_tags, fill_set);
-  // TODO: fill parent_reads. Below is just (wrong!) placeholder to make
-  // isl::map copy ctor happy.
-  transfer_info.parent_reads= Reads(fill.dim_in_tags, fill_set);
+  transfer_info.parent_reads= Reads(
+    fill.dim_in_tags,
+    fill_set.subtract(fill_set) // Empty set since there are no parent reads
+  );
   transfer_info.unfulfilled_fill = Fill(fill.dim_in_tags, remaining_fill);
   transfer_info.p_hops = p_hops;
 
@@ -193,20 +225,25 @@ SimpleMulticastModel::SimpleMulticastModel(bool count_hops) :
 }
 
 TransferInfo
-SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
+SimpleMulticastModel::Apply(
+  BufferId buf_id,
+  const Fill& fill,
+  const Occupancy& occ
+) const
 {
+  (void) occ;
   auto transfer_info = TransferInfo();
   transfer_info.is_multicast = true;
 
   auto n = isl::dim(fill.map, isl_dim_in);
-  if (n == 0 || std::holds_alternative<Temporal>(fill.dim_in_tags.back()))
-  {
-    throw std::logic_error("fill spacetime missing spatial dimensions");
-  }
 
-  auto n_spatial_dims = GetNumTrailingSpatialTags(fill.dim_in_tags);
+  auto spatial_dim_idxs = GetSpatialTagsIdxs(fill.dim_in_tags, buf_id);
+  auto n_spatial_dims = spatial_dim_idxs.size();
+  auto permutation = MakeConnectivityDimPermutation(spatial_dim_idxs, n);
+  auto p_reorder_map = isl::reorder_projector(GetIslCtx().get(), permutation);
 
   auto p_fill = fill.map.copy();
+  p_fill = isl_map_apply_range(isl_map_reverse(p_reorder_map), p_fill);
 
   // Creates [[t] -> [data]] -> [t, x, y] when n_spatial_dims == 2
   // Creates [[t] -> [data]] -> [t, x] when n_spatial_dims == 1
@@ -335,10 +372,24 @@ SimpleMulticastModel::Apply(const Fill& fill, const Occupancy& occ) const
   stats.hops = avg_hops;
 
   transfer_info.fulfilled_fill = Transfers(fill.dim_in_tags, fill.map);
-  // TODO: this assumes no bypassing
+
+  auto project_out_mask = MakeMulticastDimRemoveMask(fill.dim_in_tags, buf_id);
+  auto domain = fill.map.domain();
+  auto p_space = isl_set_get_space(domain.release());
+  auto p_projector = isl::dim_projector(p_space, project_out_mask);
+  auto parent_reads_tags = std::vector<SpaceTime>();
+  size_t i = 0;
+  for (const auto should_remove : project_out_mask)
+  {
+    if (!should_remove)
+    {
+      parent_reads_tags.emplace_back(fill.dim_in_tags.at(i));
+    }
+    ++i;
+  }
   transfer_info.parent_reads = Reads(
-    occ.dim_in_tags,
-    isl::project_dim(fill.map, isl_dim_in, n-n_spatial_dims, n_spatial_dims)
+    parent_reads_tags,
+    isl::manage(isl_map_apply_range(p_projector, fill.map.copy()))
   );
   transfer_info.unfulfilled_fill = Fill(
     fill.dim_in_tags,
@@ -375,21 +426,94 @@ isl::map MakeMeshConnectivity(size_t num_spatial_dims)
   throw std::logic_error(err_msg.str());
 }
 
-size_t GetNumTrailingSpatialTags(const std::vector<SpaceTime>& tags)
+std::vector<size_t> GetSpatialTagsIdxs(const std::vector<SpaceTime>& tags,
+                                    BufferId buf_id)
 {
-  size_t n_spatial_dims = 0;
-  for (const auto& in_tags : tags | boost::adaptors::reversed)
+  std::vector<size_t> spatial_dim_idxs;
+  int i = 0;
+  for (const auto& tag : tags)
   {
-    if (std::holds_alternative<Spatial>(in_tags))
+    if (std::holds_alternative<Spatial>(tag))
     {
-      ++n_spatial_dims;
+      const auto& spatial_tag = std::get<Spatial>(tag);
+      if (spatial_tag.target == buf_id)
+      {
+        spatial_dim_idxs.emplace_back(i);
+      }
+    }
+    ++i;
+  }
+  return spatial_dim_idxs;
+}
+
+std::optional<int> GetLastTemporalTagIdx(const std::vector<SpaceTime>& tags)
+{
+  if (tags.size() == 0)
+  {
+    return std::nullopt;
+  }
+
+  size_t idx = tags.size()-1;
+  for (const auto& tag : tags | boost::adaptors::reversed)
+  {
+    if (analysis::IsTemporal(tag))
+    {
+      return idx;
+    }
+    --idx;
+  }
+
+  return std::nullopt;
+}
+
+std::vector<size_t> MakeConnectivityDimPermutation(
+  const std::vector<size_t>& spatial_idxs,
+  size_t n_dims
+)
+{
+  auto permutation = std::vector<size_t>();
+
+  size_t cur_spatial_i = 0;
+  for (size_t i = 0; i < n_dims; ++i)
+  {
+    if (cur_spatial_i < spatial_idxs.size()
+        && i == spatial_idxs.at(cur_spatial_i))
+    {
+      ++cur_spatial_i;
     }
     else
     {
-      break;
+      permutation.emplace_back(i);
     }
   }
-  return n_spatial_dims;
+
+  for (const auto spatial_idx : spatial_idxs)
+  {
+    permutation.emplace_back(spatial_idx);
+  }
+
+  return permutation;
+}
+
+std::vector<bool> MakeMulticastDimRemoveMask(
+  const std::vector<SpaceTime>& tags,
+  BufferId buf_id
+)
+{
+  std::vector<bool> mask;
+  for (const auto& tag : tags)
+  {
+    if (std::holds_alternative<Spatial>(tag))
+    {
+      const auto& spatial_tag = std::get<Spatial>(tag);
+      mask.emplace_back(spatial_tag.target == buf_id);
+    }
+    else
+    {
+      mask.emplace_back(false);
+    }
+  }
+  return mask;
 }
 
 } // namespace analysis

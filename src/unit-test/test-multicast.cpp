@@ -8,7 +8,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleMulticastModel_0)
   using namespace analysis;
 
   auto fill = Fill(
-    {Temporal(), Spatial(0), Spatial(1)},
+    {Temporal(), Spatial(0, 0), Spatial(1, 0)},
     isl::map(
       GetIslCtx(),
       "{ [t, x, y] -> [t + x + y] : 0 <= x < 2 and 0 <= y < 2 and 0 <= t < 4 }"
@@ -19,7 +19,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleMulticastModel_0)
 
   auto multicast_model = SimpleMulticastModel(false);
 
-  auto info = multicast_model.Apply(fill, occ);
+  auto info = multicast_model.Apply(0, fill, occ);
 
   BOOST_CHECK(info.fulfilled_fill.map.is_equal(
     isl::map(
@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleMulticastModel_0)
 
   multicast_model = SimpleMulticastModel(true);
 
-  info = multicast_model.Apply(fill, occ);
+  info = multicast_model.Apply(0, fill, occ);
 
   BOOST_CHECK(info.fulfilled_fill.map.is_equal(
     isl::map(
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleMulticastModel_SpatialPC)
   using namespace analysis;
 
   auto fill = Fill(
-    {Temporal(), Spatial(0), Spatial(1)},
+    {Temporal(), Spatial(0, 0), Spatial(1, 0)},
     isl::map(
       GetIslCtx(),
       "{ [t, x, y] -> [d, y] : 0 <= x < 4 and 0 <= y < 2 and 0 <= t < 4 and x <= d < x+2 }"
@@ -92,7 +92,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleMulticastModel_SpatialPC)
 
   auto multicast_model = SimpleMulticastModel(true);
 
-  auto info = multicast_model.Apply(fill, occ);
+  auto info = multicast_model.Apply(0, fill, occ);
 
   BOOST_CHECK(info.fulfilled_fill.map.is_equal(
     isl::map(

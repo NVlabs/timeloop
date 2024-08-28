@@ -54,8 +54,9 @@ struct Temporal {};
 struct Spatial
 {
   int spatial_dim;
+  BufferId target;
 
-  Spatial(int spatial_dim=0);
+  Spatial(int spatial_dim, BufferId target);
 };
 struct Sequential {};
 struct PipelineTemporal {};

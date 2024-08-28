@@ -288,9 +288,14 @@ NodeID ParseComputeNode(NodeID parent_id,
     parallelism = parallelism_val;
   }
 
+  std::string target_str = "";
+  cfg.lookupValue("target", target_str);
+  BufferId compute = std::stoi(target_str);
+
   return mapping.AddChild<Compute>(
     parent_id,
     einsum,
+    compute,
     parallelism,
     std::nullopt
   );

@@ -9,7 +9,7 @@ BOOST_AUTO_TEST_CASE(TestTemporalReuse_MultipleLoopReuse)
   using namespace analysis;
 
   Occupancy occ = Occupancy(
-    {Temporal(), Spatial(0), Temporal()},
+    {Temporal(), Spatial(0, 0), Temporal()},
     isl::map(
       GetIslCtx(),
       "{ [t1, x, t0] -> [d] : "

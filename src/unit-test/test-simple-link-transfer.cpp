@@ -8,7 +8,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleLinkTransferModel)
   using namespace analysis;
 
   auto fill = Fill(
-    {Temporal(), Spatial(0), Spatial(1)},
+    {Temporal(), Spatial(0, 0), Spatial(1, 0)},
     isl::map(
       GetIslCtx(),
       "{ [t, x, y] -> [t+x+y] : 0 <= x < 2 and 0 <= y < 2 and 0 <= t < 2}"
@@ -19,7 +19,7 @@ BOOST_AUTO_TEST_CASE(TestSimpleLinkTransferModel)
 
   auto link_transfer_model = SimpleLinkTransferModel();
 
-  auto info = link_transfer_model.Apply(fill, occ);
+  auto info = link_transfer_model.Apply(0, fill, occ);
 
   BOOST_CHECK(info.fulfilled_fill.map.is_equal(
     isl::map(

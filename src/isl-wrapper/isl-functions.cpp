@@ -13,6 +13,32 @@ size_t dim(const map& map, isl_dim_type dim_type)
   return isl_map_dim(map.get(), dim_type);
 }
 
+isl_map* reorder_projector(isl_ctx* context,
+                           const std::vector<size_t> permutation)
+{
+  if (permutation.size() == 0)
+  {
+    return isl_map_read_from_str(context, "{ [] -> [] }");
+  }
+
+  std::string pattern = "{ [ ";
+  for (size_t j = 0; j < permutation.size()-1; ++j)
+  {
+    size_t i = permutation.at(j);
+    pattern += "i" + std::to_string(i) + ", ";
+  }
+  pattern += "i" + std::to_string(permutation.back()) + " ] -> [ ";
+
+  for (size_t i = 0; i < permutation.size()-1; ++i)
+  {
+    pattern += "i" + std::to_string(i) + ", ";
+
+  }
+  pattern += "i" + std::to_string(permutation.size()-1) + " ] }";
+
+  return isl_map_read_from_str(context, pattern.c_str());
+}
+
 map dim_projector(space space, size_t start, size_t n)
 {
   return isl::manage(dim_projector(

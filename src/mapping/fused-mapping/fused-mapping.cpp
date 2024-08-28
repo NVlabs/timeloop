@@ -66,10 +66,12 @@ Storage::Storage(
 Compute::Compute(
   const NodeID& id,
   const problem::EinsumId& einsum,
+  const BufferId& compute,
   const std::optional<double> parallelism,
   const std::optional<isl::pw_multi_aff>&& tiling_spec
 ) :
-  kernel(einsum), tiling_spec(tiling_spec), parallelism(parallelism), id(id)
+  kernel(einsum), compute(compute), tiling_spec(tiling_spec),
+  parallelism(parallelism), id(id)
 {
 }
 

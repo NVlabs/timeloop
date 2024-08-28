@@ -37,7 +37,8 @@ std::ostream& StreamOutMapLike(std::ostream& os, const T& map_like)
  * Global function implementations
  *****************************************************************************/
 
-Spatial::Spatial(int spatial_dim) : spatial_dim(spatial_dim)
+Spatial::Spatial(int spatial_dim, BufferId target) :
+  spatial_dim(spatial_dim), target(target)
 {
 }
 

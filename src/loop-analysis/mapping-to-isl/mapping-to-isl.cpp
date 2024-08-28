@@ -295,15 +295,15 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(Spatial(0));
+        tags.emplace_back(Spatial(0, arch_level));
         arch_spatial_levels = 1;
       }
-      if (arch_spatial_levels == 1)  // i.e., no x loop between last and this
+      if (arch_spatial_levels == 1)  // i.e., no y loop between last and this
       {
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(Spatial(1));
+        tags.emplace_back(Spatial(1, arch_level));
         arch_spatial_levels = 0;
       }
 
@@ -341,7 +341,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(Spatial(0));
+        tags.emplace_back(Spatial(0, arch_level));
       }
       p_aff = isl_aff_list_get_aff(p_aff_list, aff_list_size-1);
 
@@ -371,7 +371,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(Spatial(0));
+        tags.emplace_back(Spatial(0, arch_level));
       }
 
       if (!last_y_idx_opt)
@@ -379,7 +379,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
         p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
         p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
         aff_list_size++;
-        tags.emplace_back(Spatial(1));
+        tags.emplace_back(Spatial(1, arch_level));
       }
       p_aff = isl_aff_list_get_aff(p_aff_list, aff_list_size-1);
 
@@ -420,7 +420,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
     p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
     p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
     aff_list_size++;
-    tags.emplace_back(Spatial(0));
+    tags.emplace_back(Spatial(0, arch_level));
     arch_spatial_levels = 1;
   }
   if (arch_spatial_levels == 1)  // i.e., no y loop between last and this
@@ -428,7 +428,7 @@ LogicalBufSkewsFromMapping(const loop::Nest& nest,
     p_aff = isl_aff_zero_on_domain_space(isl_space_copy(p_domain_space));
     p_aff_list = isl_aff_list_add(p_aff_list, p_aff);
     aff_list_size++;
-    tags.emplace_back(Spatial(1));
+    tags.emplace_back(Spatial(1, arch_level));
     arch_spatial_levels = 0;
   }
 

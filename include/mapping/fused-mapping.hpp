@@ -96,6 +96,7 @@ struct Storage
 struct Compute
 {
   problem::EinsumId kernel;
+  BufferId compute;
   /**
    * @brief An explicit tiling specifiction. E.g., [p_1, p_0] -> [4*p_1+p_0]
    * 
@@ -108,6 +109,7 @@ struct Compute
 
   Compute(const NodeID& id,
           const problem::EinsumId& einsum,
+          const BufferId& compute_id,
           const std::optional<double> paralellism = std::nullopt,
           const std::optional<isl::pw_multi_aff>&& tiling_spec = std::nullopt);
 };

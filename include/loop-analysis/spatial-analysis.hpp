@@ -37,7 +37,7 @@ struct TransferInfo
 
 struct SpatialReuseModel
 {
-  virtual TransferInfo Apply(const Fill&, const Occupancy&) const = 0;
+  virtual TransferInfo Apply(BufferId, const Fill&, const Occupancy&) const = 0;
 };
 
 
@@ -101,7 +101,7 @@ class SimpleLinkTransferModel final : public SpatialReuseModel
   SimpleLinkTransferModel();
 
   TransferInfo
-  Apply(const Fill& fills, const Occupancy& occupancies) const override;
+  Apply(BufferId buf_id, const Fill& fills, const Occupancy& occupancies) const override;
 };
 
 
@@ -121,7 +121,7 @@ class SimpleMulticastModel final : public SpatialReuseModel
   SimpleMulticastModel(bool count_hops);
 
   TransferInfo
-  Apply(const Fill& fills, const Occupancy& occupancy) const override;
+  Apply(BufferId buf_id, const Fill& fills, const Occupancy& occupancy) const override;
 
  private:
   bool count_hops_;
