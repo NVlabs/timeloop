@@ -1,0 +1,110 @@
+arch:
+  arithmetic:
+    instances: 1024
+    word-bits: 8
+    #meshX: 16
+  storage:
+    - name: "Registers"
+      entries: 1
+      instances: 1024
+      # meshX: 16
+      word-bits: 8
+      cluster-size: 64
+      num-ports: 2
+      num-banks: 8
+    - name: "AccumulationBuffer"
+      entries: 128
+      instances: 128
+      # meshX: 16
+      word-bits: 24
+      cluster-size: 8
+      num-ports: 2
+      num-banks: 2
+    - name: "WeightBuffer"
+      entries: 4096
+      instances: 128
+      # meshX: 16
+      word-bits: 8
+      block-size: 8
+      num-ports: 1
+      num-banks: 8
+    - name: "InputBuffer"
+      entries: 8192
+      instances: 16
+      # meshX: 16
+      word-bits: 8
+      block-size: 8
+      num-ports: 2
+      num-banks: 1
+    - name: "GlobalBuffer"
+      sizeKB: 4096
+      instances: 1
+      word-bits: 8
+      block-size: 32
+      num-ports: 2
+      num-banks: 4
+    - name: "DRAM"
+      technology: "DRAM"
+      instances: 1
+      word-bits: 8
+      block-size: 64
+      bandwidth: 20.0
+mapspace:
+  constraints:
+    - target: "Registers"
+      type: "datatype"
+      keep: ["Weights"]
+      bypass: ["Inputs", "Outputs"]
+    - target: "AccumulationBuffer"
+      type: "datatype"
+      keep: ["Outputs"]
+      bypass: ["Weights", "Inputs"]
+    - target: "WeightBuffer"
+      type: "datatype"
+      keep: ["Weights"]
+      bypass: ["Inputs", "Outputs"]
+    - target: "InputBuffer"
+      type: "datatype"
+      keep: ["Inputs"]
+      bypass: ["Weights", "Outputs"]
+    - target: "GlobalBuffer"
+      type: "datatype"
+      keep: ["Inputs", "Outputs"]
+      bypass: ["Weights"]
+    - target: "AccumulationBuffer"
+      type: "spatial"
+      factors : "P1 Q1 R1 S1 C8 K1 N1"
+      permutation: "CKQRSPN"
+    - target: "InputBuffer"
+      type: "spatial"
+      factors : "P1 Q1 R1 S1 C1 K8 N1"
+      permutation: "KCQRSPN"
+    - target: "GlobalBuffer"
+      type: "spatial"
+      factors : "R1 S1 P1 Q1 N1"
+      permutation: "KCRSPQN"
+    - target: "Registers"
+      type: "temporal"
+      factors : "R1 S1 C1 K1 N1"
+      permutation: "RSCKN"
+    - target: "InputBuffer"
+      type: "temporal"
+      factors : "P1 Q1 R1 S1 C1 K1 N1"
+      permutation: "PQRSCKN"
+    - target: "AccumulationBuffer"
+      type: "temporal"
+      factors : "P1 Q1 R1 S1 C1 N1"
+      permutation: "PQRSCN"
+    - target: "WeightBuffer"
+      type: "temporal"
+      factors : "P1 Q1 K1 N1"
+      permutation: "PQKN"
+    - target: "GlobalBuffer"
+      type: "temporal"
+      factors : "R1 S1 C1 K1 N1"
+      permutation: "RSCKN"
+    - target: "DRAM"
+      type: "temporal"
+      # factors : "R1 S1 C1 K1 N1"
+      permutation: "RSCKN"
+

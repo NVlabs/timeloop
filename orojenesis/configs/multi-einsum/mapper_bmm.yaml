@@ -1,0 +1,52 @@
+mapper:
+  optimization-metrics: [ last-level-accesses, energy ]
+  algorithm: linear-pruned
+  victory-condition: 0
+  timeout: 0
+  log_orojenesis_mappings: True
+  num-threads: 8
+  log_mappings_yaml: False
+
+
+mapspace_constraints:
+
+  # Bypass.
+
+  - target: MainMemory
+    type: datatype
+    keep: [ Weights, Inputs, Outputs ]
+
+  - target: InputOutputBuffer
+    type: datatype
+    keep: [ Inputs, Outputs ]
+    bypass: [ Weights ]
+
+  - target: WeightBuffer
+    type: datatype
+    keep: [ Weights ]
+    bypass: [ Inputs, Outputs ]
+
+  # Temporal.
+
+  - target: MainMemory
+    type: temporal
+    factors: # K=1  # M free.
+    permutation: # KM # MNK
+
+  - target: InputOutputBuffer
+    type: temporal
+    factors: K=1 N=1 H=1 #  assume two level all inclusive to reduce search time
+    permutation: M # NKM # shouldn't matter, but verify.
+
+  - target: WeightBuffer
+    type: temporal
+    factors: M=1 # M=1 # K and N free.
+    permutation: HMKN # NKM # shouldn't matter, but verify.
+
+  # WeightBuffer has no constraints on factors,
+  # which creates a real mapspace. However, with
+  # black tiles only, Timeloop will also ignore
+  # permutations. Once we have live (red) tile
+  # detection, permutations will become relevant
+  # and expand the mapspace. Either way, we shouldn't
+  # have any constraints here.

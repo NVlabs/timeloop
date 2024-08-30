@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
     {"map.yaml", result.mapping_yaml_string},
     {"map.cpp", result.mapping_cpp_string},
     {"map.tensella.txt", result.tensella_string},
-    {"oaves.csv", result.oaves_string}
+    {"orojenesis.csv", result.orojenesis_string}
   });
 
   for (const auto& [fname_suffix, content_string] : fname_to_string)
