@@ -1,0 +1,266 @@
+# Copyright (c) 2024, NVIDIA CORPORATION. All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#  * Neither the name of NVIDIA CORPORATION nor the names of its
+#    contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+# OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# =============================================================================
+# Macros & Others
+# =============================================================================
+ignore:
+  default_storage: &default_storage
+    class: storage
+    attributes:
+      datawidth: 1
+      width: 4096 # Timeloop needs width > datawidth, so we set
+                  # it big. Doesn't affect Orojenesis results.
+      depth: 2147483647
+    energy_scale: 1
+    constraints:
+      temporal:
+        permutation:
+        {%- for rank in bit_ranks %}
+        - {{rank}}
+        {%- endfor %}
+
+# Creates a spatial fanout of size "size" and maximizes spatial
+# loops over "ranks"
+# -------------------------------------------------------------
+{%- macro tensor_core(ranks, size) -%}
+  - !Container
+    name: tensor_core_{{counter.v}}
+    spatial: {meshX: {{(1, size) | max}}}
+    constraints:
+      spatial:
+        maximize_dims: {{ranks}}
+        factors:
+        {%- for rank in rank2size %}
+        {% if rank not in ranks %}
+        - {{rank}}=1
+        {% endif %}
+        {%- endfor %}
+        permutation:
+        {%- for rank, size in rank2size.items() %}
+        - {{rank}}
+        {%- endfor %}
+        split: 999
+{%- set counter.v = counter.v + 1 -%}
+{%- endmacro -%}
+
+# Locks loops for a set of ranks so they are not iterated
+# over at a particular level
+# -------------------------------------------------------
+{% macro no_iteration(ranks) %}
+{% if ranks|length > 0 %}
+        factors:
+        {%- for rank in ranks %}
+        - {{rank}}=1
+        {%- endfor %}
+{% else %}
+        factors: []
+{% endif %}
+{% endmacro %}
+
+# Creates a mandatory spatial loop of a particular size
+# -----------------------------------------------------
+{%- macro spatial_fanout(rank, size) -%}
+  - !Container
+    name: tensor_core_{{rank}}
+    spatial: {meshX: {{(1, size) | max}}}
+    constraints:
+      spatial:
+        factors_only: [{{rank}}={{size}}]
+        permutation:
+        {%- for rank, size in rank2size.items() %}
+        - {{rank}}
+        {%- endfor %}
+        split: 999
+{%- endmacro -%}
+
+# Storage for a particular tensor
+# -------------------------------
+{% set counter = namespace(v=0) %}
+{%- macro storage_for_tensor(tensor) %}
+  - !Component
+    name: {{tensor}}_storage_{{counter.v}}
+    <<<: [*default_storage]
+    attributes:
+      datawidth: {{ chip_datawidth_mult.get(tensor) }}
+    constraints:
+      temporal: {factors_only: []}
+      dataspace:
+        bypass:
+        {%- for t in tensor2ranknames.keys() -%}
+        {%- if t != tensor %}
+        - {{t}}
+        {%- endif -%}
+        {%- endfor %}
+        keep: [{{tensor}}]
+{%- set counter.v = counter.v + 1 -%}
+{%- endmacro -%}
+
+# =============================================================================
+# Problem Specification
+# =============================================================================
+problem:
+  version: 0.4
+  instance:
+    {% for rank, size in rank2size.items() %}
+    {{rank}}: {{size}}
+    {% endfor %}
+
+  shape:
+    coefficients: []
+    data_spaces:
+    {% for tensor, ranks in tensor2ranknames.items() %}
+    - name: {{tensor}}
+      projection:
+      {% for rank in ranks %}
+      - - - {{rank}}
+      {% endfor %}
+      {% if tensor in output_tensors %}
+      read_write: true
+      {% endif %}
+    {% endfor %}
+
+    dimensions:
+    {% for rank, size in rank2size.items() %}
+    - {{rank}}
+    {% endfor %}
+
+# =============================================================================
+# Mapper Specification
+# =============================================================================
+mapper:
+  version: 0.4
+  optimization_metrics: [  last_level_accesses, energy ]
+  live_status: False
+  num_threads: 2
+  timeout: -1
+  algorithm: exhaustive
+  diagnostics: False
+  log_all_mappings: True
+  victory_condition: -1
+  max_permutations_per_if_visit: 999999
+
+
+# Overall structure:
+# DRAM is on top. EVERYTHING BELOW IS CONSIDERED L2.
+# 
+# - DRAM
+# - Uneven tensor storage. ABOVE all loops because uneven
+#   tensors are fetched in their entirety into L2.
+# - Fused DRAM-L2 loops. ABOVE all unfused loops based on
+#   the FFMR.
+# - Fused tensor storage. Below fused loops to enable tiled
+#   fusion. Fused tensors are never uneven because when a
+#   tensor is uneven, we fetch it entirely into L2 such that
+#   it's only accessed once. However, fused tensors never go
+#   to DRAM at all, so there's no point in making them uneven.
+# - L2. 
+
+architecture:
+  nodes:
+  - !Container
+    name: system
+    attributes:
+      technology: -1
+      global_cycle_seconds: 1e-9
+
+  - !Component
+    name: DRAM
+    <<<: [*default_storage]
+    attributes: {reduction_supported: False}
+    constraints:
+      dataspace: {bypass: {{tensors_fused}}}
+      temporal: {factors_only: []}
+
+# Storage for each unfused tensor with uneven mappings
+{% for t in uneven_tensors %}
+{{storage_for_tensor(t)}}
+{% endfor %}
+
+  - !Component 
+    name: fused_loops
+    <<<: [*default_storage]
+    constraints:
+      dataspace: {bypass: ["*"]}
+      # Fused loops ONLY up here. They must go above unfused loops.
+      temporal:
+      {{no_iteration(unfusable_ranks)}}
+
+# Storage for each fused tensor
+{% for t in tensors_fused %}
+{{storage_for_tensor(t)}}
+{% endfor %}
+
+  - !Component 
+    name: unfused_loops_above_unfused_storage
+    <<<: [*default_storage]
+    constraints:
+      dataspace: {bypass: ["*"]}
+      # Avoid redundancy with the above loops. 
+      temporal:
+      {{no_iteration(fusable_ranks)}}
+
+{% if uneven_mapping %}
+        permutation: # No need to explore permutations beyond this point because
+        # permutations just allow for reuse across the innermost loop(s), and if
+        # we want to reuse something, we can just put it in uneven storage
+        {%- for rank, size in rank2size.items() %}
+        {% if rank not in bit_ranks %}
+        - {{rank}}
+        {% endif %}
+        {%- endfor %}
+{% endif %}
+
+# Storage for each unfused tensor with uneven mappings
+{%- for t in tensor2ranknames.keys() -%}
+{{storage_for_tensor(t)}}
+{% endfor %}
+
+  - !Component 
+    name: loops_below_l2
+    <<<: [*default_storage]
+    constraints:
+      dataspace: {bypass: ["*"]}
+      temporal:
+        permutation:
+        {%- for rank, size in rank2size.items() %}
+        {% if rank not in bit_ranks %}
+        - {{rank}}
+        {% endif %}
+        {%- endfor %}
+      {{no_iteration(fully_shared_ranks)}}
+
+{% for ranks, size in tensor_core_dims %}
+  {{tensor_core(ranks, size)}}
+{% endfor %}
+
+{% for rank in bit_ranks %}
+  {{spatial_fanout(rank, rank2size[rank])}}
+{% endfor %}
+
+  - !Component
+    name: compute
+    class: compute
