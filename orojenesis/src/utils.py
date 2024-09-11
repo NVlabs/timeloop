@@ -386,7 +386,7 @@ def row_to_result_dict(
     input_util = matched_row[input_util_idx]
     output_util_idx = 6 + output_level * 3 + 2
     output_util = matched_row[output_util_idx]
-    dram_accesses_idx = 6 + total_levels * 3
+    dram_accesses_idx = 6 + total_levels * 3 + (total_levels-1) * 3
     weight_accesses = matched_row[dram_accesses_idx + 0]
     input_accesses = matched_row[dram_accesses_idx + 1]
     output_accesses = matched_row[dram_accesses_idx + 2]
@@ -407,7 +407,7 @@ def row_to_result_dict(
 def map_index_to_tensor_names(
     total_levels=3, weight_level=0, input_level=1, output_level=1
 ):
-    dram_accesses_idx = 6 + total_levels * 3
+    dram_accesses_idx = 6 + total_levels * 3 + (total_levels-1) * 3
     index_to_tensor_names = {
         0: "buf_size",
         1: "OI",
