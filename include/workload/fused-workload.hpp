@@ -74,6 +74,8 @@ class FusedWorkload
   const isl::set& EinsumOspaceBound(EinsumId einsum) const;
   const isl::set& DataSpaceBound(DataSpaceId dspace) const;
 
+  std::tuple<int, int> GetRankShape(DimensionId einsum_rank) const;
+
  private:
   std::map<std::string, EinsumId> einsum_name_to_id_;
   std::map<EinsumId, std::string> einsum_id_to_name_;

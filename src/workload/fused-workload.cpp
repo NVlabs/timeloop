@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "isl-wrapper/ctx-manager.hpp"
+#include "isl-wrapper/isl-functions.hpp"
 
 namespace problem
 {
@@ -289,6 +290,22 @@ const isl::set& FusedWorkload::EinsumOspaceBound(EinsumId einsum) const
 {
   return operation_spaces_.at(einsum);
 }
+
+
+std::tuple<int, int> FusedWorkload::GetRankShape(DimensionId einsum_rank) const
+{
+  auto einsum_opt = GetEinsumWithDim(einsum_rank);
+  if (!einsum_opt)
+  {
+    throw std::runtime_error("not an Einsum rank");
+  }
+  auto& einsum_bound = EinsumOspaceBound(*einsum_opt);
+  auto rank_dim_idx = EinsumDimToIdx(*einsum_opt).at(einsum_rank);
+  int max = isl::val_to_double(einsum_bound.dim_max_val(rank_dim_idx).release());
+  int min = isl::val_to_double(einsum_bound.dim_min_val(rank_dim_idx).release());
+  return std::make_tuple(min, max);
+}
+
 
 const isl::set& FusedWorkload::DataSpaceBound(DataSpaceId dspace) const
 {
