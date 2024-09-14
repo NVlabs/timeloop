@@ -65,7 +65,7 @@ class Mapper
     std::string stats_string;
     std::string tensella_string;
     std::string xml_mapping_stats_string;
-    std::string oaves_string;
+    std::string orojenesis_string;
   };
 
  protected:
@@ -87,8 +87,10 @@ class Mapper
   uint128_t log_interval_;
 
   bool log_stats_;
-  bool log_oaves_;
-  bool log_oaves_mappings_;
+  bool log_orojenesis_mappings_;
+  bool log_all_mappings_;
+  bool log_mappings_yaml_;
+  bool log_mappings_verbose_;
   bool log_suboptimal_;
   bool live_status_;
   bool diagnostics_on_;

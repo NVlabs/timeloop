@@ -599,22 +599,21 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   return out;
 }
 
-void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_mappings, std::string oaves_prefix, unsigned thread_id) const
+void Topology::PrintOrojenesis(problem::Workload* workload_, std::ostream &out, Mapping &mapping, bool log_mappings_yaml, bool log_mappings_verbose, std::string orojenesis_prefix, unsigned thread_id) const
 {
 
   if (NumStorageLevels() > 0)
   {
     // Get the buffer utilization of the innermost memory level
-    unsigned first_storage_level_id = 0;
-    std::uint64_t total_utilization =
-      ViewStorageLevel(first_storage_level_id)->TotalUtilizedBytes(workload_->GetShape()->NumDataSpaces);
+    auto last_storage_level_id = NumStorageLevels() - 1;
+    auto shape = workload_->GetShape();
 
     // Get the total output tensor size for calculating the total operations
     std::uint64_t total_output_size = 0;
-    for (unsigned pvi = 0; pvi < workload_->GetShape()->NumDataSpaces; pvi++)
+    for (unsigned pvi = 0; pvi < shape->NumDataSpaces; pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
-      if (workload_->GetShape()->IsReadWriteDataSpace.at(pv))
+      if (shape->IsReadWriteDataSpace.at(pv))
       {
         std::uint64_t utilized_capacity = -1;
         for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
@@ -642,33 +641,75 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
     uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
 
     // Assume the DRAM is the last level
-    auto last_storage_level_id = NumStorageLevels() - 1;
     double op_per_byte = ViewStorageLevel(last_storage_level_id)->OperationalIntensity(total_ops);
 
-    out << total_utilization << ","
-        << op_per_byte << ","
-        << ViewStorageLevel(last_storage_level_id)->Accesses(workload_->GetShape()->NumDataSpaces);
-    for (unsigned pvi = 0; pvi < workload_->GetShape()->NumDataSpaces; pvi++)
+    std::uint64_t total_utilization = 0;
+    std::uint64_t total_accesses = 0;
+    // Non-DRAM utilization for each datatype
+    for (unsigned pvi = 0; pvi < shape->NumDataSpaces; pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
-      out << "," << ViewStorageLevel(first_storage_level_id)->TotalUtilizedBytes(pv);
+      std::uint64_t highest_utilization = 0;
+      for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels() - 1; storage_level_id++)
+      {
+        auto level = ViewStorageLevel(storage_level_id);
+        auto utilization = level->Accesses(pv) > 0 ? level->UtilizedCapacity(pv) : 0;
+        highest_utilization = std::max(highest_utilization, utilization);
+      }
+      total_utilization += highest_utilization;
+
+      // DRAM accesses for each datatype
+      auto level = ViewStorageLevel(NumStorageLevels() - 1);
+      total_accesses += level->Accesses(pv);
     }
-    for (unsigned pvi = 0; pvi < workload_->GetShape()->NumDataSpaces; pvi++)
+
+    out << op_per_byte << "," << total_utilization << "," << total_accesses;
+
+    // For each datatype
+    for (unsigned pvi = 0; pvi < shape->NumDataSpaces; pvi++)
     {
       auto pv = problem::Shape::DataSpaceID(pvi);
-      out << "," << ViewStorageLevel(last_storage_level_id)->Accesses(pv);
+      // Highest non-DRAM utilization
+      std::uint64_t highest_utilization = 0;
+      for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels() - 1; storage_level_id++)
+      {
+        auto level = ViewStorageLevel(storage_level_id);
+        auto utilization = level->Accesses(pv) > 0 ? level->UtilizedCapacity(pv) : 0;
+        highest_utilization = std::max(highest_utilization, utilization);
+      }
+      // DRAM accesses
+      std::uint64_t accesses = ViewStorageLevel(NumStorageLevels() - 1)->Accesses(pv);
+      out << "," << highest_utilization << "," << accesses;
     }
+
+    // If verbose, utilization + accessese for every level for every datatype
+    if(log_mappings_verbose)
+    {
+      for (unsigned pvi = 0; pvi < shape->NumDataSpaces; pvi++)
+      {
+        auto pv = problem::Shape::DataSpaceID(pvi);
+        for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels() - 1; storage_level_id++)
+        {
+          auto level = ViewStorageLevel(storage_level_id);
+          auto accesses = level->Accesses(pv);
+          auto utilization = level->Accesses(pv) > 0 ? level->UtilizedCapacity(pv) : 0;
+          out << "," << utilization << "," << accesses;
+        }
+      }
+    }
+
+
     out << "," << mapping.PrintCompact();
-    if (log_oaves_mappings)
+    if (log_mappings_yaml)
     {
-      std::stringstream oaves_mapping_ss;
+      std::stringstream orojenesis_mapping_ss;
       // Format the mapping filename as <utilization>_<thread_id>_<mapping_hash>.yaml
       std::hash<std::string> hasher;
       size_t hash = hasher(mapping.PrintCompact());
-      oaves_mapping_ss << oaves_prefix << "." << total_utilization << "_" << thread_id << "_" << std::hex << hash << ".yaml";
-      std::string oaves_map_yaml_file_name = oaves_mapping_ss.str();
-      out << "," << oaves_map_yaml_file_name << std::endl;
-      OutputOAVESMappingYAML(mapping, oaves_map_yaml_file_name);
+      orojenesis_mapping_ss << orojenesis_prefix << "." << total_utilization << "_" << thread_id << "_" << std::hex << hash << ".yaml";
+      std::string orojenesis_map_yaml_file_name = orojenesis_mapping_ss.str();
+      out << "," << orojenesis_map_yaml_file_name << std::endl;
+      OutputOrojenesisMappingYAML(mapping, orojenesis_map_yaml_file_name);
     }
     else
     {
@@ -677,7 +718,7 @@ void Topology::PrintOAVES(std::ostream &out, Mapping &mapping, bool log_oaves_ma
   }
 }
 
-void  Topology::OutputOAVESMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const {
+void  Topology::OutputOrojenesisMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const {
 
   // Output the .yaml file for the mapping
   YAML::Emitter yaml_out;

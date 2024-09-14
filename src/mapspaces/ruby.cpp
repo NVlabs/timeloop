@@ -102,6 +102,7 @@ void Ruby::Init(config::CompoundConfigNode config, config::CompoundConfigNode ar
     
   // Check for integer overflow in the above multiplications.
   uint128_t de_cumulative_prod = Size();
+
   for (int i = 0; i < int(mapspace::Dimension::Num); i++)
   {
     de_cumulative_prod /= size_[i];
@@ -207,7 +208,7 @@ void Ruby::InitIndexFactorizationSpace()
   // Find spatial levels and their fanouts
   std::vector<unsigned long int> remainders;
   std::vector<unsigned long int> remainders_ix;
-  for (uint64_t level = arch_props_.TilingLevels(); level >= 1; level--)
+  for (int64_t level = arch_props_.TilingLevels(); level >= 0; level--)
   {
 
     // Extract the user-provided remainders for this level.
@@ -456,10 +457,10 @@ void Ruby::InitPruned(uint128_t index_factorization_id)
         auto dim = problem::Shape::FlattenedDimensionID(idim);
         auto factor = index_factorization_space_.GetFactor(
           mapping_index_factorization_id, dim, level);
-        // if (factor == 1)
-        // {
-        //   pruned_dimensions[level].push_back(dim);
-        // }
+        if (factor.at(0) == 1 && factor.at(1) == 1)
+        {
+          pruned_dimensions[level].push_back(dim);
+        }
       }
     }
     unit_factors[level] = pruned_dimensions[level].size();

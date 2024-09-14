@@ -169,7 +169,7 @@ std::string Descriptor::PrintCompact(const std::map<problem::Shape::FlattenedDim
   std::ostringstream str;
   str << id_to_name.at(dimension) << end;
   if (residual_end != end)
-    str << "," << residual_end;
+    str << ";" << residual_end;
   if (IsSpatial(spacetime_dimension))
   {
     if (IsSpatialX(spacetime_dimension))

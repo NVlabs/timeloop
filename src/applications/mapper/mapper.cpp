@@ -219,11 +219,18 @@ Mapper::Mapper(config::CompoundConfig* config,
   max_temporal_loops_in_a_mapping_ = static_cast<int32_t>(max_temporal_loops_in_a_mapping);
 
   // Misc.
-  log_oaves_ = false;
-  mapper.lookupValue("log_oaves", log_oaves_);
+  log_orojenesis_mappings_ = false;
+  mapper.lookupValue("log_orojenesis_mappings", log_orojenesis_mappings_);
 
-  log_oaves_mappings_ = false;
-  mapper.lookupValue("log_oaves_mappings", log_oaves_mappings_);
+  log_mappings_yaml_ = false;
+  mapper.lookupValue("log_mappings_yaml", log_mappings_yaml_);
+
+  log_mappings_verbose_ = false;
+  mapper.lookupValue("log_mappings_verbose", log_mappings_verbose_);
+
+  // Misc.
+  log_all_mappings_ = false;
+  mapper.lookupValue("log_all_mappings", log_all_mappings_);
 
   log_stats_ = false;
   mapper.lookupValue("log_stats", log_stats_);
@@ -259,6 +266,14 @@ Mapper::Mapper(config::CompoundConfig* config,
     arch_constraints = rootNode.lookup("architecture_constraints");
 
   // Mapspace constraints.
+  if (rootNode.exists("mapspace") && rootNode.exists("mapspace_constraints"))
+  {
+    std::cerr << "ERROR: found both \"mapspace\" and \"mapspace_constraints\" "
+              << "directive. Please use either for specifying "
+              << "mapspace constraints." << std::endl;
+    exit(1);
+  }
+ 
   if (rootNode.exists("mapspace"))
     mapspace = rootNode.lookup("mapspace");
   else if (rootNode.exists("mapspace_constraints"))
@@ -334,11 +349,11 @@ Mapper::Result Mapper::Run()
   // Output file names.
   std::string log_file_name = out_prefix_ + ".log";
   std::string map_cfg_file_name = out_prefix_ + ".map.cfg";
-  std::string oaves_prefix = out_prefix_ + ".oaves";
+  std::string orojenesis_prefix = out_prefix_ + ".orojenesis";
 
   // Prepare live status/log stream.
   std::ofstream log_file;
-  std::stringstream oaves_stream;
+  std::stringstream orojenesis_stream;
 
   // std::streambuf* streambuf_cout = std::cout.rdbuf();
   std::streambuf* streambuf_cerr = std::cerr.rdbuf();
@@ -387,13 +402,15 @@ Mapper::Result Mapper::Run()
                                         max_temporal_loops_in_a_mapping_,
                                         sync_interval_,
                                         log_interval_,
-                                        log_oaves_,
-                                        log_oaves_mappings_,
+                                        log_orojenesis_mappings_,
+                                        log_mappings_yaml_,
+                                        log_mappings_verbose_,
+                                        log_all_mappings_,
                                         log_stats_,
                                         log_suboptimal_,
                                         live_status_ ? log_file : std::cerr,
-                                        oaves_stream,
-                                        oaves_prefix,
+                                        orojenesis_stream,
+                                        orojenesis_prefix,
                                         live_status_,
                                         diagnostics_on_,
                                         penalize_consecutive_bypass_fails_,
@@ -694,7 +711,7 @@ Mapper::Result Mapper::Run()
   result.stats_string = stats_str.str();
   result.tensella_string = tensella_str.str();
   result.xml_mapping_stats_string = xml_map_stats_str.str();
-  result.oaves_string = oaves_stream.str();
+  result.orojenesis_string = orojenesis_stream.str();
 
   return result;
 }
