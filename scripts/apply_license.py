@@ -45,12 +45,14 @@ EXCLUDE_EXT = [
     "xml",
     "txt",
     "csv",
-    "pkl"
+    "pkl",
+    "ipynb"
 ]
 EXCLUDE_PATTERNS = [
     "core.*",
     "*.out",
-    "README"    
+    "README",
+    "Makefile"
 ]
 EXCLUDE_DIR = [
     "__pycache__",
@@ -69,7 +71,8 @@ license_dispatcher = {
     'tcsh' : 'python_license',
     'bash' : 'python_license',
     'zsh' : 'python_license',
-    'iscc' : 'python_license'
+    'iscc' : 'python_license',
+    'yaml' : 'python_license'
 }
 license_path = None
 
@@ -189,13 +192,19 @@ def cpp_license():
 def txt_license():
     return license_lines("")
 
+def markdown_license():
+    outstr = LINESEP
+    outstr += license_lines("[//]: # (", None, ")")
+    outstr += LINESEP
+    return outstr
+
 def license_(ext):
     if not ext in license_dispatcher:
         return None
     else:
         return globals()[license_dispatcher[ext]]()
     
-def license_lines(prefix = "", first_line_prefix = None):
+def license_lines(prefix = "", first_line_prefix = None, suffix = ""):
     if first_line_prefix == None:
         first_line_prefix = prefix
     outstr = ""
@@ -203,16 +212,16 @@ def license_lines(prefix = "", first_line_prefix = None):
     with open(license_path, 'r') as f:
         lines = f.readlines()
         
-    outstr += license_line(lines[0], first_line_prefix)
+    outstr += license_line(lines[0], first_line_prefix, suffix)
     for line in lines[1:]:
-        outstr += license_line(line, prefix)
+        outstr += license_line(line, prefix, suffix)
         
     return outstr
 
-def license_line(line, prefix):
+def license_line(line, prefix, suffix):
     if LICENSE_SIGNATURE in line:
         line = sub_year(line)
-    line = prefix + line
+    line = prefix + line.rstrip("\n") + suffix + "\n"
     return line
 
 def sub_year(line):
