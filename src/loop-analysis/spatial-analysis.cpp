@@ -400,6 +400,25 @@ SimpleMulticastModel::Apply(
   return transfer_info;
 }
 
+
+DistributedMulticastModel::DistributedMulticastModel(bool count_hops)
+  : count_hops_(count_hops)
+{
+}
+
+
+TransferInfo DistributedMulticastModel::Apply(
+  BufferId buf_id,
+  const Fill& fills,
+  const Occupancy& occupancy
+) const
+{
+  (void) buf_id;
+  (void) fills;
+  (void) occupancy;
+  throw std::logic_error("not implemented");
+}
+
 /******************************************************************************
  * Local function implementations
  *****************************************************************************/

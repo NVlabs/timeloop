@@ -127,4 +127,17 @@ class SimpleMulticastModel final : public SpatialReuseModel
   bool count_hops_;
 };
 
+
+class DistributedMulticastModel final : public SpatialReuseModel
+{
+ public:
+  DistributedMulticastModel(bool count_hops);
+
+  TransferInfo
+  Apply(BufferId buf_id, const Fill& fills, const Occupancy& occupancy) const override;
+
+ private:
+  bool count_hops_;
+};
+
 }; // namespace analysis
