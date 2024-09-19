@@ -403,7 +403,6 @@ DfsRange IterateInDfsOrder(FusedMapping& mapping)
 template<> DfsRange IterateInDfsOrder<>(FusedMapping& mapping);
 
 FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
-                          const problem::FusedWorkload& workload,
-                          const model::Topology::Specs& arch_specs);
+                          const problem::FusedWorkload& workload);
 
 }; // namespace mapping

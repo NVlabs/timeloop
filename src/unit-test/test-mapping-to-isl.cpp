@@ -6,7 +6,7 @@
 #include "loop-analysis/mapping-to-isl/mapping-to-isl.hpp"
 
 const auto TEST_CONFIG_PATH =
-  std::filesystem::path(__FILE__).parent_path() / "configs";
+  std::filesystem::absolute(__FILE__).parent_path() / "configs";
 
 BOOST_AUTO_TEST_CASE(TestMappingToIsl)
 {

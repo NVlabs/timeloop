@@ -64,32 +64,11 @@ class LooptreeModel
   // Critical state.
   problem::FusedWorkload workload_;
   mapping::FusedMapping mapping_;
-  model::Engine::Specs arch_specs_;
 
-  // Many of the following submodules are dynamic objects because
-  // we can only instantiate them after certain config files have
-  // been parsed.
-
-  // Abstract representation of the architecture.
-  ArchProperties* arch_props_ = nullptr;
-
-  // Constraints.
-  mapping::Constraints* constraints_ = nullptr;
-  
   // Application flags/config.
   bool verbose_ = false;
   bool auto_bypass_on_failure_ = false;
   std::string out_prefix_;
-
-  // Sparse optimization
-  sparse::SparseOptimizationInfo* sparse_optimizations_ = nullptr;
-
- private:
-
-  // Serialization
-  friend class boost::serialization::access;
-  template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0);
 
  public:
 

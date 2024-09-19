@@ -49,9 +49,6 @@ OccupanciesFromMapping(mapping::FusedMapping& mapping,
 {
   MappingAnalysisResult result;
 
-  result.compute_latency_aggregator = CreateLatencyAggregatorFromMapping(
-    mapping
-  );
   result.compute_to_assumed_parallelism = GetParallelism(mapping);
 
   auto branch_tiling = analysis::TilingFromMapping(mapping, workload);

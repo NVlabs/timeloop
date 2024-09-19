@@ -20,28 +20,24 @@ namespace mapping
 void InsertToMapping(NodeID parent_id,
                      FusedMapping& mapping,
                      const config::CompoundConfigNode& nodes_cfg,
-                     const problem::FusedWorkload& workload,
-                     const model::Topology::Specs& arch_spec);
+                     const problem::FusedWorkload& workload);
 
 NodeID CompoundConfigNodeToMapping(NodeID parent_id,
                                    FusedMapping& mapping,
                                    const config::CompoundConfigNode& cfg,
-                                   const problem::FusedWorkload& workload,
-                                   const model::Topology::Specs& arch_spec);
+                                   const problem::FusedWorkload& workload);
 
 typedef NodeID (*NodeParser)(NodeID,
                              FusedMapping&,
                              const config::CompoundConfigNode&,
-                             const problem::FusedWorkload&,
-                             const model::Topology::Specs&);
+                             const problem::FusedWorkload&);
 
 #define DEFINE_NODE_PARSER(name)       \
   NodeID name(                         \
     NodeID,                            \
     FusedMapping&,                     \
     const config::CompoundConfigNode&, \
-    const problem::FusedWorkload&,     \
-    const model::Topology::Specs&)
+    const problem::FusedWorkload&)
 
 DEFINE_NODE_PARSER(ParseTemporalNode);
 DEFINE_NODE_PARSER(ParseSpatialNode);
@@ -64,8 +60,7 @@ const std::map<std::string, NodeParser> NODE_TYPE_TO_PARSER = {
  *****************************************************************************/
 
 FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
-                          const problem::FusedWorkload& workload,
-                          const model::Topology::Specs& arch_spec)
+                          const problem::FusedWorkload& workload)
 {
   std::string mapping_type;
   if (!cfg.lookupValue("type", mapping_type) || mapping_type!="fused")
@@ -77,7 +72,7 @@ FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
 
   FusedMapping mapping;
   auto parent_id = mapping.GetRoot().id;
-  InsertToMapping(parent_id, mapping, nodes, workload, arch_spec);
+  InsertToMapping(parent_id, mapping, nodes, workload);
 
   return mapping;
 }
@@ -89,8 +84,7 @@ FusedMapping ParseMapping(const config::CompoundConfigNode& cfg,
 NodeID CompoundConfigNodeToMapping(NodeID parent_id,
                                    FusedMapping& mapping,
                                    const config::CompoundConfigNode& cfg,
-                                   const problem::FusedWorkload& workload,
-                                   const model::Topology::Specs& arch_spec)
+                                   const problem::FusedWorkload& workload)
 {
   std::string type;
   cfg.lookupValue("type", type);
@@ -102,16 +96,14 @@ NodeID CompoundConfigNodeToMapping(NodeID parent_id,
   }
 
   auto node_parser = node_parser_it->second;
-  return node_parser(parent_id, mapping, cfg, workload, arch_spec);
+  return node_parser(parent_id, mapping, cfg, workload);
 }
 
 NodeID ParseTemporalNode(NodeID parent_id,
                          FusedMapping& mapping,
                          const config::CompoundConfigNode& cfg,
-                         const problem::FusedWorkload& workload,
-                         const model::Topology::Specs& arch_spec)
+                         const problem::FusedWorkload& workload)
 {
-  (void) arch_spec;
   const auto& dim_name_to_id = workload.DimensionNameToId();
 
   std::string iterator_name = "";
@@ -162,10 +154,8 @@ NodeID ParseTemporalNode(NodeID parent_id,
 NodeID ParseSpatialNode(NodeID parent_id,
                         FusedMapping& mapping,
                         const config::CompoundConfigNode& cfg,
-                        const problem::FusedWorkload& workload,
-                        const model::Topology::Specs& arch_spec)
+                        const problem::FusedWorkload& workload)
 {
-  (void) arch_spec;
   const auto& dim_name_to_id = workload.DimensionNameToId();
 
   std::string iterator_name = "";
@@ -222,8 +212,7 @@ NodeID ParseSpatialNode(NodeID parent_id,
 NodeID ParseStorageNode(NodeID parent_id,
                         FusedMapping& mapping,
                         const config::CompoundConfigNode& cfg,
-                        const problem::FusedWorkload& workload,
-                        const model::Topology::Specs& arch_spec)
+                        const problem::FusedWorkload& workload)
 {
   const auto& dspace_name_to_id = workload.DataSpaceNameToId();
 
@@ -232,22 +221,7 @@ NodeID ParseStorageNode(NodeID parent_id,
 
   // If target is an integer, we mean buffer_id; otherwise, we mean buffer name
   BufferId buffer_id;
-  try
-  {
-    buffer_id = std::stoi(target);
-  }
-  catch(const std::invalid_argument& e)
-  {
-    const auto& level_names = arch_spec.LevelNames();
-    for (unsigned i = 0; i < arch_spec.NumLevels(); ++i)
-    {
-      if (target == level_names.at(i))
-      {
-        buffer_id = i;
-        break;
-      }
-    }
-  }
+  buffer_id = std::stoi(target);
 
   std::vector<std::string> dspace_names;
   cfg.lookupArrayValue("dspace", dspace_names);
@@ -271,11 +245,8 @@ NodeID ParseStorageNode(NodeID parent_id,
 NodeID ParseComputeNode(NodeID parent_id,
                         FusedMapping& mapping,
                         const config::CompoundConfigNode& cfg,
-                        const problem::FusedWorkload& workload,
-                        const model::Topology::Specs& arch_spec)
+                        const problem::FusedWorkload& workload)
 {
-  (void) arch_spec;
-
   std::string einsum_name = "";
   cfg.lookupValue("einsum", einsum_name);
   auto einsum = workload.EinsumNameToId().at(einsum_name);
@@ -304,32 +275,27 @@ NodeID ParseComputeNode(NodeID parent_id,
 NodeID ParsePipelineNode(NodeID parent_id,
                          FusedMapping& mapping,
                          const config::CompoundConfigNode& cfg,
-                         const problem::FusedWorkload& workload,
-                         const model::Topology::Specs& arch_spec)
+                         const problem::FusedWorkload& workload)
 {
   (void) cfg;
   (void) workload;
-  (void) arch_spec;
   return mapping.AddChild<Pipeline>(parent_id);
 }
 
 NodeID ParseSequentialNode(NodeID parent_id,
                            FusedMapping& mapping,
                            const config::CompoundConfigNode& cfg,
-                           const problem::FusedWorkload& workload,
-                           const model::Topology::Specs& arch_spec)
+                           const problem::FusedWorkload& workload)
 {
   (void) cfg;
   (void) workload;
-  (void) arch_spec;
   return mapping.AddChild<Sequential>(parent_id);
 }
 
 void InsertToMapping(NodeID parent_id,
                      FusedMapping& mapping,
                      const config::CompoundConfigNode& nodes_cfg,
-                     const problem::FusedWorkload& workload,
-                     const model::Topology::Specs& arch_spec)
+                     const problem::FusedWorkload& workload)
 {
   const auto last_node_idx = nodes_cfg.getLength()-1;
   for (int i = 0; i <= last_node_idx; ++i)
@@ -338,8 +304,7 @@ void InsertToMapping(NodeID parent_id,
     parent_id = CompoundConfigNodeToMapping(parent_id,
                                             mapping,
                                             cur_node,
-                                            workload,
-                                            arch_spec);
+                                            workload);
 
     if (cur_node.exists("branches"))
     {
@@ -349,8 +314,7 @@ void InsertToMapping(NodeID parent_id,
         InsertToMapping(parent_id,
                         mapping,
                         branches_cfg[j],
-                        workload,
-                        arch_spec);
+                        workload);
       }
     }
 

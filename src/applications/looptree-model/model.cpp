@@ -5,7 +5,6 @@
 
 #include "applications/looptree-model/model.hpp"
 #include "loop-analysis/nest-analysis.hpp"
-#include "loop-analysis/isl-analysis/capacity-analysis.hpp"
 #include "loop-analysis/isl-analysis/isl-nest-analysis.hpp"
 #include "loop-analysis/mapping-to-isl/fused-mapping-to-isl.hpp"
 #include "loop-analysis/isl-ir.hpp"
@@ -56,82 +55,12 @@ LooptreeModel::LooptreeModel(config::CompoundConfig* config,
 
   workload_ = problem::ParseFusedWorkload(rootNode.lookup("problem"));
 
-  // Architecture configuration.
-//   config::CompoundConfigNode arch;
-//   if (rootNode.exists("arch"))
-//   {
-//     arch = rootNode.lookup("arch");
-//   }
-//   else if (rootNode.exists("architecture"))
-//   {
-//     arch = rootNode.lookup("architecture");
-//   }
-  
-//   bool is_sparse_topology = rootNode.exists("sparse_optimizations");
-//   arch_specs_ = model::Engine::ParseSpecs(arch, is_sparse_topology);
-
-//   if (rootNode.exists("ERT"))
-//   {
-//     auto ert = rootNode.lookup("ERT");
-//     if (verbose_)
-//       std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
-//     arch_specs_.topology.ParseAccelergyERT(ert);
-//     if (rootNode.exists("ART")){ // Nellie: well, if the users have the version of Accelergy that generates ART
-//       auto art = rootNode.lookup("ART");
-//       if (verbose_)
-//         std::cout << "Found Accelergy ART (area reference table), replacing internal area model." << std::endl;
-//       arch_specs_.topology.ParseAccelergyART(art);  
-//     }
-//   }
-//   else
-//   {
-// #ifdef USE_ACCELERGY
-//     // Call accelergy ERT with all input files
-//     if (arch.exists("subtree") || arch.exists("local"))
-//     {
-//       accelergy::invokeAccelergy(config->inFiles, semi_qualified_prefix, output_dir);
-//       std::string ertPath = out_prefix_ + ".ERT.yaml";
-//       auto ertConfig = new config::CompoundConfig(ertPath.c_str());
-//       auto ert = ertConfig->getRoot().lookup("ERT");
-//       if (verbose_)
-//         std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;
-//       arch_specs_.topology.ParseAccelergyERT(ert);
-        
-//       std::string artPath = out_prefix_ + ".ART.yaml";
-//       auto artConfig = new config::CompoundConfig(artPath.c_str());
-//       auto art = artConfig->getRoot().lookup("ART");
-//       if (verbose_)
-//         std::cout << "Generate Accelergy ART (area reference table) to replace internal area model." << std::endl;
-//       arch_specs_.topology.ParseAccelergyART(art);
-//     }
-// #endif
-//   }
-
-//   // Sparse optimizations
-//   config::CompoundConfigNode sparse_optimizations;
-//   if (is_sparse_topology)
-//     sparse_optimizations = rootNode.lookup("sparse_optimizations");
-//       sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
-  // characterize workload on whether it has metadata
-
-  if (verbose_)
-    std::cout << "Sparse optimization configuration complete." << std::endl;
-
-  if (verbose_)
-    std::cout << "Architecture configuration complete." << std::endl;
-
   mapping_ = mapping::ParseMapping(rootNode.lookup("mapping"),
-                                    workload_,
-                                    arch_specs_.topology);
+                                   workload_);
 }
 
 LooptreeModel::~LooptreeModel()
 {
-  // if (constraints_)
-  //   delete constraints_;
-
-  // if (sparse_optimizations_)
-  //   delete sparse_optimizations_;
 }
 
 // Run the evaluation.

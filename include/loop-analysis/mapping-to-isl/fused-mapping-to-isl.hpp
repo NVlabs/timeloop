@@ -3,7 +3,6 @@
 #include <isl/polynomial.h>
 
 #include "loop-analysis/isl-ir.hpp"
-#include "loop-analysis/isl-analysis/latency-analysis.hpp"
 
 namespace analysis
 {
@@ -47,10 +46,6 @@ struct MappingAnalysisResult
    *   parallelism.
    */
   std::map<mapping::NodeID, double> compute_to_assumed_parallelism;
-  /**
-   * @brief An aggregator to calculate compute latency given branch latencies.
-   */
-  LatencyAggregator compute_latency_aggregator;
 };
 
 /**
