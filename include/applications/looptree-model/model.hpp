@@ -25,8 +25,6 @@ namespace application
 class LooptreeModel
 {
  public:
-  std::string name_;
-
   struct Result
   {
     std::map<
@@ -65,16 +63,11 @@ class LooptreeModel
   problem::FusedWorkload workload_;
   mapping::FusedMapping mapping_;
 
-  // Application flags/config.
-  bool verbose_ = false;
-  bool auto_bypass_on_failure_ = false;
-  std::string out_prefix_;
-
  public:
 
-  LooptreeModel(config::CompoundConfig* config,
-                std::string output_dir = ".",
-                std::string name = "looptree");
+  LooptreeModel(config::CompoundConfig* config);
+  LooptreeModel(const problem::FusedWorkload& workload,
+                const mapping::FusedMapping& mapping);
 
   // This class does not support being copied
   LooptreeModel(const LooptreeModel&) = delete;

@@ -25,38 +25,18 @@
 namespace application
 {
 
-LooptreeModel::LooptreeModel(config::CompoundConfig* config,
-                             std::string output_dir,
-                             std::string name) :
-    name_(name)
+LooptreeModel::LooptreeModel(config::CompoundConfig* config)
 {    
   auto rootNode = config->getRoot();
-
-  // Model application configuration.
-  auto_bypass_on_failure_ = false;
-  std::string semi_qualified_prefix = name;
-
-  if (rootNode.exists("model"))
-  {
-    auto model = rootNode.lookup("model");
-    model.lookupValue("verbose", verbose_);
-    model.lookupValue("auto_bypass_on_failure", auto_bypass_on_failure_);
-    model.lookupValue("out_prefix", semi_qualified_prefix);
-  }
-
-  out_prefix_ = output_dir + "/" + semi_qualified_prefix;
-
-  if (verbose_)
-  {
-    for (auto& line: banner)
-      std::cout << line << std::endl;
-    std::cout << std::endl;
-  }
-
   workload_ = problem::ParseFusedWorkload(rootNode.lookup("problem"));
-
   mapping_ = mapping::ParseMapping(rootNode.lookup("mapping"),
                                    workload_);
+}
+
+LooptreeModel::LooptreeModel(const problem::FusedWorkload& workload,
+                             const mapping::FusedMapping& mapping) :
+  workload_(workload), mapping_(mapping)
+{    
 }
 
 LooptreeModel::~LooptreeModel()
