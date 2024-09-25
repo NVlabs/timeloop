@@ -1,5 +1,8 @@
 #pragma once
 
+#include "loop-analysis/isl-ir.hpp"
+#include "mapping/mapping.hpp"
+
 namespace analysis
 {
 

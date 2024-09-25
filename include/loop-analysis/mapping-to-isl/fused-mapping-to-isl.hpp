@@ -3,7 +3,6 @@
 #include <isl/polynomial.h>
 
 #include "loop-analysis/isl-ir.hpp"
-#include "loop-analysis/isl-analysis/latency-analysis.hpp"
 
 namespace analysis
 {
@@ -26,6 +25,10 @@ struct MappingAnalysisResult
    */
   std::map<LogicalBuffer, Occupancy> lbuf_to_occupancy;
   /**
+   * @brief The occupancy of every compute unit.
+   */
+  std::map<LogicalComputeUnit, OpOccupancy> lcomp_to_occupancy;
+  /**
    * @brief Logical buffers found between the current root/branch node and the
    *   next one.
    */
@@ -43,10 +46,6 @@ struct MappingAnalysisResult
    *   parallelism.
    */
   std::map<mapping::NodeID, double> compute_to_assumed_parallelism;
-  /**
-   * @brief An aggregator to calculate compute latency given branch latencies.
-   */
-  LatencyAggregator compute_latency_aggregator;
 };
 
 /**

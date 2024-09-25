@@ -32,24 +32,15 @@ class FusedWorkload
   const std::map<std::string, DataSpaceId>& DataSpaceNameToId() const;
   const std::map<std::string, DimensionId>& DimensionNameToId() const;
 
-  /**
-   * @brief Returns dataspace id given `name`
-   * 
-   * @throws std::out_of_range if name could not be found.
-   */
-  DataSpaceId GetDspaceId(const std::string& name) const;
-
-  /**
-   * @brief Returns dimension id given `name`
-   * 
-   * @throws std::out_of_range if name could not be found.
-   */
-  DimensionId GetDimensionId(const std::string& name) const;
+  const std::map<EinsumId, std::string>& EinsumIdToName() const;
+  const std::map<DataSpaceId, std::string>& DataSpaceIdToName() const;
+  const std::map<DimensionId, std::string>& DimensionIdToName() const;
 
   void AddDimToDspace(DataSpaceId dspace, DimensionId dspace_dim);
   void AddDimToEinsumOspace(EinsumId einsum, DimensionId dim);
 
-  EinsumId GetEinsumWithDim(DimensionId dim) const;
+  std::optional<DataSpaceId> GetDataSpaceWithDim(DimensionId dim) const;
+  std::optional<EinsumId> GetEinsumWithDim(DimensionId dim) const;
 
   const std::vector<DimensionId>&
   DataSpaceDimensions(DataSpaceId dspace) const;
@@ -77,8 +68,13 @@ class FusedWorkload
   const isl::map& ReadAccesses(EinsumId einsum, DataSpaceId dspace) const;
   const isl::map& WriteAccesses(EinsumId einsum, DataSpaceId dspace) const;
 
+  // Returns ReadAccesses if read-only; WriteAccesses, otherwise.
+  const isl::map& Accesses(EinsumId einsum, DataSpaceId dspace) const;
+
   const isl::set& EinsumOspaceBound(EinsumId einsum) const;
   const isl::set& DataSpaceBound(DataSpaceId dspace) const;
+
+  std::tuple<int, int> GetRankShape(DimensionId einsum_rank) const;
 
  private:
   std::map<std::string, EinsumId> einsum_name_to_id_;
@@ -86,21 +82,7 @@ class FusedWorkload
   std::map<std::string, DataSpaceId> dspace_name_to_id_;
   std::map<DataSpaceId, std::string> dspace_id_to_name_;
   std::map<std::string, DimensionId> dim_name_to_id_;
-
-  enum class EinsumOrDspace { EINSUM, DATASPACE };
-  struct VertexProperty
-  {
-    EinsumOrDspace einsum_or_dspace;
-  };
-  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
-                                VertexProperty>
-    EinsumGraph;
-  typedef EinsumGraph::vertex_descriptor EinsumGraphVertex;
-  typedef EinsumGraph::edge_descriptor EinsumGraphEdge;
-
-  EinsumGraph einsum_graph_;
-  std::map<EinsumId, EinsumGraphVertex> einsum_id_to_vertex_;
-  std::map<DataSpaceId, EinsumGraphVertex> dspace_id_to_vertex_;
+  std::map<DimensionId, std::string> dim_id_to_name_;
 
   std::map<EinsumId, std::set<DataSpaceId>> read_tensors_;
   std::map<EinsumId, std::set<DataSpaceId>> write_tensors_;
@@ -128,6 +110,7 @@ class FusedWorkload
   //      at call instead of lazily at FusedWorkload::DataSpaceBound
   mutable std::map<DataSpaceId, isl::set> data_spaces_;
 };
+
 
 FusedWorkload ParseFusedWorkload(const config::CompoundConfigNode& cfg);
 

@@ -9,6 +9,7 @@
 #include "util/metaprogramming.hpp"
 #include "workload/workload.hpp"
 #include "workload/fused-workload.hpp"
+#include "model/topology.hpp"
 
 namespace mapping
 {
@@ -54,7 +55,7 @@ struct ParFor
 {
   std::string iterator_name;
   problem::DimensionId op_dim;
-  // TODO: missing spacetime_dim
+  int spatial;
   std::optional<size_t> begin;
   std::optional<size_t> end;
   std::optional<size_t> tile_size;
@@ -65,13 +66,15 @@ struct ParFor
   ParFor(const NodeID& id,
          const std::string& iterator_name,
          const problem::DimensionId& op_dim,
+         int spatial,
          std::optional<size_t>&& begin = std::nullopt,
          std::optional<size_t>&& end = std::nullopt);
 
   static ParFor WithTileSize(const NodeID& id,
-                            const std::string& iterator_name,
-                            const problem::DimensionId& op_dim,
-                            size_t tile_size);
+                             const std::string& iterator_name,
+                             const problem::DimensionId& op_dim,
+                             int spatial,
+                             size_t tile_size);
 };
 
 struct Storage
@@ -93,6 +96,7 @@ struct Storage
 struct Compute
 {
   problem::EinsumId kernel;
+  BufferId compute;
   /**
    * @brief An explicit tiling specifiction. E.g., [p_1, p_0] -> [4*p_1+p_0]
    * 
@@ -105,6 +109,7 @@ struct Compute
 
   Compute(const NodeID& id,
           const problem::EinsumId& einsum,
+          const BufferId& compute_id,
           const std::optional<double> paralellism = std::nullopt,
           const std::optional<isl::pw_multi_aff>&& tiling_spec = std::nullopt);
 };

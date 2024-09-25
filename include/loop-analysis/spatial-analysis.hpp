@@ -17,6 +17,7 @@ struct TransferInfo
   Transfers fulfilled_fill;
   Reads parent_reads;
   Fill unfulfilled_fill;
+  isl_pw_qpolynomial* p_hops;
 
   /***************** Compatibility with Timeloop v2.0 ************************/
   bool is_multicast = false;
@@ -36,9 +37,7 @@ struct TransferInfo
 
 struct SpatialReuseModel
 {
-  virtual TransferInfo Apply(const Fill&, const Occupancy&) const = 0;
-
-  virtual ~SpatialReuseModel() = default;
+  virtual TransferInfo Apply(BufferId, const Fill&, const Occupancy&) const = 0;
 };
 
 
@@ -76,7 +75,13 @@ struct SpatialReuseAnalysisInput
   const Fill& children_fill;
   std::vector<FillProvider> fill_providers;
 
-  SpatialReuseAnalysisInput(LogicalBuffer buf, const Fill& children_fill);
+  bool count_hops;
+
+  SpatialReuseAnalysisInput(
+    LogicalBuffer buf,
+    const Fill& children_fill,
+    bool count_hops = true
+  );
 };
 
 
@@ -96,10 +101,7 @@ class SimpleLinkTransferModel final : public SpatialReuseModel
   SimpleLinkTransferModel();
 
   TransferInfo
-  Apply(const Fill& fills, const Occupancy& occupancies) const override;
-
- private:
-  isl::map connectivity_;
+  Apply(BufferId buf_id, const Fill& fills, const Occupancy& occupancies) const override;
 };
 
 
@@ -116,10 +118,26 @@ class SimpleLinkTransferModel final : public SpatialReuseModel
 class SimpleMulticastModel final : public SpatialReuseModel
 {
  public:
-  SimpleMulticastModel();
+  SimpleMulticastModel(bool count_hops);
 
   TransferInfo
-  Apply(const Fill& fills, const Occupancy& occupancy) const override;
+  Apply(BufferId buf_id, const Fill& fills, const Occupancy& occupancy) const override;
+
+ private:
+  bool count_hops_;
+};
+
+
+class DistributedMulticastModel final : public SpatialReuseModel
+{
+ public:
+  DistributedMulticastModel(bool count_hops);
+
+  TransferInfo
+  Apply(BufferId buf_id, const Fill& fills, const Occupancy& occupancy) const override;
+
+ private:
+  bool count_hops_;
 };
 
 }; // namespace analysis

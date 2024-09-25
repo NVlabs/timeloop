@@ -1,0 +1,18 @@
+architecture:
+  version: 0.2
+  subtree:
+    - name: PE
+      attributes:
+        technology: "40nm"
+        global_cycle_seconds: 1e-9
+      local:
+      - name: Buffer
+        class: regfile
+        attributes:
+          depth: 64
+          width: 8
+          datawidth: 8
+      - name: MACC
+        class: intmac
+        attributes:
+          width: 8

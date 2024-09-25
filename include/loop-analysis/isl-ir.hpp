@@ -1,4 +1,4 @@
-/* Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+/* Copyright (c) 2025, NVIDIA CORPORATION. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,7 +45,7 @@
 namespace analysis
 {
 
-using DataSpaceID = problem::DataSpaceId;
+using DataSpaceId = problem::DataSpaceId;
 using FactorizedDimensionID = problem::Shape::FactorizedDimensionID;
 using EinsumID = problem::EinsumId;
 using BufferId = mapping::BufferId;
@@ -54,8 +54,9 @@ struct Temporal {};
 struct Spatial
 {
   int spatial_dim;
+  BufferId target;
 
-  Spatial(int spatial_dim=0);
+  Spatial(int spatial_dim, BufferId target);
 };
 struct Sequential {};
 struct PipelineTemporal {};
@@ -79,16 +80,29 @@ std::ostream& operator<<(std::ostream& os, const SpaceTime& t);
 
 bool IsTemporal(const SpaceTime& st);
 
+struct LogicalComputeUnit
+{
+  BufferId buffer_id;
+  mapping::NodeID branch_leaf_id;
+
+  LogicalComputeUnit(BufferId buffer_id, mapping::NodeID branch_leaf_id);
+
+  bool operator<(const LogicalComputeUnit& other) const;
+  bool operator==(const LogicalComputeUnit& other) const;
+};
+
+std::ostream& operator<<(std::ostream& os, const LogicalComputeUnit& buf);
+
 struct LogicalBuffer
 {
   BufferId buffer_id;
-  DataSpaceID dspace_id;
+  DataSpaceId dspace_id;
   mapping::NodeID branch_leaf_id;
 
   LogicalBuffer() = default;
   LogicalBuffer(
     BufferId buffer_id,
-    DataSpaceID dspace_id,
+    DataSpaceId dspace_id,
     mapping::NodeID branch_leaf_id
   );
 
@@ -142,7 +156,6 @@ using LogicalBufDataDistributions = std::map<LogicalBuffer, DataDistribution>;
  *        in time and space.
  * 
  * The default is inferred from the mapping.
- * 
  */
 struct Skew
 {
@@ -169,6 +182,20 @@ struct Occupancy
 };
 
 std::ostream& operator<<(std::ostream& os, const Occupancy& s);
+
+/**
+ * @brief Space-Time -> Operations of a compute unit.
+ */
+struct OpOccupancy
+{
+  std::vector<SpaceTime> dim_in_tags;
+  isl::map map;
+
+  OpOccupancy();
+  OpOccupancy(const std::vector<SpaceTime>& dim_in_tags, isl::map map);
+};
+
+std::ostream& operator<<(std::ostream& os, const OpOccupancy& s);
 
 /**
  * @brief TARDIS-style X-relation.

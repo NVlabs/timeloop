@@ -1,8 +1,6 @@
 #include "isl-wrapper/ctx-manager.hpp"
 
-#include <iostream>
 #include <optional>
-#include <thread>
 
 /******************************************************************************
  * Local declarations
