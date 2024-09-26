@@ -50,6 +50,7 @@ class FusedWorkload
   const std::map<DimensionId, size_t>&
   DspaceDimToIdx(DataSpaceId dspace) const;
   const std::map<DimensionId, size_t>& EinsumDimToIdx(EinsumId einsum) const;
+  const std::map<size_t, DimensionId>& EinsumIdxToDim(EinsumId einsum) const;
 
   void SetEinsumProjection(EinsumId einsum, DataSpaceId dspace, bool is_rw,
                            isl::multi_aff projection);
@@ -76,6 +77,8 @@ class FusedWorkload
 
   std::tuple<int, int> GetRankShape(DimensionId einsum_rank) const;
 
+  int GetTensorSize(DataSpaceId dspace) const;
+
  private:
   std::map<std::string, EinsumId> einsum_name_to_id_;
   std::map<EinsumId, std::string> einsum_id_to_name_;
@@ -95,6 +98,7 @@ class FusedWorkload
 
   std::map<DataSpaceId, std::vector<DimensionId>> einsum_dims_;
   std::map<EinsumId, std::map<DimensionId, size_t>> einsum_dim_to_idx_;
+  std::map<EinsumId, std::map<size_t, DimensionId>> einsum_idx_to_dim_;
   std::map<DimensionId, EinsumId> dim_to_einsum_;
 
   std::map<std::pair<EinsumId, DataSpaceId>, isl::map> reads_;
