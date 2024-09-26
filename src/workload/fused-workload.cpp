@@ -2,6 +2,7 @@
 
 #include <boost/algorithm/string/join.hpp>
 #include <iostream>
+#include <barvinok/isl.h>
 
 #include "isl-wrapper/ctx-manager.hpp"
 #include "isl-wrapper/isl-functions.hpp"
@@ -114,6 +115,8 @@ void FusedWorkload::AddDimToEinsumOspace(EinsumId einsum, DimensionId dim)
   auto& dim_to_idx = einsum_dim_to_idx_[einsum];
   auto next_idx = dim_to_idx.size();
   dim_to_idx[dim] = next_idx;
+  auto& idx_to_dim = einsum_idx_to_dim_[einsum];
+  idx_to_dim[next_idx] = dim;
   einsum_dims_[einsum].push_back(dim);
   dim_to_einsum_[dim] = einsum;
 }
@@ -167,6 +170,12 @@ const std::map<DimensionId, size_t>&
 FusedWorkload::EinsumDimToIdx(EinsumId einsum) const
 {
   return einsum_dim_to_idx_.at(einsum);
+}
+
+const std::map<size_t, DimensionId>&
+FusedWorkload::EinsumIdxToDim(EinsumId einsum) const
+{
+  return einsum_idx_to_dim_.at(einsum);
 }
 
 void FusedWorkload::SetEinsumProjection(EinsumId einsum, DataSpaceId dspace,
@@ -330,6 +339,14 @@ const isl::set& FusedWorkload::DataSpaceBound(DataSpaceId dspace) const
     );
   }
   return data_spaces_.at(dspace);
+}
+
+
+int FusedWorkload::GetTensorSize(DataSpaceId dspace) const
+{
+  return isl::val_to_double(
+    isl::get_val_from_singular(isl_set_card((DataSpaceBound(dspace).copy())))
+  );
 }
 
 
