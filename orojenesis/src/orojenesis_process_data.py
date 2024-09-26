@@ -171,6 +171,8 @@ def process_data(
     if keep_one_best_entry_across_buf:
         df_final = post_processing_keep_one_best_entry_across_buf(df)
 
+
+    df_final = df_final.sort_values(by=['bufsize'])
     df_final.to_csv(output_file, header=False, index=False)
 
 
