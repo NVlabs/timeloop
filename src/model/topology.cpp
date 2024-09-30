@@ -674,7 +674,7 @@ void Topology::PrintOrojenesis(problem::Workload* workload_, std::ostream &out, 
       for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels() - 1; storage_level_id++)
       {
         auto level = ViewStorageLevel(storage_level_id);
-        auto utilization = level->Accesses(pv) > 0 ? level->UtilizedCapacity(pv) : 0;
+        auto utilization = level->Accesses(pv) > 0 ? level->TotalUtilizedBytes(pv) : 0;
         highest_utilization = std::max(highest_utilization, utilization);
       }
       // DRAM accesses
@@ -692,7 +692,7 @@ void Topology::PrintOrojenesis(problem::Workload* workload_, std::ostream &out, 
         {
           auto level = ViewStorageLevel(storage_level_id);
           auto accesses = level->Accesses(pv);
-          auto utilization = level->Accesses(pv) > 0 ? level->UtilizedCapacity(pv) : 0;
+          auto utilization = level->Accesses(pv) > 0 ? level->TotalUtilizedBytes(pv) : 0;
           out << "," << utilization << "," << accesses;
         }
       }
@@ -708,13 +708,41 @@ void Topology::PrintOrojenesis(problem::Workload* workload_, std::ostream &out, 
       size_t hash = hasher(mapping.PrintCompact());
       orojenesis_mapping_ss << orojenesis_prefix << "." << total_utilization << "_" << thread_id << "_" << std::hex << hash << ".yaml";
       std::string orojenesis_map_yaml_file_name = orojenesis_mapping_ss.str();
-      out << "," << orojenesis_map_yaml_file_name << std::endl;
+      out << "," << orojenesis_map_yaml_file_name;
       OutputOrojenesisMappingYAML(mapping, orojenesis_map_yaml_file_name);
     }
     else
     {
-      out << ",None" << std::endl;
+      out << ",None";
     }
+
+    // Print network stats read from DRAM `
+    // unsigned storage_level_id = NumStorageLevels() - 1;
+    //auto network = GetStorageLevel(storage_level_id)->GetReadNetwork();
+
+    //network->PrintOrojenesis(out);
+    int network_id = 0;
+    for (auto& network : networks_)
+    {
+        if (network_id == 1) {
+            network.second->PrintOrojenesis(out);
+        }
+        network_id ++;
+    }
+    //
+//   for (auto& network : topology.networks_)
+//   {
+//     if(!gHideInconsequentialStats || network.second->Energy() != 0)
+//     {
+//       out << "Network " << network_id << std::endl;
+//       out << "---------" << std::endl;
+//       out << *(network.second);
+//       network_id++;
+//     }
+//   }
+
+    // out << "," << stats_.energy;
+    out << std::endl;
   }
 }
 

@@ -317,6 +317,18 @@ EvalStatus SimpleMulticastNetwork::Evaluate(const tiling::CompoundTile& tile,
   return eval_status;
 }
 
+void SimpleMulticastNetwork::PrintOrojenesis(std::ostream& out) const
+{
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
+  {
+    auto pv = problem::Shape::DataSpaceID(pvi);
+    if(gHideInconsequentialStatsNetworkMulticast && stats_.ingresses.at(pv).TotalAccesses() == 0) continue;
+    out << "," << stats_.multicast_factor.at(pv);
+    auto total_accesses = stats_.ingresses.at(pv).TotalAccesses();
+    out << "," << total_accesses << ",0,0";
+  }
+}
+
 void SimpleMulticastNetwork::Print(std::ostream& out) const
 {
   // Print network name.

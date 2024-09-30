@@ -196,6 +196,7 @@ class SimpleMulticastNetwork : public Network
                       const bool break_on_failure) override;
 
   void Print(std::ostream& out) const override;
+  void PrintOrojenesis(std::ostream& out) const override;
 
   // Ugly abstraction-breaking probes that should be removed.
   std::uint64_t WordBits() const override;

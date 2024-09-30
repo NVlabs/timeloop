@@ -553,6 +553,21 @@ void LegacyNetwork::SetDrainLatency(std::uint64_t drain_latency)
   stats_.drain_latency = drain_latency;
 }
 
+
+void LegacyNetwork::PrintOrojenesis(std::ostream& out) const
+{
+  // Multicast factor, ingress, link_transfers, spatial_reduction 
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
+  {
+    auto pv = problem::Shape::DataSpaceID(pvi);
+    out <<  "," << stats_.multicast_factor.at(pv);
+    auto total_accesses = stats_.ingresses.at(pv).TotalAccesses();
+    out << "," << total_accesses;
+    out << "," << stats_.link_transfers.at(pv);
+    out << "," << stats_.spatial_reductions.at(pv);
+  }
+}
+
 //
 // Printers.
 //

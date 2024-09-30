@@ -231,6 +231,7 @@ class LegacyNetwork : public Network
   void SetDrainLatency(std::uint64_t drain_latency) override;
 
   void Print(std::ostream& out) const override;
+  void PrintOrojenesis(std::ostream& out) const override;
 
   // PAT interface.
   static double WireEnergyPerHop(std::uint64_t word_bits, const double hop_distance, double wire_energy_override);

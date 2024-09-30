@@ -105,6 +105,7 @@ class Network : public Module
                               const bool break_on_failure) = 0;
 
   virtual void Print(std::ostream& out) const = 0;
+  virtual void PrintOrojenesis(std::ostream& out) const = 0;
 
   // Ugly abstraction-breaking probes that should be removed.
   virtual std::uint64_t WordBits() const = 0;

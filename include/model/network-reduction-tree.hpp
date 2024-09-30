@@ -196,6 +196,7 @@ class ReductionTreeNetwork : public Network
   static double AdderEnergy(std::uint64_t word_bits, double adder_energy_override);
 
   void Print(std::ostream& out) const override;
+  void PrintOrojenesis(std::ostream& out) const override;
 
   // Ugly abstraction-breaking probes that should be removed.
   std::uint64_t WordBits() const override;

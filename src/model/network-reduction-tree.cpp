@@ -295,6 +295,18 @@ double ReductionTreeNetwork::AdderEnergy(std::uint64_t word_bits, double adder_e
   }
 }
 
+
+void ReductionTreeNetwork::PrintOrojenesis(std::ostream& out) const
+{
+  for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
+  {
+    auto pv = problem::Shape::DataSpaceID(pvi);
+    if(gHideInconsequentialStatsNetworkReductionTree && stats_.spatial_reductions.at(pv) == 0) continue;
+    out << ",0,0,0," << stats_.spatial_reductions.at(pv);
+  }
+}
+
+
 void ReductionTreeNetwork::Print(std::ostream& out) const
 {
   // Print network name.
