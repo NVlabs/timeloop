@@ -58,6 +58,21 @@ isl_map* dim_projector(isl_space* space, size_t start, size_t n)
   );
 }
 
+isl_map* dim_projector(isl_space* space, const std::vector<bool>& mask)
+{
+  auto p_projector = isl_map_identity(isl_space_map_from_set(space));
+
+  for (int idx = mask.size()-1; idx >= 0; --idx)
+  {
+    if (mask.at(idx))
+    {
+      p_projector = isl_map_project_out(p_projector, isl_dim_in, idx, 1);
+    }
+  }
+  return p_projector;
+}
+
+
 map project_dim(map map, isl_dim_type dim_type, size_t start, size_t n)
 {
   return isl::manage(isl_map_project_out(map.release(), dim_type, start, n));
