@@ -11,15 +11,16 @@ LogicalBufferStats::LogicalBufferStats(const LogicalBuffer& buf) : buf(buf)
 {
 }
 
-ReuseAnalysisInput::ReuseAnalysisInput(
-  const std::map<LogicalBuffer, Occupancy>& buf_to_occ
-) : buf_to_occupancy(buf_to_occ)
+ReuseAnalysisOptions::ReuseAnalysisOptions() : count_hops(true)
 {
 }
 
-ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input)
+ReuseAnalysisOutput ReuseAnalysis(
+  const std::map<LogicalBuffer, Occupancy>& buf_to_occ,
+  const ReuseAnalysisOptions& options
+)
 {
-  const auto& occupancies = input.buf_to_occupancy;
+  const auto& occupancies = buf_to_occ;
 
   auto output = ReuseAnalysisOutput();
 
@@ -39,13 +40,14 @@ ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input)
       TemporalReuseAnalysisInput(
         occ,
         BufTemporalReuseOpts{
-          .exploit_temporal_reuse=can_exploit_temporal_reuse
+          .exploit_temporal_reuse=can_exploit_temporal_reuse,
+          .multiple_loop_reuse = true
         }
       )
     );
 
     auto reuse_analysis_input =
-      SpatialReuseAnalysisInput(buf, temp_reuse_out.fill);
+      SpatialReuseAnalysisInput(buf, temp_reuse_out.fill, options.count_hops);
     reuse_analysis_input.fill_providers.emplace_back(
       FillProvider::MakeFillProvider<SimpleLinkTransferModel>(
         buf,
@@ -55,7 +57,11 @@ ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input)
     // TODO: this should be the occupancy of the actual parent but we have no
     // way of connecting this buffer to its parent yet
     reuse_analysis_input.fill_providers.emplace_back(
-      FillProvider::MakeFillProvider<SimpleMulticastModel>(buf, occ)
+      FillProvider::MakeFillProvider<SimpleMulticastModel>(
+        buf,
+        occ,
+        options.count_hops
+      )
     );
 
     auto spatial_reuse_out = SpatialReuseAnalysis(reuse_analysis_input);
@@ -74,7 +80,6 @@ ReuseAnalysisOutput ReuseAnalysis(ReuseAnalysisInput input)
       {
         stats.compat_access_stats = transfer_info.compat_access_stats;
         stats.parent_reads = transfer_info.parent_reads;
-        stats.total_child_accesses = transfer_info.total_child_accesses;
       }
     }
 

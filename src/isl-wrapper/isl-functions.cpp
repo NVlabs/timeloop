@@ -13,6 +13,32 @@ size_t dim(const map& map, isl_dim_type dim_type)
   return isl_map_dim(map.get(), dim_type);
 }
 
+isl_map* reorder_projector(isl_ctx* context,
+                           const std::vector<size_t> permutation)
+{
+  if (permutation.size() == 0)
+  {
+    return isl_map_read_from_str(context, "{ [] -> [] }");
+  }
+
+  std::string pattern = "{ [ ";
+  for (size_t j = 0; j < permutation.size()-1; ++j)
+  {
+    size_t i = permutation.at(j);
+    pattern += "i" + std::to_string(i) + ", ";
+  }
+  pattern += "i" + std::to_string(permutation.back()) + " ] -> [ ";
+
+  for (size_t i = 0; i < permutation.size()-1; ++i)
+  {
+    pattern += "i" + std::to_string(i) + ", ";
+
+  }
+  pattern += "i" + std::to_string(permutation.size()-1) + " ] }";
+
+  return isl_map_read_from_str(context, pattern.c_str());
+}
+
 map dim_projector(space space, size_t start, size_t n)
 {
   return isl::manage(dim_projector(
@@ -160,6 +186,25 @@ isl::map fix_si(isl::map map, isl_dim_type dim_type, size_t pos, int val)
   return isl::manage(isl_map_fix_si(map.release(), dim_type, pos, val));
 }
 
+__isl_give isl_map*
+bound_dim_si(__isl_take isl_map* map, isl_dim_type dim_type, size_t pos,
+             int lower, int upper)
+{
+  auto p_ls = isl_local_space_from_space(isl_map_get_space(map));
+
+  auto p_upper = isl_constraint_alloc_inequality(isl_local_space_copy(p_ls));
+  p_upper = isl_constraint_set_coefficient_si(p_upper, dim_type, pos, -1);
+  p_upper = isl_constraint_set_constant_si(p_upper, upper);
+  map = isl_map_add_constraint(map, p_upper);
+
+  auto p_lower = isl_constraint_alloc_inequality(isl_local_space_copy(p_ls));
+  p_lower = isl_constraint_set_coefficient_si(p_lower, dim_type, pos, 1);
+  p_lower = isl_constraint_set_constant_si(p_lower, -lower);
+  map = isl_map_add_constraint(map, p_lower);
+
+  return map;
+}
+
 map insert_equal_dims(map map, size_t in_pos, size_t out_pos, size_t n)
 {
   return isl::manage(insert_equal_dims(map.release(), in_pos, out_pos, n));
@@ -261,7 +306,9 @@ isl_val* get_val_from_singular(isl_pw_qpolynomial* pw_qp)
 {
   return isl_pw_qpolynomial_eval(
     pw_qp,
-    isl_point_zero(isl_pw_qpolynomial_get_domain_space(pw_qp))
+    isl_set_sample_point(
+      isl_pw_qpolynomial_domain(isl_pw_qpolynomial_copy(pw_qp))
+    )
   );
 }
 
@@ -269,7 +316,9 @@ isl_val* get_val_from_singular(isl_pw_qpolynomial_fold* pwf)
 {
   return isl_pw_qpolynomial_fold_eval(
     pwf,
-    isl_point_zero(isl_pw_qpolynomial_fold_get_domain_space(pwf))
+    isl_set_sample_point(
+      isl_pw_qpolynomial_fold_domain(isl_pw_qpolynomial_fold_copy(pwf))
+    )
   );
 }
 
@@ -386,7 +435,7 @@ separate_dependent_bounds(__isl_take isl_set* set, size_t start, size_t n)
   return isl_set_coalesce(isl_set_intersect(fst_set, snd_set));
 }
 
-std::string pw_qpolynomial_fold_to_str(isl_pw_qpolynomial_fold* pwqf)
+std::string pw_qpolynomial_fold_to_str(__isl_keep isl_pw_qpolynomial_fold* pwqf)
 {
   auto p_printer = isl_printer_to_str(GetIslCtx().get());
   p_printer = isl_printer_print_pw_qpolynomial_fold(p_printer, pwqf);
@@ -443,6 +492,63 @@ gather_pw_qpolynomial_from_fold(__isl_take isl_pw_qpolynomial_fold* pwqpf)
     &p_pwqp
   );
   return p_pwqp;
+}
+
+isl_stat MakeAff(__isl_take isl_term* term, void* voided_aff)
+{
+  isl_aff** aff = static_cast<isl_aff**>(voided_aff);
+
+  auto n_dim_in = isl_term_dim(term, isl_dim_set);
+  if (n_dim_in == isl_size_error)
+  {
+    throw std::logic_error("aff_from_qpolynomial: error processing term");
+  }
+
+  int total_exp = 0;
+  for (unsigned i = 0; i < static_cast<unsigned>(n_dim_in); ++i)
+  {
+    auto exp = isl_term_get_exp(term, isl_dim_set, i);
+    if (exp == isl_size_error)
+    {
+      throw std::logic_error("aff_from_qpolynomial: error processing term");
+    }
+
+    total_exp += exp;
+    if (total_exp > 1)
+    {
+      isl_aff_free(*aff);
+      *aff = nullptr;
+      return isl_stat_error;
+    }
+
+    if (exp == 1)
+    {
+      isl_aff_set_coefficient_val(
+        *aff,
+        isl_dim_in,
+        i,
+        isl_term_get_coefficient_val(term)
+      );
+    }
+  }
+
+  return isl_stat_ok;
+}
+
+isl_aff* aff_from_qpolynomial(__isl_keep isl_qpolynomial* qp)
+{
+  isl_aff* result = isl_aff_zero_on_domain_space(
+    isl_qpolynomial_get_domain_space(qp)
+  );
+
+  isl_qpolynomial_foreach_term(qp, &MakeAff, static_cast<void*>(&result));
+
+  result = isl_aff_add_constant_val(
+    result,
+    isl_qpolynomial_get_constant_val(qp)
+  );
+
+  return result;
 }
 
 };  // namespace isl

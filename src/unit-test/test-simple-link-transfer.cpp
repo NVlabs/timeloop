@@ -6,10 +6,9 @@
 BOOST_AUTO_TEST_CASE(TestSimpleLinkTransferModel)
 {
   using namespace analysis;
-  using namespace spacetime;
 
   auto fill = Fill(
-    {Dimension::Time, Dimension::SpaceX, Dimension::SpaceY},
+    {Temporal(), Spatial(0, 0), Spatial(1, 0)},
     isl::map(
       GetIslCtx(),
       "{ [t, x, y] -> [t+x+y] : 0 <= x < 2 and 0 <= y < 2 and 0 <= t < 2}"
@@ -20,9 +19,9 @@ BOOST_AUTO_TEST_CASE(TestSimpleLinkTransferModel)
 
   auto link_transfer_model = SimpleLinkTransferModel();
 
-  auto info = link_transfer_model.Apply(fill, occ);
+  auto info = link_transfer_model.Apply(0, fill, occ);
 
-  BOOST_CHECK(info.link_transfer.map.is_equal(
+  BOOST_CHECK(info.fulfilled_fill.map.is_equal(
     isl::map(
       GetIslCtx(),
       "{ [t = 1, x, y = 0] -> [1 + x] : 0 <= x <= 1; "

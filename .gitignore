@@ -40,10 +40,6 @@ GRTAGS
 GSYMS
 GTAGS
 
-### Documentation
-.doxygen-config.bak
-docs/
-
 # If using virtual environment for testing
 venv
 
@@ -53,3 +49,7 @@ venv
 
 # MacOS-specific files.
 .DS_Store
+
+### Documentation
+.doxygen-config.bak
+docs/

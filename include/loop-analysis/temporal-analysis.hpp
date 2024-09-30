@@ -8,6 +8,7 @@ namespace analysis
 struct BufTemporalReuseOpts
 {
   bool exploit_temporal_reuse;
+  bool multiple_loop_reuse;
 };
 
 struct TemporalReuseAnalysisInput

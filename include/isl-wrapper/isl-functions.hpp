@@ -9,10 +9,16 @@ namespace isl {
 
 size_t dim(const map& map, isl_dim_type dim_type);
 
+isl_map* reorder_projector(isl_ctx* context, const std::vector<size_t> permutation);
+
 map dim_projector(space space, isl_dim_type dim_type, size_t start, size_t n);
 isl_map* dim_projector(__isl_take isl_space* space, size_t start, size_t n);
+
 /**
- * @brief Projects out isl_dim_in if element in mask is true
+ * @brief Reverse of map that out isl_dim_in if element in mask is true.
+ * 
+ * For example, a space [i0, i1, i2] with mask [True, True, False] yields
+ *  [i2] -> [i0, i1, i2]
  */
 template<typename RangeT>
 isl_map* dim_projector(__isl_take isl_space* space, RangeT mask)
@@ -50,8 +56,7 @@ aff si_on_domain(space space, int val);
 
 map add_dims(map map, isl_dim_type dim_type, size_t n_dims);
 
-map insert_dims(map map,
-                isl_dim_type dim_type, size_t pos, size_t n_dims);
+map insert_dims(map map, isl_dim_type dim_type, size_t pos, size_t n_dims);
 
 map move_dims(map map,
               isl_dim_type dst_dim_type, size_t dst,
@@ -65,6 +70,10 @@ map map_to_shifted(space domain_space, size_t pos, int shift);
 map map_to_all_at_dim(space domain_space, size_t pos);
 
 map fix_si(map map, isl_dim_type dim_type, size_t pos, int val);
+
+__isl_give isl_map* bound_dim_si(__isl_take isl_map* map,
+                                 isl_dim_type dim_type, size_t pos,
+                                 int lower, int upper);
 
 map insert_equal_dims(map map, size_t in_pos, size_t out_pos, size_t n);
 
@@ -89,8 +98,8 @@ isl_pw_qpolynomial* sum_map_range_card(map map);
 
 double val_to_double(isl_val* val);
 
-isl_val* get_val_from_singular(isl_pw_qpolynomial* pw_qp);
-isl_val* get_val_from_singular(isl_pw_qpolynomial_fold* pwf);
+isl_val* get_val_from_singular(__isl_take isl_pw_qpolynomial* pw_qp);
+isl_val* get_val_from_singular(__isl_take isl_pw_qpolynomial_fold* pwf);
 
 
 map ConstraintDimEquals(map map, size_t n_dims);
@@ -116,4 +125,10 @@ std::string pw_qpolynomial_fold_to_str(isl_pw_qpolynomial_fold* pwqf);
 
 __isl_give isl_pw_qpolynomial*
 gather_pw_qpolynomial_from_fold(__isl_take isl_pw_qpolynomial_fold* pwqpf);
+
+/** Creates aff from qpolynomial if affine; otherwise, returns nullptr */
+isl_aff* aff_from_qpolynomial(__isl_take isl_qpolynomial* qp);
+
+/** Creates pw_aff from pw_qpolynomial if affine; otherwise, returns nullptr */
+isl_pw_aff* pw_aff_from_pw_qpolynomial(__isl_keep isl_pw_qpolynomial* pw_qp);
 };  // namespace isl

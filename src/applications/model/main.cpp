@@ -28,6 +28,8 @@
 #include <iostream>
 #include <csignal>
 #include <cstring>
+#include <boost/log/core.hpp>
+#include <boost/log/utility/setup/file.hpp>
 
 #include "applications/model/model.hpp"
 #include "compound-config/compound-config.hpp"
