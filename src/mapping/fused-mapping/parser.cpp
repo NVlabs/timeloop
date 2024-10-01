@@ -113,7 +113,11 @@ NodeID ParseTemporalNode(NodeID parent_id,
   }
 
   std::string dim_name;
-  cfg.lookupValue("dimension", dim_name);
+  if (!cfg.exists("rank"))
+  {
+    throw std::runtime_error("temporal node missing rank");
+  }
+  cfg.lookupValue("rank", dim_name);
   auto dim_id_it = dim_name_to_id.find(dim_name);
   if (dim_id_it == dim_name_to_id.end())
   {
@@ -141,7 +145,11 @@ NodeID ParseTemporalNode(NodeID parent_id,
   else
   {
     std::string tile_size_str;
-    cfg.lookupValue("tile_size", tile_size_str);
+    if (!cfg.exists("tile_shape"))
+    {
+      throw std::runtime_error("temporal node missing tile_shape");
+    }
+    cfg.lookupValue("tile_shape", tile_size_str);
     int tile_size = std::stoi(tile_size_str);
     return mapping.AddChild(For::WithTileSize,
                             parent_id,
@@ -165,7 +173,7 @@ NodeID ParseSpatialNode(NodeID parent_id,
   }
 
   std::string dim_name;
-  cfg.lookupValue("dimension", dim_name);
+  cfg.lookupValue("rank", dim_name);
   auto dim_id = dim_name_to_id.at(dim_name);
 
   int spatial = 0;
@@ -217,6 +225,10 @@ NodeID ParseStorageNode(NodeID parent_id,
   const auto& dspace_name_to_id = workload.DataSpaceNameToId();
 
   std::string target = "";
+  if (!cfg.exists("target"))
+  {
+    throw std::runtime_error("storage node missing target");
+  }
   cfg.lookupValue("target", target);
 
   // If target is an integer, we mean buffer_id; otherwise, we mean buffer name
