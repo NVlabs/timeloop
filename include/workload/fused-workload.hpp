@@ -79,6 +79,8 @@ class FusedWorkload
 
   int GetTensorSize(DataSpaceId dspace) const;
 
+  int GetOspaceVolume(EinsumId einsum) const;
+
  private:
   std::map<std::string, EinsumId> einsum_name_to_id_;
   std::map<EinsumId, std::string> einsum_id_to_name_;
