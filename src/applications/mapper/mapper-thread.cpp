@@ -440,6 +440,7 @@ void MapperThread::Run()
       terminate = true;
     }
 
+
     if ((log_orojenesis_mappings_ || log_all_mappings_) && terminate)
     {
       for (auto &index_factor_best : index_factor_best_vec)
@@ -447,12 +448,13 @@ void MapperThread::Run()
 
         // Re-evaluate the mapping
         engine.Evaluate(index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
-        auto topology = engine.GetTopology();
-
-        mutex_->lock();
-        // Print performance and log the optimal mappings
-        topology.PrintOrojenesis(&workload_, orojenesis_csv_file_, stats_.index_factor_best.mapping, log_mappings_yaml_, log_mappings_verbose_, orojenesis_prefix_, thread_id_);
-        mutex_->unlock();
+        if (index_factor_best.valid) {
+            auto topology = engine.GetTopology();
+            mutex_->lock();
+            // Print performance and log the optimal mappings
+            topology.PrintOrojenesis(&workload_, orojenesis_csv_file_, index_factor_best.mapping, log_mappings_yaml_, log_mappings_verbose_, orojenesis_prefix_, thread_id_);
+            mutex_->unlock();
+        }
       }
 
       // Reset the best for next permutation/bypassing
@@ -627,9 +629,9 @@ void MapperThread::Run()
 
     if(log_all_mappings_)
     {
-    mutex_->lock(); // Print performance and log the optimal mappings
-    topology.PrintOrojenesis(&workload_, orojenesis_csv_file_, mapping, log_mappings_yaml_, log_mappings_verbose_, orojenesis_prefix_, thread_id_);
-    mutex_->unlock();
+        mutex_->lock(); // Print performance and log the optimal mappings
+        topology.PrintOrojenesis(&workload_, orojenesis_csv_file_, mapping, log_mappings_yaml_, log_mappings_verbose_, orojenesis_prefix_, thread_id_);
+        mutex_->unlock();
     }
     // Log the equally optimal mappings stats from the previous index factor and clear the index_factor_best_vec
     // Need to have one valid mapping in order to get the SumStats run
