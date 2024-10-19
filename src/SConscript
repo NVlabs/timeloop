@@ -40,9 +40,9 @@ if str(Platform()) == 'darwin':
   env.Append(CPPDEFINES = ['BOOST_LOG_DYN_LINK']) # BOOST_ALL_DYN_LINK  
 
 if GetOption('debug'):
-    env.Append(CCFLAGS = ['-g', '-O0'])
+    env.Append(CCFLAGS = ["-fPIC", '-g', '-O0'])
 else:
-    env.Append(CCFLAGS = ['-g', '-O3', '-flto'])
+    env.Append(CCFLAGS = ["-fPIC", '-g', '-O3', '-flto'])
     
 env.Append(CCFLAGS = ['-Werror', '-Wall', '-Wextra', '-std=c++17', '-pthread'])
 
