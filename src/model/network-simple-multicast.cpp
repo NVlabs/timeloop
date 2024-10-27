@@ -323,9 +323,9 @@ void SimpleMulticastNetwork::PrintOrojenesis(std::ostream& out) const
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     if(gHideInconsequentialStatsNetworkMulticast && stats_.ingresses.at(pv).TotalAccesses() == 0) continue;
-    out << "," << stats_.multicast_factor.at(pv);
+    out << "," << stats_.multicast_factor.at(pv) << ",1";
     auto total_accesses = stats_.ingresses.at(pv).TotalAccesses();
-    out << "," << total_accesses << ",0,0";
+    out << "," << total_accesses << ",0,0,0,0";
   }
 }
 

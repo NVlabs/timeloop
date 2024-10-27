@@ -561,10 +561,24 @@ void LegacyNetwork::PrintOrojenesis(std::ostream& out) const
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     out <<  "," << stats_.multicast_factor.at(pv);
+
+    if (stats_.distributed_multicast.at(pv))
+      out << "," << stats_.distributed_multicast_factor.at(pv);
+    else
+      out << ",1";
+
     auto total_accesses = stats_.ingresses.at(pv).TotalAccesses();
     out << "," << total_accesses;
+    if (stats_.distributed_multicast.at(pv)) {
+      auto distrib_accesses = stats_.distributed_ingresses.at(pv).TotalAccesses();
+      out << "," << distrib_accesses;
+    } else {
+      out << ",1";
+    }
     out << "," << stats_.link_transfers.at(pv);
     out << "," << stats_.spatial_reductions.at(pv);
+    out << "," << stats_.num_hops.at(pv);
+
   }
 }
 

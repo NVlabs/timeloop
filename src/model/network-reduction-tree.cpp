@@ -302,7 +302,8 @@ void ReductionTreeNetwork::PrintOrojenesis(std::ostream& out) const
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
     if(gHideInconsequentialStatsNetworkReductionTree && stats_.spatial_reductions.at(pv) == 0) continue;
-    out << ",0,0,0," << stats_.spatial_reductions.at(pv);
+    out << ",1,1,0,0,0," << stats_.spatial_reductions.at(pv);
+    out << "," << stats_.num_hops.at(pv);
   }
 }
 

@@ -724,8 +724,12 @@ void Topology::PrintOrojenesis(problem::Workload* workload_, std::ostream &out, 
     int network_id = 0;
     for (auto& network : networks_)
     {
-        if (network_id == 1) {
+        if(log_mappings_verbose){
             network.second->PrintOrojenesis(out);
+        } else {
+            if (network_id == 1) {
+                network.second->PrintOrojenesis(out);
+            }
         }
         network_id ++;
     }
