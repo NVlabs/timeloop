@@ -75,12 +75,12 @@ if GetOption('link_static'):
 else:
     print("Using dynamic linking.")
 
-env.Append(LIBS = ['boost_iostreams', 'boost_serialization', 'boost_log_setup', 'boost_filesystem'])
+env.Append(LIBS = ['boost_iostreams', 'boost_serialization'])
 if str(Platform()) != 'darwin':
-    env.Append(LIBS = ['boost_log', 'boost_thread'])
+    env.Append(LIBS = ['boost_thread'])
 else:
-    env.Append(LIBS = ['boost_log-mt', 'boost_thread-mt'])    
-#env.Append(LIBS = ['boost_iostreams', 'boost_serialization', 'boost_log', 'boost_log_setup', 'boost_thread', 'boost_filesystem'])
+    env.Append(LIBS = ['boost_thread-mt'])    
+#env.Append(LIBS = ['boost_iostreams', 'boost_serialization', 'boost_thread' ])
 
 if os.environ.get('BOOSTDIR'):
     env.Append(CPPFLAGS = ['-I' + os.environ['BOOSTDIR'] + '/include'])
