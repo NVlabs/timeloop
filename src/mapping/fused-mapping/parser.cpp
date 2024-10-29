@@ -144,18 +144,18 @@ NodeID ParseTemporalNode(NodeID parent_id,
   }
   else
   {
-    std::string tile_size_str;
+    std::string tile_shape_str;
     if (!cfg.exists("tile_shape"))
     {
       throw std::runtime_error("temporal node missing tile_shape");
     }
-    cfg.lookupValue("tile_shape", tile_size_str);
-    int tile_size = std::stoi(tile_size_str);
+    cfg.lookupValue("tile_shape", tile_shape_str);
+    int tile_shape = std::stoi(tile_shape_str);
     return mapping.AddChild(For::WithTileSize,
                             parent_id,
                             iterator_name,
                             dim_id,
-                            tile_size);
+                            tile_shape);
   }
 }
 
@@ -205,15 +205,15 @@ NodeID ParseSpatialNode(NodeID parent_id,
   }
   else
   {
-    std::string tile_size_str;
-    cfg.lookupValue("tile_size", tile_size_str);
-    int tile_size = std::stoi(tile_size_str);
+    std::string tile_shape_str;
+    cfg.lookupValue("tile_shape", tile_shape_str);
+    int tile_shape = std::stoi(tile_shape_str);
     return mapping.AddChild(ParFor::WithTileSize,
                             parent_id,
                             iterator_name,
                             dim_id,
                             spatial,
-                            tile_size);
+                            tile_shape);
   }
 }
 

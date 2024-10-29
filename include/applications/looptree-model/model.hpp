@@ -1,12 +1,3 @@
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/bitset.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/xml_iarchive.hpp>
-#include <boost/archive/xml_oarchive.hpp>
-
 #include "mapping/parser.hpp"
 #include "mapping/arch-properties.hpp"
 #include "mapping/constraints.hpp"
