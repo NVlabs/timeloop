@@ -26,8 +26,10 @@ isl_map* dim_projector(__isl_take isl_space* space, RangeT mask)
   using namespace boost::adaptors;
 
   auto p_projector = isl_map_identity(isl_space_map_from_set(space));
-  for (const auto& [idx, is_projected_out] : mask | indexed(0) | reversed )
+  for (const auto& tuple : mask | indexed(0) | reversed )
   {
+    int idx = boost::get<0>(tuple);
+    bool is_projected_out = boost::get<1>(tuple);
     if (is_projected_out)
     {
       p_projector = isl_map_project_out(p_projector, isl_dim_in, idx, 1);
