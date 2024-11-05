@@ -498,6 +498,9 @@ class BufferLevel : public Level
   double Size() const;
   std::uint64_t Cycles() const override;
   std::uint64_t Accesses(problem::Shape::DataSpaceID pv) const override;
+  std::uint64_t Reads(problem::Shape::DataSpaceID pv) const override;
+  std::uint64_t Fills(problem::Shape::DataSpaceID pv) const override;
+  std::uint64_t Updates(problem::Shape::DataSpaceID pv) const override;
   double CapacityUtilization() const override;
   std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv) const override;
   std::uint64_t TileSize(problem::Shape::DataSpaceID pv) const override;

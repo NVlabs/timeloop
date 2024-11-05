@@ -198,6 +198,24 @@ class ArithmeticUnits : public Level
     return 0;
   }
 
+  std::uint64_t Reads(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
+  {
+    (void) pv;
+    return 0;
+  }
+
+  std::uint64_t Fills(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
+  {
+    (void) pv;
+    return 0;
+  }
+
+  std::uint64_t Updates(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override
+  {
+    (void) pv;
+    return 0;
+  }
+
   double CapacityUtilization() const override { return 0; }
 
   std::uint64_t TileSize(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const override

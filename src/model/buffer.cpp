@@ -1829,6 +1829,9 @@ STAT_ACCESSOR(double, BufferLevel, Energy,
               LeakageEnergy(pv))
 
 STAT_ACCESSOR(std::uint64_t, BufferLevel, Accesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv)))
+STAT_ACCESSOR(std::uint64_t, BufferLevel, Reads, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv)))
+STAT_ACCESSOR(std::uint64_t, BufferLevel, Updates, stats_.utilized_instances.at(pv) * (stats_.updates.at(pv)))
+STAT_ACCESSOR(std::uint64_t, BufferLevel, Fills, stats_.utilized_instances.at(pv) * (stats_.fills.at(pv)))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedCapacity, stats_.utilized_capacity.at(pv))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, TileSize, stats_.tile_size.at(pv))
 STAT_ACCESSOR(std::uint64_t, BufferLevel, UtilizedInstances, stats_.utilized_instances.at(pv))

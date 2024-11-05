@@ -665,35 +665,39 @@ void Topology::PrintOrojenesis(problem::Workload* workload_, std::ostream &out, 
 
     out << op_per_byte << "," << total_utilization << "," << total_accesses;
 
-    // For each datatype
-    for (unsigned pvi = 0; pvi < shape->NumDataSpaces; pvi++)
+    if(!log_mappings_verbose)
     {
-      auto pv = problem::Shape::DataSpaceID(pvi);
-      // Highest non-DRAM utilization
-      std::uint64_t highest_utilization = 0;
-      for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels() - 1; storage_level_id++)
-      {
-        auto level = ViewStorageLevel(storage_level_id);
-        auto utilization = level->Accesses(pv) > 0 ? level->TotalUtilizedBytes(pv) : 0;
-        highest_utilization = std::max(highest_utilization, utilization);
-      }
-      // DRAM accesses
-      std::uint64_t accesses = ViewStorageLevel(NumStorageLevels() - 1)->Accesses(pv);
-      out << "," << highest_utilization << "," << accesses;
-    }
+        // For each datatype
+        for (unsigned pvi = 0; pvi < shape->NumDataSpaces; pvi++)
+        {
+          auto pv = problem::Shape::DataSpaceID(pvi);
+          // Highest non-DRAM utilization
+          std::uint64_t highest_utilization = 0;
+          for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels() - 1; storage_level_id++)
+          {
+            auto level = ViewStorageLevel(storage_level_id);
+            auto utilization = level->Accesses(pv) > 0 ? level->TotalUtilizedBytes(pv) : 0;
+            highest_utilization = std::max(highest_utilization, utilization);
+          }
+          // DRAM accesses
+          std::uint64_t accesses = ViewStorageLevel(NumStorageLevels() - 1)->Accesses(pv);
+          out << "," << highest_utilization << "," << accesses;
+        }
 
     // If verbose, utilization + accessese for every level for every datatype
-    if(log_mappings_verbose)
-    {
+    } else {
       for (unsigned pvi = 0; pvi < shape->NumDataSpaces; pvi++)
       {
         auto pv = problem::Shape::DataSpaceID(pvi);
-        for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels() - 1; storage_level_id++)
+        for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
         {
           auto level = ViewStorageLevel(storage_level_id);
           auto accesses = level->Accesses(pv);
+          auto reads = level->Reads(pv);
+          auto fills = level->Fills(pv);
+          auto updates = level->Updates(pv);
           auto utilization = level->Accesses(pv) > 0 ? level->TotalUtilizedBytes(pv) : 0;
-          out << "," << utilization << "," << accesses;
+          out << "," << utilization << "," << accesses << "," << reads << "," << fills << "," << updates;
         }
       }
     }

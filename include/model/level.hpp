@@ -101,6 +101,9 @@ class Level : public Module
   
   virtual double Energy(problem::Shape::DataSpaceID pv) const = 0;
   virtual std::uint64_t Accesses(problem::Shape::DataSpaceID pv) const = 0;
+  virtual std::uint64_t Reads(problem::Shape::DataSpaceID pv) const = 0;
+  virtual std::uint64_t Fills(problem::Shape::DataSpaceID pv) const = 0;
+  virtual std::uint64_t Updates(problem::Shape::DataSpaceID pv) const = 0;
   virtual std::uint64_t UtilizedCapacity(problem::Shape::DataSpaceID pv) const = 0;
   virtual std::uint64_t TileSize(problem::Shape::DataSpaceID pv) const = 0;
   virtual std::uint64_t UtilizedInstances(problem::Shape::DataSpaceID pv) const = 0;
