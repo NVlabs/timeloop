@@ -54,9 +54,9 @@ class Shape
   std::vector<std::vector<FactorizedDimensionID>> FlattenedToFactorized;
   std::map<FactorizedDimensionID, FlattenedDimensionID> FactorizedToFlattened;
 
-  typedef int Coefficient;
+  typedef float Coefficient;
   typedef unsigned CoefficientID;
-  typedef std::map<CoefficientID, int> Coefficients;
+  typedef std::map<CoefficientID, float> Coefficients;
 
   unsigned NumCoefficients = 0;
   std::map<std::string, CoefficientID> CoefficientNameToID;
