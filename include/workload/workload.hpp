@@ -63,7 +63,7 @@ class Workload
  public:
   typedef std::map<Shape::FactorizedDimensionID, Coordinate> FactorizedBounds;
   typedef std::map<Shape::FlattenedDimensionID, Coordinate> FlattenedBounds;
-  typedef std::map<Shape::CoefficientID, int> Coefficients;
+  typedef std::map<Shape::CoefficientID, float> Coefficients;
   typedef std::map<Shape::DataSpaceID, std::shared_ptr<DensityDistribution>> Densities;
 
  protected:
@@ -118,7 +118,7 @@ class Workload
     return bounds;
   }
 
-  int GetCoefficient(Shape::CoefficientID p) const
+  float GetCoefficient(Shape::CoefficientID p) const
   {
     return coefficients_.at(p);
   }
