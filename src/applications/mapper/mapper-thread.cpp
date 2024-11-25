@@ -760,4 +760,9 @@ void MapperThread::Run()
       }
     }
   } // while ()
+
+  log_stream_<< "Total mappings: " << total_mappings << std::endl;
+  log_stream_<< "Total invalid mappings: " << invalid_mappings_mapcnstr << std::endl;
+  log_stream_<< "Total valid mappings evaluated: " << valid_mappings << std::endl;
+  log_stream_<< "Total invalid mappings evaluated: " << invalid_mappings_eval << std::endl;
 }
