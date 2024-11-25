@@ -38,6 +38,7 @@ struct TransferInfo
 struct SpatialReuseModel
 {
   virtual TransferInfo Apply(BufferId, const Fill&, const Occupancy&) const = 0;
+  virtual ~SpatialReuseModel() = default;
 };
 
 
