@@ -73,14 +73,14 @@ LooptreeModel::Result LooptreeModel::Run()
     isl_pw_qpolynomial_free(p_occ_count);
 
     auto p_fill_count = isl_map_card(stats.fill.map.copy());
-    model_result.fills_by_parent[key] = std::make_pair(
+    model_result.fills[key] = std::make_pair(
       stats.fill.dim_in_tags,
       isl_pw_qpolynomial_to_str(p_fill_count)
     );
     isl_pw_qpolynomial_free(p_fill_count);
 
     auto p_parent_reads_count = isl_map_card(stats.parent_reads.map.copy());
-    model_result.fills_by_parent[key] = std::make_pair(
+    model_result.reads_to_parent[key] = std::make_pair(
       stats.parent_reads.dim_in_tags,
       isl_pw_qpolynomial_to_str(p_parent_reads_count)
     );
@@ -91,7 +91,7 @@ LooptreeModel::Result LooptreeModel::Run()
       p_peer_fills_count,
       stats.fill.map.domain().release()
     );
-    model_result.fills_by_peer[key] = std::make_pair(
+    model_result.reads_to_peer[key] = std::make_pair(
       stats.link_transfer.dim_in_tags,
       isl_pw_qpolynomial_to_str(p_peer_fills_count)
     );
