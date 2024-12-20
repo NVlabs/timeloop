@@ -83,6 +83,7 @@ struct DataMovementInfo
   bool apply_rank_inner_to_outer;
   std::size_t size; // for backward compatibility TODO: eventually we should use shape
   std::size_t shape;
+  std::size_t spatial_union_size;
   double expected_data_occupancy;
   MetaDataTileOccupancy expected_metadata_occupancy;
   problem::Shape::DataSpaceID dataspace_id ; // which dataspace does this tile belong to
@@ -165,6 +166,7 @@ struct DataMovementInfo
   {
     size = 0;
     shape = 0;
+    spatial_union_size = 0;
     expected_data_occupancy = std::numeric_limits<unsigned>::max();
     expected_metadata_occupancy = {};
     partition_size = 0;

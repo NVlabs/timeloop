@@ -69,6 +69,7 @@ void AccessStatMatrix::Accumulate(const AccessStatMatrix& other)
     mine.accesses += x.second.accesses; 
     mine.hops += x.second.hops;
     mine.unicast_hops += x.second.unicast_hops;
+    mine.all_to_all_hops += x.second.all_to_all_hops;
   }
 }
 
@@ -80,6 +81,7 @@ void AccessStatMatrix::Divide(const std::uint64_t divisor)
     x.second.accesses /= divisor;
     x.second.hops /= divisor;
     x.second.unicast_hops /= divisor;
+    x.second.all_to_all_hops /= divisor;
   }
 }
 
@@ -102,6 +104,7 @@ bool AccessStatMatrix::operator == (const AccessStatMatrix& other)
     if (it->second.accesses != x.second.accesses) return false;
     if (it->second.hops != x.second.hops) return false;
     if (it->second.unicast_hops != x.second.unicast_hops) return false;
+    if (it->second.all_to_all_hops != x.second.all_to_all_hops) return false;
   }
   for (auto& x: stats)
   {
@@ -110,6 +113,7 @@ bool AccessStatMatrix::operator == (const AccessStatMatrix& other)
     if (it->second.accesses != x.second.accesses) return false;
     if (it->second.hops != x.second.hops) return false;
     if (it->second.unicast_hops != x.second.unicast_hops) return false;
+    if (it->second.all_to_all_hops != x.second.all_to_all_hops) return false;
   }
   return true;
 }
@@ -122,7 +126,8 @@ std::ostream& operator << (std::ostream& out, const AccessStatMatrix& m)
     auto scatter = x.first.second;
     out << "    [" << multicast << ", " << scatter << "]: accesses = "
         << x.second.accesses << " hops = " << x.second.hops
-        << " unicast hops = " << x.second.unicast_hops << std::endl;
+        << " unicast hops = " << x.second.unicast_hops
+        << " all-to-all hops = " << x.second.all_to_all_hops << std::endl;
   }
   return out;
 }

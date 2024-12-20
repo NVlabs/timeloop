@@ -34,6 +34,12 @@
 
 extern bool gUseIslAnalysis;
 
+#define CEIL_DIV(numerator, denominator) (1 + (numerator - 1) / denominator)
+
+int gRandomShardingLevel =
+  getenv("TIMELOOP_RANDOM_SHARDING_LEVEL") == NULL ? -1 :
+  atoi(getenv("TIMELOOP_RANDOM_SHARDING_LEVEL"));
+
 namespace tiling
 {
 
@@ -360,6 +366,82 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
                      const std::bitset<MaxTilingLevels>& distribution_supported)
 {
   int num_tiling_levels = tile_nest.size();
+  
+  if (gRandomShardingLevel >= 0)
+  {
+    std::size_t inner = static_cast<std::size_t>(gRandomShardingLevel);
+
+    if (inner >= tile_nest.size())
+    {
+      std::cerr << "ERROR: illegal random sharding level." << std::endl;
+      std::exit(1);
+    }
+    
+    if (inner == tile_nest.size()-1)
+    {
+      std::cerr << "ERROR: cannot perform random sharding at outermost storage level." << std::endl;
+      std::exit(1);
+    }
+
+    if (distribution_supported[inner])
+    {
+      std::cerr << "ERROR: cannot enable random sharding and distributed multicast at the same level." << std::endl;
+      std::exit(1);
+    }
+
+    if (tile_nest[inner].size == 0)
+    {
+      // Level was masked; ignore and move on.
+      return;
+    }
+
+    // For each partition i:
+    //   Footprint = |G|/P + (P-1)/P * |Xi|
+    std::size_t G = tile_nest[inner].spatial_union_size;
+    std::size_t Xi = tile_nest[inner].size;
+    std::size_t P = tile_nest[inner].replication_factor;
+    std::size_t T = CEIL_DIV((P-1)*Xi, P);
+    std::size_t F = CEIL_DIV(G,P) + T;
+
+    // Inner tile's access counts don't change because after the interchange,
+    // the inner access pattern is exactly as if the sharding did not occur.    
+    tile_nest[inner].size = F;
+    tile_nest[inner].shape = F;
+
+    // Find next outer non-zero level.
+    int outer;
+    for (outer = inner + 1; outer < num_tiling_levels && tile_nest[outer].size == 0; outer++)
+    {
+      // Body is empty.
+    }
+
+    if (tile_nest[outer].access_stats.stats.size() != 1 || tile_nest[inner].access_stats.stats.size() != 1)
+    {
+      std::cerr << "ERROR: complex multicast signature detected, and we cannot yet compute a random sharded pattern for this." << std::endl;
+      std::exit(1);
+    }
+    
+    auto outer_access_stat_ref = tile_nest[outer].access_stats.stats.begin();
+    uint64_t outer_multicast_factor = outer_access_stat_ref->first.first;
+    AccessStats outer_stats = outer_access_stat_ref->second;
+
+    tile_nest[outer].distributed_access_stats.stats[std::make_pair<>(1, tile_nest[inner].replication_factor)] =
+      { .accesses = static_cast<double>(T),
+        .hops = outer_stats.all_to_all_hops };
+
+    if (outer_multicast_factor > 1)
+    {
+      tile_nest[outer].access_stats.stats[std::make_pair<>(1, tile_nest[inner].replication_factor)] =
+        { .accesses = outer_stats.accesses,
+          .hops = outer_stats.unicast_hops };
+
+      // Erase the original (multicast > 1) entry in the histogram.
+      tile_nest[outer].access_stats.stats.erase(outer_access_stat_ref);      
+    }
+    
+    return;
+  }
+  
   for (int inner = 0; inner < num_tiling_levels-1; inner++)
   {
     // Skip if this tile level has 0 size (i.e., was masked), or if it
@@ -391,10 +473,7 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
     auto inner_access_stat_ref = tile_nest[inner].access_stats.stats.begin();
 
     uint64_t outer_multicast_factor = outer_access_stat_ref->first.first;
-    uint64_t inner_multicast_factor = inner_access_stat_ref->first.first;
-
     uint64_t outer_scatter_factor = outer_access_stat_ref->first.second;
-    uint64_t inner_scatter_factor = inner_access_stat_ref->first.second;
 
     AccessStats outer_stats = outer_access_stat_ref->second;
     AccessStats inner_stats = inner_access_stat_ref->second;
@@ -461,33 +540,6 @@ void DistributeTiles(std::vector<DataMovementInfo>& tile_nest,
       // Because of this, the inner network's behavior does not change. Every word
       // that was previously read from the inner buffer is now delivered by the
       // outer network in distributed mode.
-
-      (void) inner_multicast_factor;
-      (void) inner_scatter_factor;
-
-      // The following code (that was written for PROBABILISTIC MULTICAST) is no
-      // longer needed.
-
-      /*
-      // The inner tile's network accesses will now happen at a distributed-multicast
-      // factor of outer_multicast_factor. These alterations will magically trigger
-      // all the right computations at the model evaluation stage.
-      uint64_t distributed_multicast_factor = outer_multicast_factor * inner_multicast_factor;
-      tile_nest[inner].distributed_multicast = true;
-      tile_nest[inner].distributed_fanout = distributed_multicast_factor * tile_nest[inner].fanout;
-
-      ASSERT(distributed_multicast_factor > inner_multicast_factor);
-
-      tile_nest[inner].access_stats.stats[std::make_pair<>(distributed_multicast_factor, inner_scatter_factor)] =
-        { .accesses = (inner_stats.accesses - 1) / outer_multicast_factor,
-          .hops = inner_stats.hops };
-
-      tile_nest[inner].access_stats.stats.erase(inner_access_stat_ref);
-      */
-      
-      // We should be doing this process hierarchically along the entire tile stack,
-      // but for the moment just support doing this once.
-      break;
     }
   }
 }
@@ -963,6 +1015,7 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
     {
       // Form a new physical tiling level.
       DataMovementInfo collapsed_tile;
+      std::size_t spatial_union_size = 0;
 
       // Find the last loop that belongs to the current tile.
       int boundary_loop_id = processed_loop_count;
@@ -979,6 +1032,12 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
         collapsed_tile.subnest.insert(collapsed_tile.subnest.end(),
                                       tiles[pv][loop_id].subnest.begin(),
                                       tiles[pv][loop_id].subnest.end());
+
+        if (tiles[pv][loop_id].is_master_spatial)
+        {
+          assert(spatial_union_size == 0);
+          spatial_union_size = tiles[pv][loop_id].size;
+        }
       }
 
       auto outermost_loop = boundary_loop_id;
@@ -1018,6 +1077,8 @@ CompoundDataMovementNest CollapseDataMovementNest(analysis::CompoundDataMovement
           tiles[pv][innermost_loop].size :
           inner_tile.size;
 
+        inner_tile.spatial_union_size = spatial_union_size;
+        
         // if (pv == 0)
         // {
         //   std::cout << "cur_tiling_level = " << cur_tiling_level << std::endl;

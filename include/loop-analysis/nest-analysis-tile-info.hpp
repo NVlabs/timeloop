@@ -47,6 +47,7 @@ struct AccessStats
    */
   double hops = 0.0;
   double unicast_hops = 0.0;
+  double all_to_all_hops = 0.0;
 
   // Serialization.
   friend class boost::serialization::access;
@@ -58,6 +59,7 @@ struct AccessStats
       ar& BOOST_SERIALIZATION_NVP(accesses);
       ar& BOOST_SERIALIZATION_NVP(hops);
       ar& BOOST_SERIALIZATION_NVP(unicast_hops);
+      ar& BOOST_SERIALIZATION_NVP(all_to_all_hops);
     }
   }
 };

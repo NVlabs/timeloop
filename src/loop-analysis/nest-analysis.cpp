@@ -839,6 +839,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       // Set cumulative hops for temporal levels.
       access_stats.hops = 0.0;
       access_stats.unicast_hops = 0.0;
+      access_stats.all_to_all_hops = 0.0;
     }
   }
   else // recurse
@@ -1049,6 +1050,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
         // Set cumulative hops for temporal levels.
         access_stats.hops = 0.0;
         access_stats.unicast_hops = 0.0;
+        access_stats.all_to_all_hops = 0.0;
 
         // Update delta histogram. Hypothesis is we only need to do this for temporal levels.
         cur_state.delta_histograms[pv][final_delta_sizes[pv]] += num_epochs_;
@@ -1567,6 +1569,7 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     std::uint64_t scatter_factor = 0;
     double hops = 0.0;
     double unicast_hops = 0.0;
+    double all_to_all_hops = 0.0;
   };
   problem::PerDataSpace<std::unordered_map<std::uint64_t, TempAccessStats>> temp_stats(workload_->GetShape()->NumDataSpaces);
 
@@ -1709,6 +1712,9 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     }
   }
 
+  // Find all-to-all unicast hops (independent of mcast/scatter).
+  auto all_to_all_unicast_hops = [] (std::size_t N) { return N * (N+1) * (N+2) / 3; };
+
   // Populate the actual stats.
   for (unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
   {
@@ -1717,10 +1723,15 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
       auto multicast = x.first;
       auto scatter = x.second.scatter_factor;
 
+      auto all_to_all_hops =
+        v_size * v_size * all_to_all_unicast_hops(h_size-1) +
+        h_size * h_size * all_to_all_unicast_hops(v_size-1);
+      
       access_stats[pv](multicast, scatter) =
         { x.second.accesses,
           (x.second.hops * x.second.accesses) / scatter, // Note! Weighted sum.
-          (x.second.unicast_hops * x.second.accesses) / scatter } ;// Note! Weighted sum.
+          (x.second.unicast_hops * x.second.accesses) / scatter, // Note! Weighted sum.
+          all_to_all_hops * x.second.accesses };
     }
   }
 }
