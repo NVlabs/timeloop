@@ -70,6 +70,8 @@ class Point
   Point operator + (Point& other);
 
   void Scale(unsigned factor);
+  bool IsNull();
+  bool IsZero();
 
   std::ostream& Print(std::ostream& out = std::cout) const;
   friend std::ostream& operator << (std::ostream& out, const Point& p);
