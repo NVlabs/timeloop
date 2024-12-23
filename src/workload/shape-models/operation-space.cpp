@@ -416,6 +416,19 @@ void OperationSpace::SaveAndSubtractIfSameStride(OperationSpace& prev, problem::
       translation = prev.data_spaces_.at(i).GetTranslation(data_spaces_.at(i));
     }
 
+    // Translation cases:
+    // prev | cur  | outcome
+    // ---- | ---- | -------
+    // NULL | NULL | Subtract. Do not update prev.
+    // NULL |    0 | Subtract. Do not update prev. [Stationary]
+    // NULL |   >0 | Subtract. Update prev.
+    //    0 | NULL | Impossible.
+    //    0 |    0 | Impossible.
+    //    0 |   >0 | Impossible.
+    //   >0 | NULL | Impossible.
+    //   >0 |    0 | Subtract. Do not update prev. [Stationary]
+    //   >0 |   >0 | Equal ? Subtract : Blow Up. 
+
     assert(!translation.IsNull() || prev_translation.at(i).IsNull());
     assert(prev_translation.at(i).IsNull() || !prev_translation.at(i).IsZero());
 
