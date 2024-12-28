@@ -404,6 +404,7 @@ SimpleMulticastModel::Apply(
 DistributedMulticastModel::DistributedMulticastModel(bool count_hops)
   : count_hops_(count_hops)
 {
+  (void) count_hops_;
 }
 
 
