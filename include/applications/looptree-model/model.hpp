@@ -31,12 +31,12 @@ class LooptreeModel
     std::map<
       std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
       std::tuple<std::vector<analysis::SpaceTime>, std::string>
-    > fills_by_parent;
+    > reads_to_parent;
 
     std::map<
       std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
       std::tuple<std::vector<analysis::SpaceTime>, std::string>
-    > fills_by_peer;
+    > reads_to_peer;
 
     std::map<
       std::tuple<mapping::BufferId, problem::DataSpaceId, mapping::NodeID>,
