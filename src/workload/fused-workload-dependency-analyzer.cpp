@@ -182,6 +182,87 @@ FusedWorkloadDependencyAnalyzer::EinsumDimsRelevantToTensor(
 
 
 const std::set<DimensionId>&
+FusedWorkloadDependencyAnalyzer::PairwiseEquivalentDimensions(DimensionId rank) const
+{
+  auto it = pairwise_equivalent_dimensions_.find(rank);
+  if (it != pairwise_equivalent_dimensions_.end())
+  {
+    return it->second;
+  }
+
+  for (auto [src_einsum, _] : workload_.EinsumIdToName())
+  {
+    const auto& output_tensors = workload_.TensorsWrittenByEinsum(src_einsum);
+    for (auto output_tensor : output_tensors)
+    {
+      for (const auto& dst_einsum : workload_.ReaderEinsums(output_tensor))
+      {
+        const auto& src_to_output_proj = workload_.Accesses(src_einsum,
+                                                            output_tensor);
+        const auto& input_to_dst_proj = workload_.Accesses(dst_einsum,
+                                                           output_tensor);
+
+        const auto& src_to_dst_proj = src_to_output_proj.apply_range(
+          input_to_dst_proj.reverse()
+        );
+
+        auto p_proj = src_to_dst_proj.copy();
+        auto n_dim_in = isl_map_dim(isl_map_copy(p_proj), isl_dim_in);
+        auto n_dim_out = isl_map_dim(isl_map_copy(p_proj), isl_dim_out);
+
+        const auto& src_rank_to_idx = workload_.EinsumDimToIdx(src_einsum);
+        const auto& dst_rank_to_idx = workload_.EinsumDimToIdx(dst_einsum);
+        for (auto src_rank : workload_.EinsumOspaceDimensions(src_einsum))
+        {
+          auto src_rank_idx = src_rank_to_idx.at(src_rank);
+
+          auto tmp_proj = isl_map_project_out(isl_map_copy(p_proj),
+                                              isl_dim_in,
+                                              src_rank_idx+1,
+                                              n_dim_in-src_rank_idx-1);
+
+          tmp_proj = isl_map_project_out(tmp_proj,
+                                         isl_dim_in,
+                                         0,
+                                         src_rank_idx);
+
+          for (auto dst_rank : workload_.EinsumOspaceDimensions(dst_einsum))
+          {
+            auto dst_rank_idx = dst_rank_to_idx.at(dst_rank);
+
+            auto ttmp_proj = isl_map_project_out(isl_map_copy(tmp_proj),
+                                                 isl_dim_out,
+                                                 dst_rank_idx+1,
+                                                 n_dim_out-dst_rank_idx-1);
+            ttmp_proj = isl_map_project_out(ttmp_proj,
+                                            isl_dim_out,
+                                            0,
+                                            dst_rank_idx);
+
+            if (isl_map_is_bijective(ttmp_proj))
+            {
+              pairwise_equivalent_dimensions_[src_rank].emplace(dst_rank);
+              pairwise_equivalent_dimensions_[dst_rank].emplace(src_rank);
+            }
+            else
+            {
+              pairwise_equivalent_dimensions_[src_rank];
+            }
+          }
+
+          isl_map_free(tmp_proj);
+        }
+
+        isl_map_free(p_proj);
+      }
+    }
+  }
+
+  return pairwise_equivalent_dimensions_.at(rank);
+}
+
+
+const std::set<DimensionId>&
 FusedWorkloadDependencyAnalyzer::EquivalentDimensions(EinsumId einsum,
                                                       DimensionId einsum_dim) const
 {
