@@ -142,6 +142,19 @@ void Point::Scale(unsigned factor)
     c *= factor;
 }
 
+bool Point::IsNull()
+{
+  return (order_ == 0);
+}
+  
+bool Point::IsZero()
+{
+  for (auto c : coordinates_)
+    if (c != 0)
+      return false;
+  return true;
+}
+
 std::ostream& Point::Print(std::ostream& out) const
 {
   out << "[" << order_ << "]: ";
