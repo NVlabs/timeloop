@@ -1,12 +1,21 @@
 #include "workload/fused-workload-dependency-analyzer.hpp"
 
 
-std::map<size_t, std::set<size_t>>
-GetAllEquivalentDimensions(__isl_take isl_map* projection);
-
-
 namespace problem
 {
+
+void GetAllEquivalentRanks(
+  __isl_take isl_map* projection,
+  std::map<DimensionId, std::set<DimensionId>>& result,
+  const std::map<size_t, DimensionId> src_idx_to_rank,
+  const std::map<size_t, DimensionId> dst_idx_to_rank
+);
+
+
+std::pair<std::map<size_t, std::set<size_t>>,
+          std::map<size_t, std::set<size_t>>>
+GetAllEquivalentDimensions(__isl_take isl_map* projection);
+
 
 FusedWorkloadDependencyAnalyzer::FusedWorkloadDependencyAnalyzer(
   const FusedWorkload& workload
@@ -212,18 +221,10 @@ FusedWorkloadDependencyAnalyzer::PairwiseEquivalentDimensions(DimensionId rank) 
           dst_to_input_proj.reverse()
         ).release();
 
-        auto src_rank_idx_to_dst_rank_idx = GetAllEquivalentDimensions(p_proj);
-
-        for (auto& [src_rank_idx, dst_rank_indices]: src_rank_idx_to_dst_rank_idx)
-        {
-          auto src_rank = src_idx_to_rank.at(src_rank_idx);
-          pairwise_equivalent_dimensions_[src_rank];
-          for (const auto dst_rank_idx : dst_rank_indices)
-          {
-            auto dst_rank = dst_idx_to_rank.at(dst_rank_idx);
-            pairwise_equivalent_dimensions_[src_rank].emplace(dst_rank);
-          }
-        }
+        GetAllEquivalentRanks(p_proj,
+                              pairwise_equivalent_dimensions_,
+                              src_idx_to_rank,
+                              dst_idx_to_rank);
       }
     }
 
@@ -234,6 +235,10 @@ FusedWorkloadDependencyAnalyzer::PairwiseEquivalentDimensions(DimensionId rank) 
                                                           input_tensor);
       for (const auto& dst_einsum : workload_.ReaderEinsums(input_tensor))
       {
+        if (dst_einsum == src_einsum)
+        {
+          continue;
+        }
         const auto& dst_idx_to_rank = workload_.EinsumIdxToDim(dst_einsum);
         const auto& dst_to_input_proj = workload_.Accesses(dst_einsum,
                                                            input_tensor);
@@ -241,18 +246,10 @@ FusedWorkloadDependencyAnalyzer::PairwiseEquivalentDimensions(DimensionId rank) 
           dst_to_input_proj.reverse()
         ).release();
 
-        auto src_rank_idx_to_dst_rank_idx = GetAllEquivalentDimensions(p_proj);
-
-        for (auto& [src_rank_idx, dst_rank_indices]: src_rank_idx_to_dst_rank_idx)
-        {
-          auto src_rank = src_idx_to_rank.at(src_rank_idx);
-          pairwise_equivalent_dimensions_[src_rank];
-          for (const auto dst_rank_idx : dst_rank_indices)
-          {
-            auto dst_rank = dst_idx_to_rank.at(dst_rank_idx);
-            pairwise_equivalent_dimensions_[src_rank].emplace(dst_rank);
-          }
-        }
+        GetAllEquivalentRanks(p_proj,
+                              pairwise_equivalent_dimensions_,
+                              src_idx_to_rank,
+                              dst_idx_to_rank);
       }
     }
   }
@@ -479,13 +476,46 @@ for (const auto& chain : chains)
   return projections;
 }
 
+
+void GetAllEquivalentRanks(
+  __isl_take isl_map* projection,
+  std::map<DimensionId, std::set<DimensionId>>& pairwise_equivalent_ranks,
+  const std::map<size_t, DimensionId> src_idx_to_rank,
+  const std::map<size_t, DimensionId> dst_idx_to_rank
+)
+{
+  auto [src_idx_to_dst_idx,
+        dst_idx_to_src_idx] = GetAllEquivalentDimensions(projection);
+
+  for (const auto& [src_rank_idx, dst_rank_indices]: src_idx_to_dst_idx)
+  {
+    auto src_rank = src_idx_to_rank.at(src_rank_idx);
+    pairwise_equivalent_ranks[src_rank];
+    for (const auto dst_rank_idx : dst_rank_indices)
+    {
+      auto dst_rank = dst_idx_to_rank.at(dst_rank_idx);
+      pairwise_equivalent_ranks[src_rank].emplace(dst_rank);
+    }
+  }
+  for (const auto& [dst_rank_idx, src_rank_indices]: dst_idx_to_src_idx)
+  {
+    auto dst_rank = dst_idx_to_rank.at(dst_rank_idx);
+    pairwise_equivalent_ranks[dst_rank];
+    for (const auto src_rank_idx : src_rank_indices)
+    {
+      auto src_rank = src_idx_to_rank.at(src_rank_idx);
+      pairwise_equivalent_ranks[dst_rank].emplace(src_rank);
+    }
+  }
 }
 
 
-std::map<size_t, std::set<size_t>>
+std::pair<std::map<size_t, std::set<size_t>>,
+          std::map<size_t, std::set<size_t>>>
 GetAllEquivalentDimensions(__isl_take isl_map* projection)
 {
-  auto rank_idx_to_equivalent_rank_idx = std::map<size_t, std::set<size_t>>();
+  auto src_idx_to_dst_idx = std::map<size_t, std::set<size_t>>();
+  auto dst_idx_to_src_idx = std::map<size_t, std::set<size_t>>();
   auto n_dim_in = isl_map_dim(isl_map_copy(projection), isl_dim_in);
   auto n_dim_out = isl_map_dim(isl_map_copy(projection), isl_dim_out);
 
@@ -512,15 +542,12 @@ GetAllEquivalentDimensions(__isl_take isl_map* projection)
                                       0,
                                       dst_rank_idx);
 
+      src_idx_to_dst_idx[src_rank_idx];
+      dst_idx_to_src_idx[dst_rank_idx];
       if (isl_map_is_bijective(ttmp_proj))
       {
-        rank_idx_to_equivalent_rank_idx[src_rank_idx].emplace(dst_rank_idx);
-        rank_idx_to_equivalent_rank_idx[dst_rank_idx].emplace(src_rank_idx);
-      }
-      else
-      {
-        rank_idx_to_equivalent_rank_idx[src_rank_idx];
-        rank_idx_to_equivalent_rank_idx[dst_rank_idx];
+        src_idx_to_dst_idx.at(src_rank_idx).emplace(dst_rank_idx);
+        dst_idx_to_src_idx.at(dst_rank_idx).emplace(src_rank_idx);
       }
     }
 
@@ -529,5 +556,8 @@ GetAllEquivalentDimensions(__isl_take isl_map* projection)
 
   isl_map_free(projection);
 
-  return rank_idx_to_equivalent_rank_idx;
+  return std::make_pair(src_idx_to_dst_idx, dst_idx_to_src_idx);
 }
+
+}
+
