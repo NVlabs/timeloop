@@ -311,10 +311,7 @@ isl_pw_qpolynomial* set_card(isl::set set)
 
 double val_to_double(isl_val* val)
 {
-  auto num = isl_val_get_num_si(val);
-  auto den = isl_val_get_den_si(val);
-  isl_val_free(val);
-  return (double)num / (double)den;
+  return isl_val_get_d(val);
 }
 
 isl_val* get_val_from_singular(isl_pw_qpolynomial* pw_qp)
