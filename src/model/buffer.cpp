@@ -876,14 +876,19 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile& tile,
 
   auto dim_id_to_name = problem::GetShape()->FlattenedDimensionIDToName;
   {
+#ifdef DEBUG
     std::cout << " compute_cycles = " << compute_cycles << std::endl;
+#endif
+
     // Print out tile information
     for (auto tile : tile.data_movement_info)
       {
         // Get Data space
+#ifdef DEBUG
         std::cout << "tile.GetDataSpaceName()=" << tile.GetDataSpaceName()
                   << std::endl;
-        unsigned data_space_id = 0;
+#endif
+                  unsigned data_space_id = 0;
         for (unsigned j = 0; j < problem::GetShape()->NumDataSpaces; j++)
           {
             if (problem::GetShape()->DataSpaceIDToName.at(j)
@@ -904,8 +909,10 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile& tile,
                 dim_id_to_shape_mapping[j.dimension] = j.residual_end;
               }
           }
+#ifdef DEBUG
         std::cout << std::endl;
         std::cout << "print dim_id_to_shape_mapping" << std::endl;
+#endif
         for (auto j : dim_id_to_shape_mapping)
           {
             std::cout << j.first << " " << j.second << std::endl;
@@ -1010,21 +1017,6 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile& tile,
                       line_set.insert(index / factor);
                     }
 
-                  // no longer used
-                  int spatial_data_requirement = 1;
-                  double spatial_data_requirement_dbl = 0;
-                  for (unsigned index = 0; index < dimsID.size(); index++)
-                    {
-                      spatial_data_requirement_dbl
-                          += (std::max(dim_id_to_shape_mapping[dimsID[index]],
-                                       1)
-                              - 1)
-                             * coefficentValue[index];
-                      std::cout << dimsID[index] << " ";
-                    }
-                  spatial_data_requirement
-                      += std::ceil(spatial_data_requirement_dbl);
-
                   // Compute Bank Conflict
                   double average_rows_accessed = line_set.size();
                   cur_data_space_bank_conflict *= average_rows_accessed;
@@ -1034,6 +1026,20 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile& tile,
                       *= std::min(1.0, double(layout.num_read_ports)
                                            / cur_data_space_bank_conflict);
 #ifdef DEBUG
+                  int spatial_data_requirement = 1;
+                  double spatial_data_requirement_dbl = 0;
+                  for (unsigned index = 0; index < dimsID.size(); index++)
+                    {
+                      spatial_data_requirement_dbl
+                          += (std::max(dim_id_to_shape_mapping[dimsID[index]],
+                                      1)
+                              - 1)
+                            * coefficentValue[index];
+                      std::cout << dimsID[index] << " ";
+                    }
+                  spatial_data_requirement
+                      += std::ceil(spatial_data_requirement_dbl);
+
                   std::cout
                       << " data requirements (mapping): "
                       << spatial_data_requirement
@@ -1068,7 +1074,9 @@ BufferLevel::Evaluate(const tiling::CompoundTile& tile,
 {
   workload_ = workload;
   // Layout Modeling
+#ifdef DEBUG
   std::cout << "start layout evaluation" << std::endl;
+#endif
 
   ComputeBankConflictSlowdown(tile, layout, compute_cycles);
 
