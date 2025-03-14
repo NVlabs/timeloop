@@ -424,7 +424,7 @@ class BufferLevel : public Level
   void ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info);
   void ComputeReductionEnergy();
   void ComputeAddrGenEnergy();
-  void ComputeBankConflictSlowdown(const tiling::CompoundTile& tile, layout::Layout layout, const std::uint64_t compute_cycles); // bank conflict analysis
+  void ComputeBankConflictSlowdown(const tiling::CompoundTile& tile, layout::Layout layout); // bank conflict analysis
 
   double StorageEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
   double TemporalReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
