@@ -932,22 +932,22 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile& tile,
                   int spatial_data_requirement
                       = std::max(dim_id_to_shape_mapping[dimsID[0]], 1);
 
-                  // Layout Information
-                  int avail_layout_spatial = factor;
+                  // Layout Information is in factor
 
                   // Compute Bank Conflict
                   double average_rows_accessed
                       = (1.0
                          + ((double)spatial_data_requirement
                             - std::gcd(spatial_data_requirement,
-                                       avail_layout_spatial))
-                               / avail_layout_spatial);
+                                       factor))
+                               / factor);
                   cur_data_space_bank_conflict *= average_rows_accessed;
                   overall_slowdown_
                       *= std::min(1.0, double(layout.num_read_ports)
                                            / cur_data_space_bank_conflict);
                   // Introduced new layout modeling
 #ifdef DEBUG
+                  int avail_layout_spatial = factor;
                   std::cout
                       << "rank:" << r << "  dimension: " << dimsID[0]
                       << " data requirements (mapping): "
