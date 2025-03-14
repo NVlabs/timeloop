@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -42,6 +42,8 @@ BOOST_CLASS_EXPORT(model::BufferLevel)
 #include "pat/pat.hpp"
 #include "model/topology.hpp"
 
+// #define DEBUG
+
 namespace model
 {
 
@@ -69,7 +71,7 @@ void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double
   {
     return;
   }
-  
+
   vector_access_energy = max_energy/cluster_size.Get();
   ERT_entries = ert_entries;
 
@@ -109,7 +111,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   auto& buffer = level;
 
   Specs specs;
- 
+
   // Name. This has to go first. Since the rest can be attributes
   std::string name;
   if (buffer.lookupValue("name", name))
@@ -117,7 +119,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
     specs.name = config::parseName(name);
   }
 
-  // Sparse Architecture's Module 
+  // Sparse Architecture's Module
   specs.is_sparse_module = is_sparse_module;
 
   std::string className = "";
@@ -127,7 +129,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
     buffer = buffer.lookup("attributes");
   }
 
-  // Fill and drain latency of the MACs 
+  // Fill and drain latency of the MACs
   unsigned long long network_fill_latency;
   if (buffer.lookupValue("network_fill_latency", network_fill_latency))
   {
@@ -172,7 +174,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
     specs.block_size = block_size;
     assert(block_size != 0);
     block_size_specified = true;
-  } 
+  }
 
   // we currently consider metadata and data storages always form a pair
   // metadata data width is important to get a realistic size for the metadata
@@ -191,7 +193,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   // Metadata data width
   std::uint32_t metadata_word_bits = 0;
   specs.default_md_word_bits = metadata_word_bits;
-  if (buffer.lookupValue("metadata_datawidth", metadata_word_bits) 
+  if (buffer.lookupValue("metadata_datawidth", metadata_word_bits)
       || buffer.lookupValue("metadata_word_bits", metadata_word_bits))
   {
      specs.default_md_word_bits = metadata_word_bits;
@@ -270,7 +272,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
     specs.cluster_size = cluster_size;
     cluster_size_specified = true;
   }
- 
+
   // Data storage width
   if (buffer.lookupValue("width", width)||
       buffer.lookupValue("memory_width", width) ||
@@ -286,7 +288,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
 
     if (block_size_specified && cluster_size_specified)
     {
-       if (block_size * word_bits * cluster_size != width) 
+       if (block_size * word_bits * cluster_size != width)
        {
          std::cout << "ERROR: " << specs.level_name  << "  block_size * word_bits * cluster_size != storage width" << std::endl;
          exit(1);
@@ -294,9 +296,9 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
     }
     else if (cluster_size_specified)
     {
-      specs.block_size = width / cluster_size / word_bits; 
+      specs.block_size = width / cluster_size / word_bits;
     }
-    else if (block_size_specified) 
+    else if (block_size_specified)
     {
       specs.cluster_size = width / (word_bits * block_size);
     }
@@ -304,7 +306,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
     {
       specs.block_size = width / word_bits;
       specs.cluster_size = 1;
-      std::cout << "Warning: neither block size nor cluster size specified, set according to specified storage width: block size: " 
+      std::cout << "Warning: neither block size nor cluster size specified, set according to specified storage width: block size: "
         << specs.block_size << "  cluster_size: " << specs.cluster_size << std::endl;
     }
   }
@@ -467,7 +469,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   {
     specs.multiple_buffering = 1.0;
   }
-  
+
   if (specs.size.IsSpecified())
   {
     specs.effective_size = static_cast<uint64_t>(std::floor(
@@ -475,7 +477,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
 
     specs.effective_md_size = static_cast<uint64_t>(std::floor(
       specs.md_size.Get() / specs.multiple_buffering.Get()));
-    
+
     specs.effective_md_size_bits = static_cast<uint64_t>(std::floor(
       specs.md_size_bits.Get() / specs.multiple_buffering.Get()));
   }
@@ -583,7 +585,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
     std::uint64_t height =
       (tmp_entries % tmp_block_size == 0) ?
       (tmp_entries / tmp_block_size)      :
-      (tmp_entries / tmp_block_size) + 1;  
+      (tmp_entries / tmp_block_size) + 1;
     tmp_access_energy = pat::SRAMEnergy(height, width, specs.num_banks.Get(), specs.num_ports.Get()) / tmp_cluster_size;
     tmp_storage_area = pat::SRAMArea(height, width, specs.num_banks.Get(), specs.num_ports.Get()) / tmp_cluster_size;
     // std::cout << "Entries = " << tmp_entries
@@ -603,7 +605,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   if (user_specified_access_energy)
   {
     specs.access_energy_source = "user";
-  } else 
+  } else
   {
     specs.access_energy_source = "PAT";
   }
@@ -615,7 +617,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   if (user_specified_addr_gen_energy)
   {
     specs.addr_gen_energy_source = "user";
-  } else 
+  } else
   {
     specs.addr_gen_energy_source = "default";
   }
@@ -664,7 +666,7 @@ BufferLevel::Specs BufferLevel::ParseSpecs(config::CompoundConfigNode level, std
   specs.level_name = specs.name.Get();
 
   ValidateTopology(specs);
-    
+
   return specs;
 }
 
@@ -732,7 +734,7 @@ void BufferLevel::ValidateTopology(BufferLevel::Specs& specs)
     std::cerr << "ERROR: " << specs.name.Get()
               << ": instances and/or meshX * meshY must be specified."
               << std::endl;
-    exit(1);        
+    exit(1);
   }
 }
 
@@ -803,7 +805,7 @@ EvalStatus BufferLevel::PreEvaluationCheck(
 
   bool success = true;
   std::ostringstream fail_reason;
-  
+
   if (specs_.size.IsSpecified())
   {
     // Ugh. If we can do a distributed multicast from this level,
@@ -861,7 +863,226 @@ EvalStatus BufferLevel::PreEvaluationCheck(
   eval_status.success = success;
   eval_status.fail_reason = fail_reason.str();
 
-  return eval_status;  
+  return eval_status;
+}
+
+
+void
+BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile& tile,
+                                         layout::Layout layout,
+                                         const std::uint64_t compute_cycles)
+{
+  overall_slowdown_ = 1.0; // Initialization
+
+  auto dim_id_to_name = problem::GetShape()->FlattenedDimensionIDToName;
+  {
+    std::cout << " compute_cycles = " << compute_cycles << std::endl;
+    // Print out tile information
+    for (auto tile : tile.data_movement_info)
+      {
+        // Get Data space
+        std::cout << "tile.GetDataSpaceName()=" << tile.GetDataSpaceName()
+                  << std::endl;
+        unsigned data_space_id = 0;
+        for (unsigned j = 0; j < problem::GetShape()->NumDataSpaces; j++)
+          {
+            if (problem::GetShape()->DataSpaceIDToName.at(j)
+                == tile.GetDataSpaceName())
+              {
+                data_space_id = j;
+              }
+          }
+
+        // Pring out mapping information for debugging
+        std::unordered_map<problem::Shape::FlattenedDimensionID, int>
+            dim_id_to_shape_mapping;
+        for (auto j : tile.subnest)
+          {
+            std::cout << j.PrintCompact(dim_id_to_name) << " ";
+            if (loop::IsSpatial(j.spacetime_dimension))
+              {
+                dim_id_to_shape_mapping[j.dimension] = j.residual_end;
+              }
+          }
+        std::cout << std::endl;
+        std::cout << "print dim_id_to_shape_mapping" << std::endl;
+        for (auto j : dim_id_to_shape_mapping)
+          {
+            std::cout << j.first << " " << j.second << std::endl;
+          }
+
+        std::vector<std::string> cur_ranks
+            = problem::GetShape()->DataSpaceNameToRankName.at(
+                tile.GetDataSpaceName());
+
+        // print out layout information and API for debugging
+        double cur_data_space_bank_conflict = 1;
+        PrintOneLvlLayout(layout);
+        {
+          auto nest = layout.intraline[data_space_id];
+          for (const auto& r : nest.ranks)
+            { // Analyze slowdown per rank
+              int factor = (nest.factors.find(r) != nest.factors.end()
+                                ? nest.factors.at(r)
+                                : 1);
+              auto dimsID = layout.rankToFactorizedDimensionID.at(r);
+              if (dimsID.size() == 1)
+                {
+                  // Data Access Required by Mapping
+                  int spatial_data_requirement
+                      = std::max(dim_id_to_shape_mapping[dimsID[0]], 1);
+
+                  // Layout Information
+                  int avail_layout_spatial = factor;
+
+                  // Compute Bank Conflict
+                  double average_rows_accessed
+                      = (1.0
+                         + ((double)spatial_data_requirement
+                            - std::gcd(spatial_data_requirement,
+                                       avail_layout_spatial))
+                               / avail_layout_spatial);
+                  cur_data_space_bank_conflict *= average_rows_accessed;
+                  overall_slowdown_
+                      *= std::min(1.0, double(layout.num_read_ports)
+                                           / cur_data_space_bank_conflict);
+                  // Introduced new layout modeling
+#ifdef DEBUG
+                  std::cout
+                      << "rank:" << r << "  dimension: " << dimsID[0]
+                      << " data requirements (mapping): "
+                      << spatial_data_requirement
+                      << "  data provide (layout): " << avail_layout_spatial
+                      << " average_rows_accessed: " << average_rows_accessed
+                      << " slowdown: "
+                      << std::min(1.0, double(layout.num_read_ports)
+                                           / cur_data_space_bank_conflict)
+                      << std::endl;
+#endif
+                }
+              else
+                { // This rank has coefficients -- additive ranks!
+                  // Data Access Required by Mapping
+                  std::vector<std::uint32_t> coefficentValue
+                      = layout.rankToCoefficentValue.at(r);
+#ifdef DEBUG
+                  std::cout << "rank:" << r << "  dimension: ";
+#endif
+                  // This equation considers data are accessed in contiguous
+                  // manner. 1+[(p_par−1)×stride+(r_par−1)×dilation]/e p_par:
+                  // parallelism in P dimension r_par: parallelism in R
+                  // dimension e: number of elements of given dimension in
+                  // layout. Note: the rows accessed may not be contiguous,
+                  // which is not considered. Example of non-contiguous access:
+                  // p_par=2
+                  // r_par=2
+                  // stride=5
+                  // dilation=4
+                  // e=2
+                  // In cycle 0, input data of index {0,4,5,9} are accessed.
+                  // These four elements sit in the row 0, row 2 and row 5 of 2
+                  // dimensional buffer. In total 3 rows are fetched. IN cycle
+                  // 1, input data of index {10,14,15,19} are accessed. These
+                  // four elements sit in the row 6, row 8 and row 11 of 2
+                  // dimensional buffer. In total, there are still 3 rows to be
+                  // fetched.
+                  std::set<int> index_set = { 0 };
+                  for (unsigned i = 0; i < dimsID.size(); i++)
+                    {
+                      int parallelism
+                          = std::max(dim_id_to_shape_mapping[dimsID[i]], 1);
+                      // std::cout << "p: " << parallelism << " c: " <<
+                      // coefficentValue[i] << " f: " << factor << ' ';
+                      std::set<int> new_index_set;
+                      for (auto index_comp : index_set)
+                        {
+                          for (int c = 0; c < parallelism; c++)
+                            {
+                              new_index_set.insert(index_comp
+                                                   + c * coefficentValue[i]);
+                            }
+                        }
+                      index_set = new_index_set;
+                    }
+                  std::set<int> line_set;
+                  for (auto index : index_set)
+                    {
+                      line_set.insert(index / factor);
+                    }
+
+                  // no longer used
+                  int spatial_data_requirement = 1;
+                  double spatial_data_requirement_dbl = 0;
+                  for (unsigned index = 0; index < dimsID.size(); index++)
+                    {
+                      spatial_data_requirement_dbl
+                          += (std::max(dim_id_to_shape_mapping[dimsID[index]],
+                                       1)
+                              - 1)
+                             * coefficentValue[index];
+                      std::cout << dimsID[index] << " ";
+                    }
+                  spatial_data_requirement
+                      += std::ceil(spatial_data_requirement_dbl);
+
+                  // Compute Bank Conflict
+                  double average_rows_accessed = line_set.size();
+                  cur_data_space_bank_conflict *= average_rows_accessed;
+
+                  // Introduced new layout modeling
+                  overall_slowdown_
+                      *= std::min(1.0, double(layout.num_read_ports)
+                                           / cur_data_space_bank_conflict);
+#ifdef DEBUG
+                  std::cout
+                      << " data requirements (mapping): "
+                      << spatial_data_requirement
+                      << "  data provide (layout): " << factor
+                      << " average_rows_accessed: " << average_rows_accessed
+                      << " slowdown: "
+                      << std::min(1.0, double(layout.num_read_ports)
+                                           / cur_data_space_bank_conflict)
+                      << std::endl;
+#endif
+              }
+            }
+        }
+      }
+  }
+#ifdef DEBUG
+  std::cout << " overall_slowdown_: " << overall_slowdown_ << std::endl;
+#endif
+}
+
+//
+// Heavyweight Evaluate() function.
+// FIXME: Derive FanoutX, FanoutY, MeshX, MeshY from mapping if unspecified.
+//
+EvalStatus
+BufferLevel::Evaluate(const tiling::CompoundTile& tile,
+                      const tiling::CompoundMask& mask, layout::Layout layout,
+                      problem::Workload* workload,
+                      const double confidence_threshold,
+                      const std::uint64_t compute_cycles,
+                      const bool break_on_failure)
+{
+  workload_ = workload;
+  // Layout Modeling
+  std::cout << "start layout evaluation" << std::endl;
+
+  ComputeBankConflictSlowdown(tile, layout, compute_cycles);
+
+  auto eval_status = ComputeScalarAccesses(
+      tile.data_movement_info, mask, confidence_threshold, break_on_failure);
+  if (!break_on_failure || eval_status.success)
+    {
+      ComputeVectorAccesses(tile.data_movement_info);
+      ComputeBufferEnergy(tile.data_movement_info);
+      ComputeReductionEnergy();
+      ComputeAddrGenEnergy();
+      ComputePerformance(compute_cycles);
+    }
+  return eval_status;
 }
 
 //
@@ -897,7 +1118,7 @@ bool BufferLevel::HardwareReductionSupported()
   {
     return specs_.reduction_supported.Get();
   }
- 
+
   return !(specs_.technology.IsSpecified() &&
            specs_.technology.Get() == Technology::DRAM);
 }
@@ -942,7 +1163,7 @@ std::uint64_t BufferLevel::ComputeMetaDataTileSizeInBits(const tiling::MetaDataT
   for (unsigned r_id = 0; r_id < metadata_occupancy.size(); r_id++)
   {
     auto per_rank_metadata_occupancy = metadata_occupancy[r_id];
-    size += per_rank_metadata_occupancy.MetaDataUnits() * per_rank_metadata_occupancy.MetaDataWordBits() + 
+    size += per_rank_metadata_occupancy.MetaDataUnits() * per_rank_metadata_occupancy.MetaDataWordBits() +
             per_rank_metadata_occupancy.PayloadUnits() * per_rank_metadata_occupancy.PayloadWordBits();
   }
   return ceil(size);
@@ -988,7 +1209,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
       expected_data_tile_sizes[pvi] = tile[pvi].expected_data_occupancy;
       // expected_metadata_tile_sizes[pvi] = ComputeMetaDataTileSize(tile[pvi].expected_metadata_occupancy);
       expected_metadata_tile_sizes_bits[pvi] = ComputeMetaDataTileSizeInBits(tile[pvi].expected_metadata_occupancy);
-    } 
+    }
     else
     {
       expected_data_tile_sizes[pvi] = tile[pvi].shape;
@@ -1052,7 +1273,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
         metadata_tile_occupancy = tile[pvi].GetMaxMetaDataTileOccupancyByConfidence(confidence_constraint);
         // metadata_tile_size = ComputeMetaDataTileSize(metadata_tile_occupancy);
         metadata_tile_size_bits = ComputeMetaDataTileSizeInBits(metadata_tile_occupancy);
-        
+
         if (tile_confidence < 1.0
             && data_tile_size < allocated_effective_buffer_size && tile[pvi].compressed
             && metadata_tile_size_bits < allocated_effective_md_buffer_size_bits)
@@ -1068,7 +1289,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
           double confidence_upper_bound = 1.0;
 
           while((data_tile_size == allocated_effective_buffer_size ||
-                //  metadata_tile_size == allocated_effective_md_buffer_size) || 
+                //  metadata_tile_size == allocated_effective_md_buffer_size) ||
                 metadata_tile_size_bits == allocated_effective_md_buffer_size_bits) || // stop when find the exact confidence value
                 confidence_upper_bound - confidence_lower_bound > 0.01) // stop when converging within one percent
           {
@@ -1077,7 +1298,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
             tmp_metadata_tile_occupancy = tile[pvi].GetMaxMetaDataTileOccupancyByConfidence(tmp_confidence);
             // tmp_metadata_tile_size = ComputeMetaDataTileSize(tmp_metadata_tile_occupancy);
             tmp_metadata_tile_size_bits = ComputeMetaDataTileSizeInBits(tmp_metadata_tile_occupancy);
-            
+
             if (tmp_data_tile_size > allocated_effective_buffer_size
             // || tmp_metadata_tile_size > allocated_effective_md_buffer_size)
             || tmp_metadata_tile_size_bits > allocated_effective_md_buffer_size_bits)
@@ -1127,8 +1348,8 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
       std::uint64_t payload_units = ceil(metadata_tile_occupancy[rid].PayloadUnits());
       stats_.metadata_tile_size[pvi].push_back({ metadata_units, payload_units });
     }
-    
-    
+
+
     stats_.metadata_tile_size_bits[pv] = metadata_tile_size_bits;
     stats_.tile_density_distribution[pv] = tile[pvi].GetDensityType();
     stats_.metadata_format[pv] = tile[pvi].GetMetaDataFormatName();
@@ -1166,7 +1387,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     stats_.partition_size[pv] = tile[pvi].partition_size;
     stats_.tile_size[pv] = tile[pvi].size;
     // stats_.utilized_instances[pv] = tile[pvi].replication_factor;
-    
+
     // std::cout << specs_.level_name << " max x expansion: " << tile[pvi].max_x_expansion
     //  << "  max y expansion: " << tile[pvi].max_y_expansion << std::endl;
     stats_.utilized_x_expansion[pv] = tile[pvi].max_x_expansion;
@@ -1215,12 +1436,12 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
       stats_.fine_grained_scalar_accesses[pvi][iter->first] = iter->second;
     }
 
-    
+
     for(auto iter = tile[pvi].fine_grained_format_accesses.begin(); iter != tile[pvi].fine_grained_format_accesses.end(); ++iter)
     {
       stats_.fine_grained_format_scalar_accesses[pvi][iter->first] = iter->second;
     }
-   
+
     // original high-level actions
     stats_.reads[pv] = tile[pvi].reads;
     stats_.updates[pv] = tile[pvi].updates;
@@ -1266,7 +1487,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     stats_.random_format_reads[pv] = stats_.fine_grained_format_scalar_accesses[pv]["random_metadata_read"];
     stats_.random_format_fills[pv] = stats_.fine_grained_format_scalar_accesses[pv]["random_metadata_fill"];
     stats_.random_format_updates[pv] = stats_.fine_grained_format_scalar_accesses[pv]["random_metadata_update"];
-  
+
     stats_.skipped_format_reads[pv] = stats_.fine_grained_format_scalar_accesses[pv]["skipped_metadata_read"];
     stats_.skipped_format_fills[pv] = stats_.fine_grained_format_scalar_accesses[pv]["skipped_metadata_fill"];
     stats_.skipped_format_updates[pv] = stats_.fine_grained_format_scalar_accesses[pv]["skipped_metadata_update"];
@@ -1387,10 +1608,10 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     fail_reason << "mapped Y expansion " << stats_.utilized_y_expansion.Max() << " exceeds available hardware instances "
                 << specs_.meshY.Get();
   }
-  
+
   // Bandwidth constraints cannot be checked/inherited at this point
   // because the calculation is a little more involved. We will do
-  // this later in the ComputePerformance() function.      
+  // this later in the ComputePerformance() function.
 
   // Compute utilized clusters.
   // FIXME: should derive this from precise spatial mapping.
@@ -1402,7 +1623,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
     //    specs_.cluster_size.Get();
     // Assume utilized instances are sprinkled uniformly across all clusters.
     auto num_clusters = specs_.instances.Get() / specs_.cluster_size.Get();
-    stats_.utilized_clusters[pv] = std::min(stats_.utilized_x_expansion[pv] 
+    stats_.utilized_clusters[pv] = std::min(stats_.utilized_x_expansion[pv]
                                             * stats_.utilized_y_expansion[pv],
                                             num_clusters);
   }
@@ -1412,7 +1633,7 @@ EvalStatus BufferLevel::ComputeScalarAccesses(const tiling::CompoundDataMovement
   EvalStatus eval_status;
   eval_status.success = success;
   eval_status.fail_reason = fail_reason.str();
-    
+
   return eval_status;
 }
 
@@ -1431,7 +1652,7 @@ void BufferLevel::ComputeLeaksPerCycle(){
     max_from_utilized = std::max(max_from_utilized, (double) stats_from.utilized_instances[pv]);
   }
   stats_.n_instances_sharing_power_gating = my_instances / from_instances;
-  
+
   if (stats_.n_instances_sharing_power_gating > 1)
   {
     stats_.leaks_per_cycle = stats_.n_instances_sharing_power_gating * max_from_utilized;
@@ -1518,7 +1739,7 @@ void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& 
            if (!metadata_action) {
             total_naive_accesses = (iter->second % block_size == 0) ? iter->second / block_size : iter->second / block_size + 1;
             stats_.fine_grained_vector_accesses[pvi][iter->first] = total_naive_accesses * ratio;
-           } 
+           }
        } else {
           // decompression counts are not related to block size
           stats_.fine_grained_vector_accesses[pvi][iter->first] = iter->second;
@@ -1531,9 +1752,9 @@ void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& 
       std::uint64_t total_naive_accesses = 0;
       std::string op_name = iter->first;
       if (specs_.metadata_storage_width.Get() != 0)
-      {  
+      {
          auto per_tile_format_accesses = iter->second;
-         
+
          for (unsigned rid = 0; rid < per_tile_format_accesses.size(); rid++)
          {
            std::uint64_t md_accesses = per_tile_format_accesses[rid][0];
@@ -1541,13 +1762,13 @@ void BufferLevel::ComputeVectorAccesses(const tiling::CompoundDataMovementInfo& 
 
            auto md_word_bits = tile[pvi].expected_metadata_occupancy[rid].MetaDataWordBits();
            auto pl_word_bits = tile[pvi].expected_metadata_occupancy[rid].PayloadWordBits();
-           
+
            accessed_bits_accumulator += md_word_bits * md_accesses + pl_word_bits * pl_accesses;
          }
         total_naive_accesses = ceil((double)accessed_bits_accumulator/specs_.metadata_storage_width.Get());
-      }   
+      }
       //std::cout << "op name: " << op_name << ": " << total_naive_accesses << std::endl;
-      stats_.fine_grained_fromat_accesses_bits[pvi][op_name] = accessed_bits_accumulator; 
+      stats_.fine_grained_fromat_accesses_bits[pvi][op_name] = accessed_bits_accumulator;
       stats_.fine_grained_vector_accesses[pvi][op_name] = total_naive_accesses;
     }
   }
@@ -1571,7 +1792,7 @@ void BufferLevel::ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& da
     // compute in terms of fine-grained action types
     std::string op_name;
     double cluster_access_energy = 0;
-    for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++) 
+    for (unsigned op_id = 0; op_id < tiling::storageOperationTypes.size(); op_id++)
     {
       op_name = tiling::storageOperationTypes[op_id];
       // directly fetch the populated vector access numbers instead of using explicit action names
@@ -1659,7 +1880,7 @@ void BufferLevel::ComputeReductionEnergy()
     auto pv = problem::Shape::DataSpaceID(pvi);
     if (workload_->GetShape()->IsReadWriteDataSpace.at(pv))
     {
-      stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] * 
+      stats_.temporal_reduction_energy[pv] = stats_.temporal_reductions[pv] *
         pat::AdderEnergy(specs_.word_bits.Get(), network_update_->WordBits());
     }
     else
@@ -1683,7 +1904,7 @@ void BufferLevel::ComputeAddrGenEnergy()
     // it's probably cheaper than that. However, we can't assume
     // a 1-bit increment.
     auto pv = problem::Shape::DataSpaceID(pvi);
-    if (specs_.addr_gen_energy.Get() < 0.0) { 
+    if (specs_.addr_gen_energy.Get() < 0.0) {
       stats_.addr_gen_energy[pv] = stats_.address_generations[pv] *
         pat::AdderEnergy(specs_.addr_gen_bits.Get(), specs_.addr_gen_bits.Get());
     }
@@ -1707,7 +1928,7 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
   for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
     auto pv = problem::Shape::DataSpaceID(pvi);
-    
+
     // Collect and aggregate fine-grained accesses
     std::uint64_t total_data_read_accesses = stats_.fine_grained_scalar_accesses.at(pv).at("random_read")
       + stats_.fine_grained_scalar_accesses.at(pv).at("gated_read");
@@ -1727,24 +1948,24 @@ void BufferLevel::ComputePerformance(const std::uint64_t compute_cycles)
     // i.e., average peak requirement
     std::uint64_t total_read_accesses = total_data_read_accesses + ceil(total_format_read_accesses/specs_.word_bits.Get());
     std::uint64_t total_write_accesses = total_data_write_accesses + ceil(total_format_write_accesses/specs_.word_bits.Get());
-   
+
     stats_.format_shared_bandwidth_ratio[pv] = (total_read_accesses + total_write_accesses) == 0 ? 0.0 : double(ceil((total_format_read_accesses + total_format_write_accesses)
         / specs_.word_bits.Get())) / (total_read_accesses + total_write_accesses);
     stats_.format_read_bandwidth_ratio[pv] = total_read_accesses == 0 ? 0.0 : double(ceil(total_format_read_accesses/specs_.word_bits.Get()))/total_read_accesses;
     stats_.format_write_bandwidth_ratio[pv] = total_write_accesses == 0 ? 0.0 : double(ceil(total_format_write_accesses/specs_.word_bits.Get()))/total_write_accesses;
-    
+
     // Scale to obtain *Average* bandwidth required by each instance
     // i.e., global average bandwidth
-    //   Since different physical instances will be taking a nonempty tile 
+    //   Since different physical instances will be taking a nonempty tile
     //   OR if there is only one such instance, it can take on nonempty tile with alternating temporal passes
     //   We should not give the bandwidth pressure to a single (set) of instances in one cycle
     double scaling_ratio = (double)stats_.utilized_x_expansion.at(pv) * stats_.utilized_y_expansion.at(pv) / stats_.utilized_instances.at(pv);
     total_read_accesses =  ceil((double)total_read_accesses/scaling_ratio);
     total_write_accesses =  ceil((double)total_write_accesses/scaling_ratio);
-    
+
     // Convert to bandwidth requirement per cycle
     unconstrained_read_bandwidth[pv] = (double(total_read_accesses) / compute_cycles) * specs_.bandwidth_consumption_scale[pv];
-    unconstrained_write_bandwidth[pv] = (double(total_write_accesses) / compute_cycles) * specs_.bandwidth_consumption_scale[pv]; 
+    unconstrained_write_bandwidth[pv] = (double(total_write_accesses) / compute_cycles) * specs_.bandwidth_consumption_scale[pv];
   }
 
   //
@@ -1825,7 +2046,7 @@ STAT_ACCESSOR(double, BufferLevel, AddrGenEnergy, stats_.addr_gen_energy.at(pv) 
 STAT_ACCESSOR(double, BufferLevel, Energy,
               StorageEnergy(pv) +
               TemporalReductionEnergy(pv) +
-              AddrGenEnergy(pv) + 
+              AddrGenEnergy(pv) +
               LeakageEnergy(pv))
 
 STAT_ACCESSOR(std::uint64_t, BufferLevel, Accesses, stats_.utilized_instances.at(pv) * (stats_.reads.at(pv) + stats_.updates.at(pv) + stats_.fills.at(pv)))
@@ -1911,7 +2132,7 @@ void BufferLevel::Print(std::ostream& out) const
   auto& stats = stats_;
 
   // Print level name.
-  out << "=== " << specs.level_name << " ===" << std::endl;  
+  out << "=== " << specs.level_name << " ===" << std::endl;
   out << std::endl;
 
   // Print specs.
@@ -1921,7 +2142,7 @@ void BufferLevel::Print(std::ostream& out) const
 // flag to print verbose sparse stats or dense stats
   if (specs_.is_sparse_module.Get())
   {
-  
+
     out << indent << indent << "Technology                      : " << specs.technology << std::endl;
     out << indent << indent << "Data storage size               : " << specs.size << std::endl;
     out << indent << indent << "Data word bits                  : " << specs.word_bits << std::endl;
@@ -1934,8 +2155,8 @@ void BufferLevel::Print(std::ostream& out) const
     out << indent << indent << "Instances                       : " << specs.instances << " ("
         << specs.meshX << "*" << specs.meshY << ")" << std::endl;
     out << indent << indent << "Shared bandwidth                : " << specs.shared_bandwidth << std::endl;
-    out << indent << indent << "Read bandwidth                  : " << specs.read_bandwidth << std::endl;    
-    out << indent << indent << "Write bandwidth                 : " << specs.write_bandwidth << std::endl;    
+    out << indent << indent << "Read bandwidth                  : " << specs.read_bandwidth << std::endl;
+    out << indent << indent << "Write bandwidth                 : " << specs.write_bandwidth << std::endl;
     out << indent << indent << "Multiple buffering              : " << specs.multiple_buffering << std::endl;
     //out << indent << indent << "Allow overbooking             : " << specs.allow_overbooking << std::endl;
     out << indent << indent << "Effective data storage size     : " << specs.effective_size << std::endl;
@@ -1984,7 +2205,7 @@ void BufferLevel::Print(std::ostream& out) const
     out << indent << indent << "Area                            : " << specs.storage_area << " um^2" << std::endl;
     out << std::endl;
   }
-  
+
   // If the buffer hasn't been evaluated on a specific mapping yet, return.
   if (!IsEvaluated())
   {
@@ -2019,7 +2240,7 @@ void BufferLevel::Print(std::ostream& out) const
 
   out << indent << "Cycles               : " << stats.cycles << std::endl;
   out << indent << "Bandwidth throttling : " << stats.slowdown << std::endl;
-  
+
   // Print per-DataSpaceID stats.
   for (unsigned pvi = 0; pvi < unsigned(workload_->GetShape()->NumDataSpaces); pvi++)
   {
@@ -2043,7 +2264,7 @@ void BufferLevel::Print(std::ostream& out) const
         else out << std::endl;
         for (int rid = stats.random_format_reads.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.metadata_tile_size.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.metadata_tile_size.at(pv).at(rid)[0]
           << ", " << stats.metadata_tile_size.at(pv).at(rid)[1] << ")" << std::endl;
         }
 
@@ -2069,101 +2290,101 @@ void BufferLevel::Print(std::ostream& out) const
         if (stats.metadata_format.at(pv) != "none")
         {
         out << indent + indent << "Actual scalar format reads (per-instance)                   ";
-        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_read") == 0) {out << ": 0" << std::endl;} 
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_read") == 0) {out << ": 0" << std::endl;}
         else
         {
         out << std::endl;
         for (int rid = stats.random_format_reads.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.random_format_reads.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.random_format_reads.at(pv).at(rid)[0]
           << ",  " << stats.random_format_reads.at(pv).at(rid)[1] << ")"  << std::endl;
         }
         }
         out << indent + indent << "Gated scalar format reads (per-instance)                    ";
-        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_read") == 0) {out << ": 0" << std::endl;} 
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_read") == 0) {out << ": 0" << std::endl;}
         else
         {
         out << std::endl;
         for (int rid = stats.gated_format_reads.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.gated_format_reads.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.gated_format_reads.at(pv).at(rid)[0]
           << ",  "  << stats.gated_format_reads.at(pv).at(rid)[1] << ")" << std::endl;
         }
         }
         out << indent + indent << "Skipped scalar format reads (per-instance)                  ";
-        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_read") == 0) {out << ": 0" << std::endl;} 
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_read") == 0) {out << ": 0" << std::endl;}
         else
         {
         out << std::endl;
         for (int rid = stats.skipped_format_reads.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.skipped_format_reads.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): (" << stats.skipped_format_reads.at(pv).at(rid)[0]
           << ",  "  << stats.skipped_format_reads.at(pv).at(rid)[1] << ")" << std::endl;
         }
         }
         out << indent + indent << "Actual scalar format fills (per-instance)                   ";
-        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_fill") == 0) {out << ": 0" << std::endl;} 
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_fill") == 0) {out << ": 0" << std::endl;}
         else
         {
         out << std::endl;
         for (int rid = stats.random_format_fills.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.random_format_fills.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.random_format_fills.at(pv).at(rid)[0]
           << ",  "  << stats.random_format_fills.at(pv).at(rid)[1] << ")" << std::endl;
         }
         }
-        out << indent + indent << "Gated scalar format fills (per-instance)                    "; 
-        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_fill") == 0) {out << ": 0" << std::endl;} 
+        out << indent + indent << "Gated scalar format fills (per-instance)                    ";
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_fill") == 0) {out << ": 0" << std::endl;}
         else
         {
         out << std::endl;
         for (int rid = stats.gated_format_fills.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.gated_format_fills.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.gated_format_fills.at(pv).at(rid)[0]
           << ",  "  << stats.gated_format_fills.at(pv).at(rid)[1] << ")" << std::endl;
         }
         }
         out << indent + indent << "Skipped scalar format fills (per-instance)                  ";
-        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_fill") == 0) {out << ": 0" << std::endl;} 
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_fill") == 0) {out << ": 0" << std::endl;}
         else
         {
         out << std::endl;
         for (int rid = stats.skipped_format_fills.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.skipped_format_fills.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.skipped_format_fills.at(pv).at(rid)[0]
           << ",  "  << stats.skipped_format_fills.at(pv).at(rid)[1] << ")" << std::endl;
         }
         }
         out << indent + indent << "Actual scalar format updates (per-instance)                 ";
-        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_update") == 0) {out << ": 0" << std::endl;} 
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("random_metadata_update") == 0) {out << ": 0" << std::endl;}
         else
         {
         out << std::endl;
         for (int rid = stats.random_format_updates.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.random_format_updates.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.random_format_updates.at(pv).at(rid)[0]
           << ",  "  << stats.random_format_updates.at(pv).at(rid)[1] << ")" << std::endl;
         }
         }
         out << indent + indent << "Gated scalar format updates (per-instance)                  ";
-        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_update") == 0) {out << ": 0" << std::endl;} 
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("gated_metadata_update") == 0) {out << ": 0" << std::endl;}
         else
         {
         out << std::endl;
         for (int rid = stats.gated_format_updates.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.gated_format_updates.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.gated_format_updates.at(pv).at(rid)[0]
           << ",  "  << stats.gated_format_updates.at(pv).at(rid)[1] << ")" << std::endl;
         }
         }
-        out << indent + indent << "Skipped scalar format updates (per-instance)                "; 
-        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_update") == 0) {out << ": 0" << std::endl;} 
+        out << indent + indent << "Skipped scalar format updates (per-instance)                ";
+        if (stats.fine_grained_fromat_accesses_bits.at(pv).at("skipped_metadata_update") == 0) {out << ": 0" << std::endl;}
         else
         {
         out << std::endl;
         for (int rid = stats.skipped_format_updates.at(pv).size()-1; rid >=0; rid--)
         {
-        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.skipped_format_updates.at(pv).at(rid)[0] 
+        out << indent + indent + indent << "Rank " << rid << " (metadata, payload): ("  << stats.skipped_format_updates.at(pv).at(rid)[0]
           << ",  "  << stats.skipped_format_updates.at(pv).at(rid)[1] << ")" << std::endl;
         }
         }

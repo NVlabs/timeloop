@@ -35,6 +35,7 @@
 #include <isl/set.h>
 
 #include "mapping/nest.hpp"
+#include "layout/layout.hpp"
 #include "workload/util/per-problem-dimension.hpp"
 #include "nest-analysis-tile-info.hpp"
 
@@ -46,6 +47,10 @@ class NestAnalysis
   // Cached copy of loop nest under evaluation (used for speedup).
   loop::Nest cached_nest;
   
+  // layout modeling
+  layout::Layouts layout_;
+  bool layout_initialized_ = false;
+
   // Properties of the nest being analyzed (copied over during construction).
   std::vector<uint64_t> storage_tiling_boundaries_;
 
@@ -209,6 +214,9 @@ class NestAnalysis
   void Init(problem::Workload* wc, const loop::Nest* nest,
             std::map<unsigned, std::uint64_t> fanoutX_map,
             std::map<unsigned, std::uint64_t> fanoutY_map);
+  void Init(problem::Workload* wc, const loop::Nest* nest, const layout::Layouts layout,
+    std::map<unsigned, std::uint64_t> fanoutX_map,
+    std::map<unsigned, std::uint64_t> fanoutY_map);
   void Reset();
  
   std::vector<problem::PerDataSpace<std::size_t>> GetWorkingSetSizes_LTW() const;
@@ -216,7 +224,8 @@ class NestAnalysis
   CompoundDataMovementNest GetWorkingSets();
   CompoundComputeNest GetComputeInfo();
   problem::Workload* GetWorkload();
-  
+  layout::Layouts GetLayout();
+  bool IsLayoutInitialized();  
 
   // Serialization.
   friend class boost::serialization::access;

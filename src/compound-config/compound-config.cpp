@@ -112,6 +112,28 @@ CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
 }
 
 
+bool CompoundConfigNode::lookup(const char *path, CompoundConfigNode &result) const {
+  if (LNode) {
+    if (!LNode->exists(path)) {
+      return false; // Return false if the path is not found
+    }
+    libconfig::Setting& nextNode = LNode->lookup(path);
+    result = CompoundConfigNode(&nextNode, YAML::Node(), cConfig);
+    return true;
+  } else if (YNode) {
+    if (!YNode[path]) {
+      return false; // Return false if the path is not found
+    }
+    YAML::Node nextNode = YNode[path];
+    result = CompoundConfigNode(nullptr, nextNode, cConfig);
+    return true;
+  } else {
+    assert(false); // This shouldn't happen
+    return false;
+  }
+}
+
+
 bool CompoundConfigNode::lookupValue(const char *name, bool &value) const {
   EXCEPTION_PROLOGUE;
   if (LNode) return LNode->lookupValue(name, value);

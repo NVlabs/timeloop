@@ -34,6 +34,7 @@
 #include "util/accelergy_interface.hpp"
 
 #include "applications/mapper/mapper.hpp"
+#include "layout/layout.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -313,6 +314,34 @@ Mapper::Mapper(config::CompoundConfig* config,
     cfg_string_ = nullptr;
   }
 
+  // layout modeling
+  std::cout << "Start Parsering Layout" << std::endl;
+  config::CompoundConfigNode compound_config_node_layout;
+  bool existing_layout
+      = rootNode.lookup("layout", compound_config_node_layout);
+
+  if (existing_layout)
+    {
+      std::map<std::string, std::pair<uint32_t, uint32_t> >
+          externalPortMapping;
+      for (auto i : arch_specs_.topology.LevelNames())
+        externalPortMapping[i]
+            = { arch_specs_.topology.GetStorageLevel(i)->num_ports.Get(),
+                arch_specs_.topology.GetStorageLevel(i)->num_ports.Get() };
+
+      layout_ = layout::ParseAndConstruct(compound_config_node_layout,
+                                          workload_, externalPortMapping);
+
+      layout_initialized_ = true;
+
+      layout::PrintOverallLayout(layout_);
+    }
+  else
+    {
+      layout_initialized_ = false;
+      std::cout << "No Layout specified, so using bandwidth based modeling"
+                << std::endl;
+    }
 }
 
 Mapper::~Mapper()
@@ -417,6 +446,8 @@ Mapper::Result Mapper::Run()
                                         optimization_metrics_,
                                         arch_specs_,
                                         workload_,
+                                        layout_,
+                                        layout_initialized_,
                                         sparse_optimizations_,
                                         &best_));
   }
@@ -514,7 +545,11 @@ Mapper::Result Mapper::Run()
 
         model::Engine engine;
         engine.Spec(arch_specs_);
-        engine.Evaluate(mapping, workload_, sparse_optimizations_, false);
+        if (layout_initialized_)
+          engine.Evaluate(mapping, workload_, layout_, sparse_optimizations_, false);
+        else
+          engine.Evaluate(mapping, workload_, sparse_optimizations_, false);
+
         mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
                             engine.GetTopology().GetStats().utilized_capacities,
                             engine.GetTopology().GetStats().tile_sizes, "      ");
@@ -564,7 +599,10 @@ Mapper::Result Mapper::Run()
     // that can be printed out hierarchically.
     model::Engine engine;
     engine.Spec(arch_specs_);
-    engine.Evaluate(global_best_.mapping, workload_, sparse_optimizations_);
+    if (layout_initialized_)
+      engine.Evaluate(global_best_.mapping, workload_, layout_, sparse_optimizations_);
+    else
+      engine.Evaluate(global_best_.mapping, workload_, sparse_optimizations_);
 
     stats_str << engine << std::endl;
 

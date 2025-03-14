@@ -182,6 +182,7 @@ model/network-simple-multicast.cpp
 model/sparse-optimization-info.cpp
 model/sparse-optimization-parser.cpp
 model/util.cpp
+layout/layout.cpp
 util/banner.cpp
 util/args.cpp
 util/numeric.cpp
