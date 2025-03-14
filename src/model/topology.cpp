@@ -1316,7 +1316,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
   problem::Workload* workload = analysis->GetWorkload();
   workload_ = workload;
-  
+  layout::Layouts layout = analysis->GetLayout();
+
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest, workload);
   if (!valid) 
@@ -1445,16 +1446,30 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
       }
     }
 
-    auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
-                                     workload,
-                                     mapping.confidence_thresholds.at(storage_level_id),
-                                     compute_cycles, break_on_failure);
+    // if analysis
+    if(analysis->IsLayoutInitialized()){
+    assert(layout.size() > storage_level_id);
+    auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id], layout[storage_level_id], 
+                                    workload,
+                                    mapping.confidence_thresholds.at(storage_level_id),
+                                    compute_cycles, break_on_failure);
     total_cycles = std::max(total_cycles, storage_level->Cycles());
     eval_status.at(level_id) = s;
     success_accum &= s.success;
-
     if (break_on_failure && !s.success)
       break;
+    }else{
+      auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
+                                      workload,
+                                      mapping.confidence_thresholds.at(storage_level_id),
+                                      compute_cycles, break_on_failure);
+      total_cycles = std::max(total_cycles, storage_level->Cycles());
+      eval_status.at(level_id) = s;
+      success_accum &= s.success;
+
+      if (break_on_failure && !s.success)
+        break;
+    }
   }
 
   if (!break_on_failure || success_accum)

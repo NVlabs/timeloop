@@ -31,6 +31,7 @@
 #include "util/banner.hpp"
 
 #include "applications/model/model.hpp"
+#include "layout/layout.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -180,10 +181,40 @@ Model::Model(config::CompoundConfig* config,
 
   // Validate mapping against the architecture constraints.
   if (!constraints_->SatisfiedBy(mapping_))
-  {
-    std::cerr << "ERROR: mapping violates architecture constraints." << std::endl;
-    exit(1);
-  }
+    {
+      std::cerr << "ERROR: mapping violates architecture constraints."
+                << std::endl;
+      exit(1);
+    }
+
+  // layout modeling
+  std::cout << "Start Parsering Layout" << std::endl;
+  config::CompoundConfigNode compound_config_node_layout;
+  bool existing_layout
+      = rootNode.lookup("layout", compound_config_node_layout);
+
+  if (existing_layout)
+    {
+      std::map<std::string, std::pair<uint32_t, uint32_t> >
+          externalPortMapping;
+      for (auto i : arch_specs_.topology.LevelNames())
+        externalPortMapping[i]
+            = { arch_specs_.topology.GetStorageLevel(i)->num_ports.Get(),
+                arch_specs_.topology.GetStorageLevel(i)->num_ports.Get() };
+
+      layout_ = layout::ParseAndConstruct(compound_config_node_layout,
+                                          workload_, externalPortMapping);
+
+      layout_initialized_ = true;
+
+      layout::PrintOverallLayout(layout_);
+    }
+  else
+    {
+      layout_initialized_ = false;
+      std::cout << "No Layout specified, so using bandwidth based modeling"
+                << std::endl;
+    }
 }
 
 Model::~Model()

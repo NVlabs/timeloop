@@ -71,6 +71,18 @@ std::vector<EvalStatus> Engine::PreEvaluationCheck(const Mapping& mapping, probl
   return topology_.PreEvaluationCheck(mapping, &nest_analysis_, sparse_optimizations, break_on_failure);
 }
 
+std::vector<EvalStatus> Engine::Evaluate(Mapping& mapping, problem::Workload& workload, layout::Layouts layout, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure)
+{
+  nest_analysis_.Init(&workload, &mapping.loop_nest, layout, mapping.fanoutX_map, mapping.fanoutY_map);
+    
+  auto eval_status = topology_.Evaluate(mapping, &nest_analysis_, sparse_optimizations, break_on_failure);
+
+  is_evaluated_ = std::accumulate(eval_status.begin(), eval_status.end(), true,
+                                  [](bool cur, const EvalStatus& status)
+                                  { return cur && status.success; });
+
+  return eval_status;
+}
 std::vector<EvalStatus> Engine::Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure)
 {
   nest_analysis_.Init(&workload, &mapping.loop_nest, mapping.fanoutX_map, mapping.fanoutY_map);

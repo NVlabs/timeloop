@@ -37,6 +37,7 @@
 #include "compound-config/compound-config.hpp"
 #include "model/util.hpp"
 #include "model/network.hpp"
+#include "layout/layout.hpp"
 #include "workload/density-models/density-distribution.hpp"
 
 namespace model
@@ -381,6 +382,7 @@ class BufferLevel : public Level
 
   bool populate_energy_per_op = false;
   problem::Workload* workload_ = nullptr;
+  double overall_slowdown_ = 1.0;
 
   // Network endpoints.
   std::shared_ptr<Network> network_read_;
@@ -422,6 +424,7 @@ class BufferLevel : public Level
   void ComputeBufferEnergy(const tiling::CompoundDataMovementInfo& data_movement_info);
   void ComputeReductionEnergy();
   void ComputeAddrGenEnergy();
+  void ComputeBankConflictSlowdown(const tiling::CompoundTile& tile, layout::Layout layout, const std::uint64_t compute_cycles); // bank conflict analysis
 
   double StorageEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
   double TemporalReductionEnergy(problem::Shape::DataSpaceID pv = problem::GetShape()->NumDataSpaces) const;
@@ -475,6 +478,11 @@ class BufferLevel : public Level
                                 const sparse::PerStorageLevelCompressionInfo per_level_compression_info,
                                 const double confidence_threshold,
                                 const bool break_on_failure) override;
+  EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask, const layout::Layout layout, 
+    problem::Workload* workload,
+    const double confidence_threshold, const std::uint64_t compute_cycles,
+    const bool break_on_failure);
+            
   EvalStatus Evaluate(const tiling::CompoundTile& tile, const tiling::CompoundMask& mask,
                       problem::Workload* workload,
                       const double confidence_threshold, const std::uint64_t compute_cycles,
