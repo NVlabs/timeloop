@@ -1138,9 +1138,10 @@ BufferLevel::ComputeBankConflictSlowdownPerDataSpace(const layout::Layout layout
 
 tiling::CompoundTile
 BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
-                                          layout::Layout layout,
-                                          const tiling::CompoundMask &mask,
-                                          std::vector<loop::Descriptor> &tile_loopnest)
+                                         layout::Layout layout,
+                                         const tiling::CompoundMask &mask,
+                                         std::vector<loop::Descriptor> &subtile_mapping_loopnest,
+                                         std::vector<loop::Descriptor> &subtile_mapping_parallelism)
 {
   overall_slowdown_ = 1.0; // Initialization
   auto dim_id_to_name = problem::GetShape()->FlattenedDimensionIDToName;
@@ -1159,21 +1160,35 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
   std::cout << "# PreCheck -- return if there is no spatial request or subtile=1" << std::endl;
   std::cout << "mapping Parallelism: ";
 #endif
-  for (auto j : tile.data_movement_info[0].subnest)
+  // For subtile
+  for (auto j : subtile_mapping_parallelism)
   {
 #ifdef DEBUG
     std::cout << j.PrintCompact(dim_id_to_name) << " ";
 #endif
+    if (dim_id_to_mapping_parallelism[j.dimension] == 0)
+      dim_id_to_mapping_parallelism[j.dimension] = 1;
     if (loop::IsSpatial(j.spacetime_dimension))
+      dim_id_to_mapping_parallelism[j.dimension] *= j.end;
+  }
+  // For current tile
+  for (auto j : tile.data_movement_info[0].subnest)
+  {
+    if (dim_id_to_mapping_parallelism[j.dimension] == 0)
+      dim_id_to_mapping_parallelism[j.dimension] = 1;
+    if (loop::IsSpatial(j.spacetime_dimension)){
+#ifdef DEBUG
+      std::cout << j.PrintCompact(dim_id_to_name) << " ";
+#endif
       dim_id_to_mapping_parallelism[j.dimension] = j.end;
+    }
   }
 #ifdef DEBUG
   std::cout << std::endl;
-
   // next subtile check
   std::cout << "subtile size: ";
 #endif
-  for (auto j : tile_loopnest)
+  for (auto j : subtile_mapping_loopnest)
   {
 #ifdef DEBUG
     std::cout << j.PrintCompact(dim_id_to_name) << " ";
@@ -1199,7 +1214,7 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
   // ****************************************************************
   // Idea: compute latency is the product of all temporal iterations.
   uint64_t compute_cycles = 1;
-  for (auto j : tile_loopnest)
+  for (auto j : subtile_mapping_loopnest)
     if (!loop::IsSpatial(j.spacetime_dimension))
       compute_cycles *= j.end;
 #ifdef DEBUG
@@ -1336,7 +1351,8 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
 EvalStatus
 BufferLevel::Evaluate(const tiling::CompoundTile &tile,
                       const tiling::CompoundMask &mask, layout::Layout layout,
-                      std::vector<loop::Descriptor> &tile_loopnest,
+                      std::vector<loop::Descriptor> &subtile_mapping_loopnest,
+                      std::vector<loop::Descriptor> &subtile_mapping_parallelism,
                       problem::Workload *workload,
                       const double confidence_threshold,
                       const std::uint64_t compute_cycles,
@@ -1348,7 +1364,7 @@ BufferLevel::Evaluate(const tiling::CompoundTile &tile,
   std::cout << "start layout evaluation" << std::endl;
 #endif
 
-  auto tile_corrected_access = ComputeBankConflictSlowdown(tile, layout, mask, tile_loopnest);
+  auto tile_corrected_access = ComputeBankConflictSlowdown(tile, layout, mask, subtile_mapping_loopnest, subtile_mapping_parallelism);
 
   auto eval_status = ComputeScalarAccesses(
       tile.data_movement_info, mask, confidence_threshold, break_on_failure);
