@@ -215,8 +215,8 @@ class NestAnalysis
             std::map<unsigned, std::uint64_t> fanoutX_map,
             std::map<unsigned, std::uint64_t> fanoutY_map);
   void Init(problem::Workload* wc, const loop::Nest* nest, const layout::Layouts layout,
-    std::map<unsigned, std::uint64_t> fanoutX_map,
-    std::map<unsigned, std::uint64_t> fanoutY_map);
+            std::map<unsigned, std::uint64_t> fanoutX_map,
+            std::map<unsigned, std::uint64_t> fanoutY_map);
   void Reset();
  
   std::vector<problem::PerDataSpace<std::size_t>> GetWorkingSetSizes_LTW() const;
@@ -225,7 +225,7 @@ class NestAnalysis
   CompoundComputeNest GetComputeInfo();
   problem::Workload* GetWorkload();
   layout::Layouts GetLayout();
-  bool IsLayoutInitialized();  
+  bool IsLayoutInitialized();
 
   // Serialization.
   friend class boost::serialization::access;

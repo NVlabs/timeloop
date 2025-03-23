@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -27,19 +27,19 @@
 
 #pragma once
 
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/bitset.hpp>
-#include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/bitset.hpp>
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/vector.hpp>
 
-#include "mapping/parser.hpp"
+#include "compound-config/compound-config.hpp"
 #include "mapping/arch-properties.hpp"
 #include "mapping/constraints.hpp"
-#include "compound-config/compound-config.hpp"
+#include "mapping/parser.hpp"
 #include "model/sparse-optimization-parser.hpp"
 
 #include "layout/layout.hpp"
@@ -76,9 +76,9 @@ class Model
   // been parsed.
 
   // The layout modeling
-  layout::Layouts layout_; 
+  layout::Layouts layout_;
   bool layout_initialized_ = false;
-    
+
   // The mapping.
   Mapping* mapping_;
 
@@ -86,8 +86,8 @@ class Model
   ArchProperties* arch_props_;
 
   // Constraints.
-  mapping::Constraints* constraints_;  
-  
+  mapping::Constraints* constraints_;
+
   // Application flags/config.
   bool verbose_ = false;
   bool auto_bypass_on_failure_ = false;
@@ -97,16 +97,13 @@ class Model
   sparse::SparseOptimizationInfo* sparse_optimizations_;
 
  private:
-
   // Serialization
   friend class boost::serialization::access;
-  template <class Archive>
+  template<class Archive>
   void serialize(Archive& ar, const unsigned int version = 0);
 
  public:
-
-  Model(config::CompoundConfig* config,
-        std::string output_dir = ".",
+  Model(config::CompoundConfig* config, std::string output_dir = ".",
         std::string name = "timeloop-model");
 
   // This class does not support being copied
@@ -118,6 +115,5 @@ class Model
   // Run the evaluation.
   Stats Run();
 };
-
 
 } // namespace application

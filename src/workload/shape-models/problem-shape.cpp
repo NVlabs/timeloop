@@ -241,6 +241,67 @@ void Shape::Parse(config::CompoundConfigNode shape)
       assert(false);
     }
 
+      
+    // --- New code to process "ranks" ---
+    // --- Build the RankNameToDilationStride mapping using the projection expression ---
+    // For ranks "W" and "H" (as specified in the ranks field) with SOP expressions having multiple terms,
+    // we use the coefficient names from the corresponding projection expression to look up the instance values.
+    // --- Process the "ranks" field ---
+    std::vector<std::string> rank_names;
+    if (data_space.exists("ranks"))
+    {
+      data_space.lookupArrayValue("ranks", rank_names);
+      if (rank_names.size() != projection.size())
+      {
+        std::cerr << "ERROR: Number of rank names (" << rank_names.size()
+                  << ") does not match number of projection expressions ("
+                  << projection.size() << ") in dataspace " << name << std::endl;
+        exit(1);
+      }
+    }
+    // Save mapping from dataspace name to its rank names.
+    DataSpaceNameToRankName[name] = rank_names;
+
+    // --- Build the RankNameToFactorizedDimensionID mapping ---
+    // For each rank, record the factorized dimension IDs that appear in its projection expression.
+    for (std::size_t i = 0; i < rank_names.size(); i++)
+    {
+      std::string rank = rank_names[i];
+      std::vector<std::string> dimNames;
+      std::vector<std::uint32_t> dims;
+      if (i < projection.size())
+      {
+        for (const auto& term : projection[i])
+        {
+          dims.push_back(term.second);
+          dimNames.push_back(FactorizedDimensionIDToName.at(term.second));
+        }
+      }
+      RankNameToFactorizedDimensionID[rank] = dims;
+      RankNameToDimensionName[ rank_names[i] ] = dimNames;
+
+    }
+    
+    // --- Build the RankNameToDimensionName and RankNameToCoefficient mappings ---
+    // For each rank whose corresponding projection expression has more than one term,
+    // extract the dimension and coefficient names.
+    for (std::size_t i = 0; i < rank_names.size(); i++)
+    {
+      if (projection[i].size() > 1)
+      {
+
+        std::vector<std::string> coeffs;
+        // For each term in the projection expression:
+        for (const auto& term : projection[i])
+        {
+          // term.first is the coefficient ID.
+          coeffs.push_back(CoefficientIDToName.at(term.first));
+        }
+        RankNameToCoefficient[ rank_names[i] ] = coeffs;
+      }
+    }
+    // --- End new code ---   
+
     Projections.push_back(projection);
     NumDataSpaces++;
   }

@@ -89,7 +89,7 @@ class Shape
 
   std::vector<std::set<FlattenedDimensionID>> DataSpaceIDToDimensionIDVector;
 
-  // --- NEW MEMBERS for Layout Evaluation ---
+  // --- NEW MEMBERS ---
   // Map dataspace name to its rank names (as specified in the YAML "ranks" field)
   std::map<std::string, std::vector<std::string>> DataSpaceNameToRankName;
   // Map a rank name to the factorized dimensions that appear in the corresponding projection expression.
@@ -100,6 +100,7 @@ class Shape
   std::map<std::string, std::vector<std::string>> RankNameToCoefficient;
   // -------------------
   
+
  public: 
   void Parse(config::CompoundConfigNode config);
   std::set<FlattenedDimensionID> GetCoIteratedDimensions(const std::vector<DataSpaceID> dataspace_pair) const;

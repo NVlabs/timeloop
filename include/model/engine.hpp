@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -27,19 +27,19 @@
 
 #pragma once
 
-#include <cstdlib>
-#include <boost/serialization/shared_ptr.hpp>
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
+#include <boost/serialization/shared_ptr.hpp>
+#include <cstdlib>
 
-#include "model/model-base.hpp"
-#include "model/arithmetic.hpp"
-#include "model/topology.hpp"
-#include "model/sparse-optimization-info.hpp"
-#include "mapping/mapping.hpp"
-#include "loop-analysis/nest-analysis.hpp"
 #include "compound-config/compound-config.hpp"
 #include "layout/layout.hpp"
+#include "loop-analysis/nest-analysis.hpp"
+#include "mapping/mapping.hpp"
+#include "model/arithmetic.hpp"
+#include "model/model-base.hpp"
+#include "model/sparse-optimization-info.hpp"
+#include "model/topology.hpp"
 
 namespace model
 {
@@ -51,7 +51,7 @@ class Engine : public Module
   {
     Topology::Specs topology;
   };
-  
+
  private:
   // Specs.
   Specs specs_;
@@ -64,37 +64,47 @@ class Engine : public Module
 
   // Serialization.
   friend class boost::serialization::access;
-  template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0)
+  template<class Archive>
+  void
+  serialize(Archive& ar, const unsigned int version = 0)
   {
     if (version == 0)
-    {
-      ar& BOOST_SERIALIZATION_NVP(topology_);
-    }
+      {
+        ar& BOOST_SERIALIZATION_NVP(topology_);
+      }
   }
 
  public:
-
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, bool is_sparse_topology);
+  static Specs ParseSpecs(config::CompoundConfigNode setting,
+                          bool is_sparse_topology);
 
   void Spec(Specs specs);
 
   const Topology& GetTopology() const;
 
-  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true);
+  std::vector<EvalStatus>
+  PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload,
+                     sparse::SparseOptimizationInfo* sparse_optimizations,
+                     bool break_on_failure = true);
 
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, layout::Layouts layout, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true);
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true);
-  
+  std::vector<EvalStatus> Evaluate(
+      Mapping& mapping, problem::Workload& workload, layout::Layouts layout,
+      sparse::SparseOptimizationInfo* sparse_optimizations,
+      bool break_on_failure = true);
+  std::vector<EvalStatus>
+  Evaluate(Mapping& mapping, problem::Workload& workload,
+           sparse::SparseOptimizationInfo* sparse_optimizations,
+           bool break_on_failure = true);
+
   double Energy() const;
   double Area() const;
   std::uint64_t Cycles() const;
   double Utilization() const;
 
-  friend std::ostream& operator << (std::ostream& out, Engine& engine);
+  friend std::ostream& operator<<(std::ostream& out, Engine& engine);
 };
 
 } // namespace model

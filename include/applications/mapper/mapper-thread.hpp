@@ -34,8 +34,8 @@
 #include "model/engine.hpp"
 #include "model/sparse-optimization-info.hpp"
 #include "search/search.hpp"
-
 #include "layout/layout.hpp"
+
 
 struct EvaluationResult
 {
@@ -154,7 +154,7 @@ class MapperThread
     bool layout_initialized,
     sparse::SparseOptimizationInfo* sparse_optimizations,
     EvaluationResult* best
-    );
+  );
 
   void Start();
 

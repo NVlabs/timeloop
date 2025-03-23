@@ -27,84 +27,97 @@ algorithmic contributors may be used tactual or promote products derived
 
 #pragma once
 
-#include <iostream>
-#include <memory>
 #include <algorithm>
 #include <fstream>
+#include <iostream>
+#include <memory>
 
-#include "loop-analysis/tiling.hpp"
-#include "loop-analysis/tiling-tile-info.hpp"
+#include "compound-config/compound-config.hpp"
 #include "loop-analysis/nest-analysis.hpp"
-#include "mapping/nest.hpp"
+#include "loop-analysis/tiling-tile-info.hpp"
+#include "loop-analysis/tiling.hpp"
 #include "mapping/mapping.hpp"
-#include "model/level.hpp"
+#include "mapping/nest.hpp"
 #include "model/arithmetic.hpp"
 #include "model/buffer.hpp"
-#include "compound-config/compound-config.hpp"
-#include "network.hpp"
+#include "model/level.hpp"
 #include "network-legacy.hpp"
+#include "network.hpp"
 #include "sparse-optimization-info.hpp"
 
 namespace model
 {
 
 // mapping between architectural action names and accelergy's ERT name
-// this mapping can be moved out as a separate yaml file that can be read in by timeloop to allow more flexibility
-// NOTE: the keys in each map MUST MATCH the operation type names in loop-analysis/operation-type.hpp
-// FIXME: regarding the note above: cleanup the setup more so that a unified set of names are used
+// this mapping can be moved out as a separate yaml file that can be read in by
+// timeloop to allow more flexibility NOTE: the keys in each map MUST MATCH the
+// operation type names in loop-analysis/operation-type.hpp
+// FIXME: regarding the note above: cleanup the setup more so that a unified
+// set of names are used
 
 // format {timeloop_action_name: [priority list of ERT action names]}
-static std::map <std::string, std::vector<std::string>> arithmeticOperationMappings
-  = {{"random_compute", {"mac_random", "mult_random", "mac", "mult", "compute"}},
-     {"skipped_compute", {"mac_skipped", "mult_skipped","compute_skipped", "mac_gated", "mult_gated", "compute_gated", "mac", "mult", "compute"}},
-     {"gated_compute", {"mac_gated", "mult_gated", "compute_gated", "mac", "mult", "compute"}}
-  };
+static std::map<std::string, std::vector<std::string> >
+    arithmeticOperationMappings
+    = { { "random_compute",
+          { "mac_random", "mult_random", "mac", "mult", "compute" } },
+        { "skipped_compute",
+          { "mac_skipped", "mult_skipped", "compute_skipped", "mac_gated",
+            "mult_gated", "compute_gated", "mac", "mult", "compute" } },
+        { "gated_compute",
+          { "mac_gated", "mult_gated", "compute_gated", "mac", "mult",
+            "compute" } } };
 
-static std::map <std::string, std::vector<std::string>> storageOperationMappings
-  = {
-     {"random_read", {"random_read", "read"}},
-     {"gated_read", {"gated_read"}},
-     {"skipped_read", {"skipped_read", "gated_read"}},
-     {"random_metadata_read", {"random_metadata_read", "metadata_read"}},
-     {"gated_metadata_read", {"gated_metadata_read"}},
-     {"skipped_metadata_read", {"skipped_metadata_read", "gated_metadata_read"}},
+static std::map<std::string, std::vector<std::string> >
+    storageOperationMappings = {
+      { "random_read", { "random_read", "read" } },
+      { "gated_read", { "gated_read" } },
+      { "skipped_read", { "skipped_read", "gated_read" } },
+      { "random_metadata_read", { "random_metadata_read", "metadata_read" } },
+      { "gated_metadata_read", { "gated_metadata_read" } },
+      { "skipped_metadata_read",
+        { "skipped_metadata_read", "gated_metadata_read" } },
 
-     {"random_fill", {"random_fill", "random_write", "fill", "write"}},
-     {"gated_fill", {"gated_fill", "gated_write"}},
-     {"skipped_fill", {"skipped_fill", "skipped_write", "gated_fill", "gated_write"}},
-     {"random_metadata_fill", {"random_metadata_fill", "random_metadata_write", "metadata_fill", "metadata_write"}},
-     {"gated_metadata_fill", {"gated_metadata_fill", "gated_metadata_write"}},
-     {"skipped_metadata_fill", {"skipped_metadata_fill", "skipped_metadata_write", "gated_metadata_fill", "gated_metadata_write"}},
+      { "random_fill", { "random_fill", "random_write", "fill", "write" } },
+      { "gated_fill", { "gated_fill", "gated_write" } },
+      { "skipped_fill",
+        { "skipped_fill", "skipped_write", "gated_fill", "gated_write" } },
+      { "random_metadata_fill",
+        { "random_metadata_fill", "random_metadata_write", "metadata_fill",
+          "metadata_write" } },
+      { "gated_metadata_fill",
+        { "gated_metadata_fill", "gated_metadata_write" } },
+      { "skipped_metadata_fill",
+        { "skipped_metadata_fill", "skipped_metadata_write",
+          "gated_metadata_fill", "gated_metadata_write" } },
 
-     {"random_update", {"random_update", "random_write", "update", "write"}},
-     {"gated_update", {"gated_update", "gated_write"}},
-     {"skipped_update", {"skipped_update", "skipped_write", "gated_update", "gated_write"}},
-     {"random_metadata_update", {"random_metadata_update", "random_metadata_write", "metadata_update", "metadata_write"}},
-     {"gated_metadata_update", {"gated_metadata_update", "gated_metadata_write"}},
-     {"skipped_metadata_update", {"skipped_metadata_update", "skipped_metadata_write", "gated_metadata_update", "gated_metadata_write"}},
+      { "random_update",
+        { "random_update", "random_write", "update", "write" } },
+      { "gated_update", { "gated_update", "gated_write" } },
+      { "skipped_update",
+        { "skipped_update", "skipped_write", "gated_update", "gated_write" } },
+      { "random_metadata_update",
+        { "random_metadata_update", "random_metadata_write", "metadata_update",
+          "metadata_write" } },
+      { "gated_metadata_update",
+        { "gated_metadata_update", "gated_metadata_write" } },
+      { "skipped_metadata_update",
+        { "skipped_metadata_update", "skipped_metadata_write",
+          "gated_metadata_update", "gated_metadata_write" } },
 
-     {"decompression_count", {"decompression_count"}},
-     {"compression_count", {"compression_count"}},
-     {"leak", {"leak"}},
-  };
+      { "decompression_count", { "decompression_count" } },
+      { "compression_count", { "compression_count" } },
+      { "leak", { "leak" } },
+    };
 
-static std::string bufferClasses[5] = { "DRAM",
-                                        "SRAM",
-                                        "regfile",
-                                        "smartbuffer",
-                                        "storage"};
+static std::string bufferClasses[5]
+    = { "DRAM", "SRAM", "regfile", "smartbuffer", "storage" };
 
-static std::string computeClasses[4] = { "mac",
-                                         "intmac",
-                                         "fpmac",
-                                         "compute" };
+static std::string computeClasses[4] = { "mac", "intmac", "fpmac", "compute" };
 
 // FIXME: derive these from a statically-instantiated list of class names that
 // are auto-populated by each Network class at program init time.
-static std::string networkClasses[] = { "XY_NoC",
-                                        "Legacy",
-                                        "ReductionTree",
-                                        "SimpleMulticast"};
+static std::string networkClasses[]
+    = { "XY_NoC", "Legacy", "ReductionTree", "SimpleMulticast" };
 
 bool isBufferClass(std::string className);
 bool isComputeClass(std::string className);
@@ -113,16 +126,15 @@ bool isNetworkClass(std::string className);
 class Topology : public Module
 {
  public:
-
   //
   // Specs.
   //
   class Specs
   {
    private:
-    std::vector<std::shared_ptr<LevelSpecs>> levels;
-    std::vector<std::shared_ptr<LegacyNetwork::Specs>> inferred_networks;
-    std::vector<std::shared_ptr<NetworkSpecs>> networks;
+    std::vector<std::shared_ptr<LevelSpecs> > levels;
+    std::vector<std::shared_ptr<LegacyNetwork::Specs> > inferred_networks;
+    std::vector<std::shared_ptr<NetworkSpecs> > networks;
     std::map<unsigned, unsigned> storage_map;
     unsigned arithmetic_map;
 
@@ -134,13 +146,14 @@ class Topology : public Module
     // We need an explicit deep-copy constructor because of shared_ptrs.
     Specs(const Specs& other)
     {
-      for (auto& level_p: other.levels)
+      for (auto& level_p : other.levels)
         levels.push_back(level_p->Clone());
 
-      for (auto& inferred_network_p: other.inferred_networks)
-        inferred_networks.push_back(std::make_shared<LegacyNetwork::Specs>(*inferred_network_p));
+      for (auto& inferred_network_p : other.inferred_networks)
+        inferred_networks.push_back(
+            std::make_shared<LegacyNetwork::Specs>(*inferred_network_p));
 
-      for (auto& network_p: other.networks)
+      for (auto& network_p : other.networks)
         networks.push_back(network_p->Clone());
 
       storage_map = other.storage_map;
@@ -148,7 +161,8 @@ class Topology : public Module
     }
 
     // Copy-and-swap idiom.
-    friend void swap(Specs& first, Specs& second)
+    friend void
+    swap(Specs& first, Specs& second)
     {
       using std::swap;
       swap(first.levels, second.levels);
@@ -158,7 +172,8 @@ class Topology : public Module
       swap(first.arithmetic_map, second.arithmetic_map);
     }
 
-    Specs& operator = (Specs other)
+    Specs&
+    operator=(Specs other)
     {
       swap(*this, other);
       return *this;
@@ -178,14 +193,25 @@ class Topology : public Module
     void AddInferredNetwork(std::shared_ptr<LegacyNetwork::Specs> specs);
     void AddNetwork(std::shared_ptr<NetworkSpecs> specs);
 
-    unsigned StorageMap(unsigned i) const { return storage_map.at(i); }
-    unsigned ArithmeticMap() const { return arithmetic_map; }
+    unsigned
+    StorageMap(unsigned i) const
+    {
+      return storage_map.at(i);
+    }
+    unsigned
+    ArithmeticMap() const
+    {
+      return arithmetic_map;
+    }
 
     std::shared_ptr<LevelSpecs> GetLevel(unsigned level_id) const;
-    std::shared_ptr<BufferLevel::Specs> GetStorageLevel(unsigned storage_level_id) const;
-    std::shared_ptr<BufferLevel::Specs> GetStorageLevel(std::string level_name) const;
+    std::shared_ptr<BufferLevel::Specs>
+    GetStorageLevel(unsigned storage_level_id) const;
+    std::shared_ptr<BufferLevel::Specs>
+    GetStorageLevel(std::string level_name) const;
     std::shared_ptr<ArithmeticUnits::Specs> GetArithmeticLevel() const;
-    std::shared_ptr<LegacyNetwork::Specs> GetInferredNetwork(unsigned network_id) const;
+    std::shared_ptr<LegacyNetwork::Specs>
+    GetInferredNetwork(unsigned network_id) const;
     std::shared_ptr<NetworkSpecs> GetNetwork(unsigned network_id) const;
   };
 
@@ -198,9 +224,9 @@ class Topology : public Module
     double area;
     std::uint64_t cycles;
     double utilization;
-    std::vector<problem::PerDataSpace<std::uint64_t>> tile_sizes;
-    std::vector<problem::PerDataSpace<std::uint64_t>> utilized_capacities;
-    std::vector<problem::PerDataSpace<std::uint64_t>> utilized_instances;
+    std::vector<problem::PerDataSpace<std::uint64_t> > tile_sizes;
+    std::vector<problem::PerDataSpace<std::uint64_t> > utilized_capacities;
+    std::vector<problem::PerDataSpace<std::uint64_t> > utilized_instances;
     std::uint64_t algorithmic_computes;
     std::uint64_t actual_computes;
     std::uint64_t last_level_accesses;
@@ -209,9 +235,10 @@ class Topology : public Module
     // std::vector<problem::PerDataSpace<std::uint64_t>>. However, we do
     // not yet have a PyBind11 wrapper around PerDataSpace<> in PyTimeloop,
     // which is why we are temporarily using a vector-of-vectors.
-    std::vector<std::vector<std::uint64_t>> per_tensor_accesses;
+    std::vector<std::vector<std::uint64_t> > per_tensor_accesses;
 
-    void Reset()
+    void
+    Reset()
     {
       energy = 0;
       area = 0;
@@ -229,8 +256,8 @@ class Topology : public Module
   };
 
  private:
-  std::vector<std::shared_ptr<Level>> levels_;
-  std::map<std::string, std::shared_ptr<Network>> networks_;
+  std::vector<std::shared_ptr<Level> > levels_;
+  std::map<std::string, std::shared_ptr<Network> > networks_;
 
   // Maps to store the binding relationship between architectural tiling level
   // to actual micro-architecture. The key here is a temporal/spatial tiling
@@ -239,7 +266,7 @@ class Topology : public Module
   // members in the future.
 
   // Level map
-  std::map<unsigned, std::shared_ptr<Level>> level_map_;
+  std::map<unsigned, std::shared_ptr<Level> > level_map_;
   // Network map. The pair of network connecting two storage levels should
   // share the same spatial tiling id. Note that these read_fill network and
   // drain_update_network can be the same network.
@@ -256,41 +283,56 @@ class Topology : public Module
   Stats stats_;
 
   problem::Workload* workload_ = nullptr;
-  
+
   // Serialization
   friend class boost::serialization::access;
-  template <class Archive>
-  void serialize(Archive& ar, const unsigned int version = 0)
+  template<class Archive>
+  void
+  serialize(Archive& ar, const unsigned int version = 0)
   {
     if (version == 0)
-    {
-      ar& BOOST_SERIALIZATION_NVP(levels_);
-      ar& BOOST_SERIALIZATION_NVP(networks_);
-    }
+      {
+        ar& BOOST_SERIALIZATION_NVP(levels_);
+        ar& BOOST_SERIALIZATION_NVP(networks_);
+      }
   }
 
  private:
-
   void FloorPlan();
   void ComputeStats(bool eval_success);
 
-  /** @note Non-const getters to deal with fxns that depend on non-const outputs
-   *  for the above fxns based on the below approach: 
-   *  https://stackoverflow.com/questions/856542/elegant-solution-to-duplicate-const-and-non-const-getters 
-   *  with std::const_pointer_cast being the intermediate since the return type 
+  /** @note Non-const getters to deal with fxns that depend on non-const
+   * outputs for the above fxns based on the below approach:
+   *  https://stackoverflow.com/questions/856542/elegant-solution-to-duplicate-const-and-non-const-getters
+   *  with std::const_pointer_cast being the intermediate since the return type
    *  is a shared_ptr of a const type. Expose vs Get regime is used to assist
    *  the compiler due to Timeloop oddities as mentioned in PR #237 */
-  inline std::shared_ptr<Level> GetLevel(const unsigned& level_id) const
-  { return std::const_pointer_cast<Level>(const_cast<const Topology*>(this)->ViewLevel(level_id)); }
-  inline std::shared_ptr<BufferLevel> GetStorageLevel(const unsigned& storage_level_id) const
-  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ViewStorageLevel(storage_level_id)); }
-  inline std::shared_ptr<BufferLevel> GetStorageLevel(const std::string& level_name) const
-  { return std::const_pointer_cast<BufferLevel>(const_cast<const Topology*>(this)->ViewStorageLevel(level_name)); }
-  inline std::shared_ptr<ArithmeticUnits> GetArithmeticLevel() const
-  { return std::const_pointer_cast<ArithmeticUnits>(const_cast<const Topology*>(this)->ViewArithmeticLevel()); }
+  inline std::shared_ptr<Level>
+  GetLevel(const unsigned& level_id) const
+  {
+    return std::const_pointer_cast<Level>(
+        const_cast<const Topology*>(this)->ViewLevel(level_id));
+  }
+  inline std::shared_ptr<BufferLevel>
+  GetStorageLevel(const unsigned& storage_level_id) const
+  {
+    return std::const_pointer_cast<BufferLevel>(
+        const_cast<const Topology*>(this)->ViewStorageLevel(storage_level_id));
+  }
+  inline std::shared_ptr<BufferLevel>
+  GetStorageLevel(const std::string& level_name) const
+  {
+    return std::const_pointer_cast<BufferLevel>(
+        const_cast<const Topology*>(this)->ViewStorageLevel(level_name));
+  }
+  inline std::shared_ptr<ArithmeticUnits>
+  GetArithmeticLevel() const
+  {
+    return std::const_pointer_cast<ArithmeticUnits>(
+        const_cast<const Topology*>(this)->ViewArithmeticLevel());
+  }
 
  public:
-
   // Constructors and assignment operators.
   Topology() = default;
   ~Topology() = default;
@@ -301,10 +343,10 @@ class Topology : public Module
     is_specced_ = other.is_specced_;
     is_evaluated_ = other.is_evaluated_;
 
-    for (auto& level_p: other.levels_)
+    for (auto& level_p : other.levels_)
       levels_.push_back(level_p->Clone());
 
-    for (auto& network_kv: other.networks_)
+    for (auto& network_kv : other.networks_)
       networks_[network_kv.first] = network_kv.second->Clone();
 
     tile_area_ = other.tile_area_;
@@ -313,7 +355,8 @@ class Topology : public Module
   }
 
   // Copy-and-swap idiom.
-  friend void swap(Topology& first, Topology& second)
+  friend void
+  swap(Topology& first, Topology& second)
   {
     using std::swap;
     swap(first.is_specced_, second.is_specced_);
@@ -326,11 +369,14 @@ class Topology : public Module
   }
 
   std::shared_ptr<const Level> ViewLevel(const unsigned& level_id) const;
-  std::shared_ptr<const BufferLevel> ViewStorageLevel(const unsigned& storage_level_id) const;
-  std::shared_ptr<const BufferLevel> ViewStorageLevel(const std::string& level_name) const;
+  std::shared_ptr<const BufferLevel>
+  ViewStorageLevel(const unsigned& storage_level_id) const;
+  std::shared_ptr<const BufferLevel>
+  ViewStorageLevel(const std::string& level_name) const;
   std::shared_ptr<const ArithmeticUnits> ViewArithmeticLevel() const;
 
-  Topology& operator = (Topology other)
+  Topology&
+  operator=(Topology other)
   {
     swap(*this, other);
     return *this;
@@ -339,8 +385,11 @@ class Topology : public Module
   // The hierarchical ParseSpecs functions are static and do not
   // affect the internal specs_ data structure, which is set by
   // the dynamic Spec() call later.
-  static Specs ParseSpecs(config::CompoundConfigNode setting, config::CompoundConfigNode arithmetic_specs, bool is_sparse_topology);
-  static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot, bool is_sparse_topology);
+  static Specs ParseSpecs(config::CompoundConfigNode setting,
+                          config::CompoundConfigNode arithmetic_specs,
+                          bool is_sparse_topology);
+  static Specs ParseTreeSpecs(config::CompoundConfigNode designRoot,
+                              bool is_sparse_topology);
 
   void Spec(const Specs& specs);
   void Reset();
@@ -348,28 +397,87 @@ class Topology : public Module
   unsigned NumStorageLevels() const;
   unsigned NumNetworks() const;
 
-  std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
-  std::vector<EvalStatus> Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure);
+  std::vector<EvalStatus>
+  PreEvaluationCheck(const Mapping& mapping, analysis::NestAnalysis* analysis,
+                     sparse::SparseOptimizationInfo* sparse_optimizations,
+                     bool break_on_failure);
+  std::vector<EvalStatus>
+  Evaluate(Mapping& mapping, analysis::NestAnalysis* analysis,
+           sparse::SparseOptimizationInfo* sparse_optimizations,
+           bool break_on_failure);
 
-  inline const Stats& GetStats() const { return stats_; }
-  inline const Specs& GetSpecs() const { return specs_; }
+  inline const Stats&
+  GetStats() const
+  {
+    return stats_;
+  }
+  inline const Specs&
+  GetSpecs() const
+  {
+    return specs_;
+  }
 
   // FIXME: these stat-specific accessors are deprecated and only exist for
   // backwards-compatibility with some applications.
-  double Energy() const { return stats_.energy; }
-  double Area() const { return stats_.area; }
-  std::uint64_t Cycles() const { return stats_.cycles; }
-  double Utilization() const { return stats_.utilization; }
-  std::vector<problem::PerDataSpace<std::uint64_t>> TileSizes() const { return stats_.tile_sizes; }
-  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedCapacities() const { return stats_.utilized_capacities; }
-  std::vector<problem::PerDataSpace<std::uint64_t>> UtilizedInstances() const { return stats_.utilized_instances; }
-  std::uint64_t AlgorithmicComputes() const { return stats_.algorithmic_computes; }
-  std::uint64_t ActualComputes() const { return stats_.actual_computes; }
-  std::uint64_t LastLevelAccesses() const { return stats_.last_level_accesses; }
-  void PrintOrojenesis(problem::Workload* workload, std::ostream& out, Mapping& mapping, bool log_mappings_yaml, bool log_mappings_verbose, std::string orojenesis_prefix, unsigned thread_id) const;
-  void OutputOrojenesisMappingYAML(Mapping& mapping, std::string map_yaml_file_name) const;
+  double
+  Energy() const
+  {
+    return stats_.energy;
+  }
+  double
+  Area() const
+  {
+    return stats_.area;
+  }
+  std::uint64_t
+  Cycles() const
+  {
+    return stats_.cycles;
+  }
+  double
+  Utilization() const
+  {
+    return stats_.utilization;
+  }
+  std::vector<problem::PerDataSpace<std::uint64_t> >
+  TileSizes() const
+  {
+    return stats_.tile_sizes;
+  }
+  std::vector<problem::PerDataSpace<std::uint64_t> >
+  UtilizedCapacities() const
+  {
+    return stats_.utilized_capacities;
+  }
+  std::vector<problem::PerDataSpace<std::uint64_t> >
+  UtilizedInstances() const
+  {
+    return stats_.utilized_instances;
+  }
+  std::uint64_t
+  AlgorithmicComputes() const
+  {
+    return stats_.algorithmic_computes;
+  }
+  std::uint64_t
+  ActualComputes() const
+  {
+    return stats_.actual_computes;
+  }
+  std::uint64_t
+  LastLevelAccesses() const
+  {
+    return stats_.last_level_accesses;
+  }
+  void PrintOrojenesis(problem::Workload* workload, std::ostream& out,
+                       Mapping& mapping, bool log_mappings_yaml,
+                       bool log_mappings_verbose,
+                       std::string orojenesis_prefix,
+                       unsigned thread_id) const;
+  void OutputOrojenesisMappingYAML(Mapping& mapping,
+                                   std::string map_yaml_file_name) const;
 
   friend std::ostream& operator<<(std::ostream& out, const Topology& sh);
 };
 
-}  // namespace model
+} // namespace model

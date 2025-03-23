@@ -27,20 +27,19 @@
 
 #pragma once
 
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/array.hpp>
-#include <boost/serialization/map.hpp>
-#include <boost/serialization/bitset.hpp>
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/bitset.hpp>
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/vector.hpp>
 
-#include "mapspaces/mapspace-factory.hpp"
-#include "search/search-factory.hpp"
-#include "compound-config/compound-config.hpp"
 #include "applications/mapper/mapper-thread.hpp"
-#include "model/sparse-optimization-parser.hpp"
-
+#include "compound-config/compound-config.hpp"
 #include "layout/layout.hpp"
+#include "mapspaces/mapspace-factory.hpp"
+#include "model/sparse-optimization-parser.hpp"
+#include "search/search-factory.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -71,11 +70,9 @@ class Mapper
   };
 
  protected:
-
   problem::Workload workload_;
-  
   layout::Layouts layout_; // layout modeling
-  bool layout_initialized_ = false; // layout modeling
+  bool layout_initialized_ = false;
 
   model::Engine::Specs arch_specs_;
   mapspace::MapSpace* mapspace_;
@@ -111,16 +108,13 @@ class Mapper
   EvaluationResult global_best_;
 
  private:
-
   // Serialization
   friend class boost::serialization::access;
-  template <class Archive>
-  void serialize(Archive& ar, const unsigned int version=0);
+  template<class Archive>
+  void serialize(Archive& ar, const unsigned int version = 0);
 
  public:
-
-  Mapper(config::CompoundConfig* config,
-         std::string output_dir = ".",
+  Mapper(config::CompoundConfig* config, std::string output_dir = ".",
          std::string name = "timeloop-mapper");
 
   // This class does not support being copied

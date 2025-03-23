@@ -1,5 +1,5 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -11,7 +11,7 @@
  *  * Neither the name of NVIDIA CORPORATION nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -40,53 +40,58 @@
 namespace application
 {
 
-template <class Archive>
-void Model::serialize(Archive& ar, const unsigned int version)
+template<class Archive>
+void
+Model::serialize(Archive& ar, const unsigned int version)
 {
   if (version == 0)
-  {
-    ar& BOOST_SERIALIZATION_NVP(workload_);
-  }
+    {
+      ar& BOOST_SERIALIZATION_NVP(workload_);
+    }
 }
 
-Model::Model(config::CompoundConfig* config,
-             std::string output_dir,
-             std::string name) :
-    name_(name)
-{    
+Model::Model(config::CompoundConfig* config, std::string output_dir,
+             std::string name)
+    : name_(name)
+{
   auto rootNode = config->getRoot();
 
   // Version check
-  if (rootNode.exists("architecture") && rootNode.lookup("architecture").exists("nodes"))
-  {
-    std::cerr << "ERROR: 'nodes' found as a sub-key in the architecture. The 'nodes' key is used by "
-              << "the v0.4 timeloop front-end format, and will not be recognized by 'timeloop-...' "
-              << "commands. Please use the timeloopfe front-end, which is documented at "
-              << "https://github.com/Accelergy-Project/timeloop-accelergy-exercises and "
-              << "https://timeloop.csail.mit.edu." << std::endl;
-    exit(1);
-  }
+  if (rootNode.exists("architecture")
+      && rootNode.lookup("architecture").exists("nodes"))
+    {
+      std::cerr << "ERROR: 'nodes' found as a sub-key in the architecture. "
+                   "The 'nodes' key is used by "
+                << "the v0.4 timeloop front-end format, and will not be "
+                   "recognized by 'timeloop-...' "
+                << "commands. Please use the timeloopfe front-end, which is "
+                   "documented at "
+                << "https://github.com/Accelergy-Project/"
+                   "timeloop-accelergy-exercises and "
+                << "https://timeloop.csail.mit.edu." << std::endl;
+      exit(1);
+    }
 
   // Model application configuration.
   auto_bypass_on_failure_ = false;
   std::string semi_qualified_prefix = name;
 
   if (rootNode.exists("model"))
-  {
-    auto model = rootNode.lookup("model");
-    model.lookupValue("verbose", verbose_);
-    model.lookupValue("auto_bypass_on_failure", auto_bypass_on_failure_);
-    model.lookupValue("out_prefix", semi_qualified_prefix);
-  }
+    {
+      auto model = rootNode.lookup("model");
+      model.lookupValue("verbose", verbose_);
+      model.lookupValue("auto_bypass_on_failure", auto_bypass_on_failure_);
+      model.lookupValue("out_prefix", semi_qualified_prefix);
+    }
 
   out_prefix_ = output_dir + "/" + semi_qualified_prefix;
 
   if (verbose_)
-  {
-    for (auto& line: banner)
-      std::cout << line << std::endl;
-    std::cout << std::endl;
-  }
+    {
+      for (auto& line : banner)
+        std::cout << line << std::endl;
+      std::cout << std::endl;
+    }
 
   // Problem configuration.
   auto problem = rootNode.lookup("problem");
@@ -94,65 +99,145 @@ Model::Model(config::CompoundConfig* config,
   if (verbose_)
     std::cout << "Problem configuration complete." << std::endl;
 
+  // std::cout << "CoefficientIDToName " << std::endl;
+  // for (auto &key_pair: workload_.GetShape()->CoefficientIDToName)
+  // {
+  //   std::cout << key_pair.first << ": " << key_pair.second  << "=" <<
+  //   workload_.GetCoefficient(key_pair.first) << std::endl;
+  // }
+  // std::cout << std::endl;
+
+  // std::cout << "FlattenedDimensionNameToID " << std::endl;
+  // for (auto & key_pair: workload_.GetShape()->FlattenedDimensionNameToID){
+  //   std::cout << key_pair.first << " " << key_pair.second << " ";//.first <<
+  //   " " << key_pair.second.second << " ";
+  // };
+  // std::cout << std::endl;
+
+  // for(auto Name_RankName_Pair:
+  // workload_.GetShape()->DataSpaceNameToRankName){
+  //   std::cout << Name_RankName_Pair.first << " ";
+  //   for(auto in_vec: Name_RankName_Pair.second)
+  //     std::cout << in_vec << " ";
+  //   std::cout << std::endl;
+  // }
+  // std::cout << std::endl;
+
+  // std::cout << " RankNameToFactorizedDimensionID " << std::endl;
+  // for(auto Name_RankName_Pair:
+  // workload_.GetShape()->RankNameToFactorizedDimensionID){
+  //   std::cout << Name_RankName_Pair.first << " ";
+  //   for(auto in_vec: Name_RankName_Pair.second)
+  //     std::cout << in_vec << " ";
+  //   std::cout << std::endl;
+  // }
+  // std::cout << std::endl;
+
+  // std::cout << "GetCoefficientID " << std::endl;
+  // for (unsigned i = 0; i < workload_.GetShape()->NumFactorizedDimensions;
+  // ++i) {
+  //   std::cout << i << " ";//.first << " " << key_pair.second.second << " ";
+  // };
+  // std::cout << std::endl;
+
+  // std::cout << "GetFactorizedBound " << std::endl;
+  // for (unsigned i = 0; i < workload_.GetShape()->NumFactorizedDimensions;
+  // ++i) {
+  //   std::cout << workload_.GetFactorizedBound(i) << " ";//.first << " " <<
+  //   key_pair.second.second << " ";
+  // };
+  // std::cout << std::endl;
+
+  // std::cout << "RankNameToCoefficient " << std::endl;
+  // for (auto & key_pair: workload_.GetShape()->RankNameToCoefficient){
+  //   std::cout << key_pair.first << ": (";//.first << " " <<
+  //   key_pair.second.second << " "; for(auto in_vec: key_pair.second)
+  //     std::cout << in_vec << ", ";
+  //   std::cout << ")" << std::endl;
+  // };
+  // std::cout << std::endl;
+
+  // std::cout << "RankNameToDimensionName " << std::endl;
+  // for (auto & key_pair: workload_.GetShape()->RankNameToDimensionName){
+  //   std::cout << key_pair.first << ": (";//.first << " " <<
+  //   key_pair.second.second << " "; for(auto in_vec: key_pair.second)
+  //     std::cout << in_vec << ", ";
+  //   std::cout << ")" <<  std::endl;
+  // };
+  // std::cout << std::endl;
+
   // Architecture configuration.
   config::CompoundConfigNode arch;
   if (rootNode.exists("arch"))
-  {
-    arch = rootNode.lookup("arch");
-  }
+    {
+      arch = rootNode.lookup("arch");
+    }
   else if (rootNode.exists("architecture"))
-  {
-    arch = rootNode.lookup("architecture");
-  }
-  
+    {
+      arch = rootNode.lookup("architecture");
+    }
+
   bool is_sparse_topology = rootNode.exists("sparse_optimizations");
   arch_specs_ = model::Engine::ParseSpecs(arch, is_sparse_topology);
 
   if (rootNode.exists("ERT"))
-  {
-    auto ert = rootNode.lookup("ERT");
-    if (verbose_)
-      std::cout << "Found Accelergy ERT (energy reference table), replacing internal energy model." << std::endl;
-    arch_specs_.topology.ParseAccelergyERT(ert);
-    if (rootNode.exists("ART")){ // Nellie: well, if the users have the version of Accelergy that generates ART
-      auto art = rootNode.lookup("ART");
-      if (verbose_)
-        std::cout << "Found Accelergy ART (area reference table), replacing internal area model." << std::endl;
-      arch_specs_.topology.ParseAccelergyART(art);  
-    }
-  }
-  else
-  {
-#ifdef USE_ACCELERGY
-    // Call accelergy ERT with all input files
-    if (arch.exists("subtree") || arch.exists("local"))
     {
-      accelergy::invokeAccelergy(config->inFiles, semi_qualified_prefix, output_dir);
-      std::string ertPath = out_prefix_ + ".ERT.yaml";
-      auto ertConfig = new config::CompoundConfig(ertPath.c_str());
-      auto ert = ertConfig->getRoot().lookup("ERT");
+      auto ert = rootNode.lookup("ERT");
       if (verbose_)
-        std::cout << "Generate Accelergy ERT (energy reference table) to replace internal energy model." << std::endl;
+        std::cout << "Found Accelergy ERT (energy reference table), replacing "
+                     "internal energy model."
+                  << std::endl;
       arch_specs_.topology.ParseAccelergyERT(ert);
-        
-      std::string artPath = out_prefix_ + ".ART.yaml";
-      auto artConfig = new config::CompoundConfig(artPath.c_str());
-      auto art = artConfig->getRoot().lookup("ART");
-      if (verbose_)
-        std::cout << "Generate Accelergy ART (area reference table) to replace internal area model." << std::endl;
-      arch_specs_.topology.ParseAccelergyART(art);
+      if (rootNode.exists("ART"))
+        { // Nellie: well, if the users have the version of Accelergy that
+          // generates ART
+          auto art = rootNode.lookup("ART");
+          if (verbose_)
+            std::cout << "Found Accelergy ART (area reference table), "
+                         "replacing internal area model."
+                      << std::endl;
+          arch_specs_.topology.ParseAccelergyART(art);
+        }
     }
+  else
+    {
+#ifdef USE_ACCELERGY
+      // Call accelergy ERT with all input files
+      if (arch.exists("subtree") || arch.exists("local"))
+        {
+          accelergy::invokeAccelergy(config->inFiles, semi_qualified_prefix,
+                                     output_dir);
+          std::string ertPath = out_prefix_ + ".ERT.yaml";
+          auto ertConfig = new config::CompoundConfig(ertPath.c_str());
+          auto ert = ertConfig->getRoot().lookup("ERT");
+          if (verbose_)
+            std::cout << "Generate Accelergy ERT (energy reference table) to "
+                         "replace internal energy model."
+                      << std::endl;
+          arch_specs_.topology.ParseAccelergyERT(ert);
+
+          std::string artPath = out_prefix_ + ".ART.yaml";
+          auto artConfig = new config::CompoundConfig(artPath.c_str());
+          auto art = artConfig->getRoot().lookup("ART");
+          if (verbose_)
+            std::cout << "Generate Accelergy ART (area reference table) to "
+                         "replace internal area model."
+                      << std::endl;
+          arch_specs_.topology.ParseAccelergyART(art);
+        }
 #endif
-  }
+    }
 
   // Sparse optimizations
   config::CompoundConfigNode sparse_optimizations;
   if (is_sparse_topology)
     sparse_optimizations = rootNode.lookup("sparse_optimizations");
-      sparse_optimizations_ = new sparse::SparseOptimizationInfo(sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
+  sparse_optimizations_ = new sparse::SparseOptimizationInfo(
+      sparse::ParseAndConstruct(sparse_optimizations, arch_specs_));
   // characterize workload on whether it has metadata
-  workload_.SetDefaultDenseTensorFlag(sparse_optimizations_->compression_info.all_ranks_default_dense);
-  
+  workload_.SetDefaultDenseTensorFlag(
+      sparse_optimizations_->compression_info.all_ranks_default_dense);
+
   if (verbose_)
     std::cout << "Sparse optimization configuration complete." << std::endl;
 
@@ -175,7 +260,8 @@ Model::Model(config::CompoundConfig* config,
 
   // Mapping configuration: expressed as a mapspace or mapping.
   auto mapping = rootNode.lookup("mapping");
-  mapping_ = new Mapping(mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
+  mapping_ = new Mapping(
+      mapping::ParseAndConstruct(mapping, arch_specs_, workload_));
   if (verbose_)
     std::cout << "Mapping construction complete." << std::endl;
 
@@ -233,7 +319,8 @@ Model::~Model()
 }
 
 // Run the evaluation.
-Model::Stats Model::Run()
+Model::Stats
+Model::Run()
 {
   model::Engine engine;
   engine.Spec(arch_specs_);
@@ -241,7 +328,7 @@ Model::Stats Model::Run()
   auto level_names = arch_specs_.topology.LevelNames();
 
   auto& mapping = *mapping_;
-    
+
   // Optional feature: if the given mapping does not fit in the available
   // hardware resources, automatically bypass storage level(s) to make it
   // fit. This avoids mapping failures and instead substitutes the given
@@ -252,32 +339,58 @@ Model::Stats Model::Run()
   // while it's possible that bypassing a subset of data_spaces may have
   // caused the mapping to fit.
   if (auto_bypass_on_failure_)
-  {
-    auto pre_eval_status = engine.PreEvaluationCheck(mapping, workload_, sparse_optimizations_, false);
-    for (unsigned level = 0; level < pre_eval_status.size(); level++)
-      if (!pre_eval_status[level].success)
-      {
-        if (verbose_)
-          std::cerr << "WARNING: couldn't map level " << level_names.at(level) << ": "
-                    << pre_eval_status[level].fail_reason << ", auto-bypassing."
-                    << std::endl;
-        for (unsigned pvi = 0; pvi < workload_.GetShape()->NumDataSpaces; pvi++)
-          // Ugh... mask is offset-by-1 because level 0 is the arithmetic level.
-          mapping.datatype_bypass_nest.at(pvi).reset(level-1);
-      }
-  }
-    
-  auto eval_status = engine.Evaluate(mapping, workload_, sparse_optimizations_);    
-  for (unsigned level = 0; level < eval_status.size(); level++)
-  {
-    if (!eval_status[level].success)
     {
-      std::cerr << "ERROR: couldn't map level " << level_names.at(level) << ": "
-                << eval_status[level].fail_reason << std::endl;
-      exit(1);
+      auto pre_eval_status = engine.PreEvaluationCheck(
+          mapping, workload_, sparse_optimizations_, false);
+      for (unsigned level = 0; level < pre_eval_status.size(); level++)
+        if (!pre_eval_status[level].success)
+          {
+            if (verbose_)
+              std::cerr << "WARNING: couldn't map level "
+                        << level_names.at(level) << ": "
+                        << pre_eval_status[level].fail_reason
+                        << ", auto-bypassing." << std::endl;
+            for (unsigned pvi = 0; pvi < workload_.GetShape()->NumDataSpaces;
+                 pvi++)
+              // Ugh... mask is offset-by-1 because level 0 is the arithmetic
+              // level.
+              mapping.datatype_bypass_nest.at(pvi).reset(level - 1);
+          }
     }
-  }
-  // if (!std::accumulate(success.begin(), success.end(), true, std::logical_and<>{}))
+
+  if (layout_initialized_)
+    {
+      auto eval_status = engine.Evaluate(mapping, workload_, layout_,
+                                         sparse_optimizations_);
+      for (unsigned level = 0; level < eval_status.size(); level++)
+        {
+          if (!eval_status[level].success)
+            {
+              std::cerr << "ERROR: couldn't map level "
+                        << level_names.at(level) << ": "
+                        << eval_status[level].fail_reason << std::endl;
+              exit(1);
+            }
+        }
+    }
+  else
+    {
+      auto eval_status
+          = engine.Evaluate(mapping, workload_, sparse_optimizations_);
+      for (unsigned level = 0; level < eval_status.size(); level++)
+        {
+          if (!eval_status[level].success)
+            {
+              std::cerr << "ERROR: couldn't map level "
+                        << level_names.at(level) << ": "
+                        << eval_status[level].fail_reason << std::endl;
+              exit(1);
+            }
+        }
+    }
+
+  // if (!std::accumulate(success.begin(), success.end(), true,
+  // std::logical_and<>{}))
   // {
   //   std::cout << "Illegal mapping, evaluation failed." << std::endl;
   //   return;
@@ -286,29 +399,36 @@ Model::Stats Model::Run()
   std::stringstream map_txt;
   std::stringstream stats_txt;
   if (engine.IsEvaluated())
-  {
-    if (!sparse_optimizations_->no_optimization_applied)
-    {   
-      std::cout << "Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << engine.Utilization()
-              << " | pJ/Algorithmic-Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
-      engine.GetTopology().AlgorithmicComputes()
-              << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
-      engine.GetTopology().ActualComputes() << std::endl;
-    }
-    else
     {
-      std::cout << "Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << engine.Utilization()
-                 << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
-      engine.GetTopology().ActualComputes() << std::endl;
+      if (!sparse_optimizations_->no_optimization_applied)
+        {
+          std::cout << "Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT
+                    << std::setprecision(2) << engine.Utilization()
+                    << " | pJ/Algorithmic-Compute = " << std::setw(8)
+                    << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION
+                    << engine.Energy()
+                           / engine.GetTopology().AlgorithmicComputes()
+                    << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT
+                    << PRINTFLOAT_PRECISION
+                    << engine.Energy() / engine.GetTopology().ActualComputes()
+                    << " | Cycles = " << engine.Cycles() << std::endl;
+        }
+      else
+        {
+          std::cout << "Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT
+                    << std::setprecision(2) << engine.Utilization()
+                    << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT
+                    << PRINTFLOAT_PRECISION
+                    << engine.Energy() / engine.GetTopology().ActualComputes()
+                    << " | Cycles = " << engine.Cycles() << std::endl;
+        }
+
+      mapping.PrettyPrint(map_txt, arch_specs_.topology.StorageLevelNames(),
+                          engine.GetTopology().UtilizedCapacities(),
+                          engine.GetTopology().TileSizes());
+
+      stats_txt << engine << std::endl;
     }
-
-    mapping.PrettyPrint(map_txt,
-                        arch_specs_.topology.StorageLevelNames(),
-                        engine.GetTopology().UtilizedCapacities(),
-                        engine.GetTopology().TileSizes());
-
-    stats_txt << engine << std::endl;
-  }
 
   // Print the engine stats and mapping to an XML file
   std::stringstream xml_str;

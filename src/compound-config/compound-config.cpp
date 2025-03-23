@@ -111,7 +111,6 @@ CompoundConfigNode CompoundConfigNode::lookup(const char *path) const {
   EXCEPTION_EPILOGUE;
 }
 
-
 bool CompoundConfigNode::lookup(const char *path, CompoundConfigNode &result) const {
   if (LNode) {
     if (!LNode->exists(path)) {

@@ -49,9 +49,9 @@ struct Layout
       rankToFactorizedDimensionID;
   std::map<std::string, std::vector<std::string> > rankToDimensionName;
   std::map<std::string, std::uint32_t> dimensionToDimID;
-  std::map<std::string, std::vector<std::string> > rankToCoefficent;
-  std::map<std::string, std::vector<std::uint32_t> > rankToCoefficentValue;
-  std::unordered_map<std::string, std::uint32_t> coefficentToValue;
+  std::map<std::string, std::vector<std::string> > rankToCoefficient;
+  std::map<std::string, std::vector<std::uint32_t> > rankToCoefficientValue;
+  std::unordered_map<std::string, std::uint32_t> coefficientToValue;
 
   bool initialize
       = false; // True if external YAML provided layout for this target
@@ -95,4 +95,8 @@ void PrintOverallLayout(Layouts layout);
 
 //------------------------------------------------------------------------------
 void PrintOneLvlLayout(Layout layout);
+
+//------------------------------------------------------------------------------
+void PrintOneLvlLayoutDataSpace(Layout layout, std::string data_space_in);
+
 } // namespace layout

@@ -38,9 +38,6 @@ class FusedWorkloadDependencyAnalyzer
   EinsumDimsRelevantToTensor(EinsumId einsum, DataSpaceId dspace) const;
 
   const std::set<DimensionId>&
-  PairwiseEquivalentDimensions(DimensionId rank) const;
-
-  const std::set<DimensionId>&
   EquivalentDimensions(EinsumId einsum, DimensionId einsum_dim) const;
 
   std::vector<isl::map> GetProjectedAccesses(EinsumId einsum, DataSpaceId dspace) const;
@@ -50,8 +47,6 @@ class FusedWorkloadDependencyAnalyzer
  private:
   const FusedWorkload& workload_;
 
-  mutable std::map<DimensionId, std::set<DimensionId>>
-    pairwise_equivalent_dimensions_;
   mutable std::map<std::pair<EinsumId, DataSpaceId>, std::set<DimensionId>>
     directly_relevant_einsum_dim_memo_;
   mutable std::map<std::pair<EinsumId, DataSpaceId>, std::set<DimensionId>>
