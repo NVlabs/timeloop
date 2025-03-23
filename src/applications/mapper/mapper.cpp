@@ -313,35 +313,26 @@ Mapper::Mapper(config::CompoundConfig* config,
   {
     cfg_string_ = nullptr;
   }
-
+  
   // layout modeling
   std::cout << "Start Parsering Layout" << std::endl;
   config::CompoundConfigNode compound_config_node_layout;
-  bool existing_layout
-      = rootNode.lookup("layout", compound_config_node_layout);
+  bool existing_layout = rootNode.lookup("layout", compound_config_node_layout);
+  if (existing_layout){
+    std::map<std::string, std::pair<uint32_t, uint32_t>> externalPortMapping;
+    for (auto i: arch_specs_.topology.LevelNames())
+        externalPortMapping[i] = {arch_specs_.topology.GetStorageLevel(i)->num_ports.Get(), arch_specs_.topology.GetStorageLevel(i)->num_ports.Get()};
 
-  if (existing_layout)
-    {
-      std::map<std::string, std::pair<uint32_t, uint32_t> >
-          externalPortMapping;
-      for (auto i : arch_specs_.topology.LevelNames())
-        externalPortMapping[i]
-            = { arch_specs_.topology.GetStorageLevel(i)->num_ports.Get(),
-                arch_specs_.topology.GetStorageLevel(i)->num_ports.Get() };
+    layout_ = layout::ParseAndConstruct(compound_config_node_layout, workload_, externalPortMapping);
+    
+    layout_initialized_ = true;
+    layout::PrintOverallLayout(layout_);
+  }
+  else{
+    layout_initialized_ = false;
+    std::cout << "No Layout specified, so using bandwidth based modeling" << std::endl;
+  }
 
-      layout_ = layout::ParseAndConstruct(compound_config_node_layout,
-                                          workload_, externalPortMapping);
-
-      layout_initialized_ = true;
-
-      layout::PrintOverallLayout(layout_);
-    }
-  else
-    {
-      layout_initialized_ = false;
-      std::cout << "No Layout specified, so using bandwidth based modeling"
-                << std::endl;
-    }
 }
 
 Mapper::~Mapper()
@@ -355,7 +346,7 @@ Mapper::~Mapper()
   {
     delete sparse_optimizations_;
   }
-
+  
   for (auto& search: search_)
   {
     if (search)
@@ -545,9 +536,10 @@ Mapper::Result Mapper::Run()
 
         model::Engine engine;
         engine.Spec(arch_specs_);
-        if (layout_initialized_)
+
+        if (layout_initialized_){
           engine.Evaluate(mapping, workload_, layout_, sparse_optimizations_, false);
-        else
+        }else
           engine.Evaluate(mapping, workload_, sparse_optimizations_, false);
 
         mapping.PrettyPrint(std::cout, arch_specs_.topology.StorageLevelNames(),
@@ -599,9 +591,10 @@ Mapper::Result Mapper::Run()
     // that can be printed out hierarchically.
     model::Engine engine;
     engine.Spec(arch_specs_);
-    if (layout_initialized_)
+    
+    if (layout_initialized_){
       engine.Evaluate(global_best_.mapping, workload_, layout_, sparse_optimizations_);
-    else
+    }else
       engine.Evaluate(global_best_.mapping, workload_, sparse_optimizations_);
 
     stats_str << engine << std::endl;
@@ -623,7 +616,8 @@ Mapper::Result Mapper::Run()
         global_best_.stats.algorithmic_computes
                 << " | pJ/Compute = " << std::setw(8)
                 << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << global_best_.stats.energy /
-        global_best_.stats.actual_computes << std::endl;
+        global_best_.stats.actual_computes 
+                << " | Cycles = " << global_best_.stats.cycles << std::endl;
     }
     else
     {
@@ -632,7 +626,8 @@ Mapper::Result Mapper::Run()
                 << global_best_.stats.utilization
                 << " | pJ/Compute = " << std::setw(8)
                 << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << global_best_.stats.energy /
-        global_best_.stats.actual_computes << std::endl;
+        global_best_.stats.actual_computes
+                << " | Cycles = " << global_best_.stats.cycles << std::endl;
     }
 
     // Print the engine stats and mapping to an XML file

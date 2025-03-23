@@ -1427,6 +1427,9 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     compute_cycles = GetArithmeticLevel()->Cycles();
   uint64_t total_cycles = compute_cycles;
 
+  int current_storage_boundary = 0;
+  std::vector<loop::Descriptor> current_tile_loopnest;
+
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     auto storage_level = GetStorageLevel(storage_level_id);
@@ -1445,31 +1448,43 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
           GetStorageLevel(parent_level_id)->GetSpecs().name.Get();
       }
     }
-
+    
     // if analysis
     if(analysis->IsLayoutInitialized()){
-    assert(layout.size() > storage_level_id);
-    auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id], layout[storage_level_id], 
+#ifdef DEBUG
+      std::cout << "Evaluate Storage Level " << storage_level_id << " -- " << layout[storage_level_id].target << std::endl;
+#endif
+      assert(layout.size() > storage_level_id);
+      auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id], layout[storage_level_id], 
+                                    current_tile_loopnest,
                                     workload,
                                     mapping.confidence_thresholds.at(storage_level_id),
                                     compute_cycles, break_on_failure);
-    total_cycles = std::max(total_cycles, storage_level->Cycles());
-    eval_status.at(level_id) = s;
-    success_accum &= s.success;
-    if (break_on_failure && !s.success)
-      break;
-    }else{
-      auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
-                                      workload,
-                                      mapping.confidence_thresholds.at(storage_level_id),
-                                      compute_cycles, break_on_failure);
       total_cycles = std::max(total_cycles, storage_level->Cycles());
       eval_status.at(level_id) = s;
       success_accum &= s.success;
-
+      if (break_on_failure && !s.success)
+        break;
+    }else{
+#ifdef DEBUG
+      std::cout << "Evaluate Storage Level " << storage_level_id  << std::endl;
+#endif
+      auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id], 
+                                  workload,
+                                  mapping.confidence_thresholds.at(storage_level_id),
+                                  compute_cycles, break_on_failure);  
+      total_cycles = std::max(total_cycles, storage_level->Cycles());
+      eval_status.at(level_id) = s;
+      success_accum &= s.success;
       if (break_on_failure && !s.success)
         break;
     }
+
+    for(unsigned i = current_storage_boundary; i <= mapping.loop_nest.storage_tiling_boundaries[storage_level_id]; i++)
+    {
+      current_tile_loopnest.push_back(mapping.loop_nest.loops[i]);
+    }
+    current_storage_boundary = mapping.loop_nest.storage_tiling_boundaries[storage_level_id] + 1;
   }
 
   if (!break_on_failure || success_accum)
