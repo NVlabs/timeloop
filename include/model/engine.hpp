@@ -39,6 +39,7 @@
 #include "mapping/mapping.hpp"
 #include "loop-analysis/nest-analysis.hpp"
 #include "compound-config/compound-config.hpp"
+#include "layout/layout.hpp"
 
 namespace model
 {
@@ -85,6 +86,7 @@ class Engine : public Module
 
   std::vector<EvalStatus> PreEvaluationCheck(const Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true);
 
+  std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, layout::Layouts layout, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true);
   std::vector<EvalStatus> Evaluate(Mapping& mapping, problem::Workload& workload, sparse::SparseOptimizationInfo* sparse_optimizations, bool break_on_failure = true);
   
   double Energy() const;

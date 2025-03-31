@@ -104,6 +104,67 @@ NestAnalysis::NestAnalysis()
 {
 }
 
+
+
+void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest, layout::Layouts layout,
+                        std::map<unsigned, std::uint64_t> fanoutX_map,
+                        std::map<unsigned, std::uint64_t> fanoutY_map)
+{
+  ASSERT(nest != NULL);
+  ASSERT(wc != NULL);
+
+  ASSERT(fanoutX_map.size() == nest->storage_tiling_boundaries.size());
+  ASSERT(fanoutY_map.size() == nest->storage_tiling_boundaries.size());
+
+  workload_ = wc;
+  layout_ = layout;
+  layout_initialized_ = true;
+
+  if (working_sets_computed_ && cached_nest == *nest)
+  {
+    // We've already worked on an identical nest before.
+  }
+  else
+  {
+    Reset();
+    cached_nest = *nest;
+
+    // Copy over everything we need from the nest.
+    storage_tiling_boundaries_ = nest->storage_tiling_boundaries;
+    packed_skew_descriptors_ = nest->skew_descriptors;
+    no_link_transfer_ = nest->no_link_transfer;
+    no_multicast_ = nest->no_multicast;
+    no_temporal_reuse_ = nest->no_temporal_reuse;
+    rmw_first_update_ = nest->rmw_first_update;
+    no_coalesce_ = nest->no_coalesce;
+    physical_fanoutX_ = fanoutX_map;
+    physical_fanoutY_ = fanoutY_map;
+
+    // Construct nest_state_.
+    for (auto descriptor: nest->loops)
+    {
+      analysis::LoopState cur;
+      if (nest_state_.size() == 0)
+      {
+        cur.level = 0;
+      }
+      else
+      {
+        cur.level = nest_state_.back().level + 1;
+      }
+      cur.descriptor = descriptor;
+      nest_state_.push_back(cur);    
+    }
+
+    // Properly size working_sets_ by re-constructing it based on now-available
+    // parsed workload information.
+    working_sets_ = decltype(working_sets_)(workload_->GetShape()->NumDataSpaces);
+  }
+
+  gResetOnStrideChange = !workload_->GetShape()->UsesFlattening; 
+}
+
+
 void NestAnalysis::Init(problem::Workload* wc, const loop::Nest* nest,
                         std::map<unsigned, std::uint64_t> fanoutX_map,
                         std::map<unsigned, std::uint64_t> fanoutY_map)
@@ -283,6 +344,14 @@ analysis::CompoundComputeNest NestAnalysis::GetComputeInfo()
 
 problem::Workload* NestAnalysis::GetWorkload(){
   return workload_;
+}
+
+layout::Layouts NestAnalysis::GetLayout(){
+  return layout_;
+}
+
+bool NestAnalysis::IsLayoutInitialized(){
+  return layout_initialized_;
 }
 
 std::ostream& operator << (std::ostream& out, const NestAnalysis& n)

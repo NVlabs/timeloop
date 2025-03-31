@@ -1316,7 +1316,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
   problem::Workload* workload = analysis->GetWorkload();
   workload_ = workload;
-  
+  layout::Layouts layout = analysis->GetLayout();
+
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest, workload);
   if (!valid) 
@@ -1426,6 +1427,10 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
     compute_cycles = GetArithmeticLevel()->Cycles();
   uint64_t total_cycles = compute_cycles;
 
+  int current_storage_boundary = 0;
+  std::vector<loop::Descriptor> subtile_mapping_loopnest;
+  std::vector<loop::Descriptor> subtile_mapping_parallelism;
+
   for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels(); storage_level_id++)
   {
     auto storage_level = GetStorageLevel(storage_level_id);
@@ -1444,17 +1449,57 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
           GetStorageLevel(parent_level_id)->GetSpecs().name.Get();
       }
     }
+    
+    // if analysis
+    if(analysis->IsLayoutInitialized()){
+#ifdef DEBUG
+      std::cout << "Evaluate Storage Level " << storage_level_id << " -- " << layout[storage_level_id].target << std::endl;
+#endif
+      assert(layout.size() > storage_level_id);
+       auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id], layout[storage_level_id], 
+                                      subtile_mapping_loopnest,
+                                      subtile_mapping_parallelism,
+                                      workload,
+                                      mapping.confidence_thresholds.at(storage_level_id),
+                                      compute_cycles, break_on_failure);
+      total_cycles = std::max(total_cycles, storage_level->Cycles());
+      eval_status.at(level_id) = s;
+      success_accum &= s.success;
+      if (break_on_failure && !s.success)
+        break;
+    }else{
+#ifdef DEBUG
+      std::cout << "Evaluate Storage Level " << storage_level_id  << std::endl;
+#endif
+      auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id], 
+                                  workload,
+                                  mapping.confidence_thresholds.at(storage_level_id),
+                                  compute_cycles, break_on_failure);  
+      total_cycles = std::max(total_cycles, storage_level->Cycles());
+      eval_status.at(level_id) = s;
+      success_accum &= s.success;
+      if (break_on_failure && !s.success)
+        break;
+    }
 
-    auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
-                                     workload,
-                                     mapping.confidence_thresholds.at(storage_level_id),
-                                     compute_cycles, break_on_failure);
-    total_cycles = std::max(total_cycles, storage_level->Cycles());
-    eval_status.at(level_id) = s;
-    success_accum &= s.success;
+    for(unsigned i = current_storage_boundary; i <= mapping.loop_nest.storage_tiling_boundaries[storage_level_id]; i++)
+    {
+     // For subtile shape
+     subtile_mapping_loopnest.push_back(mapping.loop_nest.loops[i]);
 
-    if (break_on_failure && !s.success)
-      break;
+     bool is_spatial_evaluated = false;
+     // Spatial Mapping Parallelism would be evaluated at the frist memory level without data bypass.
+     for (auto mask: keep_masks[storage_level_id])
+       is_spatial_evaluated |= mask;
+     if (is_spatial_evaluated)
+       subtile_mapping_parallelism.clear();
+     else
+       if (loop::IsSpatial(mapping.loop_nest.loops[i].spacetime_dimension))
+         // If current memory level has spatial mapping, but bypass all data, then we should evaluate it in the next higher memory level
+         subtile_mapping_parallelism.push_back(mapping.loop_nest.loops[i]);
+         
+    }
+    current_storage_boundary = mapping.loop_nest.storage_tiling_boundaries[storage_level_id] + 1;
   }
 
   if (!break_on_failure || success_accum)

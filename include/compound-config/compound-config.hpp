@@ -59,6 +59,7 @@ class CompoundConfigNode
   /**
    * @brief return compound config node corresponding with `path`.
    */
+  bool lookup(const char *path, CompoundConfigNode &result) const;
   CompoundConfigNode lookup(const char *path) const;
   inline CompoundConfigNode lookup(const std::string &path) const
   { return(lookup(path.c_str())); }

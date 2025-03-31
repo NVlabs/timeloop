@@ -31,6 +31,7 @@
 #include "util/banner.hpp"
 
 #include "applications/model/model.hpp"
+#include "layout/layout.hpp"
 
 //--------------------------------------------//
 //                Application                 //
@@ -184,6 +185,28 @@ Model::Model(config::CompoundConfig* config,
     std::cerr << "ERROR: mapping violates architecture constraints." << std::endl;
     exit(1);
   }
+
+  // layout modeling
+  std::cout << "Start Parsering Layout" << std::endl;
+  config::CompoundConfigNode compound_config_node_layout;
+  bool existing_layout = rootNode.lookup("layout", compound_config_node_layout);
+  
+  if (existing_layout){
+    std::map<std::string, std::pair<uint32_t, uint32_t>> externalPortMapping;
+    for (auto i: arch_specs_.topology.LevelNames())
+        externalPortMapping[i] = {arch_specs_.topology.GetStorageLevel(i)->num_ports.Get(), arch_specs_.topology.GetStorageLevel(i)->num_ports.Get()};
+
+    layout_ = layout::ParseAndConstruct(compound_config_node_layout, workload_, externalPortMapping);
+    
+    layout_initialized_ = true;
+
+    layout::PrintOverallLayout(layout_);
+  }
+  else{
+    layout_initialized_ = false;
+    std::cout << "No Layout specified, so using bandwidth based modeling" << std::endl;
+  }
+  
 }
 
 Model::~Model()
@@ -193,7 +216,7 @@ Model::~Model()
 
   if (arch_props_)
     delete arch_props_;
-
+  
   if (constraints_)
     delete constraints_;
 
@@ -235,17 +258,32 @@ Model::Stats Model::Run()
           mapping.datatype_bypass_nest.at(pvi).reset(level-1);
       }
   }
-    
-  auto eval_status = engine.Evaluate(mapping, workload_, sparse_optimizations_);    
-  for (unsigned level = 0; level < eval_status.size(); level++)
-  {
-    if (!eval_status[level].success)
+  
+  if (layout_initialized_){ 
+    auto eval_status = engine.Evaluate(mapping, workload_, layout_, sparse_optimizations_);
+    for (unsigned level = 0; level < eval_status.size(); level++)
     {
-      std::cerr << "ERROR: couldn't map level " << level_names.at(level) << ": "
-                << eval_status[level].fail_reason << std::endl;
-      exit(1);
+      if (!eval_status[level].success)
+      {
+        std::cerr << "ERROR: couldn't map level " << level_names.at(level) << ": "
+                  << eval_status[level].fail_reason << std::endl;
+        exit(1);
+      }
+    }
+  }else{
+    auto eval_status = engine.Evaluate(mapping, workload_, sparse_optimizations_);    
+    for (unsigned level = 0; level < eval_status.size(); level++)
+    {
+      if (!eval_status[level].success)
+      {
+        std::cerr << "ERROR: couldn't map level " << level_names.at(level) << ": "
+                  << eval_status[level].fail_reason << std::endl;
+        exit(1);
+      }
     }
   }
+
+  
   // if (!std::accumulate(success.begin(), success.end(), true, std::logical_and<>{}))
   // {
   //   std::cout << "Illegal mapping, evaluation failed." << std::endl;
@@ -262,13 +300,16 @@ Model::Stats Model::Run()
               << " | pJ/Algorithmic-Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
       engine.GetTopology().AlgorithmicComputes()
               << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
-      engine.GetTopology().ActualComputes() << std::endl;
+      engine.GetTopology().ActualComputes()
+              << " | Cycles = " << engine.Cycles()  << std::endl;
+
     }
     else
     {
       std::cout << "Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << engine.Utilization()
-                 << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
-      engine.GetTopology().ActualComputes() << std::endl;
+                << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << engine.Energy() /
+      engine.GetTopology().ActualComputes()
+                << " | Cycles = " << engine.Cycles()  << std::endl;
     }
 
     mapping.PrettyPrint(map_txt,

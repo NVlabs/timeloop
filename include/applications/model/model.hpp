@@ -42,6 +42,7 @@
 #include "compound-config/compound-config.hpp"
 #include "model/sparse-optimization-parser.hpp"
 
+#include "layout/layout.hpp"
 //--------------------------------------------//
 //                Application                 //
 //--------------------------------------------//
@@ -74,6 +75,10 @@ class Model
   // we can only instantiate them after certain config files have
   // been parsed.
 
+  // The layout modeling
+  layout::Layouts layout_; 
+  bool layout_initialized_ = false;
+    
   // The mapping.
   Mapping* mapping_;
 

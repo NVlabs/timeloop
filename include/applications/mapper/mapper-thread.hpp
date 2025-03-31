@@ -35,6 +35,8 @@
 #include "model/sparse-optimization-info.hpp"
 #include "search/search.hpp"
 
+#include "layout/layout.hpp"
+
 struct EvaluationResult
 {
   bool valid = false;
@@ -112,6 +114,8 @@ class MapperThread
   std::vector<std::string> optimization_metrics_;
   model::Engine::Specs arch_specs_;
   problem::Workload &workload_;
+  layout::Layouts layout_;
+  bool layout_initialized_;
   sparse::SparseOptimizationInfo* sparse_optimizations_;
   EvaluationResult* best_;
 
@@ -146,6 +150,8 @@ class MapperThread
     std::vector<std::string> optimization_metrics,
     model::Engine::Specs arch_specs,
     problem::Workload &workload,
+    layout::Layouts layout,
+    bool layout_initialized,
     sparse::SparseOptimizationInfo* sparse_optimizations,
     EvaluationResult* best
     );

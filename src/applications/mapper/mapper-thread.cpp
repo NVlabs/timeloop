@@ -289,9 +289,11 @@ MapperThread::MapperThread(
   std::vector<std::string> optimization_metrics,
   model::Engine::Specs arch_specs,
   problem::Workload &workload,
+  layout::Layouts layout,
+  bool layout_initialized,
   sparse::SparseOptimizationInfo* sparse_optimizations,
   EvaluationResult* best
-  ) :
+  ):
     thread_id_(thread_id),
     search_(search),
     mapspace_(mapspace),
@@ -317,6 +319,8 @@ MapperThread::MapperThread(
     optimization_metrics_(optimization_metrics),
     arch_specs_(arch_specs),
     workload_(workload),
+    layout_(layout),
+    layout_initialized_(layout_initialized),
     sparse_optimizations_(sparse_optimizations),
     best_(best),
     thread_(),
@@ -447,7 +451,11 @@ void MapperThread::Run()
       {
 
         // Re-evaluate the mapping
-        engine.Evaluate(index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
+        if (layout_initialized_){
+          engine.Evaluate(index_factor_best.mapping, workload_, layout_, sparse_optimizations_, !diagnostics_on_);
+        }else
+          engine.Evaluate(index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
+          
         if (index_factor_best.valid) {
             auto topology = engine.GetTopology();
             mutex_->lock();
@@ -596,10 +604,18 @@ void MapperThread::Run()
     }
 
     // Stage 3: Heavyweight evaluation.
-    status_per_level = engine.Evaluate(mapping, workload_, sparse_optimizations_, !diagnostics_on_);
-    success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
+    if (layout_initialized_){
+      status_per_level = engine.Evaluate(mapping, workload_, layout_, sparse_optimizations_, !diagnostics_on_);
+      success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
                                [](bool cur, const model::EvalStatus& status)
                                { return cur && status.success; });
+    }else{
+      status_per_level = engine.Evaluate(mapping, workload_, sparse_optimizations_, !diagnostics_on_);
+      success &= std::accumulate(status_per_level.begin(), status_per_level.end(), true,
+                               [](bool cur, const model::EvalStatus& status)
+                               { return cur && status.success; });
+    }
+
     if (!success)
     {
       // Evaluation failed.
@@ -641,7 +657,11 @@ void MapperThread::Run()
       {
 
         // Re-evaluate the mapping
-        engine.Evaluate(index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
+        if (layout_initialized_){
+          engine.Evaluate(index_factor_best.mapping, workload_, layout_, sparse_optimizations_, !diagnostics_on_);
+        }else
+          engine.Evaluate(index_factor_best.mapping, workload_, sparse_optimizations_, !diagnostics_on_);
+
         auto topology = engine.GetTopology();
 
         mutex_->lock();
@@ -683,6 +703,7 @@ void MapperThread::Run()
                   << " | pJ/Algorithmic-Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
                   << " | pJ/Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
+                  << " | Cycles = " << stats.cycles
                   << std::endl;
       }
       else
@@ -691,6 +712,7 @@ void MapperThread::Run()
                   << " Utilization = " << std::setw(4) << OUT_PERCENT(stats.utilization)
                   << " | pJ/Compute = " << std::setw(4) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                   << " | " << mapping.PrintCompact()
+                  << " | Cycles = " << stats.cycles
                   << std::endl;
       }
       mutex_->unlock();
@@ -735,6 +757,7 @@ void MapperThread::Run()
                     << " | pJ/Algorithmic-Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.algorithmic_computes
                     << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
+                    << " | Cycles = " << stats.cycles
                     << std::endl;
         }
         else
@@ -743,6 +766,7 @@ void MapperThread::Run()
                     << " Utilization = " << std::setw(4) << OUT_FLOAT_FORMAT << std::setprecision(2) << stats.utilization
                     << " | pJ/Compute = " << std::setw(8) << OUT_FLOAT_FORMAT << PRINTFLOAT_PRECISION << stats.energy / stats.actual_computes
                     << " | " << mapping.PrintCompact()
+                    << " | Cycles = " << stats.cycles
                     << std::endl;
         }        mutex_->unlock();
       }
