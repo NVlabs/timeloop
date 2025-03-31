@@ -342,7 +342,7 @@ const isl::set& FusedWorkload::DataSpaceBound(DataSpaceId dspace) const
 }
 
 
-int FusedWorkload::GetTensorSize(DataSpaceId dspace) const
+double FusedWorkload::GetTensorSize(DataSpaceId dspace) const
 {
   return isl::val_to_double(
     isl::get_val_from_singular(isl_set_card(DataSpaceBound(dspace).copy()))
@@ -350,7 +350,7 @@ int FusedWorkload::GetTensorSize(DataSpaceId dspace) const
 }
 
 
-int FusedWorkload::GetOspaceVolume(EinsumId einsum) const
+double FusedWorkload::GetOspaceVolume(EinsumId einsum) const
 {
   return isl::val_to_double(
     isl::get_val_from_singular(isl_set_card(EinsumOspaceBound(einsum).copy()))
