@@ -1,0 +1,8 @@
+mapper:
+  version: 0.4
+  optimization_metric: [ delay, energy ]
+  num_threads: 1
+  algorithm: linear_pruned
+  victory_condition: 0
+  timeout: 0
+

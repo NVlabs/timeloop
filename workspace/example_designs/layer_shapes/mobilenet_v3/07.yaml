@@ -1,0 +1,6 @@
+{{include_text('../problem_base.yaml')}}
+problem:
+  <<<: *problem_base
+  instance: {G: 72, P: 56, Q: 56, R: 3, S: 3}
+
+  

@@ -1,0 +1,64 @@
+architecture:
+  version: 0.4
+  nodes:
+  - !Container
+    name: system
+    attributes:
+      technology: "45nm"
+
+  - !Component
+    name: BackingStorage
+    class: smartbuffer_metadata
+    attributes:
+      depth: 512
+      width: 32
+      datawidth: 8
+      metadata_storage_depth: 128
+      metadata_storage_width: 4
+      metadata_datawidth: 4
+    sparse_optimizations:
+      representation_format:
+        data_spaces:
+          - name: Weights
+            ranks:
+              - format: UOP # uncompressed offset pair
+              - format: UOP # uncompressed offset pair
+              - format: RLE # run length encoding
+
+  - !Container
+    name: PE  # 4 spatial PEs
+    spatial: {meshX: 4}
+
+  - !Component
+    name: Buffer
+    class: storage
+    subclass: regfile_metadata
+    attributes:
+      depth: 128
+      width: 8
+      datawidth: 8
+      metadata_storage_depth: 64
+      metadata_storage_width: 4
+      metadata_datawidth: 4
+    sparse_optimizations:
+      representation_format:
+        data_spaces:
+          - name: Weights
+            ranks:
+              - format: RLE # run length encoding
+      action_optimization:
+        - type: skipping
+          options:
+            - target: Inputs
+              condition_on: [ Weights ]
+        - type: skipping
+          options:
+            - target: Outputs
+              condition_on: [ Weights ]
+    
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16

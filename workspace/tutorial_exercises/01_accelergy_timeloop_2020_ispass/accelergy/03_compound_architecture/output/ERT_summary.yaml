@@ -1,0 +1,60 @@
+ERT_summary:
+    version: '0.4'
+    table_summary:
+      - name: simple_compound.PE[0..4].MAC
+        actions:
+          - name: mac_random
+            energy: 3.0
+          - name: mac_reused
+            energy: 3.0
+          - name: mac_gated
+            energy: 2.0
+          - name: idle
+            energy: 2.0
+        primitive_estimation(s):
+          - name: mac
+            estimator: dummy_table
+          - name: output_fifo
+            estimator: dummy_table
+      - name: simple_compound.PE[0..4].buffer
+        actions:
+          - name: write
+            average_energy: 3.0
+            max_energy: 3.0
+            min_energy: 3.0
+          - name: read
+            average_energy: 3.0
+            max_energy: 3.0
+            min_energy: 3.0
+          - name: idle
+            energy: 3.0
+        primitive_estimation(s):
+          - name: storage
+            estimator: dummy_table
+          - name: address_generators[0]
+            estimator: dummy_table
+          - name: address_generators[1]
+            estimator: dummy_table
+          - name: address_generators[0..1]
+            estimator: dummy_table
+      - name: simple_compound.GLB
+        actions:
+          - name: write
+            average_energy: 5.37759
+            max_energy: 8.75518
+            min_energy: 2.0
+          - name: read
+            average_energy: 4.894805
+            max_energy: 7.78961
+            min_energy: 2.0
+          - name: idle
+            energy: 2.0
+        primitive_estimation(s):
+          - name: storage
+            estimator: CACTI
+          - name: address_generators[0]
+            estimator: dummy_table
+          - name: address_generators[1]
+            estimator: dummy_table
+          - name: address_generators[0..1]
+            estimator: dummy_table

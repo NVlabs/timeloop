@@ -1,0 +1,9 @@
+ART:
+    version: '0.4'
+    tables:
+      - name: system_top_level.BackingStorage[1..1]
+        area: 7635.82
+      - name: system_top_level.Buffer[1..1]
+        area: 6430.89
+      - name: system_top_level.mac[1..1]
+        area: 417.0

@@ -1,0 +1,36 @@
+architecture:
+# ============================================================
+# Architecture Description
+# ============================================================
+  version: 0.3
+  subtree:
+    - name: simple_primitive    # top-level name key has the value as your design name, there can be only one component is the top level list, whic is the design
+      attributes:               # shared attributes for all subcomponents in design
+        technology: 45nm
+        voltage: 1V
+        latency: 5ns
+      local:                     # list of components in the design
+        - name: GLB
+          class: SRAM
+          attributes:            # hardware attributes (the ones same as default attributes can be ommitted)
+            width: 32
+            depth: 1024
+            n_rd_ports: 0
+            n_wr_ports: 0
+            n_rdwr_ports: 2
+            n_banks: 1
+      subtree:                   # abstract hierarchy in the architecture
+        - name: PE
+          attributes:
+            datawidth: 16
+          local:
+            - name: MAC       # component under the PE
+              class: intmac
+              attributes:
+                num_pipeline_stages: 1
+                width: 8
+            - name: buffer    # local storage under the PE
+              class: regfile
+              attributes:
+                width: 16
+                depth: 24

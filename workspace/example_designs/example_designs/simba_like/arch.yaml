@@ -1,0 +1,104 @@
+architecture:
+  version: 0.4
+  nodes: # Top-level is hierarchical
+  - !Container # Top-level system
+    name: System
+    attributes:
+      datawidth: 8
+      technology: "45nm"
+  
+  - !Component # DRAM main memory
+    name: DRAM
+    class: DRAM
+    attributes:
+      type: "LPDDR4"
+      width: 64
+      datawidth: 8
+
+  - !Component # Global buffer for inputs & outputs
+    name: GlobalBuffer
+    class: smartbuffer_SRAM
+    attributes:
+      depth: 2048
+      width: 256
+      datawidth: 8
+      n_banks: 4
+      nports: 2
+    constraints:
+      dataspace: {keep: [Inputs, Outputs], bypass: [Weights]}
+
+  - !Container # Each PE works on a different output channel
+    name: PE
+    spatial: {meshX: 16}
+    constraints:
+      spatial: {factors: R=1 S=1 P=1 Q=1 N=1, permutation: [M, C, R, S, P, Q, N]}
+
+  - !Component # Input buffer
+    name: PEInputBuffer
+    class: storage
+    subclass: smartbuffer_RF
+    attributes:
+      depth: 8192
+      width: 64
+      datawidth: 8
+    constraints:
+      dataspace: {keep: [Inputs], bypass: [Weights, Outputs]}
+
+  - !Container # Weight channels distributed across different buffers
+    name: distributed_buffers
+    spatial: {meshY: 4}
+    constraints:
+      spatial: {factors: P=1 Q=1 R=1 S=1 C=1 N=1, permutation: [M, C, Q, R, S, P, N]}
+
+  - !Parallel # Weight/accumulator buffers
+    nodes:
+    - !Component # Weight buffer
+      name: PEWeightBuffer
+      class: storage
+      subclass: smartbuffer_RF
+      attributes:
+        depth: 4096
+        width: 64
+        datawidth: 8
+        n_banks: 8
+      constraints:
+        dataspace: {keep: [Weights], bypass: [Inputs, Outputs]}
+
+    - !Component # Accumulator buffer
+      name: PEAccuBuffer
+      class: storage
+      subclass: smartbuffer_RF
+      attributes:
+        depth: 128
+        datawidth: 24
+        width: 24
+      constraints:
+        dataspace: {keep: [Outputs], bypass: [Inputs, Weights]}
+
+    - !Nothing {constraints: {dataspace: {keep: [Inputs]}}}
+
+  - !Container # Four registers/MAC pairs per distributed buffer
+    name: reg_mac
+    spatial: {meshY: 4}
+    constraints:
+      spatial: {factors: P=1 Q=1 R=1 S=1 M=1 N=1, permutation: [C, M, Q, R, S, P, N]}
+
+  - !Component # Weight registers
+    name: PEWeightRegs
+    class: storage
+    subclass: smartbuffer_RF
+    attributes:
+      depth: 1
+      width: 512
+      cluster_size: 64
+      num_ports: 2
+      datawidth: 8
+    constraints:
+      dataspace: {keep: [Weights], bypass: [Inputs, Outputs]}
+
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16

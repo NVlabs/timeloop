@@ -1,0 +1,102 @@
+## ==============================================================================
+# Including Python scripts for more complex arithmetic
+# ==============================================================================
+
+# in math_functions.py
+# def func(x):
+#  return x + 1
+globals:
+  version: 0.4
+  expression_custom_functions:
+    - math_functions.py
+
+# Included Python math functions available:
+#   ceil, comb, copysign, fabs, factorial, floor, fmod, frexp, fsum, gcd,
+#   isclose, isfinite, isinf, isnan, isqrt, ldexp, modf, perm, prod, remainder,
+#   trunc, exp, expm1, log, log1p, log2, log10, pow, sqrt, acos, asin, atan,
+#   atan2, cos, dist, hypot, sin, tan, degrees, radians, acosh, asinh, atanh,
+#   cosh, sinh, tanh, erf, erfc, gamma, lgamma, pi, e, tau, inf, nan, abs,
+#   round, pow, sum, range, len, min, max, float, int, str, bool, list, tuple,
+#   enumerate, getcwd, map
+
+# =============================================================================
+# Arithmetic in top-level defines
+# ==============================================================================
+variables:
+  version: 0.4
+  TOP_LEVEL_DEFINE: 3
+  TOP_LEVEL_MATH: 3 + 1 # Can use expressions
+  TOP_LEVEL_USE_IMPORTED: func(1) # Can use imported functions
+
+# ==============================================================================
+# Arithmetic in compound components
+# ==============================================================================
+compound_components:   # REQUIRED top-level key
+  version: 0.4         # REQUIRED version number
+  classes:             # Compound component classes go below
+
+  # Define a compound component class
+  - name: component_name_here
+    attributes: # Attributes listed here can be thought of as the "inputs" to the component
+      scalar: 123
+      array:  [1, 2, 3]
+      dict:   {key1: 1, key2: 2}
+      string: "string" # Quotes are required for strings
+      reference_top_level: TOP_LEVEL_DEFINE # References to top-level defines are allowed
+
+      # Any Python expression can be used. A limited set of functions are available.
+      expression: scalar + 1 # Any Python expression can be used
+      complex_expression: scalar + array[0] + dict["key1"] + pow(len(string), 4)
+
+      # If an expression WOULD otherwise be wrapped in quotes, we can force it
+      # to be treated as an expression by wrapping it in parentheses
+      expresssion_with_strings: ("string1" + "string2")
+      multiline_expression: |
+        def func(x):
+          return x + 1
+      expression_calling_function: func(1)
+
+    # Subcomponents can reference parent component attributes
+    subcomponents:
+    - name: subcomponent_name_1[1..scalar] # Can reference attributes of parent components
+      class: class_of_subcomponent_1
+      area_scale: scalar * 123
+      attributes:
+        subcomponent_attribute_1: scalar * 2     # Can reference attributes of parent components
+        subcomponent_attribute_2: expression + 1 #
+
+    actions: 
+    - name: read # Read action processes a value
+      subcomponents:
+      - name: subcomponent_name_1
+        actions:
+        - name: read
+          energy_scale: expression # 
+          arguments: {arg1: expression} # Arguments are passed to the action
+
+# ==============================================================================
+# Arithmetic in architecture.yaml
+# ==============================================================================
+architecture:
+  nodes: &macro # TOP MACRO
+  # ============================================================================
+  - !Container # Top-level system
+    name: system
+    attributes:
+      system_val: 123
+
+  - !Component
+    name: component1
+    subclass: component_name_here
+    attributes:
+      value1: TOP_LEVEL_DEFINE       # Reference top-level define
+      scalar: TOP_LEVEL_DEFINE * 123 # Overwrite component default
+      from_system: system_val        # Directly reference parent containers
+    spatial: {meshX: value1} # Can reference attributes of this component
+
+  - !Component
+    name: component2
+    subclass: component_name_here
+    attributes:
+      value1: component1.attributes["value1"] # Reference component1 attribute
+      scalar: component1.attributes.spatial.meshX

@@ -1,0 +1,41 @@
+action_counts:
+  # ================================================
+  # Action Counts
+  # ================================================
+  version: 0.3
+  subtree:
+    - name: simple_primitive
+      local:
+        - name: GLB         # leaf node (component)
+          action_counts:
+            - name: read
+              arguments:
+                data_delta: 1
+                address_delta: 1
+              counts: 20
+            - name: write
+              arguments:
+                data_delta: 1
+                address_delta: 1
+              counts: 10
+      subtree:
+        - name: PE
+          local:
+            - name: buffer
+              action_counts:
+                - name: read
+                  arguments:
+                    address_delta: 1
+                    data_delta: 0
+                  counts: 50
+                - name: read
+                  arguments:
+                    address_delta: 1
+                    data_delta: 1
+                  counts: 20
+            - name: MAC
+              action_counts:
+                - name: mac_random
+                  counts: 30
+                - name: mac_gated
+                  counts: 15

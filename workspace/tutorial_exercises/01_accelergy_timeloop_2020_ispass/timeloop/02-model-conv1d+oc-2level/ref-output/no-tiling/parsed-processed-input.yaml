@@ -1,0 +1,147 @@
+dumped_by_timeloop_front_end: true
+architecture:
+    version: '0.4'
+    subtree:
+      - name: PE_top_level
+        attributes:
+            version: '0.4'
+            technology: "40nm"
+            global_cycle_seconds: 1e-9
+            has_power_gating: false
+            power_gated_at: null
+        local:
+          - name: MainMemory[1..1]
+            class: SRAM
+            attributes:
+                depth: 32768
+                width: 64
+                datawidth: 8
+                has_power_gating: false
+                n_banks: 2
+                cluster_size: 1
+                reduction_supported: true
+                multiple_buffering: 1
+                min_utilization: 0
+                allow_overbooking: false
+                meshX: 1
+                meshY: 1
+                technology: "40nm"
+                global_cycle_seconds: 1e-9
+                power_gated_at: null
+            required_actions:
+              - update
+              - read
+              - write
+              - leak
+            enabled: true
+          - name: Buffer[1..1]
+            class: regfile
+            attributes:
+                depth: 64
+                width: 8
+                datawidth: 8
+                has_power_gating: false
+                n_banks: 2
+                cluster_size: 1
+                reduction_supported: true
+                multiple_buffering: 1
+                min_utilization: 0
+                allow_overbooking: false
+                meshX: 1
+                meshY: 1
+                technology: "40nm"
+                global_cycle_seconds: 1e-9
+                power_gated_at: null
+            required_actions:
+              - update
+              - read
+              - write
+              - leak
+            enabled: true
+          - name: MACC[1..1]
+            class: intmac
+            attributes:
+                width: 8
+                has_power_gating: false
+                meshX: 1
+                meshY: 1
+                technology: "40nm"
+                global_cycle_seconds: 1e-9
+                power_gated_at: null
+            required_actions:
+              - compute
+            enabled: true
+architecture_constraints:
+    targets: []
+problem:
+    version: '0.4'
+    shape:
+        name: Conv1D_OC
+        dimensions:
+          - K
+          - R
+          - P
+        data_spaces:
+          - name: Weights
+            projection:
+              -   -   - K
+              -   -   - R
+            read_write: false
+          - name: Inputs
+            projection:
+              -   -   - R
+                  -   - P
+            read_write: false
+          - name: Outputs
+            projection:
+              -   -   - K
+              -   -   - P
+            read_write: true
+        coefficients: []
+    instance:
+        K: 32
+        R: 3
+        P: 16
+        densities: {}
+compound_components:
+    version: '0.4'
+    classes: []
+mapping:
+  - target: MainMemory
+    type: temporal
+    factors: R=1,P=16,K=32
+    permutation: PRK
+  - target: Buffer
+    type: temporal
+    factors: R=3,P=1,K=1
+    permutation: RPK
+mapper:
+    version: '0.4'
+    out_prefix: timeloop-mapper
+    num_threads: 8
+    optimization_metric: []
+    search_size: null
+    timeout: 1000
+    victory_condition: null
+    sync_interval: null
+    log_interval: 1
+    log_oaves: false
+    log_oaves_mappings: false
+    log_stats: false
+    log_suboptimal: false
+    live_status: false
+    diagnostics: false
+    penalize_consecutive_bypass_fails: false
+    emit_whoop_nest: false
+    max_temporal_loops_in_a_mapping: -1
+    algorithm: hybrid
+    filter_revisits: false
+    max_permutations_per_if_visit: 16
+mapspace:
+    version: '0.4'
+    template: uber
+globals:
+    version: '0.4'
+    environment_variables: {}
+    expression_custom_functions: []
+    accelergy_plug_ins: []

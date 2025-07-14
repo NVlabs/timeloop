@@ -1,0 +1,37 @@
+architecture:
+    version: '0.4'
+    local:
+      - name: system_arch.chip.DRAM
+        class: DRAM
+        attributes:
+            reduction_supported: false
+            width: 256
+            technology: "45nm"
+            tech_node: 45
+            global_cycle_seconds: 0.001
+            action_latency_cycles: 1
+            cycle_seconds: 0.001
+            n_instances: 1
+      - name: system_arch.chip.buffer
+        subclass: SRAM
+        attributes:
+            depth: 16
+            width: 64
+            datawidth: 8
+            technology: "45nm"
+            tech_node: 45
+            global_cycle_seconds: 0.001
+            action_latency_cycles: 1
+            cycle_seconds: 0.001
+            n_instances: 1
+      - name: system_arch.chip.PE[1..8]
+        class: mac
+        subclass: custom_mac
+        attributes:
+            tech_node: 45
+            accum_datawidth: 5
+            technology: "45nm"
+            global_cycle_seconds: 0.001
+            action_latency_cycles: 1
+            cycle_seconds: 0.001
+            n_instances: 1

@@ -1,0 +1,7 @@
+ART:
+    version: '0.4'
+    tables:
+      - name: PE_top_level.Buffer[1..1]
+        area: 887.84
+      - name: PE_top_level.MACC[1..1]
+        area: 332.25

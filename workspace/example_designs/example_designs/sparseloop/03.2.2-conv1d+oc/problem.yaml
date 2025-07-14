@@ -1,0 +1,27 @@
+problem:
+  version: 0.4
+  shape:
+    name: Conv1D_OC
+    dimensions: [ M, S, Q ]
+    data_spaces:
+    - name: Weights
+      projection:
+      - [ [M] ]
+      - [ [S] ]
+    - name: Inputs
+      projection:
+      - [ [S], [Q] ]
+    - name: Outputs
+      projection:
+      - [ [M] ]
+      - [ [Q] ]
+      read_write: True
+
+  instance:
+    M: 16
+    S: 3
+    Q: 9
+    densities:
+      Weights:
+        distribution: fixed_structured
+        density: 0.4333

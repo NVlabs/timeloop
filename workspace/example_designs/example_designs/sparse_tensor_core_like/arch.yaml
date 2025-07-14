@@ -1,0 +1,90 @@
+architecture:
+  version: 0.4
+  nodes: # Top-level is hierarchical
+  - !Container # Top-level system
+    name: system
+    attributes:
+      technology: "45nm"
+
+  - !Component # DRAM main memory
+    name: DRAM
+    class: DRAM
+    attributes:
+      type: "LPDDR4"
+      width: 64
+      metadata_storage_width: 64
+      datawidth: 8
+      cluster_size: 1
+      read_bandwidth: 32
+      write_bandwidth: 32
+    constraints:
+      temporal: {permutation: [K], factors: K=1}
+
+  - !Component # 256KB data, 32KB metadata
+    name: SMEM
+    class: storage
+    subclass: smartbuffer_metadata
+    attributes:
+      depth: 8192 
+      width: 256
+      n_banks: 2
+      n_rdwr_ports: 2
+      metadata_storage_depth: 8192
+      metadata_storage_width: 64
+      datawidth: 8
+      cluster_size: 1
+      read_bandwidth: 42
+      write_bandwidth: 42
+    constraints:
+      temporal: {permutation: [K], factors: K=1 M<=8 N<=8}
+      dataspace: {keep: [A, B], bypass: [Z]}
+         
+  - !Container # Subpartition
+    name: Subpartition
+    spatial: {meshY: 4}
+    constraints:
+      spatial: {permutation: [N, K, M], factors: K=1 N=1 M=4, split: 0}
+
+  - !Component # Register file
+    name: RF # Register file
+    class: storage
+    subclass: smartbuffer_RF
+    attributes:
+      # to accommodate for a dense Z with M=16 and N=128
+      depth: 2048
+      width: 8
+      n_banks: 16
+      n_rdwr_ports: 2
+      datawidth: 8
+      cluster_size: 1
+    constraints:
+      temporal: {permutation: [N, K, M], factors: M=1 N=1}
+      dataspace: {keep: [Z], bypass: [A, B]}
+
+  - !Container # PE
+    name: PE
+    spatial: {meshX: 16, meshY: 16}
+    constraints:
+      spatial: {permutation: [K, M, N], factors: K=16 M=16 N=1, split: 1}
+
+  - !Component # Local register file
+    name: LRF 
+    class: storage
+    subclass: smartbuffer_metadata
+    attributes:
+      depth: 1
+      width: 8
+      metadata_storage_depth: 1  
+      metadata_storage_width: 8
+      datawidth: 8
+      cluster_size: 1 
+    constraints:
+      temporal: {permutation: [N, K, M], factors: K=1 M=1 N<=128}
+      dataspace: {keep: [A], bypass: [B, Z]}
+
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16

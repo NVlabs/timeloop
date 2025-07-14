@@ -1,0 +1,7 @@
+ART:
+    version: '0.4'
+    tables:
+      - name: accelerator_top_level.Buffer[1..1]
+        area: 845.98
+      - name: accelerator_top_level.MACC[1..1]
+        area: 466.375

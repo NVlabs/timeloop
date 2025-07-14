@@ -1,0 +1,52 @@
+compound_components:   # REQUIRED top-level key
+  version: 0.4         # REQUIRED version number
+  classes:             # Compound component classes go below
+
+  # Define a compound component class
+  - name: component_name_here
+    attributes: # Attributes listed here can be thought of as the "inputs" to the component
+      attribute_name_1: 123 # Default values can be specified here
+      attribute_name_2: "must_specify" # "must_specify" means that the user must specify a value
+
+    # Each subcomponent is a component that is instantiated inside this component
+    subcomponents: 
+    - name: subcomponent_name_1
+      class: class_of_subcomponent_1 # class must be defined by a plug-in or compound component
+      area_scale: 1 # Area share scales the area of the subcomponent
+      attributes:
+        subcomponent_attribute_1: 123
+        subcomponent_attribute_2: 456
+
+    # Multiple subcomponents can be instantiated with a range
+    - name: subcomponent_name_2[1..123] 
+      class: class_of_subcomponent_2
+      area_scale: 1 # Area share scales the area of the subcomponent
+      attributes:
+        subcomponent_attribute_1: 123
+        subcomponent_attribute_2: 456
+
+    # Each component MUST have read, write, update, and leak actions
+    actions: 
+    - name: read # Read action processes a value
+      subcomponents:
+      - name: subcomponent_name_1
+        actions:
+        - name: read
+          energy_scale: 1 # energy_scale specifies how many times the action is performed
+          arguments: {arg1: 123, arg2: 456} # Arguments are passed to the action
+
+      - name: subcomponent_name_2[0] # Multiple subcomponents can be called. We use [0] here
+                                     # because we only want one subcomponent to be read.
+        actions:
+        - name: read
+          energy_scale: 1 # energy_scale specifies how many times the action is performed
+          arguments: {arg1: 123, arg2: 456}
+
+    # Specify empty subcomponents to have zero-energy actions
+    - {name: write, subcomponents: []}
+    - {name: update, subcomponents: []}
+    - {name: leak, subcomponents: []}
+
+  # Define more compound component classes
+  - name: component_name_here_2
+    # ...

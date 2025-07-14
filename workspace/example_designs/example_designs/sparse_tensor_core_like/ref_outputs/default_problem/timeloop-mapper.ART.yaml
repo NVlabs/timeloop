@@ -1,0 +1,17 @@
+ART:
+    version: '0.4'
+    tables:
+      - name: system_top_level.DRAM[1..1]
+        area: 0.0
+      - name: system_top_level.inter_Subpartition_spatial[1..1]
+        area: 1.0
+      - name: system_top_level.inter_PE_spatial[1..4]
+        area: 1.0
+      - name: system_top_level.SMEM[1..1]
+        area: 1069101.875
+      - name: system_top_level.RF[1..4]
+        area: 33612.845625
+      - name: system_top_level.LRF[1..1024]
+        area: 30.62
+      - name: system_top_level.mac[1..1024]
+        area: 417.0

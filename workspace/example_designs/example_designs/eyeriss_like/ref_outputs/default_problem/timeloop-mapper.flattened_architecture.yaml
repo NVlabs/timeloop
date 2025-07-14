@@ -1,0 +1,244 @@
+architecture:
+    version: '0.4'
+    local:
+      - name: system_top_level.DRAM[1..1]
+        class: DRAM
+        attributes:
+            type: "LPDDR4"
+            width: 64
+            datawidth: 8
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            technology: "SET ME"
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - leak
+          - write
+          - read
+          - update
+        enabled: true
+      - name: system_top_level.shared_glb[1..1]
+        class: smartbuffer_SRAM
+        attributes:
+            depth: 16384
+            width: 64
+            n_banks: 32
+            datawidth: 8
+            read_bandwidth: 16
+            write_bandwidth: 16
+            has_power_gating: false
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            power_gated_at: null
+            technology: "32nm"
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            n_rw_ports: 1
+        required_actions:
+          - leak
+          - write
+          - read
+          - update
+        enabled: true
+      - name: system_top_level.inter_PE_column_spatial[1..1]
+        class: dummy_storage
+        attributes:
+            width: 1
+            depth: 1
+            datawidth: 1
+            technology: -1
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        enabled: true
+      - name: system_top_level.inter_PE_spatial[1..14]
+        class: dummy_storage
+        attributes:
+            width: 1
+            depth: 1
+            datawidth: 1
+            technology: -1
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 14
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        enabled: true
+      - name: system_top_level.ifmap_spad[1..168]
+        class: smartbuffer_RF
+        attributes:
+            depth: 12
+            width: 16
+            datawidth: 8
+            read_bandwidth: 2
+            write_bandwidth: 2
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 14
+            meshY: 12
+            power_gated_at: null
+            technology: "32nm"
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            memory_width: 32
+            memory_depth: 64
+            widthscale: 0.5
+            depthscale: 0.1875
+            real_depth: 12
+            area_scale: 0.09375
+            dynamic_energy_scale: 0.1354911710963393
+            static_energy_scale: 0.09375
+            n_rdwr_ports: 1
+        required_actions:
+          - leak
+          - write
+          - read
+          - update
+        enabled: true
+      - name: system_top_level.weights_spad[1..168]
+        class: smartbuffer_RF
+        attributes:
+            depth: 192
+            width: 16
+            datawidth: 8
+            read_bandwidth: 2
+            write_bandwidth: 2
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 14
+            meshY: 12
+            power_gated_at: null
+            technology: "32nm"
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            memory_width: 32
+            memory_depth: 192
+            widthscale: 0.5
+            depthscale: 1.0
+            real_depth: 192
+            area_scale: 0.5
+            dynamic_energy_scale: 0.5
+            static_energy_scale: 0.5
+            n_rdwr_ports: 1
+        required_actions:
+          - leak
+          - write
+          - read
+          - update
+        enabled: true
+      - name: system_top_level.psum_spad[1..168]
+        class: smartbuffer_RF
+        attributes:
+            depth: 16
+            width: 16
+            update_fifo_depth: 2
+            datawidth: 16
+            read_bandwidth: 2
+            write_bandwidth: 2
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 14
+            meshY: 12
+            power_gated_at: null
+            technology: "32nm"
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            memory_width: 32
+            memory_depth: 64
+            widthscale: 0.5
+            depthscale: 0.25
+            real_depth: 16
+            area_scale: 0.125
+            dynamic_energy_scale: 0.16957554093095897
+            static_energy_scale: 0.125
+            n_rdwr_ports: 1
+        required_actions:
+          - leak
+          - write
+          - read
+          - update
+        enabled: true
+      - name: system_top_level.mac[1..168]
+        class: intmac
+        attributes:
+            multiplier_width: 8
+            adder_width: 16
+            has_power_gating: false
+            meshX: 14
+            meshY: 12
+            power_gated_at: null
+            technology: "32nm"
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - compute
+        enabled: true

@@ -1,0 +1,14 @@
+ERT:
+    version: '0.4'
+    tables:
+      - name: system_arch.chip.PE[1..8]
+        actions:
+          - name: mac_random_to_accurate_picky
+            arguments: {}
+            energy: 0.69139
+          - name: mac_random_to_inaccurate_flexible
+            arguments: {}
+            energy: 0.345695
+          - name: reset_expensive_specified_argument
+            arguments: {}
+            energy: 1000000000000.0

@@ -1,0 +1,1264 @@
+energy_estimation:
+  version: 0.3
+  components:
+  - name: eyeriss_like.weights_glb
+    energy: 13520.741759999999
+  - name: eyeriss_like.shared_glb
+    energy: 2294329.8613600004
+  - name: eyeriss_like.weights_NoC
+    energy: 171.29952
+  - name: eyeriss_like.ifmap_NoC
+    energy: 388.92859
+  - name: eyeriss_like.psum_write_NoC
+    energy: 196.89440000000002
+  - name: eyeriss_like.psum_read_NoC
+    energy: 197.976
+  - name: eyeriss_like.PE[0].weights_spad
+    energy: 3195.41269
+  - name: eyeriss_like.PE[0].ifmap_spad
+    energy: 1593.29928
+  - name: eyeriss_like.PE[0].psum_spad
+    energy: 6825.66864
+  - name: eyeriss_like.PE[0].mac
+    energy: 2877.5562
+  - name: eyeriss_like.PE[1].weights_spad
+    energy: 13977.6975
+  - name: eyeriss_like.PE[1].ifmap_spad
+    energy: 1630.69362
+  - name: eyeriss_like.PE[1].psum_spad
+    energy: 8983.93128
+  - name: eyeriss_like.PE[1].mac
+    energy: 16110.883899999999
+  - name: eyeriss_like.PE[2].weights_spad
+    energy: 11595.54087
+  - name: eyeriss_like.PE[2].ifmap_spad
+    energy: 1623.21196
+  - name: eyeriss_like.PE[2].psum_spad
+    energy: 8614.765940000001
+  - name: eyeriss_like.PE[2].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[3].weights_spad
+    energy: 12661.37607
+  - name: eyeriss_like.PE[3].ifmap_spad
+    energy: 1625.5593199999998
+  - name: eyeriss_like.PE[3].psum_spad
+    energy: 8796.041659999999
+  - name: eyeriss_like.PE[3].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[4].weights_spad
+    energy: 15321.171590000002
+  - name: eyeriss_like.PE[4].ifmap_spad
+    energy: 1631.49676
+  - name: eyeriss_like.PE[4].psum_spad
+    energy: 8925.999399999999
+  - name: eyeriss_like.PE[4].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[5].weights_spad
+    energy: 15226.625670000001
+  - name: eyeriss_like.PE[5].ifmap_spad
+    energy: 1630.5302000000001
+  - name: eyeriss_like.PE[5].psum_spad
+    energy: 8889.13204
+  - name: eyeriss_like.PE[5].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[6].weights_spad
+    energy: 15576.39451
+  - name: eyeriss_like.PE[6].ifmap_spad
+    energy: 1631.7729199999999
+  - name: eyeriss_like.PE[6].psum_spad
+    energy: 8892.30788
+  - name: eyeriss_like.PE[6].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[7].weights_spad
+    energy: 14901.563510000002
+  - name: eyeriss_like.PE[7].ifmap_spad
+    energy: 1629.8398000000002
+  - name: eyeriss_like.PE[7].psum_spad
+    energy: 8864.001479999999
+  - name: eyeriss_like.PE[7].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[8].weights_spad
+    energy: 15851.09811
+  - name: eyeriss_like.PE[8].ifmap_spad
+    energy: 1631.6348400000002
+  - name: eyeriss_like.PE[8].psum_spad
+    energy: 8921.1666
+  - name: eyeriss_like.PE[8].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[9].weights_spad
+    energy: 16375.79863
+  - name: eyeriss_like.PE[9].ifmap_spad
+    energy: 1631.08252
+  - name: eyeriss_like.PE[9].psum_spad
+    energy: 8893.5506
+  - name: eyeriss_like.PE[9].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[10].weights_spad
+    energy: 15151.182350000001
+  - name: eyeriss_like.PE[10].ifmap_spad
+    energy: 1629.97788
+  - name: eyeriss_like.PE[10].psum_spad
+    energy: 8867.59156
+  - name: eyeriss_like.PE[10].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[11].weights_spad
+    energy: 13351.79055
+  - name: eyeriss_like.PE[11].ifmap_spad
+    energy: 1625.1450800000002
+  - name: eyeriss_like.PE[11].psum_spad
+    energy: 8680.49316
+  - name: eyeriss_like.PE[11].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[12].weights_spad
+    energy: 12502.02787
+  - name: eyeriss_like.PE[12].ifmap_spad
+    energy: 1624.0404400000002
+  - name: eyeriss_like.PE[12].psum_spad
+    energy: 8696.648519999999
+  - name: eyeriss_like.PE[12].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[14].weights_spad
+    energy: 13935.139560000001
+  - name: eyeriss_like.PE[14].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[14].psum_spad
+    energy: 8996.01008
+  - name: eyeriss_like.PE[14].mac
+    energy: 16110.883899999999
+  - name: eyeriss_like.PE[15].weights_spad
+    energy: 11486.09604
+  - name: eyeriss_like.PE[15].ifmap_spad
+    energy: 1623.4128
+  - name: eyeriss_like.PE[15].psum_spad
+    energy: 8623.88448
+  - name: eyeriss_like.PE[15].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[16].weights_spad
+    energy: 12460.715400000001
+  - name: eyeriss_like.PE[16].ifmap_spad
+    energy: 1625.7601599999998
+  - name: eyeriss_like.PE[16].psum_spad
+    energy: 8800.76496
+  - name: eyeriss_like.PE[16].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[17].weights_spad
+    energy: 15059.70036
+  - name: eyeriss_like.PE[17].ifmap_spad
+    energy: 1631.6976
+  - name: eyeriss_like.PE[17].psum_spad
+    energy: 8928.07472
+  - name: eyeriss_like.PE[17].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[18].weights_spad
+    energy: 14934.749160000001
+  - name: eyeriss_like.PE[18].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[18].psum_spad
+    energy: 8892.86432
+  - name: eyeriss_like.PE[18].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[19].weights_spad
+    energy: 15284.61252
+  - name: eyeriss_like.PE[19].ifmap_spad
+    energy: 1631.97376
+  - name: eyeriss_like.PE[19].psum_spad
+    energy: 8890.79312
+  - name: eyeriss_like.PE[19].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[20].weights_spad
+    energy: 14609.876040000001
+  - name: eyeriss_like.PE[20].ifmap_spad
+    energy: 1630.04064
+  - name: eyeriss_like.PE[20].psum_spad
+    energy: 8862.90096
+  - name: eyeriss_like.PE[20].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[21].weights_spad
+    energy: 15559.50516
+  - name: eyeriss_like.PE[21].ifmap_spad
+    energy: 1631.8356800000001
+  - name: eyeriss_like.PE[21].psum_spad
+    energy: 8923.380000000001
+  - name: eyeriss_like.PE[21].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[22].weights_spad
+    energy: 16084.3002
+  - name: eyeriss_like.PE[22].ifmap_spad
+    energy: 1631.33736
+  - name: eyeriss_like.PE[22].psum_spad
+    energy: 8896.04016
+  - name: eyeriss_like.PE[22].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[23].weights_spad
+    energy: 14859.77844
+  - name: eyeriss_like.PE[23].ifmap_spad
+    energy: 1630.23272
+  - name: eyeriss_like.PE[23].psum_spad
+    energy: 8865.248319999999
+  - name: eyeriss_like.PE[23].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[24].weights_spad
+    energy: 13060.481160000001
+  - name: eyeriss_like.PE[24].ifmap_spad
+    energy: 1625.39992
+  - name: eyeriss_like.PE[24].psum_spad
+    energy: 8684.63968
+  - name: eyeriss_like.PE[24].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[25].weights_spad
+    energy: 12210.813
+  - name: eyeriss_like.PE[25].ifmap_spad
+    energy: 1624.29528
+  - name: eyeriss_like.PE[25].psum_spad
+    energy: 8692.64832
+  - name: eyeriss_like.PE[25].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[26].weights_spad
+    energy: 14484.924840000001
+  - name: eyeriss_like.PE[26].ifmap_spad
+    energy: 1631.19928
+  - name: eyeriss_like.PE[26].psum_spad
+    energy: 8851.85456
+  - name: eyeriss_like.PE[26].mac
+    energy: 16857.2321
+  - name: eyeriss_like.PE[28].weights_spad
+    energy: 11485.81988
+  - name: eyeriss_like.PE[28].ifmap_spad
+    energy: 1623.4128
+  - name: eyeriss_like.PE[28].psum_spad
+    energy: 8615.04736
+  - name: eyeriss_like.PE[28].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[29].weights_spad
+    energy: 12460.43924
+  - name: eyeriss_like.PE[29].ifmap_spad
+    energy: 1625.7601599999998
+  - name: eyeriss_like.PE[29].psum_spad
+    energy: 8794.82752
+  - name: eyeriss_like.PE[29].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[30].weights_spad
+    energy: 15059.424200000001
+  - name: eyeriss_like.PE[30].ifmap_spad
+    energy: 1631.6976
+  - name: eyeriss_like.PE[30].psum_spad
+    energy: 8920.480319999999
+  - name: eyeriss_like.PE[30].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[31].weights_spad
+    energy: 14934.473
+  - name: eyeriss_like.PE[31].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[31].psum_spad
+    energy: 8887.75536
+  - name: eyeriss_like.PE[31].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[32].weights_spad
+    energy: 15284.336360000001
+  - name: eyeriss_like.PE[32].ifmap_spad
+    energy: 1631.97376
+  - name: eyeriss_like.PE[32].psum_spad
+    energy: 8888.44576
+  - name: eyeriss_like.PE[32].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[33].weights_spad
+    energy: 14609.599880000002
+  - name: eyeriss_like.PE[33].ifmap_spad
+    energy: 1630.04064
+  - name: eyeriss_like.PE[33].psum_spad
+    energy: 8858.34432
+  - name: eyeriss_like.PE[33].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[34].weights_spad
+    energy: 15559.229000000001
+  - name: eyeriss_like.PE[34].ifmap_spad
+    energy: 1631.8356800000001
+  - name: eyeriss_like.PE[34].psum_spad
+    energy: 8921.03264
+  - name: eyeriss_like.PE[34].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[35].weights_spad
+    energy: 16084.02404
+  - name: eyeriss_like.PE[35].ifmap_spad
+    energy: 1631.28336
+  - name: eyeriss_like.PE[35].psum_spad
+    energy: 8891.6216
+  - name: eyeriss_like.PE[35].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[36].weights_spad
+    energy: 14859.50228
+  - name: eyeriss_like.PE[36].ifmap_spad
+    energy: 1630.1787199999999
+  - name: eyeriss_like.PE[36].psum_spad
+    energy: 8851.99264
+  - name: eyeriss_like.PE[36].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[37].weights_spad
+    energy: 13060.205000000002
+  - name: eyeriss_like.PE[37].ifmap_spad
+    energy: 1625.34592
+  - name: eyeriss_like.PE[37].psum_spad
+    energy: 8679.94496
+  - name: eyeriss_like.PE[37].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[38].weights_spad
+    energy: 12210.53684
+  - name: eyeriss_like.PE[38].ifmap_spad
+    energy: 1624.24128
+  - name: eyeriss_like.PE[38].psum_spad
+    energy: 8703.28048
+  - name: eyeriss_like.PE[38].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[39].weights_spad
+    energy: 14484.64868
+  - name: eyeriss_like.PE[39].ifmap_spad
+    energy: 1631.14528
+  - name: eyeriss_like.PE[39].psum_spad
+    energy: 8847.85024
+  - name: eyeriss_like.PE[39].mac
+    energy: 16857.2321
+  - name: eyeriss_like.PE[40].weights_spad
+    energy: 3189.0602
+  - name: eyeriss_like.PE[40].ifmap_spad
+    energy: 1593.1732799999997
+  - name: eyeriss_like.PE[40].psum_spad
+    energy: 6825.66864
+  - name: eyeriss_like.PE[40].mac
+    energy: 2877.5562
+  - name: eyeriss_like.PE[42].weights_spad
+    energy: 3189.3363600000002
+  - name: eyeriss_like.PE[42].ifmap_spad
+    energy: 1593.28128
+  - name: eyeriss_like.PE[42].psum_spad
+    energy: 6825.66864
+  - name: eyeriss_like.PE[42].mac
+    energy: 2877.5562
+  - name: eyeriss_like.PE[43].weights_spad
+    energy: 13947.29222
+  - name: eyeriss_like.PE[43].ifmap_spad
+    energy: 1630.8570399999999
+  - name: eyeriss_like.PE[43].psum_spad
+    energy: 8984.27328
+  - name: eyeriss_like.PE[43].mac
+    energy: 16110.883899999999
+  - name: eyeriss_like.PE[44].weights_spad
+    energy: 11540.80664
+  - name: eyeriss_like.PE[44].ifmap_spad
+    energy: 1623.37538
+  - name: eyeriss_like.PE[44].psum_spad
+    energy: 8619.85044
+  - name: eyeriss_like.PE[44].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[45].weights_spad
+    energy: 12588.38922
+  - name: eyeriss_like.PE[45].ifmap_spad
+    energy: 1625.5593199999998
+  - name: eyeriss_like.PE[45].psum_spad
+    energy: 8794.73836
+  - name: eyeriss_like.PE[45].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[46].weights_spad
+    energy: 15272.51369
+  - name: eyeriss_like.PE[46].ifmap_spad
+    energy: 1631.49676
+  - name: eyeriss_like.PE[46].psum_spad
+    energy: 8924.63026
+  - name: eyeriss_like.PE[46].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[47].weights_spad
+    energy: 15202.29672
+  - name: eyeriss_like.PE[47].ifmap_spad
+    energy: 1630.5302000000001
+  - name: eyeriss_like.PE[47].psum_spad
+    energy: 8892.99828
+  - name: eyeriss_like.PE[47].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[48].weights_spad
+    energy: 15576.465400000001
+  - name: eyeriss_like.PE[48].ifmap_spad
+    energy: 1631.7729199999999
+  - name: eyeriss_like.PE[48].psum_spad
+    energy: 8882.64228
+  - name: eyeriss_like.PE[48].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[49].weights_spad
+    energy: 14901.6344
+  - name: eyeriss_like.PE[49].ifmap_spad
+    energy: 1629.8398000000002
+  - name: eyeriss_like.PE[49].psum_spad
+    energy: 8855.16436
+  - name: eyeriss_like.PE[49].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[50].weights_spad
+    energy: 15851.169
+  - name: eyeriss_like.PE[50].ifmap_spad
+    energy: 1631.6348400000002
+  - name: eyeriss_like.PE[50].psum_spad
+    energy: 8916.748039999999
+  - name: eyeriss_like.PE[50].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[51].weights_spad
+    energy: 16375.86952
+  - name: eyeriss_like.PE[51].ifmap_spad
+    energy: 1631.08252
+  - name: eyeriss_like.PE[51].psum_spad
+    energy: 8883.74692
+  - name: eyeriss_like.PE[51].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[52].weights_spad
+    energy: 15151.25324
+  - name: eyeriss_like.PE[52].ifmap_spad
+    energy: 1629.97788
+  - name: eyeriss_like.PE[52].psum_spad
+    energy: 8863.58724
+  - name: eyeriss_like.PE[52].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[53].weights_spad
+    energy: 13351.861439999999
+  - name: eyeriss_like.PE[53].ifmap_spad
+    energy: 1625.1450800000002
+  - name: eyeriss_like.PE[53].psum_spad
+    energy: 8682.288199999999
+  - name: eyeriss_like.PE[53].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[54].weights_spad
+    energy: 12502.09876
+  - name: eyeriss_like.PE[54].ifmap_spad
+    energy: 1624.0404400000002
+  - name: eyeriss_like.PE[54].psum_spad
+    energy: 8704.65716
+  - name: eyeriss_like.PE[54].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[56].weights_spad
+    energy: 13934.8634
+  - name: eyeriss_like.PE[56].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[56].psum_spad
+    energy: 9007.05648
+  - name: eyeriss_like.PE[56].mac
+    energy: 16110.883899999999
+  - name: eyeriss_like.PE[57].weights_spad
+    energy: 11485.81988
+  - name: eyeriss_like.PE[57].ifmap_spad
+    energy: 1623.4128
+  - name: eyeriss_like.PE[57].psum_spad
+    energy: 8637.96864
+  - name: eyeriss_like.PE[57].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[58].weights_spad
+    energy: 12460.43924
+  - name: eyeriss_like.PE[58].ifmap_spad
+    energy: 1625.7601599999998
+  - name: eyeriss_like.PE[58].psum_spad
+    energy: 8802.14576
+  - name: eyeriss_like.PE[58].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[59].weights_spad
+    energy: 15059.424200000001
+  - name: eyeriss_like.PE[59].ifmap_spad
+    energy: 1631.6976
+  - name: eyeriss_like.PE[59].psum_spad
+    energy: 8941.19232
+  - name: eyeriss_like.PE[59].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[60].weights_spad
+    energy: 14934.473
+  - name: eyeriss_like.PE[60].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[60].psum_spad
+    energy: 8905.4296
+  - name: eyeriss_like.PE[60].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[61].weights_spad
+    energy: 15284.336360000001
+  - name: eyeriss_like.PE[61].ifmap_spad
+    energy: 1631.97376
+  - name: eyeriss_like.PE[61].psum_spad
+    energy: 8899.354080000001
+  - name: eyeriss_like.PE[61].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[62].weights_spad
+    energy: 14609.599880000002
+  - name: eyeriss_like.PE[62].ifmap_spad
+    energy: 1630.04064
+  - name: eyeriss_like.PE[62].psum_spad
+    energy: 8870.77152
+  - name: eyeriss_like.PE[62].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[63].weights_spad
+    energy: 15559.229000000001
+  - name: eyeriss_like.PE[63].ifmap_spad
+    energy: 1631.8356800000001
+  - name: eyeriss_like.PE[63].psum_spad
+    energy: 8926.00352
+  - name: eyeriss_like.PE[63].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[64].weights_spad
+    energy: 16084.02404
+  - name: eyeriss_like.PE[64].ifmap_spad
+    energy: 1631.30136
+  - name: eyeriss_like.PE[64].psum_spad
+    energy: 8894.935519999999
+  - name: eyeriss_like.PE[64].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[65].weights_spad
+    energy: 14859.50228
+  - name: eyeriss_like.PE[65].ifmap_spad
+    energy: 1630.23272
+  - name: eyeriss_like.PE[65].psum_spad
+    energy: 8867.18144
+  - name: eyeriss_like.PE[65].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[66].weights_spad
+    energy: 13060.205000000002
+  - name: eyeriss_like.PE[66].ifmap_spad
+    energy: 1625.39992
+  - name: eyeriss_like.PE[66].psum_spad
+    energy: 8693.891039999999
+  - name: eyeriss_like.PE[66].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[67].weights_spad
+    energy: 12210.53684
+  - name: eyeriss_like.PE[67].ifmap_spad
+    energy: 1624.29528
+  - name: eyeriss_like.PE[67].psum_spad
+    energy: 8708.11328
+  - name: eyeriss_like.PE[67].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[68].weights_spad
+    energy: 14484.64868
+  - name: eyeriss_like.PE[68].ifmap_spad
+    energy: 1631.19928
+  - name: eyeriss_like.PE[68].psum_spad
+    energy: 8860.69168
+  - name: eyeriss_like.PE[68].mac
+    energy: 16857.2321
+  - name: eyeriss_like.PE[70].weights_spad
+    energy: 11486.09604
+  - name: eyeriss_like.PE[70].ifmap_spad
+    energy: 1623.4128
+  - name: eyeriss_like.PE[70].psum_spad
+    energy: 8624.29872
+  - name: eyeriss_like.PE[70].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[71].weights_spad
+    energy: 12460.715400000001
+  - name: eyeriss_like.PE[71].ifmap_spad
+    energy: 1625.7601599999998
+  - name: eyeriss_like.PE[71].psum_spad
+    energy: 8795.51792
+  - name: eyeriss_like.PE[71].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[72].weights_spad
+    energy: 15059.70036
+  - name: eyeriss_like.PE[72].ifmap_spad
+    energy: 1631.6976
+  - name: eyeriss_like.PE[72].psum_spad
+    energy: 8928.35088
+  - name: eyeriss_like.PE[72].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[73].weights_spad
+    energy: 14934.749160000001
+  - name: eyeriss_like.PE[73].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[73].psum_spad
+    energy: 8889.68848
+  - name: eyeriss_like.PE[73].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[74].weights_spad
+    energy: 15284.61252
+  - name: eyeriss_like.PE[74].ifmap_spad
+    energy: 1631.97376
+  - name: eyeriss_like.PE[74].psum_spad
+    energy: 8891.759680000001
+  - name: eyeriss_like.PE[74].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[75].weights_spad
+    energy: 14609.876040000001
+  - name: eyeriss_like.PE[75].ifmap_spad
+    energy: 1630.04064
+  - name: eyeriss_like.PE[75].psum_spad
+    energy: 8863.45328
+  - name: eyeriss_like.PE[75].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[76].weights_spad
+    energy: 15559.50516
+  - name: eyeriss_like.PE[76].ifmap_spad
+    energy: 1631.8356800000001
+  - name: eyeriss_like.PE[76].psum_spad
+    energy: 8921.9992
+  - name: eyeriss_like.PE[76].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[77].weights_spad
+    energy: 16084.3002
+  - name: eyeriss_like.PE[77].ifmap_spad
+    energy: 1631.28336
+  - name: eyeriss_like.PE[77].psum_spad
+    energy: 8888.03152
+  - name: eyeriss_like.PE[77].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[78].weights_spad
+    energy: 14859.77844
+  - name: eyeriss_like.PE[78].ifmap_spad
+    energy: 1630.1787199999999
+  - name: eyeriss_like.PE[78].psum_spad
+    energy: 8847.436
+  - name: eyeriss_like.PE[78].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[79].weights_spad
+    energy: 13060.481160000001
+  - name: eyeriss_like.PE[79].ifmap_spad
+    energy: 1625.34592
+  - name: eyeriss_like.PE[79].psum_spad
+    energy: 8683.8112
+  - name: eyeriss_like.PE[79].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[80].weights_spad
+    energy: 12210.813
+  - name: eyeriss_like.PE[80].ifmap_spad
+    energy: 1624.24128
+  - name: eyeriss_like.PE[80].psum_spad
+    energy: 8707.00864
+  - name: eyeriss_like.PE[80].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[81].weights_spad
+    energy: 14484.924840000001
+  - name: eyeriss_like.PE[81].ifmap_spad
+    energy: 1631.14528
+  - name: eyeriss_like.PE[81].psum_spad
+    energy: 8854.892319999999
+  - name: eyeriss_like.PE[81].mac
+    energy: 16857.2321
+  - name: eyeriss_like.PE[82].weights_spad
+    energy: 3189.3363600000002
+  - name: eyeriss_like.PE[82].ifmap_spad
+    energy: 1593.1732799999997
+  - name: eyeriss_like.PE[82].psum_spad
+    energy: 6825.66864
+  - name: eyeriss_like.PE[82].mac
+    energy: 2877.5562
+  - name: eyeriss_like.PE[84].weights_spad
+    energy: 3189.3363600000002
+  - name: eyeriss_like.PE[84].ifmap_spad
+    energy: 1593.3172799999998
+  - name: eyeriss_like.PE[84].psum_spad
+    energy: 6825.66864
+  - name: eyeriss_like.PE[84].mac
+    energy: 2877.5562
+  - name: eyeriss_like.PE[85].weights_spad
+    energy: 13935.139560000001
+  - name: eyeriss_like.PE[85].ifmap_spad
+    energy: 1630.87504
+  - name: eyeriss_like.PE[85].psum_spad
+    energy: 8995.595839999998
+  - name: eyeriss_like.PE[85].mac
+    energy: 16110.883899999999
+  - name: eyeriss_like.PE[86].weights_spad
+    energy: 11504.32503
+  - name: eyeriss_like.PE[86].ifmap_spad
+    energy: 1623.5747999999999
+  - name: eyeriss_like.PE[86].psum_spad
+    energy: 8627.8888
+  - name: eyeriss_like.PE[86].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[87].weights_spad
+    energy: 12527.578660000001
+  - name: eyeriss_like.PE[87].ifmap_spad
+    energy: 1625.7407399999997
+  - name: eyeriss_like.PE[87].psum_spad
+    energy: 8789.03456
+  - name: eyeriss_like.PE[87].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[88].weights_spad
+    energy: 15205.60317
+  - name: eyeriss_like.PE[88].ifmap_spad
+    energy: 1631.49676
+  - name: eyeriss_like.PE[88].psum_spad
+    energy: 8921.68806
+  - name: eyeriss_like.PE[88].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[89].weights_spad
+    energy: 15159.71515
+  - name: eyeriss_like.PE[89].ifmap_spad
+    energy: 1630.5302000000001
+  - name: eyeriss_like.PE[89].psum_spad
+    energy: 8895.80766
+  - name: eyeriss_like.PE[89].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[90].weights_spad
+    energy: 15558.23641
+  - name: eyeriss_like.PE[90].ifmap_spad
+    energy: 1631.7729199999999
+  - name: eyeriss_like.PE[90].psum_spad
+    energy: 8891.75556
+  - name: eyeriss_like.PE[90].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[91].weights_spad
+    energy: 14901.705290000002
+  - name: eyeriss_like.PE[91].ifmap_spad
+    energy: 1629.8398000000002
+  - name: eyeriss_like.PE[91].psum_spad
+    energy: 8858.89252
+  - name: eyeriss_like.PE[91].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[92].weights_spad
+    energy: 15851.239889999999
+  - name: eyeriss_like.PE[92].ifmap_spad
+    energy: 1631.6348400000002
+  - name: eyeriss_like.PE[92].psum_spad
+    energy: 8918.128840000001
+  - name: eyeriss_like.PE[92].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[93].weights_spad
+    energy: 16375.940410000001
+  - name: eyeriss_like.PE[93].ifmap_spad
+    energy: 1631.08252
+  - name: eyeriss_like.PE[93].psum_spad
+    energy: 8885.12772
+  - name: eyeriss_like.PE[93].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[94].weights_spad
+    energy: 15151.32413
+  - name: eyeriss_like.PE[94].ifmap_spad
+    energy: 1629.97788
+  - name: eyeriss_like.PE[94].psum_spad
+    energy: 8857.6498
+  - name: eyeriss_like.PE[94].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[95].weights_spad
+    energy: 13351.93233
+  - name: eyeriss_like.PE[95].ifmap_spad
+    energy: 1625.1450800000002
+  - name: eyeriss_like.PE[95].psum_spad
+    energy: 8679.94084
+  - name: eyeriss_like.PE[95].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[96].weights_spad
+    energy: 12502.169650000002
+  - name: eyeriss_like.PE[96].ifmap_spad
+    energy: 1624.0404400000002
+  - name: eyeriss_like.PE[96].psum_spad
+    energy: 8707.833
+  - name: eyeriss_like.PE[96].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[98].weights_spad
+    energy: 13935.139560000001
+  - name: eyeriss_like.PE[98].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[98].psum_spad
+    energy: 9001.53328
+  - name: eyeriss_like.PE[98].mac
+    energy: 16110.883899999999
+  - name: eyeriss_like.PE[99].weights_spad
+    energy: 11486.09604
+  - name: eyeriss_like.PE[99].ifmap_spad
+    energy: 1623.4128
+  - name: eyeriss_like.PE[99].psum_spad
+    energy: 8636.03552
+  - name: eyeriss_like.PE[99].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[100].weights_spad
+    energy: 12460.715400000001
+  - name: eyeriss_like.PE[100].ifmap_spad
+    energy: 1625.7601599999998
+  - name: eyeriss_like.PE[100].psum_spad
+    energy: 8806.840479999999
+  - name: eyeriss_like.PE[100].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[101].weights_spad
+    energy: 15059.70036
+  - name: eyeriss_like.PE[101].ifmap_spad
+    energy: 1631.6976
+  - name: eyeriss_like.PE[101].psum_spad
+    energy: 8938.568800000001
+  - name: eyeriss_like.PE[101].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[102].weights_spad
+    energy: 14934.749160000001
+  - name: eyeriss_like.PE[102].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[102].psum_spad
+    energy: 8896.17824
+  - name: eyeriss_like.PE[102].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[103].weights_spad
+    energy: 15284.61252
+  - name: eyeriss_like.PE[103].ifmap_spad
+    energy: 1631.97376
+  - name: eyeriss_like.PE[103].psum_spad
+    energy: 8907.22464
+  - name: eyeriss_like.PE[103].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[104].weights_spad
+    energy: 14609.876040000001
+  - name: eyeriss_like.PE[104].ifmap_spad
+    energy: 1630.04064
+  - name: eyeriss_like.PE[104].psum_spad
+    energy: 8877.26128
+  - name: eyeriss_like.PE[104].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[105].weights_spad
+    energy: 15559.50516
+  - name: eyeriss_like.PE[105].ifmap_spad
+    energy: 1631.8356800000001
+  - name: eyeriss_like.PE[105].psum_spad
+    energy: 8934.70256
+  - name: eyeriss_like.PE[105].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[106].weights_spad
+    energy: 16084.3002
+  - name: eyeriss_like.PE[106].ifmap_spad
+    energy: 1631.28336
+  - name: eyeriss_like.PE[106].psum_spad
+    energy: 8899.35408
+  - name: eyeriss_like.PE[106].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[107].weights_spad
+    energy: 14859.77844
+  - name: eyeriss_like.PE[107].ifmap_spad
+    energy: 1630.21472
+  - name: eyeriss_like.PE[107].psum_spad
+    energy: 8864.55792
+  - name: eyeriss_like.PE[107].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[108].weights_spad
+    energy: 13060.481160000001
+  - name: eyeriss_like.PE[108].ifmap_spad
+    energy: 1625.39992
+  - name: eyeriss_like.PE[108].psum_spad
+    energy: 8690.024800000001
+  - name: eyeriss_like.PE[108].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[109].weights_spad
+    energy: 12210.813
+  - name: eyeriss_like.PE[109].ifmap_spad
+    energy: 1624.29528
+  - name: eyeriss_like.PE[109].psum_spad
+    energy: 8713.91264
+  - name: eyeriss_like.PE[109].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[110].weights_spad
+    energy: 14484.924840000001
+  - name: eyeriss_like.PE[110].ifmap_spad
+    energy: 1631.19928
+  - name: eyeriss_like.PE[110].psum_spad
+    energy: 8860.27744
+  - name: eyeriss_like.PE[110].mac
+    energy: 16857.2321
+  - name: eyeriss_like.PE[112].weights_spad
+    energy: 11485.95796
+  - name: eyeriss_like.PE[112].ifmap_spad
+    energy: 1623.4128
+  - name: eyeriss_like.PE[112].psum_spad
+    energy: 8631.75504
+  - name: eyeriss_like.PE[112].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[113].weights_spad
+    energy: 12460.57732
+  - name: eyeriss_like.PE[113].ifmap_spad
+    energy: 1625.7601599999998
+  - name: eyeriss_like.PE[113].psum_spad
+    energy: 8793.170559999999
+  - name: eyeriss_like.PE[113].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[114].weights_spad
+    energy: 15059.56228
+  - name: eyeriss_like.PE[114].ifmap_spad
+    energy: 1631.6976
+  - name: eyeriss_like.PE[114].psum_spad
+    energy: 8936.221440000001
+  - name: eyeriss_like.PE[114].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[115].weights_spad
+    energy: 14934.61108
+  - name: eyeriss_like.PE[115].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[115].psum_spad
+    energy: 8895.34976
+  - name: eyeriss_like.PE[115].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[116].weights_spad
+    energy: 15284.47444
+  - name: eyeriss_like.PE[116].ifmap_spad
+    energy: 1631.97376
+  - name: eyeriss_like.PE[116].psum_spad
+    energy: 8905.01536
+  - name: eyeriss_like.PE[116].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[117].weights_spad
+    energy: 14609.73796
+  - name: eyeriss_like.PE[117].ifmap_spad
+    energy: 1630.04064
+  - name: eyeriss_like.PE[117].psum_spad
+    energy: 8868.976480000001
+  - name: eyeriss_like.PE[117].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[118].weights_spad
+    energy: 15559.367080000002
+  - name: eyeriss_like.PE[118].ifmap_spad
+    energy: 1631.8356800000001
+  - name: eyeriss_like.PE[118].psum_spad
+    energy: 8920.480319999999
+  - name: eyeriss_like.PE[118].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[119].weights_spad
+    energy: 16084.162119999999
+  - name: eyeriss_like.PE[119].ifmap_spad
+    energy: 1631.28336
+  - name: eyeriss_like.PE[119].psum_spad
+    energy: 8890.37888
+  - name: eyeriss_like.PE[119].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[120].weights_spad
+    energy: 14859.64036
+  - name: eyeriss_like.PE[120].ifmap_spad
+    energy: 1630.1787199999999
+  - name: eyeriss_like.PE[120].psum_spad
+    energy: 8862.76288
+  - name: eyeriss_like.PE[120].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[121].weights_spad
+    energy: 13060.34308
+  - name: eyeriss_like.PE[121].ifmap_spad
+    energy: 1625.34592
+  - name: eyeriss_like.PE[121].psum_spad
+    energy: 8691.95792
+  - name: eyeriss_like.PE[121].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[122].weights_spad
+    energy: 12210.674920000001
+  - name: eyeriss_like.PE[122].ifmap_spad
+    energy: 1624.24128
+  - name: eyeriss_like.PE[122].psum_spad
+    energy: 8712.39376
+  - name: eyeriss_like.PE[122].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[123].weights_spad
+    energy: 14484.78676
+  - name: eyeriss_like.PE[123].ifmap_spad
+    energy: 1631.14528
+  - name: eyeriss_like.PE[123].psum_spad
+    energy: 8854.75424
+  - name: eyeriss_like.PE[123].mac
+    energy: 16857.2321
+  - name: eyeriss_like.PE[124].weights_spad
+    energy: 3189.19828
+  - name: eyeriss_like.PE[124].ifmap_spad
+    energy: 1593.1732799999997
+  - name: eyeriss_like.PE[124].psum_spad
+    energy: 6825.66864
+  - name: eyeriss_like.PE[124].mac
+    energy: 2877.5562
+  - name: eyeriss_like.PE[126].weights_spad
+    energy: 3189.3363600000002
+  - name: eyeriss_like.PE[126].ifmap_spad
+    energy: 1593.28128
+  - name: eyeriss_like.PE[126].psum_spad
+    energy: 6825.66864
+  - name: eyeriss_like.PE[126].mac
+    energy: 2877.5562
+  - name: eyeriss_like.PE[127].weights_spad
+    energy: 13935.139560000001
+  - name: eyeriss_like.PE[127].ifmap_spad
+    energy: 1630.8390399999998
+  - name: eyeriss_like.PE[127].psum_spad
+    energy: 9005.12336
+  - name: eyeriss_like.PE[127].mac
+    energy: 16110.883899999999
+  - name: eyeriss_like.PE[128].weights_spad
+    energy: 11486.09604
+  - name: eyeriss_like.PE[128].ifmap_spad
+    energy: 1623.5208
+  - name: eyeriss_like.PE[128].psum_spad
+    energy: 8628.44112
+  - name: eyeriss_like.PE[128].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[129].weights_spad
+    energy: 12485.02072
+  - name: eyeriss_like.PE[129].ifmap_spad
+    energy: 1625.7047399999997
+  - name: eyeriss_like.PE[129].psum_spad
+    energy: 8799.126059999999
+  - name: eyeriss_like.PE[129].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[130].weights_spad
+    energy: 15138.71628
+  - name: eyeriss_like.PE[130].ifmap_spad
+    energy: 1631.47876
+  - name: eyeriss_like.PE[130].psum_spad
+    energy: 8931.845399999998
+  - name: eyeriss_like.PE[130].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[131].weights_spad
+    energy: 15098.88096
+  - name: eyeriss_like.PE[131].ifmap_spad
+    energy: 1630.5302000000001
+  - name: eyeriss_like.PE[131].psum_spad
+    energy: 8894.26432
+  - name: eyeriss_like.PE[131].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[132].weights_spad
+    energy: 15521.731170000001
+  - name: eyeriss_like.PE[132].ifmap_spad
+    energy: 1631.7729199999999
+  - name: eyeriss_like.PE[132].psum_spad
+    energy: 8899.1577
+  - name: eyeriss_like.PE[132].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[133].weights_spad
+    energy: 14889.57626
+  - name: eyeriss_like.PE[133].ifmap_spad
+    energy: 1629.8398000000002
+  - name: eyeriss_like.PE[133].psum_spad
+    energy: 8864.96804
+  - name: eyeriss_like.PE[133].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[134].weights_spad
+    energy: 15851.31078
+  - name: eyeriss_like.PE[134].ifmap_spad
+    energy: 1631.6348400000002
+  - name: eyeriss_like.PE[134].psum_spad
+    energy: 8928.89908
+  - name: eyeriss_like.PE[134].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[135].weights_spad
+    energy: 16376.0113
+  - name: eyeriss_like.PE[135].ifmap_spad
+    energy: 1631.08252
+  - name: eyeriss_like.PE[135].psum_spad
+    energy: 8897.96916
+  - name: eyeriss_like.PE[135].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[136].weights_spad
+    energy: 15151.39502
+  - name: eyeriss_like.PE[136].ifmap_spad
+    energy: 1629.97788
+  - name: eyeriss_like.PE[136].psum_spad
+    energy: 8864.553799999998
+  - name: eyeriss_like.PE[136].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[137].weights_spad
+    energy: 13352.00322
+  - name: eyeriss_like.PE[137].ifmap_spad
+    energy: 1625.1450800000002
+  - name: eyeriss_like.PE[137].psum_spad
+    energy: 8688.91604
+  - name: eyeriss_like.PE[137].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[138].weights_spad
+    energy: 12502.24054
+  - name: eyeriss_like.PE[138].ifmap_spad
+    energy: 1624.0404400000002
+  - name: eyeriss_like.PE[138].psum_spad
+    energy: 8717.91284
+  - name: eyeriss_like.PE[138].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[140].weights_spad
+    energy: 13935.139560000001
+  - name: eyeriss_like.PE[140].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[140].psum_spad
+    energy: 8996.83856
+  - name: eyeriss_like.PE[140].mac
+    energy: 16110.883899999999
+  - name: eyeriss_like.PE[141].weights_spad
+    energy: 11486.09604
+  - name: eyeriss_like.PE[141].ifmap_spad
+    energy: 1623.4128
+  - name: eyeriss_like.PE[141].psum_spad
+    energy: 8617.25664
+  - name: eyeriss_like.PE[141].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[142].weights_spad
+    energy: 12460.715400000001
+  - name: eyeriss_like.PE[142].ifmap_spad
+    energy: 1625.7601599999998
+  - name: eyeriss_like.PE[142].psum_spad
+    energy: 8798.27952
+  - name: eyeriss_like.PE[142].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[143].weights_spad
+    energy: 15059.70036
+  - name: eyeriss_like.PE[143].ifmap_spad
+    energy: 1631.6976
+  - name: eyeriss_like.PE[143].psum_spad
+    energy: 8931.6648
+  - name: eyeriss_like.PE[143].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[144].weights_spad
+    energy: 14934.749160000001
+  - name: eyeriss_like.PE[144].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[144].psum_spad
+    energy: 8898.80176
+  - name: eyeriss_like.PE[144].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[145].weights_spad
+    energy: 15284.61252
+  - name: eyeriss_like.PE[145].ifmap_spad
+    energy: 1631.97376
+  - name: eyeriss_like.PE[145].psum_spad
+    energy: 8898.66368
+  - name: eyeriss_like.PE[145].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[146].weights_spad
+    energy: 14609.876040000001
+  - name: eyeriss_like.PE[146].ifmap_spad
+    energy: 1630.04064
+  - name: eyeriss_like.PE[146].psum_spad
+    energy: 8863.17712
+  - name: eyeriss_like.PE[146].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[147].weights_spad
+    energy: 15559.50516
+  - name: eyeriss_like.PE[147].ifmap_spad
+    energy: 1631.8356800000001
+  - name: eyeriss_like.PE[147].psum_spad
+    energy: 8923.24192
+  - name: eyeriss_like.PE[147].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[148].weights_spad
+    energy: 16084.3002
+  - name: eyeriss_like.PE[148].ifmap_spad
+    energy: 1631.28336
+  - name: eyeriss_like.PE[148].psum_spad
+    energy: 8888.86
+  - name: eyeriss_like.PE[148].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[149].weights_spad
+    energy: 14859.77844
+  - name: eyeriss_like.PE[149].ifmap_spad
+    energy: 1630.1787199999999
+  - name: eyeriss_like.PE[149].psum_spad
+    energy: 8855.0304
+  - name: eyeriss_like.PE[149].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[150].weights_spad
+    energy: 13060.481160000001
+  - name: eyeriss_like.PE[150].ifmap_spad
+    energy: 1625.39992
+  - name: eyeriss_like.PE[150].psum_spad
+    energy: 8679.39264
+  - name: eyeriss_like.PE[150].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[151].weights_spad
+    energy: 12210.813
+  - name: eyeriss_like.PE[151].ifmap_spad
+    energy: 1624.29528
+  - name: eyeriss_like.PE[151].psum_spad
+    energy: 8721.0928
+  - name: eyeriss_like.PE[151].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[152].weights_spad
+    energy: 14484.924840000001
+  - name: eyeriss_like.PE[152].ifmap_spad
+    energy: 1631.19928
+  - name: eyeriss_like.PE[152].psum_spad
+    energy: 8850.74992
+  - name: eyeriss_like.PE[152].mac
+    energy: 16857.2321
+  - name: eyeriss_like.PE[154].weights_spad
+    energy: 11486.09604
+  - name: eyeriss_like.PE[154].ifmap_spad
+    energy: 1623.4128
+  - name: eyeriss_like.PE[154].psum_spad
+    energy: 8627.8888
+  - name: eyeriss_like.PE[154].mac
+    energy: 13211.6082
+  - name: eyeriss_like.PE[155].weights_spad
+    energy: 12460.715400000001
+  - name: eyeriss_like.PE[155].ifmap_spad
+    energy: 1625.7601599999998
+  - name: eyeriss_like.PE[155].psum_spad
+    energy: 8806.97856
+  - name: eyeriss_like.PE[155].mac
+    energy: 14503.364699999998
+  - name: eyeriss_like.PE[156].weights_spad
+    energy: 15059.70036
+  - name: eyeriss_like.PE[156].ifmap_spad
+    energy: 1631.6976
+  - name: eyeriss_like.PE[156].psum_spad
+    energy: 8937.740319999999
+  - name: eyeriss_like.PE[156].mac
+    energy: 17345.229
+  - name: eyeriss_like.PE[157].weights_spad
+    energy: 14934.749160000001
+  - name: eyeriss_like.PE[157].ifmap_spad
+    energy: 1630.73104
+  - name: eyeriss_like.PE[157].psum_spad
+    energy: 8896.73056
+  - name: eyeriss_like.PE[157].mac
+    energy: 17115.5834
+  - name: eyeriss_like.PE[158].weights_spad
+    energy: 15284.61252
+  - name: eyeriss_like.PE[158].ifmap_spad
+    energy: 1631.97376
+  - name: eyeriss_like.PE[158].psum_spad
+    energy: 8900.596800000001
+  - name: eyeriss_like.PE[158].mac
+    energy: 17517.4632
+  - name: eyeriss_like.PE[159].weights_spad
+    energy: 14609.876040000001
+  - name: eyeriss_like.PE[159].ifmap_spad
+    energy: 1630.04064
+  - name: eyeriss_like.PE[159].psum_spad
+    energy: 8874.3616
+  - name: eyeriss_like.PE[159].mac
+    energy: 16627.5865
+  - name: eyeriss_like.PE[160].weights_spad
+    energy: 15559.50516
+  - name: eyeriss_like.PE[160].ifmap_spad
+    energy: 1631.8356800000001
+  - name: eyeriss_like.PE[160].psum_spad
+    energy: 8928.35088
+  - name: eyeriss_like.PE[160].mac
+    energy: 17804.5202
+  - name: eyeriss_like.PE[161].weights_spad
+    energy: 16084.3002
+  - name: eyeriss_like.PE[161].ifmap_spad
+    energy: 1631.28336
+  - name: eyeriss_like.PE[161].psum_spad
+    energy: 8896.17824
+  - name: eyeriss_like.PE[161].mac
+    energy: 18378.6342
+  - name: eyeriss_like.PE[162].weights_spad
+    energy: 14859.77844
+  - name: eyeriss_like.PE[162].ifmap_spad
+    energy: 1630.1787199999999
+  - name: eyeriss_like.PE[162].psum_spad
+    energy: 8870.35728
+  - name: eyeriss_like.PE[162].mac
+    energy: 17000.7606
+  - name: eyeriss_like.PE[163].weights_spad
+    energy: 13060.481160000001
+  - name: eyeriss_like.PE[163].ifmap_spad
+    energy: 1625.34592
+  - name: eyeriss_like.PE[163].psum_spad
+    energy: 8695.13376
+  - name: eyeriss_like.PE[163].mac
+    energy: 15048.773
+  - name: eyeriss_like.PE[164].weights_spad
+    energy: 12210.813
+  - name: eyeriss_like.PE[164].ifmap_spad
+    energy: 1624.24128
+  - name: eyeriss_like.PE[164].psum_spad
+    energy: 8715.84576
+  - name: eyeriss_like.PE[164].mac
+    energy: 13957.9564
+  - name: eyeriss_like.PE[165].weights_spad
+    energy: 14484.924840000001
+  - name: eyeriss_like.PE[165].ifmap_spad
+    energy: 1631.14528
+  - name: eyeriss_like.PE[165].psum_spad
+    energy: 8847.15984
+  - name: eyeriss_like.PE[165].mac
+    energy: 16857.2321
+  - name: eyeriss_like.PE[166].weights_spad
+    energy: 3189.3363600000002
+  - name: eyeriss_like.PE[166].ifmap_spad
+    energy: 1593.1732799999997
+  - name: eyeriss_like.PE[166].psum_spad
+    energy: 6825.66864
+  - name: eyeriss_like.PE[166].mac
+    energy: 2877.5562
+  Total: 8484502.549990004

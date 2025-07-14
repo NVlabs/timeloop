@@ -1,0 +1,95 @@
+# YAML Nodes
+listNode:
+- element1
+- element2
+
+dict_node:
+  key1: value1
+  key2: value2
+
+# Styles
+list_block_style:
+- element1
+- element2
+list_flow_style: {element1, element2}
+
+dict_block_style:
+  key1: value1
+  key2: value2
+dict_flow_style: {key1: value1, key2: value2}
+
+# Anchors, Aliases, and Merge Keys
+
+# Anchors
+anchored_list_flow_style: &my_anchored_list
+- element1
+- element2
+anchored_list_block_style: &my_anchored_list [1, 2, 3, 4, 5]
+
+anchored_dict_flow_style: &my_anchored_dict
+  key1: value1
+  key2: value2
+anchored_dict_block_style: &my_anchored_dict {key1: value1, key2: value2}
+
+# Aliases
+my_list_alias: *my_anchored_list
+result_of_my_list_alias: [1, 2, 3, 4, 5]
+
+my_dict_alias: *my_anchored_dict
+result_of_my_dict_alias: {key1: value1, key2: value2}
+
+# Merge Keys
+anchored_dict_1: &my_anchored_dict
+  key1: value1_dict1
+  key2: value2_dict1
+
+anchored_dict_2: &my_anchored_dict2
+  key2: value2_dict2
+  key3: value3_dict2
+
+merged_dict:
+  <<: [*my_anchored_dict, *my_anchored_dict2] # My_anchored_dict takes precedence
+
+result_of_merged_dict:
+  key1: value1_dict1
+  key2: value2_dict1 # Earlier anchors take precedence
+  key3: value3_dict2
+
+merged_dict2:
+  <<: *my_anchored_dict
+  value2: override_value2 # Override value2
+
+result_of_merged_dict2:
+  key1: value1_dict1
+  key2: override_value2
+
+# Hierarchical Merge Keys
+anchored_dict_hierarchical_1: &my_anchored_dict
+  key1: value1_dict1
+  key2: {subkey1: subvalue1, subkey2: subvalue2}
+  mylist: [d, e, f]
+  mylist_nomerge: [4, 5, 6]
+
+merged_dict_hierarchical:
+  <<<: *my_anchored_dict
+  key2: {subkey1: override1} # subkey2: subvalue2 will come from the merge
+  mylist: [a, b, c]
+  mylist_nomerge: !nomerge [1, 2, 3]
+
+result_of_merged_dict_hierarchical:
+  key1: value1_dict1
+  key2: {subkey1: override1, subkey2: subvalue2}
+  mylist: [a, b, c, d, e, f]
+  mylist_nomerge: [1, 2, 3]
+
+merged_dict_non_hierarchical:
+  <<: *my_anchored_dict
+  key2: {subkey1: override1} # This will override all of key2
+  mylist: [a, b, c]
+  mylist_nomerge: !nomerge [1, 2, 3]
+
+result_of_merged_dict_non_hierarchical:
+  key1: value1_dict1
+  key2: {subkey1: override1}
+  mylist: [a, b, c]
+  mylist_nomerge: [1, 2, 3]

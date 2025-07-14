@@ -1,0 +1,5 @@
+variables:
+  version: 0.4
+  technology: "45nm"
+  global_cycle_seconds: 1e-9
+  DATAWIDTH: {{datawidth_jinja|default(8)}} # 8 bits is the default

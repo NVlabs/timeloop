@@ -1,0 +1,9 @@
+ART:
+  version: 0.3
+  tables:
+  - name: simple_primitive.PE.MAC
+    area: 1239.5
+  - name: simple_primitive.PE.buffer
+    area: 358.18
+  - name: simple_primitive.GLB
+    area: 29133.3

@@ -1,0 +1,33 @@
+architecture:
+# ============================================================
+# Architecture Description
+# ============================================================
+  version: 0.3
+  subtree:
+    - name: simple_compound
+      attributes:    
+        technology: 45nm
+        voltage: 1V
+        latency: 5ns
+      local:                     # list of components in the design
+        - name: GLB
+          class: smartbuffer_SRAM
+          attributes:            # hardware attributes (the ones same as default attributes can be ommitted)
+            memory_depth: 1024
+            memory_width: 32
+            n_banks: 4
+      subtree:                   # abstract hierarchy in the architecture
+        - name: PE[0..4]
+          attributes:
+            datawidth: 16
+          local:
+            - name: MAC       # component under the PE
+              class: mac_fifo
+              attributes:
+                num_pipeline_stages: 1
+            - name: buffer    # local storage under the PE
+              class: smartbuffer_RF
+              attributes:
+                memory_width: 16
+                memory_depth: 24
+

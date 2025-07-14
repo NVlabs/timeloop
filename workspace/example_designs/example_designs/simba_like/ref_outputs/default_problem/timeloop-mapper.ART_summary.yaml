@@ -1,0 +1,65 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: System_top_level.DRAM[1..1]
+        area: 0.0
+        primitive_estimations: CactiDRAM
+      - name: System_top_level.inter_PE_spatial[1..1]
+        area: 1.0
+        primitive_estimations: dummy_table
+      - name: System_top_level.inter_distributed_buffers_spatial[1..16]
+        area: 1.0
+        primitive_estimations: dummy_table
+      - name: System_top_level.inter_reg_mac_spatial[1..64]
+        area: 1.0
+        primitive_estimations: dummy_table
+      - name: System_top_level.GlobalBuffer[1..1]
+        area: 199065.0625
+        primitive_estimations:
+          - name: storage
+            estimator: CactiSRAM
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.PEInputBuffer[1..16]
+        area: 3717019.6775
+        primitive_estimations:
+          - name: storage.storage[1..524288]
+            estimator: Library
+          - name: storage.comparator[1..8192]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.PEWeightBuffer[1..64]
+        area: 1858571.37
+        primitive_estimations:
+          - name: storage.storage[1..262144]
+            estimator: Library
+          - name: storage.comparator[1..4096]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.PEAccuBuffer[1..64]
+        area: 18948.654375
+        primitive_estimations:
+          - name: storage.storage[1..4096]
+            estimator: Library
+          - name: storage.comparator[1..128]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.PEWeightRegs[1..256]
+        area: 49.12418
+        primitive_estimations:
+          - name: storage.storage[1..32768]
+            estimator: Library
+          - name: storage.comparator[1..64]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.mac[1..256]
+        area: 417.0
+        primitive_estimations:
+          - name: intadder
+            estimator: Library
+          - name: intmultiplier
+            estimator: Library

@@ -1,0 +1,69 @@
+ERT:
+    version: '0.4'
+    tables:
+      - name: system_top_level.BackingStorage[1..1]
+        actions:
+          - name: read
+            arguments: {}
+            energy: 2.290882
+          - name: write
+            arguments: {}
+            energy: 2.694173
+          - name: update
+            arguments: {}
+            energy: 2.694173
+          - name: metadata_read
+            arguments: {}
+            energy: 0.373885
+          - name: metadata_write
+            arguments: {}
+            energy: 0.726887
+          - name: metadata_update
+            arguments: {}
+            energy: 0.726887
+          - name: leak
+            arguments: {}
+            energy: 0.002378
+          - name: decompression_count
+            arguments: {}
+            energy: 0.0
+          - name: compression_count
+            arguments: {}
+            energy: 0.0
+      - name: system_top_level.Buffer[1..1]
+        actions:
+          - name: read
+            arguments: {}
+            energy: 0.582895
+          - name: write
+            arguments: {}
+            energy: 0.510895
+          - name: update
+            arguments: {}
+            energy: 0.510895
+          - name: metadata_read
+            arguments: {}
+            energy: 0.311135
+          - name: metadata_write
+            arguments: {}
+            energy: 0.275135
+          - name: metadata_update
+            arguments: {}
+            energy: 0.275135
+          - name: leak
+            arguments: {}
+            energy: 0.002327
+          - name: decompression_count
+            arguments: {}
+            energy: 0.0
+          - name: compression_count
+            arguments: {}
+            energy: 0.0
+      - name: system_top_level.mac[1..1]
+        actions:
+          - name: compute
+            arguments: {}
+            energy: 0.315
+          - name: leak
+            arguments: {}
+            energy: 0.0036

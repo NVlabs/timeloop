@@ -1,0 +1,9 @@
+ART:
+  version: 0.3
+  tables:
+  - name: simple_compound.PE[0..4].MAC
+    area: 1433.048
+  - name: simple_compound.PE[0..4].buffer
+    area: 537.18
+  - name: simple_compound.GLB
+    area: 39629.0

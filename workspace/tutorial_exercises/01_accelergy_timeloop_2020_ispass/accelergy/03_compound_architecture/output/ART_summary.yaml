@@ -1,0 +1,24 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: simple_compound.PE[0..4].MAC
+        area: 1433.0475
+        primitive_estimations:
+          - name: mac
+            estimator: Aladdin_table
+          - name: output_fifo
+            estimator: Aladdin_table
+      - name: simple_compound.PE[0..4].buffer
+        area: 393.734477
+        primitive_estimations:
+          - name: storage
+            estimator: Aladdin_table
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: simple_compound.GLB
+        area: 39527.545841
+        primitive_estimations:
+          - name: storage
+            estimator: CACTI
+          - name: address_generators[0..1]
+            estimator: Aladdin_table

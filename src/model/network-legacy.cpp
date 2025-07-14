@@ -577,7 +577,6 @@ void LegacyNetwork::Print(std::ostream& out) const
   out << indent << indent << "Fill latency    : " << stats_.fill_latency << std::endl;
   out << indent << indent << "Drain latency   : " << stats_.drain_latency << std::endl;
 
-
   out << std::endl;
 
   out << indent << "STATS" << std::endl;

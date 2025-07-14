@@ -1,0 +1,33 @@
+architecture:
+  version: 0.3
+  local:
+  - name: simple_primitive.PE.MAC
+    class: intmac
+    attributes:
+      datawidth: 16
+      latency: 5ns
+      num_pipeline_stages: 1
+      technology: 45nm
+      voltage: 1V
+  - name: simple_primitive.PE.buffer
+    class: regfile
+    attributes:
+      datawidth: 16
+      depth: 24
+      latency: 5ns
+      n_ports: 2
+      technology: 45nm
+      voltage: 1V
+      width: 16
+  - name: simple_primitive.GLB
+    class: SRAM
+    attributes:
+      depth: 1024
+      latency: 5ns
+      n_banks: 1
+      n_rd_ports: 0
+      n_rdwr_ports: 2
+      n_wr_ports: 0
+      technology: 45nm
+      voltage: 1V
+      width: 32

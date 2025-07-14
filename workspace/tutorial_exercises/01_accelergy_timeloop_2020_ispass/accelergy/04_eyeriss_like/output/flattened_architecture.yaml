@@ -1,0 +1,113 @@
+architecture:
+    version: '0.4'
+    local:
+      - name: eyeriss_like.PE[0..167].ifmap_spad
+        class: smartbuffer_RF
+        attributes:
+            memory_depth: 12
+            memory_width: 16
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            n_rdwr_ports: 2
+            n_banks: 1
+            n_buffets: 1
+      - name: eyeriss_like.PE[0..167].weights_spad
+        class: smartbuffer_RF
+        attributes:
+            memory_depth: 192
+            memory_width: 16
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            n_rdwr_ports: 2
+            n_banks: 1
+            n_buffets: 1
+      - name: eyeriss_like.PE[0..167].psum_spad
+        class: smartbuffer_RF
+        attributes:
+            memory_depth: 16
+            memory_width: 16
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            n_rdwr_ports: 2
+            n_banks: 1
+            n_buffets: 1
+      - name: eyeriss_like.PE[0..167].mac
+        class: intmac
+        attributes:
+            datawidth: 16
+            meshX: 14
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            num_pipeline_stages: 2
+            latency: "5ns"
+      - name: eyeriss_like.weights_glb
+        class: smartbuffer_SRAM
+        attributes:
+            memory_width: 64
+            memory_depth: 1024
+            n_banks: 2
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            n_rdwr_ports: 2
+            n_buffets: 1
+      - name: eyeriss_like.shared_glb
+        class: smartbuffer_SRAM
+        attributes:
+            memory_width: 64
+            n_banks: 25
+            bank_depth: 512
+            memory_depth: 12800
+            n_buffets: 2
+            update_fifo_depth: 2
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            n_rdwr_ports: 2
+      - name: eyeriss_like.ifmap_NoC
+        class: XY_NoC
+        attributes:
+            datawidth: 16
+            col_id_width: 5
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            Y_comparator_width: 4
+            X_comparator_width: 4
+            n_PE_rows: 12
+            n_PE_cols: 14
+            total_PEs: 168
+            Y_X_wire_avg_length: 2mm
+      - name: eyeriss_like.weights_NoC
+        class: XY_NoC
+        attributes:
+            datawidth: 64
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            Y_comparator_width: 4
+            X_comparator_width: 4
+            n_PE_rows: 12
+            n_PE_cols: 14
+            total_PEs: 168
+            Y_X_wire_avg_length: 2mm
+      - name: eyeriss_like.psum_write_NoC
+        class: XY_NoC
+        attributes:
+            datawidth: 64
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            Y_comparator_width: 4
+            X_comparator_width: 4
+            n_PE_rows: 12
+            n_PE_cols: 14
+            total_PEs: 168
+            Y_X_wire_avg_length: 2mm
+      - name: eyeriss_like.psum_read_NoC
+        class: XY_NoC
+        attributes:
+            datawidth: 64
+            Y_X_wire_avg_length: 4mm
+            technology: 45nm
+            global_cycle_seconds: 1e-09
+            Y_comparator_width: 4
+            X_comparator_width: 4
+            n_PE_rows: 12
+            n_PE_cols: 14
+            total_PEs: 168

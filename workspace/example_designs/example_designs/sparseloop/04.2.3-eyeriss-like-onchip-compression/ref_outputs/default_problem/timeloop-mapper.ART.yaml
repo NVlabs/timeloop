@@ -1,0 +1,19 @@
+ART:
+    version: '0.4'
+    tables:
+      - name: eyeriss_168_top_level.DRAM[1..1]
+        area: 0.0
+      - name: eyeriss_168_top_level.inter_PE_column_spatial[1..1]
+        area: 1.0
+      - name: eyeriss_168_top_level.inter_PE_spatial[1..14]
+        area: 1.0
+      - name: eyeriss_168_top_level.shared_glb[1..1]
+        area: 399033.2625
+      - name: eyeriss_168_top_level.ifmap_spad[1..168]
+        area: 151.772812
+      - name: eyeriss_168_top_level.weights_spad[1..168]
+        area: 14736.91
+      - name: eyeriss_168_top_level.psum_spad[1..168]
+        area: 14736.91
+      - name: eyeriss_168_top_level.mac[1..168]
+        area: 417.0

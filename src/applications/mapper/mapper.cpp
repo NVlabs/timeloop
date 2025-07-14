@@ -316,6 +316,7 @@ Mapper::Mapper(config::CompoundConfig* config,
   
   // layout modeling
   std::cout << "Start Parsering Layout" << std::endl;
+  std::cout<< "Hello timeloop in mapper !" << std::endl;
   config::CompoundConfigNode compound_config_node_layout;
   bool existing_layout = rootNode.lookup("layout", compound_config_node_layout);
   if (existing_layout){

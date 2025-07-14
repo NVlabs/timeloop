@@ -1,0 +1,6 @@
+mapping:
+  - target: Buffer
+    type: temporal
+    factors: R=3 P=16
+    permutation: RP
+    

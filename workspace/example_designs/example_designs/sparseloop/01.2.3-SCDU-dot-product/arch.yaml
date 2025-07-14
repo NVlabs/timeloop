@@ -1,0 +1,46 @@
+
+architecture:
+  version: 0.4
+  nodes: # Top-level is hierarchical
+  - !Container # Top-level system
+    name: PE
+    attributes:           # global attributes shared by entire subtree
+      technology: "45nm"
+
+  - !Component
+    name: Buffer
+    class: storage    # class is either "storage" or "compute"
+    subclass: regfile_metadata    # compound component with separate data and metadata storages
+                                  # definition found in ../components/refile_metadata.yaml
+    attributes:
+      depth: 64      # depth of the data storage only
+      width: 8       # width of the data storage only
+      datawidth: 8                # actual data's datawidth
+      metadata_storage_depth: 32  # depth of the metadata storage only
+      metadata_storage_width: 4   # width of the metadata storage only
+      metadata_datawidth: 4       # metadata's datawidth (can be different from datawidth)
+      read_bandwidth: 4
+      write_bandwidth: 3
+    sparse_optimizations:
+      representation_format:  # key word for "format" optimization
+                              # causes the empty element accesses to be eliminated
+        data_spaces:
+          - name: A           # tensor name
+            ranks:            # points to a list of ranks in fibertree representation
+              - format: CP    # coordinate payload representation format
+                              # options: CP, UB, RLE, UOP (i.e., CSR upper rank)
+      action_optimization:    # keyword for *explicit* storage level optimization
+        - type: skipping      # optimization type: either "gating" or "skipping"
+          options:
+          - target: B           # the tensor to perform optimization on
+            condition_on: [ A ] # the tensor that the optimization is based on
+        - type: skipping
+          options:
+          - target: Z
+            condition_on: [ A ]
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16

@@ -1,0 +1,35 @@
+architecture:
+  version: 0.3
+  local:
+  - name: simple_compound.PE[0..4].MAC
+    class: mac_fifo
+    attributes:
+      datawidth: 16
+      fifo_depth: 2
+      latency: 5ns
+      num_pipeline_stages: 1
+      technology: 45nm
+      voltage: 1V
+  - name: simple_compound.PE[0..4].buffer
+    class: smartbuffer_RF
+    attributes:
+      datawidth: 16
+      latency: 5ns
+      memory_depth: 24
+      memory_width: 16
+      n_banks: 1
+      n_buffets: 1
+      n_rdwr_ports: 2
+      technology: 45nm
+      voltage: 1V
+  - name: simple_compound.GLB
+    class: smartbuffer_SRAM
+    attributes:
+      latency: 5ns
+      memory_depth: 1024
+      memory_width: 32
+      n_banks: 4
+      n_buffets: 1
+      n_rdwr_ports: 2
+      technology: 45nm
+      voltage: 1V

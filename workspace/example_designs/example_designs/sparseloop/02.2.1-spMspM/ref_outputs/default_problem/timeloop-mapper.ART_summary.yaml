@@ -1,0 +1,40 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: system_top_level.BackingStorage[1..1]
+        area: 7635.82
+        primitive_estimations:
+          - name: storage.storage
+            estimator: CactiSRAM
+          - name: storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage
+            estimator: CactiSRAM
+          - name: metadata_storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_counters[0..1]
+            estimator: Aladdin_table
+      - name: system_top_level.Buffer[1..1]
+        area: 12749.905
+        primitive_estimations:
+          - name: storage.storage.storage[1..4096]
+            estimator: Library
+          - name: storage.storage.comparator[1..128]
+            estimator: Library
+          - name: storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage.storage[1..4096]
+            estimator: Library
+          - name: metadata_storage.storage.comparator[1..128]
+            estimator: Library
+          - name: metadata_storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_counters[0..1]
+            estimator: Aladdin_table
+      - name: system_top_level.mac[1..1]
+        area: 417.0
+        primitive_estimations:
+          - name: intadder
+            estimator: Library
+          - name: intmultiplier
+            estimator: Library

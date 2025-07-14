@@ -1,0 +1,71 @@
+architecture:
+  # ============================================================
+  # Architecture Description
+  # ============================================================
+  version: 0.3
+  subtree:
+    - name: system
+      local:
+        - name: DRAM
+          class: DRAM
+          attributes:
+            type: LPDDR4
+            width: 64
+            word_bits: 32
+      subtree:
+        - name: eyeriss
+          attributes:
+            technology: 45nm
+          local:
+            - name: shared_glb
+              class: smartbuffer_SRAM
+              attributes:
+                memory_depth: 16384
+                memory_width: 64
+                n_banks: 32
+                word_bits: 32
+                read_bandwidth: 16
+                write_bandwidth: 16
+            - name: DummyBuffer[0..13] # for better mapping
+              class: regfile
+              attributes:
+                depth: 16
+                width: 32
+                word_bits: 32
+                meshX: 14
+          subtree:
+          - name: PE[0..167]
+            local:
+              - name: ifmap_spad
+                class: smartbuffer_RF
+                attributes:
+                  memory_depth: 12
+                  memory_width: 32
+                  word_bits: 32
+                  meshX: 14
+                  read_bandwidth: 2
+                  write_bandwidth: 2
+              - name: weights_spad
+                class: smartbuffer_RF
+                attributes:
+                  memory_depth: 192
+                  memory_width: 32
+                  word_bits: 32
+                  meshX: 14
+                  read_bandwidth: 2
+                  write_bandwidth: 2
+              - name: psum_spad
+                class: smartbuffer_RF
+                attributes:
+                  memory_depth: 16
+                  memory_width: 32
+                  update_fifo_depth: 2
+                  word_bits: 32
+                  meshX: 14
+                  read_bandwidth: 2
+                  write_bandwidth: 2
+              - name: mac
+                class: fpmac
+                attributes:
+                  datawidth: 32
+                  meshX : 14

@@ -1,0 +1,79 @@
+architecture:
+  version: 0.4
+  nodes: # Top-level is hierarchical
+  - !Container # Top-level system
+    name: system
+    attributes:
+      technology: "45nm"
+
+  - !Component
+    name: BackingStorage              # storage component
+    class: smartbuffer_metadata
+    attributes:
+      depth: 512
+      width: 32
+      datawidth: 8
+      metadata_storage_depth: 128
+      metadata_storage_width: 4
+      metadata_datawidth: 4
+    sparse_optimizations:
+      representation_format:
+        data_spaces:
+          - name: A
+            ranks:           # no tiling on A, so two ranks needed
+              - format: UOP
+              - format: CP
+          - name: B          # pretiling is required, so B's is represented with 3 ranks
+            ranks:
+              - format: UOP
+              - format: UOP
+              - format: CP
+
+  - !Container
+    name: PE
+
+  - !Component
+    name: Buffer                  # storage component
+    class: storage
+    subclass: regfile_metadata
+    attributes:
+      depth: 64
+      width: 8
+      datawidth: 8
+      metadata_storage_depth: 64
+      metadata_storage_width: 4
+      metadata_datawidth: 4
+      read_bandwidth: 5
+      write_bandwidth: 5
+    sparse_optimizations:
+      representation_format:
+        data_spaces:
+          - name: B
+            ranks:
+              - format: UOP # uncompressed offset pair
+              - format: CP  # coordinate payload
+          - name: A
+            ranks:
+              - format: UOP # uncompressed offset pair
+              - format: CP  # coordinate payload
+
+      action_optimization:
+        - type: skipping
+          options:
+            - target: A
+              condition_on: [ B ]
+        - type: skipping
+          options:
+            - target: B
+              condition_on: [ A ]
+        - type: skipping
+          options:
+            - target: Z
+              condition_on: [ A, B ]
+
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16

@@ -1,0 +1,23 @@
+ERT_summary:
+    version: '0.4'
+    table_summary:
+      - name: PE_top_level.Buffer[1..1]
+        actions:
+          - name: update
+            energy: 0.42564
+          - name: read
+            energy: 0.42564
+          - name: write
+            energy: 0.42564
+          - name: leak
+            energy: 0.000861
+        primitive_estimation(s):
+          - name: PE_top_level.Buffer[1..1]
+            estimator: Aladdin_table
+      - name: PE_top_level.MACC[1..1]
+        actions:
+          - name: compute
+            energy: 0.845
+        primitive_estimation(s):
+          - name: PE_top_level.MACC[1..1]
+            estimator: Aladdin_table

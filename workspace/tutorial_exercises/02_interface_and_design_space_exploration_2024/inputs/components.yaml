@@ -1,0 +1,30 @@
+components:
+  version: 0.4         # REQUIRED version number
+  classes:
+    - name: intmac
+      attributes:
+        multiplier_width: "must_specify"
+        adder_width: "must_specify"
+      
+      subcomponents:
+      - name: adder
+        class: aladdin_adder
+        attributes: {width: adder_width}
+      - name: multiplier
+        class: aladdin_multiplier
+        attributes: {width: multiplier_width}
+
+      actions: 
+        - name: compute
+          subcomponents:
+          - {name: adder, actions: [{name: add}]}
+          - {name: multiplier, actions: [{name: multiply}]}
+
+    - name: register # Zero energy/area
+      attributes: {}
+      subcomponents: []
+      actions:
+        - {name: read, subcomponents: []}
+        - {name: write, subcomponents: []}
+        - {name: update, subcomponents: []}
+        - {name: leak, subcomponents: []}

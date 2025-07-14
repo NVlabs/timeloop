@@ -1,0 +1,62 @@
+compound_components:
+  version: 0.3
+  classes:
+  - name: mac_fifo
+    attributes:
+      technology: 40nm
+      datawidth: 16
+      fifo_depth: 2
+      num_pipeline_stages: 1
+    subcomponents:
+      - name: mac
+        class: intmac
+        attributes:
+          technology: technology
+          width: datawidth
+          num_pipeline_stages: num_pipeline_stages
+      - name: output_fifo
+        class: FIFO
+        attributes:
+          technology: technology
+          depth: fifo_depth
+          width: datawidth * 2
+          datawidth: datawidth * 2
+    actions:
+      - name: mac_random
+        subcomponents:
+          - name: mac
+            actions:
+              - name: mac_random
+          - name: output_fifo
+            actions:
+              - name: push
+              - name: pop    # accounting for the future pop of the data
+      - name: mac_reused
+        subcomponents:
+          - name: mac
+            actions:
+              - name: mac_reused
+          - name: output_fifo
+            actions:
+              - name: push
+              - name: pop    # accounting for the future pop of the data
+      - name: mac_gated
+        subcomponents:
+          - name: mac
+            actions:
+              - name: mac_gated
+          - name: output_fifo
+            actions:
+              - name: idle
+      - name: idle
+        subcomponents:
+          - name: mac
+            actions:
+              - name: idle
+          - name: output_fifo
+            actions:
+              - name: idle
+
+
+
+

@@ -1,0 +1,17 @@
+mapping:
+  - target: BackingStorage # storage level in architecture
+    type: temporal         # temporal tiling
+    factors: [S=1, Q=1, M=4]  # loop bounds
+    permutation: [S, Q, M]       # loop order: inner to outer->output stationary
+
+  - target: PE             # storage level in architecture
+    type: spatial          # spatial tiling
+    factors: [S=1, Q=1, M=4]  # loop bounds
+    permutation: [S, Q, M]       # loop order
+    split: 4               # start from which position in list above
+                           # do we start to map the dimensions to hardware Y direction
+                           # (X otherwise). all mapped to X here.
+  - target: Buffer
+    type: temporal
+    factors: [S=3, Q=9, M=1]
+    permutation: [S, Q, M]

@@ -34,6 +34,7 @@
 #include "model/network-factory.hpp"
 #include "sparse-analysis/sparse-analysis.hpp"
 #include "workload/workload.hpp"
+#include <dbg.h>
 
 bool gHideInconsequentialStats =
   (getenv("TIMELOOP_HIDE_INCONSEQUENTIAL_STATS") == NULL) ||
@@ -1293,6 +1294,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
                                            sparse::SparseOptimizationInfo* sparse_optimizations,
                                            bool break_on_failure)
 {
+   dbg(mapping);
+   dbg(analysis);
   assert(is_specced_);
   Reset();
   assert(!is_evaluated_);
@@ -1317,8 +1320,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   problem::Workload* workload = analysis->GetWorkload();
   workload_ = workload;
   layout::Layouts layout = analysis->GetLayout();
-
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
+  // dbg(eval_status);
   bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest, workload);
   if (!valid) 
   { 
@@ -1327,7 +1330,6 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
               EvalStatus({ .success = false, .fail_reason = "one of the tensors is bypassed in all storage levels"}));
     return eval_status;
   }
-
   bool success_accum = true;
   bool success = true;
 
@@ -1345,15 +1347,50 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   // Compute working-set tile hierarchy for the nest.
   analysis::CompoundTileNest tile_info_nest;
   problem::PerDataSpace<std::vector<analysis::DataMovementInfo>> ws_tiles;
+  dbg("hello topology!");
   try
   {
+    dbg("function!");
     ws_tiles = analysis->GetWorkingSets();
-    // construct a summaried tileinfo with both datamovement info and compute info
+    // ================ 手动打印 ws_tiles 的开始 ================
+std::cout << "----------- Manually printing ws_tiles -----------" << std::endl;
+
+// // 1. 外层循环：遍历所有数据空间 (Inputs, Weights, Outputs, etc.)
+// for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
+// {
+//     // 获取当前数据空间的名称，例如 "Weights"
+//     const auto& data_space_name = problem::GetShape()->DataSpaceIDToName.at(pvi);
+    
+//     // 获取该数据空间对应的 std::vector<DataMovementInfo>
+//     const auto& data_movement_vector = ws_tiles[pvi];
+
+//     std::cout << "  [" << data_space_name << "]:" << std::endl;
+
+//     if (data_movement_vector.empty())
+//     {
+//         std::cout << "    (No data movement info)" << std::endl;
+//         continue;
+//     }
+
+//     // 2. 内层循环：遍历 vector 中的每一个 DataMovementInfo 对象
+//     for (size_t i = 0; i < data_movement_vector.size(); ++i)
+//     {
+//         const auto& info = data_movement_vector[i];
+//         dbg(info);
+//         std::cout<<info<<std::endl;
+//     }
+// }
+// std::cout << "---------------------- End -----------------------" << std::endl;
+// // ================ 手动打印 ws_tiles 的结束 ================
+//     // construct a summaried tileinfo with both datamovement info and compute info
+//     dbg("constructing tile info");
     tile_info_nest.compound_compute_info_nest = analysis->GetComputeInfo();
+    // dbg(tile_info_nest.compound_compute_info_nest);
     tile_info_nest.compound_data_movement_info_nest = ws_tiles;
   }
   catch (std::runtime_error& e)
   {
+    dbg("error");
     std::fill(eval_status.begin(), eval_status.end(),
               EvalStatus({ .success = false, .fail_reason = "" }));
     return eval_status;
@@ -1361,6 +1398,7 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
 
   // Ugh... FIXME.
+  dbg("function!");
   auto compute_cycles = analysis->GetComputeInfo()[0].accesses; //innermost level
 
   // Create a mask indicating which levels support distributed multicast.

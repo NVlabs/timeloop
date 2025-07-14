@@ -1,0 +1,5 @@
+mapping:
+  - target: Buffer      # storage level in architecture
+    type: temporal      # temporal tiling
+    factors: K=16 M=1  # loop bounds
+    permutation: KM     # loop order: inner to outer

@@ -1,0 +1,126 @@
+architecture:
+    version: '0.4'
+    local:
+      - name: System_top_level.MainMemory[1..1]
+        class: DRAM
+        attributes:
+            width: 256
+            datawidth: 8
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            technology: "40nm"
+            global_cycle_seconds: 1e-09
+            power_gated_at: null
+            version: '0.4'
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - update
+          - read
+          - write
+          - leak
+        enabled: true
+      - name: System_top_level.inter_PE_spatial[1..1]
+        class: dummy_storage
+        attributes:
+            width: 1
+            depth: 1
+            datawidth: 1
+            technology: -1
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            global_cycle_seconds: 1e-09
+            power_gated_at: null
+            version: '0.4'
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        enabled: true
+      - name: System_top_level.GlobalBuffer[1..16]
+        class: SRAM
+        attributes:
+            depth: 32768
+            width: 64
+            datawidth: 8
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 16
+            meshY: 1
+            technology: "40nm"
+            global_cycle_seconds: 1e-09
+            power_gated_at: null
+            version: '0.4'
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - update
+          - read
+          - write
+          - leak
+        enabled: true
+      - name: System_top_level.RegisterFile[1..16]
+        class: regfile
+        attributes:
+            depth: 64
+            width: 8
+            datawidth: 8
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 16
+            meshY: 1
+            technology: "40nm"
+            global_cycle_seconds: 1e-09
+            power_gated_at: null
+            version: '0.4'
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - update
+          - read
+          - write
+          - leak
+        enabled: true
+      - name: System_top_level.MACC[1..16]
+        class: intmac
+        attributes:
+            width: 8
+            has_power_gating: false
+            meshX: 16
+            meshY: 1
+            technology: "40nm"
+            global_cycle_seconds: 1e-09
+            power_gated_at: null
+            version: '0.4'
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - compute
+        enabled: true

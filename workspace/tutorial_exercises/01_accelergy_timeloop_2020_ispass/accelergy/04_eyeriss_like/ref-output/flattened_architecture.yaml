@@ -1,0 +1,103 @@
+architecture:
+  version: 0.3
+  local:
+  - name: eyeriss_like.PE[0..167].ifmap_spad
+    class: smartbuffer_RF
+    attributes:
+      memory_depth: 12
+      memory_width: 16
+      n_banks: 1
+      n_buffets: 1
+      n_rdwr_ports: 2
+      technology: 45nm
+  - name: eyeriss_like.PE[0..167].weights_spad
+    class: smartbuffer_RF
+    attributes:
+      memory_depth: 192
+      memory_width: 16
+      n_banks: 1
+      n_buffets: 1
+      n_rdwr_ports: 2
+      technology: 45nm
+  - name: eyeriss_like.PE[0..167].psum_spad
+    class: smartbuffer_RF
+    attributes:
+      memory_depth: 16
+      memory_width: 16
+      n_banks: 1
+      n_buffets: 1
+      n_rdwr_ports: 2
+      technology: 45nm
+  - name: eyeriss_like.PE[0..167].mac
+    class: intmac
+    attributes:
+      datawidth: 16
+      latency: 5ns
+      meshX: 14
+      num_pipeline_stages: 2
+      technology: 45nm
+  - name: eyeriss_like.weights_glb
+    class: smartbuffer_SRAM
+    attributes:
+      memory_depth: 1024
+      memory_width: 64
+      n_banks: 2
+      n_buffets: 1
+      n_rdwr_ports: 2
+      technology: 45nm
+  - name: eyeriss_like.shared_glb
+    class: smartbuffer_SRAM
+    attributes:
+      bank_depth: 512
+      memory_depth: 12800
+      memory_width: 64
+      n_banks: 25
+      n_buffets: 2
+      n_rdwr_ports: 2
+      technology: 45nm
+      update_fifo_depth: 2
+  - name: eyeriss_like.ifmap_NoC
+    class: XY_NoC
+    attributes:
+      X_comparator_width: 4
+      Y_X_wire_avg_length: 2mm
+      Y_comparator_width: 4
+      col_id_width: 5
+      datawidth: 16
+      n_PE_cols: 14
+      n_PE_rows: 12
+      technology: 45nm
+      total_PEs: 168
+  - name: eyeriss_like.weights_NoC
+    class: XY_NoC
+    attributes:
+      X_comparator_width: 4
+      Y_X_wire_avg_length: 2mm
+      Y_comparator_width: 4
+      datawidth: 64
+      n_PE_cols: 14
+      n_PE_rows: 12
+      technology: 45nm
+      total_PEs: 168
+  - name: eyeriss_like.psum_write_NoC
+    class: XY_NoC
+    attributes:
+      X_comparator_width: 4
+      Y_X_wire_avg_length: 2mm
+      Y_comparator_width: 4
+      datawidth: 64
+      n_PE_cols: 14
+      n_PE_rows: 12
+      technology: 45nm
+      total_PEs: 168
+  - name: eyeriss_like.psum_read_NoC
+    class: XY_NoC
+    attributes:
+      X_comparator_width: 4
+      Y_X_wire_avg_length: 4mm
+      Y_comparator_width: 4
+      datawidth: 64
+      n_PE_cols: 14
+      n_PE_rows: 12
+      technology: 45nm
+      total_PEs: 168

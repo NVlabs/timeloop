@@ -1,0 +1,66 @@
+architecture:
+  # ============================================================
+  # Architecture Description
+  # ============================================================
+  version: 0.2
+  subtree:
+    - name: eyeriss_like
+      attributes:
+        technology: 45nm
+      local:
+        - name: weights_glb
+          class: smartbuffer_SRAM
+          attributes:
+            memory_width: 64
+            memory_depth: 1024
+            n_banks: 2
+        - name: shared_glb
+          class: smartbuffer_SRAM
+          attributes:
+            memory_width: 64
+            n_banks: 25
+            bank_depth: 512
+            memory_depth: bank_depth * n_banks
+            n_buffets: 2
+            update_fifo_depth: 2
+        - name: ifmap_NoC
+          class: XY_NoC
+          attributes:
+            datawidth: 16
+            col_id_width: 5
+        - name: weights_NoC
+          class: XY_NoC
+          attributes:
+            datawidth: 64
+        - name: psum_write_NoC
+          class: XY_NoC
+          attributes:
+            datawidth: 64
+        - name: psum_read_NoC
+          class: XY_NoC
+          attributes:
+            datawidth: 64
+            Y_X_wire_avg_length: 4mm
+      subtree:
+        - name: PE[0..167]
+          local:
+            - name: ifmap_spad
+              class: smartbuffer_RF
+              attributes:
+                memory_depth: 12
+                memory_width: 16
+            - name: weights_spad
+              class: smartbuffer_RF
+              attributes:
+                memory_depth: 192
+                memory_width: 16
+            - name: psum_spad
+              class: smartbuffer_RF
+              attributes:
+                memory_depth: 16
+                memory_width: 16
+            - name: mac
+              class: intmac
+              attributes:
+                width: 16
+                meshX : 14

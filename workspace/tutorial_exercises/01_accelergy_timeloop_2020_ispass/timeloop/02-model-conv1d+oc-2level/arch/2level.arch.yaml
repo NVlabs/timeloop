@@ -1,0 +1,33 @@
+architecture:
+  version: 0.4
+  nodes:
+  - !Container
+    name: System
+    attributes:
+      technology: "40nm"
+      global_cycle_seconds: 1e-9
+
+  - !Component
+    name: MainMemory
+    class: SRAM
+    attributes:
+      depth: 32768
+      width: 64
+      datawidth: 8
+
+  - !Container
+    name: PE
+
+  - !Component
+    name: Buffer
+    class: regfile
+    attributes:
+      depth: 64
+      width: 8
+      datawidth: 8
+
+  - !Component
+    name: MACC
+    class: intmac
+    attributes:
+      width: 8

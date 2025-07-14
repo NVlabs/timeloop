@@ -1,0 +1,97 @@
+architecture:
+  # ============================================================
+  # Architecture Description
+  # ============================================================
+  version: 0.4
+  nodes: # Top-level is hierarchical
+  - !Container # Top-level system
+    name: system
+
+  - !Component # DRAM main memory
+    name: DRAM
+    class: DRAM
+    attributes:
+      type: "LPDDR4"
+      width: 64
+      datawidth: 16
+
+  - !Container # OS accelerator
+    name: simple_ws
+    attributes:
+      technology: "45nm"
+
+  - !Component # Shared global buffer
+    name: shared_glb
+    class: smartbuffer_SRAM
+    attributes:
+      depth: 16384
+      width: 64
+      n_banks: 32
+      datawidth: 16
+      read_bandwidth: 16
+      write_bandwidth: 16
+
+  - !Container # Array of PEs
+    name: PE
+    spatial: {meshX: 16, meshY: 16}
+    constraints:
+      spatial: 
+        permutation: [C, M]
+        split: 1
+        factors: [R=1, S=1, P=1, Q=1]
+
+  - !Component # PE Scratchpad
+    name: pe_spad
+    class: smartbuffer_SRAM
+    attributes:
+      depth: 192
+      width: 16
+      datawidth: 16
+    constraints:
+      dataspace: {bypass: [Inputs, Weights], keep: [Outputs]}
+      temporal: {permutation: [R, S, P, Q]}
+
+  - !Parallel # Register for each data type
+    nodes:
+    - !Component # Weight register
+      name: weight_reg
+      class: storage
+      subclass: aladdin_register
+      attributes:
+        depth: 1
+        width: 16           # width in bits
+        datawidth: 16
+      constraints:
+        dataspace: {keep: [Weights]}
+        temporal: {factors: [R=1, S=1, M=1, C=1]}
+
+    - !Component # Input activation register
+      name: input_activation_reg
+      class: storage
+      subclass: aladdin_register
+      attributes:
+        depth: 1
+        width: 16           # width in bits
+        datawidth: 16
+      constraints:
+        dataspace: {keep: [Inputs]}
+        temporal: {factors: [P=1, Q=1, C=1, N=1]}
+
+    - !Component # Output activation register
+      name: output_activation_reg
+      class: storage
+      subclass: aladdin_register
+      attributes:
+        depth: 1
+        width: 16           # width in bits
+        datawidth: 16
+      constraints:
+        dataspace: {keep: [Outputs]}
+        temporal: {factors: [P=1, Q=1, M=1, N=1]}
+
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16

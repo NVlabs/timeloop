@@ -1,0 +1,234 @@
+2024-03-28 11:00:24 INFO            _                _                      
+2024-03-28 11:00:24 INFO           / \   ___ ___ ___| | ___ _ __ __ _ _   _ 
+2024-03-28 11:00:24 INFO          / _ \ / __/ __/ _ \ |/ _ \ '__/ _` | | | |
+2024-03-28 11:00:24 INFO         / ___ \ (_| (_|  __/ |  __/ | | (_| | |_| |
+2024-03-28 11:00:24 INFO        /_/   \_\___\___\___|_|\___|_|  \__, |\__, |
+2024-03-28 11:00:24 INFO                                        |___/ |___/ 
+2024-03-28 11:00:24 INFO        generating outputs according to the following specified output flags... 
+2024-03-28 11:00:24 INFO         Please use the -f flag to update the preference (default to all output files)
+2024-03-28 11:00:24 INFO        {'ERT': 1, 'ERT_summary': 1, 'ART': 1, 'ART_summary': 1, 'energy_estimation': 1, 'flattened_arch': 1}
+2024-03-28 11:00:24 INFO        Located config file at /home/tanner/.config/accelergy/accelergy_config.yaml.
+2024-03-28 11:00:24 INFO        config file located:
+2024-03-28 11:00:24 INFO        /home/tanner/.config/accelergy/accelergy_config.yaml
+2024-03-28 11:00:24 INFO        Parsing file /home/tanner/research/cimloop/infrastructure/timeloop-accelergy-exercises/workspace/tutorial_exercises/05_creating_accelergy_plug_ins/utils/design1.yaml for architecture info
+2024-03-28 11:00:24 WARNING     File /home/tanner/research/cimloop/infrastructure/timeloop-accelergy-exercises/workspace/tutorial_exercises/05_creating_accelergy_plug_ins/utils/design1.yaml is outdated. File version is 0.4, while the latest version is 0.4. 
+2024-03-28 11:00:24 WARNING      Please update the file to the latest version.
+2024-03-28 11:00:24 INFO        Parsing file /home/tanner/research/cimloop/infrastructure/timeloop-accelergy-exercises/workspace/tutorial_exercises/05_creating_accelergy_plug_ins/utils/design1.yaml for compound_components info
+2024-03-28 11:00:24 WARNING     File /home/tanner/research/cimloop/infrastructure/timeloop-accelergy-exercises/workspace/tutorial_exercises/05_creating_accelergy_plug_ins/utils/design1.yaml is outdated. File version is 0.4, while the latest version is 0.4. 
+2024-03-28 11:00:24 WARNING      Please update the file to the latest version.
+2024-03-28 11:00:24 INFO        primitive component file parsed: 
+2024-03-28 11:00:24 INFO        /home/tanner/research/cimloop/venv/share/accelergy/primitive_component_libs/neurosim_components.lib.yaml
+2024-03-28 11:00:24 INFO        Estimator plug-in identified by: /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-table-based-plug-ins/table.estimator.yaml
+2024-03-28 11:00:24 INFO        Estimator plug-in identified by: /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-aladdin-plug-in/aladdin.estimator.yaml
+2024-03-28 11:00:24 INFO        Estimator plug-in identified by: /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/dummy_tables/dummy.estimator.yaml
+2024-03-28 11:00:24 INFO        Estimator plug-in identified by: /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-cacti-plug-in/cacti.estimator.yaml
+2024-03-28 11:00:24 INFO        Estimator plug-in identified by: /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-neurosim-plugin/neurosim.estimator.yaml
+2024-03-28 11:00:24 INFO        Estimator plug-in identified by: /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-library-plugin/library.estimator.yaml
+2024-03-28 11:00:24 INFO        Estimator plug-in identified by: /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-adc-plug-in/adc.estimator.yaml
+2024-03-28 11:00:24 INFO        Getting all estimators in module <module 'python_plug_in' from '/home/tanner/research/cimloop/artifact/models/plug_ins/__init__.py'>
+2024-03-28 11:00:24 INFO        Getting all estimators in module <module 'python_plug_in' from '/home/tanner/research/cimloop/artifact/models/plug_ins/X2X_ladder.py'>
+2024-03-28 11:00:24 INFO        Added estimator DigitalAnalogConverterX2XLadder that estimates dac_x2x_ladder with actions convert, idle, leak, leak
+2024-03-28 11:00:24 INFO        Added estimator DigitalAnalogConverter_C2C that estimates dac_c2c_ladder with actions convert, idle, leak, leak
+2024-03-28 11:00:24 INFO        Added estimator DigitalAnalogConverter_R2R that estimates dac_r2r_ladder with actions convert, idle, leak, leak
+2024-03-28 11:00:24 INFO        Getting all estimators in module <module 'python_plug_in' from '/home/tanner/research/cimloop/artifact/models/plug_ins/misc_components.py'>
+2024-03-28 11:00:24 INFO        Added estimator Capacitor that estimates capacitor with actions charge, idle, leak, raise_voltage_to, raise_voltage_to_from_non_supply, read, switch, update, write, leak
+2024-03-28 11:00:24 INFO        Added estimator ExampleRRAM that estimates ExampleRRAM with actions idle, multiply_accumulate, leak
+2024-03-28 11:00:24 INFO        Added estimator PassGate that estimates pass_gate with actions idle, leak
+2024-03-28 11:00:24 INFO        Added estimator Wire that estimates wire with actions charge, idle, leak, raise_voltage_to, raise_voltage_to_from_non_supply, read, switch, update, write, leak
+2024-03-28 11:00:24 INFO        Getting all estimators in module <module 'python_plug_in' from '/home/tanner/research/cimloop/artifact/models/plug_ins/utils/__init__.py'>
+2024-03-28 11:00:24 INFO        Getting all estimators in module <module 'python_plug_in' from '/home/tanner/research/cimloop/artifact/models/plug_ins/utils/bit_functions.py'>
+2024-03-28 11:00:24 INFO        Getting all estimators in module <module 'python_plug_in' from '/home/tanner/research/cimloop/infrastructure/timeloop-accelergy-exercises/workspace/tutorial_exercises/05_creating_accelergy_plug_ins/out_dir/_plug_in_tmp.py'>
+2024-03-28 11:00:24 INFO        Added estimator AccurateButPicky that estimates ternary_mac with actions idle, mac_random, leak
+2024-03-28 11:00:24 INFO        Added estimator InacurrateFlexible that estimates ternary_mac with actions idle, mac_random, reset, leak
+2024-03-28 11:00:24 INFO        Getting all estimators in module <module 'python_plug_in' from '/home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-cacti-plug-in/cacti_wrapper.py'>
+2024-03-28 11:00:24 INFO        Added estimator CactiCache that estimates cache with actions idle, read, read_access, update, update_access, write, write_access, leak
+2024-03-28 11:00:24 INFO        Added estimator CactiDRAM that estimates DRAM with actions idle, read, update, write, leak
+2024-03-28 11:00:24 INFO        Added estimator CactiSRAM that estimates SRAM with actions idle, read, update, write, leak
+2024-03-28 11:00:24 INFO        Found estimator plug-in: table-based-plug-ins (<SetsOfTables.SetsOfTables object at 0x7fba0bc79670>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: Aladdin_table (<AladdinTable.AladdinTable object at 0x7fba0b9f3290>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: dummy_table (<DummyTable.DummyTable object at 0x7fba0b979b80>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: Neurosim Plug-In (<NeuroWrapper.NeuroWrapper object at 0x7fba0bb556d0>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: Library (<LibraryEstimator.LibraryEstimator object at 0x7fba0b9787d0>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: ADC Plug-In (<ADCEstimator.ADCEstimator object at 0x7fba0b862c00>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: DigitalAnalogConverterX2XLadder (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0bb55850>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: DigitalAnalogConverter_C2C (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0b9981d0>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: DigitalAnalogConverter_R2R (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0b8c1fa0>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: Capacitor (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0b8c2120>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: ExampleRRAM (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0b8c2a80>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: PassGate (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0b8c2d20>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: Wire (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0b8c2f60>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: AccurateButPicky (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0b8c3380>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: InacurrateFlexible (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0b8c39e0>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: CactiCache (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0b97a480>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: CactiDRAM (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0bb4f290>)
+2024-03-28 11:00:24 INFO        Found estimator plug-in: CactiSRAM (<accelergy.plug_in_interface.estimator_wrapper.EstimatorWrapper object at 0x7fba0ba3eb70>)
+2024-03-28 11:00:24 INFO        
+2024-03-28 11:00:24 INFO        ENERGY ESTIMATION for ternary_mac(tech_node=45, accum_datawidth=5, global_cycle_seconds=0.001, action_latency_cycles=1, cycle_seconds=0.001, technology=45nm, n_instances=1).mac_random(unsigned=0, global_cycle_seconds=0.001, action_latency_cycles=1, cycle_seconds=0.001, technology=45nm, n_instances=1)
+2024-03-28 11:00:24 INFO        AccurateButPicky estimated 6.913899529408735e-13 with accuracy 99%. Messages:
+2024-03-28 11:00:24 INFO        | Unused arguments (global_cycle_seconds, action_latency_cycles, cycle_seconds, technology, n_instances) provided for ternary_mac.__init__. Arguments used: (tech_node, accum_datawidth)
+2024-03-28 11:00:24 INFO        | Unused arguments (global_cycle_seconds, action_latency_cycles, cycle_seconds, technology, n_instances) provided for ternary_mac.mac_random. Arguments used: (unsigned)
+2024-03-28 11:00:24 DEBUG       Why plug-ins did not estimate:
+2024-03-28 11:00:24 DEBUG       | AccurateButPicky with accuracy 99% estimating accuracy: No messages found.
+2024-03-28 11:00:24 DEBUG       | InacurrateFlexible with accuracy 50% estimating accuracy: No messages found.
+2024-03-28 11:00:24 DEBUG       | table-based-plug-ins with accuracy 0% estimating accuracy: Identified a set of tables named: test_tables
+2024-03-28 11:00:24 DEBUG       | Aladdin_table with accuracy 0% estimating accuracy: Primitive class ternary_mac is not supported. Supported classes are: ['regfile', 'SRAM', 'counter', 'comparator', 'crossbar', 'wire', 'FIFO', 'bitwise', 'intadder', 'intmultiplier', 'intmac', 'fpadder', 'fpmultiplier', 'fpmac', 'reg']
+2024-03-28 11:00:24 DEBUG       | dummy_table with accuracy 0% estimating accuracy: Set attribute "technology" to -1 to use the dummy table
+2024-03-28 11:00:24 DEBUG       | Neurosim Plug-In with accuracy 0% estimating accuracy: ERROR: NeuroSim estimator does not support ternary_mac. Supported primitives are: ['array_row_drivers', 'array_col_drivers', 'array_adc', 'memory_cell', 'shift_add', 'intadder', 'intadder_tree', 'max_pool', 'mux', 'flip_flop', 'not_gate', 'nand_gate', 'nor_gate']
+2024-03-28 11:00:24 DEBUG       | Library with accuracy 0% estimating accuracy: ValueError: Could not find energy for ternary_mac
+2024-03-28 11:00:24 DEBUG       | ADC Plug-In with accuracy 0% estimating accuracy: ADC Plug-In does not support ternary_mac.mac_random. Supported classes: ['adc', 'pim_adc', 'sar_adc', 'array_adc', 'pim_array_adc', 'cim_array_adc', 'cim_adc'], supported actions: ['convert', 'drive', 'read', 'sample', 'leak', 'activate']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverterX2XLadder with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_x2x_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_C2C with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_c2c_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_R2R with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_r2r_ladder']
+2024-03-28 11:00:24 DEBUG       | Capacitor with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['capacitor']
+2024-03-28 11:00:24 DEBUG       | ExampleRRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['ExampleRRAM']
+2024-03-28 11:00:24 DEBUG       | PassGate with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['pass_gate']
+2024-03-28 11:00:24 DEBUG       | Wire with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['wire']
+2024-03-28 11:00:24 DEBUG       | CactiCache with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['cache']
+2024-03-28 11:00:24 DEBUG       | CactiDRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['DRAM']
+2024-03-28 11:00:24 DEBUG       | CactiSRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['SRAM']
+2024-03-28 11:00:24 INFO        
+2024-03-28 11:00:24 INFO        ENERGY ESTIMATION for ternary_mac(tech_node=45, accum_datawidth=5, global_cycle_seconds=0.001, action_latency_cycles=1, cycle_seconds=0.001, technology=45nm, n_instances=1).mac_random(unsigned=1, global_cycle_seconds=0.001, action_latency_cycles=1, cycle_seconds=0.001, technology=45nm, n_instances=1)
+2024-03-28 11:00:24 INFO        InacurrateFlexible estimated 3.4569497647043674e-13 with accuracy 50%. Messages:
+2024-03-28 11:00:24 INFO        | Unused arguments (global_cycle_seconds, action_latency_cycles, cycle_seconds, technology, n_instances) provided for ternary_mac.__init__. Arguments used: (tech_node, accum_datawidth)
+2024-03-28 11:00:24 INFO        | Unused arguments (global_cycle_seconds, action_latency_cycles, cycle_seconds, technology, n_instances) provided for ternary_mac.mac_random. Arguments used: (unsigned)
+2024-03-28 11:00:24 INFO        | Unsigned mac_random consuming half the energy.
+2024-03-28 11:00:24 DEBUG       Estimator logs:
+2024-03-28 11:00:24 DEBUG       | AccurateButPicky with accuracy 99% estimating value: 
+2024-03-28 11:00:24 DEBUG       |  | Unused arguments (global_cycle_seconds, action_latency_cycles, cycle_seconds, technology, n_instances) provided for ternary_mac.__init__. Arguments used: (tech_node, accum_datawidth)
+2024-03-28 11:00:24 DEBUG       |  | Unused arguments (global_cycle_seconds, action_latency_cycles, cycle_seconds, technology, n_instances) provided for ternary_mac.mac_random. Arguments used: (unsigned)
+2024-03-28 11:00:24 DEBUG       |  | AssertionError: Sorry, I only support signed operands.
+2024-03-28 11:00:24 DEBUG       Why plug-ins did not estimate:
+2024-03-28 11:00:24 DEBUG       | AccurateButPicky with accuracy 99% estimating accuracy: No messages found.
+2024-03-28 11:00:24 DEBUG       | InacurrateFlexible with accuracy 50% estimating accuracy: No messages found.
+2024-03-28 11:00:24 DEBUG       | table-based-plug-ins with accuracy 0% estimating accuracy: Accuracy is 0%. Not supported.
+2024-03-28 11:00:24 DEBUG       | Aladdin_table with accuracy 0% estimating accuracy: Primitive class ternary_mac is not supported. Supported classes are: ['regfile', 'SRAM', 'counter', 'comparator', 'crossbar', 'wire', 'FIFO', 'bitwise', 'intadder', 'intmultiplier', 'intmac', 'fpadder', 'fpmultiplier', 'fpmac', 'reg']
+2024-03-28 11:00:24 DEBUG       | dummy_table with accuracy 0% estimating accuracy: Set attribute "technology" to -1 to use the dummy table
+2024-03-28 11:00:24 DEBUG       | Neurosim Plug-In with accuracy 0% estimating accuracy: ERROR: NeuroSim estimator does not support ternary_mac. Supported primitives are: ['array_row_drivers', 'array_col_drivers', 'array_adc', 'memory_cell', 'shift_add', 'intadder', 'intadder_tree', 'max_pool', 'mux', 'flip_flop', 'not_gate', 'nand_gate', 'nor_gate']
+2024-03-28 11:00:24 DEBUG       | Library with accuracy 0% estimating accuracy: ValueError: Could not find energy for ternary_mac
+2024-03-28 11:00:24 DEBUG       | ADC Plug-In with accuracy 0% estimating accuracy: ADC Plug-In does not support ternary_mac.mac_random. Supported classes: ['adc', 'pim_adc', 'sar_adc', 'array_adc', 'pim_array_adc', 'cim_array_adc', 'cim_adc'], supported actions: ['convert', 'drive', 'read', 'sample', 'leak', 'activate']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverterX2XLadder with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_x2x_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_C2C with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_c2c_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_R2R with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_r2r_ladder']
+2024-03-28 11:00:24 DEBUG       | Capacitor with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['capacitor']
+2024-03-28 11:00:24 DEBUG       | ExampleRRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['ExampleRRAM']
+2024-03-28 11:00:24 DEBUG       | PassGate with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['pass_gate']
+2024-03-28 11:00:24 DEBUG       | Wire with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['wire']
+2024-03-28 11:00:24 DEBUG       | CactiCache with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['cache']
+2024-03-28 11:00:24 DEBUG       | CactiDRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['DRAM']
+2024-03-28 11:00:24 DEBUG       | CactiSRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['SRAM']
+2024-03-28 11:00:24 DEBUG       | AccurateButPicky with accuracy 99% estimating value: AssertionError: Sorry, I only support signed operands.
+2024-03-28 11:00:24 INFO        Plug-ins provided accuracy, but failed to estimate:
+2024-03-28 11:00:24 INFO        | AccurateButPicky with accuracy 99% estimating value: AssertionError: Sorry, I only support signed operands.
+2024-03-28 11:00:24 INFO        
+2024-03-28 11:00:24 INFO        ENERGY ESTIMATION for ternary_mac(tech_node=45, accum_datawidth=5, global_cycle_seconds=0.001, action_latency_cycles=1, cycle_seconds=0.001, technology=45nm, n_instances=1).reset(make_expensive=1, global_cycle_seconds=0.001, action_latency_cycles=1, cycle_seconds=0.001, technology=45nm, n_instances=1)
+2024-03-28 11:00:24 INFO        InacurrateFlexible estimated 1 with accuracy 50%. Messages:
+2024-03-28 11:00:24 INFO        | Unused arguments (global_cycle_seconds, action_latency_cycles, cycle_seconds, technology, n_instances) provided for ternary_mac.__init__. Arguments used: (tech_node, accum_datawidth)
+2024-03-28 11:00:24 INFO        | Unused arguments (global_cycle_seconds, action_latency_cycles, cycle_seconds, technology, n_instances) provided for ternary_mac.reset. Arguments used: (make_expensive)
+2024-03-28 11:00:24 INFO        | InacurrateFlexible reset is expensive! Returning a high energy.
+2024-03-28 11:00:24 DEBUG       Why plug-ins did not estimate:
+2024-03-28 11:00:24 DEBUG       | InacurrateFlexible with accuracy 50% estimating accuracy: No messages found.
+2024-03-28 11:00:24 DEBUG       | table-based-plug-ins with accuracy 0% estimating accuracy: Accuracy is 0%. Not supported.
+2024-03-28 11:00:24 DEBUG       | Aladdin_table with accuracy 0% estimating accuracy: Primitive class ternary_mac is not supported. Supported classes are: ['regfile', 'SRAM', 'counter', 'comparator', 'crossbar', 'wire', 'FIFO', 'bitwise', 'intadder', 'intmultiplier', 'intmac', 'fpadder', 'fpmultiplier', 'fpmac', 'reg']
+2024-03-28 11:00:24 DEBUG       | dummy_table with accuracy 0% estimating accuracy: Set attribute "technology" to -1 to use the dummy table
+2024-03-28 11:00:24 DEBUG       | Neurosim Plug-In with accuracy 0% estimating accuracy: ERROR: NeuroSim estimator does not support ternary_mac. Supported primitives are: ['array_row_drivers', 'array_col_drivers', 'array_adc', 'memory_cell', 'shift_add', 'intadder', 'intadder_tree', 'max_pool', 'mux', 'flip_flop', 'not_gate', 'nand_gate', 'nor_gate']
+2024-03-28 11:00:24 DEBUG       | Library with accuracy 0% estimating accuracy: ValueError: Could not find energy for ternary_mac
+2024-03-28 11:00:24 DEBUG       | ADC Plug-In with accuracy 0% estimating accuracy: ADC Plug-In does not support ternary_mac.reset. Supported classes: ['adc', 'pim_adc', 'sar_adc', 'array_adc', 'pim_array_adc', 'cim_array_adc', 'cim_adc'], supported actions: ['convert', 'drive', 'read', 'sample', 'leak', 'activate']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverterX2XLadder with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_x2x_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_C2C with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_c2c_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_R2R with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_r2r_ladder']
+2024-03-28 11:00:24 DEBUG       | Capacitor with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['capacitor']
+2024-03-28 11:00:24 DEBUG       | ExampleRRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['ExampleRRAM']
+2024-03-28 11:00:24 DEBUG       | PassGate with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['pass_gate']
+2024-03-28 11:00:24 DEBUG       | Wire with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['wire']
+2024-03-28 11:00:24 DEBUG       | AccurateButPicky with accuracy 0% estimating accuracy: AttributeError: No action with name reset found in ternary_mac. Actions supported: idle, mac_random, leak
+2024-03-28 11:00:24 DEBUG       | CactiCache with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['cache']
+2024-03-28 11:00:24 DEBUG       | CactiDRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['DRAM']
+2024-03-28 11:00:24 DEBUG       | CactiSRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['SRAM']
+2024-03-28 11:00:24 WARNING     No action counts are specified as yaml input
+2024-03-28 11:00:24 INFO        
+2024-03-28 11:00:24 INFO        AREA ESTIMATION for DRAM(reduction_supported=False, width=256, technology=45nm, tech_node=45, global_cycle_seconds=0.001, action_latency_cycles=1, cycle_seconds=0.001, n_instances=1)
+2024-03-28 11:00:24 INFO        CactiDRAM estimated 0 with accuracy 80%. Messages:
+2024-03-28 11:00:24 INFO        | Unused arguments (reduction_supported, technology, tech_node, global_cycle_seconds, action_latency_cycles, cycle_seconds, n_instances, datawidth) provided for DRAM.__init__. Arguments used: (width)
+2024-03-28 11:00:24 DEBUG       Why plug-ins did not estimate:
+2024-03-28 11:00:24 DEBUG       | CactiDRAM with accuracy 80% estimating accuracy: No messages found.
+2024-03-28 11:00:24 DEBUG       | table-based-plug-ins with accuracy 0% estimating accuracy: Accuracy is 0%. Not supported.
+2024-03-28 11:00:24 DEBUG       | Aladdin_table with accuracy 0% estimating accuracy: Accuracy is 0%. Not supported.
+2024-03-28 11:00:24 DEBUG       | dummy_table with accuracy 0% estimating accuracy: Set attribute "technology" to -1 to use the dummy table
+2024-03-28 11:00:24 DEBUG       | Neurosim Plug-In with accuracy 0% estimating accuracy: ERROR: NeuroSim estimator does not support dram. Supported primitives are: ['array_row_drivers', 'array_col_drivers', 'array_adc', 'memory_cell', 'shift_add', 'intadder', 'intadder_tree', 'max_pool', 'mux', 'flip_flop', 'not_gate', 'nand_gate', 'nor_gate']
+2024-03-28 11:00:24 DEBUG       | Library with accuracy 0% estimating accuracy: ValueError: Could not find area for dram
+2024-03-28 11:00:24 DEBUG       | ADC Plug-In with accuracy 0% estimating accuracy: ADC Plug-In does not support DRAM.None. Supported classes: ['adc', 'pim_adc', 'sar_adc', 'array_adc', 'pim_array_adc', 'cim_array_adc', 'cim_adc'].
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverterX2XLadder with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['dac_x2x_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_C2C with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['dac_c2c_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_R2R with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['dac_r2r_ladder']
+2024-03-28 11:00:24 DEBUG       | Capacitor with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['capacitor']
+2024-03-28 11:00:24 DEBUG       | ExampleRRAM with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['ExampleRRAM']
+2024-03-28 11:00:24 DEBUG       | PassGate with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['pass_gate']
+2024-03-28 11:00:24 DEBUG       | Wire with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['wire']
+2024-03-28 11:00:24 DEBUG       | AccurateButPicky with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['ternary_mac']
+2024-03-28 11:00:24 DEBUG       | InacurrateFlexible with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['ternary_mac']
+2024-03-28 11:00:24 DEBUG       | CactiCache with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['cache']
+2024-03-28 11:00:24 DEBUG       | CactiSRAM with accuracy 0% estimating accuracy: Class name DRAM is not supported. Supported class names: ['SRAM']
+2024-03-28 11:00:24 INFO        
+2024-03-28 11:00:24 INFO        AREA ESTIMATION for SRAM(depth=16, width=64, datawidth=8, technology=45nm, tech_node=45, global_cycle_seconds=0.001, action_latency_cycles=1, cycle_seconds=0.001, n_instances=1)
+2024-03-28 11:00:24 INFO        CactiSRAM estimated 5.3594e-10 with accuracy 80%. Messages:
+2024-03-28 11:00:24 INFO        | Unused arguments (datawidth, tech_node, global_cycle_seconds, action_latency_cycles, cycle_seconds, n_instances) provided for SRAM.__init__. Arguments used: (depth, width, technology)
+2024-03-28 11:00:24 INFO        | Calling CACTI with cache_size=512 n_rw_ports=1 block_size=8 tech_node_um=0.045 n_banks=1 tag_size=0 associativity=1
+2024-03-28 11:00:24 INFO        | Calling CACTI with input path /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-cacti-plug-in/cacti_inputs_outputs/tmpk4wnoyb8
+2024-03-28 11:00:24 INFO        | CACTI output will be written to /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-cacti-plug-in/cacti_inputs_outputs/tmpxlx79coh
+2024-03-28 11:00:24 INFO        | CACTI executable not found at /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-cacti-plug-in/cacti/cacti
+2024-03-28 11:00:24 INFO        | Calling: cd /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-cacti-plug-in ; ./cacti -infile /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-cacti-plug-in/cacti_inputs_outputs/tmpk4wnoyb8 >> /home/tanner/research/cimloop/venv/share/accelergy/estimation_plug_ins/accelergy-cacti-plug-in/cacti_inputs_outputs/tmpxlx79coh 2>&1
+2024-03-28 11:00:24 INFO        | Cache bandwidth: 8.0 bits/cycle
+2024-03-28 11:00:24 INFO        | Cache bandwidth: 112.57794703559398 bits/second
+2024-03-28 11:00:24 DEBUG       Why plug-ins did not estimate:
+2024-03-28 11:00:24 DEBUG       | CactiSRAM with accuracy 80% estimating accuracy: No messages found.
+2024-03-28 11:00:24 DEBUG       | table-based-plug-ins with accuracy 0% estimating accuracy: Accuracy is 0%. Not supported.
+2024-03-28 11:00:24 DEBUG       | Aladdin_table with accuracy 0% estimating accuracy: Accuracy is 0%. Not supported.
+2024-03-28 11:00:24 DEBUG       | dummy_table with accuracy 0% estimating accuracy: Set attribute "technology" to -1 to use the dummy table
+2024-03-28 11:00:24 DEBUG       | Neurosim Plug-In with accuracy 0% estimating accuracy: ERROR: NeuroSim estimator does not support sram. Supported primitives are: ['array_row_drivers', 'array_col_drivers', 'array_adc', 'memory_cell', 'shift_add', 'intadder', 'intadder_tree', 'max_pool', 'mux', 'flip_flop', 'not_gate', 'nand_gate', 'nor_gate']
+2024-03-28 11:00:24 DEBUG       | Library with accuracy 0% estimating accuracy: ValueError: Could not find area for sram
+2024-03-28 11:00:24 DEBUG       | ADC Plug-In with accuracy 0% estimating accuracy: ADC Plug-In does not support SRAM.None. Supported classes: ['adc', 'pim_adc', 'sar_adc', 'array_adc', 'pim_array_adc', 'cim_array_adc', 'cim_adc'].
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverterX2XLadder with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['dac_x2x_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_C2C with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['dac_c2c_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_R2R with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['dac_r2r_ladder']
+2024-03-28 11:00:24 DEBUG       | Capacitor with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['capacitor']
+2024-03-28 11:00:24 DEBUG       | ExampleRRAM with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['ExampleRRAM']
+2024-03-28 11:00:24 DEBUG       | PassGate with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['pass_gate']
+2024-03-28 11:00:24 DEBUG       | Wire with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['wire']
+2024-03-28 11:00:24 DEBUG       | AccurateButPicky with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['ternary_mac']
+2024-03-28 11:00:24 DEBUG       | InacurrateFlexible with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['ternary_mac']
+2024-03-28 11:00:24 DEBUG       | CactiCache with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['cache']
+2024-03-28 11:00:24 DEBUG       | CactiDRAM with accuracy 0% estimating accuracy: Class name SRAM is not supported. Supported class names: ['DRAM']
+2024-03-28 11:00:24 INFO        
+2024-03-28 11:00:24 INFO        AREA ESTIMATION for ternary_mac(tech_node=45, accum_datawidth=5, global_cycle_seconds=0.001, action_latency_cycles=1, cycle_seconds=0.001, technology=45nm, n_instances=1)
+2024-03-28 11:00:24 INFO        AccurateButPicky estimated 1.4944525594876197e-09 with accuracy 99%. Messages:
+2024-03-28 11:00:24 INFO        | Unused arguments (global_cycle_seconds, action_latency_cycles, cycle_seconds, technology, n_instances) provided for ternary_mac.__init__. Arguments used: (tech_node, accum_datawidth)
+2024-03-28 11:00:24 DEBUG       Why plug-ins did not estimate:
+2024-03-28 11:00:24 DEBUG       | AccurateButPicky with accuracy 99% estimating accuracy: No messages found.
+2024-03-28 11:00:24 DEBUG       | InacurrateFlexible with accuracy 50% estimating accuracy: No messages found.
+2024-03-28 11:00:24 DEBUG       | table-based-plug-ins with accuracy 0% estimating accuracy: Accuracy is 0%. Not supported.
+2024-03-28 11:00:24 DEBUG       | Aladdin_table with accuracy 0% estimating accuracy: Accuracy is 0%. Not supported.
+2024-03-28 11:00:24 DEBUG       | dummy_table with accuracy 0% estimating accuracy: Set attribute "technology" to -1 to use the dummy table
+2024-03-28 11:00:24 DEBUG       | Neurosim Plug-In with accuracy 0% estimating accuracy: ERROR: NeuroSim estimator does not support ternary_mac. Supported primitives are: ['array_row_drivers', 'array_col_drivers', 'array_adc', 'memory_cell', 'shift_add', 'intadder', 'intadder_tree', 'max_pool', 'mux', 'flip_flop', 'not_gate', 'nand_gate', 'nor_gate']
+2024-03-28 11:00:24 DEBUG       | Library with accuracy 0% estimating accuracy: ValueError: Could not find area for ternary_mac
+2024-03-28 11:00:24 DEBUG       | ADC Plug-In with accuracy 0% estimating accuracy: ADC Plug-In does not support ternary_mac.None. Supported classes: ['adc', 'pim_adc', 'sar_adc', 'array_adc', 'pim_array_adc', 'cim_array_adc', 'cim_adc'].
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverterX2XLadder with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_x2x_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_C2C with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_c2c_ladder']
+2024-03-28 11:00:24 DEBUG       | DigitalAnalogConverter_R2R with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['dac_r2r_ladder']
+2024-03-28 11:00:24 DEBUG       | Capacitor with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['capacitor']
+2024-03-28 11:00:24 DEBUG       | ExampleRRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['ExampleRRAM']
+2024-03-28 11:00:24 DEBUG       | PassGate with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['pass_gate']
+2024-03-28 11:00:24 DEBUG       | Wire with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['wire']
+2024-03-28 11:00:24 DEBUG       | CactiCache with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['cache']
+2024-03-28 11:00:24 DEBUG       | CactiDRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['DRAM']
+2024-03-28 11:00:24 DEBUG       | CactiSRAM with accuracy 0% estimating accuracy: Class name ternary_mac is not supported. Supported class names: ['SRAM']
+2024-03-28 11:00:24 INFO        verbose flattened architecture is saved to:
+2024-03-28 11:00:24 INFO        out_dir/flattened_architecture_verbose.yaml
+2024-03-28 11:00:24 INFO        energy reference table is saved to:
+2024-03-28 11:00:24 INFO        out_dir/ERT.yaml
+2024-03-28 11:00:24 INFO        verbose energy reference table summary is saved to:
+2024-03-28 11:00:24 INFO        out_dir/ERT_summary_verbose.yaml
+2024-03-28 11:00:24 WARNING     no runtime energy estimations are generated... not generating energy_estimation.yaml
+2024-03-28 11:00:24 INFO        area reference table is saved to:
+2024-03-28 11:00:24 INFO        out_dir/ART.yaml
+2024-03-28 11:00:24 INFO        verbose area reference table summary is saved to:
+2024-03-28 11:00:24 INFO        out_dir/ART_summary_verbose.yaml

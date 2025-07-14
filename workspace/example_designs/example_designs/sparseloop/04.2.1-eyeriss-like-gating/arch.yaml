@@ -1,0 +1,153 @@
+architecture:
+  version: 0.4
+  nodes:
+  - !Container
+    name: eyeriss_168
+    attributes:
+      technology: "45nm"
+
+  - !Component
+    name: DRAM
+    class: DRAM
+    attributes:
+      width: 64
+      datawidth: 16
+      metadata_storage_width: 60
+      metadata_datawidth: 5
+    sparse_optimizations:
+      representation_format:
+        data_spaces:
+          - name: Inputs
+            ranks:
+              - format: UOP
+                flattened_rankIDs: [ [R, S, P, C, M, N, Q] ]
+              - format: RLE
+                flattened_rankIDs: [ [R, S, P, C, M, N, Q] ]
+
+          - name: Outputs
+            ranks:
+              - format: UOP
+                flattened_rankIDs: [ [P, M, N, Q] ]
+              - format: RLE
+                flattened_rankIDs: [ [P, M, N, Q] ]
+
+  - !Component
+    name: shared_glb
+    class: storage
+    subclass: smartbuffer_metadata
+    attributes:
+      depth: 12800
+      width: 64
+      n_banks: 1
+      read_bandwidth: 16
+      write_bandwidth: 16
+      datawidth: 16
+      metadata_storage_depth: 0
+      metadata_storage_width: 0
+      metadata_datawidth: 0
+      metadata_counter_width: 9
+      # Note that the two diretives below are describing 
+      # whether this level can compress and decompress data transfers
+      # from itself to its parent (not child)
+      decompression_supported: true  # from DRAM decompression
+      compression_supported: true    # to DRAM compression
+    constraints:
+      dataspace: {keep: [Inputs, Outputs], bypass: [Weights]}
+
+  - !Container # Each column of PEs produces a different psum row
+    name: PE_column
+    spatial: {meshX: 14}
+    constraints:
+      spatial:
+        permutation: [N, C, P, R, S, Q, M]
+        factors: [N=1, C=1, P=1, R=1, S=1]
+        split: 7
+
+  - !Container # Each PE in the column receives a different filter row
+    name: PE
+    spatial: {meshY: 12}
+    constraints:
+      spatial:
+        split: 4
+        permutation: [N, P, Q, R, S, C, M]
+        factors: [N=1, P=1, Q=1, R=1]
+
+  - !Parallel # Input/Output/Weight scratchpads in parallel
+    nodes:
+    - !Component
+      name: ifmap_spad
+      class: storage
+      subclass: smartbuffer_RF
+      attributes:
+        depth: 12
+        width: 17 # actual data + 1bit mask
+        n_banks: 1
+        datawidth: 17
+        read_bandwidth: 2
+        write_bandwidth: 2
+      constraints:
+        dataspace: {keep: [Inputs]}
+        temporal:
+          permutation: [N, M, C, P, Q, R, S]
+          factors: [N=1, M=1, C=1, P=1, Q=1, R=1, S=1]
+
+    - !Component
+      name: weights_spad
+      class: storage
+      subclass: smartbuffer_RF
+      attributes:
+        depth: 224
+        width: 16
+        n_banks: 1
+        datawidth: 16
+        read_bandwidth: 2
+        write_bandwidth: 2
+      constraints:
+        dataspace: {keep: [Weights]}
+        temporal:
+          permutation: [N, M, P, Q, S, C, R]
+          factors: [N=1, M=1, P=1, Q=1, S=1]
+      sparse_optimizations:
+        action_optimization:
+          - type: gating
+            options:
+              - target: Weights
+                condition_on: [ Inputs ]
+
+
+    - !Component
+      name: psum_spad
+      class: storage
+      subclass: smartbuffer_RF
+      attributes:
+        depth: 24
+        width: 16
+        n_banks: 1
+        datawidth: 16
+      constraints:
+        dataspace: {keep: [Outputs]}
+        temporal:
+          permutation: [N, C, P, Q, R, S, M] 
+          factors: [N=1, C=1, R=1, S=1, P=1, Q=1]
+
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16
+
+constraints:
+  version: 0.4
+  targets:
+    # intuitive optimization for row stationary
+    # -> process a row/col of the output before going to the next one
+    - target: shared_glb
+      type: temporal
+      permutation: [Q, R, S, C, P, N, M] 
+      factors: [Q=1, R=1, S=1, P=0]
+    # intuitive optimization to reduce map space size
+    - target: DRAM
+      type: temporal
+      permutation: [R, S, P, C, M, N, Q]
+      factors: [R=1, S=1, P=1]

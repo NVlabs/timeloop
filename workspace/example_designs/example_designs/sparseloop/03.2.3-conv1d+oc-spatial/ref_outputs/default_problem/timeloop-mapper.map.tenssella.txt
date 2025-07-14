@@ -1,0 +1,17 @@
+#error Tenssella does not support bypass.
+#error Tenssella does not support bypass.
+#error Tenssella does not support bypass.
+t2
+M 4 S 1 Q 1 
+M
+#error Tenssella does not support bypass.
+t1
+M 1 S 1 Q 1 
+Q
+s1
+M 4 S 1 Q 1 
+M
+3
+t0
+M 1 S 3 Q 9 
+SQ

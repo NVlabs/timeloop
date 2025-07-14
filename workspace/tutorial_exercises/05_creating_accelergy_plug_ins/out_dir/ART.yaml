@@ -1,0 +1,9 @@
+ART:
+    version: '0.4'
+    tables:
+      - name: system_arch.chip.DRAM
+        area: 0.0
+      - name: system_arch.chip.buffer
+        area: 535.94
+      - name: system_arch.chip.PE[1..8]
+        area: 1494.452559

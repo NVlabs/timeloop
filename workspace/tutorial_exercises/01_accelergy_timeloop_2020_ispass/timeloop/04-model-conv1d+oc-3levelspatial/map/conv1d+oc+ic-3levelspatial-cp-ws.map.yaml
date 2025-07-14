@@ -1,0 +1,21 @@
+mapping:
+  - target: MainMemory
+    type: temporal
+    factors: R=1 P=1 K=1 C=1
+    permutation: PRKC
+    
+  - target: GlobalBuffer
+    type: temporal
+    factors: R=3 P=1 K=32 C=2
+    permutation: PRKC
+
+  - target: PE
+    type: spatial
+    factors: R=1 P=1 K=1 C=16
+    permutation: PRKC
+    
+  - target: RegisterFile
+    type: temporal
+    factors: R=1 P=16 K=1 C=1
+    permutation: RPKC
+    

@@ -1,0 +1,67 @@
+# This file will be converted into a YAML file by Jinja2 templating.
+{{add_to_path(cwd())}}
+
+# ==============================================================================
+# GLOBAL VARIABLES FOR TIMELOOP AND ACCELERGY
+# ==============================================================================
+globals:
+  version: 0.4
+  environment_variables:
+    # Gets rid of stats for zero-energy components such as networks/buffers that are not
+    # used in the current architecture
+    TIMELOOP_HIDE_INCONSEQUENTIAL_STATS: 1 
+  expression_custom_functions: []
+
+# ==============================================================================
+# PROBLEM SPECIFICATION
+# ==============================================================================
+# Some of the architectures have an alternative `problem.yaml` file. If this
+# file exists & problem is not set, set problem to the alternative problem
+{% set alt_problem = cwd() ~ '/' ~ architecture ~ '/problem.yaml'%}
+{% if path_exists(alt_problem) %}
+  {% set problem = problem | default(alt_problem)%}
+{% endif %}
+
+# Can be overridden with the jinja2_parse_data argument to spec.from_yaml_files()
+{%set problem =       problem | default('_include/default_problem.yaml')%}
+
+# Set the problem file
+problem: {{include(problem, 'problem')}}
+
+# ==============================================================================
+# MAPPING SPECIFICATION
+# ==============================================================================
+# If a mapping file exists in the architecture directory, include it.
+{% set mapping = cwd() ~ '/' ~ architecture ~ '/mapping.yaml'%}
+{% if path_exists(mapping) %}
+extra_mapping_constraints: 
+  version: 0.4
+  targets: {{include(mapping, 'mapping')}}
+{% endif %}
+
+# ==============================================================================
+# ARCHITECTURE SPECIFICATION
+# ==============================================================================
+architecture: {{include(cwd() ~ '/' ~ architecture ~ '/arch.yaml', 'architecture')}}
+
+# ==============================================================================
+# TOP-LEVEL VARIABLES
+# ==============================================================================
+variables: # May get overridden by the architecture specification.
+  version: 0.4
+  technology: "SET ME"
+  global_cycle_seconds: 1e-9
+
+# ==============================================================================
+# COMPOUND COMPONENT SPECIFICATION
+# ==============================================================================
+components:
+  version: 0.4
+  classes: {{include_all('_components/*.yaml', 'compound_components.classes')}}
+
+# ==============================================================================
+# MAPPER SPECIFICATION
+# ==============================================================================
+mapper: {{include(cwd() ~ '/_include/mapper.yaml', 'mapper')}}
+
+

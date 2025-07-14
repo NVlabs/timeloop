@@ -1,0 +1,12 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: System_top_level.MainMemory[1..1]
+        area: 707084.0
+        primitive_estimations: CactiSRAM
+      - name: System_top_level.Buffer[1..1]
+        area: 845.98
+        primitive_estimations: Aladdin_table
+      - name: System_top_level.MACC[1..1]
+        area: 466.375
+        primitive_estimations: Aladdin_table

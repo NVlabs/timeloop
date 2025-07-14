@@ -1,0 +1,66 @@
+architecture:
+  version: 0.4
+  # ================================================================================================
+  # TOP-LEVEL
+  # ================================================================================================
+  subtree:
+  - name: system_arch
+    attributes:
+      technology: "45nm"
+      tech_node: 45
+      global_cycle_seconds: 1e-3
+
+    local: []
+    subtree:
+    - name: chip
+      local:
+      # On-chip network serves inputs/outputs between tiles
+      - name: DRAM
+        class: DRAM
+        attributes:
+          reduction_supported: False
+          width: 256
+
+      - name: buffer
+        subclass: SRAM
+        attributes:
+          depth: 16
+          width: 64
+          datawidth: 8
+
+      - name: PE[1..8]
+        class: mac
+        subclass: custom_mac
+        attributes:
+          tech_node: 45
+          accum_datawidth: 5
+
+
+compound_components:
+  version: 0.4         # REQUIRED version number
+  classes:
+    - name: custom_mac
+      attributes: {}
+      subcomponents:
+        - name: mac
+          class: ternary_mac
+          attributes:
+            tech_node: 45
+            accum_datawidth: 5
+
+      actions:
+        - name: mac_random_to_accurate_picky
+          subcomponents:
+          - {name: mac, actions: [{name: mac_random, arguments: {unsigned: 0}}]}
+
+        - name: mac_random_to_inaccurate_flexible
+          subcomponents:
+          - {name: mac, actions: [{name: mac_random, arguments: {unsigned: 1}}]}
+
+        - name: reset_expensive_specified_argument
+          subcomponents:
+          - {name: mac, actions: [{name: reset}]}
+          
+        - name: reset_expensive_specified_argument
+          subcomponents:
+          - {name: mac, actions: [{name: reset, arguments: {make_expensive: 1}}]}

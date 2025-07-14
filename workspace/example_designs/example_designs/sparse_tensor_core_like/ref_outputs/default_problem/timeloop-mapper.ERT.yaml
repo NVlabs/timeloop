@@ -1,0 +1,105 @@
+ERT:
+    version: '0.4'
+    tables:
+      - name: system_top_level.DRAM[1..1]
+        actions:
+          - name: update
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+            energy: 512.0
+          - name: leak
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+            energy: 0.0
+          - name: read
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+            energy: 512.0
+          - name: write
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+            energy: 512.0
+      - name: system_top_level.SMEM[1..1]
+        actions:
+          - name: read
+            arguments: {}
+            energy: 124.695312
+          - name: write
+            arguments: {}
+            energy: 118.118313
+          - name: update
+            arguments: {}
+            energy: 118.118313
+          - name: metadata_read
+            arguments: {}
+            energy: 25.954813
+          - name: metadata_write
+            arguments: {}
+            energy: 19.733913
+          - name: metadata_update
+            arguments: {}
+            energy: 19.733913
+          - name: leak
+            arguments: {}
+            energy: 0.01164
+          - name: decompression_count
+            arguments: {}
+            energy: 0.0
+          - name: compression_count
+            arguments: {}
+            energy: 0.0
+      - name: system_top_level.RF[1..4]
+        actions:
+          - name: write
+            arguments: {}
+            energy: 15.160827
+          - name: read
+            arguments: {}
+            energy: 15.232827
+          - name: leak
+            arguments: {}
+            energy: 0.014432
+          - name: update
+            arguments: {}
+            energy: 15.160827
+      - name: system_top_level.LRF[1..1024]
+        actions:
+          - name: read
+            arguments: {}
+            energy: 0.019007
+          - name: write
+            arguments: {}
+            energy: 0.027041
+          - name: update
+            arguments: {}
+            energy: 0.027041
+          - name: metadata_read
+            arguments: {}
+            energy: 0.019007
+          - name: metadata_write
+            arguments: {}
+            energy: 0.027041
+          - name: metadata_update
+            arguments: {}
+            energy: 0.027041
+          - name: leak
+            arguments: {}
+            energy: 0.000288
+          - name: decompression_count
+            arguments: {}
+            energy: 0.0
+          - name: compression_count
+            arguments: {}
+            energy: 0.0
+      - name: system_top_level.mac[1..1024]
+        actions:
+          - name: compute
+            arguments: {}
+            energy: 0.315
+          - name: leak
+            arguments: {}
+            energy: 0.0036

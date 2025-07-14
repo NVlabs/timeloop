@@ -1,0 +1,257 @@
+dumped_by_timeloop_front_end: true
+architecture:
+    version: '0.4'
+    subtree:
+      - name: system_top_level
+        attributes:
+            version: '0.4'
+            technology: "45nm"
+            global_cycle_seconds: 1e-9
+            DATAWIDTH: 8
+            has_power_gating: false
+            power_gated_at: null
+        local:
+          - name: DRAM[1..1]
+            class: DRAM
+            attributes:
+                type: "LPDDR4"
+                width: 64
+                datawidth: 8
+                has_power_gating: false
+                n_banks: 2
+                cluster_size: 1
+                reduction_supported: true
+                multiple_buffering: 1
+                min_utilization: 0
+                allow_overbooking: false
+                meshX: 1
+                meshY: 1
+                power_gated_at: null
+            required_actions:
+              - leak
+              - read
+              - update
+              - write
+            enabled: true
+          - name: buffer[1..1]
+            class: SRAM
+            attributes:
+                depth: 512
+                width: 128
+                datawidth: 8
+                has_power_gating: false
+                n_banks: 2
+                cluster_size: 1
+                reduction_supported: true
+                multiple_buffering: 1
+                min_utilization: 0
+                allow_overbooking: false
+                meshX: 1
+                meshY: 1
+                power_gated_at: null
+            required_actions:
+              - leak
+              - read
+              - update
+              - write
+            enabled: true
+          - name: inter_PE_spatial[1..1]
+            class: dummy_storage
+            attributes:
+                width: 1
+                depth: 1
+                datawidth: 1
+                technology: -1
+                has_power_gating: false
+                n_banks: 2
+                cluster_size: 1
+                reduction_supported: true
+                multiple_buffering: 1
+                min_utilization: 0
+                allow_overbooking: false
+                meshX: 1
+                meshY: 1
+                power_gated_at: null
+            enabled: true
+          - name: mac[1..8]
+            class: intmac
+            attributes:
+                multiplier_width: 8
+                adder_width: 16
+                has_power_gating: false
+                meshX: 8
+                meshY: 1
+                power_gated_at: null
+            required_actions:
+              - compute
+            enabled: true
+architecture_constraints:
+    targets:
+      - type: temporal
+        permutation: GSR
+        target: DRAM
+      - keep:
+          - Inputs
+          - Outputs
+          - Weights
+        type: bypass
+        target: buffer
+      - type: temporal
+        permutation: GSR
+        target: buffer
+      - type: spatial
+        factors: N=1,P=1,Q=1,R=1,M=8,C=1
+        permutation: GNPQRSCM
+        split: 17
+        target: inter_PE_spatial
+      - factors: C=1,M=1,R=1,S=1,N=1,P=1,Q=1,G=1
+        permutation: CMRSNPQG
+        type: temporal
+        target: inter_PE_spatial
+      - bypass:
+          - Weights
+          - Inputs
+          - Outputs
+        type: bypass
+        target: inter_PE_spatial
+problem:
+    version: '0.4'
+    instance:
+        C: 128
+        G: 1
+        H: 1
+        Hdilation: 1
+        Hpad: 0
+        Hstride: 1
+        M: 128
+        N: 32
+        P: 128
+        Q: 128
+        R: 1
+        S: 1
+        W: 1
+        Wdilation: 1
+        Wpad: 0
+        Wstride: 1
+        densities: {}
+    shape:
+        coefficients:
+          - name: Wstride
+            default: 1
+          - name: Hstride
+            default: 1
+          - name: Wdilation
+            default: 1
+          - name: Hdilation
+            default: 1
+        data_spaces:
+          - name: Weights
+            projection:
+              -   -   - C
+              -   -   - M
+              -   -   - R
+              -   -   - S
+              -   -   - G
+            read_write: false
+          - name: Inputs
+            projection:
+              -   -   - N
+              -   -   - C
+              -   -   - R
+                      - Wdilation
+                  -   - P
+                      - Wstride
+              -   -   - S
+                      - Hdilation
+                  -   - Q
+                      - Hstride
+              -   -   - G
+            read_write: false
+          - name: Outputs
+            projection:
+              -   -   - N
+              -   -   - M
+              -   -   - Q
+              -   -   - P
+              -   -   - G
+            read_write: true
+        dimensions:
+          - C
+          - M
+          - R
+          - S
+          - N
+          - P
+          - Q
+          - G
+        name: ''
+compound_components:
+    version: '0.4'
+    classes:
+      - name: intmac
+        attributes:
+            multiplier_width: "must_specify"
+            adder_width: "must_specify"
+        subcomponents:
+          - name: adder
+            class: aladdin_adder
+            attributes:
+                width: adder_width
+          - name: multiplier
+            class: aladdin_multiplier
+            attributes:
+                width: multiplier_width
+        actions:
+          - name: compute
+            subcomponents:
+              - name: adder
+                actions:
+                  - name: add
+              - name: multiplier
+                actions:
+                  - name: multiply
+      - name: register
+        attributes: {}
+        subcomponents: []
+        actions:
+          - name: read
+            subcomponents: []
+          - name: write
+            subcomponents: []
+          - name: update
+            subcomponents: []
+          - name: leak
+            subcomponents: []
+mapping: []
+mapper:
+    optimization_metrics:
+      - edp
+    version: '0.4'
+    live_status: false
+    num_threads: 4
+    search_size: 1000
+    victory_condition: 10000
+    timeout: 10000
+    max_permutations_per_if_visit: 4
+    algorithm: random_pruned
+    max_temporal_loops_in_a_mapping: 9
+    out_prefix: timeloop-mapper
+    optimization_metric: []
+    sync_interval: null
+    log_interval: 1
+    log_oaves: false
+    log_oaves_mappings: false
+    log_stats: false
+    log_suboptimal: false
+    diagnostics: false
+    penalize_consecutive_bypass_fails: false
+    emit_whoop_nest: false
+    filter_revisits: false
+mapspace:
+    version: '0.4'
+    template: uber
+globals:
+    version: '0.4'
+    environment_variables: {}
+    expression_custom_functions: []
+    accelergy_plug_ins: []

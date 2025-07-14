@@ -1,0 +1,137 @@
+ERT_summary:
+    version: '0.4'
+    table_summary:
+      - name: eyeriss_168_top_level.DRAM[1..1]
+        actions:
+          - name: write
+            energy: 512.0
+          - name: read
+            energy: 512.0
+          - name: leak
+            energy: 0.0
+          - name: update
+            energy: 512.0
+        primitive_estimation(s):
+          - name: eyeriss_168_top_level.DRAM[1..1]
+            estimator: CactiDRAM
+      - name: eyeriss_168_top_level.shared_glb[1..1]
+        actions:
+          - name: read
+            energy: 28.426775
+          - name: write
+            energy: 23.503475
+          - name: update
+            energy: 23.503475
+          - name: metadata_read
+            energy: 0.006562
+          - name: metadata_write
+            energy: 0.006562
+          - name: metadata_update
+            energy: 0.006562
+          - name: leak
+            energy: 0.004781
+          - name: decompression_count
+            energy: 0.059062
+          - name: compression_count
+            energy: 0.059062
+        primitive_estimation(s):
+          - name: storage.storage
+            estimator: CactiSRAM
+          - name: storage.address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.address_generators[0]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage
+            estimator: Aladdin_table
+          - name: metadata_storage.address_generators[1]
+            estimator: Aladdin_table
+          - name: metadata_storage.address_generators[0]
+            estimator: Aladdin_table
+          - name: storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_counters[1]
+            estimator: Aladdin_table
+          - name: metadata_counters[0]
+            estimator: Aladdin_table
+      - name: eyeriss_168_top_level.ifmap_spad[1..168]
+        actions:
+          - name: write
+            energy: 0.297769
+          - name: read
+            energy: 0.339229
+          - name: leak
+            energy: 0.000735
+          - name: update
+            energy: 0.297769
+        primitive_estimation(s):
+          - name: storage.storage[1..32]
+            estimator: Library
+          - name: storage.comparator[1..64]
+            estimator: Library
+          - name: address_generators[0]
+            estimator: Aladdin_table
+          - name: address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.storage[1..2048]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_168_top_level.weights_spad[1..168]
+        actions:
+          - name: write
+            energy: 3.35314
+          - name: read
+            energy: 3.49714
+          - name: leak
+            energy: 0.003961
+          - name: update
+            energy: 3.35314
+        primitive_estimation(s):
+          - name: storage.storage[1..32]
+            estimator: Library
+          - name: storage.comparator[1..224]
+            estimator: Library
+          - name: address_generators[0]
+            estimator: Aladdin_table
+          - name: address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.storage[1..7168]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_168_top_level.psum_spad[1..168]
+        actions:
+          - name: write
+            energy: 0.47162
+          - name: read
+            energy: 0.538625
+          - name: leak
+            energy: 0.00102
+          - name: update
+            energy: 0.47162
+        primitive_estimation(s):
+          - name: storage.storage[1..32]
+            estimator: Library
+          - name: storage.comparator[1..64]
+            estimator: Library
+          - name: address_generators[0]
+            estimator: Aladdin_table
+          - name: address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.storage[1..2048]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_168_top_level.mac[1..168]
+        actions:
+          - name: compute
+            energy: 0.315
+          - name: leak
+            energy: 0.0036
+        primitive_estimation(s):
+          - name: intadder
+            estimator: Library
+          - name: intmultiplier
+            estimator: Library

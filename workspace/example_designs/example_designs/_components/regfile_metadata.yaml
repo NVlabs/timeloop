@@ -1,0 +1,69 @@
+compound_components:
+  version: 0.4
+  classes:
+  - name: regfile_metadata
+    attributes:
+      # attributes that must be specified
+      technology: "must_specify"
+      width: "must_specify"
+      depth: "must_specify"
+      metadata_storage_width: "must_specify"
+      metadata_storage_depth: "must_specify"
+      metadata_counter_width: 0
+
+    subcomponents:
+      - name: storage
+        class: smartbuffer_RF
+        attributes:
+          width: width
+          depth: depth
+
+      - name: metadata_storage
+        class: smartbuffer_RF
+        attributes:
+          technology: technology
+          width: metadata_storage_width
+          depth: metadata_storage_depth
+  
+      - name: metadata_counters[0..1] # one for read, one for write
+        class: intadder
+        attributes:
+          technology: technology
+          width: metadata_counter_width
+
+    actions:
+      - name: read
+        subcomponents:
+          - {name: storage, actions: [{name: read}]}
+      - &write_action
+        name: write
+        subcomponents:
+          - {name: storage, actions: [{name: write}]}
+      - name: update
+        <<: *write_action
+
+      - name: metadata_read
+        subcomponents:
+          - {name: metadata_storage, actions: [{name: read}]}
+      - &metadata_write
+        name: metadata_write
+        subcomponents:
+          - {name: metadata_storage, actions: [{name: write}]}
+      - name: metadata_update
+        <<: *metadata_write
+      
+      - name: leak
+        subcomponents:
+          - {name: storage, actions: [{name: leak, arguments: {global_cycle_seconds: global_cycle_seconds}}]}
+          - {name: metadata_storage, actions: [{name: leak, arguments: {global_cycle_seconds: global_cycle_seconds}}]}
+
+      - name: decompression_count
+        subcomponents:
+          - name: metadata_counters[1]
+            actions:
+              - name: add
+      - name: compression_count
+        subcomponents:
+          - name: metadata_counters[0]
+            actions:
+              - name: add

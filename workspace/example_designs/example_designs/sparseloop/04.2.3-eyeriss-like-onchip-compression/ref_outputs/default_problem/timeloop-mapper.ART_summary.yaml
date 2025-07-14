@@ -1,0 +1,59 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: eyeriss_168_top_level.DRAM[1..1]
+        area: 0.0
+        primitive_estimations: CactiDRAM
+      - name: eyeriss_168_top_level.inter_PE_column_spatial[1..1]
+        area: 1.0
+        primitive_estimations: dummy_table
+      - name: eyeriss_168_top_level.inter_PE_spatial[1..14]
+        area: 1.0
+        primitive_estimations: dummy_table
+      - name: eyeriss_168_top_level.shared_glb[1..1]
+        area: 399033.2625
+        primitive_estimations:
+          - name: storage.storage
+            estimator: CactiSRAM
+          - name: storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage
+            estimator: CactiSRAM
+          - name: metadata_storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_counters[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_168_top_level.ifmap_spad[1..168]
+        area: 151.772812
+        primitive_estimations:
+          - name: storage.storage[1..2048]
+            estimator: Library
+          - name: storage.comparator[1..64]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_168_top_level.weights_spad[1..168]
+        area: 14736.91
+        primitive_estimations:
+          - name: storage.storage[1..7168]
+            estimator: Library
+          - name: storage.comparator[1..224]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_168_top_level.psum_spad[1..168]
+        area: 14736.91
+        primitive_estimations:
+          - name: storage.storage[1..7168]
+            estimator: Library
+          - name: storage.comparator[1..224]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_168_top_level.mac[1..168]
+        area: 417.0
+        primitive_estimations:
+          - name: intadder
+            estimator: Library
+          - name: intmultiplier
+            estimator: Library

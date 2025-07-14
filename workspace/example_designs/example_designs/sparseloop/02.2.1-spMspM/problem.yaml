@@ -1,0 +1,33 @@
+problem:
+  version: 0.4
+  shape:
+    name: MatrixMultiply
+    dimensions: [ M, N, K ]
+    data_spaces:
+      - name: A
+        projection:
+          - [ [ M ] ]
+          - [ [ K ] ]
+
+      - name: B
+        projection:
+          - [ [ N ] ]
+          - [ [ K ] ]
+
+      - name: Z
+        projection:
+          - [ [ M ] ]
+          - [ [ N ] ]
+        read_write: True
+
+  instance:
+    M: 8
+    K: 8
+    N: 8
+    densities:
+      A:
+        distribution: fixed_structured
+        density: 0.25
+      B:
+        distribution: fixed_structured
+        density: 0.5

@@ -1,0 +1,5 @@
+# No constraints. Set the mapper free!
+
+mapspace_constraints:
+  version: 0.4
+  targets: []
