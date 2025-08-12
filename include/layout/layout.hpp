@@ -4,6 +4,7 @@
 #include <cctype>
 #include <iostream>
 #include <sstream>
+#include <stack>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -29,7 +30,7 @@ struct LayoutNest {
 };
 
 struct Layout {
-  std::string target;                      // e.g., "MainMemory"
+  std::string target;                        // e.g., "MainMemory"
   std::vector<LayoutNest> interline;         // One nest per data space for interline type
   std::vector<LayoutNest> intraline;         // One nest per data space for intraline type
   std::vector<std::string> data_space;       // Data space names (e.g., Inputs, Outputs, Weights)
@@ -46,6 +47,12 @@ struct Layout {
   std::map<std::string, std::vector<std::string>> rankToCoefficient;
   std::map<std::string, std::vector<std::uint32_t>> rankToCoefficientValue;
   std::unordered_map<std::string, std::uint32_t> coefficientToValue;
+
+  std::map<std::string, std::uint32_t> rankToZeroPadding;
+
+  bool assume_zero_padding;
+  bool assume_row_buffer;
+  bool assume_reuse;
 
   bool initialize = false;                   // True if external YAML provided layout for this target
 };
@@ -73,20 +80,30 @@ std::map<std::string, unsigned> parseOrderMapping(const std::string &mappingStri
 // If a nest is missing, a default nest with all factors set to 1 is created.
 // Also, the extra vector factor_order is set from the externally provided order mapping.
 // Finally, max_dim_perline is computed from the intraline nest.
-  
+
 std::vector<Layout> ParseAndConstruct(config::CompoundConfigNode layoutArray,
                                                  problem::Workload& workload,
-      std::map<std::string, std::pair<uint32_t,uint32_t>>& targetToPortValue);
+std::vector<std::pair<std::string, std::pair<uint32_t, uint32_t>>> &targetToPortValue);
+
+
+std::vector<Layout> InitializeDummyLayout(problem::Workload& workload,
+  std::vector<std::pair<std::string, std::pair<uint32_t, uint32_t>>> &targetToPortValue);
 
 //------------------------------------------------------------------------------
 // Helper function to print a Nest's loop order.
 //------------------------------------------------------------------------------
 void PrintOverallLayout(Layouts layout);
 
+void PrintOverallLayoutConcise(Layouts layout);
+void PrintOverallLayoutConcise(Layouts layout, std::ostream& out);
+
 //------------------------------------------------------------------------------
 void PrintOneLvlLayout(Layout layout);
 
 //------------------------------------------------------------------------------
 void PrintOneLvlLayoutDataSpace(Layout layout, std::string data_space_in);
+
+//------------------------------------------------------------------------------
+void DumpLayoutToYAML(const Layouts& layouts, const std::string& filename);
 
 } // namespace layout

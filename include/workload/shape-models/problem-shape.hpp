@@ -98,6 +98,7 @@ class Shape
   std::map<std::string, std::tuple<std::uint32_t, std::uint32_t>> RankNameToDilationStride;
   std::map<std::string, std::vector<std::string>> RankNameToDimensionName;
   std::map<std::string, std::vector<std::string>> RankNameToCoefficient;
+  std::map<std::string, std::string> RankNameToZeroPadding;
   // -------------------
   
  public: 

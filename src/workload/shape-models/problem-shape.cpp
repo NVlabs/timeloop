@@ -278,6 +278,10 @@ void Shape::Parse(config::CompoundConfigNode shape)
       }
       RankNameToFactorizedDimensionID[rank] = dims;
       RankNameToDimensionName[ rank_names[i] ] = dimNames;
+      if (rank == "H" || rank == "W")
+      {
+        RankNameToZeroPadding[rank] = (rank == "H") ? "Hpadding" : "Wpadding";
+      }
 
     }
     

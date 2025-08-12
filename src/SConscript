@@ -222,6 +222,10 @@ mapping/constraints.cpp
 applications/model/model.cpp
 """)
 
+layoutspace_sources = Split("""
+layoutspaces/layoutspace.cpp
+""")
+
 mapspace_sources = Split("""
 mapspaces/mapspace-base.cpp
 mapspaces/mapspace-factory.cpp
@@ -250,6 +254,7 @@ applications/looptree-model/model.cpp
 
 mapperlib_sources = (modellib_sources +
                      mapspace_sources +
+                     layoutspace_sources +
                      search_sources +
                      mapper_application_sources +
                      looptree_application_sources)

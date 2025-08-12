@@ -64,12 +64,14 @@ class Workload
   typedef std::map<Shape::FactorizedDimensionID, Coordinate> FactorizedBounds;
   typedef std::map<Shape::FlattenedDimensionID, Coordinate> FlattenedBounds;
   typedef std::map<Shape::CoefficientID, int> Coefficients;
+  typedef std::map<std::string, int> Paddings;
   typedef std::map<Shape::DataSpaceID, std::shared_ptr<DensityDistribution>> Densities;
 
  protected:
   FactorizedBounds factorized_bounds_;
   FlattenedBounds flattened_bounds_;
   Coefficients coefficients_;
+  Paddings paddings_;
   Densities densities_;
   bool workload_tensor_size_set_ = false;
   bool default_dense_ = true;
@@ -123,6 +125,11 @@ class Workload
     return coefficients_.at(p);
   }
 
+  int GetPadding(std::string p) const
+  {
+    return paddings_.at(p);
+  }
+
   std::shared_ptr<DensityDistribution> GetDensity(Shape::DataSpaceID pv) const
   {
     return densities_.at(pv);
@@ -158,6 +165,11 @@ class Workload
   void SetCoefficients(const Coefficients& coefficients)
   {
     coefficients_ = coefficients;
+  }
+
+  void SetPaddings(const Paddings& paddings)
+  {
+    paddings_ = paddings;
   }
   
   void SetDensities(const Densities& densities)

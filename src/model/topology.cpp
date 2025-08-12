@@ -1,32 +1,32 @@
 /* Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *  * Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of NVIDIA CORPORATION nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
- * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
+* Redistribution and use in source and binary forms, with or without
+*
+* modification, are permitted provided that the following conditions
+* are met:
+*  * Redistributions of source code must retain the above copyright
+*    notice, this list of conditions and the following disclaimer.
+*  * Redistributions in binary form must reproduce the above copyright
+*    notice, this list of conditions and the following disclaimer in the
+*    documentation and/or other materials provided with the distribution.
+*  * Neither the name of NVIDIA CORPORATION nor the names of its
+*    contributors may be used to endorse or promote products derived
+*    from this software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+* EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+* IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+* PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+* CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+* EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+* PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+* PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+* OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 #include <cassert>
 #include <string>
+
 #include <stdexcept>
 
 #include "model/topology.hpp"
@@ -69,15 +69,15 @@ void Topology::Specs::ParseAccelergyART(config::CompoundConfigNode art)
     std::string componentName;
     if (rangePos != std::string::npos && rangePos == levelPos - 1)
     {
-       std::string subName = hierachicalName.substr(0, rangePos - 2);
-       levelPos = subName.rfind(".");
-       componentName = subName.substr(levelPos + 1, subName.size() - levelPos - 1);
-       //std::cout << "component name: " << componentName << std::endl;
+      std::string subName = hierachicalName.substr(0, rangePos - 2);
+      levelPos = subName.rfind(".");
+      componentName = subName.substr(levelPos + 1, subName.size() - levelPos - 1);
+      //std::cout << "component name: " << componentName << std::endl;
     }
     else
     {
-       componentName = hierachicalName.substr(levelPos + 1, hierachicalName.size() - levelPos - 1);
-       //std::cout << "component name: " << componentName << std::endl;
+      componentName = hierachicalName.substr(levelPos + 1, hierachicalName.size() - levelPos - 1);
+      //std::cout << "component name: " << componentName << std::endl;
     }
 
     float componentArea;
@@ -153,13 +153,13 @@ void Topology::Specs::ParseAccelergyERT(config::CompoundConfigNode ert)
     auto levelPos = key.rfind(".");
     std::string componentName;
     if (rangePos != std::string::npos && rangePos == levelPos - 1){
-       std::string subkey = key.substr(0, rangePos - 2);
-       levelPos = subkey.rfind(".");
-       componentName = subkey.substr(levelPos + 1, subkey.size() - levelPos - 1);
-       // std::cout << "component name: " << componentName << std::endl;
+      std::string subkey = key.substr(0, rangePos - 2);
+      levelPos = subkey.rfind(".");
+      componentName = subkey.substr(levelPos + 1, subkey.size() - levelPos - 1);
+      // std::cout << "component name: " << componentName << std::endl;
     } else {
-       componentName = key.substr(levelPos + 1, key.size() - levelPos - 1);
-       // std::cout << "component name: " << componentName << std::endl;
+      componentName = key.substr(levelPos + 1, key.size() - levelPos - 1);
+      // std::cout << "component name: " << componentName << std::endl;
     }
 
     // update levels by name and the type of it
@@ -382,8 +382,8 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   for (auto& level : topology.levels_)
   {
     if(!gHideInconsequentialStats
-       || level->Accesses(topology.workload_->GetShape()->NumDataSpaces) != 0
-       || level->Energy(topology.workload_->GetShape()->NumDataSpaces) != 0)
+      || level->Accesses(topology.workload_->GetShape()->NumDataSpaces) != 0
+      || level->Energy(topology.workload_->GetShape()->NumDataSpaces) != 0)
     {
       out << "Level " << level_id << std::endl;
       out << "-------" << std::endl;
@@ -448,9 +448,9 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
         break;
       }
     }
-    
+
     assert(utilized_capacity > 0);
-    total_min_traffic += utilized_capacity;      
+    total_min_traffic += utilized_capacity;
     if (topology.workload_->GetShape()->IsReadWriteDataSpace.at(pv))
     {
       total_output_size += utilized_capacity;
@@ -459,7 +459,7 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
 
   out << indent << std::left << std::setw(40) << "Total elementwise ops";
   uint64_t total_elementwise_ops = topology.stats_.actual_computes;
-  out << ": " << total_elementwise_ops << std::endl; 
+  out << ": " << total_elementwise_ops << std::endl;
 
   out << indent << std::left << std::setw(40) << "Total reduction ops";
   uint64_t total_reduction_ops = 0;
@@ -472,17 +472,17 @@ std::ostream& operator << (std::ostream& out, const Topology& topology)
   {
     total_reduction_ops = topology.stats_.actual_computes;
   }
-  out << ": " << total_reduction_ops << std::endl; 
+  out << ": " << total_reduction_ops << std::endl;
 
   out << indent << std::left << std::setw(40) << "Total ops";
   uint64_t total_ops = total_elementwise_ops + total_reduction_ops;
-  out << ": " << total_ops << std::endl;  
+  out << ": " << total_ops << std::endl;
 
   out << indent << std::left << std::setw(40) << "Total memory accesses required";
-  out << ": " << total_min_traffic << std::endl; 
+  out << ": " << total_min_traffic << std::endl;
 
   unsigned inv_storage_level = topology.NumStorageLevels() - 1;
-  std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);      
+  std::shared_ptr<BufferLevel> buffer_level = topology.GetStorageLevel(inv_storage_level);
   auto op_per_byte = float(total_ops) / (buffer_level->GetSpecs().word_bits.Get() * total_min_traffic / 8);
   out << indent << std::left << std::setw(40) << "Optimal Op per Byte";
   out << ": " << op_per_byte << std::endl << std::endl;
@@ -1034,8 +1034,8 @@ void Topology::Spec(const Topology::Specs& specs)
 // This function implements the "classic" hierarchical topology
 // with arithmetic units at level 0 and storage units at level 1+.
 Topology::Specs Topology::ParseSpecs(config::CompoundConfigNode storage,
-                                     config::CompoundConfigNode arithmetic,
-                                     bool is_sparse_topology)
+                                    config::CompoundConfigNode arithmetic,
+                                    bool is_sparse_topology)
 {
   Specs specs;
 
@@ -1240,16 +1240,16 @@ void Topology::Reset()
 // FIXME: integrate with Evaluate() and re-factor.
 // FIXME: what about instances and fanout checks?
 std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
-                                                     analysis::NestAnalysis* analysis,
-                                                     sparse::SparseOptimizationInfo* sparse_optimizations,
-                                                     bool break_on_failure)
+                                                    analysis::NestAnalysis* analysis,
+                                                    sparse::SparseOptimizationInfo* sparse_optimizations,
+                                                    bool break_on_failure)
 {
   problem::Workload* workload = analysis->GetWorkload();
-  
+
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest, workload);
-  if (!valid) 
-  { 
+  if (!valid)
+  {
     // invalid bypassing setup
     std::fill(eval_status.begin(), eval_status.end(),
               EvalStatus({ .success = false, .fail_reason = "one of the tensors is bypassed in all storage levels"}));
@@ -1289,9 +1289,9 @@ std::vector<EvalStatus> Topology::PreEvaluationCheck(const Mapping& mapping,
 
 
 std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
-                                           analysis::NestAnalysis* analysis,
-                                           sparse::SparseOptimizationInfo* sparse_optimizations,
-                                           bool break_on_failure)
+                                          analysis::NestAnalysis* analysis,
+                                          sparse::SparseOptimizationInfo* sparse_optimizations,
+                                          bool break_on_failure)
 {
   assert(is_specced_);
   Reset();
@@ -1320,8 +1320,8 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
   std::vector<EvalStatus> eval_status(NumLevels(), { .success = true, .fail_reason = "" });
   bool valid = tiling::CheckMaskValidity(mapping.datatype_bypass_nest, workload);
-  if (!valid) 
-  { 
+  if (!valid)
+  {
     // invalid bypassing setup
     std::fill(eval_status.begin(), eval_status.end(),
               EvalStatus({ .success = false, .fail_reason = "one of the tensors is bypassed in all storage levels"}));
@@ -1381,10 +1381,10 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   // Collapse tiles into a specified number of tiling levels. The solutions are
   // received in a set of per-problem::Shape::DataSpaceID arrays.
   auto collapsed_tiles = tiling::CollapseTiles(tile_info_nest,
-                                               specs_.NumStorageLevels(),
-                                               mapping.datatype_bypass_nest,
-                                               distribution_supported,
-                                               analysis->GetWorkload());
+                                              specs_.NumStorageLevels(),
+                                              mapping.datatype_bypass_nest,
+                                              distribution_supported,
+                                              analysis->GetWorkload());
 
   try
   {
@@ -1407,7 +1407,6 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
   // Transpose the tiles into level->datatype/level->optype structure.
   auto tiles = tiling::TransposeTiles(collapsed_tiles, workload);
   assert(tiles.size() == NumStorageLevels());
-
   if (!break_on_failure || success_accum)
   {
     auto level_id = specs_.ArithmeticMap();
@@ -1418,7 +1417,6 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
     if (break_on_failure && !s.success)
       return eval_status;
-
   }
 
   // update the dense compute cycles to be sparse compute cycles (actual compute cycles + gated compute cycles)
@@ -1449,14 +1447,22 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
           GetStorageLevel(parent_level_id)->GetSpecs().name.Get();
       }
     }
-    
+
+    std::vector<loop::Descriptor> current_level_loopnest;
+    for(unsigned i = current_storage_boundary; i <= mapping.loop_nest.storage_tiling_boundaries[storage_level_id]; i++)
+    {
+    current_level_loopnest.push_back(mapping.loop_nest.loops[i]);
+    }
+
     // if analysis
     if(analysis->IsLayoutInitialized()){
 #ifdef DEBUG
       std::cout << "Evaluate Storage Level " << storage_level_id << " -- " << layout[storage_level_id].target << std::endl;
 #endif
       assert(layout.size() > storage_level_id);
-       auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id], layout[storage_level_id], 
+      auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id], layout[storage_level_id],
+                                      analysis,
+                                      current_level_loopnest,
                                       subtile_mapping_loopnest,
                                       subtile_mapping_parallelism,
                                       workload,
@@ -1471,10 +1477,10 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 #ifdef DEBUG
       std::cout << "Evaluate Storage Level " << storage_level_id  << std::endl;
 #endif
-      auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id], 
+      auto s = storage_level->Evaluate(tiles[storage_level_id], keep_masks[storage_level_id],
                                   workload,
                                   mapping.confidence_thresholds.at(storage_level_id),
-                                  compute_cycles, break_on_failure);  
+                                  compute_cycles, break_on_failure);
       total_cycles = std::max(total_cycles, storage_level->Cycles());
       eval_status.at(level_id) = s;
       success_accum &= s.success;
@@ -1484,20 +1490,20 @@ std::vector<EvalStatus> Topology::Evaluate(Mapping& mapping,
 
     for(unsigned i = current_storage_boundary; i <= mapping.loop_nest.storage_tiling_boundaries[storage_level_id]; i++)
     {
-     // For subtile shape
-     subtile_mapping_loopnest.push_back(mapping.loop_nest.loops[i]);
+    // For subtile shape
+    subtile_mapping_loopnest.push_back(mapping.loop_nest.loops[i]);
 
-     bool is_spatial_evaluated = false;
-     // Spatial Mapping Parallelism would be evaluated at the frist memory level without data bypass.
-     for (auto mask: keep_masks[storage_level_id])
-       is_spatial_evaluated |= mask;
-     if (is_spatial_evaluated)
-       subtile_mapping_parallelism.clear();
-     else
-       if (loop::IsSpatial(mapping.loop_nest.loops[i].spacetime_dimension))
-         // If current memory level has spatial mapping, but bypass all data, then we should evaluate it in the next higher memory level
-         subtile_mapping_parallelism.push_back(mapping.loop_nest.loops[i]);
-         
+    bool is_spatial_evaluated = false;
+    // Spatial Mapping Parallelism would be evaluated at the frist memory level without data bypass.
+    for (auto mask: keep_masks[storage_level_id])
+      is_spatial_evaluated |= mask;
+    if (is_spatial_evaluated)
+      subtile_mapping_parallelism.clear();
+    else
+      if (loop::IsSpatial(mapping.loop_nest.loops[i].spacetime_dimension))
+        // If current memory level has spatial mapping, but bypass all data, then we should evaluate it in the next higher memory level
+        subtile_mapping_parallelism.push_back(mapping.loop_nest.loops[i]);
+
     }
     current_storage_boundary = mapping.loop_nest.storage_tiling_boundaries[storage_level_id] + 1;
   }
@@ -1628,7 +1634,7 @@ void Topology::ComputeStats(bool eval_success)
     {
       // FIXME: change the following to problem::PerDataSpace<std::uint64_t>
       // once we wrap PerDataSpace<> in PyTimeloop.
-      std::vector<std::uint64_t> pta(workload_->GetShape()->NumDataSpaces); 
+      std::vector<std::uint64_t> pta(workload_->GetShape()->NumDataSpaces);
       for (unsigned pvi = 0; pvi < workload_->GetShape()->NumDataSpaces; pvi++)
       {
         auto pv = problem::Shape::DataSpaceID(pvi);

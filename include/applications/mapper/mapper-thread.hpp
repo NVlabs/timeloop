@@ -34,14 +34,16 @@
 #include "model/engine.hpp"
 #include "model/sparse-optimization-info.hpp"
 #include "search/search.hpp"
-
 #include "layout/layout.hpp"
+#include "layoutspaces/layoutspace.hpp"
+
 
 struct EvaluationResult
 {
   bool valid = false;
   Mapping mapping;
   model::Topology::Stats stats;
+  layout::Layouts layout;  // Add layout field
 
   bool UpdateIfBetter(const EvaluationResult& other, const std::vector<std::string>& metrics);
   bool UpdateIfEqual(const EvaluationResult& other, const std::vector<std::string>& metrics);
@@ -92,6 +94,7 @@ class MapperThread
   unsigned thread_id_;
   search::SearchAlgorithm* search_;
   mapspace::MapSpace* mapspace_;
+  layoutspace::Legal* layoutspace_;
   std::mutex* mutex_;
   uint128_t search_size_;
   std::uint32_t timeout_;

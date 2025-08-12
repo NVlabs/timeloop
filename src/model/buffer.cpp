@@ -940,91 +940,619 @@ BufferLevel::PreEvaluationCheck(
   return eval_status;
 }
 
-std::pair<double, double>
-BufferLevel::ComputeBankConflictSlowdownPerDataSpace(const layout::Layout layout,
-                                                      unsigned data_space_id,
-                                                      uint64_t compute_cycles,
-                                                      std::unordered_map<problem::Shape::FlattenedDimensionID, int> dim_id_to_mapping_parallelism,
-                                                      const bool assume_zero_padding)
+unsigned
+BufferLevel::FindRankGroupRepresentative(std::vector<unsigned>& rep, unsigned idx)
 {
-  (void)assume_zero_padding;
-  // ****************************************************************
-  // Step 1: Get Mapping Parallelism (What Mapping Requested)
-  // ****************************************************************
-#ifdef DEBUG
-  std::cout << " *** step 1 *** " << std::endl;
-#endif
-  uint64_t total_data_requested = 1;
-  std::vector<std::string> rank_list;
-  std::unordered_map<std::string, int>
-      rank_id_to_mapping_parallelism;
+  if (rep[idx] != idx)
   {
-    auto nest = layout.intraline[data_space_id];
-    for (const auto &r : nest.ranks) // Analyze slowdown per rank
+    rep[idx] = FindRankGroupRepresentative(rep, rep[idx]);
+  }
+  return rep[idx];
+}
+
+std::pair<std::vector<std::vector<std::string>>,
+std::vector<std::vector<problem::Shape::FlattenedDimensionID>>>
+BufferLevel::GroupRelatedRanks(const layout::Layout layout)
+{
+  std::vector<std::vector<std::string>> rank_groups;
+  std::vector<std::vector<problem::Shape::FlattenedDimensionID>> dim_groups;
+  std::unordered_map<problem::Shape::FlattenedDimensionID, unsigned> dim_to_rank_group;
+  std::vector<unsigned> rep;
+  std::vector<unsigned> rep_to_group_id;
+  for (auto [r, dimsID] : layout.rankToFactorizedDimensionID)
+  {
+    auto g = dimsID[0];
+    if (dim_to_rank_group.count(g) == 0)
     {
-      auto dimsID = layout.rankToFactorizedDimensionID.at(r);
-      if (dimsID.size() == 1)
+      dim_to_rank_group[g] = rep.size();
+      rep.push_back(rep.size());
+    }
+
+    for (auto d : dimsID)
+    {
+      if (dim_to_rank_group.count(d) == 0)
       {
-        auto mapping_parallelism = std::max(dim_id_to_mapping_parallelism[dimsID[0]], 1);
-        if (mapping_parallelism > 1)
-        { // Skip thoses rank with parallelism as 1 as they won't lead to bank conflict
-          rank_id_to_mapping_parallelism[r] = mapping_parallelism;
-          total_data_requested *= mapping_parallelism;
-          rank_list.push_back(r);
-        }
+        dim_to_rank_group[d] = rep.size();
+        rep.push_back(rep.size());
       }
-      else
+      rep[FindRankGroupRepresentative(rep, dim_to_rank_group[d])] = FindRankGroupRepresentative(rep, dim_to_rank_group[g]);
+    }
+  }
+  rep_to_group_id.resize(rep.size());
+  for (unsigned i = 0; i < rep.size(); i++)
+  {
+    if(rep[i] == i)
+    {
+      rep_to_group_id[i] = rank_groups.size();
+      rank_groups.push_back({});
+    }
+  }
+  for (auto [r, dimsID] : layout.rankToFactorizedDimensionID)
+  {
+    auto g = FindRankGroupRepresentative(rep, dim_to_rank_group[dimsID[0]]);
+    rank_groups[rep_to_group_id[g]].push_back(r);
+  }
+  dim_groups.resize(rank_groups.size());
+  for (auto [d, g_rep] : dim_to_rank_group)
+  {
+    g_rep = FindRankGroupRepresentative(rep, g_rep);
+    dim_groups[rep_to_group_id[g_rep]].push_back(d);
+  }
+  return {rank_groups, dim_groups};
+}
+
+
+std::map<BufferLevel::TileTypeDescriptor, int>
+BufferLevel::CountPerGroupTileTypes(const layout::Layout& layout,
+                                    std::vector<std::string>& ranks,
+                                    std::vector<problem::Shape::FlattenedDimensionID>& dims,
+                                    std::unordered_map<std::string, int>& rank_id_to_mapping_parallelism,
+                                    std::unordered_map<std::string, int>& rank_id_to_binding_parallelism,
+                                    std::unordered_map<std::string, std::vector<int>>& rank_id_to_dim_jumps,
+                                    std::unordered_map<problem::Shape::FlattenedDimensionID, int>& dim_id_to_number_of_tiles,
+                                    std::unordered_map<unsigned, SlowdownIntermediateData>& per_dataspace,
+                                    bool assume_zero_padding,
+                                    bool assume_row_buffer)
+{
+  std::map<TileTypeDescriptor, int> cnt_tile_types;
+  std::vector<unsigned> dims_it(dims.size(), 0);
+  std::unordered_map<problem::Shape::FlattenedDimensionID, unsigned> dim_it_idx;
+  for (unsigned i = 0; i < dims.size(); i++)
+  {
+    dim_it_idx[dims[i]] = i;
+  }
+  CountPerGroupTileTypesRecursive(layout, ranks, dims, rank_id_to_mapping_parallelism, rank_id_to_binding_parallelism,
+                                  rank_id_to_dim_jumps, dim_id_to_number_of_tiles, per_dataspace, assume_zero_padding, assume_row_buffer,
+                                  dim_it_idx, dims_it, 0, cnt_tile_types);
+  return cnt_tile_types;
+}
+
+void
+BufferLevel::CountPerGroupTileTypesRecursive(const layout::Layout& layout,
+                                             std::vector<std::string>& ranks,
+                                             std::vector<problem::Shape::FlattenedDimensionID>& dims,
+                                             std::unordered_map<std::string, int>& rank_id_to_mapping_parallelism,
+                                             std::unordered_map<std::string, int>& rank_id_to_binding_parallelism,
+                                             std::unordered_map<std::string, std::vector<int>>& rank_id_to_dim_jumps,
+                                             std::unordered_map<problem::Shape::FlattenedDimensionID, int>& dim_id_to_number_of_tiles,
+                                             std::unordered_map<unsigned, SlowdownIntermediateData>& per_dataspace,
+                                             bool assume_zero_padding,
+                                             bool assume_row_buffer,
+                                             std::unordered_map<problem::Shape::FlattenedDimensionID, unsigned>& dim_it_idx,
+                                             std::vector<unsigned>& dims_it,
+                                             unsigned dim_idx,
+                                             std::map<TileTypeDescriptor, int>& cnt_tile_types)
+{
+  for (dims_it[dim_idx] = 0; dims_it[dim_idx] < (unsigned)std::max(dim_id_to_number_of_tiles[dims[dim_idx]], 1); dims_it[dim_idx]++)
+  {
+    if (dim_idx+1 < dims.size())
+    {
+      CountPerGroupTileTypesRecursive(layout, ranks, dims, rank_id_to_mapping_parallelism, rank_id_to_binding_parallelism,
+                                      rank_id_to_dim_jumps, dim_id_to_number_of_tiles, per_dataspace, assume_zero_padding, assume_row_buffer,
+                                      dim_it_idx, dims_it, dim_idx+1, cnt_tile_types);
+    }
+    else
+    {
+      CountPerGroupTileTypesBase(layout, ranks, dims, rank_id_to_mapping_parallelism, rank_id_to_binding_parallelism,
+                                 rank_id_to_dim_jumps, dim_id_to_number_of_tiles, per_dataspace, assume_zero_padding, assume_row_buffer,
+                                 dim_it_idx, dims_it, cnt_tile_types);
+    }
+  }
+}
+
+void
+BufferLevel::CountPerGroupTileTypesBase(const layout::Layout& layout,
+                                        std::vector<std::string>& ranks,
+                                        std::vector<problem::Shape::FlattenedDimensionID>& dims,
+                                        std::unordered_map<std::string, int>& rank_id_to_mapping_parallelism,
+                                        std::unordered_map<std::string, int>& rank_id_to_binding_parallelism,
+                                        std::unordered_map<std::string, std::vector<int>>& rank_id_to_dim_jumps,
+                                        std::unordered_map<problem::Shape::FlattenedDimensionID, int>& dim_id_to_number_of_tiles,
+                                        std::unordered_map<unsigned, SlowdownIntermediateData>& per_dataspace,
+                                        bool assume_zero_padding,
+                                        bool assume_row_buffer,
+                                        std::unordered_map<problem::Shape::FlattenedDimensionID, unsigned>& dim_it_idx,
+                                        std::vector<unsigned>& dims_it,
+                                        std::map<TileTypeDescriptor, int>& cnt_tile_types)
+{
+  TileTypeDescriptor tile_type_desc;
+  tile_type_desc.dataspace_mask = std::vector<bool>(per_dataspace.size(), true);
+  tile_type_desc.dataspace_rb = std::vector<bool>(per_dataspace.size(), false);
+  tile_type_desc.first_tile = true;
+  for (unsigned r = 0; r < ranks.size(); r++)
+  {
+    int binding_parallelism = std::max(rank_id_to_binding_parallelism[ranks[r]], 1);
+    int mapping_parallelism = std::max(rank_id_to_mapping_parallelism[ranks[r]], 1);
+
+    int zero_padding = 0;
+    if (assume_zero_padding && specs_.technology.Get() == Technology::DRAM && 
+        layout.rankToZeroPadding.find(ranks[r]) != layout.rankToZeroPadding.end())
+    { // rank has zero padding
+      zero_padding = layout.rankToZeroPadding.at(ranks[r]);
+    }
+
+    auto& dimsID = layout.rankToFactorizedDimensionID.at(ranks[r]);
+    int rank_pos = 0;
+    int total_size = mapping_parallelism;
+    for (unsigned d = 0; d < dimsID.size(); d++)
+    {
+      if (dims_it[dim_it_idx[dimsID[d]]] != 0)
+        tile_type_desc.first_tile = false;
+      rank_pos += rank_id_to_dim_jumps[ranks[r]][d] * dims_it[dim_it_idx[dimsID[d]]];
+      total_size += rank_id_to_dim_jumps[ranks[r]][d] * (std::max(dim_id_to_number_of_tiles[dimsID[d]], 1) - 1);
+    }
+    tile_type_desc.num_lines.push_back((std::min(rank_pos + mapping_parallelism, total_size - zero_padding) - zero_padding + binding_parallelism-1) / binding_parallelism
+                        - std::max(rank_pos - zero_padding, 0) / binding_parallelism);
+
+    if (assume_row_buffer)
+    {
+      for (auto &[data_space_id, ds] : per_dataspace)
       {
-        std::vector<std::uint32_t> coefficientValue = layout.rankToCoefficientValue.at(r);
-#ifdef DEBUG
-        std::cout << "rank:" << r << "  dimension: ";
-#endif
-        int mapping_parallelism = 1;
-        for (unsigned index = 0; index < dimsID.size(); index++)
+        for (unsigned d = 0; d < dimsID.size(); d++)
         {
-          mapping_parallelism += std::ceil((std::max(dim_id_to_mapping_parallelism[dimsID[index]], 1) - 1) * int(coefficientValue[index]));
-#ifdef DEBUG
-          std::cout << dimsID[index] << " ";
-#endif
-        }
-#ifdef DEBUG
-        std::cout << std::endl;
-#endif
-        if (mapping_parallelism > 1)
-        { // Skip thoses rank with parallelism as 1 as they won't lead to bank conflict
-          rank_id_to_mapping_parallelism[r] = mapping_parallelism;
-          total_data_requested *= mapping_parallelism;
-          rank_list.push_back(r);
+          if (dimsID[d] == ds.reused_dim_id &&
+              dims_it[dim_it_idx[ds.reused_dim_id]] > 0 &&
+              std::max(rank_pos - zero_padding, 0) / binding_parallelism < (rank_pos - rank_id_to_dim_jumps[ranks[r]][d] + mapping_parallelism - zero_padding + binding_parallelism-1) / binding_parallelism)
+          {
+            tile_type_desc.dataspace_rb[data_space_id] = true;
+          }
         }
       }
     }
   }
-
-  if (rank_id_to_mapping_parallelism.size() == 0)
+  for (auto &[data_space_id, ds] : per_dataspace)
   {
+    for (unsigned d = 0; d < dims.size(); d++)
+    {
+      if (ds.ineffective_dims.count(dims[d]) && dims_it[d]!=0)
+      {
+        tile_type_desc.dataspace_mask[data_space_id] = false;
+        break;
+      }
+    }
+  }
+  cnt_tile_types[tile_type_desc]++;
+}
+
+
+BufferLevel::LatencyStats
+BufferLevel::CheckTileTypes(const layout::Layout& layout,
+                            const tiling::CompoundMask &mask,
+                            std::vector<std::vector<std::string>>& rank_groups,
+                            std::vector<std::map<TileTypeDescriptor, int>>& cnt_tile_types,
+                            std::unordered_map<unsigned, SlowdownIntermediateData>& per_dataspace,
+                            uint64_t compute_cycles)
+{
+  std::unordered_map<std::string, int> rank_id_to_lines;
+  std::vector<bool> dataspace_rb(per_dataspace.size(), false);
+  bool first_tile_possible = (specs_.technology.Get() == Technology::DRAM);
+  auto latency_stats = CheckTileTypesRecursive(layout, mask, rank_groups, cnt_tile_types, per_dataspace, compute_cycles,
+                                 rank_id_to_lines, dataspace_rb, 1, first_tile_possible, 0);
+  if (first_tile_possible)
+  {
+    latency_stats.overall_critical_path_latency += compute_cycles;
+  }
+  return latency_stats;
+}
+
+BufferLevel::LatencyStats
+BufferLevel::CheckTileTypesRecursive(const layout::Layout& layout,
+                                     const tiling::CompoundMask &mask,
+                                     std::vector<std::vector<std::string>>& rank_groups,
+                                     std::vector<std::map<TileTypeDescriptor, int>>& cnt_tile_types,
+                                     std::unordered_map<unsigned, SlowdownIntermediateData>& per_dataspace,
+                                     uint64_t compute_cycles,
+                                     std::unordered_map<std::string, int>& rank_id_to_lines,
+                                     std::vector<bool> dataspace_rb,
+                                     uint64_t cur_cnt,
+                                     bool first_tile_possible,
+                                     unsigned group_it_idx)
+{
+  LatencyStats latency_stats = {0, 0, 0};
+  std::vector<bool> dataspace_rb_new = dataspace_rb;
+  auto& cur_group_tile_types = cnt_tile_types[group_it_idx];
+  auto& cur_ranks = rank_groups[group_it_idx];
+  for (auto &[tile_type_desc, cnt] : cur_group_tile_types)
+  {
+    auto& num_lines = tile_type_desc.num_lines;
+    auto& dataspace_rb_cur = tile_type_desc.dataspace_rb;
+    LatencyStats rec_stats;
+    bool first_tile_possible_new = first_tile_possible && tile_type_desc.first_tile;
+    for (unsigned i = 0; i < cur_ranks.size(); i++)
+    {
+      rank_id_to_lines[cur_ranks[i]] = num_lines[i];
+    }
+    for (unsigned ds_id = 0; ds_id < dataspace_rb.size(); ds_id++)
+    {
+      dataspace_rb_new[ds_id] = dataspace_rb[ds_id] | dataspace_rb_cur[ds_id];
+    }
+    if (group_it_idx+1 < rank_groups.size())
+    {
+      rec_stats = CheckTileTypesRecursive(layout, mask, rank_groups, cnt_tile_types, per_dataspace, compute_cycles,
+                                          rank_id_to_lines, dataspace_rb_new, cur_cnt*cnt, first_tile_possible_new, group_it_idx+1);
+    }
+    else
+    {
+      rec_stats = CheckTileTypesBase(layout, mask, per_dataspace, compute_cycles,
+                                     rank_id_to_lines, dataspace_rb_new, cur_cnt*cnt, first_tile_possible_new);
+    }
+    latency_stats.overall_critical_path_latency += rec_stats.overall_critical_path_latency;
+    latency_stats.overall_lines += rec_stats.overall_lines;
+    latency_stats.total_cnt += rec_stats.total_cnt;
+  }
+  return latency_stats;
+}
+
+BufferLevel::LatencyStats
+BufferLevel::CheckTileTypesBase(const layout::Layout& layout,
+                                const tiling::CompoundMask &mask,
+                                std::unordered_map<unsigned, SlowdownIntermediateData>& per_dataspace,
+                                uint64_t compute_cycles,
+                                std::unordered_map<std::string, int>& rank_id_to_lines,
+                                std::vector<bool> dataspace_rb,
+                                uint64_t cur_cnt,
+                                bool first_tile)
+{
+  LatencyStats latency_stats;
+  latency_stats.overall_lines = 0;
+  double memory_latency_read = 0;
+  double memory_latency_write = 0;
+  for (auto &[data_space_id, ds] : per_dataspace)
+  {
+    if (!mask[data_space_id]) {
 #ifdef DEBUG
-    std::cout << "all related rank has mapping parallelism = 1" << std::endl;
+      std::cout << "Skipping masked data space " << data_space_id
+                << std::endl;
 #endif
-    return std::pair<double, double> {1.0, 1.0}; // No bank conflict if no rank is found
+      continue;
+    }
+    double lines = 1;
+    for (auto &r : layout.intraline[data_space_id].ranks)
+    {
+      lines *= rank_id_to_lines[r];
+    }
+    if (dataspace_rb[data_space_id])
+    {
+      lines -= layout.num_read_ports;
+    }
+    if (!first_tile)
+      lines /= ds.access_frequency; // if the access does not happen on every tile
+
+    latency_stats.overall_lines += lines * cur_cnt;
+#ifdef DEBUG
+    std::cout << "DS " << data_space_id << " num_lines " << lines << " cnt " << cur_cnt << std::endl;
+    std::cout << "MEM_LAT_READ " << data_space_id << " " << memory_latency_read*cur_cnt << std::endl;
+    std::cout << "MEM_LAT_WRITE " << data_space_id << " " << memory_latency_write*cur_cnt << std::endl;
+    std::cout << std::endl;
+#endif
   }
 
+  double block_size = specs_.block_size.IsSpecified() ? specs_.block_size.Get() : 1;
+  double read_ports = 1;
+  double write_ports = 1;
+  if (specs_.read_bandwidth.IsSpecified())
+  {
+    read_ports = specs_.read_bandwidth.Get() / block_size;
+  }
+  if (specs_.write_bandwidth.IsSpecified())
+  {
+    write_ports = specs_.write_bandwidth.Get() / block_size;
+  }
+  if (specs_.shared_bandwidth.IsSpecified())
+  {
+    read_ports = specs_.shared_bandwidth.Get() / block_size;
+    write_ports = specs_.shared_bandwidth.Get() / block_size;
+  }
+  uint64_t memory_latency = std::max(std::ceil(memory_latency_read / read_ports),
+                                     std::ceil(memory_latency_write / write_ports));
+  if (first_tile)
+  {
+    compute_cycles = 0;
+  }
+
+  latency_stats.overall_critical_path_latency = cur_cnt * std::max({compute_cycles, memory_latency});
+  latency_stats.total_cnt = cur_cnt;
+#ifdef DEBUG
+  std::cout << "CUR_CNT=" << cur_cnt << std::endl << std::endl;
+#endif
+  return latency_stats;
+}
+
+std::pair<double, double>
+BufferLevel::ComputeBankConflictSlowdownPerDataSpace(const layout::Layout layout,
+                                                     const tiling::CompoundMask &mask,
+                                                     uint64_t compute_cycles,
+                                                     std::unordered_map<problem::Shape::FlattenedDimensionID, std::pair<int, int>> dim_id_to_mapping_parallelism,
+                                                     std::unordered_map<problem::Shape::FlattenedDimensionID, int> dim_id_to_number_of_tiles,
+                                                     std::unordered_map<problem::Shape::FlattenedDimensionID, std::uint64_t> dim_id_to_outer_size,
+                                                     std::unordered_map<unsigned, SlowdownIntermediateData> per_dataspace_base,
+                                                     const bool assume_row_buffer,
+                                                     const bool assume_reuse,
+                                                     const bool assume_zero_padding)
+{
+  (void)assume_zero_padding;
 
   // ****************************************************************
-  // Step 2: Get Binding Parallelism (What Layout Provide Per Cycle)
+  // Step 0: Find All Ranks With Imperfect Factorization
   // ****************************************************************
-  std::unordered_map<std::string, int>
-      rank_id_to_binding_parallelism;
+#ifdef DEBUG
+  std::cout << " *** step 0 *** " << std::endl;
+#endif
+  std::vector<std::string> imperfect_ranks;
+  for (auto &[data_space_id, ds] : per_dataspace_base)
+  {
+    auto nest = layout.intraline[data_space_id];
+    for (const auto &r : nest.ranks)
+    {
+      auto dimsID = layout.rankToFactorizedDimensionID.at(r);
+      for (unsigned index = 0; index < dimsID.size(); index++)
+      {
+        if (dim_id_to_mapping_parallelism[dimsID[index]].first !=
+            dim_id_to_mapping_parallelism[dimsID[index]].second)
+        {
+          imperfect_ranks.push_back(r);
+          break;
+        }
+      }
+    }
+  }
+  // Remove duplicate ranks
+  std::sort(imperfect_ranks.begin(), imperfect_ranks.end());
+  imperfect_ranks.erase(unique(imperfect_ranks.begin(), imperfect_ranks.end()), imperfect_ranks.end());
+#ifdef DEBUG
+  std::cout << "found " << imperfect_ranks.size()
+            << " ranks with imperfect factorization" << std::endl;
+#endif
+  std::unordered_map<std::string, std::uint64_t> rank_id_to_outer_size;
+  for (const auto &r : imperfect_ranks) {
+    auto dimsID = layout.rankToFactorizedDimensionID.at(r);
+    bool found = false;
+    for (unsigned index = 0; index < dimsID.size(); index++) {
+      if (dim_id_to_outer_size.find(dimsID[index]) != dim_id_to_outer_size.end()) {
+        rank_id_to_outer_size.insert({r, dim_id_to_outer_size[dimsID[index]]});
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      std::cout << "Failed to find imperfect rank " << r << std::endl;
+    }
+  }
+
+  // ****************************************************************
+  // Step 1: Get Binding Parallelism (What Layout Provide Per Cycle)
+  // ****************************************************************
+  std::unordered_map<std::string, int> rank_id_to_binding_parallelism;
+#ifdef DEBUG
+   std::cout << " *** step 1 *** " << std::endl;
+#endif
+  for (auto &[data_space_id, ds] : per_dataspace_base)
+  {
+#ifdef DEBUG
+    std::cout << "DATASPACE_ID " << data_space_id << std::endl;
+#endif
+    ds.memory_line = 1;
+    auto intra_nest = layout.intraline[data_space_id];
+
+    for (const auto &r : intra_nest.ranks) // Analyze slowdown per rank
+    {
+      int factor = (intra_nest.factors.find(r) != intra_nest.factors.end() ? intra_nest.factors.at(r) : 1);
+      ds.memory_line *= factor;
+      if (rank_id_to_binding_parallelism.count(r) == 0)
+      {
+        rank_id_to_binding_parallelism[r] = factor;
+#ifdef DEBUG
+        std::cout << "RANK " << r << " factor=" << factor << std::endl;
+#endif
+      }
+    }
+
+    if (ds.memory_line > specs_.block_size.Get() && mask[data_space_id])
+    {
+      std::cerr << "ERROR: " << specs_.name.Get()
+                << " memory line infered from layout ("
+                << ds.memory_line << ") is longer than allowed by architecture ("
+                << specs_.block_size.Get() << ")"
+                << std::endl;
+      exit(1);
+    }
+  }
+
+  // ****************************************************************
+  // Step 2: Get All Mapping Parallelisms (What Mapping Requested)
+  // ****************************************************************
 #ifdef DEBUG
   std::cout << " *** step 2 *** " << std::endl;
 #endif
-  {
-    auto nest = layout.intraline[data_space_id];
-    for (const auto &r : nest.ranks) // Analyze slowdown per rank
-    {
-      int factor = (nest.factors.find(r) != nest.factors.end() ? nest.factors.at(r) : 1);
-      rank_id_to_binding_parallelism[r] = factor;
+  int num_imperfect_ranks = imperfect_ranks.size();
+  std::vector<double> imperfect_weights((uint32_t)1 << num_imperfect_ranks);
+  std::vector<double> all_slowdowns((uint32_t)1 << num_imperfect_ranks);
+  std::vector<double> all_correction_ratios((uint32_t)1 << num_imperfect_ranks);
+  for (uint32_t bitmask = 0; bitmask < ((uint32_t)1 << num_imperfect_ranks); bitmask++) {
+    // Compute weight for this particular subset of imperfect ranks
+    double weight = 1.0;
+    for (int i = 0; i < num_imperfect_ranks; i++) {
+      if (bitmask & ((uint32_t)1 << i)) {
+        weight *= (1.0 / rank_id_to_outer_size[imperfect_ranks[i]]);
+      } else {
+        weight *= (1.0 - 1.0 / rank_id_to_outer_size[imperfect_ranks[i]]);
+      }
     }
+    imperfect_weights[bitmask] = weight;
+
+    uint64_t total_data_requested = 0;
+    std::vector<std::string> rank_list;
+    std::unordered_map<std::string, int> rank_id_to_rank_list_index;
+    std::unordered_map<std::string, int> rank_id_to_number_of_tiles;
+    std::unordered_map<std::string, int> rank_id_to_mapping_parallelism;
+    std::unordered_map<std::string, std::vector<int>> rank_id_to_dim_jumps;
+
+    // Per dataspace arrays for current imperfect factorization bitmask
+    std::unordered_map<unsigned, SlowdownIntermediateData> per_dataspace = per_dataspace_base;
+
+    for (auto &[data_space_id, ds] : per_dataspace)
+    {
+      uint64_t data_requested_ds = 1;
+      auto nest = layout.intraline[data_space_id];
+#ifdef DEBUG
+      std::cout << "data_space_id = " << data_space_id << std::endl;
+      std::cout << nest.ranks.size() << std::endl;
+#endif
+      ds.reused_rank_id = "";
+      ds.reused_dim_id = -1;
+      ds.reuse_max_order = -1;
+      for (const auto &r : nest.ranks) // Analyze slowdown per rank
+      {
+        if (rank_id_to_rank_list_index.count(r) != 0)
+        { // Skip already counted ranks
+          continue;
+        }
+        auto dimsID = layout.rankToFactorizedDimensionID.at(r);
+        if (dimsID.size() == 1)
+        {
+          if (ds.dim_id_to_outer_loop_order[dimsID[0]] < ds.reuse_max_order)
+          {
+            ds.reused_rank_id = r;
+            ds.reused_dim_id = dimsID[0];
+            ds.reuse_max_order = ds.dim_id_to_outer_loop_order[dimsID[0]];
+          }
+          int mapping_parallelism = std::max(dim_id_to_mapping_parallelism[dimsID[0]].first, 1);
+          // adjust mapping parallelism for imperfect ranks
+          auto imperfect_rank_it = find(imperfect_ranks.begin(), imperfect_ranks.end(), r);
+          if (imperfect_rank_it != imperfect_ranks.end())
+          {
+            int imperfect_rank_idx = imperfect_rank_it - imperfect_ranks.begin();
+            if (bitmask & ((uint32_t)1 << imperfect_rank_idx))
+            {
+              mapping_parallelism = std::max(dim_id_to_mapping_parallelism[dimsID[0]].second, 1);
+            }
+          }
+#ifdef DEBUG
+          std::cout << r << ": " << mapping_parallelism << std::endl;
+#endif
+          rank_id_to_dim_jumps[r].push_back(mapping_parallelism);
+          rank_id_to_mapping_parallelism[r] = mapping_parallelism;
+          rank_id_to_number_of_tiles[r] = std::max(dim_id_to_number_of_tiles[dimsID[0]], 1);
+          data_requested_ds *= mapping_parallelism;
+          rank_id_to_rank_list_index[r] = rank_list.size();
+          rank_list.push_back(r);
+        }
+        else
+        {
+          std::vector<std::uint32_t> coefficientValue = layout.rankToCoefficientValue.at(r);
+#ifdef DEBUG
+          std::cout << "rank:" << r << "  dimension: ";
+#endif
+          int mapping_parallelism = 1;
+          int number_of_tiles = 1;
+          for (unsigned index = 0; index < dimsID.size(); index++)
+          {
+            if (ds.dim_id_to_outer_loop_order[dimsID[index]] < ds.reuse_max_order)
+            {
+              ds.reused_rank_id = r;
+              ds.reused_dim_id = dimsID[index];
+              ds.reuse_max_order = ds.dim_id_to_outer_loop_order[dimsID[index]];
+            }
+            int cur_mapping_parallelism = (std::max(dim_id_to_mapping_parallelism[dimsID[index]].first, 1) - 1) * int(coefficientValue[index]);
+            // adjust mapping parallelism for imperfect ranks
+            auto imperfect_rank_it = find(imperfect_ranks.begin(), imperfect_ranks.end(), r);
+            if (imperfect_rank_it != imperfect_ranks.end())
+            {
+              int imperfect_rank_idx = imperfect_rank_it - imperfect_ranks.begin();
+              if (bitmask & ((uint32_t)1 << imperfect_rank_idx))
+              {
+                cur_mapping_parallelism = (std::max(dim_id_to_mapping_parallelism[dimsID[index]].second, 1) - 1) * int(coefficientValue[index]);
+              }
+            }
+            mapping_parallelism += cur_mapping_parallelism;
+            rank_id_to_dim_jumps[r].push_back(cur_mapping_parallelism + int(coefficientValue[index]));
+            number_of_tiles *= std::max(dim_id_to_number_of_tiles[dimsID[index]], 1); // ToDo: Is this number of tiles calculation ok?
+#ifdef DEBUG
+            std::cout << dimsID[index] << " ";
+#endif
+          }
+#ifdef DEBUG
+          std::cout << std::endl;
+#endif
+          rank_id_to_mapping_parallelism[r] = mapping_parallelism;
+          rank_id_to_number_of_tiles[r] = number_of_tiles;
+          data_requested_ds *= mapping_parallelism;
+          rank_id_to_rank_list_index[r] = rank_list.size();
+          rank_list.push_back(r);
+        }
+      }
+      // TODO: should total_data_requested be divided between read/write ?
+      total_data_requested += data_requested_ds;
+    }
+
+    std::pair<double, double> result = ComputeBankConflictSlowdownIndividual(
+      layout, mask,
+      compute_cycles,
+      total_data_requested,
+      dim_id_to_number_of_tiles,
+      rank_id_to_mapping_parallelism, rank_id_to_binding_parallelism,
+      rank_id_to_dim_jumps, per_dataspace,
+      assume_row_buffer, assume_reuse, assume_zero_padding);
+    all_slowdowns[bitmask] = result.first;
+    all_correction_ratios[bitmask] = result.second;
+#ifdef DEBUG
+    std::cout << "all_correction_ratios[" << bitmask << "] = " << result.second << std::endl;
+#endif
   }
+
+  double final_slowdown = 0.0, final_correction_ratio = 0.0;
+  for (uint32_t i = 0; i < (uint32_t)1 << num_imperfect_ranks; i++) {
+    final_slowdown += imperfect_weights[i] * all_slowdowns[i];
+    final_correction_ratio += imperfect_weights[i] * all_correction_ratios[i];
+  }
+
+#ifdef DEBUG
+  std::cout << "final slowdown current dataspace = " << final_slowdown
+            << std::endl;
+  std::cout << "final correction ratio = " << final_correction_ratio
+            << std::endl;
+#endif
+
+  assert(assume_reuse || assume_row_buffer || final_correction_ratio <= 1);
+
+  return std::pair<double, double>{final_slowdown, final_correction_ratio};
+}
+
+std::pair<double, double> BufferLevel::ComputeBankConflictSlowdownIndividual(
+    const layout::Layout layout,
+    const tiling::CompoundMask &mask,
+    uint64_t compute_cycles,
+    uint64_t total_data_requested,
+    std::unordered_map<problem::Shape::FlattenedDimensionID, int> dim_id_to_number_of_tiles,
+    std::unordered_map<std::string, int> &rank_id_to_mapping_parallelism,
+    std::unordered_map<std::string, int> &rank_id_to_binding_parallelism,
+    std::unordered_map<std::string, std::vector<int>> &rank_id_to_dim_jumps,
+    std::unordered_map<unsigned, SlowdownIntermediateData> per_dataspace,
+    const bool assume_row_buffer,
+    const bool assume_reuse,
+    const bool assume_zero_padding)
+{
+  (void)assume_reuse;
 
   // ****************************************************************
   // Step 3: Analyze "Average" Number of Lines Accessed Per Cycle
@@ -1035,30 +1563,62 @@ BufferLevel::ComputeBankConflictSlowdownPerDataSpace(const layout::Layout layout
   // frequency_counts stores number of requestes:
   //       .first  stores number of counts requesting x lines.
   //       .second stores number of counts requesting x + 1 lines.
-  std::unordered_map<std::string, int>
-      num_x_lines;
-  std::unordered_map<std::string, std::pair<int, int>>
-      frequency_counts;
+  // zp_num_lines stores number of lines requested in the edge tiles (which
+  // include zero padding) zp_mask is a bitmask with 1's for dimensions with
+  // zero padding
+
 #ifdef DEBUG
   std::cout << " *** step 3 *** " << std::endl;
 #endif
-  for (auto [rank_id, mapping_parallelism] : rank_id_to_mapping_parallelism)
-  {
-    int binding_parallelism = rank_id_to_binding_parallelism[rank_id];
+
+  auto [rank_groups, dim_groups] = GroupRelatedRanks(layout);
 #ifdef DEBUG
-    std::cout << "rank_id " << rank_id << " mapping_parallelism=" << mapping_parallelism << " binding_parallelism=" << binding_parallelism << std::endl;
-#endif
+  for (unsigned gid = 0; gid < rank_groups.size(); gid++)
+  {
+    std::cout << "Group gid=" << gid << " ranks: ";
+    for (auto r : rank_groups[gid])
     {
-      num_x_lines[rank_id] = std::ceil((double)mapping_parallelism / binding_parallelism);
-      int gcd = std::gcd(binding_parallelism, mapping_parallelism);
-      frequency_counts[rank_id].second = (mapping_parallelism / gcd - 1) % (binding_parallelism / gcd); // ToDo: Row Buffer support (optional, add function check in layout definition)
-      // ToDo: tile_req / gcd is total number of lines in a pattern group.
-      if (frequency_counts[rank_id].second < 1) // Just checking frequency_counts[rank_id].second == 0;
-        frequency_counts[rank_id].first = 1;
-      else
-        frequency_counts[rank_id].first = (binding_parallelism / gcd) - frequency_counts[rank_id].second; // ToDo: Wrong equation when C=3, H=7
+      std::cout << r << " ";
     }
+    std::cout << " dims: ";
+    for (auto r : dim_groups[gid])
+    {
+      std::cout << r << " ";
+    }
+    std::cout << std::endl;
   }
+#endif
+  std::vector<std::map<TileTypeDescriptor, int>> cnt_tile_types;
+  for (unsigned gid = 0; gid < rank_groups.size(); gid++)
+  {
+    cnt_tile_types.emplace_back(CountPerGroupTileTypes(layout, rank_groups[gid], dim_groups[gid],
+                                                       rank_id_to_mapping_parallelism, rank_id_to_binding_parallelism,
+                                                       rank_id_to_dim_jumps, dim_id_to_number_of_tiles, per_dataspace,
+                                                       assume_zero_padding, assume_row_buffer));
+#ifdef DEBUG
+    std::cout << "Group gid=" << gid << std::endl;
+    for (auto &[vec_pair, cnt] : cnt_tile_types.back())
+    {
+      std::cout << "[ ";
+      for (auto r : vec_pair.num_lines)
+      {
+        std::cout << r << ", ";
+      }
+      std::cout << "], [ ";
+      for (auto r : vec_pair.dataspace_mask)
+      {
+        std::cout << r << ", ";
+      }
+      std::cout << "], [ ";
+      for (auto r : vec_pair.dataspace_rb)
+      {
+        std::cout << r << ", ";
+      }
+      std::cout << "]: " << cnt << std::endl;
+    }
+#endif
+  }
+
 
   // ****************************************************************
   // Step 4: Analyze the Memory Latency and Obtain the Total Latency
@@ -1068,119 +1628,105 @@ BufferLevel::ComputeBankConflictSlowdownPerDataSpace(const layout::Layout layout
   // Eg. if H rank request 2 or 3 lines, and W rank request 3 or 4 lines.
   // Then we get 4 cases (H-2, W-3), (H-2, W-4), (H-3, W-3), (H-3, W-4)
   // For each case, we calculate the critical_path_latency.
-  // And then we weighted average critical_latency of all cases by its frequency (cnt),
-  double total_cnt = 0;
-  double overall_critical_path_latency = 0;
+  // And then we weighted average critical_latency of all cases by its frequency
+  // (cnt),
 #ifdef DEBUG
   std::cout << " *** step 4 *** " << std::endl;
 #endif
-  double overall_lines = 0; // weighted accumulation of lines requested by all buckets
-  // iterate over all possible tile types (all combinations of x or x+1)
-  for (int bitmask = 0; bitmask < (1 << rank_list.size()); bitmask++) // 2**d
-  {
-    double lines = 1;
-    double cnt = 1;
-    for (unsigned idx = 0; idx < rank_list.size(); idx++) // rank index
-    {
-      auto rank_id = rank_list[idx];
-#ifdef DEBUG
-      std::cout << "rank:" << rank_id;
-#endif
-      if (bitmask & (1 << idx)) // tile instersects x+1 lines in dimension dim_id
-      {
-        lines *= (num_x_lines[rank_id] + 1);
-        cnt *= frequency_counts[rank_id].second;
-#ifdef DEBUG
-        std::cout << "\t Accesses[x + 1 lines]:" << num_x_lines[rank_id] + 1 << "\t  frequency_counts:" << frequency_counts[rank_id].second;
-#endif
-      }
-      else // tile instersects x lines in dimension dim_id
-      {
-        lines *= num_x_lines[rank_id];
-        cnt *= frequency_counts[rank_id].first;
-#ifdef DEBUG
-        std::cout << "\t Accesses[x lines]:" << num_x_lines[rank_id] << "   \t  frequency_counts:" << frequency_counts[rank_id].first;
-#endif
-      }
-#ifdef DEBUG
-      std::cout << std::endl;
-#endif
-    }
-    total_cnt += cnt;
-    overall_critical_path_latency += cnt * std::max((double)compute_cycles,
-                                                    std::ceil(lines / layout.num_read_ports));
-    overall_lines += lines * cnt;
-#ifdef DEBUG
-    std::cout << "Current bucket: total lines requested = " << lines << "  frequency counts = " << cnt << std::endl
-              << std::endl;
-#endif
-  }
+
+  LatencyStats latency_stats = CheckTileTypes(layout, mask, rank_groups, cnt_tile_types, per_dataspace, compute_cycles);
 
   // ****************************************************************
   // Step 5: Analyze -- Bandwidth Modeling vs Layout based Modeling
   // ****************************************************************
-  double average_line_requested_bw_modeling = double(total_data_requested) / double(specs_.block_size.Get());
-  double average_line_requested_layout_modeling = double(overall_lines) / double(total_cnt);
-  double num_lines_correction_ratio = average_line_requested_bw_modeling / average_line_requested_layout_modeling;
-  double slowdown_current_dataspace = (total_cnt * double(compute_cycles)) / overall_critical_path_latency; // ToDo: use read port for input and weights. use write ports for outputs.
-  
 #ifdef DEBUG
-  std::cout << "average lines requested = " << overall_lines  << " total_data_requested=" << total_data_requested << std::endl;
-  std::cout << "slowdown current dataspace = " << slowdown_current_dataspace << "  total counts = " << total_cnt << "  compute_cycles=" << compute_cycles << "   overall_critical_path_latency=" << overall_critical_path_latency <<  std::endl;
-  std::cout << "average line requested (layout modeling) = " << overall_lines / total_cnt  <<  " average lines requested (bandwidth modeling) = " << average_line_requested_bw_modeling  << " bw/layout = " << num_lines_correction_ratio << std::endl;
+  std::cout << " *** step 5 *** " << std::endl;
+#endif
+  double average_line_requested_bw_modeling =
+    double(total_data_requested) / double(specs_.block_size.Get());
+  double average_line_requested_layout_modeling =
+    double(latency_stats.overall_lines) / double(latency_stats.total_cnt);
+  double num_lines_correction_ratio = average_line_requested_bw_modeling /
+                                      average_line_requested_layout_modeling;
+  double slowdown_current_dataspace = (latency_stats.total_cnt * double(compute_cycles)) /
+                                       latency_stats.overall_critical_path_latency;
+
+#ifdef DEBUG
+  std::cout << "average lines requested = " << latency_stats.overall_lines
+            << " total_data_requested=" << total_data_requested << std::endl;
+  std::cout << "slowdown current dataspace = " << slowdown_current_dataspace
+            << "  total counts = " << latency_stats.total_cnt
+            << "  compute_cycles=" << compute_cycles
+            << "   overall_critical_path_latency="
+            << latency_stats.overall_critical_path_latency << std::endl;
+  std::cout << "average line requested (layout modeling) = "
+            << latency_stats.overall_lines / latency_stats.total_cnt
+            << " average lines requested (bandwidth modeling) = "
+            << average_line_requested_bw_modeling
+            << " bw/layout = " << num_lines_correction_ratio << std::endl;
 #endif
 
-  assert(num_lines_correction_ratio <= 1);
+  assert(assume_reuse || assume_row_buffer || num_lines_correction_ratio <= 1);
 
+  return std::pair<double, double>{slowdown_current_dataspace,
+                                 num_lines_correction_ratio};
+}
 
-  return std::pair<double, double> {slowdown_current_dataspace, num_lines_correction_ratio};
-};
-
-tiling::CompoundTile
-BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
-                                         layout::Layout layout,
-                                         const tiling::CompoundMask &mask,
-                                         std::vector<loop::Descriptor> &subtile_mapping_loopnest,
-                                         std::vector<loop::Descriptor> &subtile_mapping_parallelism)
+tiling::CompoundTile BufferLevel::ComputeBankConflictSlowdown(
+  const tiling::CompoundTile &tile, layout::Layout layout,
+  const tiling::CompoundMask &mask, const analysis::NestAnalysis *analysis,
+  std::vector<loop::Descriptor> &current_level_loopnest,
+  std::vector<loop::Descriptor> &subtile_mapping_loopnest,
+  std::vector<loop::Descriptor> &subtile_mapping_parallelism)
 {
   overall_slowdown_ = 1.0; // Initialization
   auto dim_id_to_name = problem::GetShape()->FlattenedDimensionIDToName;
   tiling::CompoundTile tile_corrected_access = tile;
+
   // ****************************************************************
   // Pre-Check: Get Subtile Shape and Spatial Data Requirement
   // ****************************************************************
-
   std::vector<std::string> rank_list;
-  std::unordered_map<problem::Shape::FlattenedDimensionID, int>
-      dim_id_to_mapping_parallelism;
-  std::unordered_map<problem::Shape::FlattenedDimensionID, int>
-      dim_id_to_subtile_shape;
+  std::unordered_map<problem::Shape::FlattenedDimensionID, std::pair<int, int>>
+    dim_id_to_mapping_parallelism;
+  std::unordered_map<problem::Shape::FlattenedDimensionID, std::pair<int, int>>
+    dim_id_to_subtile_shape;
+  std::unordered_map<problem::Shape::FlattenedDimensionID, uint64_t>
+    dim_id_to_outer_size;
 
 #ifdef DEBUG
-  std::cout << "# PreCheck -- return if there is no spatial request or subtile=1" << std::endl;
+  std::cout
+    << "# PreCheck -- return if there is no spatial request or subtile=1"
+    << std::endl;
   std::cout << "mapping Parallelism: ";
 #endif
+  // NOTE: each dimension should only have one spatial loop in the entire loop
+  // nest
+
   // For subtile
-  for (auto j : subtile_mapping_parallelism)
-  {
+  for (auto j : subtile_mapping_parallelism) {
 #ifdef DEBUG
     std::cout << j.PrintCompact(dim_id_to_name) << " ";
 #endif
-    if (dim_id_to_mapping_parallelism[j.dimension] == 0)
-      dim_id_to_mapping_parallelism[j.dimension] = 1;
-    if (loop::IsSpatial(j.spacetime_dimension))
-      dim_id_to_mapping_parallelism[j.dimension] *= j.end;
+    if (loop::IsSpatial(j.spacetime_dimension)) {
+      if (!dim_id_to_mapping_parallelism.count(j.dimension))
+        dim_id_to_mapping_parallelism[j.dimension] = {1, 1};
+      dim_id_to_mapping_parallelism[j.dimension].first = j.end;
+      dim_id_to_mapping_parallelism[j.dimension].second = j.residual_end;
+      dim_id_to_outer_size[j.dimension] = analysis->GetLoopOuterSize(j);
+    }
   }
   // For current tile
-  for (auto j : tile.data_movement_info[0].subnest)
-  {
-    if (dim_id_to_mapping_parallelism[j.dimension] == 0)
-      dim_id_to_mapping_parallelism[j.dimension] = 1;
-    if (loop::IsSpatial(j.spacetime_dimension)){
+  for (auto j : tile.data_movement_info[0].subnest) {
+    if (loop::IsSpatial(j.spacetime_dimension)) {
 #ifdef DEBUG
       std::cout << j.PrintCompact(dim_id_to_name) << " ";
 #endif
-      dim_id_to_mapping_parallelism[j.dimension] = j.end;
+      if (!dim_id_to_mapping_parallelism.count(j.dimension))
+        dim_id_to_mapping_parallelism[j.dimension] = {1, 1};
+      dim_id_to_mapping_parallelism[j.dimension].first = j.end;
+      dim_id_to_mapping_parallelism[j.dimension].second = j.residual_end;
+      dim_id_to_outer_size[j.dimension] = analysis->GetLoopOuterSize(j);
     }
   }
 #ifdef DEBUG
@@ -1188,23 +1734,36 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
   // next subtile check
   std::cout << "subtile size: ";
 #endif
-  for (auto j : subtile_mapping_loopnest)
-  {
+  std::unordered_map<problem::Shape::FlattenedDimensionID, bool> found_imperfect;
+  for (auto j : subtile_mapping_loopnest) {
 #ifdef DEBUG
     std::cout << j.PrintCompact(dim_id_to_name) << " ";
 #endif
-    if (dim_id_to_subtile_shape[j.dimension] == 0)
-      dim_id_to_subtile_shape[j.dimension] = 1;
-    dim_id_to_subtile_shape[j.dimension] *= j.end;
+    if (!dim_id_to_subtile_shape.count(j.dimension))
+      dim_id_to_subtile_shape[j.dimension] = {1, 1};
+    dim_id_to_subtile_shape[j.dimension].first *= j.end;
+    if (!found_imperfect[j.dimension])
+      dim_id_to_subtile_shape[j.dimension].second *= j.residual_end;
+    if (j.end != j.residual_end)
+      found_imperfect[j.dimension] = true;
+
+    if (loop::IsSpatial(j.spacetime_dimension))
+      dim_id_to_outer_size[j.dimension] = analysis->GetLoopOuterSize(j);
   }
 #ifdef DEBUG
   std::cout << std::endl;
-#endif
-  if (dim_id_to_mapping_parallelism.size() == 0 &&
-      dim_id_to_subtile_shape.size() == 0)
+  std::cout << "compund subtile size: " << std::endl;
+  for (auto [k, v] : dim_id_to_subtile_shape)
   {
+    std::cout << k << ": [" << v.first << ", " << v.second << "]" << std::endl;
+  }
+#endif
+  if (dim_id_to_subtile_shape.size() == 0) {
 #ifdef DEBUG
-    std::cout << "Skip bank conflict analysis because of (1) no spatial access request and (2) subtile size = 1;" << std::endl << std::endl;
+    std::cout << "Skip bank conflict analysis because of (1) no spatial access "
+                 "request and (2) subtile size = 1;"
+              << std::endl
+              << std::endl;
 #endif
     return tile_corrected_access;
   }
@@ -1218,13 +1777,21 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
     if (!loop::IsSpatial(j.spacetime_dimension))
       compute_cycles *= j.end;
 #ifdef DEBUG
-  std::cout << "compute_cycles=" << compute_cycles << std::endl;
+    std::cout << "compute_cycles=" << compute_cycles << std::endl;
 #endif
 
+  // ToDo: move this to a better place and make configurable
+  bool assume_zero_padding = layout.assume_zero_padding;
+  bool assume_row_buffer = layout.assume_row_buffer;
+  bool assume_reuse = layout.assume_reuse;
+
+  std::unordered_map<unsigned, SlowdownIntermediateData> per_dataspace;
 
   // Bank Conflict Check Start!
   // each data space (input, weights or output) is analysed independently
-  for (auto tile : tile.data_movement_info)
+  std::unordered_map<problem::Shape::FlattenedDimensionID, int>
+    dim_id_to_number_of_tiles;
+  for (auto tile : tile.data_movement_info) 
   {
     // ****************************************************************
     // This check has three phases
@@ -1232,109 +1799,169 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
     // Idea:
     // We need to check whether current memory hierarchy
     // (1, spatial check) could provide spatially requested data per cycle.
-    // (2, next subtile check) could provide subtile during the compute latency of current subtile.
+    // (2, next subtile check) could provide subtile during the compute latency
+    // of current subtile.
     //
     // To check both, we need to collect
     // (1) how many data mapping requested per cycle
-    // (2) how many data next subtile needed from current memory hierarchy -- rank_id_to_subtile_shape
-    // "SubTile" refers to the tile in the next-lower memory hierarchy.
+    // (2) how many data next subtile needed from current memory hierarchy --
+    // rank_id_to_subtile_shape "SubTile" refers to the tile in the next-lower
+    // memory hierarchy.
     //
 
 #ifdef DEBUG
-    std::cout << "tile.GetDataSpaceName()=" << tile.GetDataSpaceName() << std::endl;
+    std::cout << "tile.GetDataSpaceName()=" << tile.GetDataSpaceName()
+              << std::endl;
 #endif
+
     unsigned data_space_id = 0;
-    for (unsigned j = 0; j < problem::GetShape()->NumDataSpaces; j++)
-    {
-      if (problem::GetShape()->DataSpaceIDToName.at(j) == tile.GetDataSpaceName())
-      {
+    for (unsigned j = 0; j < problem::GetShape()->NumDataSpaces; j++) {
+      if (problem::GetShape()->DataSpaceIDToName.at(j) ==
+        tile.GetDataSpaceName()) {
         data_space_id = j;
       }
     }
 
-    // ****************************************************************
-    // Phase 1: Skip the Bypasssed Data Space
-    // ****************************************************************
-    if (!mask[data_space_id])
+    // Find number of tiles per dimension
+    for (size_t i = 0; i < tile.subnest.size(); i++)
     {
-#ifdef DEBUG
-      std::cout << "Skipping masked data space " << tile.GetDataSpaceName() << std::endl;
-#endif
-      continue;
+      auto j = tile.subnest[i];
+      // TODO: can we have different dim_id_to_number_of_tiles depending on dataspace (eg. because of bypassing)
+      // TODO2: this should be inside imperfect
+      if (dim_id_to_number_of_tiles.count(j.dimension) == 0)
+      {
+        dim_id_to_number_of_tiles[j.dimension] = j.end;
+      }
+      per_dataspace[data_space_id].dim_id_to_outer_loop_order[j.dimension] = i;
     }
+    std::set<problem::Shape::FlattenedDimensionID> used_dimensions;
+    for (auto r : problem::GetShape()->Projections[data_space_id])
+    {
+      for (auto i : r)
+      {
+        used_dimensions.insert(i.second);
+      }
+    }
+    per_dataspace[data_space_id].access_frequency = 1;
+    for (size_t i = 0; i < current_level_loopnest.size(); i++)
+    {
+      auto j = current_level_loopnest[i];
+      if (used_dimensions.find(j.dimension) != used_dimensions.end())
+      {
+        break;
+      }
+      per_dataspace[data_space_id].access_frequency *= dim_id_to_number_of_tiles[j.dimension];
+      per_dataspace[data_space_id].ineffective_dims.insert(j.dimension);
+    }
+#ifdef DEBUG
+    std::cout << "Ineffective dimensions for " << tile.GetDataSpaceName() << ": ";
+    for (auto d : per_dataspace[data_space_id].ineffective_dims)
+    {
+      std::cout << d << " ";
+    }
+    std::cout << std::endl;
+#endif
+  }
 
-    bool assume_zero_padding = true;
-    // ****************************************************************
-    // Phase 2: Perform Spatial Bank Conflict Check for Current Data Space
-    // ****************************************************************
-    // compute latency for spatial checking should be always 1,
-    // because all data requested by mapping in parallel needed to be provided within 1 cycle.
+  // ****************************************************************
+  // Phase 2: Perform Spatial Bank Conflict Check for Current Data Space
+  // ****************************************************************
+  // compute latency for spatial checking should be always 1,
+  // because all data requested by mapping in parallel needed to be provided
+  // within 1 cycle.
 #ifdef DEBUG
-    std::cout << "## Phase 2 -- spatial bank conflict checking" << std::endl;
-#endif
-    double slowdown_spatial_check = 1.0;
-    double spatial_check_num_access_ratio_bw_over_layout = 1.0;
-    std::pair<double, double> spatial_bc_analysis_result;
-    if (dim_id_to_mapping_parallelism.size() > 0){
-      spatial_bc_analysis_result = ComputeBankConflictSlowdownPerDataSpace(layout, data_space_id, 1.0, dim_id_to_mapping_parallelism, assume_zero_padding);
-      slowdown_spatial_check = spatial_bc_analysis_result.first;
-      spatial_check_num_access_ratio_bw_over_layout = spatial_bc_analysis_result.second;
-    }
-    else{
-      slowdown_spatial_check = 1.0;
-      spatial_check_num_access_ratio_bw_over_layout = 1.0;
-    }
-
-    // ****************************************************************
-    // Phase 3: Perform Next Subtile Bank Conflict Check for Current Data Space
-    // ****************************************************************
-#ifdef DEBUG
-    std::cout << "## Phase 3 -- next subtile bank conflict checking" << std::endl;
-#endif
-    double slowdown_subtile_check = 1.0;
-    double subtile_check_num_access_ratio_bw_over_layout = 1.0;
-    std::pair<double, double> subtile_bc_analysis_result;
-    if (dim_id_to_subtile_shape.size() > 0){
-      subtile_bc_analysis_result = ComputeBankConflictSlowdownPerDataSpace(layout, data_space_id, compute_cycles, dim_id_to_subtile_shape, assume_zero_padding);
-      slowdown_subtile_check = subtile_bc_analysis_result.first;
-      subtile_check_num_access_ratio_bw_over_layout = subtile_bc_analysis_result.second;
-    }
-    else{
-      slowdown_subtile_check = 1.0;
-      subtile_check_num_access_ratio_bw_over_layout = 1.0;
-    }
-    
-    double combined_slowdown_cur_dataspace = slowdown_spatial_check * slowdown_subtile_check;
-    overall_slowdown_ *= combined_slowdown_cur_dataspace;
-#ifdef DEBUG
-    std::cout << "bank conflict slowdown caused by " << tile.GetDataSpaceName() << ": spatial-check: " << slowdown_spatial_check << std::endl;
-    std::cout << "subtile-check: " << slowdown_subtile_check << std::endl;
-    std::cout << "overall (combined): " << combined_slowdown_cur_dataspace << std::endl
-              << std::endl;
+  std::cout << "## Phase 2 -- spatial bank conflict checking" << std::endl;
 #endif
 
-    // ****************************************************************
-    // Phase 4: Correct Number of Accesses (for Energy Calculation)
-    // ****************************************************************  
+  double slowdown_spatial_check = 1.0;
+  double spatial_check_num_access_ratio_bw_over_layout = 1.0;
+  std::pair<double, double> spatial_bc_analysis_result;
+
+  if (dim_id_to_mapping_parallelism.size() > 0) {
+    spatial_bc_analysis_result = ComputeBankConflictSlowdownPerDataSpace(
+      layout, mask, 1.0,
+      dim_id_to_mapping_parallelism, dim_id_to_number_of_tiles,
+      dim_id_to_outer_size, per_dataspace,
+      assume_row_buffer, assume_reuse, assume_zero_padding);
+
+    slowdown_spatial_check = spatial_bc_analysis_result.first;
+    spatial_check_num_access_ratio_bw_over_layout = spatial_bc_analysis_result.second;
+  } else {
+    slowdown_spatial_check = 1.0;
+    spatial_check_num_access_ratio_bw_over_layout = 1.0;
+  }
+
+  // ****************************************************************
+  // Phase 3: Perform Next Subtile Bank Conflict Check for Current Data Space
+  // ****************************************************************
+#ifdef DEBUG
+  std::cout << "## Phase 3 -- next subtile bank conflict checking"
+            << std::endl;
+#endif
+  double slowdown_subtile_check = 1.0;
+  double subtile_check_num_access_ratio_bw_over_layout = 1.0;
+  std::pair<double, double> subtile_bc_analysis_result;
+  if (dim_id_to_subtile_shape.size() > 0 && dim_id_to_mapping_parallelism.size() == 0) {
+    subtile_bc_analysis_result = ComputeBankConflictSlowdownPerDataSpace(
+      layout, mask, compute_cycles,
+      dim_id_to_subtile_shape, dim_id_to_number_of_tiles,
+      dim_id_to_outer_size, per_dataspace,
+      assume_row_buffer, assume_reuse, assume_zero_padding);
+
+    slowdown_subtile_check = subtile_bc_analysis_result.first;
+    subtile_check_num_access_ratio_bw_over_layout = subtile_bc_analysis_result.second;
+  } else {
+    slowdown_subtile_check = 1.0;
+    subtile_check_num_access_ratio_bw_over_layout = 1.0;
+  }
+
+  double combined_slowdown_cur_dataspace = slowdown_spatial_check * slowdown_subtile_check;
+  overall_slowdown_ *= combined_slowdown_cur_dataspace;
+#ifdef DEBUG
+  std::cout << "bank conflict slowdown"
+            << ": " << std::endl;
+  std::cout << "subtile-check: " << slowdown_subtile_check << std::endl;
+  std::cout << "spatial-check: " << slowdown_spatial_check << std::endl;
+  std::cout << "\033[1;34m" << "overall (combined): " << "\033[0m" << combined_slowdown_cur_dataspace
+            << std::endl
+            << std::endl;
+#endif
+
+  // ****************************************************************
+  // Phase 4: Correct Number of Accesses (for Energy Calculation)
+  // ****************************************************************
+  // TODO: the num_access_ratio should be different per dataspace, also should consider read/write separate
+  for (auto &[data_space_id, ds] : per_dataspace)
+  {
     double num_access_ratio = spatial_check_num_access_ratio_bw_over_layout * subtile_check_num_access_ratio_bw_over_layout;
 #ifdef DEBUG
-    std::cout << "spatial_check_num_access_ratio_bw_over_layout=" << spatial_check_num_access_ratio_bw_over_layout  << " subtile_check_num_access_ratio_bw_over_layout=" << subtile_check_num_access_ratio_bw_over_layout << std::endl;
+    std::cout << " subtile_check_num_access_ratio_bw_over_layout="
+              << subtile_check_num_access_ratio_bw_over_layout << std::endl;
     std::cout << "num_access_ratio=" << num_access_ratio << std::endl;
 #endif
-    
-    for (auto key_pair : tile_corrected_access.data_movement_info[data_space_id].fine_grained_data_accesses)
+
+    for (auto key_pair : tile_corrected_access.data_movement_info[data_space_id]
+                            .fine_grained_data_accesses)
+    {
       if (key_pair.second != 0) {
         // increase data access. .. ToDo: this does not change energy now.
 #ifdef DEBUG
         std::cout << "num of lines before correction = " << key_pair.second;
 #endif
-        tile_corrected_access.data_movement_info[data_space_id].fine_grained_data_accesses[key_pair.first] = static_cast<uint64_t>(double(key_pair.second) / num_access_ratio);
+        tile_corrected_access.data_movement_info[data_space_id]
+          .fine_grained_data_accesses[key_pair.first] =
+          static_cast<uint64_t>(double(key_pair.second) / num_access_ratio);
 #ifdef DEBUG
-        std::cout << "  after correction =" << tile_corrected_access.data_movement_info[data_space_id].fine_grained_data_accesses[key_pair.first] << std::endl;
+        std::cout << "  after correction ="
+                  << tile_corrected_access.data_movement_info[data_space_id]
+                          .fine_grained_data_accesses[key_pair.first]
+                  << std::endl
+                  << std::endl;
 #endif
       }
-
+    }
   }
+
 #ifdef DEBUG
   std::cout << "overall_slowdown_ = " << overall_slowdown_ << std::endl
             << std::endl
@@ -1343,6 +1970,10 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
 
   return tile_corrected_access;
 }
+//
+// Heavyweight Evaluate() function.
+// FIXME: Derive FanoutX, FanoutY, MeshX, MeshY from mapping if unspecified.
+//
 
 //
 // Heavyweight Evaluate() function.
@@ -1351,6 +1982,8 @@ BufferLevel::ComputeBankConflictSlowdown(const tiling::CompoundTile &tile,
 EvalStatus
 BufferLevel::Evaluate(const tiling::CompoundTile &tile,
                       const tiling::CompoundMask &mask, layout::Layout layout,
+                      const analysis::NestAnalysis *analysis,
+                      std::vector<loop::Descriptor> &current_level_loopnest,
                       std::vector<loop::Descriptor> &subtile_mapping_loopnest,
                       std::vector<loop::Descriptor> &subtile_mapping_parallelism,
                       problem::Workload *workload,
@@ -1364,18 +1997,18 @@ BufferLevel::Evaluate(const tiling::CompoundTile &tile,
   std::cout << "start layout evaluation" << std::endl;
 #endif
 
-  auto tile_corrected_access = ComputeBankConflictSlowdown(tile, layout, mask, subtile_mapping_loopnest, subtile_mapping_parallelism);
+  auto tile_corrected_access = ComputeBankConflictSlowdown(tile, layout, mask, analysis, current_level_loopnest, subtile_mapping_loopnest, subtile_mapping_parallelism);
 
   auto eval_status = ComputeScalarAccesses(
-      tile.data_movement_info, mask, confidence_threshold, break_on_failure);
+    tile_corrected_access.data_movement_info, mask, confidence_threshold, break_on_failure);
   if (!break_on_failure || eval_status.success)
-    {
-      ComputeVectorAccesses(tile_corrected_access.data_movement_info);
-      ComputeBufferEnergy(tile.data_movement_info);
-      ComputeReductionEnergy();
-      ComputeAddrGenEnergy();
-      ComputePerformance(compute_cycles);
-    }
+  {
+    ComputeVectorAccesses(tile_corrected_access.data_movement_info);
+    ComputeBufferEnergy(tile.data_movement_info);
+    ComputeReductionEnergy();
+    ComputeAddrGenEnergy();
+    ComputePerformance(compute_cycles);
+  }
   return eval_status;
 }
 

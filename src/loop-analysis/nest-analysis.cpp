@@ -2375,4 +2375,31 @@ problem::OperationSpace NestAnalysis::GetCurrentWorkingSet(std::vector<analysis:
   return problem::OperationSpace(workload_, low_problem_point, high_problem_point);
 }
 
+std::uint64_t NestAnalysis::GetLoopOuterSize(const loop::Descriptor &loop) const {
+  bool found = false;
+  analysis::LoopState found_loop;
+  for (auto nest_loop : nest_state_) {
+    if (nest_loop.descriptor == loop) {
+      found = true;
+      found_loop = nest_loop;
+      break;
+    }
+  }
+  if (!found) {
+    std::cout << "Failed to find loop inside loop nest, exiting ...";
+    return 0;
+  }
+
+  std::uint64_t outer_size = 1;
+  for (auto loop2 = nest_state_.rbegin(); loop2 != nest_state_.rend(); loop2++) {
+    if (loop2->level == found_loop.level) {
+      break;
+    } else if (loop2->descriptor.dimension == loop.dimension) {
+      int end = loop2->descriptor.end;
+      int residual_end = loop2->descriptor.residual_end;
+      outer_size = (outer_size - 1) * end + residual_end;
+    }
+  }
+  return outer_size;
+}
 } // namespace analysis
