@@ -27,7 +27,7 @@ ERT_summary:
         primitive_estimation(s):
           - name: System_top_level.GlobalBuffer[1..1]
             estimator: CactiSRAM
-      - name: System_top_level.RegisterFile[1..16]
+      - name: System_top_level.RegisterFile[1..1]
         actions:
           - name: read
             energy: 0.36264
@@ -38,12 +38,12 @@ ERT_summary:
           - name: leak
             energy: 0.0003712
         primitive_estimation(s):
-          - name: System_top_level.RegisterFile[1..16]
+          - name: System_top_level.RegisterFile[1..1]
             estimator: Aladdin_table
-      - name: System_top_level.MACC[1..16]
+      - name: System_top_level.MACC[1..1]
         actions:
           - name: compute
             energy: 0.845
         primitive_estimation(s):
-          - name: System_top_level.MACC[1..16]
+          - name: System_top_level.MACC[1..1]
             estimator: Aladdin_table

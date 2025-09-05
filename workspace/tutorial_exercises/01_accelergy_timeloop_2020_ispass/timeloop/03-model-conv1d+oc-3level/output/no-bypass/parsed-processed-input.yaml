@@ -11,6 +11,30 @@ architecture:
             power_gated_at: null
         local:
           - name: MainMemory[1..1]
+            class: DRAM
+            attributes:
+                depth: 327680
+                width: 256
+                datawidth: 8
+                has_power_gating: false
+                n_banks: 2
+                cluster_size: 1
+                reduction_supported: true
+                multiple_buffering: 1
+                min_utilization: 0
+                allow_overbooking: false
+                meshX: 1
+                meshY: 1
+                technology: "40nm"
+                global_cycle_seconds: 1e-9
+                power_gated_at: null
+            required_actions:
+              - read
+              - update
+              - write
+              - leak
+            enabled: true
+          - name: GlobalBuffer[1..1]
             class: SRAM
             attributes:
                 depth: 32768
@@ -29,12 +53,12 @@ architecture:
                 global_cycle_seconds: 1e-9
                 power_gated_at: null
             required_actions:
-              - leak
-              - write
-              - update
               - read
+              - update
+              - write
+              - leak
             enabled: true
-          - name: Buffer[1..1]
+          - name: RegisterFile[1..1]
             class: regfile
             attributes:
                 depth: 64
@@ -53,10 +77,10 @@ architecture:
                 global_cycle_seconds: 1e-9
                 power_gated_at: null
             required_actions:
-              - leak
-              - write
-              - update
               - read
+              - update
+              - write
+              - leak
             enabled: true
           - name: MACC[1..1]
             class: intmac
@@ -76,13 +100,15 @@ architecture_constraints:
 problem:
     version: '0.4'
     shape:
-        name: Conv1D
+        name: Conv1D_OC
         dimensions:
+          - K
           - R
           - P
         data_spaces:
           - name: Weights
             projection:
+              -   -   - K
               -   -   - R
             read_write: false
           - name: Inputs
@@ -92,10 +118,12 @@ problem:
             read_write: false
           - name: Outputs
             projection:
+              -   -   - K
               -   -   - P
             read_write: true
         coefficients: []
     instance:
+        K: 32
         R: 3
         P: 16
         densities: {}
@@ -105,12 +133,16 @@ compound_components:
 mapping:
   - target: MainMemory
     type: temporal
-    factors: R=3,P=1
-    permutation: RP
-  - target: Buffer
+    factors: R=1,P=1,K=1
+    permutation: PRK
+  - target: GlobalBuffer
     type: temporal
-    factors: R=1,P=16
-    permutation: PR
+    factors: R=1,P=16,K=16
+    permutation: PRK
+  - target: RegisterFile
+    type: temporal
+    factors: R=3,P=1,K=2
+    permutation: RPK
 mapper:
     version: '0.4'
     out_prefix: timeloop-mapper

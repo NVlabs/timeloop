@@ -5,11 +5,11 @@ ERT_summary:
         actions:
           - name: leak
             energy: 0.0
-          - name: write
+          - name: update
             energy: 2048.0
           - name: read
             energy: 2048.0
-          - name: update
+          - name: write
             energy: 2048.0
         primitive_estimation(s):
           - name: System_top_level.MainMemory[1..1]
@@ -18,11 +18,11 @@ ERT_summary:
         actions:
           - name: leak
             energy: 0.00797208
-          - name: write
+          - name: update
             energy: 30.8783
           - name: read
             energy: 43.3531
-          - name: update
+          - name: write
             energy: 30.8783
         primitive_estimation(s):
           - name: System_top_level.GlobalBuffer[1..1]
@@ -31,11 +31,11 @@ ERT_summary:
         actions:
           - name: leak
             energy: 0.0003712
-          - name: write
+          - name: update
             energy: 0.36264
           - name: read
             energy: 0.36264
-          - name: update
+          - name: write
             energy: 0.36264
         primitive_estimation(s):
           - name: System_top_level.RegisterFile[1..16]

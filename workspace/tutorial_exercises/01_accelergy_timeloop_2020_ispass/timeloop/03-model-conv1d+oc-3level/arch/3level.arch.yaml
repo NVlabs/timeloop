@@ -11,6 +11,7 @@ architecture:
     name: MainMemory
     class: DRAM
     attributes:
+      depth: 327680
       width: 256
       datawidth: 8
 

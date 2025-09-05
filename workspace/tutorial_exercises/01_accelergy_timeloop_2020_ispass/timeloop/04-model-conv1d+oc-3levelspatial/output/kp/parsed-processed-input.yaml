@@ -30,9 +30,9 @@ architecture:
                 power_gated_at: null
             required_actions:
               - leak
-              - write
-              - read
               - update
+              - read
+              - write
             enabled: true
           - name: GlobalBuffer[1..1]
             class: SRAM
@@ -54,9 +54,9 @@ architecture:
                 power_gated_at: null
             required_actions:
               - leak
-              - write
-              - read
               - update
+              - read
+              - write
             enabled: true
           - name: inter_PE_spatial[1..1]
             class: dummy_storage
@@ -97,9 +97,9 @@ architecture:
                 power_gated_at: null
             required_actions:
               - leak
-              - write
-              - read
               - update
+              - read
+              - write
             enabled: true
           - name: MACC[1..16]
             class: intmac

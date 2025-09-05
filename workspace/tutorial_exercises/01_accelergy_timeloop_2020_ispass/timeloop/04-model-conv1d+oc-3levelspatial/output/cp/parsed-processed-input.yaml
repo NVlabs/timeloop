@@ -29,10 +29,10 @@ architecture:
                 global_cycle_seconds: 1e-9
                 power_gated_at: null
             required_actions:
-              - write
-              - update
-              - leak
               - read
+              - update
+              - write
+              - leak
             enabled: true
           - name: GlobalBuffer[1..1]
             class: SRAM
@@ -53,10 +53,10 @@ architecture:
                 global_cycle_seconds: 1e-9
                 power_gated_at: null
             required_actions:
-              - write
-              - update
-              - leak
               - read
+              - update
+              - write
+              - leak
             enabled: true
           - name: inter_PE_spatial[1..1]
             class: dummy_storage
@@ -96,10 +96,10 @@ architecture:
                 global_cycle_seconds: 1e-9
                 power_gated_at: null
             required_actions:
-              - write
-              - update
-              - leak
               - read
+              - update
+              - write
+              - leak
             enabled: true
           - name: MACC[1..16]
             class: intmac

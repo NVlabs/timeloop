@@ -1718,28 +1718,28 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
       }
     }
     //   // ======================= DBG语句开始 =======================
-    if(enable_debug_print){}
-    // {
-    //   for (unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
-    //   {
-    //     // 仅当目标数量大于1时，才认为是多播
-    //     if (num_matches[pv] > 1 && delta.GetSize(pv) > 0)
+    if(enable_debug_print)
+    {
+      for (unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
+      {
+        // 仅当目标数量大于1时，才认为是多播
+        if (num_matches[pv] > 1 && delta.GetSize(pv) > 0)
         
-    //     {
-    //       // 使用 stringstream 来格式化位置列表，使其更易读
-    //       std::stringstream locations_ss;
-    //       for (const auto& loc : match_set[pv])
-    //       {
-    //         locations_ss << loc << " ";
-    //       }
+        {
+          // 使用 stringstream 来格式化位置列表，使其更易读
+          std::stringstream locations_ss;
+          for (const auto& loc : match_set[pv])
+          {
+            locations_ss << loc << " ";
+          }
 
-    //       // 打印详细的多播信息
-    //       // 你可以把 std::cout 替换为你的 dbg() 宏
-    //       dbg(pv, num_matches[pv], delta.GetSize(pv), match_set[pv]);
-    //     }
-    //   }
+          // 打印详细的多播信息
+          // 你可以把 std::cout 替换为你的 dbg() 宏
+          dbg(pv, num_matches[pv], delta.GetSize(pv), match_set[pv]);
+        }
+      }
       
-    // }
+    }
       // ======================= DBG语句结束 =======================
     // NOTE: multicast is # children sharing the same delta
     //       scatter factor is the # data spaces with the same multicast value

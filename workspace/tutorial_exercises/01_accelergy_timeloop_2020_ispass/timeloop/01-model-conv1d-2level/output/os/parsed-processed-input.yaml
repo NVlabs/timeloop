@@ -29,9 +29,9 @@ architecture:
                 global_cycle_seconds: 1e-9
                 power_gated_at: null
             required_actions:
+              - update
               - write
               - read
-              - update
               - leak
             enabled: true
           - name: Buffer[1..1]
@@ -53,9 +53,9 @@ architecture:
                 global_cycle_seconds: 1e-9
                 power_gated_at: null
             required_actions:
+              - update
               - write
               - read
-              - update
               - leak
             enabled: true
           - name: MACC[1..1]

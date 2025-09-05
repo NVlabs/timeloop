@@ -24,10 +24,10 @@ architecture:
             cycle_seconds: 1e-09
             n_instances: 1
         required_actions:
+          - read
           - leak
           - write
           - update
-          - read
         enabled: true
         area_scale: 1.0
         energy_scale: 1.0

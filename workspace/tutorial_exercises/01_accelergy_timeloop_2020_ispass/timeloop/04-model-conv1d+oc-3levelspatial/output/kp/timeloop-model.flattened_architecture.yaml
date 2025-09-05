@@ -25,9 +25,9 @@ architecture:
             n_instances: 1
         required_actions:
           - leak
-          - write
-          - read
           - update
+          - read
+          - write
         enabled: true
         area_scale: 1.0
         energy_scale: 1.0
@@ -55,9 +55,9 @@ architecture:
             n_instances: 1
         required_actions:
           - leak
-          - write
-          - read
           - update
+          - read
+          - write
         enabled: true
         area_scale: 1.0
         energy_scale: 1.0
@@ -110,9 +110,9 @@ architecture:
             n_instances: 1
         required_actions:
           - leak
-          - write
-          - read
           - update
+          - read
+          - write
         enabled: true
         area_scale: 1.0
         energy_scale: 1.0

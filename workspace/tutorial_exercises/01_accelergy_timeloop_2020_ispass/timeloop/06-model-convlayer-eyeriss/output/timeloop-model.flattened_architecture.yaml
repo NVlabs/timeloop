@@ -25,10 +25,10 @@ architecture:
             cycle_seconds: 1e-09
             n_instances: 1
         required_actions:
-          - write
-          - update
-          - read
           - leak
+          - write
+          - read
+          - update
         enabled: true
         area_scale: 1.0
         energy_scale: 1.0
@@ -66,10 +66,10 @@ architecture:
             static_energy_scale: 1.0
             n_rdwr_ports: 1
         required_actions:
-          - write
-          - update
-          - read
           - leak
+          - write
+          - read
+          - update
         enabled: true
         area_scale: 1.0
         energy_scale: 1.0
@@ -157,10 +157,10 @@ architecture:
             static_energy_scale: 0.09375
             n_rdwr_ports: 1
         required_actions:
-          - write
-          - update
-          - read
           - leak
+          - write
+          - read
+          - update
         enabled: true
         area_scale: 1.0
         energy_scale: 1.0
@@ -198,10 +198,10 @@ architecture:
             static_energy_scale: 0.5
             n_rdwr_ports: 1
         required_actions:
-          - write
-          - update
-          - read
           - leak
+          - write
+          - read
+          - update
         enabled: true
         area_scale: 1.0
         energy_scale: 1.0
@@ -240,10 +240,10 @@ architecture:
             static_energy_scale: 0.125
             n_rdwr_ports: 1
         required_actions:
-          - write
-          - update
-          - read
           - leak
+          - write
+          - read
+          - update
         enabled: true
         area_scale: 1.0
         energy_scale: 1.0
