@@ -1,0 +1,7 @@
+*.log
+*/timeloop-model.*.yaml
+*/timeloop-model.*.txt
+*/timeloop-model.*.xml
+*/timeloop-mapper.*.yaml
+*/timeloop-mapper.*.txt
+*/timeloop-mapper.*.xml

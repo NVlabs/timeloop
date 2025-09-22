@@ -1,0 +1,10 @@
+mapping:
+  - target: BackingStorage
+    type: temporal
+    factors: K=1 M=1 N=4  # non-trivial N factor indicate tiling on N dimension
+    permutation: NKM
+
+  - target: Buffer
+    type: temporal
+    factors: K=8 M=8 N=2
+    permutation: NKM

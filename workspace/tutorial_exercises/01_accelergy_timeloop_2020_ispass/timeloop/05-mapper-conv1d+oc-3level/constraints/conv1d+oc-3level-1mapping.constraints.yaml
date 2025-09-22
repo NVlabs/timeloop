@@ -1,0 +1,39 @@
+# These directives completely constrain every single aspect of the mapspace,
+# thereby reducing the space down to single degenerate mapping. Running the
+# mapper with these constraints will produce the same result as running
+# the model directly on that degenerate mapping (which is coincidentally
+# specified in a similar syntax).
+
+mapspace_constraints:
+  version: 0.4
+  targets:
+  - target: MainMemory
+    type: temporal
+    factors: R=1 P=1 K=1
+    permutation: PRK
+      
+  - target: GlobalBuffer
+    type: temporal
+    factors: R=1 P=16 K=16
+    permutation: PRK
+        
+  - target: RegisterFile
+    type: temporal
+    factors: R=3 P=1 K=2
+    permutation: RPK
+    
+    # Do not allow bypass anywhere.
+
+  - target: GlobalBuffer
+    type: dataspace
+    keep:
+    - Weights
+    - Inputs
+    - Outputs
+
+  - target: RegisterFile
+    type: dataspace
+    keep:
+    - Weights
+    - Inputs
+    - Outputs

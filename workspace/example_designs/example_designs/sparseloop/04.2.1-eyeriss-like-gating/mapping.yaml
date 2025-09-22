@@ -1,0 +1,62 @@
+
+mapping:
+  # certain buffer only stores certain datatypes
+  - target: DRAM
+    type: temporal
+    permutation: [R, S, P, C, M, N, Q]
+    factors: [R=1, S=1, P=1, C=64, M=6, N=1, Q=1]
+  - target: DRAM
+    type: dataspace
+    keep: [Weights, Inputs, Outputs]
+
+
+  # only allow fanout of M, Q out from glb
+  - target: PE_column
+    type: spatial
+    split: 7
+    permutation: [N, C, P, R, S, Q, M]
+    factors: [N=1, C=1, P=1, R=1, S=1, Q=0, M=1]
+  - target: shared_glb
+    type: temporal
+    permutation: [Q, R, S, C, P, N, M] 
+    factors: [Q=1, R=1, S=1, P=0, C=1, N=4, M=1]
+  - target: shared_glb
+    type: dataspace
+    bypass: [Weights]
+    keep: [Inputs, Outputs]
+
+  - target: PE
+    type: spatial
+    split: 4
+    permutation: [N, P, Q, R, S, C, M]
+    factors: [N=1, P=1, Q=1, R=1, S=0, C=1, M=4]
+
+  - target: ifmap_spad
+    type: dataspace
+    bypass: [Weights, Outputs]
+    keep: [Inputs]
+  - target: ifmap_spad
+    type: temporal
+    permutation: [N, M, C, P, Q, R, S]
+    factors: [N=1, M=1, C=1, P=1, Q=1, R=1, S=1]
+
+
+  # row stationary -> 1 row at a time
+  - target: weights_spad
+    type: temporal
+    permutation: [N, M, P, Q, S, C, R]
+    factors: [N=1, M=1, P=1, Q=1, S=1, R=0, C=4]
+  - target: weights_spad
+    type: dataspace
+    bypass: [Inputs, Outputs]
+    keep: [Weights]
+
+  # one ofmap position but of different output channels
+  - target: psum_spad
+    type: temporal
+    permutation: [N, C, P, Q, R, S, M] 
+    factors: [N=1, C=1, R=1, S=1, P=1, Q=1, M=16]
+  - target: psum_spad
+    type: dataspace
+    bypass: [Inputs, Weights]
+    keep: [Outputs]

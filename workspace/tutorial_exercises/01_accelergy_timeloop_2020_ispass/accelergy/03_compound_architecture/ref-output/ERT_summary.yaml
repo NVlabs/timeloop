@@ -1,0 +1,60 @@
+ERT_summary:
+  version: 0.3
+  table_summary:
+  - name: simple_compound.PE[0..4].MAC
+    actions:
+    - name: mac_random
+      energy: 2.778
+    - name: mac_reused
+      energy: 2.455
+    - name: mac_gated
+      energy: 0.115
+    - name: idle
+      energy: 0.078
+    primitive_estimation(s):
+    - name: mac
+      estimator: Aladdin_table
+    - name: output_fifo
+      estimator: Aladdin_table
+  - name: simple_compound.PE[0..4].buffer
+    actions:
+    - name: write
+      average_energy: 0.178
+      max_energy: 0.302
+      min_energy: 0.055
+    - name: read
+      average_energy: 0.178
+      max_energy: 0.302
+      min_energy: 0.055
+    - name: idle
+      energy: 0.018
+    primitive_estimation(s):
+    - name: storage
+      estimator: Aladdin_table
+    - name: address_generators[0]
+      estimator: Aladdin_table
+    - name: address_generators[1]
+      estimator: Aladdin_table
+    - name: address_generators[0..1]
+      estimator: Aladdin_table
+  - name: simple_compound.GLB
+    actions:
+    - name: write
+      average_energy: 3.427
+      max_energy: 6.804
+      min_energy: 0.049
+    - name: read
+      average_energy: 2.944
+      max_energy: 5.839
+      min_energy: 0.049
+    - name: idle
+      energy: 0.012
+    primitive_estimation(s):
+    - name: storage
+      estimator: Cacti
+    - name: address_generators[0]
+      estimator: Aladdin_table
+    - name: address_generators[1]
+      estimator: Aladdin_table
+    - name: address_generators[0..1]
+      estimator: Aladdin_table

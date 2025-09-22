@@ -1,0 +1,10 @@
+energy_estimation:
+  version: 0.3
+  components:
+  - name: simple_primitive.GLB
+    energy: 141.34
+  - name: simple_primitive.PE.buffer
+    energy: 10.81
+  - name: simple_primitive.PE.MAC
+    energy: 67.545
+  Total: 219.695

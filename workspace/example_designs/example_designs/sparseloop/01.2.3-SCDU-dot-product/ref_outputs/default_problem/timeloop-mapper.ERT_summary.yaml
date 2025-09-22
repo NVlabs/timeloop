@@ -1,0 +1,63 @@
+ERT_summary:
+    version: '0.4'
+    table_summary:
+      - name: PE_top_level.Buffer[1..1]
+        actions:
+          - name: read
+            energy: 0.582895
+          - name: write
+            energy: 0.510895
+          - name: update
+            energy: 0.510895
+          - name: metadata_read
+            energy: 0.191076
+          - name: metadata_write
+            energy: 0.170111
+          - name: metadata_update
+            energy: 0.170111
+          - name: leak
+            energy: 0.002083
+          - name: decompression_count
+            energy: 0.0
+          - name: compression_count
+            energy: 0.0
+        primitive_estimation(s):
+          - name: storage.storage.storage[1..32]
+            estimator: Library
+          - name: storage.storage.comparator[1..64]
+            estimator: Library
+          - name: storage.address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.address_generators[0]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage.storage[1..32]
+            estimator: Library
+          - name: metadata_storage.storage.comparator[1..64]
+            estimator: Library
+          - name: metadata_storage.address_generators[1]
+            estimator: Aladdin_table
+          - name: metadata_storage.address_generators[0]
+            estimator: Aladdin_table
+          - name: storage.storage.storage[1..2048]
+            estimator: Library
+          - name: storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage.storage[1..2048]
+            estimator: Library
+          - name: metadata_storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_counters[1]
+            estimator: Aladdin_table
+          - name: metadata_counters[0]
+            estimator: Aladdin_table
+      - name: PE_top_level.mac[1..1]
+        actions:
+          - name: compute
+            energy: 0.315
+          - name: leak
+            energy: 0.0036
+        primitive_estimation(s):
+          - name: intadder
+            estimator: Library
+          - name: intmultiplier
+            estimator: Library

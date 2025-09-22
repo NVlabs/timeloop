@@ -1,0 +1,46 @@
+ERT_summary:
+  version: 0.3
+  table_summary:
+  - name: simple_primitive.PE.MAC
+    actions:
+    - name: mac_random
+      energy: 2.2
+    - name: mac_reused
+      energy: 1.877
+    - name: mac_gated
+      energy: 0.103
+    - name: idle
+      energy: 0.066
+    primitive_estimation(s):
+    - name: simple_primitive.PE.MAC
+      estimator: Aladdin_table
+  - name: simple_primitive.PE.buffer
+    actions:
+    - name: read
+      average_energy: 0.13
+      max_energy: 0.253
+      min_energy: 0.006
+    - name: write
+      average_energy: 0.13
+      max_energy: 0.253
+      min_energy: 0.006
+    - name: idle
+      energy: 0.006
+    primitive_estimation(s):
+    - name: simple_primitive.PE.buffer
+      estimator: Aladdin_table
+  - name: simple_primitive.GLB
+    actions:
+    - name: read
+      average_energy: 2.41
+      max_energy: 4.82
+      min_energy: 0.0
+    - name: write
+      average_energy: 2.247
+      max_energy: 4.494
+      min_energy: 0.0
+    - name: idle
+      energy: 0.0
+    primitive_estimation(s):
+    - name: simple_primitive.GLB
+      estimator: Cacti

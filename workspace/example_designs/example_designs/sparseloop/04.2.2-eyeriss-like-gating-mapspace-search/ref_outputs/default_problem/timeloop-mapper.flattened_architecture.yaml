@@ -1,0 +1,252 @@
+architecture:
+    version: '0.4'
+    local:
+      - name: eyeriss_168_top_level.DRAM[1..1]
+        class: DRAM
+        attributes:
+            width: 64
+            datawidth: 16
+            metadata_storage_width: 60
+            metadata_datawidth: 5
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            technology: "45nm"
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - update
+          - leak
+          - read
+          - write
+        enabled: true
+      - name: eyeriss_168_top_level.shared_glb[1..1]
+        class: storage
+        subclass: smartbuffer_metadata
+        attributes:
+            depth: 12800
+            width: 64
+            n_banks: 1
+            read_bandwidth: 16
+            write_bandwidth: 16
+            datawidth: 16
+            metadata_storage_depth: 0
+            metadata_storage_width: 0
+            metadata_datawidth: 0
+            metadata_counter_width: 9
+            decompression_supported: true
+            compression_supported: true
+            has_power_gating: false
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            technology: "45nm"
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            n_rdwr_ports: 1
+        required_actions:
+          - update
+          - leak
+          - read
+          - write
+        enabled: true
+      - name: eyeriss_168_top_level.inter_PE_column_spatial[1..1]
+        class: dummy_storage
+        attributes:
+            width: 1
+            depth: 1
+            datawidth: 1
+            technology: -1
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        enabled: true
+      - name: eyeriss_168_top_level.inter_PE_spatial[1..14]
+        class: dummy_storage
+        attributes:
+            width: 1
+            depth: 1
+            datawidth: 1
+            technology: -1
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 14
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        enabled: true
+      - name: eyeriss_168_top_level.ifmap_spad[1..168]
+        class: storage
+        subclass: smartbuffer_RF
+        attributes:
+            depth: 12
+            width: 17
+            n_banks: 1
+            datawidth: 17
+            read_bandwidth: 2
+            write_bandwidth: 2
+            has_power_gating: false
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 14
+            meshY: 12
+            technology: "45nm"
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            memory_width: 32
+            memory_depth: 64
+            widthscale: 0.53125
+            depthscale: 0.1875
+            real_depth: 12
+            area_scale: 0.099609375
+            dynamic_energy_scale: 0.1439593692898605
+            static_energy_scale: 0.099609375
+            n_rdwr_ports: 1
+        required_actions:
+          - update
+          - leak
+          - read
+          - write
+        enabled: true
+      - name: eyeriss_168_top_level.weights_spad[1..168]
+        class: storage
+        subclass: smartbuffer_RF
+        attributes:
+            depth: 224
+            width: 16
+            n_banks: 1
+            datawidth: 16
+            read_bandwidth: 2
+            write_bandwidth: 2
+            has_power_gating: false
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 14
+            meshY: 12
+            technology: "45nm"
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            memory_width: 32
+            memory_depth: 224
+            widthscale: 0.5
+            depthscale: 1.0
+            real_depth: 224
+            area_scale: 0.5
+            dynamic_energy_scale: 0.5
+            static_energy_scale: 0.5
+            n_rdwr_ports: 1
+        required_actions:
+          - update
+          - leak
+          - read
+          - write
+        enabled: true
+      - name: eyeriss_168_top_level.psum_spad[1..168]
+        class: storage
+        subclass: smartbuffer_RF
+        attributes:
+            depth: 24
+            width: 16
+            n_banks: 1
+            datawidth: 16
+            has_power_gating: false
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 14
+            meshY: 12
+            technology: "45nm"
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            memory_width: 32
+            memory_depth: 64
+            widthscale: 0.5
+            depthscale: 0.375
+            real_depth: 24
+            area_scale: 0.1875
+            dynamic_energy_scale: 0.23265607289158186
+            static_energy_scale: 0.1875
+            n_rdwr_ports: 1
+        required_actions:
+          - update
+          - leak
+          - read
+          - write
+        enabled: true
+      - name: eyeriss_168_top_level.mac[1..168]
+        class: intmac
+        attributes:
+            multiplier_width: 8
+            adder_width: 16
+            has_power_gating: false
+            meshX: 14
+            meshY: 12
+            technology: "45nm"
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - compute
+        enabled: true

@@ -1,0 +1,25 @@
+# These directives constrain all aspects of the mapspace *except* all the
+# ways for data_spaces to bypass storage levels. Timeloop assumes that
+# all data_spaces originate in the last-level storage and therefore must
+# reside there. However, all options are open for the other 2 storage
+# levels in this example. since there are 3 data_spaces, the total number
+# of choices = 2^(2*3) = 64, which is the size of the mapspace.
+
+mapspace_constraints:
+  version: 0.4
+  targets:
+  - target: MainMemory
+    type: temporal
+    factors: R=1 P=1 K=1
+    permutation: PRK
+      
+  - target: GlobalBuffer
+    type: temporal
+    factors: R=1 P=16 K=16
+    permutation: PRK
+        
+  - target: RegisterFile
+    type: temporal
+    factors: R=3 P=1 K=2
+    permutation: RPK
+    

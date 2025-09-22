@@ -1,0 +1,8 @@
+#error Tenssella does not support bypass.
+#error Tenssella does not support bypass.
+t1
+M 1 S 1 Q 1 
+Q
+t0
+M 16 S 3 Q 9 
+MSQ

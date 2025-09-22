@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) 启动 timeloop-mapper",
+            "type": "cppdbg",
+            "request": "launch",
+            // 1. 指定您的主可执行程序路径
+            "program": "/home/arch/.local/bin/timeloop-mapper",
+            // 2. 在这里填写程序的命令行参数，每个参数是一个独立的字符串
+            "args": [
+                "/home/arch/accelergy-timeloop-infrastructure/src/timeloop/workspace/tutorial_exercises/01_accelergy_timeloop_2020_ispass/timeloop/06-mapper-convlayer-eyeriss/output/parsed-processed-input.yaml"
+                
+            ],
+            "stopAtEntry": false,
+            // 3. 指定程序的工作目录，通常是项目根目录
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            // 4. (可选) 如果gdb不在系统路径中，可以在这里指定它的绝对路径
+            // "miDebuggerPath": "/usr/bin/gdb",
+
+        }
+    ]
+}

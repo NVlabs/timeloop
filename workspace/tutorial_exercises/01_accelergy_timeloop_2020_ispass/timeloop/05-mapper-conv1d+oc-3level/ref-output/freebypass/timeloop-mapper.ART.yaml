@@ -1,0 +1,11 @@
+ART:
+    version: '0.4'
+    tables:
+      - name: System_top_level.MainMemory[1..1]
+        area: 0.0
+      - name: System_top_level.GlobalBuffer[1..1]
+        area: 707084.0
+      - name: System_top_level.RegisterFile[1..1]
+        area: 887.84
+      - name: System_top_level.MACC[1..1]
+        area: 332.25

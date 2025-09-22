@@ -92,13 +92,13 @@ class PerDataSpace : public DynamicArray<T>
 
   friend std::ostream& operator << (std::ostream& out, const PerDataSpace<T>& x)
   {
-    // for (unsigned pvi = 0; pvi < GetShape()->NumDataSpaces; pvi++)
-    // {
-    //   out << std::setw(10) << GetShape()->DataSpaceIDToName.at(pvi) << ": " << x[pvi] << std::endl;
-    // }
-    for (unsigned pvi = 0; pvi < x.size(); pvi++)
+          // 使用这个信息更丰富的版本
+    for (unsigned pvi = 0; pvi < problem::GetShape()->NumDataSpaces; pvi++)
     {
-      out << pvi << ": " << x[pvi] << std::endl;
+        out << std::setw(12) << std::left << problem::GetShape()->DataSpaceIDToName.at(pvi) + ":" << x[pvi];
+        if (pvi < problem::GetShape()->NumDataSpaces - 1) {
+            out << std::endl;
+        }
     }
     return out;
   }

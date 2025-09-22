@@ -1,0 +1,20 @@
+problem:                     # problem specification (Einsum based)
+  version: 0.4
+  shape:
+    name: "dot-product-ABZ"
+    dimensions: [ K, M ]
+    data_spaces:             # points to a list of "tensors" in this problem
+      - name: A              # name of a tensor
+        projection:          # which dimensions index nto the specific tensor
+          - [ [ K ] ]
+      - name: B
+        projection:
+          - [ [ K ] ]
+      - name: Z
+        projection:
+          - [ [ M ] ]
+        read_write: True     # result tensor
+
+  instance:                  # exact instance of the problem
+    M: 1                     # Z only has one element
+    K: 16

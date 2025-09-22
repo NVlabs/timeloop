@@ -1,0 +1,104 @@
+ERT_summary:
+    version: '0.4'
+    table_summary:
+      - name: system_top_level.BackingStorage[1..1]
+        actions:
+          - name: read
+            energy: 2.290882
+          - name: write
+            energy: 2.694173
+          - name: update
+            energy: 2.694173
+          - name: metadata_read
+            energy: 0.373885
+          - name: metadata_write
+            energy: 0.726887
+          - name: metadata_update
+            energy: 0.726887
+          - name: leak
+            energy: 0.002378
+          - name: decompression_count
+            energy: 0.0
+          - name: compression_count
+            energy: 0.0
+        primitive_estimation(s):
+          - name: storage.storage
+            estimator: CactiSRAM
+          - name: storage.address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.address_generators[0]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage
+            estimator: CactiSRAM
+          - name: metadata_storage.address_generators[1]
+            estimator: Aladdin_table
+          - name: metadata_storage.address_generators[0]
+            estimator: Aladdin_table
+          - name: storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_counters[1]
+            estimator: Aladdin_table
+          - name: metadata_counters[0]
+            estimator: Aladdin_table
+      - name: system_top_level.Buffer[1..1]
+        actions:
+          - name: read
+            energy: 2.01058
+          - name: write
+            energy: 1.93858
+          - name: update
+            energy: 1.93858
+          - name: metadata_read
+            energy: 0.220341
+          - name: metadata_write
+            energy: 0.196368
+          - name: metadata_update
+            energy: 0.196368
+          - name: leak
+            energy: 0.003738
+          - name: decompression_count
+            energy: 0.0
+          - name: compression_count
+            energy: 0.0
+        primitive_estimation(s):
+          - name: storage.storage.storage[1..32]
+            estimator: Library
+          - name: storage.storage.comparator[1..256]
+            estimator: Library
+          - name: storage.address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.address_generators[0]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage.storage[1..32]
+            estimator: Library
+          - name: metadata_storage.storage.comparator[1..64]
+            estimator: Library
+          - name: metadata_storage.address_generators[1]
+            estimator: Aladdin_table
+          - name: metadata_storage.address_generators[0]
+            estimator: Aladdin_table
+          - name: storage.storage.storage[1..8192]
+            estimator: Library
+          - name: storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage.storage[1..2048]
+            estimator: Library
+          - name: metadata_storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_counters[1]
+            estimator: Aladdin_table
+          - name: metadata_counters[0]
+            estimator: Aladdin_table
+      - name: system_top_level.mac[1..1]
+        actions:
+          - name: compute
+            energy: 0.315
+          - name: leak
+            energy: 0.0036
+        primitive_estimation(s):
+          - name: intadder
+            estimator: Library
+          - name: intmultiplier
+            estimator: Library

@@ -1,0 +1,9 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: PE_top_level.Buffer[1..1]
+        area: 887.84
+        primitive_estimations: Aladdin_table
+      - name: PE_top_level.MACC[1..1]
+        area: 332.25
+        primitive_estimations: Aladdin_table

@@ -1,0 +1,63 @@
+compound_components:
+  version: 0.4         # REQUIRED version number
+  classes:
+  - name: smartbuffer_SRAM
+    attributes:
+      technology: "must_specify"
+      width: "must_specify"
+      depth: "must_specify"
+      # CACTI requires >= 4B wide and >= 64 entries deep
+      memory_width: max(32, width)
+      memory_depth: max(64, depth)
+      widthscale: width / memory_width
+      depthscale: depth / memory_depth
+      real_depth: depth
+
+      area_scale: widthscale * depthscale
+      # CACTI scaling: 2x depth --> 1.56x dynamic power
+      dynamic_energy_scale: widthscale * (depthscale ** (1.56 / 2))
+      static_energy_scale: area_scale # Leakage proportional to area
+      n_rdwr_ports: 1 # Can be overwridden
+      global_cycle_seconds: "must_specify"
+      
+
+    subcomponents:
+    - name: storage
+      class: SRAM
+      area_scale: area_scale
+      attributes:
+        width: memory_width
+        depth: memory_depth
+        n_rdwr_ports: n_rdwr_ports
+        global_cycle_seconds: global_cycle_seconds
+    
+    # We don't need to scale the address generators
+    - name: address_generators[0..1] 
+      class: intadder
+      attributes:
+        n_bits: max(1, ceil(log2(real_depth))) if real_depth >= 1 else 1
+        precision: max(1, ceil(log2(real_depth))) if real_depth >= 1 else 1
+        global_cycle_seconds: global_cycle_seconds
+
+    actions:
+    - &write_action
+      name: write 
+      subcomponents:
+      - name: storage
+        actions: [{name: write, energy_scale: dynamic_energy_scale}]
+      - name: address_generators[0]
+        actions: [{name: add}]
+    - name: read
+      subcomponents:
+      - name: storage
+        actions: [{name: read, energy_scale: dynamic_energy_scale}]
+      - name: address_generators[1]
+        actions: [{name: add}]
+    - name: leak
+      subcomponents:
+      - name: storage
+        actions: [{name: leak, energy_scale: static_energy_scale}]
+      - name: address_generators[0..1]
+        actions: [{name: leak}]
+    - name: update
+      << : *write_action # Update is the same as write

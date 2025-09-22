@@ -1,0 +1,49 @@
+ERT_summary:
+    version: '0.4'
+    table_summary:
+      - name: System_top_level.MainMemory[1..1]
+        actions:
+          - name: update
+            energy: 2048.0
+          - name: read
+            energy: 2048.0
+          - name: write
+            energy: 2048.0
+          - name: leak
+            energy: 0.0
+        primitive_estimation(s):
+          - name: System_top_level.MainMemory[1..1]
+            estimator: CactiDRAM
+      - name: System_top_level.GlobalBuffer[1..16]
+        actions:
+          - name: update
+            energy: 30.878292
+          - name: read
+            energy: 43.353054
+          - name: write
+            energy: 30.878292
+          - name: leak
+            energy: 0.007972
+        primitive_estimation(s):
+          - name: System_top_level.GlobalBuffer[1..16]
+            estimator: CactiSRAM
+      - name: System_top_level.RegisterFile[1..16]
+        actions:
+          - name: update
+            energy: 0.42564
+          - name: read
+            energy: 0.42564
+          - name: write
+            energy: 0.42564
+          - name: leak
+            energy: 0.000861
+        primitive_estimation(s):
+          - name: System_top_level.RegisterFile[1..16]
+            estimator: Aladdin_table
+      - name: System_top_level.MACC[1..16]
+        actions:
+          - name: compute
+            energy: 0.845
+        primitive_estimation(s):
+          - name: System_top_level.MACC[1..16]
+            estimator: Aladdin_table

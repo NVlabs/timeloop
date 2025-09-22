@@ -1,0 +1,68 @@
+compound_components:
+  version: 0.3
+  classes:
+  - name: smartbuffer_RF
+    attributes:
+      technology: 45nm
+      memory_depth: 12
+      memory_width: 16
+      n_rdwr_ports: 2
+      n_banks: 1
+      n_buffets: 1
+    subcomponents:
+      - name: storage
+        class: regfile
+        attributes:
+          technology: technology
+          width: memory_width
+          depth: memory_depth
+          n_rdwr_ports: n_rdwr_ports
+          n_banks: n_banks
+      - name: address_generators[0..1]
+        class: intadder
+        attributes:
+          technology: technology
+          width: log(memory_depth)
+    actions:
+      - name: write
+        arguments:
+          data_delta: 0..1
+          address_delta: 0..n_banks
+        subcomponents:
+          - name: storage
+            actions:
+              - name: write
+                arguments:
+                  data_delta: data_delta
+                  address_delta: address_delta
+          - name: address_generators[0]
+            actions:
+              - name: add
+          - name: address_generators[1]
+            actions:
+              - name: idle
+      - name: read
+        arguments:
+          data_delta: 0..1
+          address_delta: 0..n_banks
+        subcomponents:
+          - name: storage
+            actions:
+              - name: read
+                arguments:
+                  data_delta: data_delta
+                  address_delta: address_delta
+          - name: address_generators[1]
+            actions:
+              - name: add
+          - name: address_generators[0]
+            actions:
+              - name: idle
+      - name: idle
+        subcomponents:
+          - name: storage
+            actions:
+              - name: idle
+          - name: address_generators[0..1]
+            actions:
+              - name: idle

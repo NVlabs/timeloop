@@ -1,0 +1,89 @@
+architecture:
+    version: '0.4'
+    local:
+      - name: system_top_level.BackingStorage[1..1]
+        class: smartbuffer_metadata
+        attributes:
+            depth: 512
+            width: 32
+            datawidth: 8
+            metadata_storage_depth: 128
+            metadata_storage_width: 4
+            metadata_datawidth: 4
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            technology: "45nm"
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            n_rdwr_ports: 1
+            metadata_counter_width: 0
+        required_actions:
+          - write
+          - update
+          - read
+          - leak
+        enabled: true
+      - name: system_top_level.Buffer[1..1]
+        class: storage
+        subclass: regfile_metadata
+        attributes:
+            depth: 64
+            width: 8
+            datawidth: 8
+            metadata_storage_depth: 64
+            metadata_storage_width: 4
+            metadata_datawidth: 4
+            read_bandwidth: 5
+            write_bandwidth: 5
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            technology: "45nm"
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+            metadata_counter_width: 0
+        required_actions:
+          - write
+          - update
+          - read
+          - leak
+        enabled: true
+      - name: system_top_level.mac[1..1]
+        class: intmac
+        attributes:
+            multiplier_width: 8
+            adder_width: 16
+            has_power_gating: false
+            meshX: 1
+            meshY: 1
+            technology: "45nm"
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - compute
+        enabled: true

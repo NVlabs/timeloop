@@ -1,0 +1,20 @@
+problem:
+  version: 0.4
+  shape:
+    name: Conv1D
+    dimensions: [ R, P ]
+    data_spaces:
+    - name: Weights
+      projection:
+      - [ [R] ]
+    - name: Inputs
+      projection:
+      - [ [R], [P] ]
+    - name: Outputs
+      projection:
+      - [ [P] ]
+      read_write: True
+
+  instance:
+    R: 3
+    P: 16

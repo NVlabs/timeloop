@@ -34,7 +34,7 @@
 #include <isl/cpp.h>
 #include <isl/set.h>
 #include <isl/space.h>
-
+#include  <dbg.h>
 // FIXME: num_spatial_elems, spatial_fanouts, replication_factor etc. are
 //        all maintained across datatypes. They should be per-datatype at
 //        this analytical level of abstraction. It's only when we get to
@@ -102,6 +102,7 @@ namespace analysis
 
 NestAnalysis::NestAnalysis()
 {
+  std::cout << "[DEBUG] NestAnalysis constructor has been called." << std::endl;
 }
 
 
@@ -366,6 +367,7 @@ std::ostream& operator << (std::ostream& out, const NestAnalysis& n)
 
 void NestAnalysis::ComputeWorkingSets()
 {
+  std::cout<< "Hello NestAnalysis!" << std::endl;
   if (nest_state_.size() != 0)
   {
     InitializeNestProperties();
@@ -735,7 +737,6 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   //
   // Step I: Compute Accesses.
   //
-
   if (loop::IsSpatial(cur->descriptor.spacetime_dimension))
   {
     ComputeSpatialWorkingSet(cur);
@@ -777,19 +778,8 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   }
 
   // Trace.
-  if (gEnableTracing && storage_boundary_level_[level])
-  {
-    assert(time_stamp_.size() == space_stamp_.size());
-    assert(storage_tiling_boundaries_.size() - arch_storage_level_.at(level) == time_stamp_.size());
-    std::string indent = "";
-    for (unsigned i = 0; i < storage_tiling_boundaries_.size() - arch_storage_level_.at(level); i++)
-    {
-      indent += "  ";
-    }
-    std::cout << indent;
-    PrintSpaceTimeStamp();
-    std::cout << " " << point_set << std::endl;
-  }
+  
+  // if (gEnableTracing && storage_boundary_level_[level])
 
   // Calculate delta to send up to caller.
 #define NEW_RESET_ON_STRIDE_CHANGE_APPROACH
@@ -800,6 +790,7 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   // across ancestor iterations, we apply a simple heuristic to detect this
   // behavior and simply discard any residual state if the tile shape changes
   // the magnitude or direction of its stride.
+  auto  point_set_temp=point_set;
   problem::PerDataSpace<bool> no_temporal_reuse(workload_->GetShape()->NumDataSpaces);
   for(unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
   {
@@ -819,6 +810,21 @@ problem::OperationSpace NestAnalysis::ComputeDeltas(std::vector<analysis::LoopSt
   delta = point_set - cur_state.last_point_set;
   cur_state.last_point_set = point_set;
 #endif
+
+  if (storage_boundary_level_[level])
+  {
+    assert(time_stamp_.size() == space_stamp_.size());
+    assert(storage_tiling_boundaries_.size() - arch_storage_level_.at(level) == time_stamp_.size());
+    std::string indent = "";
+    for (unsigned i = 0; i < storage_tiling_boundaries_.size() - arch_storage_level_.at(level); i++)
+    {
+      indent += "  ";
+    }
+    std::cout << indent;
+    PrintSpaceTimeStamp();
+    puts("");
+    dbg(point_set.GetSizes());
+  }
 
   // Restore loop gist sets.
   if (storage_boundary_level_[level])
@@ -920,7 +926,8 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
     bool this_level_imperfect = cur->descriptor.end != cur->descriptor.residual_end;
     bool run_last_iteration = imperfect_iteration || workload_->GetShape()->UsesFlattening || gRunLastIteration;
     bool run_second_last_iteration = this_level_imperfect && run_last_iteration;
-
+    
+    dbg(gExtrapolateUniformTemporal);
     if (gExtrapolateUniformTemporal && !disable_temporal_extrapolation_.at(level))
     {
       // What we would like to do is to *NOT* iterate through the entire loop
@@ -945,6 +952,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
       if (num_iterations >= 1)
       {
+        dbg("Temporal Extrapolate: Iteration #0", level, indices_[level]);
         // Invoke next (inner) loop level.
         ++cur;
         auto temporal_delta = ComputeDeltas(cur);
@@ -961,7 +969,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
           (time_stamp_.back())++;
       }
 
-      // Iterations #1 through #last-1/last.
+      // Iterations #1 through #last-1/last.s
       if ((run_second_last_iteration && num_iterations >= 4) ||
           (run_last_iteration && !run_second_last_iteration && num_iterations >= 3) ||
           (!run_last_iteration && num_iterations >= 2))
@@ -977,6 +985,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 
         auto saved_epochs = num_epochs_;
         num_epochs_ *= virtual_iterations;
+        dbg("Temporal Extrapolate: Virtual Block", level, indices_[level], "num_virtual_iterations", virtual_iterations);
 
         ++cur;
         auto temporal_delta = ComputeDeltas(cur);
@@ -1000,6 +1009,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       if (run_second_last_iteration && num_iterations >= 3)
       {
         // Invoke next (inner) loop level.
+        dbg("Temporal Extrapolate: Second-to-Last Iteration", level, indices_[level]);
         ++cur;
         auto temporal_delta = ComputeDeltas(cur);
         --cur;
@@ -1025,6 +1035,7 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
       if (run_last_iteration && num_iterations >= 2)
       {
         // Invoke next (inner) loop level.
+        dbg("Temporal Extrapolate: Last Iteration", level, indices_[level]);
         ++cur;
         auto temporal_delta = ComputeDeltas(cur);
         --cur;
@@ -1132,8 +1143,8 @@ void NestAnalysis::ComputeTemporalWorkingSet(std::vector<analysis::LoopState>::r
 void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::reverse_iterator cur)
 {
   int level = cur->level;
+  dbg("Hitting spatial level",level);
   ASSERT(master_spatial_level_[level]);
-
   //
   // Step II: Compute Spatial Deltas, etc.
   //
@@ -1223,12 +1234,11 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
   }
   
   ComputeAccurateMulticastedAccesses(cur, spatial_deltas, unaccounted_delta,
-                                     access_stats_without_link_transfers);
+                                     access_stats_without_link_transfers,true);
 
   // *** FIXME *** for Read-Write data spaces, we must check if hardware
   // reduction is supported by the child level. If not, we cannot perform
   // link transfers.
-
   if (gEnableLinkTransfers && linked_spatial_level_[level])
   {
     // Reset unaccounted delta, and now count with link transfers.
@@ -1243,11 +1253,16 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
     // }
 
     problem::PerDataSpace<std::uint64_t> link_transfers(workload_->GetShape()->NumDataSpaces);
-
+    
+    // dbg(level);
+    // dbg(link_transfers);
+    // dbg(unaccounted_delta);
     ComputeNetworkLinkTransfers(cur, spatial_deltas, unaccounted_delta, link_transfers);
-
+    // dbg(link_transfers);
+    // dbg(unaccounted_delta);
     ComputeAccurateMulticastedAccesses(cur, spatial_deltas, unaccounted_delta,
                                        access_stats_with_link_transfers);
+    // dbg("------------------------------------------------------------------");
 
     // Compare.
     for (unsigned pvi = 0; pvi < workload_->GetShape()->NumDataSpaces; pvi++)
@@ -1255,8 +1270,11 @@ void NestAnalysis::ComputeSpatialWorkingSet(std::vector<analysis::LoopState>::re
       std::uint64_t total_without = access_stats_without_link_transfers[pvi].TotalAccesses();
       std::uint64_t total_with = access_stats_with_link_transfers[pvi].TotalAccesses();
 
+      // LogStrategyDecision(level, pvi, total_without, total_with);
+
       if (total_with < total_without)
       {
+
         cur_state.link_transfers[pvi] += link_transfers[pvi];        
         access_stats[pvi] = &access_stats_with_link_transfers[pvi];
       }
@@ -1435,7 +1453,7 @@ void NestAnalysis::FillSpatialDeltas(std::vector<analysis::LoopState>::reverse_i
     unsigned iterations_to_run =
       (gExtrapolateUniformSpatial && !workload_->GetShape()->UsesFlattening)
       ? (gDisableFirstElementOnlySpatialExtrapolation ? 3 : 1) : num_iterations;
-
+    // dbg(level,base_index,iterations_to_run,cur->descriptor.start,cur->descriptor.stride,end,loop::IsSpatial(next->descriptor.spacetime_dimension));
     if (loop::IsSpatial(next->descriptor.spacetime_dimension))
     {
       // Next-inner loop level is spatial.
@@ -1609,10 +1627,11 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
     problem::PerDataSpace<std::unordered_set<std::uint64_t>>& unaccounted_delta,
     //std::set<std::pair<std::uint64_t, problem::Shape::DataSpaceID>>& unaccounted_delta,
     //std::vector<problem::PerDataSpace<bool>>& unaccounted_delta,
-    problem::PerDataSpace<AccessStatMatrix>& access_stats)
+    problem::PerDataSpace<AccessStatMatrix>& access_stats,
+    bool enable_debug_print)
 {
   //std::uint64_t num_deltas = spatial_deltas.size();
-
+  // if(enable_debug_print) dbg(spatial_deltas);
   // For each data type, records the number of unaccounted deltas
   // that the current delta matches with. This will be used
   // to infer the multicast factor for a specific delta.
@@ -1698,7 +1717,30 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
         }
       }
     }
+    //   // ======================= DBG语句开始 =======================
+    if(enable_debug_print)
+    {
+      for (unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
+      {
+        // 仅当目标数量大于1时，才认为是多播
+        if (num_matches[pv] > 1 && delta.GetSize(pv) > 0)
+        
+        {
+          // 使用 stringstream 来格式化位置列表，使其更易读
+          std::stringstream locations_ss;
+          for (const auto& loc : match_set[pv])
+          {
+            locations_ss << loc << " ";
+          }
 
+          // 打印详细的多播信息
+          // 你可以把 std::cout 替换为你的 dbg() 宏
+          dbg(pv, num_matches[pv], delta.GetSize(pv), match_set[pv]);
+        }
+      }
+      
+    }
+      // ======================= DBG语句结束 =======================
     // NOTE: multicast is # children sharing the same delta
     //       scatter factor is the # data spaces with the same multicast value
 
@@ -1777,7 +1819,12 @@ void NestAnalysis::ComputeAccurateMulticastedAccesses(
       }
     }
   }
-
+  // // The main loop has finished. This is the correct place.
+  //   if (enable_debug_print)
+  //   {
+  //       dbg("=== End of all multicast checks for this function call ===");
+  //   }
+    
   // Populate the actual stats.
   for (unsigned pv = 0; pv < workload_->GetShape()->NumDataSpaces; pv++)
   {
@@ -1830,9 +1877,21 @@ void NestAnalysis::CompareSpatioTemporalDeltas(
   {
     if (!ignore_dataspaces[pv] && !cur_delta.IsEmpty(pv))
     {
+      // =================================================================
+      // ============= 在这里插入“关卡五”的调试代码 =============
+      // =================================================================
+      // 打印当前比较的两个PE的索引
+      // dbg(cur_spatial_index, prev_spatial_index);
+
+      // // 打印出即将被比较的两个OperationSpace
+      // dbg(pv);
+      // dbg( cur_delta);
+      // dbg( prev_delta);
+      // =================================================================
       if (cur_delta.CheckEquality(prev_delta, pv))
       {
         // ASSERT(!inter_elem_reuse[cur_spatial_index][pv]);
+        dbg("Found a match!");
         inter_elem_reuse.at(cur_spatial_index)[pv] = true;
         //std::cout << "  match for pv " << pv << std::endl;
       }
@@ -1987,6 +2046,7 @@ void NestAnalysis::ComputeNetworkLinkTransfers(
       }
     }
   }
+
 
   // Compute the total number of accesses that can be bypassed
   // by using link transfers
@@ -2373,6 +2433,28 @@ problem::OperationSpace NestAnalysis::GetCurrentWorkingSet(std::vector<analysis:
                                                      mold_high_[level][dim]);
   }
   return problem::OperationSpace(workload_, low_problem_point, high_problem_point);
+}
+
+// ===============================================================
+// NEW: 创建一个独立的辅助函数来处理调试信息的打印
+// ===============================================================
+void NestAnalysis::LogStrategyDecision(int level, unsigned pvi, 
+                         std::uint64_t accesses_without_links, 
+                         std::uint64_t accesses_with_links)
+{
+    // 1. 首先，直接用 dbg() 打印所有输入参数的状态。
+    //    这已经包含了大部分核心信息，并且变量名本身就有很好的可读性。
+    dbg(level, pvi, accesses_without_links, accesses_with_links);
+
+    // 2. 然后，用一个清晰的表达式或变量来代表最终决策，并用 dbg() 打印它。
+    const bool use_links = accesses_with_links < accesses_without_links;
+    dbg(use_links); // 直接打印决策结果 (true/false)
+
+    // 或者，如果你仍然想要一个描述性的字符串：
+    const std::string decision_summary = use_links 
+        ? "[Links] strategy is better" 
+        : "[Multicast-Only] is better";
+    dbg(decision_summary);
 }
 
 } // namespace analysis

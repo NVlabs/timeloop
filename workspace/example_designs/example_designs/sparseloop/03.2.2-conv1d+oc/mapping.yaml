@@ -1,0 +1,10 @@
+mapping:
+  - target: BackingStorage
+    type: temporal
+    factors: S=1 Q=1 M=1
+    permutation: S Q M
+
+  - target: Buffer
+    type: temporal
+    factors: S=3 Q=9 M=16
+    permutation: S Q M

@@ -1,0 +1,9 @@
+mapper:
+  version: 0.4
+  optimization_metrics: [ delay, energy ]
+  live_status: False
+  num_threads: 8
+  timeout: 15000
+  victory_condition: 500
+  algorithm: random_pruned
+  max_permutations_per_if_visit: 16

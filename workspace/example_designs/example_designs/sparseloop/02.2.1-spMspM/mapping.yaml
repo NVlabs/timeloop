@@ -1,0 +1,10 @@
+mapping:
+  - target: BackingStorage # storage level in architecture
+    type: temporal         # temporal tiling
+    factors: K=1 M=1 N=1  # loop bounds
+    permutation: NKM       # loop order: inner to outer->A stationary
+
+  - target: Buffer
+    type: temporal
+    factors: K=8 M=8 N=8
+    permutation: NKM

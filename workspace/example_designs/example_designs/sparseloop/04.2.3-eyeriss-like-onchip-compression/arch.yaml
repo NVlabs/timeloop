@@ -1,0 +1,159 @@
+architecture:
+  version: 0.4
+  nodes:
+  - !Container
+    name: eyeriss_168
+    attributes:
+      technology: "45nm"
+
+  - !Component
+    name: DRAM
+    class: DRAM
+    attributes:
+      width: 64
+      datawidth: 16
+      metadata_storage_width: 60
+      metadata_datawidth: 5
+    sparse_optimizations:
+      representation_format:
+        data_spaces:
+          - name: Inputs
+            ranks:
+              - format: UOP
+                flattened_rankIDs: [ [R, S, P, C, M, N, Q] ]
+              - format: UOP
+                flattened_rankIDs: [ [R, S, P, C, M, N, Q] ]
+              - format: RLE
+                flattened_rankIDs: [ [R, S, P, C, M, N, Q] ]
+
+          - name: Outputs
+            ranks:
+              - format: UOP
+                flattened_rankIDs: [ [P, M, N, Q] ]
+              - format: RLE
+                flattened_rankIDs: [ [P, M, N, Q] ]
+
+
+  - !Component
+    name: shared_glb
+    class: storage
+    subclass: smartbuffer_metadata
+    attributes:
+      depth: 12800
+      width: 64
+      n_banks: 1
+      read_bandwidth: 16
+      write_bandwidth: 16
+      datawidth: 16
+      metadata_storage_depth: 4096
+      metadata_storage_width: 32
+      metadata_datawidth: 4
+      metadata_counter_width: 9
+      # Note that the two diretives below are describing 
+      # whether this level can compress and decompress data transfers
+      # from itself to its parent (not child)
+      decompression_supported: true  # from DRAM decompression
+      compression_supported: true    # to DRAM compression
+    constraints:
+      dataspace: {keep: [Inputs, Outputs], bypass: [Weights]}
+    sparse_optimizations:
+      representation_format:
+        data_spaces:
+          - name: Inputs
+            ranks:
+              - format: UOP
+                flattened_rankIDs: [ [R, S, P, C, M, N, Q] ]
+              - format: RLE
+                flattened_rankIDs: [ [R, S, P, C, M, N, Q] ]
+
+  - !Container # Each column of PEs produces a different psum row
+    name: PE_column
+    spatial: {meshX: 14}
+    constraints:
+      spatial:
+        permutation: [N, C, P, R, S, Q, M]
+        factors: [N=1, C=1, P=1, R=1, S=1]
+        split: 7
+
+  - !Container # Each PE in the column receives a different filter row
+    name: PE
+    spatial: {meshY: 12}
+    constraints:
+      spatial:
+        split: 4
+        permutation: [N, P, Q, R, S, C, M]
+        factors: [N=1, P=1, Q=1, R=1]
+
+  - !Parallel # Input/Output/Weight scratchpads in parallel
+    nodes:
+    - !Component
+      name: ifmap_spad
+      class: storage
+      subclass: smartbuffer_RF
+      attributes:
+        depth: 12
+        width: 16       # the data
+        n_banks: 1
+        datawidth: 16
+        metadata_storage_width: 8
+        metadata_storage_depth: 4
+        metadata_datawidth: 4  # rle metadata
+        read_bandwidth: 2
+        write_bandwidth: 2
+      constraints:
+        dataspace: {keep: [Inputs]}
+        temporal:
+          permutation: [N, M, C, P, Q, R, S]
+          factors: [N=1, M=1, C=1, P=1, Q=1, R=1, S=1]
+      sparse_optimizations:
+        representation_format:
+          data_spaces:
+            - name: Inputs
+              ranks:
+                - format: RLE
+                  flattened_rankIDs: [ [R, S, P, C, M, N, Q] ]
+
+    - !Component
+      name: weights_spad
+      class: storage
+      subclass: smartbuffer_RF
+      attributes:
+        depth: 224
+        width: 16
+        n_banks: 1
+        datawidth: 16
+        read_bandwidth: 2
+        write_bandwidth: 2
+      constraints:
+        dataspace: {keep: [Weights]}
+        temporal:
+          permutation: [N, M, P, Q, S, C, R]
+          factors: [N=1, M=1, P=1, Q=1, S=1]
+      sparse_optimizations:
+        action_optimization:
+          - type: skipping
+            options:
+              - target: Weights
+                condition_on: [ Inputs ]
+
+    - !Component
+      name: psum_spad
+      class: storage
+      subclass: smartbuffer_RF
+      attributes:
+        depth: 224
+        width: 16
+        n_banks: 1
+        datawidth: 16
+      constraints:
+        dataspace: {keep: [Outputs]}
+        temporal:
+          permutation: [N, C, P, Q, R, S, M] 
+          factors: [N=1, C=1, R=1, S=1, P=1, Q=1]
+
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16

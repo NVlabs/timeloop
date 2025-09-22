@@ -189,7 +189,9 @@ class NestAnalysis
       std::vector<analysis::LoopState>::reverse_iterator cur,
       const std::unordered_map<std::uint64_t, problem::OperationSpace>& spatial_deltas,
       problem::PerDataSpace<std::unordered_set<std::uint64_t>>& unaccounted_delta,
-      problem::PerDataSpace<AccessStatMatrix>& access_stats);
+      problem::PerDataSpace<AccessStatMatrix>& access_stats,
+      bool enable_debug_print = false
+    );
 
   void ComputeNetworkLinkTransfers(
       std::vector<analysis::LoopState>::reverse_iterator cur,
@@ -207,6 +209,10 @@ class NestAnalysis
   
   void ComputeDataDensity();
   void PrintSpaceTimeStamp();
+
+  void LogStrategyDecision(int level, unsigned pvi, 
+                         std::uint64_t accesses_without_links, 
+                         std::uint64_t accesses_with_links); 
 
  public:  
   // API

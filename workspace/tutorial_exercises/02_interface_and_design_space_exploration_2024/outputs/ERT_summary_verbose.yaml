@@ -1,0 +1,91 @@
+ERT_summary:
+    version: '0.4'
+    table_summary:
+      - name: system_top_level.DRAM[1..1]
+        actions:
+          - name: leak
+            energy: 0.0
+          - name: read
+            energy: 512.0
+          - name: update
+            energy: 512.0
+          - name: write
+            energy: 512.0
+        primitive_estimation(s):
+          - system_top_level.DRAM[1..1]:
+                estimator: CactiDRAM
+      - name: system_top_level.buffer[1..1]
+        actions:
+          - name: leak
+            energy: 0.000271
+          - name: read
+            energy: 9.65335
+          - name: update
+            energy: 12.6203
+          - name: write
+            energy: 12.6203
+        primitive_estimation(s):
+          - system_top_level.buffer[1..1]:
+                estimator: CactiSRAM
+      - name: system_top_level.reg[1..8]
+        actions:
+          - name: read
+            energy: 0
+          - name: write
+            energy: 0
+          - name: update
+            energy: 0
+          - name: leak
+            energy: 0
+        primitive_estimation(s):
+          - action_name: read
+            arguments: {}
+            energy: 0
+            subaction_estimations: []
+          - action_name: write
+            arguments: {}
+            energy: 0
+            subaction_estimations: []
+          - action_name: update
+            arguments: {}
+            energy: 0
+            subaction_estimations: []
+          - action_name: leak
+            arguments: {}
+            energy: 0
+            subaction_estimations: []
+      - name: system_top_level.mac[1..8]
+        actions:
+          - name: compute
+            energy: 3.275
+        primitive_estimation(s):
+          - action_name: compute
+            arguments: {}
+            energy: 3.275
+            subaction_estimations:
+              - subcomponent_name: adder
+                subaction_name: add
+                arguments:
+                    global_cycle_seconds: 1e-09
+                    action_latency_cycles: 1
+                    cycle_seconds: 1e-09
+                    technology: "45nm"
+                    n_instances: 1
+                energy: 0.105
+                scale_energy_by: 1.0
+                interpreted_energy: 0.105
+                percentage: 3.21%
+                estimator: Library
+              - subcomponent_name: multiplier
+                subaction_name: multiply
+                arguments:
+                    global_cycle_seconds: 1e-09
+                    action_latency_cycles: 1
+                    cycle_seconds: 1e-09
+                    technology: "45nm"
+                    n_instances: 1
+                energy: 3.17
+                scale_energy_by: 1.0
+                interpreted_energy: 3.17
+                percentage: 96.79%
+                estimator: Library

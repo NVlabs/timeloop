@@ -1,0 +1,81 @@
+architecture:
+  # ============================================================
+  # Architecture Description
+  # ============================================================
+  version: 0.4
+  nodes: # Top-level is hierarchical
+  - !Container # Top-level system
+    name: system
+    attributes:
+      technology: "32nm"
+      global_cycle_seconds: 1e-9
+  
+  - !Component # DRAM main memory
+    name: DRAM
+    class: DRAM
+    attributes:
+      type: "LPDDR4"
+      width: 64
+      datawidth: 8
+      depth: 1048576
+  - !Container # Eyeriss accelerator
+    name: eyeriss
+
+  - !Component # Global buffer for inputs & outputs
+    name: shared_glb
+    class: smartbuffer_SRAM
+    attributes:
+      depth: 16384
+      width: 64
+      n_banks: 32
+      datawidth: 8
+      read_bandwidth: 16
+      write_bandwidth: 16
+
+  - !Container # Each column of PEs produces a different psum row
+    name: PE_column
+    spatial: {meshX: 14}
+
+  - !Container # Each PE in the column receives a different filter row
+    name: PE
+    spatial: {meshY: 12}
+
+  - !Parallel # Input/Output/Weight scratchpads in parallel
+    nodes:
+    - !Component # Input scratchpad
+      name: ifmap_spad
+      class: smartbuffer_RF
+      attributes:
+        depth: 12
+        width: 16
+        datawidth: 8
+        read_bandwidth: 2
+        write_bandwidth: 2
+
+    - !Component # Weight scratchpad
+      name: weights_spad
+      class: smartbuffer_RF
+      attributes:
+        depth: 192
+        width: 16
+        datawidth: 8
+        read_bandwidth: 2
+        write_bandwidth: 2
+
+    - !Component # Output scratchpad
+      name: psum_spad
+      class: smartbuffer_RF
+      attributes:
+        depth: 16
+        width: 16
+        update_fifo_depth: 2
+        datawidth: 16
+        read_bandwidth: 2
+        write_bandwidth: 2
+
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16

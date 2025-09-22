@@ -1,0 +1,138 @@
+ERT_summary:
+    version: '0.4'
+    table_summary:
+      - name: System_top_level.DRAM[1..1]
+        actions:
+          - name: read
+            energy: 512.0
+          - name: update
+            energy: 512.0
+          - name: leak
+            energy: 0.0
+          - name: write
+            energy: 512.0
+        primitive_estimation(s):
+          - name: System_top_level.DRAM[1..1]
+            estimator: CactiDRAM
+      - name: System_top_level.GlobalBuffer[1..1]
+        actions:
+          - name: write
+            energy: 66.310888
+          - name: read
+            energy: 51.870888
+          - name: leak
+            energy: 0.003241
+          - name: update
+            energy: 66.310888
+        primitive_estimation(s):
+          - name: storage
+            estimator: CactiSRAM
+          - name: address_generators[0]
+            estimator: Aladdin_table
+          - name: address_generators[1]
+            estimator: Aladdin_table
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.PEInputBuffer[1..16]
+        actions:
+          - name: write
+            energy: 241.503552
+          - name: read
+            energy: 242.079552
+          - name: leak
+            energy: 0.207488
+          - name: update
+            energy: 241.503552
+        primitive_estimation(s):
+          - name: storage.storage[1..64]
+            estimator: Library
+          - name: storage.comparator[1..8192]
+            estimator: Library
+          - name: address_generators[0]
+            estimator: Aladdin_table
+          - name: address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.storage[1..524288]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.PEWeightBuffer[1..64]
+        actions:
+          - name: write
+            energy: 120.78787
+          - name: read
+            energy: 121.36387
+          - name: leak
+            energy: 0.104535
+          - name: update
+            energy: 120.78787
+        primitive_estimation(s):
+          - name: storage.storage[1..64]
+            estimator: Library
+          - name: storage.comparator[1..4096]
+            estimator: Library
+          - name: address_generators[0]
+            estimator: Aladdin_table
+          - name: address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.storage[1..262144]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.PEAccuBuffer[1..64]
+        actions:
+          - name: write
+            energy: 2.875058
+          - name: read
+            energy: 3.091057
+          - name: leak
+            energy: 0.003416
+          - name: update
+            energy: 2.875058
+        primitive_estimation(s):
+          - name: storage.storage[1..32]
+            estimator: Library
+          - name: storage.comparator[1..128]
+            estimator: Library
+          - name: address_generators[0]
+            estimator: Aladdin_table
+          - name: address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.storage[1..4096]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.PEWeightRegs[1..256]
+        actions:
+          - name: write
+            energy: 0.080139
+          - name: read
+            energy: 0.259899
+          - name: leak
+            energy: 0.000169
+          - name: update
+            energy: 0.080139
+        primitive_estimation(s):
+          - name: storage.storage[1..512]
+            estimator: Library
+          - name: storage.comparator[1..64]
+            estimator: Library
+          - name: address_generators[0]
+            estimator: Aladdin_table
+          - name: address_generators[1]
+            estimator: Aladdin_table
+          - name: storage.storage[1..32768]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: System_top_level.mac[1..256]
+        actions:
+          - name: compute
+            energy: 0.315
+          - name: leak
+            energy: 0.0036
+        primitive_estimation(s):
+          - name: intadder
+            estimator: Library
+          - name: intmultiplier
+            estimator: Library

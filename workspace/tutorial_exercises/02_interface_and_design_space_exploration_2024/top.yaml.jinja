@@ -1,0 +1,9 @@
+# This file will be converted into a YAML file by Jinja2 templating.
+{{add_to_path(cwd() ~ '/inputs')}}
+
+# Grab the necessary top keys from each file and put them here
+architecture: {{include('arch.yaml', 'architecture')}}
+components:   {{include('components.yaml', 'components')}}
+variables:    {{include('variables.yaml', 'variables')}}
+mapper:       {{include('mapper.yaml', 'mapper')}}
+problem:      {{include(problem|default('problem.yaml'), 'problem')}}

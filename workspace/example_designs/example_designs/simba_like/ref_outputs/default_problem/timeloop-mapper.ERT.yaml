@@ -1,0 +1,103 @@
+ERT:
+    version: '0.4'
+    tables:
+      - name: System_top_level.DRAM[1..1]
+        actions:
+          - name: read
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+            energy: 512.0
+          - name: update
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+            energy: 512.0
+          - name: leak
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+            energy: 0.0
+          - name: write
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+            energy: 512.0
+      - name: System_top_level.GlobalBuffer[1..1]
+        actions:
+          - name: write
+            arguments: {}
+            energy: 66.310888
+          - name: read
+            arguments: {}
+            energy: 51.870888
+          - name: leak
+            arguments: {}
+            energy: 0.003241
+          - name: update
+            arguments: {}
+            energy: 66.310888
+      - name: System_top_level.PEInputBuffer[1..16]
+        actions:
+          - name: write
+            arguments: {}
+            energy: 241.503552
+          - name: read
+            arguments: {}
+            energy: 242.079552
+          - name: leak
+            arguments: {}
+            energy: 0.207488
+          - name: update
+            arguments: {}
+            energy: 241.503552
+      - name: System_top_level.PEWeightBuffer[1..64]
+        actions:
+          - name: write
+            arguments: {}
+            energy: 120.78787
+          - name: read
+            arguments: {}
+            energy: 121.36387
+          - name: leak
+            arguments: {}
+            energy: 0.104535
+          - name: update
+            arguments: {}
+            energy: 120.78787
+      - name: System_top_level.PEAccuBuffer[1..64]
+        actions:
+          - name: write
+            arguments: {}
+            energy: 2.875058
+          - name: read
+            arguments: {}
+            energy: 3.091057
+          - name: leak
+            arguments: {}
+            energy: 0.003416
+          - name: update
+            arguments: {}
+            energy: 2.875058
+      - name: System_top_level.PEWeightRegs[1..256]
+        actions:
+          - name: write
+            arguments: {}
+            energy: 0.080139
+          - name: read
+            arguments: {}
+            energy: 0.259899
+          - name: leak
+            arguments: {}
+            energy: 0.000169
+          - name: update
+            arguments: {}
+            energy: 0.080139
+      - name: System_top_level.mac[1..256]
+        actions:
+          - name: compute
+            arguments: {}
+            energy: 0.315
+          - name: leak
+            arguments: {}
+            energy: 0.0036

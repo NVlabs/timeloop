@@ -1,0 +1,27 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: PE_top_level.Buffer[1..1]
+        area: 5370.2625
+        primitive_estimations:
+          - name: storage.storage.storage[1..2048]
+            estimator: Library
+          - name: storage.storage.comparator[1..64]
+            estimator: Library
+          - name: storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_storage.storage.storage[1..2048]
+            estimator: Library
+          - name: metadata_storage.storage.comparator[1..64]
+            estimator: Library
+          - name: metadata_storage.address_generators[0..1]
+            estimator: Aladdin_table
+          - name: metadata_counters[0..1]
+            estimator: Aladdin_table
+      - name: PE_top_level.mac[1..1]
+        area: 417.0
+        primitive_estimations:
+          - name: intadder
+            estimator: Library
+          - name: intmultiplier
+            estimator: Library

@@ -28,7 +28,7 @@
 #include <iostream>
 #include <csignal>
 #include <cstring>
-
+// #include <dbg.h>
 #include "applications/model/model.hpp"
 #include "compound-config/compound-config.hpp"
 #include "util/args.hpp"
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
   sigemptyset(&action.sa_mask);
   action.sa_flags = 0;
   sigaction(SIGINT, &action, NULL);
-
+  // dbg("dbg-macro is fuctioning correctly");
   std::vector<std::string> input_files;
   std::string output_dir = ".";
   bool success = ParseArgs(argc, argv, input_files, output_dir);

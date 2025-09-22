@@ -1,0 +1,12 @@
+ART_summary:
+  version: 0.3
+  table_summary:
+  - name: simple_primitive.PE.MAC
+    area: 1239.5
+    primitive_estimations: Aladdin_table
+  - name: simple_primitive.PE.buffer
+    area: 358.18
+    primitive_estimations: Aladdin_table
+  - name: simple_primitive.GLB
+    area: 29133.3
+    primitive_estimations: Cacti

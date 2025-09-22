@@ -1,0 +1,34 @@
+architecture:
+  version: 0.4
+  nodes: # Top-level is hierarchical
+  - !Container # Top-level system
+    name: PE
+    attributes:           # global attributes shared by entire subtree
+      technology: "45nm"
+
+  - !Component
+    name: Buffer
+    class: storage    # class is either "storage" or "compute"
+    subclass: regfile # detailed hardware implementation class
+    attributes:       # attributes associated with the component
+      depth: 64       # number of entries in storage
+      width: 8        # number of bits for each entry
+      datawidth: 8    # number of bits per data
+      read_bandwidth: 3
+      write_bandwidth: 1
+    sparse_optimizations:
+      action_optimization:    # keyword for *explicit* storage level optimization
+        - type: gating        # optimization type: either "gating" or "skipping"
+          options:
+          - target: B           # the tensor to perform gating on
+            condition_on: [ A ] # the tensor that the optimization is based on
+        - type: gating
+          options:
+          - target: Z
+            condition_on: [ A ]
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: 8
+      adder_width: 16

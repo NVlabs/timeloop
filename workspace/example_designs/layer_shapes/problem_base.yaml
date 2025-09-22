@@ -1,0 +1,64 @@
+problem_base_ignore: &problem_base
+  version: 0.4
+  instance:
+    N: 1                   # Batch size
+
+    C: 1                   # Input channels
+    H: 1                   # Input height
+    W: 1                   # Input width
+    G: 1                   # Groups
+
+    R: 1                   # Weight height
+    S: 1                   # Weight width
+    Hdilation: 1           # (Conv) Height dilation
+    Hstride: 1             # (Conv) Height stride
+    Wdilation: 1           # (Conv) Width dilation
+    Wstride: 1             # (Conv) Width stride
+
+    M: 1                   # Output channels
+    P: 1                   # Output height
+    Q: 1                   # Output width
+  shape:
+    coefficients:
+    - {name: Wstride, default: 1}
+    - {name: Hstride, default: 1}
+    - {name: Wdilation, default: 1}
+    - {name: Hdilation, default: 1}
+    data_spaces:
+    - name: Weights
+      projection:
+      - - - C
+      - - - M
+      - - - R
+      - - - S
+      - - - G
+    - name: Inputs
+      projection:
+      - - - N
+      - - - C
+      - - - R
+          - Wdilation
+        - - P
+          - Wstride
+      - - - S
+          - Hdilation
+        - - Q
+          - Hstride
+      - - - G
+    - name: Outputs
+      projection:
+      - - - N
+      - - - M
+      - - - Q
+      - - - P
+      - - - G
+      read_write: true
+    dimensions:
+    - C
+    - M
+    - R
+    - S
+    - N
+    - P
+    - Q
+    - G

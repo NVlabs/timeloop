@@ -67,6 +67,27 @@
     "thread": "cpp",
     "cinttypes": "cpp",
     "typeinfo": "cpp",
-    "*.h++": "cpp"
+    "*.h++": "cpp",
+    "hash_map": "cpp",
+    "cfenv": "cpp",
+    "charconv": "cpp",
+    "coroutine": "cpp",
+    "csetjmp": "cpp",
+    "csignal": "cpp",
+    "forward_list": "cpp",
+    "source_location": "cpp",
+    "format": "cpp",
+    "future": "cpp",
+    "numbers": "cpp",
+    "queue": "cpp",
+    "semaphore": "cpp",
+    "shared_mutex": "cpp",
+    "span": "cpp",
+    "stack": "cpp",
+    "stdfloat": "cpp",
+    "text_encoding": "cpp",
+    "typeindex": "cpp",
+    "valarray": "cpp",
+    "variant": "cpp"
   }
 }

@@ -1,0 +1,140 @@
+architecture:
+    version: '0.4'
+    local:
+      - name: system_top_level.reg[1..8]
+        class: register
+        attributes:
+            datawidth: 8
+            depth: 1
+            width: 24
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 8
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            technology: "45nm"
+            global_cycle_seconds: 1e-09
+            DATAWIDTH: 8
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        primitive_components: []
+        actions:
+          - name: read
+            arguments: {}
+            primitive_actions: []
+          - name: write
+            arguments: {}
+            primitive_actions: []
+          - name: update
+            arguments: {}
+            primitive_actions: []
+          - name: leak
+            arguments: {}
+            primitive_actions: []
+      - name: system_top_level.mac[1..8]
+        class: intmac
+        attributes:
+            multiplier_width: 8
+            adder_width: 16
+            has_power_gating: false
+            meshX: 8
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            technology: "45nm"
+            global_cycle_seconds: 1e-09
+            DATAWIDTH: 8
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        primitive_components:
+          - name: adder
+            class: aladdin_adder
+            attributes:
+                width: 16
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+                cycle_seconds: 1e-09
+                technology: "45nm"
+                n_instances: 1
+            area_scale: 1
+          - name: multiplier
+            class: aladdin_multiplier
+            attributes:
+                width: 8
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+                cycle_seconds: 1e-09
+                technology: "45nm"
+                n_instances: 1
+            area_scale: 1
+        actions:
+          - name: compute
+            arguments: {}
+            primitive_actions:
+              - name: adder
+                action: add
+                arguments:
+                    global_cycle_seconds: 1e-09
+                    action_latency_cycles: 1
+                    cycle_seconds: 1e-09
+                    technology: "45nm"
+                    n_instances: 1
+                energy_scale: 1.0
+              - name: multiplier
+                action: multiply
+                arguments:
+                    global_cycle_seconds: 1e-09
+                    action_latency_cycles: 1
+                    cycle_seconds: 1e-09
+                    technology: "45nm"
+                    n_instances: 1
+                energy_scale: 1.0
+      - name: system_top_level.DRAM[1..1]
+        class: DRAM
+        actions:
+          - name: leak
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+          - name: read
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+          - name: update
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+          - name: write
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+      - name: system_top_level.buffer[1..1]
+        class: SRAM
+        actions:
+          - name: leak
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+          - name: read
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+          - name: update
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+          - name: write
+            arguments:
+                global_cycle_seconds: 1e-09
+                action_latency_cycles: 1
+      - name: system_top_level.inter_PE_spatial[1..1]
+        class: dummy_storage
+        actions: []

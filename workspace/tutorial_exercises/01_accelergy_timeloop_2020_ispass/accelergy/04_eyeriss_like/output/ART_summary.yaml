@@ -1,0 +1,77 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: eyeriss_like.PE[0..167].mac
+        area: 1239.5
+        primitive_estimations: Aladdin_table
+      - name: eyeriss_like.PE[0..167].ifmap_spad
+        area: 228.479893
+        primitive_estimations:
+          - name: storage
+            estimator: Aladdin_table
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_like.PE[0..167].weights_spad
+        area: 3514.498229
+        primitive_estimations:
+          - name: storage
+            estimator: Aladdin_table
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_like.PE[0..167].psum_spad
+        area: 266.698336
+        primitive_estimations:
+          - name: storage
+            estimator: Aladdin_table
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_like.weights_glb
+        area: 76991.745841
+        primitive_estimations:
+          - name: storage
+            estimator: CACTI
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_like.shared_glb
+        area: 979303.80243
+        primitive_estimations:
+          - name: storage
+            estimator: CACTI
+          - name: address_generators[0..1]
+            estimator: Aladdin_table
+      - name: eyeriss_like.ifmap_NoC
+        area: 1575.0
+        primitive_estimations:
+          - name: Y_memory_controller[0..11]
+            estimator: Aladdin_table
+          - name: X_memory_controller[0..167]
+            estimator: Aladdin_table
+          - name: Y_X_wire
+            estimator: Aladdin_table
+      - name: eyeriss_like.weights_NoC
+        area: 1575.0
+        primitive_estimations:
+          - name: Y_memory_controller[0..11]
+            estimator: Aladdin_table
+          - name: X_memory_controller[0..167]
+            estimator: Aladdin_table
+          - name: Y_X_wire
+            estimator: Aladdin_table
+      - name: eyeriss_like.psum_write_NoC
+        area: 1575.0
+        primitive_estimations:
+          - name: Y_memory_controller[0..11]
+            estimator: Aladdin_table
+          - name: X_memory_controller[0..167]
+            estimator: Aladdin_table
+          - name: Y_X_wire
+            estimator: Aladdin_table
+      - name: eyeriss_like.psum_read_NoC
+        area: 1575.0
+        primitive_estimations:
+          - name: Y_memory_controller[0..11]
+            estimator: Aladdin_table
+          - name: X_memory_controller[0..167]
+            estimator: Aladdin_table
+          - name: Y_X_wire
+            estimator: Aladdin_table

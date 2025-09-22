@@ -1,0 +1,9 @@
+version: 0.4          # Required version number
+
+# Under this heading, list relative paths to any Python files that contain the
+# Estimator classes. Only include files that contain Estimator classes. Adding
+# additional files will slow Accelergy or make startup unstable.
+python_plug_ins:
+- template.py     # Relative path to the the file that Accelergy will load
+# - other_path.py # If more than one Estimator is needed, list them here
+# - other_path_2.py

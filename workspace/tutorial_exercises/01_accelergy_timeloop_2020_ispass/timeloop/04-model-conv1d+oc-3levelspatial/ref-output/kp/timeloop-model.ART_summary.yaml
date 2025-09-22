@@ -1,0 +1,18 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: System_top_level.MainMemory[1..1]
+        area: 0.0
+        primitive_estimations: CactiDRAM
+      - name: System_top_level.inter_PE_spatial[1..1]
+        area: 1.0
+        primitive_estimations: dummy_table
+      - name: System_top_level.GlobalBuffer[1..16]
+        area: 707084.0
+        primitive_estimations: CactiSRAM
+      - name: System_top_level.RegisterFile[1..16]
+        area: 887.84
+        primitive_estimations: Aladdin_table
+      - name: System_top_level.MACC[1..16]
+        area: 332.25
+        primitive_estimations: Aladdin_table

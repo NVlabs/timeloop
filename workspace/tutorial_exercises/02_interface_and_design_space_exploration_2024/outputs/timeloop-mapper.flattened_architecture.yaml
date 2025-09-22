@@ -1,0 +1,104 @@
+architecture:
+    version: '0.4'
+    local:
+      - name: system_top_level.DRAM[1..1]
+        class: DRAM
+        attributes:
+            type: "LPDDR4"
+            width: 64
+            datawidth: 8
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            technology: "45nm"
+            global_cycle_seconds: 1e-09
+            DATAWIDTH: 8
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - leak
+          - read
+          - update
+          - write
+        enabled: true
+      - name: system_top_level.buffer[1..1]
+        class: SRAM
+        attributes:
+            depth: 512
+            width: 128
+            datawidth: 8
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            technology: "45nm"
+            global_cycle_seconds: 1e-09
+            DATAWIDTH: 8
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - leak
+          - read
+          - update
+          - write
+        enabled: true
+      - name: system_top_level.inter_PE_spatial[1..1]
+        class: dummy_storage
+        attributes:
+            width: 1
+            depth: 1
+            datawidth: 1
+            technology: -1
+            has_power_gating: false
+            n_banks: 2
+            cluster_size: 1
+            reduction_supported: true
+            multiple_buffering: 1
+            min_utilization: 0
+            allow_overbooking: false
+            meshX: 1
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            global_cycle_seconds: 1e-09
+            DATAWIDTH: 8
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        enabled: true
+      - name: system_top_level.mac[1..8]
+        class: intmac
+        attributes:
+            multiplier_width: 8
+            adder_width: 16
+            has_power_gating: false
+            meshX: 8
+            meshY: 1
+            power_gated_at: null
+            version: '0.4'
+            technology: "45nm"
+            global_cycle_seconds: 1e-09
+            DATAWIDTH: 8
+            action_latency_cycles: 1
+            cycle_seconds: 1e-09
+            n_instances: 1
+        required_actions:
+          - compute
+        enabled: true

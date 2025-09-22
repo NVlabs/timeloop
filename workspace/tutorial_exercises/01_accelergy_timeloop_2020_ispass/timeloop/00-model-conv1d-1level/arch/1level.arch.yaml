@@ -1,0 +1,22 @@
+architecture:
+  version: 0.4
+  nodes:
+  - !Container
+    name: accelerator
+    attributes:
+      technology: "40nm"
+      global_cycle_seconds: 1e-9
+
+  - !Component
+    name: Buffer
+    class: regfile
+    attributes:
+      depth: 64
+      width: 8
+      datawidth: 8
+
+  - !Component
+    name: MACC
+    class: intmac
+    attributes:
+      width: 8

@@ -1,0 +1,45 @@
+compound_components:
+  version: 0.4         # REQUIRED version number
+  classes:
+  - name: regfile
+    attributes:
+      technology: "must_specify"
+      width: "must_specify"
+      depth: "must_specify"
+      
+
+    subcomponents:
+    - name: storage[1..width*depth]
+      class: aladdin_register
+      attributes:
+        global_cycle_seconds: global_cycle_seconds
+    
+    # We don't need to scale the address generators
+    - name: comparator[1..depth]
+      class: aladdin_comparator
+      attributes:
+        n_bits: max(1, ceil(log2(depth)))
+        global_cycle_seconds: global_cycle_seconds
+
+    actions:
+    - &write_action
+      name: write 
+      subcomponents:
+      - name: storage[1..width]
+        actions: [{name: write}]
+      - name: comparator[1..depth]
+        actions: [{name: compare}]
+    - name: read
+      subcomponents:
+      - name: storage[1..width]
+        actions: [{name: read}]
+      - name: comparator[1..depth]
+        actions: [{name: compare}]
+    - name: leak
+      subcomponents:
+      - name: storage[1..width*depth]
+        actions: [{name: leak, arguments: {global_cycle_seconds: global_cycle_seconds}}]
+      - name: comparator[1..depth]
+        actions: [{name: leak, arguments: {global_cycle_seconds: global_cycle_seconds}}]
+    - name: update
+      << : *write_action # Update is the same as write

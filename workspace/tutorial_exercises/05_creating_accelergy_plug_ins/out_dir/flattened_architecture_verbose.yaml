@@ -1,0 +1,71 @@
+architecture:
+    version: '0.4'
+    local:
+      - name: system_arch.chip.PE[1..8]
+        class: custom_mac
+        attributes:
+            tech_node: 45
+            accum_datawidth: 5
+            technology: "45nm"
+            global_cycle_seconds: 0.001
+            action_latency_cycles: 1
+            cycle_seconds: 0.001
+            n_instances: 1
+        primitive_components:
+          - name: mac
+            class: ternary_mac
+            attributes:
+                tech_node: 45
+                accum_datawidth: 5
+                global_cycle_seconds: 0.001
+                action_latency_cycles: 1
+                cycle_seconds: 0.001
+                technology: "45nm"
+                n_instances: 1
+            area_share: 1
+        actions:
+          - name: mac_random_to_accurate_picky
+            arguments: {}
+            primitive_actions:
+              - name: mac
+                action: mac_random
+                arguments:
+                    unsigned: 0
+                    global_cycle_seconds: 0.001
+                    action_latency_cycles: 1
+                    cycle_seconds: 0.001
+                    technology: "45nm"
+                    n_instances: 1
+                action_share: 1.0
+          - name: mac_random_to_inaccurate_flexible
+            arguments: {}
+            primitive_actions:
+              - name: mac
+                action: mac_random
+                arguments:
+                    unsigned: 1
+                    global_cycle_seconds: 0.001
+                    action_latency_cycles: 1
+                    cycle_seconds: 0.001
+                    technology: "45nm"
+                    n_instances: 1
+                action_share: 1.0
+          - name: reset_expensive_specified_argument
+            arguments: {}
+            primitive_actions:
+              - name: mac
+                action: reset
+                arguments:
+                    make_expensive: 1
+                    global_cycle_seconds: 0.001
+                    action_latency_cycles: 1
+                    cycle_seconds: 0.001
+                    technology: "45nm"
+                    n_instances: 1
+                action_share: 1.0
+      - name: system_arch.chip.DRAM
+        class: DRAM
+        actions: []
+      - name: system_arch.chip.buffer
+        class: SRAM
+        actions: []

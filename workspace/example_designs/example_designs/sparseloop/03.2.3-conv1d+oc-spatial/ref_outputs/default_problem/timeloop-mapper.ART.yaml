@@ -1,0 +1,11 @@
+ART:
+    version: '0.4'
+    tables:
+      - name: system_top_level.inter_PE_spatial[1..1]
+        area: 1.0
+      - name: system_top_level.BackingStorage[1..1]
+        area: 7635.82
+      - name: system_top_level.Buffer[1..4]
+        area: 10639.8375
+      - name: system_top_level.mac[1..4]
+        area: 417.0

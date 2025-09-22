@@ -1,0 +1,66 @@
+ERT_summary:
+    version: '0.4'
+    table_summary:
+      - name: system_arch.chip.PE[1..8]
+        actions:
+          - name: mac_random_to_accurate_picky
+            energy: 0.69139
+          - name: mac_random_to_inaccurate_flexible
+            energy: 0.345695
+          - name: reset_expensive_specified_argument
+            energy: 1000000000000.0
+        primitive_estimation(s):
+          - action_name: mac_random_to_accurate_picky
+            arguments: {}
+            energy: 0.69139
+            subaction_estimations:
+              - subcomponent_name: mac
+                subaction_name: mac_random
+                arguments:
+                    unsigned: 0
+                    global_cycle_seconds: 0.001
+                    action_latency_cycles: 1
+                    cycle_seconds: 0.001
+                    technology: "45nm"
+                    n_instances: 1
+                energy: 0.6913899529408735
+                action_share: 1.0
+                interpreted_energy: 0.6913899529408735
+                percentage: 100.0%
+                estimator: AccurateButPicky
+          - action_name: mac_random_to_inaccurate_flexible
+            arguments: {}
+            energy: 0.345695
+            subaction_estimations:
+              - subcomponent_name: mac
+                subaction_name: mac_random
+                arguments:
+                    unsigned: 1
+                    global_cycle_seconds: 0.001
+                    action_latency_cycles: 1
+                    cycle_seconds: 0.001
+                    technology: "45nm"
+                    n_instances: 1
+                energy: 0.34569497647043673
+                action_share: 1.0
+                interpreted_energy: 0.34569497647043673
+                percentage: 100.0%
+                estimator: InacurrateFlexible
+          - action_name: reset_expensive_specified_argument
+            arguments: {}
+            energy: 1000000000000.0
+            subaction_estimations:
+              - subcomponent_name: mac
+                subaction_name: reset
+                arguments:
+                    make_expensive: 1
+                    global_cycle_seconds: 0.001
+                    action_latency_cycles: 1
+                    cycle_seconds: 0.001
+                    technology: "45nm"
+                    n_instances: 1
+                energy: 1000000000000.0
+                action_share: 1.0
+                interpreted_energy: 1000000000000.0
+                percentage: 100.0%
+                estimator: InacurrateFlexible

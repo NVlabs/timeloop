@@ -1,0 +1,23 @@
+ART:
+  version: 0.3
+  tables:
+  - name: eyeriss_like.PE[0..167].mac
+    area: 1239.5
+  - name: eyeriss_like.PE[0..167].ifmap_spad
+    area: 379.68
+  - name: eyeriss_like.PE[0..167].weights_spad
+    area: 3634.68
+  - name: eyeriss_like.PE[0..167].psum_spad
+    area: 414.68
+  - name: eyeriss_like.weights_glb
+    area: 77093.2
+  - name: eyeriss_like.shared_glb
+    area: 979377.0
+  - name: eyeriss_like.ifmap_NoC
+    area: 1575.0
+  - name: eyeriss_like.weights_NoC
+    area: 1575.0
+  - name: eyeriss_like.psum_write_NoC
+    area: 1575.0
+  - name: eyeriss_like.psum_read_NoC
+    area: 1575.0

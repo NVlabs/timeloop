@@ -1,0 +1,113 @@
+variables:
+  version: 0.4
+  PSUM_DATAWIDTH: {{psum_datawidth}}
+  INPUT_WEIGHT_DATAWIDTH: {{input_weight_datawidth}}
+  global_cycle_seconds: 1e-09
+  technology: "45nm"
+
+architecture:
+  # ============================================================
+  # Architecture Description
+  # ============================================================
+  version: 0.4
+  nodes: # Top-level is hierarchical
+  - !Container # Top-level system
+    name: system
+  
+  - !Component # DRAM main memory
+    name: DRAM
+    class: DRAM
+    attributes:
+      type: "LPDDR4"
+      width: 64
+      datawidth: INPUT_WEIGHT_DATAWIDTH
+
+  - !Container # Eyeriss accelerator
+    name: eyeriss
+
+  - !Component # Global buffer for inputs & outputs
+    name: shared_glb
+    class: smartbuffer_SRAM
+    attributes:
+      depth: 16384
+      width: 64
+      n_banks: 32
+      datawidth: INPUT_WEIGHT_DATAWIDTH
+      read_bandwidth: 16
+      write_bandwidth: 16
+    constraints:
+      dataspace: {keep: [Inputs, Outputs], bypass: [Weights]}
+
+  - !Container # Each column of PEs produces a different psum row
+    name: PE_column
+    spatial: {meshX: 14}
+    constraints:
+      spatial:
+        permutation: [N, C, P, R, S, Q, M]
+        factors: [N=1, C=1, P=1, R=1, S=1]
+        split: 7
+
+  - !Container # Each PE in the column receives a different filter row
+    name: PE
+    spatial: {meshY: 12}
+    constraints:
+      spatial:
+        split: 4
+        permutation: [N, P, Q, R, S, C, M]
+        factors: [N=1, P=1, Q=1, R=1]
+
+  - !Parallel # Input/Output/Weight scratchpads in parallel
+    nodes:
+    - !Component # Input scratchpad
+      name: ifmap_spad
+      class: smartbuffer_RF
+      attributes:
+        depth: 12
+        width: max(INPUT_WEIGHT_DATAWIDTH, 16)
+        datawidth: INPUT_WEIGHT_DATAWIDTH
+        read_bandwidth: 2
+        write_bandwidth: 2
+      constraints:
+        dataspace: {keep: [Inputs]}
+        temporal:
+          permutation: [N, M, C, P, Q, R, S]
+          factors: [N=1, M=1, C=1, P=1, Q=1, R=1, S=1]
+
+    - !Component # Weight scratchpad
+      name: weights_spad
+      class: smartbuffer_RF
+      attributes:
+        depth: 192
+        width: max(INPUT_WEIGHT_DATAWIDTH, 16)
+        datawidth: INPUT_WEIGHT_DATAWIDTH
+        read_bandwidth: 2
+        write_bandwidth: 2
+      constraints:
+        dataspace: {keep: [Weights]}
+        temporal:
+          permutation: [N, M, P, Q, S, C, R]
+          factors: [N=1, M=1, P=1, Q=1, S=1]
+
+    - !Component # Output scratchpad
+      name: psum_spad
+      class: smartbuffer_RF
+      attributes:
+        depth: 16
+        width: max(PSUM_DATAWIDTH, 16)
+        update_fifo_depth: 2
+        datawidth: PSUM_DATAWIDTH
+        read_bandwidth: 2
+        write_bandwidth: 2
+      constraints:
+        dataspace: {keep: [Outputs]}
+        temporal:
+          permutation: [N, C, P, Q, R, S, M] 
+          factors: [N=1, C=1, R=1, S=1, P=1, Q=1]
+
+  - !Component # MAC unit
+    name: mac
+    class: {{mac_class}}
+    attributes:
+      multiplier_width: INPUT_WEIGHT_DATAWIDTH
+      adder_width: PSUM_DATAWIDTH
+      datawidth: PSUM_DATAWIDTH

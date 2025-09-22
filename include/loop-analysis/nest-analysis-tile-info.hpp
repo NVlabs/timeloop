@@ -144,6 +144,20 @@ struct DataMovementInfo
   void Reset();
 
   void Validate();
+
+  friend std::ostream& operator << (std::ostream& out, const DataMovementInfo& info)
+  {
+    out << "DataMovementInfo: size=" << info.size
+        << ", total_child_accesses=" << info.total_child_accesses
+        << ", link_transfers=" << info.link_transfers
+        << ", replication_factor=" << info.replication_factor
+        << ", fanout=" << info.fanout
+        << ", is_on_storage_boundary=" << std::boolalpha << info.is_on_storage_boundary
+        << ", is_master_spatial=" << std::boolalpha << info.is_master_spatial
+        << ", rmw_first_update=" << std::boolalpha << info.rmw_first_update
+        << ", no_coalesce=" << std::boolalpha << info.no_coalesce;
+    return out;
+  }
 };
 
 struct ComputeInfo
@@ -155,6 +169,14 @@ struct ComputeInfo
   ComputeInfo();
   
   void Reset();
+  
+  friend std::ostream& operator << (std::ostream& out, const ComputeInfo& info)
+  {
+    out << "ComputeInfo: replication_factor=" << info.replication_factor
+        << ", accesses=" << info.accesses
+        << ", max_temporal_iterations=" << info.max_temporal_iterations;
+    return out;
+  }
 };
 
 // compound tile info types to capture per-dataspace info

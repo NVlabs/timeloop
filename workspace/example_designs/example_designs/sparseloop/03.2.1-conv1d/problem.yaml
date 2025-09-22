@@ -1,0 +1,24 @@
+problem:
+  version: 0.4
+  shape:
+    name: Conv1D
+    dimensions: [ S, Q ]
+    data_spaces:
+    - name: Weights
+      projection:
+      - [ [S] ]
+    - name: Inputs
+      projection:
+      - [ [S], [Q] ] # sum of product representation. here S*1+Q*1
+    - name: Outputs
+      projection:
+      - [ [Q] ]
+      read_write: True
+
+  instance:
+    S: 3
+    Q: 9
+    densities:
+      Weights:
+        distribution: fixed_structured
+        density: 0.43

@@ -1,0 +1,57 @@
+architecture:
+  version: 0.4
+  # ============================================================
+  # Architecture Description
+  # ============================================================
+  nodes: # Top-level is hierarchical
+  - !Container # Top-level system
+    name: system
+
+  - !Component # DRAM main memory
+    name: DRAM
+    class: DRAM
+    attributes:
+      type: "LPDDR4"
+      width: 64
+      datawidth: DATAWIDTH
+
+  - !Component # Global buffer for inputs & outputs
+    name: buffer
+    class: SRAM
+    attributes:
+      depth: 512
+      width: 128
+      datawidth: DATAWIDTH
+    constraints:
+      dataspace: {keep: [Inputs, Outputs, Weights]}
+
+  - !Container # Each PE in the column receives a different filter row
+    name: PE
+    spatial: {meshX: 8}
+    constraints:
+      spatial:
+        permutation: [N, P, Q, R, S, C, M]
+        factors: [N=1, P=1, Q=1, R=1]
+        maximize_dims: [[M, C]]
+        split: len(spec.problem.instance)
+
+    {% if reg_enabled|default(True) %}
+  - !Component # Global buffer for inputs & outputs
+    name: reg
+    class: SRAM
+    subclass: register
+    attributes: 
+      datawidth: DATAWIDTH
+      depth: 1
+      width: datawidth * 3
+    constraints:
+      dataspace: {keep: [Inputs, Outputs, Weights]}
+      temporal: {factors_only: []}
+    {% endif %}
+
+  - !Component # MAC unit
+    name: mac
+    class: intmac
+    attributes:
+      multiplier_width: DATAWIDTH
+      adder_width: DATAWIDTH * 2

@@ -1,0 +1,161 @@
+{{include_text('defines.yaml')}} # Jija templating is allowed
+
+architecture:
+  version: 0.4
+  nodes:
+  # ===========================================================================
+  - !Container # Top-level system
+    name: top_container
+    spatial: {meshX: 12, meshY: 34} # Set to 1, 1 if not specified
+    attributes: 
+      a: 1
+      b: 2
+    constraints:
+      # ========================================================================
+      # Spatial factor & constraint directives
+      # ========================================================================
+      spatial:
+        # One way to express
+        factors: [A=1, B>2, C<3, D=1, E=1, F=1, G=1 ] # ...
+        # OR use the following
+        factors_only: [B>2, C<3]
+
+        permutation: [G, F, E, D, C, B, A]
+
+        # Do not iterate over dimensions in ANY of the following
+        no_iteration_over_dataspaces: [Inputs, Outputs]
+        # Must iterate over dimensions in ALL of the following list
+        must_iterate_over_dataspaces: [Weights]
+
+  - !Component
+    name: buffer_element_1
+    subclass: buffer_element
+    spatial: {meshX: 12, meshY: 34} # Set to 1, 1 if not specified
+
+    # ==========================================================================
+    # Element attribute settings
+    # ==========================================================================
+    attributes:
+      depth:     2048 # Number of lines
+      width:     256  # Bits per line
+      datawidth: 2    # Bits per entry
+
+      # Bandwidths are set to infinite if not specified
+      read_bandwidth:  1024 # Bits per cycle
+      write_bandwidth: 1024 # Bits per cycle
+      rw_bandwidth:    1024 # Bits per cycle
+      per_dataspace_bandwidth_consumption_scale:
+        inputs: 5 # Each input bit transferred consumes 5 bits of bandwidth
+        outputs: 0.2 # An output bit consumes 0.2 bits of bandwidth
+
+    # ==========================================================================
+    # Element constraint settings
+    # ==========================================================================
+    constraints:
+      # ========================================================================
+      # Bypass directives
+      # ========================================================================
+      dataspace:
+        # One way to express
+        keep: [Inputs, Outputs]
+        bypass: [Weights]
+        # OR use the following
+        keep_only: [Inputs, Outputs]
+      # ========================================================================
+      # Temporal factor & constraint directives
+      # ========================================================================
+      temporal:
+        # One way to express
+        factors: [A=1, B>2, C<3, D=1, E=1, F=1, G=1 ] # ...
+        # OR use the following
+        factors_only: [B>2, C<3]
+        permutation: [G, F, E, D, C, B, A]
+
+        # Do not iterate over dimensions in ANY of the following
+        no_iteration_over_dataspaces: [Inputs, Outputs]
+        # Must iterate over dimensions in ALL of the following list
+        must_iterate_over_dataspaces: [Weights]
+
+
+  - !Component
+    name: buffer_element_2
+    subclass: buffer_element
+    spatial: {meshX: 12, meshY: 34} # Set to 1, 1 if not specified
+    # ==========================================================================
+    # Element attribute arithmetic examples
+    # ==========================================================================
+    attributes:
+      depth:     12 * 34 # Use expressions
+      width:     a       # Inherit from parent containers (top-level attribute a)
+      datawidth: buffer_element_1.attributes["datawidth"] # From other elements
+      # Other attributes are propagated to Accelergy compound components
+      other_attribute: depth * width
+
+    # ==========================================================================
+    # Constraint reuse directives
+    # ==========================================================================
+    constraints:
+      dataspace:
+        # no_coalesce implies temporal no_reuse, AND also that an element can
+        # not coalesce multiple accesses of a piece of data into one access to a
+        # parent or child. For example, when an adder sums several values, it
+        # coalesces them into one output (i.e., reusing the output for multiple
+        # additions). On the other hand, some networks may not coalesce; if the
+        # same piece of data is propagated through multiple times, it must be
+        # fetched from backing storage multiple times.
+        no_coalesce: [Weights]
+      temporal:
+        # temporal no_reuse means that this buffer is emptied each time a
+        # higher-level temporal loop iterates. For this buffer, it will be
+        # cleared each time a loop below top_container iterates. Temporal
+        # no_reuse does not affect lower-level loops.
+        no_reuse: [Inputs, Outputs]
+      spatial:
+        no_reuse: [Inputs, Outputs] # No multicast/reduction
+        no_link_transfer: [Inputs, Outputs]
+        # Normally, the first update is just a write. If this constraint is set,
+        # the first update is a read & update instead.
+        rmw_first_update: [Outputs]
+
+  - !Component
+    name: buffer_element_3
+    subclass: buffer_element
+    spatial: {meshX: 12, meshY: 34} # Set to 1, 1 if not specified
+    # ==========================================================================
+    # Maximize dims directives
+    # ==========================================================================
+    constraints:
+      temporal:
+        # Maximize dims priority:
+        # 1. Earlier lists before later lists
+        # 2. Dimension that results in greater reduction in the problem size
+        # 3. Earlier elements before later elements in a list
+        maximize_dims: # Maximizes up to the spatial meshX
+        - [A, B] # Maximize A & B first. Prioritize dim that can be made larger.
+        - [C, D] # After A & B are maximized, maximize C & D.
+        - [E, F] # After A, B, C, & D are maximized, maximize E & F.
+        maximize_dims_capacity: 123 # Maximize up to 123 total loop iterations
+
+      spatial:
+        # Maximize dims priority:
+        # 1. Earlier lists before later lists
+        # 2. Dimension that results in greater reduction in the problem size
+        # 3. Earlier elements before later elements in a list
+        maximize_dims:
+        - [A, B] # Maximize A & B first. Prioritize dim that can be made larger.
+        - [C, D] # After A & B are maximized, maximize C & D.
+        - [E, F] # After A, B, C, & D are maximized, maximize E & F.
+
+        # The following is set automatically for spatial maximize_dims
+        maximize_dims_capacity: |
+          buffer_element_II.spatial.meshX * buffer_element_II.spatial.meshY
+
+  # ============================================================================
+  # Compute element is always the leaf node
+  # ============================================================================
+  - !Component
+    name: compute_element
+    class: compute_element_class
+    attributes:
+      a: 1
+      b: 2

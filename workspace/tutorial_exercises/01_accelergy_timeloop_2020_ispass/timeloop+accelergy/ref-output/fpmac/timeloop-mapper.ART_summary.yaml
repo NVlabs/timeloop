@@ -1,0 +1,53 @@
+ART_summary:
+    version: '0.4'
+    table_summary:
+      - name: system_top_level.DRAM[1..1]
+        area: 0.0
+        primitive_estimations: CactiDRAM
+      - name: system_top_level.inter_PE_column_spatial[1..1]
+        area: 1.0
+        primitive_estimations: dummy_table
+      - name: system_top_level.inter_PE_spatial[1..14]
+        area: 1.0
+        primitive_estimations: dummy_table
+      - name: system_top_level.shared_glb[1..1]
+        area: 429751.88776
+        primitive_estimations:
+          - name: storage
+            estimator: CactiSRAM
+          - name: address_generators[0..1]
+            estimator: Neurosim Plug-In
+      - name: system_top_level.ifmap_spad[1..168]
+        area: 599.03613
+        primitive_estimations:
+          - name: storage.storage[1..2048]
+            estimator: Library
+          - name: storage.comparator[1..64]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Neurosim Plug-In
+      - name: system_top_level.weights_spad[1..168]
+        area: 50466.19872
+        primitive_estimations:
+          - name: storage.storage[1..6144]
+            estimator: Library
+          - name: storage.comparator[1..192]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Neurosim Plug-In
+      - name: system_top_level.psum_spad[1..168]
+        area: 1061.07484
+        primitive_estimations:
+          - name: storage.storage[1..2048]
+            estimator: Library
+          - name: storage.comparator[1..64]
+            estimator: Library
+          - name: address_generators[0..1]
+            estimator: Neurosim Plug-In
+      - name: system_top_level.mac[1..168]
+        area: 4120.0
+        primitive_estimations:
+          - name: fpadder
+            estimator: Aladdin_table
+          - name: fpmultiplier
+            estimator: Aladdin_table
