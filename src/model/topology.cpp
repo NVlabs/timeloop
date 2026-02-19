@@ -653,7 +653,7 @@ void Topology::PrintOrojenesis(problem::Workload* workload_, std::ostream &out, 
       for (unsigned storage_level_id = 0; storage_level_id < NumStorageLevels() - 1; storage_level_id++)
       {
         auto level = ViewStorageLevel(storage_level_id);
-        auto utilization = level->Accesses(pv) > 0 ? level->UtilizedCapacity(pv) : 0;
+        auto utilization = level->Accesses(pv) > 0 ? level->TotalUtilizedBytes(pv) : 0;
         highest_utilization = std::max(highest_utilization, utilization);
       }
       total_utilization += highest_utilization;
