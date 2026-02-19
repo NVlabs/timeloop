@@ -62,6 +62,14 @@ BufferLevel::BufferLevel(const Specs& specs) :
 BufferLevel::~BufferLevel()
 { }
 
+void BufferLevel::Reset()
+{
+  Module::Reset();
+  
+  // Clear all statistics
+  stats_ = Stats();
+}
+
 void BufferLevel::Specs::UpdateOpEnergyViaERT(const std::map<std::string, double>& ert_entries, double max_energy)
 {
   // don't override user-specific vector access energy
@@ -1112,7 +1120,7 @@ void BufferLevel::ComputeTileOccupancyAndConfidence(const tiling::CompoundDataMo
     }
     else
     { // no compression and no metadata: default dense tensor
-      data_tile_size = tile[pvi].shape;
+      data_tile_size = tile[pvi].size;
     }
 
     stats_.compressed[pv] = tile[pvi].compressed;

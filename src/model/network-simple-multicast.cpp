@@ -57,6 +57,14 @@ SimpleMulticastNetwork::SimpleMulticastNetwork(const Specs& specs) :
 SimpleMulticastNetwork::~SimpleMulticastNetwork()
 { }
 
+void SimpleMulticastNetwork::Reset()
+{
+  Module::Reset();
+  
+  // Clear all statistics
+  stats_ = Stats();
+}
+
 SimpleMulticastNetwork::Specs SimpleMulticastNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module)
 {
   (void) n_elements; // FIXME.

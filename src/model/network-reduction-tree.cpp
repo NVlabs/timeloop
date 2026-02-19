@@ -57,6 +57,14 @@ ReductionTreeNetwork::ReductionTreeNetwork(const Specs& specs) :
 ReductionTreeNetwork::~ReductionTreeNetwork()
 { }
 
+void ReductionTreeNetwork::Reset()
+{
+  Module::Reset();
+  
+  // Clear all statistics
+  stats_ = Stats();
+}
+
 ReductionTreeNetwork::Specs ReductionTreeNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module)
 {
   (void) n_elements; // FIXME.

@@ -167,6 +167,8 @@ class ReductionTreeNetwork : public Network
   ReductionTreeNetwork(const Specs& specs);
   ~ReductionTreeNetwork();
 
+  void Reset() override;
+
   Specs& GetSpecs() { return specs_; }
 
   std::shared_ptr<Network> Clone() const override

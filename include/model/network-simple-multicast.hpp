@@ -165,6 +165,8 @@ class SimpleMulticastNetwork : public Network
   SimpleMulticastNetwork(const Specs& specs);
   ~SimpleMulticastNetwork();
 
+  void Reset() override;
+
   Specs& GetSpecs() { return specs_; }
 
   std::shared_ptr<Network> Clone() const override

@@ -437,6 +437,8 @@ class BufferLevel : public Level
   BufferLevel(const Specs & specs);
   ~BufferLevel();
 
+  void Reset() override;
+
   std::shared_ptr<Level> Clone() const override
   {
     return std::static_pointer_cast<Level>(std::make_shared<BufferLevel>(*this));

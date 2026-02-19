@@ -58,6 +58,14 @@ LegacyNetwork::LegacyNetwork(const Specs& specs) :
 LegacyNetwork::~LegacyNetwork()
 { }
 
+void LegacyNetwork::Reset()
+{
+  Module::Reset();
+  
+  // Clear all statistics
+  stats_ = Stats();
+}
+
 LegacyNetwork::Specs LegacyNetwork::ParseSpecs(config::CompoundConfigNode network, std::size_t n_elements, bool is_sparse_module)
 {
   (void) n_elements; // FIXME.
@@ -365,7 +373,7 @@ EvalStatus LegacyNetwork::ComputeAccesses(const tiling::CompoundDataMovementInfo
       }
     }
 
-    stats_.distributed_multicast_factor[pv] = 0;
+    stats_.distributed_multicast_factor[pv] = 1;
     for (auto& x: stats_.distributed_ingresses[pv].stats)
     {
       auto multicast = x.first.first;
@@ -562,23 +570,16 @@ void LegacyNetwork::PrintOrojenesis(std::ostream& out) const
     auto pv = problem::Shape::DataSpaceID(pvi);
     out <<  "," << stats_.multicast_factor.at(pv);
 
-    if (stats_.distributed_multicast.at(pv))
-      out << "," << stats_.distributed_multicast_factor.at(pv);
-    else
-      out << ",1";
+    out << "," << stats_.distributed_multicast_factor.at(pv);
 
     auto total_accesses = stats_.ingresses.at(pv).TotalAccesses();
     out << "," << total_accesses;
-    if (stats_.distributed_multicast.at(pv)) {
-      auto distrib_accesses = stats_.distributed_ingresses.at(pv).TotalAccesses();
-      out << "," << distrib_accesses;
-    } else {
-      out << ",1";
-    }
+    auto distrib_accesses = stats_.distributed_ingresses.at(pv).TotalAccesses();
+    out << "," << distrib_accesses;
+
     out << "," << stats_.link_transfers.at(pv);
     out << "," << stats_.spatial_reductions.at(pv);
     out << "," << stats_.num_hops.at(pv);
-
   }
 }
 

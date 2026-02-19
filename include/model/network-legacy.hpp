@@ -193,6 +193,8 @@ class LegacyNetwork : public Network
   LegacyNetwork(const Specs& specs);
   ~LegacyNetwork();
 
+  void Reset() override;
+
   std::shared_ptr<Network> Clone() const override
   {
     return std::static_pointer_cast<Network>(std::make_shared<LegacyNetwork>(*this));
